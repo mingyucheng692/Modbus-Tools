@@ -171,6 +171,21 @@ void ConnectionDock::onSimApplyClicked() {
     emit simulationChanged(simDropSpin_->value(), simMinDelaySpin_->value(), simMaxDelaySpin_->value());
 }
 
+#include <QEvent>
+
+void ConnectionDock::changeEvent(QEvent* event) {
+    if (event->type() == QEvent::LanguageChange) {
+        retranslateUi();
+    }
+    QWidget::changeEvent(event);
+}
+
+void ConnectionDock::retranslateUi() {
+    connectBtn_->setText(isConnected_ ? tr("Disconnect") : tr("Connect"));
+    // Other labels can be updated if we kept pointers to them
+    // For now, this is a minimal example
+}
+
 void ConnectionDock::onConnectClicked() {
     if (!isConnected_) {
         int idx = typeCombo_->currentIndex();
@@ -193,12 +208,12 @@ void ConnectionDock::onConnectClicked() {
                 parityCombo_->currentData().toInt()
             );
         }
-        connectBtn_->setText("Disconnect");
+        connectBtn_->setText(tr("Disconnect"));
         isConnected_ = true;
         typeCombo_->setEnabled(false);
     } else {
         emit disconnectRequested();
-        connectBtn_->setText("Connect");
+        connectBtn_->setText(tr("Connect"));
         isConnected_ = false;
         typeCombo_->setEnabled(true);
     }

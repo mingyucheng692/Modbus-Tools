@@ -34,7 +34,12 @@ private slots:
     void onSimApplyClicked();
     void onTypeChanged(int index);
 
+protected:
+    void changeEvent(QEvent* event) override;
+
 private:
+    void retranslateUi();
+
     QComboBox* typeCombo_;
     QPushButton* connectBtn_;
     
