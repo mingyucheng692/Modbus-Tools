@@ -43,6 +43,7 @@ void MainWindow::connectWorker(CoreWorker* worker) {
     connect(this, &MainWindow::requestConnectTcp, worker, &CoreWorker::connectTcp);
     connect(this, &MainWindow::requestDisconnect, worker, &CoreWorker::disconnect);
     connect(this, &MainWindow::requestSend, worker, &CoreWorker::sendRequest);
+    connect(this, &MainWindow::requestSendRaw, worker, &CoreWorker::sendRaw);
     connect(this, &MainWindow::pollToggled, worker, &CoreWorker::setPolling);
     connect(this, &MainWindow::requestSimulation, worker, &CoreWorker::setSimulation);
     
@@ -65,6 +66,7 @@ void MainWindow::createDocks() {
     connect(connWidget, &ConnectionDock::connectTcp, this, &MainWindow::requestConnectTcp);
     connect(connWidget, &ConnectionDock::disconnectRequested, this, &MainWindow::requestDisconnect);
     connect(connWidget, &ConnectionDock::sendRequest, this, &MainWindow::requestSend);
+    connect(connWidget, &ConnectionDock::sendRaw, this, &MainWindow::requestSendRaw);
     connect(connWidget, &ConnectionDock::pollToggled, this, &MainWindow::pollToggled);
     connect(connWidget, &ConnectionDock::simulationChanged, this, &MainWindow::requestSimulation);
     

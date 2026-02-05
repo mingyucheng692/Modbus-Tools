@@ -1,4 +1,6 @@
 #include "ConnectionDock.h"
+#include "ControlWidget.h"
+#include "GenericSenderWidget.h"
 #include <QFormLayout>
 #include <QGroupBox>
 #include <QVBoxLayout>
@@ -105,8 +107,14 @@ ConnectionDock::ConnectionDock(QWidget* parent) : QWidget(parent) {
     mainLayout->addWidget(simGrp);
     
     // Add Control Widget
+    senderStack_ = new QStackedWidget(this);
     controlWidget_ = new ControlWidget(this);
-    mainLayout->addWidget(controlWidget_);
+    genericSender_ = new GenericSenderWidget(this);
+    
+    senderStack_->addWidget(controlWidget_);
+    senderStack_->addWidget(genericSender_);
+    
+    mainLayout->addWidget(senderStack_);
     
     mainLayout->addStretch();
     
@@ -116,15 +124,18 @@ ConnectionDock::ConnectionDock(QWidget* parent) : QWidget(parent) {
     
     connect(controlWidget_, &ControlWidget::sendRequest, this, &ConnectionDock::sendRequest);
     connect(controlWidget_, &ControlWidget::pollToggled, this, &ConnectionDock::pollToggled);
+    connect(genericSender_, &GenericSenderWidget::sendRaw, this, &ConnectionDock::sendRaw);
 }
 
 void ConnectionDock::onTypeChanged(int index) {
     // 0: Modbus TCP, 1: Modbus RTU, 2: Generic TCP
     if (index == 2) {
         settingsStack_->setCurrentIndex(0); // Use TCP settings
+        senderStack_->setCurrentWidget(genericSender_);
         emit modeChanged(1); // Generic
     } else {
         settingsStack_->setCurrentIndex(index);
+        senderStack_->setCurrentWidget(controlWidget_);
         emit modeChanged(0); // Modbus
     }
 }

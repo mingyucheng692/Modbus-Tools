@@ -22,6 +22,7 @@ signals:
     void requestConnectTcp(const QString& ip, int port);
     void requestDisconnect();
     void requestSend(int slaveId, int funcCode, int startAddr, int count, const QString& dataHex);
+    void requestSendRaw(const std::vector<uint8_t>& data);
     void pollToggled(bool enabled, int intervalMs);
     void requestSimulation(int dropRate, int minDelay, int maxDelay);
 

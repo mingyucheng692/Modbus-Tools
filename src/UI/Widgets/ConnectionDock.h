@@ -5,7 +5,10 @@
 #include <QPushButton>
 #include <QComboBox>
 #include <QStackedWidget>
-#include "ControlWidget.h"
+#include <vector>
+
+class ControlWidget;
+class GenericSenderWidget;
 
 class ConnectionDock : public QWidget {
     Q_OBJECT
@@ -17,7 +20,7 @@ signals:
     void connectRtu(const QString& portName, int baudRate, int dataBits, int stopBits, int parity);
     void disconnectRequested();
     
-    // Proxy signals from ControlWidget
+    // Proxy signals
     void sendRequest(int slaveId, int funcCode, int startAddr, int count, const QString& dataHex);
     void sendRaw(const std::vector<uint8_t>& data);
     void pollToggled(bool enabled, int intervalMs);
@@ -32,7 +35,11 @@ private slots:
 private:
     QComboBox* typeCombo_;
     QPushButton* connectBtn_;
+    
+    // Senders
+    QStackedWidget* senderStack_;
     ControlWidget* controlWidget_;
+    GenericSenderWidget* genericSender_;
     
     // TCP UI
     QWidget* tcpWidget_;
