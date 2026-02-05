@@ -1,10 +1,27 @@
 #include "WaveformWidget.h"
 #include <QVBoxLayout>
+#include <QHBoxLayout>
 #include <QDateTime>
 
 WaveformWidget::WaveformWidget(QWidget* parent) : QWidget(parent) {
     QVBoxLayout* layout = new QVBoxLayout(this);
     
+    // Control Bar
+    QHBoxLayout* ctrlLayout = new QHBoxLayout();
+    ctrlLayout->addWidget(new QLabel("Monitor Register:"));
+    
+    addrSpin_ = new QSpinBox(this);
+    addrSpin_->setRange(0, 65535);
+    addrSpin_->setValue(0);
+    ctrlLayout->addWidget(addrSpin_);
+    
+    setBtn_ = new QPushButton("Set", this);
+    ctrlLayout->addWidget(setBtn_);
+    
+    ctrlLayout->addStretch();
+    layout->addLayout(ctrlLayout);
+    
+    // Chart
     chart_ = new QChart();
     chart_->setTitle("Register Monitor");
     chart_->setTheme(QChart::ChartThemeDark);
@@ -31,6 +48,12 @@ WaveformWidget::WaveformWidget(QWidget* parent) : QWidget(parent) {
     startTime_ = QDateTime::currentMSecsSinceEpoch();
     axisX_->setRange(0, 10);
     axisY_->setRange(0, 100);
+    
+    connect(setBtn_, &QPushButton::clicked, this, &WaveformWidget::onSetAddressClicked);
+}
+
+void WaveformWidget::onSetAddressClicked() {
+    setMonitoredAddress(addrSpin_->value());
 }
 
 void WaveformWidget::setMonitoredAddress(int address) {
@@ -38,6 +61,7 @@ void WaveformWidget::setMonitoredAddress(int address) {
     series_->clear();
     startTime_ = QDateTime::currentMSecsSinceEpoch();
     chart_->setTitle(QString("Monitor: Register %1").arg(address));
+    addrSpin_->setValue(address); // Sync UI if set programmatically
 }
 
 void WaveformWidget::clear() {
@@ -45,6 +69,13 @@ void WaveformWidget::clear() {
 }
 
 void WaveformWidget::addValue(int address, double value) {
+    // If not monitoring anything, or address mismatch
+    if (monitoredAddress_ == -1) return; 
+    
+    // Simple logic: if address matches, plot it.
+    // If user hasn't set an address yet (monitoredAddress_ == -1), we could auto-set?
+    // Let's stick to explicit set for now to avoid jumping.
+    
     if (address != monitoredAddress_) return;
     
     qint64 now = QDateTime::currentMSecsSinceEpoch();

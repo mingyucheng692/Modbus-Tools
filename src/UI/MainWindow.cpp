@@ -119,9 +119,23 @@ void MainWindow::onResponseReceived(uint16_t transactionId, uint8_t unitId, Modb
 
     if (fc == Modbus::FunctionCode::ReadHoldingRegisters || fc == Modbus::FunctionCode::ReadInputRegisters) {
         if (data.size() >= 2) { 
-             uint16_t val = (data[0] << 8) | data[1];
-             waveformWidget_->setMonitoredAddress(startAddr); 
-             waveformWidget_->addValue(startAddr, static_cast<double>(val));
+             // Try to find the monitored register in this response
+             int monitored = waveformWidget_->monitoredAddress();
+             if (monitored >= startAddr) {
+                 int offset = monitored - startAddr;
+                 // Each register is 2 bytes. Check if within range.
+                 if (offset * 2 + 1 < data.size()) {
+                     uint16_t val = (data[offset*2] << 8) | data[offset*2 + 1];
+                     waveformWidget_->addValue(monitored, static_cast<double>(val));
+                 }
+             }
+             
+             // Auto-init if first time
+             if (monitored == -1) {
+                 uint16_t val = (data[0] << 8) | data[1];
+                 waveformWidget_->setMonitoredAddress(startAddr);
+                 waveformWidget_->addValue(startAddr, static_cast<double>(val));
+             }
         }
     }
 }
