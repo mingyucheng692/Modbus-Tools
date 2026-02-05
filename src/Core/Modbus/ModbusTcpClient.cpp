@@ -68,6 +68,8 @@ void ModbusTcpClient::sendRequest(uint8_t unitId, FunctionCode fc, uint16_t addr
     
     adu.insert(adu.end(), pdu.begin(), pdu.end());
     
+    pendingTransactions_[tid] = {std::chrono::steady_clock::now()};
+    
     channel_->write(adu);
 }
 
@@ -104,6 +106,14 @@ void ModbusTcpClient::processBuffer() {
              pduData.assign(frame.begin() + 8, frame.end());
         }
         
-        emit responseReceived(tid, uid, static_cast<FunctionCode>(fcByte), pduData);
+        int rtt = -1;
+        auto it = pendingTransactions_.find(tid);
+        if (it != pendingTransactions_.end()) {
+            auto now = std::chrono::steady_clock::now();
+            rtt = std::chrono::duration_cast<std::chrono::milliseconds>(now - it->second.startTime).count();
+            pendingTransactions_.erase(it);
+        }
+        
+        emit responseReceived(tid, uid, static_cast<FunctionCode>(fcByte), pduData, rtt);
     }
 }

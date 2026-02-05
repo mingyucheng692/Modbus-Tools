@@ -6,6 +6,8 @@
 #include "HAL/IChannel.h"
 #include "ModbusDefs.h"
 
+#include <chrono>
+
 namespace Modbus {
 
 class ModbusTcpClient : public QObject {
@@ -16,7 +18,7 @@ public:
     void sendRequest(uint8_t unitId, FunctionCode fc, uint16_t addr, uint16_t count, const std::vector<uint8_t>& data = {});
 
 signals:
-    void responseReceived(uint16_t transactionId, uint8_t unitId, FunctionCode fc, const std::vector<uint8_t>& data);
+    void responseReceived(uint16_t transactionId, uint8_t unitId, FunctionCode fc, const std::vector<uint8_t>& data, int responseTimeMs);
     void timeout(uint16_t transactionId);
     void error(const QString& msg);
 
@@ -29,6 +31,11 @@ private:
     IChannel* channel_;
     RingBuffer buffer_{4096};
     uint16_t nextTransactionId_ = 0;
+    
+    struct Transaction {
+        std::chrono::steady_clock::time_point startTime;
+    };
+    std::map<uint16_t, Transaction> pendingTransactions_;
 };
 
 }
