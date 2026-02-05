@@ -18,6 +18,10 @@ public:
 private slots:
     void onEndianChanged(int index);
     void onAnalyzeClicked();
+    void onTreeContextMenu(const QPoint& pos);
+
+signals:
+    void addToWaveformRequested(int address);
 
 private:
     void analyzePdu(QTreeWidgetItem* parent, uint8_t fc, const std::vector<uint8_t>& payload);

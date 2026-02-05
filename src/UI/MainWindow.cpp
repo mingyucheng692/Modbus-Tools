@@ -120,6 +120,18 @@ void MainWindow::createDocks() {
     
     // Stack Checksum with Waveform initially
     tabifyDockWidget(waveformDock_, checksumDock_);
+    
+    // Connect FrameAnalyzer context menu to Waveform
+    connect(frameAnalyzer_, &FrameAnalyzer::addToWaveformRequested, this, &MainWindow::requestAddWaveform);
+}
+
+void MainWindow::requestAddWaveform(int address) {
+    if (waveformDock_->isHidden()) {
+        waveformDock_->show();
+    }
+    waveformWidget_->setMonitoredAddress(address);
+    // Optional: Auto-switch to waveform tab if tabified
+    waveformDock_->raise();
 }
 
 void MainWindow::onResponseReceived(uint16_t transactionId, uint8_t unitId, Modbus::FunctionCode fc, const std::vector<uint8_t>& data, int responseTimeMs, uint16_t startAddr) {

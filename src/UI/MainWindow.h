@@ -19,6 +19,9 @@ public:
     
     void connectWorker(class CoreWorker* worker);
 
+public slots:
+    void requestAddWaveform(int address);
+
 signals:
     void requestConnectTcp(const QString& ip, int port);
     void requestDisconnect();

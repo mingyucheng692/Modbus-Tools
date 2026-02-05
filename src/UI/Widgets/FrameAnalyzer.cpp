@@ -5,6 +5,8 @@
 #include <iomanip>
 #include <sstream>
 
+#include <QMenu>
+
 FrameAnalyzer::FrameAnalyzer(QWidget* parent) : QWidget(parent) {
     QHBoxLayout* layout = new QHBoxLayout(this);
     QSplitter* splitter = new QSplitter(Qt::Horizontal, this);
@@ -32,6 +34,7 @@ FrameAnalyzer::FrameAnalyzer(QWidget* parent) : QWidget(parent) {
     
     treeWidget_ = new QTreeWidget(rightPanel);
     treeWidget_->setHeaderLabels({"Field", "Value", "Description"});
+    treeWidget_->setContextMenuPolicy(Qt::CustomContextMenu);
     
     rightLayout->addLayout(inputLayout);
     rightLayout->addWidget(endianCombo_);
@@ -47,6 +50,48 @@ FrameAnalyzer::FrameAnalyzer(QWidget* parent) : QWidget(parent) {
     
     connect(endianCombo_, QOverload<int>::of(&QComboBox::currentIndexChanged), this, &FrameAnalyzer::onEndianChanged);
     connect(analyzeBtn_, &QPushButton::clicked, this, &FrameAnalyzer::onAnalyzeClicked);
+    connect(treeWidget_, &QTreeWidget::customContextMenuRequested, this, &FrameAnalyzer::onTreeContextMenu);
+}
+
+void FrameAnalyzer::onTreeContextMenu(const QPoint& pos) {
+    QTreeWidgetItem* item = treeWidget_->itemAt(pos);
+    if (!item) return;
+    
+    // Check if item represents a register (e.g., "Register 5", "Address")
+    QString text = item->text(0);
+    QString valText = item->text(1);
+    
+    int address = -1;
+    
+    if (text.startsWith("Register ")) {
+        // "Register 5" -> extract 5? No, usually index.
+        // But for Write requests, we show "Address"
+        // In Read Response, "Register 0" is offset 0. We need start addr.
+        // FrameAnalyzer doesn't know StartAddr for Responses unless we track it.
+        // But for Request (Write), we know Address.
+        
+        // Let's look at what we put in the tree:
+        // Read Response: "Register %1" (offset)
+        // Write Request: "Address" -> Value
+        
+        // For Read Response, we can't determine absolute address solely from PDU.
+        // We'll support Write Request "Address" or "Starting Address" for now.
+    }
+    
+    if (text == "Address" || text == "Starting Address") {
+        bool ok;
+        address = valText.toUInt(&ok, 16);
+        if (!ok) address = -1;
+    }
+    
+    if (address != -1) {
+        QMenu menu(this);
+        QAction* addAct = menu.addAction(QString("Add Register %1 to Scope").arg(address));
+        connect(addAct, &QAction::triggered, [this, address](){
+            emit addToWaveformRequested(address);
+        });
+        menu.exec(treeWidget_->mapToGlobal(pos));
+    }
 }
 
 void FrameAnalyzer::onAnalyzeClicked() {
