@@ -1,8 +1,12 @@
 #include "CoreWorker.h"
 #include <QThread>
+#include <QTimer>
 #include "Logging/TrafficLog.h"
 
-CoreWorker::CoreWorker(QObject* parent) : QObject(parent) {}
+CoreWorker::CoreWorker(QObject* parent) : QObject(parent) {
+    pollTimer_ = new QTimer(this);
+    connect(pollTimer_, &QTimer::timeout, this, &CoreWorker::onPollTimeout);
+}
 
 CoreWorker::~CoreWorker() {
     spdlog::info("CoreWorker Destroyed in thread: {}", (uint64_t)QThread::currentThreadId());
@@ -104,5 +108,27 @@ void CoreWorker::sendRequest(int slaveId, int funcCode, int startAddr, int count
                                    static_cast<uint16_t>(startAddr), 
                                    static_cast<uint16_t>(count), 
                                    data);
+    }
+    
+    // Store for polling
+    lastRequest_ = {slaveId, funcCode, startAddr, count, dataHex};
+}
+
+void CoreWorker::setPolling(bool enabled, int intervalMs) {
+    if (enabled) {
+        if (intervalMs < 10) intervalMs = 10;
+        pollTimer_->start(intervalMs);
+        spdlog::info("Core: Polling started, interval {}ms", intervalMs);
+    } else {
+        pollTimer_->stop();
+        spdlog::info("Core: Polling stopped");
+    }
+}
+
+void CoreWorker::onPollTimeout() {
+    // Repeat last request
+    if (tcpChannel_ && tcpChannel_->state() == ChannelState::Open) {
+        sendRequest(lastRequest_.slaveId, lastRequest_.funcCode, 
+                    lastRequest_.startAddr, lastRequest_.count, lastRequest_.dataHex);
     }
 }

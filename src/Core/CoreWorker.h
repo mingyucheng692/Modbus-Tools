@@ -18,6 +18,7 @@ public slots:
     void connectTcp(const QString& ip, int port);
     void disconnect();
     void sendRequest(int slaveId, int funcCode, int startAddr, int count, const QString& dataHex);
+    void setPolling(bool enabled, int intervalMs);
 
 signals:
     void workerReady();
@@ -26,7 +27,19 @@ signals:
     void connectionStateChanged(bool connected);
     void errorOccurred(const QString& msg);
 
+private slots:
+    void onPollTimeout();
+
 private:
     TcpChannel* tcpChannel_ = nullptr;
     Modbus::ModbusTcpClient* modbusClient_ = nullptr;
+    
+    QTimer* pollTimer_ = nullptr;
+    struct PollRequest {
+        int slaveId;
+        int funcCode;
+        int startAddr;
+        int count;
+        QString dataHex;
+    } lastRequest_;
 };

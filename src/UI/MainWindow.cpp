@@ -39,6 +39,7 @@ void MainWindow::createDocks() {
     connect(connWidget, &ConnectionDock::connectTcp, this, &MainWindow::requestConnectTcp);
     connect(connWidget, &ConnectionDock::disconnectRequested, this, &MainWindow::requestDisconnect);
     connect(connWidget, &ConnectionDock::sendRequest, this, &MainWindow::requestSend);
+    connect(connWidget, &ConnectionDock::pollToggled, this, &MainWindow::pollToggled);
     
     connectionDock_->setWidget(connWidget);
     addDockWidget(Qt::LeftDockWidgetArea, connectionDock_);
