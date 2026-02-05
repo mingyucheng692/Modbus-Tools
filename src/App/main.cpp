@@ -8,6 +8,7 @@
 #include "Core/Logging/LogManager.h"
 #include "Core/CoreWorker.h"
 #include "UI/MainWindow.h"
+#include "UI/Utils/WheelEventFilter.h"
 
 // Factory function to create a new window with its own worker
 MainWindow* createNewWindow() {
@@ -36,6 +37,9 @@ MainWindow* createNewWindow() {
 int main(int argc, char *argv[])
 {
     QApplication a(argc, argv);
+
+    // Install Global Event Filter
+    a.installEventFilter(new WheelEventFilter(&a));
 
     // Init Logging (Global singleton)
     LogManager::instance().init();
