@@ -45,6 +45,7 @@ int main(int argc, char *argv[])
     // Wire UI -> Core
     QObject::connect(&w, &MainWindow::requestConnectTcp, worker, &CoreWorker::connectTcp);
     QObject::connect(&w, &MainWindow::requestDisconnect, worker, &CoreWorker::disconnect);
+    QObject::connect(&w, &MainWindow::requestSend, worker, &CoreWorker::sendRequest);
     
     w.show();
 

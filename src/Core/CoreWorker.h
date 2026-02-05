@@ -17,6 +17,7 @@ public slots:
     
     void connectTcp(const QString& ip, int port);
     void disconnect();
+    void sendRequest(int slaveId, int funcCode, int startAddr, int count, const QString& dataHex);
 
 signals:
     void workerReady();

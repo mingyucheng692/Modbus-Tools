@@ -73,3 +73,36 @@ void CoreWorker::disconnect() {
         tcpChannel_->close();
     }
 }
+
+#include <sstream>
+#include <iomanip>
+
+void CoreWorker::sendRequest(int slaveId, int funcCode, int startAddr, int count, const QString& dataHex) {
+    if (!tcpChannel_ || tcpChannel_->state() != ChannelState::Open) {
+        spdlog::warn("Core: Channel not open, cannot send request");
+        return;
+    }
+    
+    std::vector<uint8_t> data;
+    if (!dataHex.isEmpty()) {
+        std::stringstream ss(dataHex.toStdString());
+        std::string item;
+        while (ss >> item) {
+            try {
+                data.push_back(static_cast<uint8_t>(std::stoi(item, nullptr, 16)));
+            } catch (...) {}
+        }
+    }
+    
+    // Check if ModbusTCP or RTU (Currently we only have ModbusTcpClient wired up fully in init)
+    // Ideally we should switch between clients based on channel type.
+    // For now assuming TCP for the screenshot context.
+    
+    if (modbusClient_) {
+        modbusClient_->sendRequest(static_cast<uint8_t>(slaveId), 
+                                   static_cast<Modbus::FunctionCode>(funcCode), 
+                                   static_cast<uint16_t>(startAddr), 
+                                   static_cast<uint16_t>(count), 
+                                   data);
+    }
+}
