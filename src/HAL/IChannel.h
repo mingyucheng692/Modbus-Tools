@@ -26,10 +26,33 @@ public:
     virtual ChannelState state() const = 0;
     virtual QString errorString() const = 0;
 
+    // Simulation Settings
+    void setSimulation(int dropRate, int minDelayMs, int maxDelayMs) {
+        simDropRate_ = dropRate;
+        simMinDelay_ = minDelayMs;
+        simMaxDelay_ = maxDelayMs;
+    }
+
 signals:
     void opened();
     void closed();
     void errorOccurred(const QString& msg);
     void dataReceived(const std::vector<uint8_t>& data);
     void dataSent(const std::vector<uint8_t>& data);
+
+protected:
+    int simDropRate_ = 0; // 0-100%
+    int simMinDelay_ = 0;
+    int simMaxDelay_ = 0;
+    
+    bool shouldDrop() const {
+        if (simDropRate_ <= 0) return false;
+        return (rand() % 100) < simDropRate_;
+    }
+    
+    int getDelay() const {
+        if (simMaxDelay_ <= 0) return 0;
+        if (simMinDelay_ >= simMaxDelay_) return simMinDelay_;
+        return simMinDelay_ + (rand() % (simMaxDelay_ - simMinDelay_));
+    }
 };

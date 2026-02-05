@@ -1,5 +1,7 @@
 #include "TcpChannel.h"
 #include <spdlog/spdlog.h>
+#include <QTimer>
+#include <QRandomGenerator>
 
 TcpChannel::TcpChannel(QObject* parent) : IChannel(parent) {
     socket_ = new QTcpSocket(this);
@@ -34,16 +36,28 @@ void TcpChannel::close() {
 }
 
 void TcpChannel::write(const std::vector<uint8_t>& data) {
-    write(reinterpret_cast<const char*>(data.data()), data.size());
+    if (state_ != ChannelState::Open) return;
+
+    if (shouldDrop()) {
+        // Simulating packet loss (TX)
+        return; 
+    }
+    
+    int delay = getDelay();
+    if (delay > 0) {
+        QTimer::singleShot(delay, this, [this, data]() {
+            if (socket_->state() == QAbstractSocket::ConnectedState) {
+                socket_->write(reinterpret_cast<const char*>(data.data()), data.size());
+            }
+        });
+    } else {
+        socket_->write(reinterpret_cast<const char*>(data.data()), data.size());
+    }
 }
 
 void TcpChannel::write(const char* data, size_t size) {
-    if (state_ != ChannelState::Open) return;
-    socket_->write(data, size);
-    socket_->flush();
-    
     std::vector<uint8_t> vec(data, data + size);
-    emit dataSent(vec);
+    write(vec);
 }
 
 ChannelState TcpChannel::state() const {
@@ -73,9 +87,22 @@ void TcpChannel::onSocketError(QAbstractSocket::SocketError error) {
 }
 
 void TcpChannel::onSocketReadyRead() {
-    QByteArray data = socket_->readAll();
-    if (data.isEmpty()) return;
-
-    std::vector<uint8_t> vec(data.begin(), data.end());
-    emit dataReceived(vec);
+    QByteArray bytes = socket_->readAll();
+    if (bytes.isEmpty()) return;
+    
+    std::vector<uint8_t> data(bytes.begin(), bytes.end());
+    
+    if (shouldDrop()) {
+        // Simulating packet loss (RX)
+        return;
+    }
+    
+    int delay = getDelay();
+    if (delay > 0) {
+        QTimer::singleShot(delay, this, [this, data]() {
+            emit dataReceived(data);
+        });
+    } else {
+        emit dataReceived(data);
+    }
 }

@@ -19,6 +19,7 @@ public slots:
     void disconnect();
     void sendRequest(int slaveId, int funcCode, int startAddr, int count, const QString& dataHex);
     void setPolling(bool enabled, int intervalMs);
+    void setSimulation(int dropRate, int minDelay, int maxDelay);
 
 signals:
     void workerReady();

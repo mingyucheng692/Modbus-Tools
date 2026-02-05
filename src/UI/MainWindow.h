@@ -14,6 +14,7 @@ signals:
     void requestDisconnect();
     void requestSend(int slaveId, int funcCode, int startAddr, int count, const QString& dataHex);
     void pollToggled(bool enabled, int intervalMs);
+    void requestSimulation(int dropRate, int minDelay, int maxDelay);
 
 private:
     void initUI();

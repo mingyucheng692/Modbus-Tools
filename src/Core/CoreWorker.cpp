@@ -125,6 +125,13 @@ void CoreWorker::setPolling(bool enabled, int intervalMs) {
     }
 }
 
+void CoreWorker::setSimulation(int dropRate, int minDelay, int maxDelay) {
+    if (tcpChannel_) {
+        tcpChannel_->setSimulation(dropRate, minDelay, maxDelay);
+        spdlog::info("Core: Simulation updated - Drop: {}%, Delay: {}-{}ms", dropRate, minDelay, maxDelay);
+    }
+}
+
 void CoreWorker::onPollTimeout() {
     // Repeat last request
     if (tcpChannel_ && tcpChannel_->state() == ChannelState::Open) {

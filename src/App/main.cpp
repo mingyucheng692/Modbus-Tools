@@ -47,6 +47,7 @@ int main(int argc, char *argv[])
     QObject::connect(&w, &MainWindow::requestDisconnect, worker, &CoreWorker::disconnect);
     QObject::connect(&w, &MainWindow::requestSend, worker, &CoreWorker::sendRequest);
     QObject::connect(&w, &MainWindow::pollToggled, worker, &CoreWorker::setPolling);
+    QObject::connect(&w, &MainWindow::requestSimulation, worker, &CoreWorker::setSimulation);
     
     w.show();
 

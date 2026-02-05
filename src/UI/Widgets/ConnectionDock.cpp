@@ -2,6 +2,8 @@
 #include <QFormLayout>
 #include <QGroupBox>
 #include <QVBoxLayout>
+#include <QHBoxLayout>
+#include <QLabel>
 
 ConnectionDock::ConnectionDock(QWidget* parent) : QWidget(parent) {
     QVBoxLayout* mainLayout = new QVBoxLayout(this);
@@ -27,6 +29,33 @@ ConnectionDock::ConnectionDock(QWidget* parent) : QWidget(parent) {
     mainLayout->addWidget(tcpGroup);
     mainLayout->addWidget(connectBtn_);
     
+    // Simulation Group
+    QGroupBox* simGrp = new QGroupBox("Physical Simulation", this);
+    QFormLayout* simLayout = new QFormLayout(simGrp);
+    simDropSpin_ = new QSpinBox(this);
+    simDropSpin_->setRange(0, 100);
+    simDropSpin_->setSuffix("%");
+    
+    QHBoxLayout* delayLayout = new QHBoxLayout();
+    simMinDelaySpin_ = new QSpinBox(this);
+    simMinDelaySpin_->setRange(0, 5000);
+    simMinDelaySpin_->setSuffix("ms");
+    simMaxDelaySpin_ = new QSpinBox(this);
+    simMaxDelaySpin_->setRange(0, 5000);
+    simMaxDelaySpin_->setSuffix("ms");
+    delayLayout->addWidget(new QLabel("Min:", this));
+    delayLayout->addWidget(simMinDelaySpin_);
+    delayLayout->addWidget(new QLabel("Max:", this));
+    delayLayout->addWidget(simMaxDelaySpin_);
+    
+    simApplyBtn_ = new QPushButton("Apply Simulation", this);
+    
+    simLayout->addRow("Packet Loss:", simDropSpin_);
+    simLayout->addRow("Latency:", delayLayout);
+    simLayout->addWidget(simApplyBtn_);
+    
+    mainLayout->addWidget(simGrp);
+    
     // Add Control Widget
     controlWidget_ = new ControlWidget(this);
     mainLayout->addWidget(controlWidget_);
@@ -34,9 +63,14 @@ ConnectionDock::ConnectionDock(QWidget* parent) : QWidget(parent) {
     mainLayout->addStretch();
     
     connect(connectBtn_, &QPushButton::clicked, this, &ConnectionDock::onConnectClicked);
+    connect(simApplyBtn_, &QPushButton::clicked, this, &ConnectionDock::onSimApplyClicked);
     
     connect(controlWidget_, &ControlWidget::sendRequest, this, &ConnectionDock::sendRequest);
     connect(controlWidget_, &ControlWidget::pollToggled, this, &ConnectionDock::pollToggled);
+}
+
+void ConnectionDock::onSimApplyClicked() {
+    emit simulationChanged(simDropSpin_->value(), simMinDelaySpin_->value(), simMaxDelaySpin_->value());
 }
 
 void ConnectionDock::onConnectClicked() {
