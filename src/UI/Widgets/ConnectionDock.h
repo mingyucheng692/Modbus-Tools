@@ -19,8 +19,10 @@ signals:
     
     // Proxy signals from ControlWidget
     void sendRequest(int slaveId, int funcCode, int startAddr, int count, const QString& dataHex);
+    void sendRaw(const std::vector<uint8_t>& data);
     void pollToggled(bool enabled, int intervalMs);
     void simulationChanged(int dropRate, int minDelay, int maxDelay);
+    void modeChanged(int mode); // 0: Modbus, 1: Generic
 
 private slots:
     void onConnectClicked();

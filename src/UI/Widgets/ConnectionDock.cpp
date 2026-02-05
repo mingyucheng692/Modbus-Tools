@@ -15,6 +15,8 @@ ConnectionDock::ConnectionDock(QWidget* parent) : QWidget(parent) {
     typeCombo_ = new QComboBox(this);
     typeCombo_->addItem("Modbus TCP");
     typeCombo_->addItem("Modbus RTU");
+    typeCombo_->addItem("Generic TCP Client");
+    // typeCombo_->addItem("Generic Serial"); // Future support
     
     settingsStack_ = new QStackedWidget(this);
     
@@ -62,6 +64,9 @@ ConnectionDock::ConnectionDock(QWidget* parent) : QWidget(parent) {
     rtuForm->addRow("Stop:", stopCombo_);
     rtuForm->addRow("Parity:", parityCombo_);
     settingsStack_->addWidget(rtuWidget_);
+    
+    // 3. Generic TCP Page (Reuse TCP widget for now, or clone)
+    settingsStack_->addWidget(tcpWidget_); 
     
     connLayout->addWidget(new QLabel("Type:"));
     connLayout->addWidget(typeCombo_);
@@ -114,7 +119,14 @@ ConnectionDock::ConnectionDock(QWidget* parent) : QWidget(parent) {
 }
 
 void ConnectionDock::onTypeChanged(int index) {
-    settingsStack_->setCurrentIndex(index);
+    // 0: Modbus TCP, 1: Modbus RTU, 2: Generic TCP
+    if (index == 2) {
+        settingsStack_->setCurrentIndex(0); // Use TCP settings
+        emit modeChanged(1); // Generic
+    } else {
+        settingsStack_->setCurrentIndex(index);
+        emit modeChanged(0); // Modbus
+    }
 }
 
 void ConnectionDock::onSimApplyClicked() {
@@ -123,7 +135,8 @@ void ConnectionDock::onSimApplyClicked() {
 
 void ConnectionDock::onConnectClicked() {
     if (!isConnected_) {
-        if (typeCombo_->currentIndex() == 0) {
+        int idx = typeCombo_->currentIndex();
+        if (idx == 0 || idx == 2) { // TCP or Generic TCP
             emit connectTcp(ipEdit_->text(), portSpin_->value());
         } else {
             // RTU

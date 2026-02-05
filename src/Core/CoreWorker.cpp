@@ -132,6 +132,14 @@ void CoreWorker::setSimulation(int dropRate, int minDelay, int maxDelay) {
     }
 }
 
+void CoreWorker::sendRaw(const std::vector<uint8_t>& data) {
+    if (!tcpChannel_ || tcpChannel_->state() != ChannelState::Open) {
+        spdlog::warn("Core: Channel not open, cannot send raw data");
+        return;
+    }
+    tcpChannel_->write(data);
+}
+
 void CoreWorker::onPollTimeout() {
     // Repeat last request
     if (tcpChannel_ && tcpChannel_->state() == ChannelState::Open) {

@@ -20,6 +20,9 @@ public slots:
     void sendRequest(int slaveId, int funcCode, int startAddr, int count, const QString& dataHex);
     void setPolling(bool enabled, int intervalMs);
     void setSimulation(int dropRate, int minDelay, int maxDelay);
+    
+    // Generic Send
+    void sendRaw(const std::vector<uint8_t>& data);
 
     Modbus::ModbusTcpClient* modbusClient() const { return modbusClient_; }
 
