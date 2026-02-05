@@ -4,6 +4,7 @@
 #include <QApplication>
 #include <QLabel>
 #include <QStyleFactory>
+#include "Widgets/LogWidget.h"
 
 MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent) {
     initUI();
@@ -39,9 +40,9 @@ void MainWindow::createDocks() {
     // Bottom Dock: Logs
     logDock_ = new QDockWidget("Logs / Console", this);
     logDock_->setAllowedAreas(Qt::BottomDockWidgetArea | Qt::TopDockWidgetArea);
-    QLabel* logContent = new QLabel("Log Output", logDock_);
-    logContent->setAlignment(Qt::AlignCenter);
-    logDock_->setWidget(logContent);
+    
+    LogWidget* logWidget = new LogWidget(logDock_);
+    logDock_->setWidget(logWidget);
     addDockWidget(Qt::BottomDockWidgetArea, logDock_);
     
     // View Menu to toggle docks
