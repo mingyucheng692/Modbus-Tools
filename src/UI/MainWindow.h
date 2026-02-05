@@ -7,6 +7,7 @@
 #include "Widgets/FrameAnalyzer.h"
 #include <QLabel>
 #include "Widgets/WaveformWidget.h"
+#include "Widgets/ChecksumWidget.h"
 #include "Core/Modbus/ModbusDefs.h"
 
 class MainWindow : public QMainWindow {
@@ -41,11 +42,13 @@ private:
     QDockWidget* trafficDock_;
     QDockWidget* analyzerDock_;
     QDockWidget* waveformDock_;
+    QDockWidget* checksumDock_;
     
     LogWidget* logWidget_;
     TrafficWidget* trafficWidget_;
     FrameAnalyzer* frameAnalyzer_;
     WaveformWidget* waveformWidget_;
+    ChecksumWidget* checksumWidget_;
     
     QLabel* statusLabel_ = nullptr;
     QLabel* rttLabel_ = nullptr;

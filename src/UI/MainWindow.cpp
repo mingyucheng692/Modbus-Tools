@@ -109,6 +109,17 @@ void MainWindow::createDocks() {
     addDockWidget(Qt::RightDockWidgetArea, waveformDock_);
     
     viewMenu->addAction(waveformDock_->toggleViewAction());
+    
+    // Checksum Tool Dock
+    checksumDock_ = new QDockWidget("Checksum Tool", this);
+    checksumDock_->setAllowedAreas(Qt::RightDockWidgetArea | Qt::BottomDockWidgetArea);
+    checksumWidget_ = new ChecksumWidget(this);
+    checksumDock_->setWidget(checksumWidget_);
+    addDockWidget(Qt::RightDockWidgetArea, checksumDock_);
+    viewMenu->addAction(checksumDock_->toggleViewAction());
+    
+    // Stack Checksum with Waveform initially
+    tabifyDockWidget(waveformDock_, checksumDock_);
 }
 
 void MainWindow::onResponseReceived(uint16_t transactionId, uint8_t unitId, Modbus::FunctionCode fc, const std::vector<uint8_t>& data, int responseTimeMs, uint16_t startAddr) {
