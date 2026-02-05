@@ -59,8 +59,88 @@ void FrameAnalyzer::analyze(const RawFrame& frame) {
         if (frame.data.size() > 7) {
             uint8_t fc = frame.data[7];
             new QTreeWidgetItem(pdu, {"Function Code", QString("0x%1").arg(fc, 2, 16, QChar('0')), "Modbus Function"});
+            
+            // Payload Analysis
+            if (frame.data.size() > 8) {
+                std::vector<uint8_t> payload(frame.data.begin() + 8, frame.data.end());
+                analyzePdu(pdu, fc, payload);
+            }
         }
         
         treeWidget_->expandAll();
+    }
+}
+
+void FrameAnalyzer::analyzePdu(QTreeWidgetItem* parent, uint8_t fc, const std::vector<uint8_t>& payload) {
+    if (fc & 0x80) { // Exception
+        uint8_t ec = payload[0];
+        QString desc = "Unknown Error";
+        switch(ec) {
+            case 0x01: desc = "Illegal Function"; break;
+            case 0x02: desc = "Illegal Data Address"; break;
+            case 0x03: desc = "Illegal Data Value"; break;
+            case 0x04: desc = "Server Device Failure"; break;
+        }
+        new QTreeWidgetItem(parent, {"Exception Code", QString("0x%1").arg(ec, 2, 16, QChar('0')), desc});
+        return;
+    }
+
+    switch(fc) {
+        case 0x03: // Read Holding Registers Response
+        case 0x04: // Read Input Registers Response
+        {
+            if (payload.size() < 1) return;
+            uint8_t byteCount = payload[0];
+            new QTreeWidgetItem(parent, {"Byte Count", QString::number(byteCount), ""});
+            
+            int regCount = byteCount / 2;
+            for (int i = 0; i < regCount; ++i) {
+                if (1 + i*2 + 1 < payload.size()) {
+                    uint16_t val = (payload[1 + i*2] << 8) | payload[1 + i*2 + 1];
+                    new QTreeWidgetItem(parent, {
+                        QString("Register %1").arg(i), 
+                        QString("0x%1").arg(val, 4, 16, QChar('0')), 
+                        QString::number(val)
+                    });
+                }
+            }
+            break;
+        }
+        case 0x05: // Write Single Coil Request
+        case 0x06: // Write Single Register Request
+        {
+            if (payload.size() < 4) return;
+            uint16_t addr = (payload[0] << 8) | payload[1];
+            uint16_t val = (payload[2] << 8) | payload[3];
+            
+            new QTreeWidgetItem(parent, {"Address", QString("0x%1").arg(addr, 4, 16, QChar('0')), QString::number(addr)});
+            new QTreeWidgetItem(parent, {"Value", QString("0x%1").arg(val, 4, 16, QChar('0')), 
+                (fc == 5) ? (val == 0xFF00 ? "ON" : "OFF") : QString::number(val)});
+            break;
+        }
+        case 0x10: // Write Multiple Registers Request
+        {
+            if (payload.size() < 5) return;
+            uint16_t addr = (payload[0] << 8) | payload[1];
+            uint16_t count = (payload[2] << 8) | payload[3];
+            uint8_t bytes = payload[4];
+            
+            new QTreeWidgetItem(parent, {"Starting Address", QString("0x%1").arg(addr, 4, 16, QChar('0')), QString::number(addr)});
+            new QTreeWidgetItem(parent, {"Quantity", QString::number(count), ""});
+            new QTreeWidgetItem(parent, {"Byte Count", QString::number(bytes), ""});
+            
+            int regCount = bytes / 2;
+            for (int i = 0; i < regCount; ++i) {
+                if (5 + i*2 + 1 < payload.size()) {
+                    uint16_t val = (payload[5 + i*2] << 8) | payload[5 + i*2 + 1];
+                    new QTreeWidgetItem(parent, {
+                        QString("Register %1").arg(i), 
+                        QString("0x%1").arg(val, 4, 16, QChar('0')), 
+                        QString::number(val)
+                    });
+                }
+            }
+            break;
+        }
     }
 }

@@ -12,6 +12,8 @@ public:
     void analyze(const RawFrame& frame);
 
 private:
+    void analyzePdu(QTreeWidgetItem* parent, uint8_t fc, const std::vector<uint8_t>& payload);
+
     QTreeWidget* treeWidget_;
     QTextBrowser* detailsBrowser_;
     QTextBrowser* hexBrowser_;
