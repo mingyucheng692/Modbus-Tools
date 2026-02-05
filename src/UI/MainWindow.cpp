@@ -5,6 +5,7 @@
 #include <QLabel>
 #include <QStyleFactory>
 #include "Widgets/LogWidget.h"
+#include "Widgets/ConnectionDock.h"
 
 MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent) {
     initUI();
@@ -32,9 +33,9 @@ void MainWindow::createDocks() {
     // Left Dock: Connection
     connectionDock_ = new QDockWidget("Connection", this);
     connectionDock_->setAllowedAreas(Qt::LeftDockWidgetArea | Qt::RightDockWidgetArea);
-    QLabel* connContent = new QLabel("Connection Settings", connectionDock_);
-    connContent->setAlignment(Qt::AlignCenter);
-    connectionDock_->setWidget(connContent);
+    
+    ConnectionDock* connWidget = new ConnectionDock(connectionDock_);
+    connectionDock_->setWidget(connWidget);
     addDockWidget(Qt::LeftDockWidgetArea, connectionDock_);
 
     // Bottom Dock: Logs
