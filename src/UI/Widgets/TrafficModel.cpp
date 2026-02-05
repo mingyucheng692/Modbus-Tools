@@ -37,10 +37,19 @@ QVariant TrafficModel::data(const QModelIndex& index, int role) const {
         ss << (frame.direction == Direction::Tx ? "[TX] " : "[RX] ");
         
         // Simple hex formatting
-        ss << std::hex << std::uppercase << std::setfill('0');
+        QString hexPart;
+        QString asciiPart;
+        
         for (uint8_t b : frame.data) {
             ss << std::setw(2) << static_cast<int>(b) << " ";
+            
+            // ASCII
+            if (b >= 32 && b <= 126) asciiPart += static_cast<char>(b);
+            else asciiPart += ".";
         }
+        
+        // Pad hex part to align ASCII if needed (optional, for now just append)
+        ss << "  |  " << asciiPart.toStdString();
         
         return QString::fromStdString(ss.str());
     }
