@@ -4,29 +4,72 @@
 #include <QVBoxLayout>
 #include <QHBoxLayout>
 #include <QLabel>
+#include <QSerialPortInfo>
 
 ConnectionDock::ConnectionDock(QWidget* parent) : QWidget(parent) {
     QVBoxLayout* mainLayout = new QVBoxLayout(this);
     
-    QGroupBox* tcpGroup = new QGroupBox("Connection Settings", this);
-    QFormLayout* form = new QFormLayout(tcpGroup);
+    QGroupBox* connGroup = new QGroupBox("Connection Settings", this);
+    QVBoxLayout* connLayout = new QVBoxLayout(connGroup);
     
     typeCombo_ = new QComboBox(this);
     typeCombo_->addItem("Modbus TCP");
-    typeCombo_->addItem("Modbus RTU"); // Placeholder
+    typeCombo_->addItem("Modbus RTU");
     
+    settingsStack_ = new QStackedWidget(this);
+    
+    // 1. TCP Page
+    tcpWidget_ = new QWidget(this);
+    QFormLayout* tcpForm = new QFormLayout(tcpWidget_);
+    tcpForm->setContentsMargins(0,0,0,0);
     ipEdit_ = new QLineEdit("127.0.0.1", this);
     portSpin_ = new QSpinBox(this);
     portSpin_->setRange(1, 65535);
     portSpin_->setValue(502);
+    tcpForm->addRow("IP:", ipEdit_);
+    tcpForm->addRow("Port:", portSpin_);
+    settingsStack_->addWidget(tcpWidget_);
     
-    form->addRow("Type:", typeCombo_);
-    form->addRow("IP:", ipEdit_);
-    form->addRow("Port:", portSpin_);
+    // 2. RTU Page
+    rtuWidget_ = new QWidget(this);
+    QFormLayout* rtuForm = new QFormLayout(rtuWidget_);
+    rtuForm->setContentsMargins(0,0,0,0);
+    
+    portCombo_ = new QComboBox(this);
+    const auto ports = QSerialPortInfo::availablePorts();
+    for (const auto& port : ports) {
+        portCombo_->addItem(port.portName());
+    }
+    
+    baudCombo_ = new QComboBox(this);
+    baudCombo_->addItems({"9600", "19200", "38400", "57600", "115200"});
+    baudCombo_->setCurrentText("9600");
+    
+    dataCombo_ = new QComboBox(this);
+    dataCombo_->addItems({"8", "7"});
+    
+    stopCombo_ = new QComboBox(this);
+    stopCombo_->addItems({"1", "1.5", "2"});
+    
+    parityCombo_ = new QComboBox(this);
+    parityCombo_->addItem("None", 0);
+    parityCombo_->addItem("Even", 2);
+    parityCombo_->addItem("Odd", 3);
+    
+    rtuForm->addRow("Port:", portCombo_);
+    rtuForm->addRow("Baud:", baudCombo_);
+    rtuForm->addRow("Data:", dataCombo_);
+    rtuForm->addRow("Stop:", stopCombo_);
+    rtuForm->addRow("Parity:", parityCombo_);
+    settingsStack_->addWidget(rtuWidget_);
+    
+    connLayout->addWidget(new QLabel("Type:"));
+    connLayout->addWidget(typeCombo_);
+    connLayout->addWidget(settingsStack_);
     
     connectBtn_ = new QPushButton("Connect", this);
     
-    mainLayout->addWidget(tcpGroup);
+    mainLayout->addWidget(connGroup);
     mainLayout->addWidget(connectBtn_);
     
     // Simulation Group
@@ -62,11 +105,16 @@ ConnectionDock::ConnectionDock(QWidget* parent) : QWidget(parent) {
     
     mainLayout->addStretch();
     
+    connect(typeCombo_, QOverload<int>::of(&QComboBox::currentIndexChanged), this, &ConnectionDock::onTypeChanged);
     connect(connectBtn_, &QPushButton::clicked, this, &ConnectionDock::onConnectClicked);
     connect(simApplyBtn_, &QPushButton::clicked, this, &ConnectionDock::onSimApplyClicked);
     
     connect(controlWidget_, &ControlWidget::sendRequest, this, &ConnectionDock::sendRequest);
     connect(controlWidget_, &ControlWidget::pollToggled, this, &ConnectionDock::pollToggled);
+}
+
+void ConnectionDock::onTypeChanged(int index) {
+    settingsStack_->setCurrentIndex(index);
 }
 
 void ConnectionDock::onSimApplyClicked() {
@@ -75,12 +123,25 @@ void ConnectionDock::onSimApplyClicked() {
 
 void ConnectionDock::onConnectClicked() {
     if (!isConnected_) {
-        emit connectTcp(ipEdit_->text(), portSpin_->value());
+        if (typeCombo_->currentIndex() == 0) {
+            emit connectTcp(ipEdit_->text(), portSpin_->value());
+        } else {
+            // RTU
+            emit connectRtu(
+                portCombo_->currentText(),
+                baudCombo_->currentText().toInt(),
+                dataCombo_->currentText().toInt(),
+                stopCombo_->currentText().toInt(), // Simplified mapping
+                parityCombo_->currentData().toInt()
+            );
+        }
         connectBtn_->setText("Disconnect");
         isConnected_ = true;
+        typeCombo_->setEnabled(false);
     } else {
         emit disconnectRequested();
         connectBtn_->setText("Connect");
         isConnected_ = false;
+        typeCombo_->setEnabled(true);
     }
 }

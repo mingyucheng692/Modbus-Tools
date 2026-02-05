@@ -4,6 +4,7 @@
 #include <QSpinBox>
 #include <QPushButton>
 #include <QComboBox>
+#include <QStackedWidget>
 #include "ControlWidget.h"
 
 class ConnectionDock : public QWidget {
@@ -13,6 +14,7 @@ public:
 
 signals:
     void connectTcp(const QString& ip, int port);
+    void connectRtu(const QString& portName, int baudRate, int dataBits, int stopBits, int parity);
     void disconnectRequested();
     
     // Proxy signals from ControlWidget
@@ -23,13 +25,27 @@ signals:
 private slots:
     void onConnectClicked();
     void onSimApplyClicked();
+    void onTypeChanged(int index);
 
 private:
     QComboBox* typeCombo_;
-    QLineEdit* ipEdit_;
-    QSpinBox* portSpin_;
     QPushButton* connectBtn_;
     ControlWidget* controlWidget_;
+    
+    // TCP UI
+    QWidget* tcpWidget_;
+    QLineEdit* ipEdit_;
+    QSpinBox* portSpin_;
+    
+    // RTU UI
+    QWidget* rtuWidget_;
+    QComboBox* portCombo_;
+    QComboBox* baudCombo_;
+    QComboBox* dataCombo_;
+    QComboBox* stopCombo_;
+    QComboBox* parityCombo_;
+    
+    QStackedWidget* settingsStack_;
     
     // Simulation UI
     QSpinBox* simDropSpin_;
