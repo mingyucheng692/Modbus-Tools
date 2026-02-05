@@ -10,7 +10,7 @@ set(CMAKE_AUTORCC ON)
 set(CMAKE_AUTOUIC ON)
 
 # Qt 6
-find_package(Qt6 REQUIRED COMPONENTS Widgets Network SerialPort)
+find_package(Qt6 REQUIRED COMPONENTS Widgets Network SerialPort Charts)
 
 # spdlog
 add_subdirectory(third_party/spdlog)

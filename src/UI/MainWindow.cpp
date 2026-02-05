@@ -7,27 +7,48 @@
 #include "Widgets/LogWidget.h"
 #include "Widgets/ConnectionDock.h"
 #include "Widgets/TrafficWidget.h"
+#include "Widgets/WaveformWidget.h"
 #include "Core/Logging/TrafficLog.h"
 
+#include "Core/CoreWorker.h"
+#include "Core/Modbus/ModbusTcpClient.h"
+
 MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent) {
-    initUI();
+    setupUi();
     applyDarkTheme();
 }
 
 MainWindow::~MainWindow() {}
 
-void MainWindow::initUI() {
+void MainWindow::setupUi() {
     setWindowTitle("Modbus-Tools (Re-Impl)");
     resize(1200, 800);
     
     // Central Widget (MDI Area placeholder)
-    analyzer_ = new FrameAnalyzer(this);
-    setCentralWidget(analyzer_);
+    frameAnalyzer_ = new FrameAnalyzer(this);
+    setCentralWidget(frameAnalyzer_);
 
     createActions();
     createDocks();
     
     statusBar()->showMessage("Ready");
+}
+
+void MainWindow::connectWorker(CoreWorker* worker) {
+    connect(this, &MainWindow::requestConnectTcp, worker, &CoreWorker::connectTcp);
+    connect(this, &MainWindow::requestDisconnect, worker, &CoreWorker::disconnect);
+    connect(this, &MainWindow::requestSend, worker, &CoreWorker::sendRequest);
+    connect(this, &MainWindow::pollToggled, worker, &CoreWorker::setPolling);
+    connect(this, &MainWindow::requestSimulation, worker, &CoreWorker::setSimulation);
+    
+    connect(worker, &CoreWorker::workerReady, this, &MainWindow::onWorkerReady);
+    if (worker->modbusClient()) {
+        connect(worker->modbusClient(), &Modbus::ModbusTcpClient::responseReceived, this, &MainWindow::onResponseReceived);
+    }
+}
+
+void MainWindow::onWorkerReady() {
+    statusBar()->showMessage("Core Worker Ready");
 }
 
 void MainWindow::createDocks() {
@@ -62,7 +83,7 @@ void MainWindow::createDocks() {
     
     connect(trafficWidget, &TrafficWidget::frameSelected, [this](size_t index){
         const auto& frame = TrafficLog::instance().getFrame(index);
-        analyzer_->analyze(frame);
+        frameAnalyzer_->analyze(frame);
     });
     
     tabifyDockWidget(logDock_, trafficDock_);
@@ -72,6 +93,25 @@ void MainWindow::createDocks() {
     viewMenu->addAction(connectionDock_->toggleViewAction());
     viewMenu->addAction(logDock_->toggleViewAction());
     viewMenu->addAction(trafficDock_->toggleViewAction());
+
+    // Waveform Dock
+    waveformDock_ = new QDockWidget("Waveform Monitor", this);
+    waveformDock_->setAllowedAreas(Qt::RightDockWidgetArea | Qt::BottomDockWidgetArea);
+    waveformWidget_ = new WaveformWidget(this);
+    waveformDock_->setWidget(waveformWidget_);
+    addDockWidget(Qt::RightDockWidgetArea, waveformDock_);
+    
+    viewMenu->addAction(waveformDock_->toggleViewAction());
+}
+
+void MainWindow::onResponseReceived(uint16_t transactionId, uint8_t unitId, Modbus::FunctionCode fc, const std::vector<uint8_t>& data, int responseTimeMs, uint16_t startAddr) {
+    if (fc == Modbus::FunctionCode::ReadHoldingRegisters || fc == Modbus::FunctionCode::ReadInputRegisters) {
+        if (data.size() >= 2) { 
+             uint16_t val = (data[0] << 8) | data[1];
+             waveformWidget_->setMonitoredAddress(startAddr); 
+             waveformWidget_->addValue(startAddr, static_cast<double>(val));
+        }
+    }
 }
 
 void MainWindow::createActions() {

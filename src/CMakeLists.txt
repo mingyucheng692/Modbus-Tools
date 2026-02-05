@@ -11,5 +11,6 @@ target_link_libraries(ModbusTools PRIVATE
     Qt6::Widgets
     Qt6::Network
     Qt6::SerialPort
+    Qt6::Charts
     spdlog::spdlog
 )

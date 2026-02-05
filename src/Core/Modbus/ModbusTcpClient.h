@@ -18,7 +18,8 @@ public:
     void sendRequest(uint8_t unitId, FunctionCode fc, uint16_t addr, uint16_t count, const std::vector<uint8_t>& data = {});
 
 signals:
-    void responseReceived(uint16_t transactionId, uint8_t unitId, FunctionCode fc, const std::vector<uint8_t>& data, int responseTimeMs);
+    // responseTimeMs, startAddress, count
+    void responseReceived(uint16_t transactionId, uint8_t unitId, FunctionCode fc, const std::vector<uint8_t>& data, int responseTimeMs, uint16_t startAddr);
     void timeout(uint16_t transactionId);
     void error(const QString& msg);
 
@@ -34,6 +35,8 @@ private:
     
     struct Transaction {
         std::chrono::steady_clock::time_point startTime;
+        uint16_t startAddr;
+        uint16_t count;
     };
     std::map<uint16_t, Transaction> pendingTransactions_;
 };

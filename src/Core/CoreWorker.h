@@ -21,6 +21,8 @@ public slots:
     void setPolling(bool enabled, int intervalMs);
     void setSimulation(int dropRate, int minDelay, int maxDelay);
 
+    Modbus::ModbusTcpClient* modbusClient() const { return modbusClient_; }
+
 signals:
     void workerReady();
     void testResponse(const QString& msg);
