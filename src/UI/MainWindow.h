@@ -5,6 +5,7 @@
 #include "Widgets/LogWidget.h"
 #include "Widgets/TrafficWidget.h"
 #include "Widgets/FrameAnalyzer.h"
+#include <QLabel>
 #include "Widgets/WaveformWidget.h"
 #include "Core/Modbus/ModbusDefs.h"
 
@@ -44,4 +45,7 @@ private:
     TrafficWidget* trafficWidget_;
     FrameAnalyzer* frameAnalyzer_;
     WaveformWidget* waveformWidget_;
+    
+    QLabel* statusLabel_ = nullptr;
+    QLabel* rttLabel_ = nullptr;
 };

@@ -31,7 +31,12 @@ void MainWindow::setupUi() {
     createActions();
     createDocks();
     
-    statusBar()->showMessage("Ready");
+    statusLabel_ = new QLabel("Ready");
+    rttLabel_ = new QLabel("RTT: -");
+    rttLabel_->setFrameStyle(QFrame::Sunken | QFrame::Panel);
+    
+    statusBar()->addWidget(statusLabel_, 1);
+    statusBar()->addPermanentWidget(rttLabel_);
 }
 
 void MainWindow::connectWorker(CoreWorker* worker) {
@@ -48,7 +53,7 @@ void MainWindow::connectWorker(CoreWorker* worker) {
 }
 
 void MainWindow::onWorkerReady() {
-    statusBar()->showMessage("Core Worker Ready");
+    statusLabel_->setText("Core Worker Ready");
 }
 
 void MainWindow::createDocks() {
@@ -105,6 +110,13 @@ void MainWindow::createDocks() {
 }
 
 void MainWindow::onResponseReceived(uint16_t transactionId, uint8_t unitId, Modbus::FunctionCode fc, const std::vector<uint8_t>& data, int responseTimeMs, uint16_t startAddr) {
+    // Update RTT
+    if (responseTimeMs >= 0) {
+        rttLabel_->setText(QString("RTT: %1 ms").arg(responseTimeMs));
+    } else {
+        rttLabel_->setText("RTT: Timeout");
+    }
+
     if (fc == Modbus::FunctionCode::ReadHoldingRegisters || fc == Modbus::FunctionCode::ReadInputRegisters) {
         if (data.size() >= 2) { 
              uint16_t val = (data[0] << 8) | data[1];
