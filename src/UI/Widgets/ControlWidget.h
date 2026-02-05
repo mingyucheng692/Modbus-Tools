@@ -11,6 +11,9 @@ class ControlWidget : public QWidget {
 public:
     explicit ControlWidget(QWidget* parent = nullptr);
 
+public slots:
+    void setSlaveId(int id);
+
 signals:
     void sendRequest(int slaveId, int funcCode, int startAddr, int count, const QString& dataHex);
     void pollToggled(bool enabled, int intervalMs);

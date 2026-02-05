@@ -34,7 +34,9 @@ ControlWidget::ControlWidget(QWidget* parent) : QWidget(parent) {
     dataInput_ = new QLineEdit(this);
     dataInput_->setPlaceholderText("Hex Data (e.g. 01 02 FF)");
     
-    form->addRow("Slave ID:", slaveIdSpin_);
+    // form->addRow("Slave ID:", slaveIdSpin_); // Managed externally by ConnectionDock
+    slaveIdSpin_->hide();
+
     form->addRow("Function:", funcCodeCombo_);
     form->addRow("Address:", startAddrSpin_);
     form->addRow("Count/Val:", countSpin_);
@@ -63,6 +65,12 @@ ControlWidget::ControlWidget(QWidget* parent) : QWidget(parent) {
     connect(funcCodeCombo_, QOverload<int>::of(&QComboBox::currentIndexChanged), this, &ControlWidget::updateUiState);
     
     updateUiState();
+}
+
+void ControlWidget::setSlaveId(int id) {
+    if (slaveIdSpin_) {
+        slaveIdSpin_->setValue(id);
+    }
 }
 
 void ControlWidget::updateUiState() {

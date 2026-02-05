@@ -5,6 +5,7 @@
 #include <QPushButton>
 #include <QComboBox>
 #include <QStackedWidget>
+#include <QLabel>
 #include <vector>
 
 class ControlWidget;
@@ -56,6 +57,10 @@ private:
     
     QStackedWidget* settingsStack_;
     
+    // Slave ID (Global for Modbus)
+    QLabel* slaveIdLabel_;
+    QSpinBox* slaveIdSpin_;
+
     // Simulation UI
     QSpinBox* simDropSpin_;
     QSpinBox* simMinDelaySpin_;

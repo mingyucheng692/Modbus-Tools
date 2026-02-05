@@ -72,6 +72,17 @@ ConnectionDock::ConnectionDock(QWidget* parent) : QWidget(parent) {
     
     connLayout->addWidget(new QLabel("Type:"));
     connLayout->addWidget(typeCombo_);
+
+    // Slave ID (Common)
+    QHBoxLayout* slaveLayout = new QHBoxLayout();
+    slaveIdLabel_ = new QLabel("Slave ID:", this);
+    slaveIdSpin_ = new QSpinBox(this);
+    slaveIdSpin_->setRange(0, 255);
+    slaveIdSpin_->setValue(1);
+    slaveLayout->addWidget(slaveIdLabel_);
+    slaveLayout->addWidget(slaveIdSpin_);
+    connLayout->addLayout(slaveLayout);
+
     connLayout->addWidget(settingsStack_);
     
     connectBtn_ = new QPushButton("Connect", this);
@@ -125,10 +136,16 @@ ConnectionDock::ConnectionDock(QWidget* parent) : QWidget(parent) {
     connect(controlWidget_, &ControlWidget::sendRequest, this, &ConnectionDock::sendRequest);
     connect(controlWidget_, &ControlWidget::pollToggled, this, &ConnectionDock::pollToggled);
     connect(genericSender_, &GenericSenderWidget::sendRaw, this, &ConnectionDock::sendRaw);
+    
+    connect(slaveIdSpin_, QOverload<int>::of(&QSpinBox::valueChanged), controlWidget_, &ControlWidget::setSlaveId);
 }
 
 void ConnectionDock::onTypeChanged(int index) {
     // 0: Modbus TCP, 1: Modbus RTU, 2: Generic TCP
+    bool isGeneric = (index == 2); // Will update for Generic Serial later
+    slaveIdLabel_->setVisible(!isGeneric);
+    slaveIdSpin_->setVisible(!isGeneric);
+
     if (index == 2) {
         settingsStack_->setCurrentWidget(tcpWidget_); // Reuse TCP settings
         senderStack_->setCurrentWidget(genericSender_);
