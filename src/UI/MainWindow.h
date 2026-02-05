@@ -24,6 +24,8 @@ public slots:
 
 signals:
     void requestConnectTcp(const QString& ip, int port);
+    void requestConnectRtu(const QString& portName, int baudRate, int dataBits, int stopBits, int parity);
+    void requestConnectSerial(const QString& portName, int baudRate, int dataBits, int stopBits, int parity);
     void requestDisconnect();
     void requestSend(int slaveId, int funcCode, int startAddr, int count, const QString& dataHex);
     void requestSendRaw(const std::vector<uint8_t>& data);

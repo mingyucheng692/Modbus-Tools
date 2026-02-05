@@ -41,6 +41,8 @@ void MainWindow::setupUi() {
 
 void MainWindow::connectWorker(CoreWorker* worker) {
     connect(this, &MainWindow::requestConnectTcp, worker, &CoreWorker::connectTcp);
+    connect(this, &MainWindow::requestConnectRtu, worker, &CoreWorker::connectRtu);
+    connect(this, &MainWindow::requestConnectSerial, worker, &CoreWorker::connectSerial);
     connect(this, &MainWindow::requestDisconnect, worker, &CoreWorker::disconnect);
     connect(this, &MainWindow::requestSend, worker, &CoreWorker::sendRequest);
     connect(this, &MainWindow::requestSendRaw, worker, &CoreWorker::sendRaw);
@@ -64,6 +66,8 @@ void MainWindow::createDocks() {
     
     ConnectionDock* connWidget = new ConnectionDock(connectionDock_);
     connect(connWidget, &ConnectionDock::connectTcp, this, &MainWindow::requestConnectTcp);
+    connect(connWidget, &ConnectionDock::connectRtu, this, &MainWindow::requestConnectRtu);
+    connect(connWidget, &ConnectionDock::connectSerial, this, &MainWindow::requestConnectSerial);
     connect(connWidget, &ConnectionDock::disconnectRequested, this, &MainWindow::requestDisconnect);
     connect(connWidget, &ConnectionDock::sendRequest, this, &MainWindow::requestSend);
     connect(connWidget, &ConnectionDock::sendRaw, this, &MainWindow::requestSendRaw);

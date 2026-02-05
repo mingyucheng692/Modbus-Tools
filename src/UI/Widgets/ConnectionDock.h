@@ -19,6 +19,7 @@ public:
 signals:
     void connectTcp(const QString& ip, int port);
     void connectRtu(const QString& portName, int baudRate, int dataBits, int stopBits, int parity);
+    void connectSerial(const QString& portName, int baudRate, int dataBits, int stopBits, int parity);
     void disconnectRequested();
     
     // Proxy signals

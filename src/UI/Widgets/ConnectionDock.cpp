@@ -18,7 +18,7 @@ ConnectionDock::ConnectionDock(QWidget* parent) : QWidget(parent) {
     typeCombo_->addItem("Modbus TCP");
     typeCombo_->addItem("Modbus RTU");
     typeCombo_->addItem("Generic TCP Client");
-    // typeCombo_->addItem("Generic Serial"); // Future support
+    typeCombo_->addItem("Generic Serial"); // Future support
     
     settingsStack_ = new QStackedWidget(this);
     
@@ -143,13 +143,17 @@ ConnectionDock::ConnectionDock(QWidget* parent) : QWidget(parent) {
 }
 
 void ConnectionDock::onTypeChanged(int index) {
-    // 0: Modbus TCP, 1: Modbus RTU, 2: Generic TCP
-    bool isGeneric = (index == 2); // Will update for Generic Serial later
+    // 0: Modbus TCP, 1: Modbus RTU, 2: Generic TCP, 3: Generic Serial
+    bool isGeneric = (index == 2 || index == 3);
     slaveIdLabel_->setVisible(!isGeneric);
     slaveIdSpin_->setVisible(!isGeneric);
 
     if (index == 2) {
         settingsStack_->setCurrentWidget(tcpWidget_); // Reuse TCP settings
+        senderStack_->setCurrentWidget(genericSender_);
+        emit modeChanged(1); // Generic
+    } else if (index == 3) {
+        settingsStack_->setCurrentWidget(rtuWidget_); // Reuse RTU settings
         senderStack_->setCurrentWidget(genericSender_);
         emit modeChanged(1); // Generic
     } else if (index == 0) {
@@ -172,9 +176,16 @@ void ConnectionDock::onConnectClicked() {
         int idx = typeCombo_->currentIndex();
         if (idx == 0 || idx == 2) { // TCP or Generic TCP
             emit connectTcp(ipEdit_->text(), portSpin_->value());
-        } else {
-            // RTU
+        } else if (idx == 1) { // Modbus RTU
             emit connectRtu(
+                portCombo_->currentText(),
+                baudCombo_->currentText().toInt(),
+                dataCombo_->currentText().toInt(),
+                stopCombo_->currentData().toInt(), 
+                parityCombo_->currentData().toInt()
+            );
+        } else if (idx == 3) { // Generic Serial
+            emit connectSerial(
                 portCombo_->currentText(),
                 baudCombo_->currentText().toInt(),
                 dataCombo_->currentText().toInt(),
