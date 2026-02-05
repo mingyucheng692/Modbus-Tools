@@ -7,6 +7,7 @@
 #include "Widgets/LogWidget.h"
 #include "Widgets/ConnectionDock.h"
 #include "Widgets/TrafficWidget.h"
+#include "Core/Logging/TrafficLog.h"
 
 MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent) {
     initUI();
@@ -20,9 +21,8 @@ void MainWindow::initUI() {
     resize(1200, 800);
     
     // Central Widget (MDI Area placeholder)
-    QLabel* centralLabel = new QLabel("MDI Area / Monitor", this);
-    centralLabel->setAlignment(Qt::AlignCenter);
-    setCentralWidget(centralLabel);
+    analyzer_ = new FrameAnalyzer(this);
+    setCentralWidget(analyzer_);
 
     createActions();
     createDocks();
@@ -56,6 +56,11 @@ void MainWindow::createDocks() {
     TrafficWidget* trafficWidget = new TrafficWidget(trafficDock_);
     trafficDock_->setWidget(trafficWidget);
     addDockWidget(Qt::BottomDockWidgetArea, trafficDock_);
+    
+    connect(trafficWidget, &TrafficWidget::frameSelected, [this](size_t index){
+        const auto& frame = TrafficLog::instance().getFrame(index);
+        analyzer_->analyze(frame);
+    });
     
     tabifyDockWidget(logDock_, trafficDock_);
     

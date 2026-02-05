@@ -16,4 +16,9 @@ TrafficWidget::TrafficWidget(QWidget* parent) : QWidget(parent) {
     listView_->setFont(font);
 
     layout->addWidget(listView_);
+    
+    connect(listView_->selectionModel(), &QItemSelectionModel::currentChanged, 
+        [this](const QModelIndex& current, const QModelIndex&){
+            if (current.isValid()) emit frameSelected(current.row());
+        });
 }
