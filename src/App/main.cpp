@@ -3,54 +3,47 @@
 #include <QDebug>
 #include <QThread>
 #include <QTimer>
+#include <vector>
+#include <memory>
 #include "Core/Logging/LogManager.h"
 #include "Core/CoreWorker.h"
 #include "UI/MainWindow.h"
+
+// Factory function to create a new window with its own worker
+MainWindow* createNewWindow() {
+    // Each window needs its own worker and thread
+    QThread* workerThread = new QThread();
+    CoreWorker* worker = new CoreWorker();
+    worker->moveToThread(workerThread);
+
+    QObject::connect(workerThread, &QThread::started, worker, &CoreWorker::init);
+    QObject::connect(workerThread, &QThread::finished, worker, &QObject::deleteLater);
+    QObject::connect(workerThread, &QThread::finished, workerThread, &QObject::deleteLater);
+
+    MainWindow* w = new MainWindow();
+    w->setAttribute(Qt::WA_DeleteOnClose);
+    w->connectWorker(worker);
+    
+    // When window closes, quit the thread
+    QObject::connect(w, &MainWindow::destroyed, workerThread, &QThread::quit);
+    
+    workerThread->start();
+    w->show();
+    
+    return w;
+}
 
 int main(int argc, char *argv[])
 {
     QApplication a(argc, argv);
 
-    // Init Logging
+    // Init Logging (Global singleton)
     LogManager::instance().init();
-
-    // Connect Log Sink to Qt Debug (for verification)
-    QObject::connect(LogManager::instance().getQtSinkBase(), &QtLogSinkBase::logReceived, 
-        [](const QString& msg, int level){
-            qDebug() << "QtLogSink Received:" << msg.trimmed();
-        });
 
     spdlog::info("Modbus-Tools Started. Main Thread: {}", (uint64_t)QThread::currentThreadId());
 
-    // Setup Core Worker
-    QThread workerThread;
-    CoreWorker* worker = new CoreWorker();
-    worker->moveToThread(&workerThread);
+    // Create the first window
+    createNewWindow();
 
-    QObject::connect(&workerThread, &QThread::started, worker, &CoreWorker::init);
-    QObject::connect(&workerThread, &QThread::finished, worker, &QObject::deleteLater);
-    
-    // Test connection
-    QObject::connect(worker, &CoreWorker::testResponse, [](const QString& msg){
-        spdlog::info("Main Thread received: {}", msg.toStdString());
-    });
-
-    workerThread.start();
-    
-    // Send test command after 1s
-    QTimer::singleShot(1000, worker, &CoreWorker::testWorker);
-
-    MainWindow w;
-    
-    // Wire UI -> Core
-    w.connectWorker(worker);
-    
-    w.show();
-
-    int ret = a.exec();
-    
-    workerThread.quit();
-    workerThread.wait();
-    
-    return ret;
+    return a.exec();
 }

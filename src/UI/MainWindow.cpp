@@ -153,8 +153,18 @@ void MainWindow::onResponseReceived(uint16_t transactionId, uint8_t unitId, Modb
     }
 }
 
+extern MainWindow* createNewWindow();
+
 void MainWindow::createActions() {
     QMenu* fileMenu = menuBar()->addMenu("&File");
+    
+    QAction* newWinAct = fileMenu->addAction("&New Window");
+    newWinAct->setShortcut(QKeySequence::New);
+    connect(newWinAct, &QAction::triggered, [](){
+        createNewWindow();
+    });
+    
+    fileMenu->addSeparator();
     fileMenu->addAction("E&xit", qApp, &QApplication::quit);
 }
 
