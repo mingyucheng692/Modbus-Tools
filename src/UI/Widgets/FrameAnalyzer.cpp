@@ -11,8 +11,21 @@ FrameAnalyzer::FrameAnalyzer(QWidget* parent) : QWidget(parent) {
     hexBrowser_ = new QTextBrowser(splitter);
     hexBrowser_->setFont(QFont("Consolas"));
     
-    treeWidget_ = new QTreeWidget(splitter);
+    QWidget* rightPanel = new QWidget(splitter);
+    QVBoxLayout* rightLayout = new QVBoxLayout(rightPanel);
+    rightLayout->setContentsMargins(0, 0, 0, 0);
+    
+    endianCombo_ = new QComboBox(rightPanel);
+    endianCombo_->addItem("Big Endian (ABCD)", 0);
+    endianCombo_->addItem("Little Endian (DCBA)", 1);
+    endianCombo_->addItem("Big Swap (BADC)", 2);
+    endianCombo_->addItem("Little Swap (CDAB)", 3);
+    
+    treeWidget_ = new QTreeWidget(rightPanel);
     treeWidget_->setHeaderLabels({"Field", "Value", "Description"});
+    
+    rightLayout->addWidget(endianCombo_);
+    rightLayout->addWidget(treeWidget_);
     
     detailsBrowser_ = new QTextBrowser(splitter);
     
@@ -21,9 +34,24 @@ FrameAnalyzer::FrameAnalyzer(QWidget* parent) : QWidget(parent) {
     splitter->setStretchFactor(2, 1);
     
     layout->addWidget(splitter);
+    
+    connect(endianCombo_, QOverload<int>::of(&QComboBox::currentIndexChanged), this, &FrameAnalyzer::onEndianChanged);
+}
+
+void FrameAnalyzer::onEndianChanged(int index) {
+    switch(index) {
+        case 0: currentEndian_ = Modbus::Endianness::ABCD; break;
+        case 1: currentEndian_ = Modbus::Endianness::DCBA; break;
+        case 2: currentEndian_ = Modbus::Endianness::BADC; break;
+        case 3: currentEndian_ = Modbus::Endianness::CDAB; break;
+    }
+    if (!lastFrame_.data.empty()) {
+        analyze(lastFrame_);
+    }
 }
 
 void FrameAnalyzer::analyze(const RawFrame& frame) {
+    lastFrame_ = frame;
     hexBrowser_->clear();
     treeWidget_->clear();
     detailsBrowser_->clear();
@@ -96,11 +124,14 @@ void FrameAnalyzer::analyzePdu(QTreeWidgetItem* parent, uint8_t fc, const std::v
             int regCount = byteCount / 2;
             for (int i = 0; i < regCount; ++i) {
                 if (1 + i*2 + 1 < payload.size()) {
-                    uint16_t val = (payload[1 + i*2] << 8) | payload[1 + i*2 + 1];
+                    const uint8_t* ptr = &payload[1 + i*2];
+                    uint16_t val = Modbus::EndianUtils::toUInt16(ptr, currentEndian_);
+                    int16_t sVal = Modbus::EndianUtils::toInt16(ptr, currentEndian_);
+                    
                     new QTreeWidgetItem(parent, {
                         QString("Register %1").arg(i), 
                         QString("0x%1").arg(val, 4, 16, QChar('0')), 
-                        QString::number(val)
+                        QString("%1 / %2").arg(val).arg(sVal)
                     });
                 }
             }
@@ -110,8 +141,12 @@ void FrameAnalyzer::analyzePdu(QTreeWidgetItem* parent, uint8_t fc, const std::v
         case 0x06: // Write Single Register Request
         {
             if (payload.size() < 4) return;
-            uint16_t addr = (payload[0] << 8) | payload[1];
-            uint16_t val = (payload[2] << 8) | payload[3];
+            // Address is always Big Endian in Modbus Protocol itself
+            uint16_t addr = (payload[0] << 8) | payload[1]; 
+            
+            // Value might be interpreted with endianness if it's data
+            const uint8_t* valPtr = &payload[2];
+            uint16_t val = Modbus::EndianUtils::toUInt16(valPtr, currentEndian_);
             
             new QTreeWidgetItem(parent, {"Address", QString("0x%1").arg(addr, 4, 16, QChar('0')), QString::number(addr)});
             new QTreeWidgetItem(parent, {"Value", QString("0x%1").arg(val, 4, 16, QChar('0')), 
@@ -132,7 +167,9 @@ void FrameAnalyzer::analyzePdu(QTreeWidgetItem* parent, uint8_t fc, const std::v
             int regCount = bytes / 2;
             for (int i = 0; i < regCount; ++i) {
                 if (5 + i*2 + 1 < payload.size()) {
-                    uint16_t val = (payload[5 + i*2] << 8) | payload[5 + i*2 + 1];
+                    const uint8_t* ptr = &payload[5 + i*2];
+                    uint16_t val = Modbus::EndianUtils::toUInt16(ptr, currentEndian_);
+                    
                     new QTreeWidgetItem(parent, {
                         QString("Register %1").arg(i), 
                         QString("0x%1").arg(val, 4, 16, QChar('0')), 
