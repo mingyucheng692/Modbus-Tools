@@ -11,22 +11,46 @@ ModbusTcpClient::ModbusTcpClient(IChannel* channel, QObject* parent)
     connect(channel_, &IChannel::dataReceived, this, &ModbusTcpClient::onChannelDataReceived);
 }
 
-void ModbusTcpClient::sendRequest(uint8_t unitId, FunctionCode fc, uint16_t addr, uint16_t count) {
+void ModbusTcpClient::sendRequest(uint8_t unitId, FunctionCode fc, uint16_t addr, uint16_t count, const std::vector<uint8_t>& data) {
     uint16_t tid = nextTransactionId_++;
     
     // Build PDU
     std::vector<uint8_t> pdu;
     pdu.push_back(static_cast<uint8_t>(fc));
     
-    // Address & Count
+    // Address
     pdu.push_back(addr >> 8);
     pdu.push_back(addr & 0xFF);
     
     if (fc == FunctionCode::ReadHoldingRegisters || fc == FunctionCode::ReadInputRegisters || 
         fc == FunctionCode::ReadCoils || fc == FunctionCode::ReadDiscreteInputs) {
+        // Read Request: Addr + Count
         pdu.push_back(count >> 8);
         pdu.push_back(count & 0xFF);
-    } 
+    } else if (fc == FunctionCode::WriteSingleCoil || fc == FunctionCode::WriteSingleRegister) {
+        // Write Single: Addr + Value (2 bytes)
+        // For WriteSingle, 'count' parameter is used as 'value' usually, 
+        // OR we can use the first 2 bytes of 'data'. 
+        // Let's assume 'data' contains the 2 bytes value if provided, otherwise 'count' is used as value.
+        // But to be consistent with common APIs, WriteSingle takes "Address" and "Value".
+        // Here we reuse 'count' as 'value' for single write if data is empty.
+        
+        if (data.size() >= 2) {
+             pdu.push_back(data[0]);
+             pdu.push_back(data[1]);
+        } else {
+             pdu.push_back(count >> 8);
+             pdu.push_back(count & 0xFF);
+        }
+    } else if (fc == FunctionCode::WriteMultipleCoils || fc == FunctionCode::WriteMultipleRegisters) {
+        // Write Multiple: Addr + Count + ByteCount + Data
+        pdu.push_back(count >> 8);
+        pdu.push_back(count & 0xFF);
+        
+        uint8_t byteCount = static_cast<uint8_t>(data.size());
+        pdu.push_back(byteCount);
+        pdu.insert(pdu.end(), data.begin(), data.end());
+    }
 
     // Build ADU (MBAP + PDU)
     std::vector<uint8_t> adu;

@@ -6,7 +6,7 @@ ModbusRtuClient::ModbusRtuClient(IChannel* channel, QObject* parent) : QObject(p
     connect(channel_, &IChannel::dataReceived, this, &ModbusRtuClient::onDataReceived);
 }
 
-void ModbusRtuClient::sendRequest(uint8_t unitId, FunctionCode fc, uint16_t addr, uint16_t count) {
+void ModbusRtuClient::sendRequest(uint8_t unitId, FunctionCode fc, uint16_t addr, uint16_t count, const std::vector<uint8_t>& data) {
     std::vector<uint8_t> frame;
     frame.push_back(unitId);
     frame.push_back(static_cast<uint8_t>(fc));
@@ -18,6 +18,21 @@ void ModbusRtuClient::sendRequest(uint8_t unitId, FunctionCode fc, uint16_t addr
         fc == FunctionCode::ReadCoils || fc == FunctionCode::ReadDiscreteInputs) {
         frame.push_back(count >> 8);
         frame.push_back(count & 0xFF);
+    } else if (fc == FunctionCode::WriteSingleCoil || fc == FunctionCode::WriteSingleRegister) {
+        if (data.size() >= 2) {
+             frame.push_back(data[0]);
+             frame.push_back(data[1]);
+        } else {
+             frame.push_back(count >> 8);
+             frame.push_back(count & 0xFF);
+        }
+    } else if (fc == FunctionCode::WriteMultipleCoils || fc == FunctionCode::WriteMultipleRegisters) {
+        frame.push_back(count >> 8);
+        frame.push_back(count & 0xFF);
+        
+        uint8_t byteCount = static_cast<uint8_t>(data.size());
+        frame.push_back(byteCount);
+        frame.insert(frame.end(), data.begin(), data.end());
     }
     
     uint16_t crc = calculateCRC(frame);

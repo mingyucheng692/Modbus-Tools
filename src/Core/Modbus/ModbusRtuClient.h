@@ -10,7 +10,7 @@ class ModbusRtuClient : public QObject {
     Q_OBJECT
 public:
     explicit ModbusRtuClient(IChannel* channel, QObject* parent = nullptr);
-    void sendRequest(uint8_t unitId, FunctionCode fc, uint16_t addr, uint16_t count);
+    void sendRequest(uint8_t unitId, FunctionCode fc, uint16_t addr, uint16_t count, const std::vector<uint8_t>& data = {});
 
 signals:
     void responseReceived(uint8_t unitId, FunctionCode fc, const std::vector<uint8_t>& data);
