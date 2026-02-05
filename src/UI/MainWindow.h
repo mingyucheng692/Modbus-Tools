@@ -20,4 +20,5 @@ private:
 
     QDockWidget* connectionDock_;
     QDockWidget* logDock_;
+    QDockWidget* trafficDock_;
 };

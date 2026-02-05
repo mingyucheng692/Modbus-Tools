@@ -6,6 +6,7 @@
 #include <QStyleFactory>
 #include "Widgets/LogWidget.h"
 #include "Widgets/ConnectionDock.h"
+#include "Widgets/TrafficWidget.h"
 
 MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent) {
     initUI();
@@ -49,10 +50,20 @@ void MainWindow::createDocks() {
     logDock_->setWidget(logWidget);
     addDockWidget(Qt::BottomDockWidgetArea, logDock_);
     
+    // Traffic Dock
+    trafficDock_ = new QDockWidget("Traffic Monitor", this);
+    trafficDock_->setAllowedAreas(Qt::BottomDockWidgetArea | Qt::RightDockWidgetArea);
+    TrafficWidget* trafficWidget = new TrafficWidget(trafficDock_);
+    trafficDock_->setWidget(trafficWidget);
+    addDockWidget(Qt::BottomDockWidgetArea, trafficDock_);
+    
+    tabifyDockWidget(logDock_, trafficDock_);
+    
     // View Menu to toggle docks
     QMenu* viewMenu = menuBar()->addMenu("&View");
     viewMenu->addAction(connectionDock_->toggleViewAction());
     viewMenu->addAction(logDock_->toggleViewAction());
+    viewMenu->addAction(trafficDock_->toggleViewAction());
 }
 
 void MainWindow::createActions() {

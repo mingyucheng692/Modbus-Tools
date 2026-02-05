@@ -1,5 +1,6 @@
 #include "CoreWorker.h"
 #include <QThread>
+#include "Logging/TrafficLog.h"
 
 CoreWorker::CoreWorker(QObject* parent) : QObject(parent) {}
 
@@ -28,6 +29,23 @@ void CoreWorker::init() {
         spdlog::error("Core: Channel Error: {}", msg.toStdString());
     });
     
+    // Traffic Logging
+    connect(tcpChannel_, &TcpChannel::dataReceived, this, [](const std::vector<uint8_t>& data){
+        RawFrame frame;
+        frame.timestamp = std::chrono::system_clock::now();
+        frame.direction = Direction::Rx;
+        frame.data = data;
+        TrafficLog::instance().addFrame(frame);
+    });
+    
+    connect(tcpChannel_, &TcpChannel::dataSent, this, [](const std::vector<uint8_t>& data){
+        RawFrame frame;
+        frame.timestamp = std::chrono::system_clock::now();
+        frame.direction = Direction::Tx;
+        frame.data = data;
+        TrafficLog::instance().addFrame(frame);
+    });
+
     emit workerReady();
 }
 

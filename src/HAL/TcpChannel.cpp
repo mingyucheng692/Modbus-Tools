@@ -41,6 +41,9 @@ void TcpChannel::write(const char* data, size_t size) {
     if (state_ != ChannelState::Open) return;
     socket_->write(data, size);
     socket_->flush();
+    
+    std::vector<uint8_t> vec(data, data + size);
+    emit dataSent(vec);
 }
 
 ChannelState TcpChannel::state() const {

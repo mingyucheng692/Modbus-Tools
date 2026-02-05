@@ -31,4 +31,5 @@ signals:
     void closed();
     void errorOccurred(const QString& msg);
     void dataReceived(const std::vector<uint8_t>& data);
+    void dataSent(const std::vector<uint8_t>& data);
 };
