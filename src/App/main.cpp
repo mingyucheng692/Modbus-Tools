@@ -41,6 +41,11 @@ int main(int argc, char *argv[])
     QTimer::singleShot(1000, worker, &CoreWorker::testWorker);
 
     MainWindow w;
+    
+    // Wire UI -> Core
+    QObject::connect(&w, &MainWindow::requestConnectTcp, worker, &CoreWorker::connectTcp);
+    QObject::connect(&w, &MainWindow::requestDisconnect, worker, &CoreWorker::disconnect);
+    
     w.show();
 
     int ret = a.exec();

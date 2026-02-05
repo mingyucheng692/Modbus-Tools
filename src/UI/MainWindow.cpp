@@ -35,6 +35,9 @@ void MainWindow::createDocks() {
     connectionDock_->setAllowedAreas(Qt::LeftDockWidgetArea | Qt::RightDockWidgetArea);
     
     ConnectionDock* connWidget = new ConnectionDock(connectionDock_);
+    connect(connWidget, &ConnectionDock::connectTcp, this, &MainWindow::requestConnectTcp);
+    connect(connWidget, &ConnectionDock::disconnectRequested, this, &MainWindow::requestDisconnect);
+    
     connectionDock_->setWidget(connWidget);
     addDockWidget(Qt::LeftDockWidgetArea, connectionDock_);
 
@@ -78,6 +81,5 @@ void MainWindow::applyDarkTheme() {
     
     qApp->setPalette(p);
     
-    // Additional StyleSheet
     qApp->setStyleSheet("QToolTip { color: #ffffff; background-color: #2a82da; border: 1px solid white; }");
 }
