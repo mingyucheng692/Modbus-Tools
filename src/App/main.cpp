@@ -5,6 +5,7 @@
 #include <QTimer>
 #include "Core/Logging/LogManager.h"
 #include "Core/CoreWorker.h"
+#include "UI/MainWindow.h"
 
 int main(int argc, char *argv[])
 {
@@ -39,9 +40,7 @@ int main(int argc, char *argv[])
     // Send test command after 1s
     QTimer::singleShot(1000, worker, &CoreWorker::testWorker);
 
-    QMainWindow w;
-    w.setWindowTitle("Modbus-Tools (Dev)");
-    w.resize(800, 600);
+    MainWindow w;
     w.show();
 
     int ret = a.exec();
