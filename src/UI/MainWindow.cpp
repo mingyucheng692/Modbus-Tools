@@ -9,6 +9,8 @@
 #include "Widgets/TrafficWidget.h"
 #include "Widgets/WaveformWidget.h"
 #include "Core/Logging/TrafficLog.h"
+#include "Utils/LanguageManager.h"
+#include <QEvent>
 
 #include "Core/CoreWorker.h"
 #include "Core/Modbus/ModbusTcpClient.h"
@@ -100,10 +102,8 @@ void MainWindow::createDocks() {
     tabifyDockWidget(logDock_, trafficDock_);
     
     // View Menu to toggle docks
-    QMenu* viewMenu = menuBar()->addMenu("&View");
-    viewMenu->addAction(connectionDock_->toggleViewAction());
-    viewMenu->addAction(logDock_->toggleViewAction());
-    viewMenu->addAction(trafficDock_->toggleViewAction());
+    // QMenu* viewMenu = menuBar()->addMenu("&View"); // Moved to retranslateUi/createDocks logic
+    // ... actions ...
 
     // Waveform Dock
     waveformDock_ = new QDockWidget("Waveform Monitor", this);
@@ -112,7 +112,7 @@ void MainWindow::createDocks() {
     waveformDock_->setWidget(waveformWidget_);
     addDockWidget(Qt::RightDockWidgetArea, waveformDock_);
     
-    viewMenu->addAction(waveformDock_->toggleViewAction());
+    // viewMenu->addAction(waveformDock_->toggleViewAction());
     
     // Checksum Tool Dock
     checksumDock_ = new QDockWidget("Checksum Tool", this);
@@ -120,7 +120,7 @@ void MainWindow::createDocks() {
     checksumWidget_ = new ChecksumWidget(this);
     checksumDock_->setWidget(checksumWidget_);
     addDockWidget(Qt::RightDockWidgetArea, checksumDock_);
-    viewMenu->addAction(checksumDock_->toggleViewAction());
+    // viewMenu->addAction(checksumDock_->toggleViewAction());
     
     // Stack Checksum with Waveform initially
     tabifyDockWidget(waveformDock_, checksumDock_);
@@ -172,16 +172,68 @@ void MainWindow::onResponseReceived(uint16_t transactionId, uint8_t unitId, Modb
 extern MainWindow* createNewWindow();
 
 void MainWindow::createActions() {
-    QMenu* fileMenu = menuBar()->addMenu("&File");
+    menuBar()->clear(); // Clear existing menus before creating/recreating
     
-    QAction* newWinAct = fileMenu->addAction("&New Window");
+    QMenu* fileMenu = menuBar()->addMenu(tr("&File"));
+    
+    QAction* newWinAct = fileMenu->addAction(tr("&New Window"));
     newWinAct->setShortcut(QKeySequence::New);
     connect(newWinAct, &QAction::triggered, [](){
         createNewWindow();
     });
     
     fileMenu->addSeparator();
-    fileMenu->addAction("E&xit", qApp, &QApplication::quit);
+    fileMenu->addAction(tr("E&xit"), qApp, &QApplication::quit);
+    
+    // Settings Menu
+    QMenu* settingsMenu = menuBar()->addMenu(tr("&Settings"));
+    QMenu* langMenu = settingsMenu->addMenu(tr("&Language"));
+    
+    QAction* actEn = langMenu->addAction("English");
+    connect(actEn, &QAction::triggered, [](){
+        LanguageManager::instance().loadLanguage("en_US");
+    });
+    
+    QAction* actZhCN = langMenu->addAction(QString::fromUtf8("简体中文"));
+    connect(actZhCN, &QAction::triggered, [](){
+        LanguageManager::instance().loadLanguage("zh_CN");
+    });
+    
+    QAction* actZhTW = langMenu->addAction(QString::fromUtf8("繁體中文"));
+    connect(actZhTW, &QAction::triggered, [](){
+        LanguageManager::instance().loadLanguage("zh_TW");
+    });
+}
+
+void MainWindow::changeEvent(QEvent* event) {
+    if (event->type() == QEvent::LanguageChange) {
+        retranslateUi();
+    }
+    QMainWindow::changeEvent(event);
+}
+
+void MainWindow::retranslateUi() {
+    // Refresh main window titles and menus
+    setWindowTitle(tr("Modbus-Tools (Re-Impl)"));
+    statusLabel_->setText(tr("Ready"));
+    
+    // Rebuild Menus
+    createActions();
+    
+    // Re-add View Menu actions (since we cleared menuBar)
+    QMenu* viewMenu = menuBar()->addMenu(tr("&View"));
+    viewMenu->addAction(connectionDock_->toggleViewAction());
+    viewMenu->addAction(logDock_->toggleViewAction());
+    viewMenu->addAction(trafficDock_->toggleViewAction());
+    viewMenu->addAction(waveformDock_->toggleViewAction());
+    viewMenu->addAction(checksumDock_->toggleViewAction());
+    
+    // Refresh Docks
+    connectionDock_->setWindowTitle(tr("Connection"));
+    logDock_->setWindowTitle(tr("Logs / Console"));
+    trafficDock_->setWindowTitle(tr("Traffic Monitor"));
+    waveformDock_->setWindowTitle(tr("Waveform Monitor"));
+    checksumDock_->setWindowTitle(tr("Checksum Tool"));
 }
 
 void MainWindow::applyDarkTheme() {

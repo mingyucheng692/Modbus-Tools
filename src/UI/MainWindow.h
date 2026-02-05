@@ -36,8 +36,12 @@ private slots:
     void onWorkerReady();
     void onResponseReceived(uint16_t transactionId, uint8_t unitId, Modbus::FunctionCode fc, const std::vector<uint8_t>& data, int responseTimeMs, uint16_t startAddr);
 
+protected:
+    void changeEvent(QEvent* event) override;
+
 private:
     void setupUi();
+    void retranslateUi();
     void createDocks();
     void createActions();
     void applyDarkTheme();
