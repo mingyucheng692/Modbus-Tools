@@ -48,10 +48,12 @@ void TcpChannel::write(const std::vector<uint8_t>& data) {
         QTimer::singleShot(delay, this, [this, data]() {
             if (socket_->state() == QAbstractSocket::ConnectedState) {
                 socket_->write(reinterpret_cast<const char*>(data.data()), data.size());
+                emit dataSent(data); // Emit dataSent after writing
             }
         });
     } else {
         socket_->write(reinterpret_cast<const char*>(data.data()), data.size());
+        emit dataSent(data); // Emit dataSent after writing
     }
 }
 
