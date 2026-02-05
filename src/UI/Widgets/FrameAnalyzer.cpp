@@ -1,6 +1,7 @@
 #include "FrameAnalyzer.h"
 #include <QHBoxLayout>
 #include <QSplitter>
+#include <QRegularExpression>
 #include <iomanip>
 #include <sstream>
 
@@ -15,6 +16,14 @@ FrameAnalyzer::FrameAnalyzer(QWidget* parent) : QWidget(parent) {
     QVBoxLayout* rightLayout = new QVBoxLayout(rightPanel);
     rightLayout->setContentsMargins(0, 0, 0, 0);
     
+    // Input Area
+    QHBoxLayout* inputLayout = new QHBoxLayout();
+    inputEdit_ = new QLineEdit(rightPanel);
+    inputEdit_->setPlaceholderText("Paste Hex Frame (e.g. 01 03 00 00 00 01 ...)");
+    analyzeBtn_ = new QPushButton("Analyze", rightPanel);
+    inputLayout->addWidget(inputEdit_);
+    inputLayout->addWidget(analyzeBtn_);
+    
     endianCombo_ = new QComboBox(rightPanel);
     endianCombo_->addItem("Big Endian (ABCD)", 0);
     endianCombo_->addItem("Little Endian (DCBA)", 1);
@@ -24,6 +33,7 @@ FrameAnalyzer::FrameAnalyzer(QWidget* parent) : QWidget(parent) {
     treeWidget_ = new QTreeWidget(rightPanel);
     treeWidget_->setHeaderLabels({"Field", "Value", "Description"});
     
+    rightLayout->addLayout(inputLayout);
     rightLayout->addWidget(endianCombo_);
     rightLayout->addWidget(treeWidget_);
     
@@ -36,6 +46,29 @@ FrameAnalyzer::FrameAnalyzer(QWidget* parent) : QWidget(parent) {
     layout->addWidget(splitter);
     
     connect(endianCombo_, QOverload<int>::of(&QComboBox::currentIndexChanged), this, &FrameAnalyzer::onEndianChanged);
+    connect(analyzeBtn_, &QPushButton::clicked, this, &FrameAnalyzer::onAnalyzeClicked);
+}
+
+void FrameAnalyzer::onAnalyzeClicked() {
+    QString text = inputEdit_->text().trimmed();
+    if (text.isEmpty()) return;
+    
+    // Parse Hex String
+    QStringList parts = text.split(QRegularExpression("\\s+"), Qt::SkipEmptyParts);
+    std::vector<uint8_t> data;
+    for (const QString& part : parts) {
+        bool ok;
+        uint8_t b = static_cast<uint8_t>(part.toUInt(&ok, 16));
+        if (ok) data.push_back(b);
+    }
+    
+    if (!data.empty()) {
+        RawFrame frame;
+        frame.data = data;
+        frame.timestamp = std::chrono::system_clock::now();
+        frame.direction = Direction::Rx; // Assume RX for manual analysis
+        analyze(frame);
+    }
 }
 
 void FrameAnalyzer::onEndianChanged(int index) {

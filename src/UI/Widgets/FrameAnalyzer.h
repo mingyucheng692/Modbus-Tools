@@ -3,6 +3,8 @@
 #include <QTreeWidget>
 #include <QTextBrowser>
 #include <QComboBox>
+#include <QLineEdit>
+#include <QPushButton>
 #include "Core/Modbus/RawFrame.h"
 #include "Core/Modbus/EndianUtils.h"
 
@@ -15,10 +17,13 @@ public:
 
 private slots:
     void onEndianChanged(int index);
+    void onAnalyzeClicked();
 
 private:
     void analyzePdu(QTreeWidgetItem* parent, uint8_t fc, const std::vector<uint8_t>& payload);
 
+    QLineEdit* inputEdit_;
+    QPushButton* analyzeBtn_;
     QTreeWidget* treeWidget_;
     QTextBrowser* detailsBrowser_;
     QTextBrowser* hexBrowser_;
