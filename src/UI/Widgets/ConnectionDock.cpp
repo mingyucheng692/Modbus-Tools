@@ -68,7 +68,7 @@ ConnectionDock::ConnectionDock(QWidget* parent) : QWidget(parent) {
     settingsStack_->addWidget(rtuWidget_);
     
     // 3. Generic TCP Page (Reuse TCP widget for now, or clone)
-    settingsStack_->addWidget(tcpWidget_); 
+    // settingsStack_->addWidget(tcpWidget_); // Do NOT add again, it moves the widget!
     
     connLayout->addWidget(new QLabel("Type:"));
     connLayout->addWidget(typeCombo_);
@@ -130,11 +130,15 @@ ConnectionDock::ConnectionDock(QWidget* parent) : QWidget(parent) {
 void ConnectionDock::onTypeChanged(int index) {
     // 0: Modbus TCP, 1: Modbus RTU, 2: Generic TCP
     if (index == 2) {
-        settingsStack_->setCurrentIndex(0); // Use TCP settings
+        settingsStack_->setCurrentWidget(tcpWidget_); // Reuse TCP settings
         senderStack_->setCurrentWidget(genericSender_);
         emit modeChanged(1); // Generic
-    } else {
-        settingsStack_->setCurrentIndex(index);
+    } else if (index == 0) {
+        settingsStack_->setCurrentWidget(tcpWidget_);
+        senderStack_->setCurrentWidget(controlWidget_);
+        emit modeChanged(0); // Modbus
+    } else { // RTU
+        settingsStack_->setCurrentWidget(rtuWidget_);
         senderStack_->setCurrentWidget(controlWidget_);
         emit modeChanged(0); // Modbus
     }
