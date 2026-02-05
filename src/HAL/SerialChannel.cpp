@@ -15,9 +15,12 @@ SerialChannel::~SerialChannel() {
     close();
 }
 
-void SerialChannel::setConnectionSettings(const QString& portName, int baudRate) {
+void SerialChannel::setConnectionSettings(const QString& portName, int baudRate, int dataBits, int stopBits, int parity) {
     portName_ = portName;
     baudRate_ = baudRate;
+    dataBits_ = dataBits;
+    stopBits_ = stopBits;
+    parity_ = parity;
 }
 
 void SerialChannel::open() {
@@ -25,9 +28,11 @@ void SerialChannel::open() {
     
     serial_->setPortName(portName_);
     serial_->setBaudRate(baudRate_);
-    serial_->setDataBits(QSerialPort::Data8);
-    serial_->setParity(QSerialPort::NoParity);
-    serial_->setStopBits(QSerialPort::OneStop);
+    
+    // Map settings
+    serial_->setDataBits(static_cast<QSerialPort::DataBits>(dataBits_));
+    serial_->setStopBits(static_cast<QSerialPort::StopBits>(stopBits_));
+    serial_->setParity(static_cast<QSerialPort::Parity>(parity_));
     serial_->setFlowControl(QSerialPort::NoFlowControl);
     
     if (serial_->open(QIODevice::ReadWrite)) {

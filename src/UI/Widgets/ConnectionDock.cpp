@@ -53,7 +53,9 @@ ConnectionDock::ConnectionDock(QWidget* parent) : QWidget(parent) {
     dataCombo_->addItems({"8", "7"});
     
     stopCombo_ = new QComboBox(this);
-    stopCombo_->addItems({"1", "1.5", "2"});
+    stopCombo_->addItem("1", 1);
+    stopCombo_->addItem("1.5", 3);
+    stopCombo_->addItem("2", 2);
     
     parityCombo_ = new QComboBox(this);
     parityCombo_->addItem("None", 0);
@@ -176,7 +178,7 @@ void ConnectionDock::onConnectClicked() {
                 portCombo_->currentText(),
                 baudCombo_->currentText().toInt(),
                 dataCombo_->currentText().toInt(),
-                stopCombo_->currentText().toInt(), // Simplified mapping
+                stopCombo_->currentData().toInt(), 
                 parityCombo_->currentData().toInt()
             );
         }

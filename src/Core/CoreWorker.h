@@ -2,7 +2,9 @@
 #include <QObject>
 #include <spdlog/spdlog.h>
 #include "HAL/TcpChannel.h"
+#include "HAL/SerialChannel.h"
 #include "Modbus/ModbusTcpClient.h"
+#include "Modbus/ModbusRtuClient.h"
 
 class CoreWorker : public QObject {
     Q_OBJECT
@@ -16,6 +18,8 @@ public slots:
     void testWorker();
     
     void connectTcp(const QString& ip, int port);
+    void connectRtu(const QString& portName, int baudRate, int dataBits, int stopBits, int parity);
+    void connectSerial(const QString& portName, int baudRate, int dataBits, int stopBits, int parity);
     void disconnect();
     void sendRequest(int slaveId, int funcCode, int startAddr, int count, const QString& dataHex);
     void setPolling(bool enabled, int intervalMs);
@@ -39,6 +43,10 @@ private slots:
 private:
     TcpChannel* tcpChannel_ = nullptr;
     Modbus::ModbusTcpClient* modbusClient_ = nullptr;
+
+    SerialChannel* serialChannel_ = nullptr;
+    Modbus::ModbusRtuClient* rtuClient_ = nullptr;
+    IChannel* activeChannel_ = nullptr;
     
     QTimer* pollTimer_ = nullptr;
     struct PollRequest {

@@ -9,7 +9,7 @@ public:
     explicit SerialChannel(QObject* parent = nullptr);
     ~SerialChannel() override;
 
-    void setConnectionSettings(const QString& portName, int baudRate);
+    void setConnectionSettings(const QString& portName, int baudRate, int dataBits, int stopBits, int parity);
 
     void open() override;
     void close() override;
@@ -32,4 +32,7 @@ private:
     
     QString portName_ = "COM1";
     int baudRate_ = 9600;
+    int dataBits_ = 8;
+    int stopBits_ = 1;
+    int parity_ = 0; // 0:None, 2:Even, 3:Odd
 };

@@ -18,45 +18,53 @@ void CoreWorker::init() {
     tcpChannel_ = new TcpChannel(this);
     modbusClient_ = new Modbus::ModbusTcpClient(tcpChannel_, this);
     
-    connect(tcpChannel_, &TcpChannel::opened, this, [this](){
-        emit connectionStateChanged(true);
-        spdlog::info("Core: Connection Established");
-    });
+    serialChannel_ = new SerialChannel(this);
+    rtuClient_ = new Modbus::ModbusRtuClient(serialChannel_, this);
     
-    connect(tcpChannel_, &TcpChannel::closed, this, [this](){
-        emit connectionStateChanged(false);
-        spdlog::info("Core: Connection Closed");
-    });
-    
-    connect(tcpChannel_, &TcpChannel::errorOccurred, this, [this](const QString& msg){
-        emit errorOccurred(msg);
-        spdlog::error("Core: Channel Error: {}", msg.toStdString());
-    });
-    
-    // Traffic Logging
-    connect(tcpChannel_, &TcpChannel::dataReceived, this, [](const std::vector<uint8_t>& data){
-        RawFrame frame;
-        frame.timestamp = std::chrono::system_clock::now();
-        frame.direction = Direction::Rx;
-        frame.data = data;
-        TrafficLog::instance().addFrame(frame);
-    });
-    
-    connect(tcpChannel_, &TcpChannel::dataSent, this, [](const std::vector<uint8_t>& data){
-        RawFrame frame;
-        frame.timestamp = std::chrono::system_clock::now();
-        frame.direction = Direction::Tx;
-        frame.data = data;
-        TrafficLog::instance().addFrame(frame);
-    });
+    auto wireChannel = [this](IChannel* channel, const QString& name) {
+        connect(channel, &IChannel::opened, this, [this, name](){
+            emit connectionStateChanged(true);
+            spdlog::info("Core: {} Connection Established", name.toStdString());
+        });
+        
+        connect(channel, &IChannel::closed, this, [this, name](){
+            emit connectionStateChanged(false);
+            spdlog::info("Core: {} Connection Closed", name.toStdString());
+        });
+        
+        connect(channel, &IChannel::errorOccurred, this, [this, name](const QString& msg){
+            emit errorOccurred(name + ": " + msg);
+            spdlog::error("Core: {} Error: {}", name.toStdString(), msg.toStdString());
+        });
+        
+        // Traffic Logging
+        connect(channel, &IChannel::dataReceived, this, [](const std::vector<uint8_t>& data){
+            RawFrame frame;
+            frame.timestamp = std::chrono::system_clock::now();
+            frame.direction = Direction::Rx;
+            frame.data = data;
+            TrafficLog::instance().addFrame(frame);
+        });
+        
+        connect(channel, &IChannel::dataSent, this, [](const std::vector<uint8_t>& data){
+            RawFrame frame;
+            frame.timestamp = std::chrono::system_clock::now();
+            frame.direction = Direction::Tx;
+            frame.data = data;
+            TrafficLog::instance().addFrame(frame);
+        });
+    };
+
+    wireChannel(tcpChannel_, "TCP");
+    wireChannel(serialChannel_, "Serial");
 
     emit workerReady();
 }
 
 void CoreWorker::cleanup() {
     spdlog::info("CoreWorker Cleanup");
-    if (tcpChannel_) {
-        tcpChannel_->close();
+    if (activeChannel_) {
+        activeChannel_->close();
     }
 }
 
@@ -66,15 +74,28 @@ void CoreWorker::testWorker() {
 }
 
 void CoreWorker::connectTcp(const QString& ip, int port) {
-    if (tcpChannel_) {
-        tcpChannel_->setConnectionSettings(ip, port);
-        tcpChannel_->open();
-    }
+    disconnect();
+    tcpChannel_->setConnectionSettings(ip, port);
+    activeChannel_ = tcpChannel_;
+    tcpChannel_->open();
+}
+
+void CoreWorker::connectRtu(const QString& portName, int baudRate, int dataBits, int stopBits, int parity) {
+    disconnect();
+    serialChannel_->setConnectionSettings(portName, baudRate, dataBits, stopBits, parity);
+    activeChannel_ = serialChannel_;
+    serialChannel_->open();
+}
+
+void CoreWorker::connectSerial(const QString& portName, int baudRate, int dataBits, int stopBits, int parity) {
+    // Same as RTU physically
+    connectRtu(portName, baudRate, dataBits, stopBits, parity);
 }
 
 void CoreWorker::disconnect() {
-    if (tcpChannel_) {
-        tcpChannel_->close();
+    if (activeChannel_) {
+        activeChannel_->close();
+        activeChannel_ = nullptr;
     }
 }
 
@@ -82,8 +103,8 @@ void CoreWorker::disconnect() {
 #include <iomanip>
 
 void CoreWorker::sendRequest(int slaveId, int funcCode, int startAddr, int count, const QString& dataHex) {
-    if (!tcpChannel_ || tcpChannel_->state() != ChannelState::Open) {
-        spdlog::warn("Core: Channel not open, cannot send request");
+    if (!activeChannel_ || activeChannel_->state() != ChannelState::Open) {
+        spdlog::warn("Core: No active channel, cannot send request");
         return;
     }
     
@@ -98,16 +119,22 @@ void CoreWorker::sendRequest(int slaveId, int funcCode, int startAddr, int count
         }
     }
     
-    // Check if ModbusTCP or RTU (Currently we only have ModbusTcpClient wired up fully in init)
-    // Ideally we should switch between clients based on channel type.
-    // For now assuming TCP for the screenshot context.
-    
-    if (modbusClient_) {
-        modbusClient_->sendRequest(static_cast<uint8_t>(slaveId), 
-                                   static_cast<Modbus::FunctionCode>(funcCode), 
-                                   static_cast<uint16_t>(startAddr), 
-                                   static_cast<uint16_t>(count), 
-                                   data);
+    if (activeChannel_ == tcpChannel_) {
+        if (modbusClient_) {
+            modbusClient_->sendRequest(static_cast<uint8_t>(slaveId), 
+                                    static_cast<Modbus::FunctionCode>(funcCode), 
+                                    static_cast<uint16_t>(startAddr), 
+                                    static_cast<uint16_t>(count), 
+                                    data);
+        }
+    } else if (activeChannel_ == serialChannel_) {
+        if (rtuClient_) {
+            rtuClient_->sendRequest(static_cast<uint8_t>(slaveId), 
+                                    static_cast<Modbus::FunctionCode>(funcCode), 
+                                    static_cast<uint16_t>(startAddr), 
+                                    static_cast<uint16_t>(count), 
+                                    data);
+        }
     }
     
     // Store for polling
@@ -126,23 +153,23 @@ void CoreWorker::setPolling(bool enabled, int intervalMs) {
 }
 
 void CoreWorker::setSimulation(int dropRate, int minDelay, int maxDelay) {
-    if (tcpChannel_) {
-        tcpChannel_->setSimulation(dropRate, minDelay, maxDelay);
+    if (activeChannel_) {
+        activeChannel_->setSimulation(dropRate, minDelay, maxDelay);
         spdlog::info("Core: Simulation updated - Drop: {}%, Delay: {}-{}ms", dropRate, minDelay, maxDelay);
     }
 }
 
 void CoreWorker::sendRaw(const std::vector<uint8_t>& data) {
-    if (!tcpChannel_ || tcpChannel_->state() != ChannelState::Open) {
-        spdlog::warn("Core: Channel not open, cannot send raw data");
+    if (!activeChannel_ || activeChannel_->state() != ChannelState::Open) {
+        spdlog::warn("Core: No active channel, cannot send raw data");
         return;
     }
-    tcpChannel_->write(data);
+    activeChannel_->write(data);
 }
 
 void CoreWorker::onPollTimeout() {
     // Repeat last request
-    if (tcpChannel_ && tcpChannel_->state() == ChannelState::Open) {
+    if (activeChannel_ && activeChannel_->state() == ChannelState::Open) {
         sendRequest(lastRequest_.slaveId, lastRequest_.funcCode, 
                     lastRequest_.startAddr, lastRequest_.count, lastRequest_.dataHex);
     }
