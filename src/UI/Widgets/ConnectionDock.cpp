@@ -26,9 +26,17 @@ ConnectionDock::ConnectionDock(QWidget* parent) : QWidget(parent) {
     
     mainLayout->addWidget(tcpGroup);
     mainLayout->addWidget(connectBtn_);
+    
+    // Add Control Widget
+    controlWidget_ = new ControlWidget(this);
+    mainLayout->addWidget(controlWidget_);
+    
     mainLayout->addStretch();
     
     connect(connectBtn_, &QPushButton::clicked, this, &ConnectionDock::onConnectClicked);
+    
+    connect(controlWidget_, &ControlWidget::sendRequest, this, &ConnectionDock::sendRequest);
+    connect(controlWidget_, &ControlWidget::pollToggled, this, &ConnectionDock::pollToggled);
 }
 
 void ConnectionDock::onConnectClicked() {
