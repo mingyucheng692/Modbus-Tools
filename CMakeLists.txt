@@ -9,10 +9,19 @@ set(CMAKE_AUTOMOC ON)
 set(CMAKE_AUTORCC ON)
 set(CMAKE_AUTOUIC ON)
 
+option(MODBUSTOOLS_ENABLE_PCH "Enable precompiled headers" ON)
+
+if(MSVC)
+    add_compile_options(/MP)
+endif()
+
 # Qt 6
 find_package(Qt6 REQUIRED COMPONENTS Widgets Network SerialPort Charts)
 
 # spdlog
+if(MODBUSTOOLS_ENABLE_PCH)
+    set(SPDLOG_ENABLE_PCH ON CACHE BOOL "Enable spdlog precompiled headers" FORCE)
+endif()
 add_subdirectory(third_party/spdlog)
 
 # Output directories

@@ -23,6 +23,10 @@ qt6_add_resources(RESOURCES "${CMAKE_SOURCE_DIR}/resources/resources.qrc")
 
 add_executable(ModbusTools ${SOURCES} ${QM_FILES} ${RESOURCES})
 
+if(COMMAND target_precompile_headers AND MODBUSTOOLS_ENABLE_PCH)
+    target_precompile_headers(ModbusTools PRIVATE "${CMAKE_SOURCE_DIR}/src/pch.h")
+endif()
+
 target_link_libraries(ModbusTools PRIVATE
     Qt6::Widgets
     Qt6::Network
