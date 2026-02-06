@@ -1,7 +1,29 @@
-# Modbus-Tools (工业级调试套件)
+# Modbus-Tools
+[English](README.md) | [简体中文](README_zh_CN.md) | [繁體中文](README_zh_TW.md)
+[![spdlog](https://img.shields.io/badge/spdlog-logging-blue?logo=github)](https://github.com/gabime/spdlog)
 
-## 简介
-Modbus-Tools 是一款基于 C++20 和 Qt 6 开发的高性能工业级 Modbus TCP/RTU 调试工具。它采用现代化的 Docking 界面设计，集成了实时波形监控、深度协议分析器及物理层模拟功能。
+基于 C++20 与 Qt 6 的工业级 Modbus TCP/RTU 调试套件，面向高性能与工程化调试场景。本项目为个人业余时间开发，特别感谢 spdlog。
+
+## 安装
+### 环境要求
+- **编译器**: MSVC 2019+ (需支持 C++20)
+- **框架**: Qt 6.x (包含 Widgets, Network, SerialPort, Charts 模块)
+- **构建系统**: CMake 3.16+
+- **第三方库**: spdlog (已包含在工程中)
+
+### 源码编译
+```bash
+cmake -B build -G "Visual Studio 17 2022" -A x64
+cmake --build build --config Release
+```
+
+### 运行
+```bash
+./build/bin/Release/ModbusTools.exe
+```
+
+## 支持平台
+- Windows (MSVC 2019+, x64)
 
 ## 核心特性
 - **多协议支持**: 完整支持 Modbus TCP、Modbus RTU 以及通用 TCP/串口调试模式。
@@ -11,30 +33,7 @@ Modbus-Tools 是一款基于 C++20 和 Qt 6 开发的高性能工业级 Modbus T
 - **波形监控**: 支持右键将寄存器数值添加到示波器进行实时曲线绘制。
 - **物理模拟**: 支持模拟丢包率与网络延迟，用于测试系统的健壮性。
 
-## 编译指南
-
-### 环境要求
-- **编译器**: MSVC 2019+ (需支持 C++20)
-- **框架**: Qt 6.x (包含 Widgets, Network, SerialPort, Charts 模块)
-- **构建系统**: CMake 3.16+
-- **第三方库**: spdlog (已包含在工程中)
-
-### 编译步骤
-1. 在 VS Code 或终端中打开项目目录。
-2. 配置 CMake:
-   ```bash
-   cmake -B build -G "Visual Studio 17 2022" -A x64
-   ```
-3. 执行编译:
-   ```bash
-   cmake --build build --config Release
-   ```
-4. 运行程序:
-   ```bash
-   ./build/bin/Release/ModbusTools.exe
-   ```
-
-## 使用说明
+## 使用示例
 1. **连接设置**: 在左侧 "Connection" 面板选择协议类型 (TCP/RTU)，配置相应参数并连接。
 2. **指令发送**: 使用中间的控制面板发送 Modbus 读写请求。
 3. **报文分析**: "Traffic Monitor" 显示原始流量，"Frame Analyzer" 提供深度解析。
