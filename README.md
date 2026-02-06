@@ -13,8 +13,7 @@ Fast industrial Modbus TCP/RTU debugging suite built with C++20 and Qt 6. This p
 
 ### Build from source
 ```bash
-cmake -B build -G "Visual Studio 17 2022" -A x64
-cmake --build build --config Release
+cmake -S . -B build;cmake --build build --config Release --parallel
 ```
 
 ### Run

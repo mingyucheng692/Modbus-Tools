@@ -13,8 +13,7 @@
 
 ### 源码编译
 ```bash
-cmake -B build -G "Visual Studio 17 2022" -A x64
-cmake --build build --config Release
+cmake -S . -B build;cmake --build build --config Release --parallel
 ```
 
 ### 运行
