@@ -1,0 +1,53 @@
+# Build directories
+build/
+bin/
+lib/
+out/
+
+# CMake
+CMakeCache.txt
+CMakeFiles/
+cmake_install.cmake
+Makefile
+*.cmake
+!CMakeLists.txt
+!cmake/*.cmake
+
+# Qt
+*.user
+*.user.*
+*.qch
+*.qrc_*.cpp
+*.ui_*.h
+*.moc
+moc_*.cpp
+ui_*.h
+qrc_*.cpp
+
+# Visual Studio / VS Code
+.vscode/
+.vs/
+*.sln
+*.vcxproj
+*.vcxproj.filters
+*.vcxproj.user
+*.suo
+*.sdf
+*.opensdf
+*.tlog
+*.idb
+
+# Output files
+*.exe
+*.dll
+*.lib
+*.pdb
+*.obj
+*.ilk
+*.exp
+*.o
+*.a
+
+# Logs
+*.log
+logs/
