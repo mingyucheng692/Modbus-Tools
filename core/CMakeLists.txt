@@ -2,6 +2,7 @@ add_library(core STATIC)
 
 target_sources(core PRIVATE
     logging/Logger.cpp
+    io/ChannelBase.cpp
 )
 
 target_link_libraries(core PUBLIC
