@@ -3,6 +3,10 @@ add_library(core STATIC)
 target_sources(core PRIVATE
     logging/Logger.cpp
     io/ChannelBase.cpp
+    # modbus base
+    modbus/base/ModbusTypes.h
+    modbus/base/ModbusFrame.h
+    modbus/base/ModbusConfig.h
 )
 
 target_link_libraries(core PUBLIC
