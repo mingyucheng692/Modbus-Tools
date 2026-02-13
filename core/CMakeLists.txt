@@ -13,6 +13,10 @@ target_sources(core PRIVATE
     modbus/transport/RtuTransport.cpp
     modbus/transport/TcpTransport.h
     modbus/transport/TcpTransport.cpp
+    # modbus session
+    modbus/session/IModbusClient.h
+    modbus/session/ModbusClient.h
+    modbus/session/ModbusClient.cpp
 )
 
 target_link_libraries(core PUBLIC
