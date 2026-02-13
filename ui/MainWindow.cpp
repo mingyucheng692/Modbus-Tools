@@ -1,6 +1,7 @@
 #include "MainWindow.h"
 #include "views/tcp/TcpView.h"
 #include "views/rtu/RtuView.h"
+#include "common/Theme.h"
 #include <QStackedWidget>
 #include <QListWidget>
 #include <QHBoxLayout>
@@ -53,21 +54,8 @@ void MainWindow::createNavigation() {
     navigationList_->addItem("Modbus RTU");
     
     // Style the navigation list a bit
-    navigationList_->setStyleSheet(R"(
-        QListWidget {
-            background-color: #2b2b2b;
-            color: #dcdcdc;
-            border: none;
-            font-size: 14px;
-        }
-        QListWidget::item {
-            padding: 15px;
-        }
-        QListWidget::item:selected {
-            background-color: #3d3d3d;
-            border-left: 4px solid #3daee9;
-        }
-    )");
+    // Use light theme by default for now
+    navigationList_->setStyleSheet(common::Theme::getNavigationStyle(false));
 }
 
 } // namespace ui
