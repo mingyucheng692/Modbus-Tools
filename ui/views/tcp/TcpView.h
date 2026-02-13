@@ -5,6 +5,11 @@
 class QVBoxLayout;
 class QLabel;
 
+namespace ui::widgets {
+    class TcpConnectionWidget;
+    class FunctionWidget;
+}
+
 namespace ui::views::tcp {
 
 class TcpView : public QWidget {
@@ -18,7 +23,8 @@ private:
     void setupUi();
 
     QVBoxLayout* mainLayout_ = nullptr;
-    QLabel* titleLabel_ = nullptr;
+    ui::widgets::TcpConnectionWidget* connectionWidget_ = nullptr;
+    ui::widgets::FunctionWidget* functionWidget_ = nullptr;
 };
 
 } // namespace ui::views::tcp

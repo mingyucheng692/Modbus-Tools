@@ -9,6 +9,8 @@ target_sources(ui PRIVATE
     MainWindow.cpp
     views/tcp/TcpView.cpp
     views/rtu/RtuView.cpp
+    widgets/TcpConnectionWidget.cpp
+    widgets/FunctionWidget.cpp
 )
 
 target_link_libraries(ui PUBLIC
