@@ -17,6 +17,11 @@ target_sources(core PRIVATE
     modbus/session/IModbusClient.h
     modbus/session/ModbusClient.h
     modbus/session/ModbusClient.cpp
+    # modbus dispatch
+    modbus/dispatch/ModbusCommand.h
+    modbus/dispatch/CommandQueue.h
+    modbus/dispatch/ModbusWorker.h
+    modbus/dispatch/ModbusWorker.cpp
 )
 
 target_link_libraries(core PUBLIC
