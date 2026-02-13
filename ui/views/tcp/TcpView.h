@@ -8,6 +8,7 @@ class QLabel;
 namespace ui::widgets {
     class TcpConnectionWidget;
     class FunctionWidget;
+    class TrafficMonitorWidget;
 }
 
 namespace ui::views::tcp {
@@ -25,6 +26,7 @@ private:
     QVBoxLayout* mainLayout_ = nullptr;
     ui::widgets::TcpConnectionWidget* connectionWidget_ = nullptr;
     ui::widgets::FunctionWidget* functionWidget_ = nullptr;
+    ui::widgets::TrafficMonitorWidget* trafficMonitor_ = nullptr;
 };
 
 } // namespace ui::views::tcp

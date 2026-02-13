@@ -11,6 +11,7 @@ target_sources(ui PRIVATE
     views/rtu/RtuView.cpp
     widgets/TcpConnectionWidget.cpp
     widgets/FunctionWidget.cpp
+    widgets/TrafficMonitorWidget.cpp
 )
 
 target_link_libraries(ui PUBLIC
