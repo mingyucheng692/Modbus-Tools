@@ -7,6 +7,12 @@ target_sources(core PRIVATE
     modbus/base/ModbusTypes.h
     modbus/base/ModbusFrame.h
     modbus/base/ModbusConfig.h
+    # modbus transport
+    modbus/transport/ITransport.h
+    modbus/transport/RtuTransport.h
+    modbus/transport/RtuTransport.cpp
+    modbus/transport/TcpTransport.h
+    modbus/transport/TcpTransport.cpp
 )
 
 target_link_libraries(core PUBLIC
