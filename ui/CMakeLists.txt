@@ -1,7 +1,14 @@
+set(CMAKE_AUTOMOC ON)
+set(CMAKE_AUTOUIC ON)
+set(CMAKE_AUTORCC ON)
+
 add_library(ui STATIC)
 
 target_sources(ui PRIVATE
     common/Theme.cpp
+    MainWindow.cpp
+    views/tcp/TcpView.cpp
+    views/rtu/RtuView.cpp
 )
 
 target_link_libraries(ui PUBLIC

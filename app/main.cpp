@@ -1,6 +1,5 @@
 #include <QApplication>
-#include <QMainWindow>
-
+#include "MainWindow.h"
 #include "logging/Logger.h"
 
 int main(int argc, char *argv[])
@@ -9,9 +8,7 @@ int main(int argc, char *argv[])
     
     logging::Init(app.applicationDirPath() + "/logs");
 
-    QMainWindow window;
-    window.setWindowTitle("Modbus Tools");
-    window.resize(800, 600);
+    ui::MainWindow window;
     window.show();
 
     spdlog::info("Modbus-Tools initialized");
