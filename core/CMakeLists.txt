@@ -2,7 +2,12 @@ add_library(core STATIC)
 
 target_sources(core PRIVATE
     logging/Logger.cpp
+    io/ChannelBase.h
     io/ChannelBase.cpp
+    io/SerialChannel.h
+    io/SerialChannel.cpp
+    io/TcpChannel.h
+    io/TcpChannel.cpp
     # modbus base
     modbus/base/ModbusTypes.h
     modbus/base/ModbusFrame.h
@@ -22,6 +27,10 @@ target_sources(core PRIVATE
     modbus/dispatch/CommandQueue.h
     modbus/dispatch/ModbusWorker.h
     modbus/dispatch/ModbusWorker.cpp
+    # modbus factory
+    modbus/factory/IModbusFactory.h
+    modbus/factory/ModbusFactory.h
+    modbus/factory/ModbusFactory.cpp
 )
 
 target_link_libraries(core PUBLIC

@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cstdint>
+#include <QString>
 
 namespace modbus::base {
 
@@ -16,9 +17,19 @@ struct ModbusConfig {
     // 从站 ID (Unit ID)
     uint8_t slaveId = 1;
 
-    // 通信参数 (适用于 TCP 或 串口配置)
-    // 注意：具体串口参数(波特率等)或IP端口由 io::IChannel 配置负责，此处仅负责 Modbus 协议层参数
-    
+    // --- 连接参数 ---
+    // Serial (RTU)
+    QString portName;
+    int baudRate = 9600;
+    int dataBits = 8;
+    int stopBits = 1;
+    int parity = 0; // 0:No, 2:Even, 3:Odd (QSerialPort::Parity)
+
+    // TCP
+    QString ipAddress = "127.0.0.1";
+    int port = 502;
+    // ----------------
+
     // 超时时间 (毫秒)
     int timeoutMs = 1000;
 
