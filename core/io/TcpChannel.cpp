@@ -1,4 +1,6 @@
 #include "TcpChannel.h"
+#include <QThread>
+#include <QMetaObject>
 
 namespace io {
 
@@ -20,6 +22,14 @@ TcpChannel::~TcpChannel() {
 }
 
 bool TcpChannel::open() {
+    if (QThread::currentThread() != socket_.thread()) {
+        bool result = false;
+        QMetaObject::invokeMethod(&socket_, [this, &result]() {
+            result = this->open();
+        }, Qt::BlockingQueuedConnection);
+        return result;
+    }
+
     if (isOpen()) return true;
 
     setState(ChannelState::Opening);
@@ -36,6 +46,13 @@ bool TcpChannel::open() {
 }
 
 void TcpChannel::close() {
+    if (QThread::currentThread() != socket_.thread()) {
+        QMetaObject::invokeMethod(&socket_, [this]() {
+            this->close();
+        }, Qt::BlockingQueuedConnection);
+        return;
+    }
+
     socket_.disconnectFromHost();
     if (socket_.state() != QAbstractSocket::UnconnectedState) {
         socket_.waitForDisconnected(1000);
@@ -45,11 +62,21 @@ void TcpChannel::close() {
 }
 
 bool TcpChannel::write(QByteArrayView data) {
+    if (QThread::currentThread() != socket_.thread()) {
+        bool result = false;
+        QByteArray dataCopy(data.data(), data.size());
+        QMetaObject::invokeMethod(&socket_, [this, dataCopy, &result]() {
+            result = this->write(dataCopy);
+        }, Qt::BlockingQueuedConnection);
+        return result;
+    }
+
     if (!isOpen()) return false;
     
     qint64 written = socket_.write(data.data(), data.size());
     if (written == data.size()) {
         addTx(written);
+        emitMonitor(true, QByteArray(data.data(), data.size()));
         // socket_.waitForBytesWritten(timeouts().writeMs);
         return true;
     }
@@ -65,6 +92,7 @@ void TcpChannel::onReadyRead() {
     QByteArray data = socket_.readAll();
     if (!data.isEmpty()) {
         addRx(data.size());
+        emitMonitor(false, data);
         emitRead(data);
     }
 }

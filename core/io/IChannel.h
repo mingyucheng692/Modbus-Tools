@@ -33,6 +33,8 @@ public:
     virtual bool write(QByteArrayView data) = 0;
     virtual void setReadHandler(std::function<void(QByteArrayView)> handler) = 0;
     virtual void setErrorHandler(std::function<void(const QString&)> handler) = 0;
+    // isTx: true=TX, false=RX
+    virtual void setMonitor(std::function<void(bool isTx, const QByteArray&)> monitor) = 0;
     virtual ChannelStats stats() const = 0;
 };
 

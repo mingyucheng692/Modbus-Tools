@@ -32,6 +32,11 @@ void ChannelBase::setErrorHandler(std::function<void(const QString&)> handler)
     errorHandler_ = std::move(handler);
 }
 
+void ChannelBase::setMonitor(std::function<void(bool, const QByteArray&)> monitor)
+{
+    monitor_ = std::move(monitor);
+}
+
 ChannelStats ChannelBase::stats() const
 {
     return stats_;
@@ -67,6 +72,13 @@ void ChannelBase::emitError(const QString& error)
 {
     if (errorHandler_) {
         errorHandler_(error);
+    }
+}
+
+void ChannelBase::emitMonitor(bool isTx, const QByteArray& data)
+{
+    if (monitor_) {
+        monitor_(isTx, data);
     }
 }
 
