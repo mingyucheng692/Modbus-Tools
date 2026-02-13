@@ -10,6 +10,7 @@ target_sources(ui PRIVATE
     views/tcp/TcpView.cpp
     views/rtu/RtuView.cpp
     widgets/TcpConnectionWidget.cpp
+    widgets/SerialConnectionWidget.cpp
     widgets/FunctionWidget.cpp
     widgets/TrafficMonitorWidget.cpp
 )

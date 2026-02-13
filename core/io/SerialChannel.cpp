@@ -1,4 +1,6 @@
 #include "SerialChannel.h"
+#include <QThread>
+#include <QMetaObject>
 
 namespace io {
 
@@ -16,6 +18,14 @@ SerialChannel::~SerialChannel() {
 }
 
 bool SerialChannel::open() {
+    if (QThread::currentThread() != serial_.thread()) {
+        bool result = false;
+        QMetaObject::invokeMethod(&serial_, [this, &result]() {
+            result = this->open();
+        }, Qt::BlockingQueuedConnection);
+        return result;
+    }
+
     if (isOpen()) return true;
 
     setState(ChannelState::Opening);
@@ -37,6 +47,13 @@ bool SerialChannel::open() {
 }
 
 void SerialChannel::close() {
+    if (QThread::currentThread() != serial_.thread()) {
+        QMetaObject::invokeMethod(&serial_, [this]() {
+            this->close();
+        }, Qt::BlockingQueuedConnection);
+        return;
+    }
+
     if (serial_.isOpen()) {
         serial_.close();
     }
@@ -44,11 +61,21 @@ void SerialChannel::close() {
 }
 
 bool SerialChannel::write(QByteArrayView data) {
+    if (QThread::currentThread() != serial_.thread()) {
+        bool result = false;
+        QByteArray dataCopy(data.data(), data.size());
+        QMetaObject::invokeMethod(&serial_, [this, dataCopy, &result]() {
+            result = this->write(dataCopy);
+        }, Qt::BlockingQueuedConnection);
+        return result;
+    }
+
     if (!isOpen()) return false;
     
     qint64 written = serial_.write(data.data(), data.size());
     if (written == data.size()) {
         addTx(written);
+        emitMonitor(true, QByteArray(data.data(), data.size()));
         // serial_.waitForBytesWritten(timeouts().writeMs); // Optional: blocking write
         return true;
     }
@@ -63,6 +90,7 @@ void SerialChannel::onReadyRead() {
     QByteArray data = serial_.readAll();
     if (!data.isEmpty()) {
         addRx(data.size());
+        emitMonitor(false, data);
         emitRead(data);
     }
 }
