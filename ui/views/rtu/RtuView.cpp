@@ -181,6 +181,17 @@ void RtuView::setupUi() {
             }).detach();
     });
     
+    connect(functionWidget_, &widgets::FunctionWidget::rawSendRequested,
+        [this](const QByteArray& data) {
+            if (!worker_) return;
+            
+            trafficMonitor_->appendInfo(QString("Sending Raw Data: %1").arg(QString(data.toHex(' ').toUpper())));
+            
+            worker_->sendRaw(data);
+            
+            controlWidget_->updateStats(true, -1);
+    });
+
     connect(controlWidget_, &widgets::ControlWidget::pollRequested,
         [this](uint8_t fc, int addr, int qty) {
             if (!worker_) return;

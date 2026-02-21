@@ -19,6 +19,9 @@ public:
     // 提交任务，返回 Future
     std::future<session::ModbusResponse> submit(base::Pdu request, int slaveId = -1);
 
+    // 发送原始数据
+    void sendRaw(const QByteArray& data);
+
 private:
     void loop();
 

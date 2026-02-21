@@ -16,6 +16,7 @@ public:
     ~ModbusClient() override;
 
     std::future<ModbusResponse> sendRequest(const base::Pdu& request, int slaveId = -1) override;
+    void sendRaw(const QByteArray& data) override;
     bool connect() override;
     void disconnect() override;
     bool isConnected() const override;

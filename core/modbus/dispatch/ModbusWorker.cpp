@@ -43,6 +43,12 @@ std::future<session::ModbusResponse> ModbusWorker::submit(base::Pdu request, int
     return client_->sendRequest(request, slaveId);
 }
 
+void ModbusWorker::sendRaw(const QByteArray& data) {
+    if (client_) {
+        client_->sendRaw(data);
+    }
+}
+
 void ModbusWorker::loop() {
     while (running_) {
         // 阻塞等待命令

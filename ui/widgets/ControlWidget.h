@@ -17,7 +17,7 @@ public:
     explicit ControlWidget(QWidget *parent = nullptr);
     ~ControlWidget() override;
 
-    void updateStats(bool isTx, int rttMs);
+    void updateStats(bool isTx, int rttMs, bool isError = false);
     void resetStats();
 
 signals:
@@ -42,6 +42,7 @@ private:
     // Stats
     int txCount_ = 0;
     int rxCount_ = 0;
+    int errorCount_ = 0;
     long long totalRtt_ = 0;
 };
 

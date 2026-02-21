@@ -9,6 +9,9 @@
 #include <QPushButton>
 #include <QGroupBox>
 
+#include <QTextEdit>
+#include <QTabWidget>
+
 namespace ui::widgets {
 
 FunctionWidget::FunctionWidget(QWidget *parent)
@@ -22,26 +25,41 @@ void FunctionWidget::setupUi() {
     auto mainLayout = new QVBoxLayout(this);
     mainLayout->setContentsMargins(0, 0, 0, 0);
 
-    auto groupBox = new QGroupBox("Modbus Functions", this);
-    auto layout = new QVBoxLayout(groupBox);
+    auto tabWidget = new QTabWidget(this);
+    
+    // Tab 1: Standard
+    auto standardTab = new QWidget();
+    setupStandardUi(standardTab);
+    tabWidget->addTab(standardTab, "Standard");
 
+    // Tab 2: Raw
+    auto rawTab = new QWidget();
+    setupRawUi(rawTab);
+    tabWidget->addTab(rawTab, "Raw");
+
+    mainLayout->addWidget(tabWidget);
+}
+
+void FunctionWidget::setupStandardUi(QWidget* parent) {
+    auto layout = new QVBoxLayout(parent);
+    
     // Row 1: Parameters
     auto paramLayout = new QHBoxLayout();
     
-    paramLayout->addWidget(new QLabel("Slave ID:", this));
-    slaveIdEdit_ = new QSpinBox(this);
+    paramLayout->addWidget(new QLabel("Slave ID:", parent));
+    slaveIdEdit_ = new QSpinBox(parent);
     slaveIdEdit_->setRange(1, 247);
     slaveIdEdit_->setValue(1);
     paramLayout->addWidget(slaveIdEdit_);
 
-    paramLayout->addWidget(new QLabel("Start Addr:", this));
-    addressEdit_ = new QSpinBox(this);
+    paramLayout->addWidget(new QLabel("Start Addr:", parent));
+    addressEdit_ = new QSpinBox(parent);
     addressEdit_->setRange(0, 65535);
     addressEdit_->setValue(0);
     paramLayout->addWidget(addressEdit_);
 
-    paramLayout->addWidget(new QLabel("Quantity:", this));
-    quantityEdit_ = new QSpinBox(this);
+    paramLayout->addWidget(new QLabel("Quantity:", parent));
+    quantityEdit_ = new QSpinBox(parent);
     quantityEdit_->setRange(1, 125); // Typical Modbus Limit
     quantityEdit_->setValue(10);
     paramLayout->addWidget(quantityEdit_);
@@ -51,13 +69,13 @@ void FunctionWidget::setupUi() {
 
     // Row 2: Write Data Input
     auto writeLayout = new QHBoxLayout();
-    writeLayout->addWidget(new QLabel("Write Data:", this));
-    writeDataEdit_ = new QLineEdit(this);
+    writeLayout->addWidget(new QLabel("Write Data:", parent));
+    writeDataEdit_ = new QLineEdit(parent);
     writeDataEdit_->setPlaceholderText("Space separated hex (e.g., 01 02) or values");
     writeLayout->addWidget(writeDataEdit_);
     
-    writeLayout->addWidget(new QLabel("Format:", this));
-    dataFormatBox_ = new QComboBox(this);
+    writeLayout->addWidget(new QLabel("Format:", parent));
+    dataFormatBox_ = new QComboBox(parent);
     dataFormatBox_->addItems({"Hex", "Decimal", "ASCII"});
     writeLayout->addWidget(dataFormatBox_);
     
@@ -67,10 +85,10 @@ void FunctionWidget::setupUi() {
     auto btnLayout = new QGridLayout();
     
     // Read Buttons
-    auto btn01 = new QPushButton("Read Coils (0x01)", this);
-    auto btn02 = new QPushButton("Read Discrete (0x02)", this);
-    auto btn03 = new QPushButton("Read Holding (0x03)", this);
-    auto btn04 = new QPushButton("Read Input (0x04)", this);
+    auto btn01 = new QPushButton("Read Coils (0x01)", parent);
+    auto btn02 = new QPushButton("Read Discrete (0x02)", parent);
+    auto btn03 = new QPushButton("Read Holding (0x03)", parent);
+    auto btn04 = new QPushButton("Read Input (0x04)", parent);
     
     connect(btn01, &QPushButton::clicked, [this](){ onReadClicked(0x01); });
     connect(btn02, &QPushButton::clicked, [this](){ onReadClicked(0x02); });
@@ -84,10 +102,10 @@ void FunctionWidget::setupUi() {
     btnLayout->addWidget(btn04, 0, 3);
 
     // Write Buttons
-    auto btn05 = new QPushButton("Write Coil (0x05)", this);
-    auto btn06 = new QPushButton("Write Reg (0x06)", this);
-    auto btn0F = new QPushButton("Write Multi Coils (0x0F)", this);
-    auto btn10 = new QPushButton("Write Multi Regs (0x10)", this);
+    auto btn05 = new QPushButton("Write Coil (0x05)", parent);
+    auto btn06 = new QPushButton("Write Reg (0x06)", parent);
+    auto btn0F = new QPushButton("Write Multi Coils (0x0F)", parent);
+    auto btn10 = new QPushButton("Write Multi Regs (0x10)", parent);
 
     connect(btn05, &QPushButton::clicked, [this](){ onWriteClicked(0x05); });
     connect(btn06, &QPushButton::clicked, [this](){ onWriteClicked(0x06); });
@@ -100,8 +118,25 @@ void FunctionWidget::setupUi() {
     btnLayout->addWidget(btn10, 1, 3);
 
     layout->addLayout(btnLayout);
+    layout->addStretch();
+}
+
+void FunctionWidget::setupRawUi(QWidget* parent) {
+    auto layout = new QVBoxLayout(parent);
+
+    layout->addWidget(new QLabel("Raw Hex Data (e.g., 01 03 00 00 00 01 84 0A):", parent));
     
-    mainLayout->addWidget(groupBox);
+    rawDataEdit_ = new QTextEdit(parent);
+    layout->addWidget(rawDataEdit_);
+
+    auto btnLayout = new QHBoxLayout();
+    auto sendBtn = new QPushButton("Send Raw", parent);
+    connect(sendBtn, &QPushButton::clicked, this, &FunctionWidget::onRawSendClicked);
+    
+    btnLayout->addStretch();
+    btnLayout->addWidget(sendBtn);
+    
+    layout->addLayout(btnLayout);
 }
 
 int FunctionWidget::getSlaveId() const {
@@ -114,6 +149,19 @@ void FunctionWidget::onReadClicked(uint8_t functionCode) {
 
 void FunctionWidget::onWriteClicked(uint8_t functionCode) {
     emit writeRequested(functionCode, addressEdit_->value(), writeDataEdit_->text(), dataFormatBox_->currentText(), slaveIdEdit_->value());
+}
+
+void FunctionWidget::onRawSendClicked() {
+    QString text = rawDataEdit_->toPlainText();
+    // Simple Hex parsing: remove spaces, convert to byte array
+    text = text.remove(' ');
+    text = text.remove('\n');
+    text = text.remove('\r');
+    
+    QByteArray data = QByteArray::fromHex(text.toLatin1());
+    if (!data.isEmpty()) {
+        emit rawSendRequested(data);
+    }
 }
 
 } // namespace ui::widgets

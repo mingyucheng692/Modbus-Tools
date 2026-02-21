@@ -22,14 +22,21 @@ public:
     void appendInfo(const QString& message);
     void clear();
 
+private slots:
+    void onSaveClicked();
+    void onCopyClicked();
+
 private:
     void setupUi();
     QString formatData(const QByteArray& data) const;
 
     QListWidget* logList_ = nullptr;
     QCheckBox* autoScrollCheck_ = nullptr;
+    QCheckBox* showTxCheck_ = nullptr;
+    QCheckBox* showRxCheck_ = nullptr;
     QComboBox* displayModeBox_ = nullptr; // Hex, ASCII
     QPushButton* clearBtn_ = nullptr;
+    QPushButton* saveBtn_ = nullptr;
 };
 
 } // namespace ui::widgets

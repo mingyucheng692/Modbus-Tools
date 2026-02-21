@@ -34,8 +34,10 @@ ControlWidget::ControlWidget(QWidget *parent)
 
 ControlWidget::~ControlWidget() = default;
 
-void ControlWidget::updateStats(bool isTx, int rttMs) {
-    if (isTx) {
+void ControlWidget::updateStats(bool isTx, int rttMs, bool isError) {
+    if (isError) {
+        errorCount_++;
+    } else if (isTx) {
         txCount_++;
     } else {
         rxCount_++;
@@ -49,6 +51,7 @@ void ControlWidget::updateStats(bool isTx, int rttMs) {
 void ControlWidget::resetStats() {
     txCount_ = 0;
     rxCount_ = 0;
+    errorCount_ = 0;
     totalRtt_ = 0;
     updateStatsLabel();
 }
@@ -122,7 +125,7 @@ void ControlWidget::setupUi() {
     layout->addStretch();
     
     // Stats
-    statsLabel_ = new QLabel("TX: 0 | RX: 0 | Avg RTT: 0.0 ms", this);
+    statsLabel_ = new QLabel("TX: 0 | RX: 0 | Err: 0 | Avg RTT: 0.0 ms", this);
     layout->addWidget(statsLabel_);
 }
 

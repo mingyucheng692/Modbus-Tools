@@ -81,6 +81,16 @@ std::future<ModbusResponse> ModbusClient::sendRequest(const base::Pdu& request, 
     });
 }
 
+void ModbusClient::sendRaw(const QByteArray& data) {
+    // 异步发送，避免阻塞调用线程
+    std::thread([this, data]() {
+        std::lock_guard<std::mutex> lock(requestMutex_); // 确保不与 sendRequest 冲突
+        if (isConnected()) {
+            channel_->write(data);
+        }
+    }).detach();
+}
+
 ModbusResponse ModbusClient::sendRequestInternal(const base::Pdu& request, int slaveId) {
     if (!isConnected()) {
         return ModbusResponse::Error("Not connected");

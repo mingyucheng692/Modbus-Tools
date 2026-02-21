@@ -8,6 +8,12 @@
 #include <QDateTime>
 #include <QGroupBox>
 #include <QListWidgetItem>
+#include <QFileDialog>
+#include <QFile>
+#include <QTextStream>
+#include <QApplication>
+#include <QClipboard>
+#include <QMenu>
 
 namespace ui::widgets {
 
@@ -37,8 +43,19 @@ void TrafficMonitorWidget::setupUi() {
     autoScrollCheck_->setChecked(true);
     toolbarLayout->addWidget(autoScrollCheck_);
 
+    showTxCheck_ = new QCheckBox("TX", this);
+    showTxCheck_->setChecked(true);
+    toolbarLayout->addWidget(showTxCheck_);
+
+    showRxCheck_ = new QCheckBox("RX", this);
+    showRxCheck_->setChecked(true);
+    toolbarLayout->addWidget(showRxCheck_);
+
     clearBtn_ = new QPushButton("Clear", this);
     toolbarLayout->addWidget(clearBtn_);
+    
+    saveBtn_ = new QPushButton("Save", this);
+    toolbarLayout->addWidget(saveBtn_);
     
     toolbarLayout->addStretch();
     layout->addLayout(toolbarLayout);
@@ -46,12 +63,21 @@ void TrafficMonitorWidget::setupUi() {
     // Log List
     logList_ = new QListWidget(this);
     logList_->setAlternatingRowColors(true);
+    logList_->setSelectionMode(QAbstractItemView::ExtendedSelection);
+    logList_->setContextMenuPolicy(Qt::CustomContextMenu);
     layout->addWidget(logList_);
 
     mainLayout->addWidget(groupBox);
 
     // Connections
     connect(clearBtn_, &QPushButton::clicked, this, &TrafficMonitorWidget::clear);
+    connect(saveBtn_, &QPushButton::clicked, this, &TrafficMonitorWidget::onSaveClicked);
+    connect(logList_, &QListWidget::customContextMenuRequested, [this](const QPoint& pos) {
+        QMenu menu(this);
+        menu.addAction("Copy", this, &TrafficMonitorWidget::onCopyClicked);
+        menu.exec(logList_->mapToGlobal(pos));
+    });
+    
     connect(displayModeBox_, QOverload<int>::of(&QComboBox::currentIndexChanged), this, [this](int){
         // In a real app, we might want to refresh the list with new format.
         // For now, it only affects new items.
@@ -61,6 +87,8 @@ void TrafficMonitorWidget::setupUi() {
 }
 
 void TrafficMonitorWidget::appendTx(const QByteArray& data) {
+    if (!showTxCheck_->isChecked()) return;
+
     QString timeStr = QDateTime::currentDateTime().toString("HH:mm:ss.zzz");
     QString content = formatData(data);
     QString itemText = QString("[%1] [TX] %2").arg(timeStr, content);
@@ -75,6 +103,8 @@ void TrafficMonitorWidget::appendTx(const QByteArray& data) {
 }
 
 void TrafficMonitorWidget::appendRx(const QByteArray& data) {
+    if (!showRxCheck_->isChecked()) return;
+
     QString timeStr = QDateTime::currentDateTime().toString("HH:mm:ss.zzz");
     QString content = formatData(data);
     QString itemText = QString("[%1] [RX] %2").arg(timeStr, content);
@@ -111,6 +141,27 @@ QString TrafficMonitorWidget::formatData(const QByteArray& data) const {
     }
     // Hex Mode
     return QString(data.toHex(' ').toUpper());
+}
+
+void TrafficMonitorWidget::onSaveClicked() {
+    QString fileName = QFileDialog::getSaveFileName(this, "Save Log", "", "Text Files (*.txt);;All Files (*)");
+    if (fileName.isEmpty()) return;
+
+    QFile file(fileName);
+    if (!file.open(QIODevice::WriteOnly | QIODevice::Text)) return;
+
+    QTextStream out(&file);
+    for (int i = 0; i < logList_->count(); ++i) {
+        out << logList_->item(i)->text() << "\n";
+    }
+}
+
+void TrafficMonitorWidget::onCopyClicked() {
+    QStringList selectedText;
+    for (auto item : logList_->selectedItems()) {
+        selectedText << item->text();
+    }
+    QApplication::clipboard()->setText(selectedText.join("\n"));
 }
 
 } // namespace ui::widgets

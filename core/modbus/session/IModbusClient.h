@@ -32,6 +32,10 @@ public:
     // slaveId: 如果为 -1，则使用 setConfig 设置的默认 slaveId
     virtual std::future<ModbusResponse> sendRequest(const base::Pdu& request, int slaveId = -1) = 0;
 
+    // 发送原始数据（不经过 PDU 封装，直接写入通道）
+    // 用于非标准测试
+    virtual void sendRaw(const QByteArray& data) = 0;
+
     // 连接/断开
     virtual bool connect() = 0;
     virtual void disconnect() = 0;
