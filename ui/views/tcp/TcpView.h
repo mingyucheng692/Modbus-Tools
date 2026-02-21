@@ -14,6 +14,7 @@ namespace ui::widgets {
     class TcpConnectionWidget;
     class FunctionWidget;
     class TrafficMonitorWidget;
+    class ControlWidget;
 }
 
 namespace ui::views::tcp {
@@ -32,6 +33,7 @@ private:
     ui::widgets::TcpConnectionWidget* connectionWidget_ = nullptr;
     ui::widgets::FunctionWidget* functionWidget_ = nullptr;
     ui::widgets::TrafficMonitorWidget* trafficMonitor_ = nullptr;
+    ui::widgets::ControlWidget* controlWidget_ = nullptr;
 
     std::shared_ptr<io::TcpChannel> channel_;
     std::shared_ptr<modbus::session::IModbusClient> client_;

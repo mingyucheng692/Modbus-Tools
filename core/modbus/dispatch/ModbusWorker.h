@@ -17,7 +17,7 @@ public:
     void stop();
 
     // 提交任务，返回 Future
-    std::future<session::ModbusResponse> submit(base::Pdu request);
+    std::future<session::ModbusResponse> submit(base::Pdu request, int slaveId = -1);
 
 private:
     void loop();

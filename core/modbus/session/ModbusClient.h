@@ -15,14 +15,14 @@ public:
                  std::shared_ptr<transport::ITransport> transport);
     ~ModbusClient() override;
 
-    std::future<ModbusResponse> sendRequest(const base::Pdu& request) override;
+    std::future<ModbusResponse> sendRequest(const base::Pdu& request, int slaveId = -1) override;
     bool connect() override;
     void disconnect() override;
     bool isConnected() const override;
     void setConfig(const base::ModbusConfig& config) override;
 
 private:
-    ModbusResponse sendRequestInternal(const base::Pdu& request);
+    ModbusResponse sendRequestInternal(const base::Pdu& request, int slaveId);
     void onDataReceived(QByteArrayView data);
     void onError(const QString& error);
 

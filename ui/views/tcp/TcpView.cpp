@@ -2,6 +2,7 @@
 #include "../../widgets/TcpConnectionWidget.h"
 #include "../../widgets/FunctionWidget.h"
 #include "../../widgets/TrafficMonitorWidget.h"
+#include "../../widgets/ControlWidget.h"
 #include "modbus/dispatch/ModbusWorker.h"
 #include "modbus/session/ModbusClient.h"
 #include "modbus/transport/TcpTransport.h"
@@ -38,6 +39,10 @@ void TcpView::setupUi() {
     trafficMonitor_ = new widgets::TrafficMonitorWidget(this);
     trafficMonitor_->setMinimumHeight(200);
     mainLayout_->addWidget(trafficMonitor_);
+
+    // 4. Control Options
+    controlWidget_ = new widgets::ControlWidget(this);
+    mainLayout_->addWidget(controlWidget_);
     
     // Connect Signals (Logging for now)
     connect(connectionWidget_, &widgets::TcpConnectionWidget::connectClicked, 
@@ -93,7 +98,7 @@ void TcpView::setupUi() {
     });
     
     connect(functionWidget_, &widgets::FunctionWidget::readRequested,
-        [this](uint8_t fc, int addr, int qty) {
+        [this](uint8_t fc, int addr, int qty, int slaveId) {
             if (!worker_) return;
             
             using namespace modbus::base;
@@ -106,12 +111,21 @@ void TcpView::setupUi() {
             
             Pdu request(static_cast<FunctionCode>(fc), data);
 
-            trafficMonitor_->appendInfo(QString("Sending Read Request FC:%1 Addr:%2 Qty:%3").arg(fc).arg(addr).arg(qty));
+            trafficMonitor_->appendInfo(QString("Sending Read Request FC:%1 Addr:%2 Qty:%3 Slave:%4")
+                .arg(fc).arg(addr).arg(qty).arg(slaveId));
 
-            auto future = worker_->submit(request);
-            std::thread([this, future = std::move(future)]() mutable {
+            auto start = std::chrono::steady_clock::now();
+
+            auto future = worker_->submit(request, slaveId);
+            std::thread([this, future = std::move(future), start]() mutable {
                 auto response = future.get();
-                QMetaObject::invokeMethod(this, [this, response]() {
+                auto end = std::chrono::steady_clock::now();
+                auto rtt = std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count();
+
+                QMetaObject::invokeMethod(this, [this, response, rtt]() {
+                    controlWidget_->updateStats(true, -1); // TX count
+                    controlWidget_->updateStats(false, rtt); // RX count + RTT
+
                     if (!response.isSuccess) {
                         trafficMonitor_->appendInfo(QString("Error: %1").arg(response.error));
                     } else {
@@ -123,7 +137,7 @@ void TcpView::setupUi() {
     });
 
     connect(functionWidget_, &widgets::FunctionWidget::writeRequested,
-        [this](uint8_t fc, int addr, const QString& dataStr, const QString& fmt) {
+        [this](uint8_t fc, int addr, const QString& dataStr, const QString& fmt, int slaveId) {
             if (!worker_) return;
 
             using namespace modbus::base;
@@ -148,16 +162,61 @@ void TcpView::setupUi() {
             
             Pdu request(static_cast<FunctionCode>(fc), data);
 
-            trafficMonitor_->appendInfo(QString("Sending Write Request FC:%1 Addr:%2 Data:%3").arg(fc).arg(addr).arg(dataStr));
+            trafficMonitor_->appendInfo(QString("Sending Write Request FC:%1 Addr:%2 Data:%3 Slave:%4")
+                .arg(fc).arg(addr).arg(dataStr).arg(slaveId));
 
-            auto future = worker_->submit(request);
-            std::thread([this, future = std::move(future)]() mutable {
+            auto start = std::chrono::steady_clock::now();
+
+            auto future = worker_->submit(request, slaveId);
+            std::thread([this, future = std::move(future), start]() mutable {
                 auto response = future.get();
-                QMetaObject::invokeMethod(this, [this, response]() {
+                auto end = std::chrono::steady_clock::now();
+                auto rtt = std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count();
+
+                QMetaObject::invokeMethod(this, [this, response, rtt]() {
+                    controlWidget_->updateStats(true, -1);
+                    controlWidget_->updateStats(false, rtt);
+
                     if (!response.isSuccess) {
                         trafficMonitor_->appendInfo(QString("Error: %1").arg(response.error));
                     } else {
                         trafficMonitor_->appendInfo("Success: Write confirmed");
+                    }
+                });
+            }).detach();
+    });
+    
+    connect(controlWidget_, &widgets::ControlWidget::pollRequested,
+        [this](uint8_t fc, int addr, int qty) {
+            if (!worker_) return;
+            
+            // Use Slave ID from Function Widget
+            int slaveId = functionWidget_->getSlaveId();
+            
+            using namespace modbus::base;
+            QByteArray data;
+            data.resize(4);
+            data[0] = (addr >> 8) & 0xFF;
+            data[1] = addr & 0xFF;
+            data[2] = (qty >> 8) & 0xFF;
+            data[3] = qty & 0xFF;
+            
+            Pdu request(static_cast<FunctionCode>(fc), data);
+            
+            auto start = std::chrono::steady_clock::now();
+
+            auto future = worker_->submit(request, slaveId);
+            std::thread([this, future = std::move(future), start]() mutable {
+                auto response = future.get();
+                auto end = std::chrono::steady_clock::now();
+                auto rtt = std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count();
+
+                QMetaObject::invokeMethod(this, [this, response, rtt]() {
+                    controlWidget_->updateStats(true, -1);
+                    controlWidget_->updateStats(false, rtt);
+
+                    if (!response.isSuccess) {
+                        trafficMonitor_->appendInfo(QString("Poll Error: %1").arg(response.error));
                     }
                 });
             }).detach();

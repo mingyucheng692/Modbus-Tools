@@ -12,6 +12,7 @@ target_sources(ui PRIVATE
     widgets/TcpConnectionWidget.cpp
     widgets/SerialConnectionWidget.cpp
     widgets/FunctionWidget.cpp
+    widgets/ControlWidget.cpp
     widgets/TrafficMonitorWidget.cpp
 )
 

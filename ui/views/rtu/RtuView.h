@@ -14,6 +14,7 @@ namespace ui::widgets {
     class SerialConnectionWidget;
     class FunctionWidget;
     class TrafficMonitorWidget;
+    class ControlWidget;
 }
 
 namespace ui::views::rtu {
@@ -32,6 +33,7 @@ private:
     ui::widgets::SerialConnectionWidget* connectionWidget_ = nullptr;
     ui::widgets::FunctionWidget* functionWidget_ = nullptr;
     ui::widgets::TrafficMonitorWidget* trafficMonitor_ = nullptr;
+    ui::widgets::ControlWidget* controlWidget_ = nullptr;
 
     std::shared_ptr<io::SerialChannel> channel_;
     std::shared_ptr<modbus::session::IModbusClient> client_;

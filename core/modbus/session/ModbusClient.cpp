@@ -55,9 +55,9 @@ void ModbusClient::setConfig(const base::ModbusConfig& config) {
     }
 }
 
-std::future<ModbusResponse> ModbusClient::sendRequest(const base::Pdu& request) {
+std::future<ModbusResponse> ModbusClient::sendRequest(const base::Pdu& request, int slaveId) {
     // 使用 async 启动一个任务来执行阻塞式请求，不阻塞调用者
-    return std::async(std::launch::async, [this, request]() {
+    return std::async(std::launch::async, [this, request, slaveId]() {
         std::lock_guard<std::mutex> lock(requestMutex_); // 确保一次只处理一个请求
         
         // 重试逻辑
@@ -65,7 +65,7 @@ std::future<ModbusResponse> ModbusClient::sendRequest(const base::Pdu& request) 
         ModbusResponse lastResponse = ModbusResponse::Error("Unknown error");
 
         for (int i = 0; i <= retries; ++i) {
-            lastResponse = sendRequestInternal(request);
+            lastResponse = sendRequestInternal(request, slaveId);
             if (lastResponse.isSuccess) {
                 return lastResponse;
             }
@@ -81,7 +81,7 @@ std::future<ModbusResponse> ModbusClient::sendRequest(const base::Pdu& request) 
     });
 }
 
-ModbusResponse ModbusClient::sendRequestInternal(const base::Pdu& request) {
+ModbusResponse ModbusClient::sendRequestInternal(const base::Pdu& request, int slaveId) {
     if (!isConnected()) {
         return ModbusResponse::Error("Not connected");
     }
@@ -95,7 +95,8 @@ ModbusResponse ModbusClient::sendRequestInternal(const base::Pdu& request) {
     }
 
     // 2. 构建 ADU
-    QByteArray adu = transport_->buildRequest(request, config_.slaveId);
+    int targetSlaveId = (slaveId == -1) ? config_.slaveId : slaveId;
+    QByteArray adu = transport_->buildRequest(request, targetSlaveId);
 
     // 3. 发送数据
     if (!channel_->write(adu)) {

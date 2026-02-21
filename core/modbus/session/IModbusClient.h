@@ -29,7 +29,8 @@ public:
 
     // 发送请求并等待响应（同步或异步通过 Future）
     // 为了支持 Qt UI 线程不阻塞，建议内部实现为异步，这里返回 std::future
-    virtual std::future<ModbusResponse> sendRequest(const base::Pdu& request) = 0;
+    // slaveId: 如果为 -1，则使用 setConfig 设置的默认 slaveId
+    virtual std::future<ModbusResponse> sendRequest(const base::Pdu& request, int slaveId = -1) = 0;
 
     // 连接/断开
     virtual bool connect() = 0;

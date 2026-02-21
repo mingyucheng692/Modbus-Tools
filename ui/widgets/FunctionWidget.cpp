@@ -77,6 +77,7 @@ void FunctionWidget::setupUi() {
     connect(btn03, &QPushButton::clicked, [this](){ onReadClicked(0x03); });
     connect(btn04, &QPushButton::clicked, [this](){ onReadClicked(0x04); });
 
+    // Add buttons to layout
     btnLayout->addWidget(btn01, 0, 0);
     btnLayout->addWidget(btn02, 0, 1);
     btnLayout->addWidget(btn03, 0, 2);
@@ -103,12 +104,16 @@ void FunctionWidget::setupUi() {
     mainLayout->addWidget(groupBox);
 }
 
+int FunctionWidget::getSlaveId() const {
+    return slaveIdEdit_ ? slaveIdEdit_->value() : 1;
+}
+
 void FunctionWidget::onReadClicked(uint8_t functionCode) {
-    emit readRequested(functionCode, addressEdit_->value(), quantityEdit_->value());
+    emit readRequested(functionCode, addressEdit_->value(), quantityEdit_->value(), slaveIdEdit_->value());
 }
 
 void FunctionWidget::onWriteClicked(uint8_t functionCode) {
-    emit writeRequested(functionCode, addressEdit_->value(), writeDataEdit_->text(), dataFormatBox_->currentText());
+    emit writeRequested(functionCode, addressEdit_->value(), writeDataEdit_->text(), dataFormatBox_->currentText(), slaveIdEdit_->value());
 }
 
 } // namespace ui::widgets

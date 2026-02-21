@@ -30,11 +30,17 @@ void ModbusWorker::stop() {
     spdlog::info("ModbusWorker stopped");
 }
 
-std::future<session::ModbusResponse> ModbusWorker::submit(base::Pdu request) {
-    ModbusCommand cmd(request);
-    auto future = cmd.promise.get_future();
-    queue_.push(std::move(cmd));
-    return future;
+std::future<session::ModbusResponse> ModbusWorker::submit(base::Pdu request, int slaveId) {
+    // 这里如果 client 支持异步，我们可以直接调用 client->sendRequest
+    // 但为了统一管理任务（如优先级、取消等），也可以放入队列
+    // 目前简单实现：直接调用 client
+    if (!client_) {
+        // 返回一个包含错误的 Future
+        std::promise<session::ModbusResponse> promise;
+        promise.set_value(session::ModbusResponse::Error("No client attached"));
+        return promise.get_future();
+    }
+    return client_->sendRequest(request, slaveId);
 }
 
 void ModbusWorker::loop() {
