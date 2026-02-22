@@ -69,6 +69,20 @@ void GenericIoWorker::write(const QByteArray& data)
     }
 }
 
+void GenericIoWorker::setDtr(bool set)
+{
+    if (auto serial = std::dynamic_pointer_cast<SerialChannel>(channel_)) {
+        serial->setDtr(set);
+    }
+}
+
+void GenericIoWorker::setRts(bool set)
+{
+    if (auto serial = std::dynamic_pointer_cast<SerialChannel>(channel_)) {
+        serial->setRts(set);
+    }
+}
+
 void GenericIoWorker::setupChannel()
 {
     if (!channel_) return;

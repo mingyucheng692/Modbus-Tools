@@ -21,6 +21,10 @@ public slots:
     void openSerial(const SerialConfig& config);
     void close();
     void write(const QByteArray& data);
+    
+    // Serial Control
+    void setDtr(bool set);
+    void setRts(bool set);
 
 signals:
     void stateChanged(int state); // Maps to ChannelState

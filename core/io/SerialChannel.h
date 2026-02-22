@@ -23,6 +23,10 @@ public:
     bool write(QByteArrayView data) override;
     
     void setConfig(const SerialConfig& config);
+    
+    // Control signals
+    void setDtr(bool set);
+    void setRts(bool set);
 
 private:
     void onReadyRead();

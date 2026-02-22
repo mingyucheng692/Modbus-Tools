@@ -11,6 +11,8 @@ target_sources(ui PRIVATE
     views/rtu/RtuView.cpp
     views/generic_tcp/GenericTcpView.cpp
     views/generic_tcp/GenericTcpView.h
+    views/generic_serial/GenericSerialView.cpp
+    views/generic_serial/GenericSerialView.h
     widgets/TcpConnectionWidget.cpp
     widgets/SerialConnectionWidget.cpp
     widgets/FunctionWidget.cpp

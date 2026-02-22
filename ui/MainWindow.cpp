@@ -2,6 +2,7 @@
 #include "views/tcp/TcpView.h"
 #include "views/rtu/RtuView.h"
 #include "views/generic_tcp/GenericTcpView.h"
+#include "views/generic_serial/GenericSerialView.h"
 #include "common/Theme.h"
 #include <QStackedWidget>
 #include <QListWidget>
@@ -41,6 +42,7 @@ void MainWindow::setupUi() {
     stackedWidget_->addWidget(new views::tcp::TcpView(this));
     stackedWidget_->addWidget(new views::rtu::RtuView(this));
     stackedWidget_->addWidget(new views::generic_tcp::GenericTcpView(this));
+    stackedWidget_->addWidget(new views::generic_serial::GenericSerialView(this));
 
     // Connect Navigation
     connect(navigationList_, &QListWidget::currentRowChanged,
@@ -55,6 +57,7 @@ void MainWindow::createNavigation() {
     navigationList_->addItem("Modbus TCP");
     navigationList_->addItem("Modbus RTU");
     navigationList_->addItem("TCP Client");
+    navigationList_->addItem("Serial Port");
     
     // Style the navigation list a bit
     // Use light theme by default for now

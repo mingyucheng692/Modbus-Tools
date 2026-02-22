@@ -86,6 +86,32 @@ void SerialChannel::setConfig(const SerialConfig& config) {
     config_ = config;
 }
 
+void SerialChannel::setDtr(bool set) {
+    if (QThread::currentThread() != serial_.thread()) {
+        QMetaObject::invokeMethod(&serial_, [this, set]() {
+            this->setDtr(set);
+        }, Qt::QueuedConnection);
+        return;
+    }
+    
+    if (isOpen()) {
+        serial_.setDataTerminalReady(set);
+    }
+}
+
+void SerialChannel::setRts(bool set) {
+    if (QThread::currentThread() != serial_.thread()) {
+        QMetaObject::invokeMethod(&serial_, [this, set]() {
+            this->setRts(set);
+        }, Qt::QueuedConnection);
+        return;
+    }
+    
+    if (isOpen()) {
+        serial_.setRequestToSend(set);
+    }
+}
+
 void SerialChannel::onReadyRead() {
     QByteArray data = serial_.readAll();
     if (!data.isEmpty()) {
