@@ -6,6 +6,10 @@
 
 class QVBoxLayout;
 class QLabel;
+class QGroupBox;
+class QCheckBox;
+class QTextEdit;
+class QPushButton;
 
 namespace modbus::dispatch { class ModbusWorker; }
 namespace modbus::session { class IModbusClient; }
@@ -28,12 +32,22 @@ public:
 
 private:
     void setupUi();
+    void appendReceiveData(const QByteArray& data);
+    void appendSendData(const QByteArray& data);
+    QString formatData(const QByteArray& data, bool hex) const;
 
     QVBoxLayout* mainLayout_ = nullptr;
     ui::widgets::SerialConnectionWidget* connectionWidget_ = nullptr;
     ui::widgets::FunctionWidget* functionWidget_ = nullptr;
     ui::widgets::TrafficMonitorWidget* trafficMonitor_ = nullptr;
     ui::widgets::ControlWidget* controlWidget_ = nullptr;
+    QGroupBox* dataGroup_ = nullptr;
+    QTextEdit* receiveTextEdit_ = nullptr;
+    QTextEdit* sendTextEdit_ = nullptr;
+    QCheckBox* receiveHexCheck_ = nullptr;
+    QCheckBox* sendHexCheck_ = nullptr;
+    QPushButton* clearReceiveButton_ = nullptr;
+    QPushButton* clearSendButton_ = nullptr;
 
     std::shared_ptr<io::SerialChannel> channel_;
     std::shared_ptr<modbus::session::IModbusClient> client_;
