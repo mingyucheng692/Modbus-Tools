@@ -56,6 +56,12 @@ void TcpConnectionWidget::setupUi() {
     });
 }
 
+void TcpConnectionWidget::setDefaultPort(int port) {
+    if (portEdit_) {
+        portEdit_->setValue(port);
+    }
+}
+
 QString TcpConnectionWidget::getIpAddress() const {
     return ipEdit_->text();
 }

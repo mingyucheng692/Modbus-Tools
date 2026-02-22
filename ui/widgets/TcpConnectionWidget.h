@@ -16,6 +16,7 @@ public:
     explicit TcpConnectionWidget(QWidget *parent = nullptr);
     ~TcpConnectionWidget() override;
 
+    void setDefaultPort(int port);
     QString getIpAddress() const;
     int getPort() const;
 

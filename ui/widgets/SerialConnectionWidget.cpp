@@ -18,8 +18,14 @@ SerialConnectionWidget::~SerialConnectionWidget() = default;
 
 io::SerialConfig SerialConnectionWidget::getConfig() const {
     io::SerialConfig config;
-    config.portName = portCombo_->currentText();
-    config.baudRate = baudCombo_->currentText().toInt();
+    config.portName = portCombo_->currentData().toString(); // Use user data for port name
+    if (config.portName.isEmpty()) {
+        config.portName = portCombo_->currentText(); // Fallback
+    }
+    
+    bool ok;
+    config.baudRate = baudCombo_->currentText().toInt(&ok);
+    if (!ok) config.baudRate = 9600;
     config.dataBits = dataBitsCombo_->currentText().toInt();
     
     // Stop Bits
@@ -52,15 +58,30 @@ void SerialConnectionWidget::setConnected(bool connected) {
 }
 
 void SerialConnectionWidget::refreshPorts() {
-    QString current = portCombo_->currentText();
+    // Store current port name (not the full text)
+    QString currentPortName = portCombo_->currentData().toString();
+    if (currentPortName.isEmpty()) {
+        currentPortName = portCombo_->currentText();
+    }
+    
     portCombo_->clear();
     const auto infos = QSerialPortInfo::availablePorts();
     for (const QSerialPortInfo &info : infos) {
-        portCombo_->addItem(info.portName());
+        QString itemText = info.portName();
+        if (!info.description().isEmpty()) {
+            itemText = info.portName() + " (" + info.description() + ")";
+        }
+        portCombo_->addItem(itemText, info.portName()); // Store port name as user data
     }
-    // Restore selection if possible
-    int index = portCombo_->findText(current);
-    if (index != -1) portCombo_->setCurrentIndex(index);
+    
+    // Restore selection if possible (match user data which is the real port name)
+    int index = portCombo_->findData(currentPortName); 
+    
+    if (index != -1) {
+        portCombo_->setCurrentIndex(index);
+    } else if (portCombo_->count() > 0) {
+        portCombo_->setCurrentIndex(0);
+    }
 }
 
 void SerialConnectionWidget::setupUi() {

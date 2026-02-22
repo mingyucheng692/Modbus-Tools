@@ -9,6 +9,8 @@ target_sources(ui PRIVATE
     MainWindow.cpp
     views/tcp/TcpView.cpp
     views/rtu/RtuView.cpp
+    views/generic_tcp/GenericTcpView.cpp
+    views/generic_tcp/GenericTcpView.h
     widgets/TcpConnectionWidget.cpp
     widgets/SerialConnectionWidget.cpp
     widgets/FunctionWidget.cpp
