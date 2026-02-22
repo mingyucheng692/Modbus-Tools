@@ -143,6 +143,10 @@ int FunctionWidget::getSlaveId() const {
     return slaveIdEdit_ ? slaveIdEdit_->value() : 1;
 }
 
+int FunctionWidget::getQuantity() const {
+    return quantityEdit_ ? quantityEdit_->value() : 1;
+}
+
 void FunctionWidget::onReadClicked(uint8_t functionCode) {
     emit readRequested(functionCode, addressEdit_->value(), quantityEdit_->value(), slaveIdEdit_->value());
 }

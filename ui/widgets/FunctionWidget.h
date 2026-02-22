@@ -18,6 +18,7 @@ public:
     ~FunctionWidget() override;
 
     int getSlaveId() const;
+    int getQuantity() const;
 
 signals:
     // Read: Function Code, Address, Quantity
