@@ -10,6 +10,11 @@
 #include <QVBoxLayout>
 #include <QLabel>
 #include <QRegularExpression>
+#include <QGroupBox>
+#include <QHBoxLayout>
+#include <QTextEdit>
+#include <QCheckBox>
+#include <QPushButton>
 #include <spdlog/spdlog.h>
 #include <thread>
 #include <QMetaObject>
@@ -37,6 +42,45 @@ void TcpView::setupUi() {
     mainLayout_->addWidget(functionWidget_);
     
     // 3. Data Traffic
+    dataGroup_ = new QGroupBox("Data Monitor", this);
+    auto dataLayout = new QVBoxLayout(dataGroup_);
+
+    auto receiveGroup = new QGroupBox("Receive Data", dataGroup_);
+    auto receiveLayout = new QVBoxLayout(receiveGroup);
+    auto receiveToolbar = new QHBoxLayout();
+    receiveHexCheck_ = new QCheckBox("HEX", receiveGroup);
+    receiveHexCheck_->setChecked(true);
+    clearReceiveButton_ = new QPushButton("Clear", receiveGroup);
+    receiveToolbar->addWidget(receiveHexCheck_);
+    receiveToolbar->addStretch();
+    receiveToolbar->addWidget(clearReceiveButton_);
+    receiveTextEdit_ = new QTextEdit(receiveGroup);
+    receiveTextEdit_->setReadOnly(true);
+    receiveTextEdit_->setMaximumHeight(180);
+    receiveTextEdit_->document()->setMaximumBlockCount(1000);
+    receiveLayout->addLayout(receiveToolbar);
+    receiveLayout->addWidget(receiveTextEdit_);
+
+    auto sendGroup = new QGroupBox("Send Data", dataGroup_);
+    auto sendLayout = new QVBoxLayout(sendGroup);
+    auto sendToolbar = new QHBoxLayout();
+    sendHexCheck_ = new QCheckBox("HEX", sendGroup);
+    sendHexCheck_->setChecked(true);
+    clearSendButton_ = new QPushButton("Clear", sendGroup);
+    sendToolbar->addWidget(sendHexCheck_);
+    sendToolbar->addStretch();
+    sendToolbar->addWidget(clearSendButton_);
+    sendTextEdit_ = new QTextEdit(sendGroup);
+    sendTextEdit_->setReadOnly(true);
+    sendTextEdit_->setMaximumHeight(180);
+    sendTextEdit_->document()->setMaximumBlockCount(1000);
+    sendLayout->addLayout(sendToolbar);
+    sendLayout->addWidget(sendTextEdit_);
+
+    dataLayout->addWidget(receiveGroup);
+    dataLayout->addWidget(sendGroup);
+    mainLayout_->addWidget(dataGroup_);
+
     trafficMonitor_ = new widgets::TrafficMonitorWidget(this);
     trafficMonitor_->setMinimumHeight(200);
     mainLayout_->addWidget(trafficMonitor_);
@@ -57,8 +101,13 @@ void TcpView::setupUi() {
                 channel_->setMonitor([this](bool isTx, const QByteArray& data) {
                     // Monitor callback might be called from any thread
                     QMetaObject::invokeMethod(this, [this, isTx, data]() {
-                        if (isTx) trafficMonitor_->appendTx(data);
-                        else trafficMonitor_->appendRx(data);
+                        if (isTx) {
+                            trafficMonitor_->appendTx(data);
+                            appendSendData(data);
+                        } else {
+                            trafficMonitor_->appendRx(data);
+                            appendReceiveData(data);
+                        }
                     });
                 });
             }
@@ -181,7 +230,7 @@ void TcpView::setupUi() {
                 if (fmt == "Decimal") {
                     bool ok = false;
                     int value = trimmed.toInt(&ok);
-                    if (!ok) {
+                    if (!ok || (value != 0 && value != 1)) {
                         trafficMonitor_->appendInfo("Error: Invalid decimal value for 0x05");
                         return;
                     }
@@ -193,10 +242,19 @@ void TcpView::setupUi() {
                         return;
                     }
                     if (bytes.size() == 1) {
-                        coilOn = static_cast<uint8_t>(bytes[0]) != 0;
+                        uint8_t raw = static_cast<uint8_t>(bytes[0]);
+                        if (raw != 0x00 && raw != 0x01) {
+                            trafficMonitor_->appendInfo("Error: Invalid hex value for 0x05");
+                            return;
+                        }
+                        coilOn = raw != 0x00;
                     } else {
                         uint16_t raw = (static_cast<uint8_t>(bytes[0]) << 8) | static_cast<uint8_t>(bytes[1]);
-                        coilOn = raw != 0;
+                        if (raw != 0x0000 && raw != 0xFF00) {
+                            trafficMonitor_->appendInfo("Error: Invalid hex value for 0x05");
+                            return;
+                        }
+                        coilOn = raw == 0xFF00;
                     }
                 } else {
                     QString upper = trimmed.toUpper();
@@ -207,7 +265,7 @@ void TcpView::setupUi() {
                     } else {
                         bool ok = false;
                         int value = trimmed.toInt(&ok);
-                        if (!ok) {
+                        if (!ok || (value != 0 && value != 1)) {
                             trafficMonitor_->appendInfo("Error: Invalid ASCII value for 0x05");
                             return;
                         }
@@ -239,9 +297,12 @@ void TcpView::setupUi() {
                     if (bytes.size() == 1) {
                         data.append(static_cast<char>(0x00));
                         data.append(bytes[0]);
-                    } else {
+                    } else if (bytes.size() == 2) {
                         data.append(bytes[0]);
                         data.append(bytes[1]);
+                    } else {
+                        trafficMonitor_->appendInfo("Error: Invalid hex value for 0x06");
+                        return;
                     }
                 } else {
                     QByteArray bytes = trimmed.toLatin1();
@@ -251,6 +312,9 @@ void TcpView::setupUi() {
                     }
                     if (bytes.size() == 1) {
                         bytes.prepend(static_cast<char>(0x00));
+                    } else if (bytes.size() != 2) {
+                        trafficMonitor_->appendInfo("Error: Invalid ASCII value for 0x06");
+                        return;
                     }
                     data.append(bytes[0]);
                     data.append(bytes[1]);
@@ -271,12 +335,9 @@ void TcpView::setupUi() {
                     return;
                 }
                 int byteCount = (quantity + 7) / 8;
-                if (bytes.size() < byteCount) {
+                if (bytes.size() != byteCount) {
                     trafficMonitor_->appendInfo("Error: Coil data length mismatch for 0x0F");
                     return;
-                }
-                if (bytes.size() > byteCount) {
-                    bytes = bytes.left(byteCount);
                 }
                 data.append(static_cast<char>((quantity >> 8) & 0xFF));
                 data.append(static_cast<char>(quantity & 0xFF));
@@ -409,8 +470,34 @@ void TcpView::setupUi() {
                 });
             }).detach();
     });
+
+    connect(clearReceiveButton_, &QPushButton::clicked, [this]() {
+        if (receiveTextEdit_) receiveTextEdit_->clear();
+    });
+    connect(clearSendButton_, &QPushButton::clicked, [this]() {
+        if (sendTextEdit_) sendTextEdit_->clear();
+    });
     
     mainLayout_->addStretch();
+}
+
+QString TcpView::formatData(const QByteArray& data, bool hex) const {
+    if (hex) {
+        return QString(data.toHex(' ').toUpper());
+    }
+    return QString::fromLatin1(data);
+}
+
+void TcpView::appendReceiveData(const QByteArray& data) {
+    if (!receiveTextEdit_) return;
+    bool hex = receiveHexCheck_ ? receiveHexCheck_->isChecked() : true;
+    receiveTextEdit_->append(formatData(data, hex));
+}
+
+void TcpView::appendSendData(const QByteArray& data) {
+    if (!sendTextEdit_) return;
+    bool hex = sendHexCheck_ ? sendHexCheck_->isChecked() : true;
+    sendTextEdit_->append(formatData(data, hex));
 }
 
 } // namespace ui::views::tcp
