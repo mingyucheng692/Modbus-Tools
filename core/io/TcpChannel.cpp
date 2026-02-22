@@ -36,7 +36,7 @@ bool TcpChannel::open() {
     socket_.connectToHost(ip_, port_);
     
     if (socket_.waitForConnected(timeouts().readMs)) {
-        // state changed signal will handle setState(Open)
+        setState(ChannelState::Open);
         return true;
     } else {
         setState(ChannelState::Error);

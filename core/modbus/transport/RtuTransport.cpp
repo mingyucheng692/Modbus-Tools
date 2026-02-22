@@ -49,25 +49,41 @@ int RtuTransport::checkIntegrity(const QByteArray& data) {
         return 0; // 不完整
     }
     
-    // RTU 协议本身没有长度字段，通常依赖超时断帧。
-    // 如果必须做完整性检查，需要解析功能码和数据长度。
-    // 这里简单实现：假设数据流是完整的响应帧（通常由 io 层通过超时分包）
-    // 或者可以根据功能码预判长度，但这需要详细协议表。
-    // 暂时：只要 CRC 校验通过就算完整，否则如果长度够大但 CRC 错则丢弃
-    
-    // 简易策略：检查最后两字节是否匹配 CRC
-    uint16_t receivedCrc = static_cast<uint8_t>(data[data.size() - 2]) | 
-                           (static_cast<uint8_t>(data[data.size() - 1]) << 8);
-    QByteArray dataWithoutCrc = data.left(data.size() - 2);
-    
-    if (calculateCrc(dataWithoutCrc) == receivedCrc) {
-        return data.size();
+    uint8_t fc = static_cast<uint8_t>(data[1]);
+    int expectedLength = 0;
+    if ((fc & 0x80) != 0) {
+        expectedLength = 5;
+    } else if (fc == 0x01 || fc == 0x02 || fc == 0x03 || fc == 0x04) {
+        if (data.size() < 3) {
+            return 0;
+        }
+        uint8_t byteCount = static_cast<uint8_t>(data[2]);
+        expectedLength = 3 + byteCount + 2;
+    } else if (fc == 0x05 || fc == 0x06 || fc == 0x0F || fc == 0x10) {
+        expectedLength = 8;
+    } else {
+        uint16_t receivedCrc = static_cast<uint8_t>(data[data.size() - 2]) |
+                               (static_cast<uint8_t>(data[data.size() - 1]) << 8);
+        QByteArray dataWithoutCrc = data.left(data.size() - 2);
+        if (calculateCrc(dataWithoutCrc) == receivedCrc) {
+            return data.size();
+        }
+        return 0;
     }
 
-    // CRC 不对，可能是数据还没收完，也可能是错包。
-    // 这是一个难点。通常 RTU 依赖 silent interval。
-    // 假设 io 层已经按照 silent interval 分包，这里只负责校验。
-    return 0; 
+    if (data.size() < expectedLength) {
+        return 0;
+    }
+
+    QByteArray frame = data.left(expectedLength);
+    uint16_t receivedCrc = static_cast<uint8_t>(frame[expectedLength - 2]) |
+                           (static_cast<uint8_t>(frame[expectedLength - 1]) << 8);
+    QByteArray dataWithoutCrc = frame.left(expectedLength - 2);
+    if (calculateCrc(dataWithoutCrc) == receivedCrc) {
+        return expectedLength;
+    }
+
+    return 0;
 }
 
 uint16_t RtuTransport::calculateCrc(const QByteArray& data) {

@@ -1,7 +1,5 @@
 #include "TcpTransport.h"
-#include <QDataStream>
 #include <QtEndian>
-#include <QIODevice>
 
 namespace modbus::transport {
 
@@ -9,24 +7,16 @@ TcpTransport::TcpTransport() : transactionId_(0) {}
 
 QByteArray TcpTransport::buildRequest(const base::Pdu& pdu, uint8_t slaveId) {
     QByteArray adu;
-    QDataStream stream(&adu, QIODevice::WriteOnly);
-    
-    // Modbus TCP Header (MBAP)
-    // Transaction Identifier (2 Bytes)
-    stream << qToBigEndian(transactionId_++);
-    
-    // Protocol Identifier (2 Bytes) - 0 for Modbus
-    stream << qToBigEndian(static_cast<uint16_t>(0));
-    
-    // Length (2 Bytes) - Number of following bytes (Unit Identifier + PDU)
-    uint16_t length = 1 + 1 + pdu.data().size(); // UnitID(1) + FC(1) + Data
-    stream << qToBigEndian(length);
-    
-    // Unit Identifier (1 Byte)
-    stream << slaveId;
-    
-    // PDU
-    stream << static_cast<uint8_t>(pdu.functionCode());
+    uint16_t transactionId = transactionId_++;
+    uint16_t length = static_cast<uint16_t>(1 + 1 + pdu.data().size());
+    adu.append(static_cast<char>((transactionId >> 8) & 0xFF));
+    adu.append(static_cast<char>(transactionId & 0xFF));
+    adu.append(static_cast<char>(0x00));
+    adu.append(static_cast<char>(0x00));
+    adu.append(static_cast<char>((length >> 8) & 0xFF));
+    adu.append(static_cast<char>(length & 0xFF));
+    adu.append(static_cast<char>(slaveId));
+    adu.append(static_cast<char>(pdu.functionCode()));
     adu.append(pdu.data());
 
     return adu;

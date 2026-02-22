@@ -134,7 +134,9 @@ ModbusResponse ModbusClient::sendRequestInternal(const base::Pdu& request, int s
         int integrity = transport_->checkIntegrity(buffer_);
         if (integrity > 0) {
             // 收到完整包
-            auto pdu = transport_->parseResponse(buffer_);
+            QByteArray frame = buffer_.left(integrity);
+            buffer_.clear();
+            auto pdu = transport_->parseResponse(frame);
             if (pdu) {
                 // 检查是否是异常响应
                 if (pdu->isException()) {
