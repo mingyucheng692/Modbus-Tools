@@ -7,6 +7,7 @@
 class QComboBox;
 class QPushButton;
 class QLabel;
+class QEvent;
 
 namespace ui::widgets {
 
@@ -29,14 +30,21 @@ public slots:
 
 private:
     void setupUi();
+    void retranslateUi();
+    void changeEvent(QEvent* event) override;
 
+    QLabel* portLabel_ = nullptr;
     QComboBox* portCombo_ = nullptr;
+    QPushButton* refreshBtn_ = nullptr;
+    QLabel* baudLabel_ = nullptr;
     QComboBox* baudCombo_ = nullptr;
+    QLabel* dataBitsLabel_ = nullptr;
     QComboBox* dataBitsCombo_ = nullptr;
+    QLabel* parityLabel_ = nullptr;
     QComboBox* parityCombo_ = nullptr;
+    QLabel* stopBitsLabel_ = nullptr;
     QComboBox* stopBitsCombo_ = nullptr;
     QPushButton* connectBtn_ = nullptr;
-    QPushButton* refreshBtn_ = nullptr;
     
     bool isConnected_ = false;
 };

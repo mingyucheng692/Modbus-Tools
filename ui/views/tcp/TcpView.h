@@ -9,6 +9,7 @@ class QGroupBox;
 class QCheckBox;
 class QTextEdit;
 class QPushButton;
+class QEvent;
 
 namespace modbus::dispatch { class ModbusWorker; }
 namespace modbus::session { class IModbusClient; }
@@ -35,6 +36,8 @@ private:
     void appendReceiveData(const QByteArray& data);
     void appendSendData(const QByteArray& data);
     QString formatData(const QByteArray& data, bool hex) const;
+    void retranslateUi();
+    void changeEvent(QEvent* event) override;
 
     QVBoxLayout* mainLayout_ = nullptr;
     ui::widgets::TcpConnectionWidget* connectionWidget_ = nullptr;
@@ -42,6 +45,8 @@ private:
     ui::widgets::TrafficMonitorWidget* trafficMonitor_ = nullptr;
     ui::widgets::ControlWidget* controlWidget_ = nullptr;
     QGroupBox* dataGroup_ = nullptr;
+    QGroupBox* receiveGroup_ = nullptr;
+    QGroupBox* sendGroup_ = nullptr;
     QTextEdit* receiveTextEdit_ = nullptr;
     QTextEdit* sendTextEdit_ = nullptr;
     QCheckBox* receiveHexCheck_ = nullptr;

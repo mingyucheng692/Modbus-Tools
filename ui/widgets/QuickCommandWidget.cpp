@@ -16,6 +16,8 @@
 #include <QJsonObject>
 #include <QFile>
 #include <QDebug>
+#include <QEvent>
+#include <QCoreApplication>
 
 namespace ui::widgets {
 
@@ -23,22 +25,22 @@ namespace ui::widgets {
 class CommandEditDialog : public QDialog {
 public:
     CommandEditDialog(QWidget* parent = nullptr, const QuickCommand& cmd = {}) : QDialog(parent) {
-        setWindowTitle("Command Editor");
+        setWindowTitle(QCoreApplication::translate("CommandEditDialog", "Command Editor"));
         auto layout = new QVBoxLayout(this);
 
         auto nameLayout = new QHBoxLayout();
-        nameLayout->addWidget(new QLabel("Name:"));
+        nameLayout->addWidget(new QLabel(QCoreApplication::translate("CommandEditDialog", "Name:")));
         nameEdit_ = new QLineEdit(cmd.name);
         nameLayout->addWidget(nameEdit_);
         layout->addLayout(nameLayout);
 
         auto dataLayout = new QHBoxLayout();
-        dataLayout->addWidget(new QLabel("Data:"));
+        dataLayout->addWidget(new QLabel(QCoreApplication::translate("CommandEditDialog", "Data:")));
         dataEdit_ = new QLineEdit(cmd.data);
         dataLayout->addWidget(dataEdit_);
         layout->addLayout(dataLayout);
 
-        hexCheck_ = new QCheckBox("Hex Mode");
+        hexCheck_ = new QCheckBox(QCoreApplication::translate("CommandEditDialog", "Hex Mode"));
         hexCheck_->setChecked(cmd.isHex);
         layout->addWidget(hexCheck_);
 
@@ -72,12 +74,12 @@ void QuickCommandWidget::setupUi() {
 
     // Toolbar
     auto toolbar = new QHBoxLayout();
-    addBtn_ = new QPushButton("Add", this);
-    editBtn_ = new QPushButton("Edit", this);
-    removeBtn_ = new QPushButton("Remove", this);
-    sendBtn_ = new QPushButton("Send", this);
-    exportBtn_ = new QPushButton("Export", this);
-    importBtn_ = new QPushButton("Import", this);
+    addBtn_ = new QPushButton(this);
+    editBtn_ = new QPushButton(this);
+    removeBtn_ = new QPushButton(this);
+    sendBtn_ = new QPushButton(this);
+    exportBtn_ = new QPushButton(this);
+    importBtn_ = new QPushButton(this);
 
     toolbar->addWidget(addBtn_);
     toolbar->addWidget(editBtn_);
@@ -91,7 +93,7 @@ void QuickCommandWidget::setupUi() {
     // Table
     table_ = new QTableWidget(this);
     table_->setColumnCount(3);
-    table_->setHorizontalHeaderLabels({"Name", "Data", "Format"});
+    table_->setHorizontalHeaderLabels({"", "", ""});
     table_->horizontalHeader()->setSectionResizeMode(0, QHeaderView::ResizeToContents);
     table_->horizontalHeader()->setSectionResizeMode(1, QHeaderView::Stretch);
     table_->horizontalHeader()->setSectionResizeMode(2, QHeaderView::ResizeToContents);
@@ -108,12 +110,14 @@ void QuickCommandWidget::setupUi() {
     connect(table_, &QTableWidget::cellDoubleClicked, this, &QuickCommandWidget::onTableDoubleClicked);
     connect(exportBtn_, &QPushButton::clicked, this, &QuickCommandWidget::onExportClicked);
     connect(importBtn_, &QPushButton::clicked, this, &QuickCommandWidget::onImportClicked);
+
+    retranslateUi();
 }
 
 void QuickCommandWidget::updateRow(int row, const QuickCommand& cmd) {
     table_->setItem(row, 0, new QTableWidgetItem(cmd.name));
     table_->setItem(row, 1, new QTableWidgetItem(cmd.data));
-    table_->setItem(row, 2, new QTableWidgetItem(cmd.isHex ? "HEX" : "ASCII"));
+    table_->setItem(row, 2, new QTableWidgetItem(cmd.isHex ? tr("HEX") : tr("ASCII")));
     
     // Store original data in UserRole if needed, but we can reconstruct from UI for now
     table_->item(row, 0)->setData(Qt::UserRole, cmd.isHex); 
@@ -206,7 +210,7 @@ QByteArray QuickCommandWidget::parseData(const QString& dataStr, bool isHex) {
 }
 
 void QuickCommandWidget::onExportClicked() {
-    QString path = QFileDialog::getSaveFileName(this, "Export Commands", "", "JSON Files (*.json)");
+    QString path = QFileDialog::getSaveFileName(this, tr("Export Commands"), "", tr("JSON Files (*.json)"));
     if (path.isEmpty()) return;
 
     QJsonArray arr;
@@ -227,7 +231,7 @@ void QuickCommandWidget::onExportClicked() {
 }
 
 void QuickCommandWidget::onImportClicked() {
-    QString path = QFileDialog::getOpenFileName(this, "Import Commands", "", "JSON Files (*.json)");
+    QString path = QFileDialog::getOpenFileName(this, tr("Import Commands"), "", tr("JSON Files (*.json)"));
     if (path.isEmpty()) return;
 
     QFile file(path);
@@ -247,6 +251,33 @@ void QuickCommandWidget::onImportClicked() {
             setCommands(cmds);
         }
     }
+}
+
+void QuickCommandWidget::retranslateUi() {
+    if (addBtn_) addBtn_->setText(tr("Add"));
+    if (editBtn_) editBtn_->setText(tr("Edit"));
+    if (removeBtn_) removeBtn_->setText(tr("Remove"));
+    if (sendBtn_) sendBtn_->setText(tr("Send"));
+    if (exportBtn_) exportBtn_->setText(tr("Export"));
+    if (importBtn_) importBtn_->setText(tr("Import"));
+
+    if (table_) {
+        table_->setHorizontalHeaderLabels({tr("Name"), tr("Data"), tr("Format")});
+        for (int row = 0; row < table_->rowCount(); ++row) {
+            auto item = table_->item(row, 0);
+            bool isHex = item ? item->data(Qt::UserRole).toBool() : false;
+            if (table_->item(row, 2)) {
+                table_->item(row, 2)->setText(isHex ? tr("HEX") : tr("ASCII"));
+            }
+        }
+    }
+}
+
+void QuickCommandWidget::changeEvent(QEvent* event) {
+    if (event->type() == QEvent::LanguageChange) {
+        retranslateUi();
+    }
+    QWidget::changeEvent(event);
 }
 
 } // namespace ui::widgets

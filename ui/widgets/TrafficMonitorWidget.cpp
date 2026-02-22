@@ -14,6 +14,7 @@
 #include <QApplication>
 #include <QClipboard>
 #include <QMenu>
+#include <QEvent>
 
 namespace ui::widgets {
 
@@ -28,33 +29,33 @@ void TrafficMonitorWidget::setupUi() {
     auto mainLayout = new QVBoxLayout(this);
     mainLayout->setContentsMargins(0, 0, 0, 0);
 
-    auto groupBox = new QGroupBox("Traffic Monitor", this);
-    auto layout = new QVBoxLayout(groupBox);
+    groupBox_ = new QGroupBox(this);
+    auto layout = new QVBoxLayout(groupBox_);
 
     // Toolbar
     auto toolbarLayout = new QHBoxLayout();
     
     displayModeBox_ = new QComboBox(this);
-    displayModeBox_->addItem("Hex View");
-    displayModeBox_->addItem("ASCII View");
+    displayModeBox_->addItem("");
+    displayModeBox_->addItem("");
     toolbarLayout->addWidget(displayModeBox_);
 
-    autoScrollCheck_ = new QCheckBox("Auto Scroll", this);
+    autoScrollCheck_ = new QCheckBox(this);
     autoScrollCheck_->setChecked(true);
     toolbarLayout->addWidget(autoScrollCheck_);
 
-    showTxCheck_ = new QCheckBox("TX", this);
+    showTxCheck_ = new QCheckBox(this);
     showTxCheck_->setChecked(true);
     toolbarLayout->addWidget(showTxCheck_);
 
-    showRxCheck_ = new QCheckBox("RX", this);
+    showRxCheck_ = new QCheckBox(this);
     showRxCheck_->setChecked(true);
     toolbarLayout->addWidget(showRxCheck_);
 
-    clearBtn_ = new QPushButton("Clear", this);
+    clearBtn_ = new QPushButton(this);
     toolbarLayout->addWidget(clearBtn_);
     
-    saveBtn_ = new QPushButton("Save", this);
+    saveBtn_ = new QPushButton(this);
     toolbarLayout->addWidget(saveBtn_);
     
     toolbarLayout->addStretch();
@@ -67,14 +68,14 @@ void TrafficMonitorWidget::setupUi() {
     logList_->setContextMenuPolicy(Qt::CustomContextMenu);
     layout->addWidget(logList_);
 
-    mainLayout->addWidget(groupBox);
+    mainLayout->addWidget(groupBox_);
 
     // Connections
     connect(clearBtn_, &QPushButton::clicked, this, &TrafficMonitorWidget::clear);
     connect(saveBtn_, &QPushButton::clicked, this, &TrafficMonitorWidget::onSaveClicked);
     connect(logList_, &QListWidget::customContextMenuRequested, [this](const QPoint& pos) {
         QMenu menu(this);
-        menu.addAction("Copy", this, &TrafficMonitorWidget::onCopyClicked);
+        menu.addAction(tr("Copy"), this, &TrafficMonitorWidget::onCopyClicked);
         menu.exec(logList_->mapToGlobal(pos));
     });
     
@@ -84,6 +85,8 @@ void TrafficMonitorWidget::setupUi() {
         // Ideally we store raw data and re-render.
         // But for simplicity in Phase 3, we just keep it as is.
     });
+
+    retranslateUi();
 }
 
 void TrafficMonitorWidget::appendTx(const QByteArray& data) {
@@ -91,7 +94,7 @@ void TrafficMonitorWidget::appendTx(const QByteArray& data) {
 
     QString timeStr = QDateTime::currentDateTime().toString("HH:mm:ss.zzz");
     QString content = formatData(data);
-    QString itemText = QString("[%1] [TX] %2").arg(timeStr, content);
+    QString itemText = tr("[%1] [TX] %2").arg(timeStr, content);
     
     auto item = new QListWidgetItem(itemText);
     item->setForeground(Qt::blue); // TX in Blue
@@ -107,7 +110,7 @@ void TrafficMonitorWidget::appendRx(const QByteArray& data) {
 
     QString timeStr = QDateTime::currentDateTime().toString("HH:mm:ss.zzz");
     QString content = formatData(data);
-    QString itemText = QString("[%1] [RX] %2").arg(timeStr, content);
+    QString itemText = tr("[%1] [RX] %2").arg(timeStr, content);
     
     auto item = new QListWidgetItem(itemText);
     item->setForeground(Qt::darkGreen); // RX in Green
@@ -120,7 +123,7 @@ void TrafficMonitorWidget::appendRx(const QByteArray& data) {
 
 void TrafficMonitorWidget::appendInfo(const QString& message) {
     QString timeStr = QDateTime::currentDateTime().toString("HH:mm:ss.zzz");
-    QString itemText = QString("[%1] [INFO] %2").arg(timeStr, message);
+    QString itemText = tr("[%1] [INFO] %2").arg(timeStr, message);
     
     auto item = new QListWidgetItem(itemText);
     item->setForeground(Qt::gray);
@@ -144,7 +147,7 @@ QString TrafficMonitorWidget::formatData(const QByteArray& data) const {
 }
 
 void TrafficMonitorWidget::onSaveClicked() {
-    QString fileName = QFileDialog::getSaveFileName(this, "Save Log", "", "Text Files (*.txt);;All Files (*)");
+    QString fileName = QFileDialog::getSaveFileName(this, tr("Save Log"), "", tr("Text Files (*.txt);;All Files (*)"));
     if (fileName.isEmpty()) return;
 
     QFile file(fileName);
@@ -162,6 +165,26 @@ void TrafficMonitorWidget::onCopyClicked() {
         selectedText << item->text();
     }
     QApplication::clipboard()->setText(selectedText.join("\n"));
+}
+
+void TrafficMonitorWidget::retranslateUi() {
+    if (groupBox_) groupBox_->setTitle(tr("Traffic Monitor"));
+    if (displayModeBox_) {
+        displayModeBox_->setItemText(0, tr("Hex View"));
+        displayModeBox_->setItemText(1, tr("ASCII View"));
+    }
+    if (autoScrollCheck_) autoScrollCheck_->setText(tr("Auto Scroll"));
+    if (showTxCheck_) showTxCheck_->setText(tr("TX"));
+    if (showRxCheck_) showRxCheck_->setText(tr("RX"));
+    if (clearBtn_) clearBtn_->setText(tr("Clear"));
+    if (saveBtn_) saveBtn_->setText(tr("Save"));
+}
+
+void TrafficMonitorWidget::changeEvent(QEvent* event) {
+    if (event->type() == QEvent::LanguageChange) {
+        retranslateUi();
+    }
+    QWidget::changeEvent(event);
 }
 
 } // namespace ui::widgets

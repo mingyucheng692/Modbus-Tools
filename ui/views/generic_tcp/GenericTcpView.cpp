@@ -11,6 +11,7 @@
 #include <QDebug>
 #include <QThread>
 #include <QMetaObject>
+#include <QEvent>
 #include <spdlog/spdlog.h>
 
 namespace ui::views::generic_tcp {
@@ -43,11 +44,11 @@ void GenericTcpView::setupUi() {
     splitter->addWidget(trafficMonitor_);
     
     // Right: Quick Commands (Collapsible via splitter)
-    auto quickCmdGroup = new QGroupBox("Quick Commands", splitter);
-    auto quickCmdLayout = new QVBoxLayout(quickCmdGroup);
-    quickCommandWidget_ = new widgets::QuickCommandWidget(quickCmdGroup);
+    quickCmdGroup_ = new QGroupBox(splitter);
+    auto quickCmdLayout = new QVBoxLayout(quickCmdGroup_);
+    quickCommandWidget_ = new widgets::QuickCommandWidget(quickCmdGroup_);
     quickCmdLayout->addWidget(quickCommandWidget_);
-    splitter->addWidget(quickCmdGroup);
+    splitter->addWidget(quickCmdGroup_);
     
     // Set initial sizes (Traffic 70%, QuickCmd 30%)
     splitter->setStretchFactor(0, 7);
@@ -56,11 +57,11 @@ void GenericTcpView::setupUi() {
     mainLayout->addWidget(splitter, 1); // Stretch factor 1 to take available space
 
     // 3. Input Section (Bottom)
-    auto inputGroup = new QGroupBox("Send Data", this);
-    auto inputLayout = new QVBoxLayout(inputGroup);
-    inputWidget_ = new widgets::GenericInputWidget(inputGroup);
+    inputGroup_ = new QGroupBox(this);
+    auto inputLayout = new QVBoxLayout(inputGroup_);
+    inputWidget_ = new widgets::GenericInputWidget(inputGroup_);
     inputLayout->addWidget(inputWidget_);
-    mainLayout->addWidget(inputGroup);
+    mainLayout->addWidget(inputGroup_);
 
     // Connections
     connect(connectionWidget_, &widgets::TcpConnectionWidget::connectClicked, 
@@ -73,6 +74,8 @@ void GenericTcpView::setupUi() {
             
     connect(quickCommandWidget_, &widgets::QuickCommandWidget::sendRequested,
             this, &GenericTcpView::onSendRequested);
+
+    retranslateUi();
 }
 
 void GenericTcpView::startWorker() {
@@ -115,7 +118,7 @@ void GenericTcpView::onConnectClicked(const QString& ip, int port) {
     if (!worker_) return;
     
     spdlog::info("GenericTcp: Connecting to {}:{}", ip.toStdString(), port);
-    trafficMonitor_->appendInfo(QString("Connecting to %1:%2...").arg(ip).arg(port));
+    trafficMonitor_->appendInfo(tr("Connecting to %1:%2...").arg(ip).arg(port));
     
     // Invoke openTcp on worker thread
     QMetaObject::invokeMethod(worker_.get(), "openTcp", 
@@ -148,15 +151,15 @@ void GenericTcpView::onWorkerStateChanged(int state) {
     
     QString stateStr;
     switch (state) {
-        case 0: stateStr = "Closed"; break;
-        case 1: stateStr = "Opening"; break;
-        case 2: stateStr = "Connected"; break;
-        case 3: stateStr = "Closing"; break;
-        case 4: stateStr = "Error"; break;
-        default: stateStr = "Unknown"; break;
+        case 0: stateStr = tr("Closed"); break;
+        case 1: stateStr = tr("Opening"); break;
+        case 2: stateStr = tr("Connected"); break;
+        case 3: stateStr = tr("Closing"); break;
+        case 4: stateStr = tr("Error"); break;
+        default: stateStr = tr("Unknown"); break;
     }
     
-    trafficMonitor_->appendInfo(QString("State changed: %1").arg(stateStr));
+    trafficMonitor_->appendInfo(tr("State changed: %1").arg(stateStr));
     
     if (state == 4) { // Error
         // Maybe show error in status bar?
@@ -164,7 +167,7 @@ void GenericTcpView::onWorkerStateChanged(int state) {
 }
 
 void GenericTcpView::onWorkerError(const QString& error) {
-    trafficMonitor_->appendInfo(QString("Error: %1").arg(error));
+    trafficMonitor_->appendInfo(tr("Error: %1").arg(error));
     spdlog::error("GenericTcp Error: {}", error.toStdString());
 }
 
@@ -190,6 +193,18 @@ void GenericTcpView::onWorkerMonitor(bool isTx, const QByteArray& data) {
 
 void GenericTcpView::onWorkerBytesWritten(qint64 bytes) {
     // Update stats if needed
+}
+
+void GenericTcpView::retranslateUi() {
+    if (quickCmdGroup_) quickCmdGroup_->setTitle(tr("Quick Commands"));
+    if (inputGroup_) inputGroup_->setTitle(tr("Send Data"));
+}
+
+void GenericTcpView::changeEvent(QEvent* event) {
+    if (event->type() == QEvent::LanguageChange) {
+        retranslateUi();
+    }
+    QWidget::changeEvent(event);
 }
 
 } // namespace ui::views::generic_tcp

@@ -5,6 +5,7 @@
 #include <QSpinBox>
 #include <QComboBox>
 #include <QTimer>
+#include <QEvent>
 
 namespace ui::widgets {
 
@@ -74,7 +75,7 @@ void ControlWidget::onTimer() {
 
 void ControlWidget::updateStatsLabel() {
     double avgRtt = (rxCount_ > 0) ? (double)totalRtt_ / rxCount_ : 0.0;
-    statsLabel_->setText(QString("TX: %1 | RX: %2 | Avg RTT: %3 ms")
+    statsLabel_->setText(tr("TX: %1 | RX: %2 | Avg RTT: %3 ms")
                         .arg(txCount_)
                         .arg(rxCount_)
                         .arg(avgRtt, 0, 'f', 1));
@@ -85,11 +86,12 @@ void ControlWidget::setupUi() {
     layout->setContentsMargins(5, 5, 5, 5);
     
     // Poll Enable
-    enablePollCheck_ = new QCheckBox("Enable Polling", this);
+    enablePollCheck_ = new QCheckBox(this);
     layout->addWidget(enablePollCheck_);
     
     // Interval
-    layout->addWidget(new QLabel("Interval(ms):", this));
+    intervalLabel_ = new QLabel(this);
+    layout->addWidget(intervalLabel_);
     intervalSpin_ = new QSpinBox(this);
     intervalSpin_->setRange(10, 60000);
     intervalSpin_->setValue(1000);
@@ -97,26 +99,24 @@ void ControlWidget::setupUi() {
     layout->addWidget(intervalSpin_);
     
     // Function Code
-    layout->addWidget(new QLabel("FC:", this));
+    fcLabel_ = new QLabel(this);
+    layout->addWidget(fcLabel_);
     fcCombo_ = new QComboBox(this);
-    fcCombo_->addItems({
-        "01-Read Coils", 
-        "02-Read Discrete", 
-        "03-Read Holding", 
-        "04-Read Input"
-    });
+    fcCombo_->addItems({"", "", "", ""});
     fcCombo_->setCurrentIndex(2); // Default to 03
     layout->addWidget(fcCombo_);
     
     // Address
-    layout->addWidget(new QLabel("Addr:", this));
+    addrLabel_ = new QLabel(this);
+    layout->addWidget(addrLabel_);
     addrSpin_ = new QSpinBox(this);
     addrSpin_->setRange(0, 65535);
     addrSpin_->setValue(0);
     layout->addWidget(addrSpin_);
     
     // Quantity
-    layout->addWidget(new QLabel("Qty:", this));
+    qtyLabel_ = new QLabel(this);
+    layout->addWidget(qtyLabel_);
     qtySpin_ = new QSpinBox(this);
     qtySpin_->setRange(1, 125);
     qtySpin_->setValue(1);
@@ -125,8 +125,42 @@ void ControlWidget::setupUi() {
     layout->addStretch();
     
     // Stats
-    statsLabel_ = new QLabel("TX: 0 | RX: 0 | Err: 0 | Avg RTT: 0.0 ms", this);
+    statsLabel_ = new QLabel(this);
     layout->addWidget(statsLabel_);
+
+    retranslateUi();
+}
+
+void ControlWidget::retranslateUi() {
+    if (enablePollCheck_) {
+        enablePollCheck_->setText(tr("Enable Polling"));
+    }
+    if (intervalLabel_) {
+        intervalLabel_->setText(tr("Interval(ms):"));
+    }
+    if (fcLabel_) {
+        fcLabel_->setText(tr("FC:"));
+    }
+    if (fcCombo_) {
+        fcCombo_->setItemText(0, tr("01-Read Coils"));
+        fcCombo_->setItemText(1, tr("02-Read Discrete"));
+        fcCombo_->setItemText(2, tr("03-Read Holding"));
+        fcCombo_->setItemText(3, tr("04-Read Input"));
+    }
+    if (addrLabel_) {
+        addrLabel_->setText(tr("Addr:"));
+    }
+    if (qtyLabel_) {
+        qtyLabel_->setText(tr("Qty:"));
+    }
+    updateStatsLabel();
+}
+
+void ControlWidget::changeEvent(QEvent* event) {
+    if (event->type() == QEvent::LanguageChange) {
+        retranslateUi();
+    }
+    QWidget::changeEvent(event);
 }
 
 } // namespace ui::widgets

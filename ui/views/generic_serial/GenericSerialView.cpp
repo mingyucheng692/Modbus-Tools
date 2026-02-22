@@ -12,6 +12,7 @@
 #include <QThread>
 #include <QMetaObject>
 #include <QCheckBox>
+#include <QEvent>
 #include <spdlog/spdlog.h>
 
 namespace ui::views::generic_serial {
@@ -37,16 +38,16 @@ void GenericSerialView::setupUi() {
     topLayout->addWidget(connectionWidget_);
     
     // Serial Controls (DTR/RTS)
-    auto controlGroup = new QGroupBox("Control", this);
-    auto controlLayout = new QHBoxLayout(controlGroup);
+    controlGroup_ = new QGroupBox(this);
+    auto controlLayout = new QHBoxLayout(controlGroup_);
     controlLayout->setContentsMargins(5, 5, 5, 5);
     
-    dtrCheck_ = new QCheckBox("DTR", this);
-    rtsCheck_ = new QCheckBox("RTS", this);
+    dtrCheck_ = new QCheckBox(this);
+    rtsCheck_ = new QCheckBox(this);
     controlLayout->addWidget(dtrCheck_);
     controlLayout->addWidget(rtsCheck_);
     
-    topLayout->addWidget(controlGroup);
+    topLayout->addWidget(controlGroup_);
     topLayout->addStretch();
     
     mainLayout->addLayout(topLayout);
@@ -59,11 +60,11 @@ void GenericSerialView::setupUi() {
     splitter->addWidget(trafficMonitor_);
     
     // Right: Quick Commands (Collapsible via splitter)
-    auto quickCmdGroup = new QGroupBox("Quick Commands", splitter);
-    auto quickCmdLayout = new QVBoxLayout(quickCmdGroup);
-    quickCommandWidget_ = new widgets::QuickCommandWidget(quickCmdGroup);
+    quickCmdGroup_ = new QGroupBox(splitter);
+    auto quickCmdLayout = new QVBoxLayout(quickCmdGroup_);
+    quickCommandWidget_ = new widgets::QuickCommandWidget(quickCmdGroup_);
     quickCmdLayout->addWidget(quickCommandWidget_);
-    splitter->addWidget(quickCmdGroup);
+    splitter->addWidget(quickCmdGroup_);
     
     // Set initial sizes (Traffic 70%, QuickCmd 30%)
     splitter->setStretchFactor(0, 7);
@@ -72,11 +73,11 @@ void GenericSerialView::setupUi() {
     mainLayout->addWidget(splitter, 1);
 
     // 3. Input Section (Bottom)
-    auto inputGroup = new QGroupBox("Send Data", this);
-    auto inputLayout = new QVBoxLayout(inputGroup);
-    inputWidget_ = new widgets::GenericInputWidget(inputGroup);
+    inputGroup_ = new QGroupBox(this);
+    auto inputLayout = new QVBoxLayout(inputGroup_);
+    inputWidget_ = new widgets::GenericInputWidget(inputGroup_);
     inputLayout->addWidget(inputWidget_);
-    mainLayout->addWidget(inputGroup);
+    mainLayout->addWidget(inputGroup_);
 
     // Connections
     connect(connectionWidget_, &widgets::SerialConnectionWidget::connectClicked, 
@@ -96,6 +97,8 @@ void GenericSerialView::setupUi() {
     // Disable controls initially
     dtrCheck_->setEnabled(false);
     rtsCheck_->setEnabled(false);
+
+    retranslateUi();
 }
 
 void GenericSerialView::startWorker() {
@@ -129,7 +132,7 @@ void GenericSerialView::onConnectClicked(const io::SerialConfig& config) {
     if (!worker_) return;
     
     spdlog::info("GenericSerial: Connecting to {}", config.portName.toStdString());
-    trafficMonitor_->appendInfo(QString("Opening %1...").arg(config.portName));
+    trafficMonitor_->appendInfo(tr("Opening %1...").arg(config.portName));
     
     QMetaObject::invokeMethod(worker_.get(), "openSerial", 
                               Qt::QueuedConnection, 
@@ -156,19 +159,19 @@ void GenericSerialView::onWorkerStateChanged(int state) {
     
     QString stateStr;
     switch (state) {
-        case 0: stateStr = "Closed"; break;
-        case 1: stateStr = "Opening"; break;
-        case 2: stateStr = "Open"; break;
-        case 3: stateStr = "Closing"; break;
-        case 4: stateStr = "Error"; break;
-        default: stateStr = "Unknown"; break;
+        case 0: stateStr = tr("Closed"); break;
+        case 1: stateStr = tr("Opening"); break;
+        case 2: stateStr = tr("Open"); break;
+        case 3: stateStr = tr("Closing"); break;
+        case 4: stateStr = tr("Error"); break;
+        default: stateStr = tr("Unknown"); break;
     }
     
-    trafficMonitor_->appendInfo(QString("State changed: %1").arg(stateStr));
+    trafficMonitor_->appendInfo(tr("State changed: %1").arg(stateStr));
 }
 
 void GenericSerialView::onWorkerError(const QString& error) {
-    trafficMonitor_->appendInfo(QString("Error: %1").arg(error));
+    trafficMonitor_->appendInfo(tr("Error: %1").arg(error));
     spdlog::error("GenericSerial Error: {}", error.toStdString());
 }
 
@@ -196,6 +199,21 @@ void GenericSerialView::onRtsChanged(bool checked) {
     QMetaObject::invokeMethod(worker_.get(), "setRts", 
                               Qt::QueuedConnection, 
                               Q_ARG(bool, checked));
+}
+
+void GenericSerialView::retranslateUi() {
+    if (controlGroup_) controlGroup_->setTitle(tr("Control"));
+    if (quickCmdGroup_) quickCmdGroup_->setTitle(tr("Quick Commands"));
+    if (inputGroup_) inputGroup_->setTitle(tr("Send Data"));
+    if (dtrCheck_) dtrCheck_->setText(tr("DTR"));
+    if (rtsCheck_) rtsCheck_->setText(tr("RTS"));
+}
+
+void GenericSerialView::changeEvent(QEvent* event) {
+    if (event->type() == QEvent::LanguageChange) {
+        retranslateUi();
+    }
+    QWidget::changeEvent(event);
 }
 
 } // namespace ui::views::generic_serial

@@ -12,6 +12,7 @@
 #include <QFile>
 #include <QMessageBox>
 #include <QDebug>
+#include <QEvent>
 
 namespace ui::widgets {
 
@@ -31,7 +32,6 @@ void GenericInputWidget::setupUi() {
 
     // 1. Input Area
     inputEdit_ = new QTextEdit(this);
-    inputEdit_->setPlaceholderText("Enter data to send...");
     mainLayout->addWidget(inputEdit_);
 
     // 2. Control Area
@@ -39,8 +39,8 @@ void GenericInputWidget::setupUi() {
     
     // Format Selection
     auto formatGroup = new QButtonGroup(this);
-    hexRadio_ = new QRadioButton("HEX", this);
-    asciiRadio_ = new QRadioButton("ASCII", this);
+    hexRadio_ = new QRadioButton(this);
+    asciiRadio_ = new QRadioButton(this);
     hexRadio_->setChecked(true); // Default Hex
     formatGroup->addButton(hexRadio_);
     formatGroup->addButton(asciiRadio_);
@@ -50,7 +50,7 @@ void GenericInputWidget::setupUi() {
     
     // Auto Send
     controlLayout->addSpacing(20);
-    autoSendCheck_ = new QCheckBox("Auto Send", this);
+    autoSendCheck_ = new QCheckBox(this);
     controlLayout->addWidget(autoSendCheck_);
     
     intervalSpin_ = new QSpinBox(this);
@@ -62,11 +62,11 @@ void GenericInputWidget::setupUi() {
     
     // Send File
     controlLayout->addStretch();
-    sendFileBtn_ = new QPushButton("Send File", this);
+    sendFileBtn_ = new QPushButton(this);
     controlLayout->addWidget(sendFileBtn_);
     
     // Send Button
-    sendBtn_ = new QPushButton("Send", this);
+    sendBtn_ = new QPushButton(this);
     sendBtn_->setMinimumWidth(80);
     controlLayout->addWidget(sendBtn_);
     
@@ -83,6 +83,8 @@ void GenericInputWidget::setupUi() {
     connect(autoSendCheck_, &QCheckBox::toggled, this, &GenericInputWidget::onAutoSendToggled);
     connect(sendBtn_, &QPushButton::clicked, this, &GenericInputWidget::onSendClicked);
     connect(sendFileBtn_, &QPushButton::clicked, this, &GenericInputWidget::onSendFileClicked);
+
+    retranslateUi();
 }
 
 void GenericInputWidget::onFormatChanged() {
@@ -163,12 +165,12 @@ void GenericInputWidget::onTimerTimeout() {
 }
 
 void GenericInputWidget::onSendFileClicked() {
-    QString path = QFileDialog::getOpenFileName(this, "Select File to Send");
+    QString path = QFileDialog::getOpenFileName(this, tr("Select File to Send"));
     if (path.isEmpty()) return;
 
     QFile file(path);
     if (!file.open(QIODevice::ReadOnly)) {
-        QMessageBox::warning(this, "Error", "Cannot open file");
+        QMessageBox::warning(this, tr("Error"), tr("Cannot open file"));
         return;
     }
     
@@ -182,6 +184,37 @@ void GenericInputWidget::onSendFileClicked() {
 
 void GenericInputWidget::appendData(const QByteArray& /*data*/) {
     // Optional: flash success or something?
+}
+
+void GenericInputWidget::retranslateUi() {
+    if (inputEdit_) {
+        inputEdit_->setPlaceholderText(tr("Enter data to send..."));
+    }
+    if (hexRadio_) {
+        hexRadio_->setText(tr("HEX"));
+    }
+    if (asciiRadio_) {
+        asciiRadio_->setText(tr("ASCII"));
+    }
+    if (autoSendCheck_) {
+        autoSendCheck_->setText(tr("Auto Send"));
+    }
+    if (intervalSpin_) {
+        intervalSpin_->setSuffix(tr(" ms"));
+    }
+    if (sendFileBtn_) {
+        sendFileBtn_->setText(tr("Send File"));
+    }
+    if (sendBtn_) {
+        sendBtn_->setText(tr("Send"));
+    }
+}
+
+void GenericInputWidget::changeEvent(QEvent* event) {
+    if (event->type() == QEvent::LanguageChange) {
+        retranslateUi();
+    }
+    QWidget::changeEvent(event);
 }
 
 } // namespace ui::widgets

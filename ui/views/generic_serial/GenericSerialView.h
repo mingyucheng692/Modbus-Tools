@@ -20,6 +20,8 @@ class QHBoxLayout;
 class QSplitter;
 class QCheckBox;
 class QThread;
+class QGroupBox;
+class QEvent;
 
 namespace ui::views::generic_serial {
 
@@ -47,6 +49,8 @@ private:
     void setupUi();
     void startWorker();
     void stopWorker();
+    void retranslateUi();
+    void changeEvent(QEvent* event) override;
 
     // UI Components
     widgets::SerialConnectionWidget* connectionWidget_ = nullptr;
@@ -56,6 +60,9 @@ private:
     
     QCheckBox* dtrCheck_ = nullptr;
     QCheckBox* rtsCheck_ = nullptr;
+    QGroupBox* controlGroup_ = nullptr;
+    QGroupBox* quickCmdGroup_ = nullptr;
+    QGroupBox* inputGroup_ = nullptr;
 
     // Backend
     std::unique_ptr<io::GenericIoWorker> worker_; 

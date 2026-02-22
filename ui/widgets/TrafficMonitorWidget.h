@@ -7,6 +7,8 @@ class QListWidget;
 class QCheckBox;
 class QPushButton;
 class QComboBox;
+class QGroupBox;
+class QEvent;
 
 namespace ui::widgets {
 
@@ -29,7 +31,10 @@ private slots:
 private:
     void setupUi();
     QString formatData(const QByteArray& data) const;
+    void retranslateUi();
+    void changeEvent(QEvent* event) override;
 
+    QGroupBox* groupBox_ = nullptr;
     QListWidget* logList_ = nullptr;
     QCheckBox* autoScrollCheck_ = nullptr;
     QCheckBox* showTxCheck_ = nullptr;

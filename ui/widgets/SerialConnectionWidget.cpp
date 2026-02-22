@@ -5,6 +5,7 @@
 #include <QPushButton>
 #include <QLabel>
 #include <QSerialPortInfo>
+#include <QEvent>
 
 namespace ui::widgets {
 
@@ -47,7 +48,7 @@ io::SerialConfig SerialConnectionWidget::getConfig() const {
 
 void SerialConnectionWidget::setConnected(bool connected) {
     isConnected_ = connected;
-    connectBtn_->setText(connected ? "Disconnect" : "Connect");
+    connectBtn_->setText(connected ? tr("Disconnect") : tr("Connect"));
     
     portCombo_->setEnabled(!connected);
     baudCombo_->setEnabled(!connected);
@@ -89,26 +90,29 @@ void SerialConnectionWidget::setupUi() {
     layout->setContentsMargins(0, 0, 0, 0);
 
     // Port
-    layout->addWidget(new QLabel("Port:", this));
+    portLabel_ = new QLabel(this);
+    layout->addWidget(portLabel_);
     portCombo_ = new QComboBox(this);
     portCombo_->setMinimumWidth(80);
     layout->addWidget(portCombo_);
 
     refreshBtn_ = new QPushButton("R", this);
     refreshBtn_->setFixedWidth(30);
-    refreshBtn_->setToolTip("Refresh Ports");
+    refreshBtn_->setToolTip(tr("Refresh Ports"));
     connect(refreshBtn_, &QPushButton::clicked, this, &SerialConnectionWidget::refreshPorts);
     layout->addWidget(refreshBtn_);
 
     // Baud
-    layout->addWidget(new QLabel("Baud:", this));
+    baudLabel_ = new QLabel(this);
+    layout->addWidget(baudLabel_);
     baudCombo_ = new QComboBox(this);
     baudCombo_->addItems({"9600", "19200", "38400", "57600", "115200"});
     baudCombo_->setCurrentText("9600");
     layout->addWidget(baudCombo_);
 
     // Data Bits
-    layout->addWidget(new QLabel("Data:", this));
+    dataBitsLabel_ = new QLabel(this);
+    layout->addWidget(dataBitsLabel_);
     dataBitsCombo_ = new QComboBox(this);
     dataBitsCombo_->addItems({"8", "7"});
     dataBitsCombo_->setCurrentText("8");
@@ -116,21 +120,23 @@ void SerialConnectionWidget::setupUi() {
     layout->addWidget(dataBitsCombo_);
 
     // Parity
-    layout->addWidget(new QLabel("Parity:", this));
+    parityLabel_ = new QLabel(this);
+    layout->addWidget(parityLabel_);
     parityCombo_ = new QComboBox(this);
     parityCombo_->addItems({"None", "Even", "Odd", "Space", "Mark"});
     parityCombo_->setFixedWidth(70);
     layout->addWidget(parityCombo_);
 
     // Stop Bits
-    layout->addWidget(new QLabel("Stop:", this));
+    stopBitsLabel_ = new QLabel(this);
+    layout->addWidget(stopBitsLabel_);
     stopBitsCombo_ = new QComboBox(this);
     stopBitsCombo_->addItems({"1", "1.5", "2"});
     stopBitsCombo_->setFixedWidth(50);
     layout->addWidget(stopBitsCombo_);
 
     // Connect Button
-    connectBtn_ = new QPushButton("Connect", this);
+    connectBtn_ = new QPushButton(this);
     connect(connectBtn_, &QPushButton::clicked, [this]() {
         if (isConnected_) {
             emit disconnectClicked();
@@ -141,6 +147,37 @@ void SerialConnectionWidget::setupUi() {
     layout->addWidget(connectBtn_);
     
     layout->addStretch();
+
+    retranslateUi();
+}
+
+void SerialConnectionWidget::retranslateUi() {
+    if (portLabel_) {
+        portLabel_->setText(tr("Port:"));
+    }
+    if (baudLabel_) {
+        baudLabel_->setText(tr("Baud:"));
+    }
+    if (dataBitsLabel_) {
+        dataBitsLabel_->setText(tr("Data:"));
+    }
+    if (parityLabel_) {
+        parityLabel_->setText(tr("Parity:"));
+    }
+    if (stopBitsLabel_) {
+        stopBitsLabel_->setText(tr("Stop:"));
+    }
+    if (refreshBtn_) {
+        refreshBtn_->setToolTip(tr("Refresh Ports"));
+    }
+    setConnected(isConnected_);
+}
+
+void SerialConnectionWidget::changeEvent(QEvent* event) {
+    if (event->type() == QEvent::LanguageChange) {
+        retranslateUi();
+    }
+    QWidget::changeEvent(event);
 }
 
 } // namespace ui::widgets

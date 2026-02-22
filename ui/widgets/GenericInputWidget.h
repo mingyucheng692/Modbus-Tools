@@ -9,6 +9,7 @@ class QCheckBox;
 class QSpinBox;
 class QPushButton;
 class QProgressBar;
+class QEvent;
 
 namespace ui::widgets {
 
@@ -42,6 +43,8 @@ private slots:
 private:
     void setupUi();
     QByteArray getData() const;
+    void retranslateUi();
+    void changeEvent(QEvent* event) override;
 
     QTextEdit* inputEdit_ = nullptr;
     QRadioButton* hexRadio_ = nullptr;

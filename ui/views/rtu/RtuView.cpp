@@ -15,6 +15,7 @@
 #include <QTextEdit>
 #include <QCheckBox>
 #include <QPushButton>
+#include <QEvent>
 #include <spdlog/spdlog.h>
 #include <thread>
 #include <QMetaObject>
@@ -45,43 +46,43 @@ void RtuView::setupUi() {
     mainLayout_->addWidget(functionWidget_);
     
     // 3. Traffic
-    dataGroup_ = new QGroupBox("Data Monitor", this);
+    dataGroup_ = new QGroupBox(this);
     auto dataLayout = new QVBoxLayout(dataGroup_);
 
-    auto receiveGroup = new QGroupBox("Receive Data", dataGroup_);
-    auto receiveLayout = new QVBoxLayout(receiveGroup);
+    receiveGroup_ = new QGroupBox(dataGroup_);
+    auto receiveLayout = new QVBoxLayout(receiveGroup_);
     auto receiveToolbar = new QHBoxLayout();
-    receiveHexCheck_ = new QCheckBox("HEX", receiveGroup);
+    receiveHexCheck_ = new QCheckBox(receiveGroup_);
     receiveHexCheck_->setChecked(true);
-    clearReceiveButton_ = new QPushButton("Clear", receiveGroup);
+    clearReceiveButton_ = new QPushButton(receiveGroup_);
     receiveToolbar->addWidget(receiveHexCheck_);
     receiveToolbar->addStretch();
     receiveToolbar->addWidget(clearReceiveButton_);
-    receiveTextEdit_ = new QTextEdit(receiveGroup);
+    receiveTextEdit_ = new QTextEdit(receiveGroup_);
     receiveTextEdit_->setReadOnly(true);
     receiveTextEdit_->setMaximumHeight(180);
     receiveTextEdit_->document()->setMaximumBlockCount(1000);
     receiveLayout->addLayout(receiveToolbar);
     receiveLayout->addWidget(receiveTextEdit_);
 
-    auto sendGroup = new QGroupBox("Send Data", dataGroup_);
-    auto sendLayout = new QVBoxLayout(sendGroup);
+    sendGroup_ = new QGroupBox(dataGroup_);
+    auto sendLayout = new QVBoxLayout(sendGroup_);
     auto sendToolbar = new QHBoxLayout();
-    sendHexCheck_ = new QCheckBox("HEX", sendGroup);
+    sendHexCheck_ = new QCheckBox(sendGroup_);
     sendHexCheck_->setChecked(true);
-    clearSendButton_ = new QPushButton("Clear", sendGroup);
+    clearSendButton_ = new QPushButton(sendGroup_);
     sendToolbar->addWidget(sendHexCheck_);
     sendToolbar->addStretch();
     sendToolbar->addWidget(clearSendButton_);
-    sendTextEdit_ = new QTextEdit(sendGroup);
+    sendTextEdit_ = new QTextEdit(sendGroup_);
     sendTextEdit_->setReadOnly(true);
     sendTextEdit_->setMaximumHeight(180);
     sendTextEdit_->document()->setMaximumBlockCount(1000);
     sendLayout->addLayout(sendToolbar);
     sendLayout->addWidget(sendTextEdit_);
 
-    dataLayout->addWidget(receiveGroup);
-    dataLayout->addWidget(sendGroup);
+    dataLayout->addWidget(receiveGroup_);
+    dataLayout->addWidget(sendGroup_);
     mainLayout_->addWidget(dataGroup_);
 
     trafficMonitor_ = new widgets::TrafficMonitorWidget(this);
@@ -96,7 +97,7 @@ void RtuView::setupUi() {
     connect(connectionWidget_, &widgets::SerialConnectionWidget::connectClicked, 
         [this](const io::SerialConfig& config) {
             spdlog::info("RtuView: Connect requested to {}", config.portName.toStdString());
-            trafficMonitor_->appendInfo(QString("Opening %1...").arg(config.portName));
+            trafficMonitor_->appendInfo(tr("Opening %1...").arg(config.portName));
             
             if (!channel_) {
                 channel_ = std::make_shared<io::SerialChannel>();
@@ -124,12 +125,12 @@ void RtuView::setupUi() {
                 if (client_->connect()) {
                     QMetaObject::invokeMethod(this, [this]() {
                         connectionWidget_->setConnected(true);
-                        trafficMonitor_->appendInfo("Port Opened");
+                        trafficMonitor_->appendInfo(tr("Port Opened"));
                     });
                 } else {
                     QMetaObject::invokeMethod(this, [this]() {
                         connectionWidget_->setConnected(false);
-                        trafficMonitor_->appendInfo("Failed to open port");
+                        trafficMonitor_->appendInfo(tr("Failed to open port"));
                     });
                 }
             }).detach();
@@ -138,7 +139,7 @@ void RtuView::setupUi() {
     connect(connectionWidget_, &widgets::SerialConnectionWidget::disconnectClicked,
         [this]() {
             spdlog::info("RtuView: Disconnect requested");
-            trafficMonitor_->appendInfo("Closed");
+            trafficMonitor_->appendInfo(tr("Closed"));
             
             if (client_) client_->disconnect();
             if (worker_) worker_->stop();
@@ -160,7 +161,7 @@ void RtuView::setupUi() {
             
             Pdu request(static_cast<FunctionCode>(fc), data);
 
-            trafficMonitor_->appendInfo(QString("Sending Read Request FC:%1 Addr:%2 Qty:%3 Slave:%4")
+            trafficMonitor_->appendInfo(tr("Sending Read Request FC:%1 Addr:%2 Qty:%3 Slave:%4")
                 .arg(fc).arg(addr).arg(qty).arg(slaveId));
 
             auto start = std::chrono::steady_clock::now();
@@ -176,9 +177,9 @@ void RtuView::setupUi() {
                     controlWidget_->updateStats(false, rtt);
 
                     if (!response.isSuccess) {
-                        trafficMonitor_->appendInfo(QString("Error: %1").arg(response.error));
+                        trafficMonitor_->appendInfo(tr("Error: %1").arg(response.error));
                     } else {
-                        trafficMonitor_->appendInfo("Success: Response received");
+                        trafficMonitor_->appendInfo(tr("Success: Response received"));
                     }
                 });
             }).detach();
@@ -228,27 +229,27 @@ void RtuView::setupUi() {
                     bool ok = false;
                     int value = trimmed.toInt(&ok);
                     if (!ok || (value != 0 && value != 1)) {
-                        trafficMonitor_->appendInfo("Error: Invalid decimal value for 0x05");
+                        trafficMonitor_->appendInfo(tr("Error: Invalid decimal value for 0x05"));
                         return;
                     }
                     coilOn = (value != 0);
                 } else if (fmt == "Hex") {
                     QByteArray bytes = parseHexBytes(trimmed);
                     if (bytes.isEmpty()) {
-                        trafficMonitor_->appendInfo("Error: Invalid hex value for 0x05");
+                        trafficMonitor_->appendInfo(tr("Error: Invalid hex value for 0x05"));
                         return;
                     }
                     if (bytes.size() == 1) {
                         uint8_t raw = static_cast<uint8_t>(bytes[0]);
                         if (raw != 0x00 && raw != 0x01) {
-                            trafficMonitor_->appendInfo("Error: Invalid hex value for 0x05");
+                            trafficMonitor_->appendInfo(tr("Error: Invalid hex value for 0x05"));
                             return;
                         }
                         coilOn = raw != 0x00;
                     } else {
                         uint16_t raw = (static_cast<uint8_t>(bytes[0]) << 8) | static_cast<uint8_t>(bytes[1]);
                         if (raw != 0x0000 && raw != 0xFF00) {
-                            trafficMonitor_->appendInfo("Error: Invalid hex value for 0x05");
+                            trafficMonitor_->appendInfo(tr("Error: Invalid hex value for 0x05"));
                             return;
                         }
                         coilOn = raw == 0xFF00;
@@ -263,7 +264,7 @@ void RtuView::setupUi() {
                         bool ok = false;
                         int value = trimmed.toInt(&ok);
                         if (!ok || (value != 0 && value != 1)) {
-                            trafficMonitor_->appendInfo("Error: Invalid ASCII value for 0x05");
+                            trafficMonitor_->appendInfo(tr("Error: Invalid ASCII value for 0x05"));
                             return;
                         }
                         coilOn = (value != 0);
@@ -273,14 +274,14 @@ void RtuView::setupUi() {
                 data.append(static_cast<char>(0x00));
             } else if (fc == 0x06) {
                 if (trimmed.isEmpty()) {
-                    trafficMonitor_->appendInfo("Error: Empty value for 0x06");
+                    trafficMonitor_->appendInfo(tr("Error: Empty value for 0x06"));
                     return;
                 }
                 if (fmt == "Decimal") {
                     bool ok = false;
                     uint value = trimmed.toUInt(&ok, 10);
                     if (!ok || value > 65535) {
-                        trafficMonitor_->appendInfo("Error: Invalid decimal value for 0x06");
+                        trafficMonitor_->appendInfo(tr("Error: Invalid decimal value for 0x06"));
                         return;
                     }
                     data.append(static_cast<char>((value >> 8) & 0xFF));
@@ -288,7 +289,7 @@ void RtuView::setupUi() {
                 } else if (fmt == "Hex") {
                     QByteArray bytes = parseHexBytes(trimmed);
                     if (bytes.isEmpty()) {
-                        trafficMonitor_->appendInfo("Error: Invalid hex value for 0x06");
+                        trafficMonitor_->appendInfo(tr("Error: Invalid hex value for 0x06"));
                         return;
                     }
                     if (bytes.size() == 1) {
@@ -298,19 +299,19 @@ void RtuView::setupUi() {
                         data.append(bytes[0]);
                         data.append(bytes[1]);
                     } else {
-                        trafficMonitor_->appendInfo("Error: Invalid hex value for 0x06");
+                        trafficMonitor_->appendInfo(tr("Error: Invalid hex value for 0x06"));
                         return;
                     }
                 } else {
                     QByteArray bytes = trimmed.toLatin1();
                     if (bytes.isEmpty()) {
-                        trafficMonitor_->appendInfo("Error: Invalid ASCII value for 0x06");
+                        trafficMonitor_->appendInfo(tr("Error: Invalid ASCII value for 0x06"));
                         return;
                     }
                     if (bytes.size() == 1) {
                         bytes.prepend(static_cast<char>(0x00));
                     } else if (bytes.size() != 2) {
-                        trafficMonitor_->appendInfo("Error: Invalid ASCII value for 0x06");
+                        trafficMonitor_->appendInfo(tr("Error: Invalid ASCII value for 0x06"));
                         return;
                     }
                     data.append(bytes[0]);
@@ -318,22 +319,22 @@ void RtuView::setupUi() {
                 }
             } else if (fc == 0x0F) {
                 if (fmt != "Hex") {
-                    trafficMonitor_->appendInfo("Error: 0x0F requires Hex data");
+                    trafficMonitor_->appendInfo(tr("Error: 0x0F requires Hex data"));
                     return;
                 }
                 QByteArray bytes = parseHexBytes(trimmed);
                 if (bytes.isEmpty()) {
-                    trafficMonitor_->appendInfo("Error: Invalid hex value for 0x0F");
+                    trafficMonitor_->appendInfo(tr("Error: Invalid hex value for 0x0F"));
                     return;
                 }
                 int quantity = functionWidget_->getQuantity();
                 if (quantity <= 0) {
-                    trafficMonitor_->appendInfo("Error: Invalid quantity for 0x0F");
+                    trafficMonitor_->appendInfo(tr("Error: Invalid quantity for 0x0F"));
                     return;
                 }
                 int byteCount = (quantity + 7) / 8;
                 if (bytes.size() != byteCount) {
-                    trafficMonitor_->appendInfo("Error: Coil data length mismatch for 0x0F");
+                    trafficMonitor_->appendInfo(tr("Error: Coil data length mismatch for 0x0F"));
                     return;
                 }
                 data.append(static_cast<char>((quantity >> 8) & 0xFF));
@@ -342,12 +343,12 @@ void RtuView::setupUi() {
                 data.append(bytes);
             } else if (fc == 0x10) {
                 if (trimmed.isEmpty()) {
-                    trafficMonitor_->appendInfo("Error: Empty value for 0x10");
+                    trafficMonitor_->appendInfo(tr("Error: Empty value for 0x10"));
                     return;
                 }
                 int quantity = functionWidget_->getQuantity();
                 if (quantity <= 0) {
-                    trafficMonitor_->appendInfo("Error: Invalid quantity for 0x10");
+                    trafficMonitor_->appendInfo(tr("Error: Invalid quantity for 0x10"));
                     return;
                 }
                 QByteArray payload;
@@ -356,7 +357,7 @@ void RtuView::setupUi() {
                     bool okList = false;
                     auto values = parseDecimalList(trimmed, okList);
                     if (!okList) {
-                        trafficMonitor_->appendInfo("Error: Invalid decimal list for 0x10");
+                        trafficMonitor_->appendInfo(tr("Error: Invalid decimal list for 0x10"));
                         return;
                     }
                     registerCount = values.size();
@@ -367,14 +368,14 @@ void RtuView::setupUi() {
                 } else if (fmt == "Hex") {
                     payload = parseHexBytes(trimmed);
                     if (payload.isEmpty() || (payload.size() % 2 != 0)) {
-                        trafficMonitor_->appendInfo("Error: Invalid hex value for 0x10");
+                        trafficMonitor_->appendInfo(tr("Error: Invalid hex value for 0x10"));
                         return;
                     }
                     registerCount = payload.size() / 2;
                 } else {
                     payload = trimmed.toLatin1();
                     if (payload.isEmpty()) {
-                        trafficMonitor_->appendInfo("Error: Invalid ASCII value for 0x10");
+                        trafficMonitor_->appendInfo(tr("Error: Invalid ASCII value for 0x10"));
                         return;
                     }
                     if (payload.size() % 2 == 1) {
@@ -383,7 +384,7 @@ void RtuView::setupUi() {
                     registerCount = payload.size() / 2;
                 }
                 if (registerCount != quantity) {
-                    trafficMonitor_->appendInfo("Error: Quantity does not match data length for 0x10");
+                    trafficMonitor_->appendInfo(tr("Error: Quantity does not match data length for 0x10"));
                     return;
                 }
                 data.append(static_cast<char>((quantity >> 8) & 0xFF));
@@ -391,13 +392,13 @@ void RtuView::setupUi() {
                 data.append(static_cast<char>(registerCount * 2));
                 data.append(payload);
             } else {
-                trafficMonitor_->appendInfo("Error: Unsupported write function code");
+                trafficMonitor_->appendInfo(tr("Error: Unsupported write function code"));
                 return;
             }
             
             Pdu request(static_cast<FunctionCode>(fc), data);
 
-            trafficMonitor_->appendInfo(QString("Sending Write Request FC:%1 Addr:%2 Data:%3 Slave:%4")
+            trafficMonitor_->appendInfo(tr("Sending Write Request FC:%1 Addr:%2 Data:%3 Slave:%4")
                 .arg(fc).arg(addr).arg(dataStr).arg(slaveId));
 
             auto start = std::chrono::steady_clock::now();
@@ -413,9 +414,9 @@ void RtuView::setupUi() {
                     controlWidget_->updateStats(false, rtt);
 
                     if (!response.isSuccess) {
-                        trafficMonitor_->appendInfo(QString("Error: %1").arg(response.error));
+                        trafficMonitor_->appendInfo(tr("Error: %1").arg(response.error));
                     } else {
-                        trafficMonitor_->appendInfo("Success: Write confirmed");
+                        trafficMonitor_->appendInfo(tr("Success: Write confirmed"));
                     }
                 });
             }).detach();
@@ -425,7 +426,7 @@ void RtuView::setupUi() {
         [this](const QByteArray& data) {
             if (!worker_) return;
             
-            trafficMonitor_->appendInfo(QString("Sending Raw Data: %1").arg(QString(data.toHex(' ').toUpper())));
+            trafficMonitor_->appendInfo(tr("Sending Raw Data: %1").arg(QString(data.toHex(' ').toUpper())));
             
             worker_->sendRaw(data);
             
@@ -461,7 +462,7 @@ void RtuView::setupUi() {
                     controlWidget_->updateStats(false, rtt);
 
                     if (!response.isSuccess) {
-                        trafficMonitor_->appendInfo(QString("Poll Error: %1").arg(response.error));
+                        trafficMonitor_->appendInfo(tr("Poll Error: %1").arg(response.error));
                     }
                 });
             }).detach();
@@ -475,6 +476,8 @@ void RtuView::setupUi() {
     });
     
     mainLayout_->addStretch();
+
+    retranslateUi();
 }
 
 QString RtuView::formatData(const QByteArray& data, bool hex) const {
@@ -494,6 +497,23 @@ void RtuView::appendSendData(const QByteArray& data) {
     if (!sendTextEdit_) return;
     bool hex = sendHexCheck_ ? sendHexCheck_->isChecked() : true;
     sendTextEdit_->append(formatData(data, hex));
+}
+
+void RtuView::retranslateUi() {
+    if (dataGroup_) dataGroup_->setTitle(tr("Data Monitor"));
+    if (receiveGroup_) receiveGroup_->setTitle(tr("Receive Data"));
+    if (sendGroup_) sendGroup_->setTitle(tr("Send Data"));
+    if (receiveHexCheck_) receiveHexCheck_->setText(tr("HEX"));
+    if (sendHexCheck_) sendHexCheck_->setText(tr("HEX"));
+    if (clearReceiveButton_) clearReceiveButton_->setText(tr("Clear"));
+    if (clearSendButton_) clearSendButton_->setText(tr("Clear"));
+}
+
+void RtuView::changeEvent(QEvent* event) {
+    if (event->type() == QEvent::LanguageChange) {
+        retranslateUi();
+    }
+    QWidget::changeEvent(event);
 }
 
 } // namespace ui::views::rtu

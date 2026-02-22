@@ -5,6 +5,7 @@
 
 class QTableWidget;
 class QPushButton;
+class QEvent;
 
 namespace ui::widgets {
 
@@ -40,6 +41,8 @@ private:
     void setupUi();
     void updateRow(int row, const QuickCommand& cmd);
     QByteArray parseData(const QString& data, bool isHex);
+    void retranslateUi();
+    void changeEvent(QEvent* event) override;
 
     QTableWidget* table_ = nullptr;
     QPushButton* addBtn_ = nullptr;

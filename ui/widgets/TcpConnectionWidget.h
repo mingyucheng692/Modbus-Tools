@@ -6,6 +6,8 @@ class QLineEdit;
 class QSpinBox;
 class QPushButton;
 class QLabel;
+class QGroupBox;
+class QEvent;
 
 namespace ui::widgets {
 
@@ -29,7 +31,12 @@ public slots:
 
 private:
     void setupUi();
+    void retranslateUi();
+    void changeEvent(QEvent* event) override;
 
+    QGroupBox* groupBox_ = nullptr;
+    QLabel* hostLabel_ = nullptr;
+    QLabel* portLabel_ = nullptr;
     QLineEdit* ipEdit_ = nullptr;
     QSpinBox* portEdit_ = nullptr;
     QPushButton* connectBtn_ = nullptr;

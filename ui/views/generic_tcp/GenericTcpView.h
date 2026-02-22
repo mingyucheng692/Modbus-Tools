@@ -18,6 +18,8 @@ class QuickCommandWidget;
 class QVBoxLayout;
 class QHBoxLayout;
 class QSplitter;
+class QGroupBox;
+class QEvent;
 
 namespace ui::views::generic_tcp {
 
@@ -42,12 +44,16 @@ private:
     void setupUi();
     void startWorker();
     void stopWorker();
+    void retranslateUi();
+    void changeEvent(QEvent* event) override;
 
     // UI Components
     widgets::TcpConnectionWidget* connectionWidget_ = nullptr;
     widgets::TrafficMonitorWidget* trafficMonitor_ = nullptr;
     widgets::GenericInputWidget* inputWidget_ = nullptr;
     widgets::QuickCommandWidget* quickCommandWidget_ = nullptr;
+    QGroupBox* quickCmdGroup_ = nullptr;
+    QGroupBox* inputGroup_ = nullptr;
 
     // Backend
     std::unique_ptr<io::GenericIoWorker> worker_; // We might move this to a thread, so unique_ptr

@@ -6,6 +6,7 @@ add_library(ui STATIC)
 
 target_sources(ui PRIVATE
     common/Theme.cpp
+    i18n/i18n.qrc
     MainWindow.cpp
     views/tcp/TcpView.cpp
     views/rtu/RtuView.cpp

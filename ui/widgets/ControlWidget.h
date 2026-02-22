@@ -7,6 +7,7 @@ class QSpinBox;
 class QComboBox;
 class QLabel;
 class QTimer;
+class QEvent;
 
 namespace ui::widgets {
 
@@ -28,7 +29,13 @@ private:
     void setupUi();
     void onTimer();
     void updateStatsLabel();
+    void retranslateUi();
+    void changeEvent(QEvent* event) override;
 
+    QLabel* intervalLabel_ = nullptr;
+    QLabel* fcLabel_ = nullptr;
+    QLabel* addrLabel_ = nullptr;
+    QLabel* qtyLabel_ = nullptr;
     QCheckBox* enablePollCheck_ = nullptr;
     QSpinBox* intervalSpin_ = nullptr;
     QComboBox* fcCombo_ = nullptr;
