@@ -32,6 +32,11 @@ void ChannelBase::setErrorHandler(std::function<void(const QString&)> handler)
     errorHandler_ = std::move(handler);
 }
 
+void ChannelBase::setStateHandler(std::function<void(ChannelState)> handler)
+{
+    stateHandler_ = std::move(handler);
+}
+
 void ChannelBase::setMonitor(std::function<void(bool, const QByteArray&)> monitor)
 {
     monitor_ = std::move(monitor);
@@ -44,7 +49,12 @@ ChannelStats ChannelBase::stats() const
 
 void ChannelBase::setState(ChannelState state)
 {
-    state_ = state;
+    if (state_ != state) {
+        state_ = state;
+        if (stateHandler_) {
+            stateHandler_(state);
+        }
+    }
 }
 
 void ChannelBase::addTx(qsizetype bytes)
