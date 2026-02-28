@@ -2,8 +2,36 @@
 #include <QtEndian>
 #include <QDataStream>
 #include <QCoreApplication>
+#include <bitset>
 
 namespace modbus::core::parser {
+
+QString ModbusFrameParser::getExceptionString(modbus::base::ExceptionCode code)
+{
+    using namespace modbus::base;
+    switch (code) {
+    case ExceptionCode::IllegalFunction:
+        return QCoreApplication::translate("ModbusFrameParser", "Illegal Function");
+    case ExceptionCode::IllegalDataAddress:
+        return QCoreApplication::translate("ModbusFrameParser", "Illegal Data Address");
+    case ExceptionCode::IllegalDataValue:
+        return QCoreApplication::translate("ModbusFrameParser", "Illegal Data Value");
+    case ExceptionCode::ServerDeviceFailure:
+        return QCoreApplication::translate("ModbusFrameParser", "Server Device Failure");
+    case ExceptionCode::Acknowledge:
+        return QCoreApplication::translate("ModbusFrameParser", "Acknowledge");
+    case ExceptionCode::ServerDeviceBusy:
+        return QCoreApplication::translate("ModbusFrameParser", "Server Device Busy");
+    case ExceptionCode::MemoryParityError:
+        return QCoreApplication::translate("ModbusFrameParser", "Memory Parity Error");
+    case ExceptionCode::GatewayPathUnavailable:
+        return QCoreApplication::translate("ModbusFrameParser", "Gateway Path Unavailable");
+    case ExceptionCode::GatewayTargetDeviceFailed:
+        return QCoreApplication::translate("ModbusFrameParser", "Gateway Target Device Failed To Respond");
+    default:
+        return QCoreApplication::translate("ModbusFrameParser", "Unknown Exception");
+    }
+}
 
 ParseResult ModbusFrameParser::parse(const QByteArray& frame, ProtocolType type, uint16_t startAddress)
 {
@@ -164,7 +192,8 @@ void ModbusFrameParser::parsePdu(ParseResult& result, const QByteArray& pdu, uin
         result.type = FrameType::Exception;
         if (pdu.size() >= 2) {
             result.exceptionCode = static_cast<modbus::base::ExceptionCode>(pdu[1]);
-            result.error = QString("Exception Response: Code %1").arg(static_cast<int>(result.exceptionCode));
+            QString exceptionDesc = getExceptionString(result.exceptionCode);
+            result.error = QString("%1 (Code %2)").arg(exceptionDesc).arg(static_cast<int>(result.exceptionCode));
         }
         result.isValid = true;
         return;
@@ -173,18 +202,6 @@ void ModbusFrameParser::parsePdu(ParseResult& result, const QByteArray& pdu, uin
     result.functionCode = static_cast<modbus::base::FunctionCode>(fcByte);
     result.pduData = pdu.mid(1);
     result.isValid = true;
-
-    // 根据功能码判断是请求还是响应，并解析数据
-    // 简单的启发式判断：
-    // Read Request (01, 02, 03, 04): 长度通常固定为 5 (FC + StartAddr + Quantity)
-    // Read Response: 长度 = 2 (FC + ByteCount) + N
-    // Write Request (05, 06): 长度 = 5 (FC + Addr + Value)
-    // Write Response (05, 06): 长度 = 5 (FC + Addr + Value) - 与 Request 相同，通常视为 Response 处理
-    // Write Multiple Request (15, 16): 长度 = 6 + N (FC + Start + Quant + ByteCount + Data)
-    // Write Multiple Response (15, 16): 长度 = 5 (FC + Start + Quant)
-    
-    // 这里我们主要解析数据部分。为了简化，我们假设用户如果提供了 startAddress，可能是为了解析 Response 数据。
-    // 如果没有提供 startAddress，我们尝试从 Request 中提取。
 
     using namespace modbus::base;
     QDataStream stream(result.pduData);
@@ -203,7 +220,7 @@ void ModbusFrameParser::parsePdu(ParseResult& result, const QByteArray& pdu, uin
             stream >> start >> quantity;
             DataItem item;
             item.address = start;
-            item.desc = QString("Request: Start Address %1, Quantity %2").arg(start).arg(quantity);
+            item.desc = QCoreApplication::translate("ModbusFrameParser", "Request: Start Address %1, Quantity %2").arg(start).arg(quantity);
             result.dataItems.append(item);
         } else {
             // Response: [ByteCount(1)] [Data(N)]
@@ -225,18 +242,40 @@ void ModbusFrameParser::parsePdu(ParseResult& result, const QByteArray& pdu, uin
                     item.address = startAddress + i;
                     item.value = val;
                     item.hexString = QString("%1").arg(val, 4, 16, QChar('0')).toUpper();
-                    item.desc = QString("Register %1").arg(item.address);
-                    item.rawBytes = QByteArray::fromRawData(reinterpret_cast<const char*>(&val), 2); // 注意这里序问题，仅作示意
+                    
+                    // Binary string
+                    QString binStr = QString::number(val, 2).rightJustified(16, '0');
+                    // Insert spaces for readability (every 4 bits)
+                    for (int k = 12; k > 0; k -= 4) binStr.insert(k, ' ');
+                    item.binaryString = binStr;
+
+                    // Signed value for description
+                    int16_t signedVal = static_cast<int16_t>(val);
+                    item.desc = QCoreApplication::translate("ModbusFrameParser", "Register %1").arg(item.address);
+                    
                     result.dataItems.append(item);
                 }
             } else {
-                // 线圈数据 (位操作)
-                // 暂时只显示原始字节
-                DataItem item;
-                item.address = startAddress;
-                item.desc = QString("Coil Data (Bytes: %1)").arg(byteCount);
-                item.hexString = result.pduData.mid(1).toHex().toUpper();
-                result.dataItems.append(item);
+                // 线圈数据 (位操作) - 展开每一位
+                // Byte 0: Coils 0-7 (LSB is Coil 0)
+                // Byte 1: Coils 8-15
+                int currentBitAddress = 0;
+                for (int i = 0; i < byteCount; ++i) {
+                    uint8_t byteVal = static_cast<uint8_t>(result.pduData[1 + i]); // +1 to skip byteCount
+                    for (int bit = 0; bit < 8; ++bit) {
+                        bool isOn = (byteVal >> bit) & 0x01;
+                        DataItem item;
+                        item.address = startAddress + currentBitAddress;
+                        item.value = isOn;
+                        item.hexString = isOn ? "01" : "00";
+                        item.binaryString = isOn ? "1" : "0";
+                        item.desc = QCoreApplication::translate("ModbusFrameParser", "Coil %1: %2")
+                                        .arg(item.address)
+                                        .arg(isOn ? "ON" : "OFF");
+                        result.dataItems.append(item);
+                        currentBitAddress++;
+                    }
+                }
             }
         }
         break;
@@ -244,8 +283,7 @@ void ModbusFrameParser::parsePdu(ParseResult& result, const QByteArray& pdu, uin
     case FunctionCode::WriteSingleCoil:
     case FunctionCode::WriteSingleRegister: {
         // Request 和 Response 格式相同: [Addr(2)] [Value(2)]
-        // 默认为 Request/Response (无法区分，视为操作)
-        result.type = FrameType::Request; 
+        result.type = FrameType::Request; // 默认为 Request (也可能是 Response)
         uint16_t addr, val;
         stream >> addr >> val;
         
@@ -255,9 +293,15 @@ void ModbusFrameParser::parsePdu(ParseResult& result, const QByteArray& pdu, uin
         item.hexString = QString("%1").arg(val, 4, 16, QChar('0')).toUpper();
         
         if (result.functionCode == FunctionCode::WriteSingleCoil) {
-            item.desc = (val == 0xFF00) ? "Write Coil ON" : "Write Coil OFF";
+            bool isOn = (val == 0xFF00);
+            item.desc = isOn ? QCoreApplication::translate("ModbusFrameParser", "Write Coil ON") 
+                             : QCoreApplication::translate("ModbusFrameParser", "Write Coil OFF");
+            item.binaryString = isOn ? "1" : "0";
         } else {
-            item.desc = QString("Write Register %1").arg(addr);
+            item.desc = QCoreApplication::translate("ModbusFrameParser", "Write Register %1").arg(addr);
+            QString binStr = QString::number(val, 2).rightJustified(16, '0');
+            for (int k = 12; k > 0; k -= 4) binStr.insert(k, ' ');
+            item.binaryString = binStr;
         }
         result.dataItems.append(item);
         break;
@@ -272,7 +316,7 @@ void ModbusFrameParser::parsePdu(ParseResult& result, const QByteArray& pdu, uin
             stream >> start >> quant;
             DataItem item;
             item.address = start;
-            item.desc = QString("Response: Written %1 items starting at %2").arg(quant).arg(start);
+            item.desc = QCoreApplication::translate("ModbusFrameParser", "Response: Written %1 items starting at %2").arg(quant).arg(start);
             result.dataItems.append(item);
         } else {
             result.type = FrameType::Request;
@@ -289,20 +333,43 @@ void ModbusFrameParser::parsePdu(ParseResult& result, const QByteArray& pdu, uin
                     item.address = start + i;
                     item.value = val;
                     item.hexString = QString("%1").arg(val, 4, 16, QChar('0')).toUpper();
-                    item.desc = QString("Write Register %1").arg(item.address);
+                    item.desc = QCoreApplication::translate("ModbusFrameParser", "Write Register %1").arg(item.address);
+                    
+                    QString binStr = QString::number(val, 2).rightJustified(16, '0');
+                    for (int k = 12; k > 0; k -= 4) binStr.insert(k, ' ');
+                    item.binaryString = binStr;
+
                     result.dataItems.append(item);
                 }
             } else {
-                 DataItem item;
-                 item.address = start;
-                 item.desc = QString("Write %1 Coils").arg(quant);
-                 result.dataItems.append(item);
+                 // Write Multiple Coils Request - Expand bits
+                 int currentBitAddress = 0;
+                 for (int i = 0; i < byteCount; ++i) {
+                     uint8_t byteVal;
+                     stream >> byteVal;
+                     // Only parse up to 'quant' bits
+                     for (int bit = 0; bit < 8; ++bit) {
+                         if (currentBitAddress >= quant) break;
+
+                         bool isOn = (byteVal >> bit) & 0x01;
+                         DataItem item;
+                         item.address = start + currentBitAddress;
+                         item.value = isOn;
+                         item.hexString = isOn ? "01" : "00";
+                         item.binaryString = isOn ? "1" : "0";
+                         item.desc = QCoreApplication::translate("ModbusFrameParser", "Write Coil %1: %2")
+                                         .arg(item.address)
+                                         .arg(isOn ? "ON" : "OFF");
+                         result.dataItems.append(item);
+                         currentBitAddress++;
+                     }
+                 }
             }
         }
         break;
     }
     default:
-        result.error = "Unsupported Function Code for deep parsing";
+        result.error = QCoreApplication::translate("ModbusFrameParser", "Unsupported Function Code for deep parsing");
         break;
     }
 }

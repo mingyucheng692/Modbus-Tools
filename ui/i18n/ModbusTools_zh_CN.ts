@@ -27,29 +27,125 @@
 <context>
     <name>ModbusFrameParser</name>
     <message>
-        <location filename="../../core/modbus/parser/ModbusFrameParser.cpp" line="15"/>
+        <location filename="../../core/modbus/parser/ModbusFrameParser.cpp" line="14"/>
+        <source>Illegal Function</source>
+        <translation>非法功能码</translation>
+    </message>
+    <message>
+        <location filename="../../core/modbus/parser/ModbusFrameParser.cpp" line="16"/>
+        <source>Illegal Data Address</source>
+        <translation>非法数据地址</translation>
+    </message>
+    <message>
+        <location filename="../../core/modbus/parser/ModbusFrameParser.cpp" line="18"/>
+        <source>Illegal Data Value</source>
+        <translation>非法数据值</translation>
+    </message>
+    <message>
+        <location filename="../../core/modbus/parser/ModbusFrameParser.cpp" line="20"/>
+        <source>Server Device Failure</source>
+        <translation>服务器设备故障</translation>
+    </message>
+    <message>
+        <location filename="../../core/modbus/parser/ModbusFrameParser.cpp" line="22"/>
+        <source>Acknowledge</source>
+        <translation>确认</translation>
+    </message>
+    <message>
+        <location filename="../../core/modbus/parser/ModbusFrameParser.cpp" line="24"/>
+        <source>Server Device Busy</source>
+        <translation>服务器设备忙</translation>
+    </message>
+    <message>
+        <location filename="../../core/modbus/parser/ModbusFrameParser.cpp" line="26"/>
+        <source>Memory Parity Error</source>
+        <translation>内存奇偶校验错误</translation>
+    </message>
+    <message>
+        <location filename="../../core/modbus/parser/ModbusFrameParser.cpp" line="28"/>
+        <source>Gateway Path Unavailable</source>
+        <translation>网关路径不可用</translation>
+    </message>
+    <message>
+        <location filename="../../core/modbus/parser/ModbusFrameParser.cpp" line="30"/>
+        <source>Gateway Target Device Failed To Respond</source>
+        <translation>网关目标设备未响应</translation>
+    </message>
+    <message>
+        <location filename="../../core/modbus/parser/ModbusFrameParser.cpp" line="32"/>
+        <source>Unknown Exception</source>
+        <translation>未知异常</translation>
+    </message>
+    <message>
+        <location filename="../../core/modbus/parser/ModbusFrameParser.cpp" line="43"/>
         <source>Empty frame data</source>
         <translation>帧数据为空</translation>
     </message>
     <message>
-        <location filename="../../core/modbus/parser/ModbusFrameParser.cpp" line="27"/>
+        <location filename="../../core/modbus/parser/ModbusFrameParser.cpp" line="55"/>
         <source>Unable to identify protocol (neither valid TCP nor RTU)</source>
         <translation>无法识别协议（既非有效 TCP 也非 RTU）</translation>
     </message>
     <message>
-        <location filename="../../core/modbus/parser/ModbusFrameParser.cpp" line="81"/>
+        <location filename="../../core/modbus/parser/ModbusFrameParser.cpp" line="109"/>
         <source>Frame too short for Modbus TCP</source>
         <translation>Modbus TCP 帧过短</translation>
     </message>
     <message>
-        <location filename="../../core/modbus/parser/ModbusFrameParser.cpp" line="97"/>
+        <location filename="../../core/modbus/parser/ModbusFrameParser.cpp" line="125"/>
         <source>Incomplete TCP frame. Expected %1 bytes, got %2</source>
         <translation>TCP 帧不完整。预期 %1 字节，实际 %2 字节</translation>
     </message>
     <message>
-        <location filename="../../core/modbus/parser/ModbusFrameParser.cpp" line="140"/>
+        <location filename="../../core/modbus/parser/ModbusFrameParser.cpp" line="168"/>
         <source>CRC Mismatch. Expected %1, Got %2</source>
         <translation>CRC 校验失败。预期 %1，实际 %2</translation>
+    </message>
+    <message>
+        <location filename="../../core/modbus/parser/ModbusFrameParser.cpp" line="223"/>
+        <source>Request: Start Address %1, Quantity %2</source>
+        <translation>请求：起始地址 %1，数量 %2</translation>
+    </message>
+    <message>
+        <location filename="../../core/modbus/parser/ModbusFrameParser.cpp" line="254"/>
+        <source>Register %1</source>
+        <translation>寄存器 %1</translation>
+    </message>
+    <message>
+        <location filename="../../core/modbus/parser/ModbusFrameParser.cpp" line="272"/>
+        <source>Coil %1: %2</source>
+        <translation>线圈 %1: %2</translation>
+    </message>
+    <message>
+        <location filename="../../core/modbus/parser/ModbusFrameParser.cpp" line="297"/>
+        <source>Write Coil ON</source>
+        <translation>写线圈 ON</translation>
+    </message>
+    <message>
+        <location filename="../../core/modbus/parser/ModbusFrameParser.cpp" line="298"/>
+        <source>Write Coil OFF</source>
+        <translation>写线圈 OFF</translation>
+    </message>
+    <message>
+        <location filename="../../core/modbus/parser/ModbusFrameParser.cpp" line="301"/>
+        <location filename="../../core/modbus/parser/ModbusFrameParser.cpp" line="336"/>
+        <source>Write Register %1</source>
+        <translation>写寄存器 %1</translation>
+    </message>
+    <message>
+        <location filename="../../core/modbus/parser/ModbusFrameParser.cpp" line="319"/>
+        <source>Response: Written %1 items starting at %2</source>
+        <translation>响应：从 %2 开始写入 %1 项</translation>
+    </message>
+    <message>
+        <location filename="../../core/modbus/parser/ModbusFrameParser.cpp" line="360"/>
+        <source>Write Coil %1: %2</source>
+        <translation>写线圈 %1: %2</translation>
+    </message>
+    <message>
+        <location filename="../../core/modbus/parser/ModbusFrameParser.cpp" line="372"/>
+        <source>Unsupported Function Code for deep parsing</source>
+        <translation>不支持深度解析的功能码</translation>
     </message>
 </context>
 <context>
@@ -663,199 +759,205 @@
     <name>ui::widgets::FrameAnalyzerWidget</name>
     <message>
         <location filename="../widgets/FrameAnalyzerWidget.cpp" line="42"/>
-        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="241"/>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="267"/>
         <source>Frame Input</source>
         <translation>报文输入</translation>
     </message>
     <message>
         <location filename="../widgets/FrameAnalyzerWidget.cpp" line="48"/>
-        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="244"/>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="270"/>
         <source>Protocol:</source>
         <translation>协议：</translation>
     </message>
     <message>
         <location filename="../widgets/FrameAnalyzerWidget.cpp" line="51"/>
-        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="247"/>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="273"/>
         <source>Auto Detect</source>
         <translation>自动检测</translation>
     </message>
     <message>
         <location filename="../widgets/FrameAnalyzerWidget.cpp" line="52"/>
-        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="248"/>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="274"/>
         <source>Modbus TCP</source>
         <translation>Modbus TCP</translation>
     </message>
     <message>
         <location filename="../widgets/FrameAnalyzerWidget.cpp" line="53"/>
-        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="249"/>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="275"/>
         <source>Modbus RTU</source>
         <translation>Modbus RTU</translation>
     </message>
     <message>
         <location filename="../widgets/FrameAnalyzerWidget.cpp" line="57"/>
-        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="252"/>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="278"/>
         <source>Start Address (for Response):</source>
         <translation>起始地址（用于响应）：</translation>
     </message>
     <message>
         <location filename="../widgets/FrameAnalyzerWidget.cpp" line="66"/>
-        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="255"/>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="281"/>
         <source>Format Hex</source>
         <translation>格式化 Hex</translation>
     </message>
     <message>
         <location filename="../widgets/FrameAnalyzerWidget.cpp" line="70"/>
-        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="258"/>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="284"/>
         <source>Parse</source>
         <translation>解析</translation>
     </message>
     <message>
         <location filename="../widgets/FrameAnalyzerWidget.cpp" line="74"/>
-        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="261"/>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="287"/>
         <source>Clear</source>
         <translation>清除</translation>
     </message>
     <message>
         <location filename="../widgets/FrameAnalyzerWidget.cpp" line="82"/>
-        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="264"/>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="290"/>
         <source>Enter Hex string (e.g., 01 03 00 00 00 01 84 0A)</source>
         <translation>输入十六进制字符串（如 01 03 00 00 00 01 84 0A）</translation>
     </message>
     <message>
         <location filename="../widgets/FrameAnalyzerWidget.cpp" line="91"/>
-        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="268"/>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="294"/>
         <source>Analysis Result</source>
         <translation>分析结果</translation>
     </message>
     <message>
         <location filename="../widgets/FrameAnalyzerWidget.cpp" line="94"/>
-        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="142"/>
-        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="287"/>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="143"/>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="313"/>
         <source>Ready</source>
         <translation>就绪</translation>
     </message>
     <message>
         <location filename="../widgets/FrameAnalyzerWidget.cpp" line="102"/>
-        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="276"/>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="302"/>
         <source>Field</source>
         <translation>字段</translation>
     </message>
     <message>
         <location filename="../widgets/FrameAnalyzerWidget.cpp" line="102"/>
-        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="277"/>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="303"/>
         <source>Value</source>
         <translation>值</translation>
     </message>
     <message>
         <location filename="../widgets/FrameAnalyzerWidget.cpp" line="102"/>
         <location filename="../widgets/FrameAnalyzerWidget.cpp" line="110"/>
-        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="278"/>
-        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="281"/>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="304"/>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="307"/>
         <source>Description</source>
         <translation>描述</translation>
     </message>
     <message>
         <location filename="../widgets/FrameAnalyzerWidget.cpp" line="105"/>
-        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="271"/>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="297"/>
         <source>Structure</source>
         <translation>结构</translation>
     </message>
     <message>
         <location filename="../widgets/FrameAnalyzerWidget.cpp" line="110"/>
-        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="281"/>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="307"/>
         <source>Address</source>
         <translation>地址</translation>
     </message>
     <message>
         <location filename="../widgets/FrameAnalyzerWidget.cpp" line="110"/>
-        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="281"/>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="307"/>
         <source>Hex</source>
         <translation>十六进制</translation>
     </message>
     <message>
         <location filename="../widgets/FrameAnalyzerWidget.cpp" line="110"/>
-        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="281"/>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="307"/>
         <source>Decimal</source>
         <translation>十进制</translation>
     </message>
     <message>
-        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="112"/>
-        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="272"/>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="110"/>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="307"/>
+        <source>Binary</source>
+        <translation>二进制</translation>
+    </message>
+    <message>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="113"/>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="298"/>
         <source>Data Details</source>
         <translation>数据详情</translation>
     </message>
     <message>
-        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="154"/>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="155"/>
         <source>Error: Empty input</source>
         <translation>错误：输入为空</translation>
     </message>
     <message>
-        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="171"/>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="172"/>
         <source>Parse Failed: %1</source>
         <translation>解析失败：%1</translation>
     </message>
     <message>
-        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="176"/>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="177"/>
         <source>Success (%1)</source>
         <translation>成功 (%1)</translation>
     </message>
     <message>
-        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="176"/>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="177"/>
         <source>TCP</source>
         <translation>TCP</translation>
     </message>
     <message>
-        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="176"/>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="177"/>
         <source>RTU</source>
         <translation>RTU</translation>
     </message>
     <message>
-        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="181"/>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="182"/>
         <source>Frame</source>
         <translation>帧</translation>
     </message>
     <message>
-        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="182"/>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="183"/>
         <source>%1 bytes</source>
         <translation>%1 字节</translation>
     </message>
     <message>
-        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="186"/>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="187"/>
         <source>Transaction ID</source>
         <translation>事务 ID</translation>
     </message>
     <message>
-        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="187"/>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="188"/>
         <source>Protocol ID</source>
         <translation>协议 ID</translation>
     </message>
     <message>
-        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="188"/>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="189"/>
         <source>Length</source>
         <translation>长度</translation>
     </message>
     <message>
-        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="189"/>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="190"/>
         <source>Unit ID</source>
         <translation>单元 ID</translation>
     </message>
     <message>
-        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="191"/>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="192"/>
         <source>Slave ID</source>
         <translation>从站 ID</translation>
     </message>
     <message>
-        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="195"/>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="196"/>
         <source>Function Code</source>
         <translation>功能码</translation>
     </message>
     <message>
-        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="195"/>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="196"/>
         <source>Exception</source>
         <translation>异常</translation>
     </message>
     <message>
-        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="195"/>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="196"/>
         <source>Normal</source>
         <translation>正常</translation>
     </message>

@@ -106,9 +106,10 @@ void FrameAnalyzerWidget::createResultGroup()
 
     // Tab 2: Decoded Data
     dataTable_ = new QTableWidget(this);
-    dataTable_->setColumnCount(4);
-    dataTable_->setHorizontalHeaderLabels({tr("Address"), tr("Hex"), tr("Decimal"), tr("Description")});
-    dataTable_->horizontalHeader()->setSectionResizeMode(QHeaderView::Stretch);
+    dataTable_->setColumnCount(5);
+    dataTable_->setHorizontalHeaderLabels({tr("Address"), tr("Hex"), tr("Decimal"), tr("Binary"), tr("Description")});
+    dataTable_->horizontalHeader()->setSectionResizeMode(QHeaderView::ResizeToContents);
+    dataTable_->horizontalHeader()->setSectionResizeMode(4, QHeaderView::Stretch); // Description stretches
     resultTabs_->addTab(dataTable_, tr("Data Details"));
 
     groupLayout->addWidget(resultTabs_);
@@ -214,16 +215,41 @@ void FrameAnalyzerWidget::renderResult(const ParseResult& result)
     dataTable_->setRowCount(result.dataItems.size());
     for (int i = 0; i < result.dataItems.size(); ++i) {
         const auto& item = result.dataItems[i];
+        
+        // Address
         dataTable_->setItem(i, 0, new QTableWidgetItem(QString::number(item.address)));
+        
+        // Hex
         dataTable_->setItem(i, 1, new QTableWidgetItem(item.hexString));
         
-        // Try to show decimal if value is valid
+        // Decimal (Smart display)
         QString decStr = "-";
+        QColor textColor = Qt::black;
+        
         if (item.value.isValid()) {
-            decStr = item.value.toString();
+            if (item.value.typeId() == QMetaType::Bool) {
+                // Coil
+                bool val = item.value.toBool();
+                decStr = val ? "1" : "0";
+                textColor = val ? Qt::darkGreen : Qt::darkRed;
+            } else if (item.value.typeId() == QMetaType::UShort || item.value.typeId() == QMetaType::UInt || item.value.typeId() == QMetaType::Int) {
+                // Register
+                uint16_t uVal = static_cast<uint16_t>(item.value.toUInt());
+                int16_t sVal = static_cast<int16_t>(uVal);
+                decStr = QString("%1 (%2)").arg(uVal).arg(sVal);
+            } else {
+                decStr = item.value.toString();
+            }
         }
-        dataTable_->setItem(i, 2, new QTableWidgetItem(decStr));
-        dataTable_->setItem(i, 3, new QTableWidgetItem(item.desc));
+        auto decItem = new QTableWidgetItem(decStr);
+        decItem->setForeground(textColor);
+        dataTable_->setItem(i, 2, decItem);
+
+        // Binary
+        dataTable_->setItem(i, 3, new QTableWidgetItem(item.binaryString));
+
+        // Description
+        dataTable_->setItem(i, 4, new QTableWidgetItem(item.desc));
     }
 }
 
@@ -278,7 +304,7 @@ void FrameAnalyzerWidget::retranslateUi()
         header->setText(2, tr("Description"));
     }
     if (dataTable_) {
-        dataTable_->setHorizontalHeaderLabels({tr("Address"), tr("Hex"), tr("Decimal"), tr("Description")});
+        dataTable_->setHorizontalHeaderLabels({tr("Address"), tr("Hex"), tr("Decimal"), tr("Binary"), tr("Description")});
     }
 
     // Refresh result text if needed (simple approach: clear or keep existing static text)

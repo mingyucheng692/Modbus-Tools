@@ -31,6 +31,7 @@ struct DataItem {
     QByteArray rawBytes;        // 原始字节
     QVariant value;             // 解析后的值 (bool, uint16, int16, etc.)
     QString hexString;          // 十六进制显示
+    QString binaryString;       // 二进制显示
     QString desc;               // 描述 (例如 "Register 40001")
 };
 
@@ -90,6 +91,7 @@ private:
     
     // 辅助函数
     static uint16_t calculateCrc(const QByteArray& data);
+    static QString getExceptionString(modbus::base::ExceptionCode code);
 };
 
 } // namespace modbus::core::parser
