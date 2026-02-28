@@ -33,6 +33,9 @@ target_sources(core PRIVATE
     modbus/factory/IModbusFactory.h
     modbus/factory/ModbusFactory.h
     modbus/factory/ModbusFactory.cpp
+    # modbus parser
+    modbus/parser/ModbusFrameParser.h
+    modbus/parser/ModbusFrameParser.cpp
 )
 
 target_link_libraries(core PUBLIC

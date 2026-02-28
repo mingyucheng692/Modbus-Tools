@@ -3,6 +3,7 @@
 #include "views/rtu/RtuView.h"
 #include "views/generic_tcp/GenericTcpView.h"
 #include "views/generic_serial/GenericSerialView.h"
+#include "widgets/FrameAnalyzerWidget.h"
 #include "common/Theme.h"
 #include <QStackedWidget>
 #include <QListWidget>
@@ -51,6 +52,7 @@ void MainWindow::setupUi() {
     stackedWidget_->addWidget(new views::rtu::RtuView(this));
     stackedWidget_->addWidget(new views::generic_tcp::GenericTcpView(this));
     stackedWidget_->addWidget(new views::generic_serial::GenericSerialView(this));
+    stackedWidget_->addWidget(new widgets::FrameAnalyzerWidget(this));
 
     // Connect Navigation
     connect(navigationList_, &QListWidget::currentRowChanged,
@@ -69,6 +71,7 @@ void MainWindow::createNavigation() {
     navigationList_->addItem(tr("Modbus RTU"));
     navigationList_->addItem(tr("TCP Client"));
     navigationList_->addItem(tr("Serial Port"));
+    navigationList_->addItem(tr("Frame Analyzer"));
     
     // Style the navigation list a bit
     // Use light theme by default for now
@@ -130,11 +133,12 @@ void MainWindow::applyLanguage(const QString& locale) {
 
 void MainWindow::retranslateUi() {
     setWindowTitle(tr("Modbus Tools"));
-    if (navigationList_ && navigationList_->count() >= 4) {
+    if (navigationList_ && navigationList_->count() >= 5) {
         navigationList_->item(0)->setText(tr("Modbus TCP"));
         navigationList_->item(1)->setText(tr("Modbus RTU"));
         navigationList_->item(2)->setText(tr("TCP Client"));
         navigationList_->item(3)->setText(tr("Serial Port"));
+        navigationList_->item(4)->setText(tr("Frame Analyzer"));
     }
 
     if (languageMenu_) {

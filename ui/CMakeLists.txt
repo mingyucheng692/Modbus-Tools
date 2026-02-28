@@ -23,6 +23,8 @@ target_sources(ui PRIVATE
     widgets/QuickCommandWidget.h
     widgets/GenericInputWidget.cpp
     widgets/GenericInputWidget.h
+    widgets/FrameAnalyzerWidget.cpp
+    widgets/FrameAnalyzerWidget.h
 )
 
 target_link_libraries(ui PUBLIC
