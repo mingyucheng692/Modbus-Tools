@@ -1,6 +1,7 @@
 #include "ModbusFrameParser.h"
 #include <QtEndian>
 #include <QDataStream>
+#include <QCoreApplication>
 
 namespace modbus::core::parser {
 
@@ -11,7 +12,7 @@ ParseResult ModbusFrameParser::parse(const QByteArray& frame, ProtocolType type,
 
     if (frame.isEmpty()) {
         result.isValid = false;
-        result.error = "Empty frame data";
+        result.error = QCoreApplication::translate("ModbusFrameParser", "Empty frame data");
         return result;
     }
 
@@ -23,7 +24,7 @@ ParseResult ModbusFrameParser::parse(const QByteArray& frame, ProtocolType type,
             type = ProtocolType::Rtu;
         } else {
             result.isValid = false;
-            result.error = "Unable to identify protocol (neither valid TCP nor RTU)";
+            result.error = QCoreApplication::translate("ModbusFrameParser", "Unable to identify protocol (neither valid TCP nor RTU)");
             return result;
         }
     }
@@ -77,7 +78,7 @@ ParseResult ModbusFrameParser::parseTcp(const QByteArray& frame, uint16_t startA
 
     if (frame.size() < 8) {
         result.isValid = false;
-        result.error = "Frame too short for Modbus TCP";
+        result.error = QCoreApplication::translate("ModbusFrameParser", "Frame too short for Modbus TCP");
         return result;
     }
 
@@ -93,7 +94,7 @@ ParseResult ModbusFrameParser::parseTcp(const QByteArray& frame, uint16_t startA
     // 完整性检查
     if (frame.size() < (6 + result.length)) {
         result.isValid = false;
-        result.error = QString("Incomplete TCP frame. Expected %1 bytes, got %2").arg(6 + result.length).arg(frame.size());
+        result.error = QCoreApplication::translate("ModbusFrameParser", "Incomplete TCP frame. Expected %1 bytes, got %2").arg(6 + result.length).arg(frame.size());
         return result;
     }
 
@@ -127,14 +128,16 @@ ParseResult ModbusFrameParser::parseRtu(const QByteArray& frame, uint16_t startA
     result.slaveId = static_cast<uint8_t>(frame[0]);
     
     // CRC 校验
-    result.checksum = qFromLittleEndian<uint16_t>(reinterpret_cast<const uchar*>(frame.constData() + frame.size() - 2));
-    result.calculatedChecksum = calculateCrc(frame.left(frame.size() - 2));
-    result.checksumValid = (result.checksum == result.calculatedChecksum);
+    uint16_t receivedCrc = qFromLittleEndian<uint16_t>(reinterpret_cast<const uchar*>(frame.constData() + frame.size() - 2));
+    uint16_t calcCrc = calculateCrc(frame.left(frame.size() - 2));
+
+    result.checksum = receivedCrc;
+    result.calculatedChecksum = calcCrc;
+    result.checksumValid = (receivedCrc == calcCrc);
 
     if (!result.checksumValid) {
         result.isValid = false;
-        result.error = QString("Invalid CRC. Expected %1, got %2").arg(QString::number(result.calculatedChecksum, 16)).arg(QString::number(result.checksum, 16));
-        // 即使 CRC 错误也尝试解析后续内容用于调试? 这里先返回
+        result.error = QCoreApplication::translate("ModbusFrameParser", "CRC Mismatch. Expected %1, Got %2").arg(calcCrc, 4, 16, QChar('0')).arg(receivedCrc, 4, 16, QChar('0')).toUpper();
         return result;
     }
 

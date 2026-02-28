@@ -13,6 +13,7 @@
 #include <QHeaderView>
 #include <QTabWidget>
 #include <QMessageBox>
+#include <QEvent>
 
 namespace ui::widgets {
 
@@ -34,31 +35,27 @@ void FrameAnalyzerWidget::setupUi()
 
     createInputGroup();
     createResultGroup();
-
-    mainLayout->addWidget(new QGroupBox("Input Frame", this)); // Placeholder for layout structure
-    
-    // Re-organize layout by adding widgets to main layout
-    // (The create functions will return widgets or add to layout directly? 
-    // Let's refactor to standard Qt pattern: create member widgets and add to layout here)
 }
 
 void FrameAnalyzerWidget::createInputGroup()
 {
-    auto group = new QGroupBox("Frame Input", this);
-    auto groupLayout = new QVBoxLayout(group);
+    inputGroup_ = new QGroupBox(tr("Frame Input"), this);
+    auto groupLayout = new QVBoxLayout(inputGroup_);
 
     // Controls Row
     auto controlsLayout = new QHBoxLayout();
     
-    controlsLayout->addWidget(new QLabel("Protocol:", this));
+    protocolLabel_ = new QLabel(tr("Protocol:"), this);
+    controlsLayout->addWidget(protocolLabel_);
     protocolCombo_ = new QComboBox(this);
-    protocolCombo_->addItem("Auto Detect", QVariant::fromValue(ProtocolType::Unknown));
-    protocolCombo_->addItem("Modbus TCP", QVariant::fromValue(ProtocolType::Tcp));
-    protocolCombo_->addItem("Modbus RTU", QVariant::fromValue(ProtocolType::Rtu));
+    protocolCombo_->addItem(tr("Auto Detect"), QVariant::fromValue(ProtocolType::Unknown));
+    protocolCombo_->addItem(tr("Modbus TCP"), QVariant::fromValue(ProtocolType::Tcp));
+    protocolCombo_->addItem(tr("Modbus RTU"), QVariant::fromValue(ProtocolType::Rtu));
     controlsLayout->addWidget(protocolCombo_);
 
     controlsLayout->addSpacing(20);
-    controlsLayout->addWidget(new QLabel("Start Address (for Response):", this));
+    startAddrLabel_ = new QLabel(tr("Start Address (for Response):"), this);
+    controlsLayout->addWidget(startAddrLabel_);
     startAddressSpin_ = new QSpinBox(this);
     startAddressSpin_->setRange(0, 65535);
     startAddressSpin_->setValue(0);
@@ -66,35 +63,35 @@ void FrameAnalyzerWidget::createInputGroup()
 
     controlsLayout->addStretch();
     
-    formatBtn_ = new QPushButton("Format Hex", this);
+    formatBtn_ = new QPushButton(tr("Format Hex"), this);
     connect(formatBtn_, &QPushButton::clicked, this, &FrameAnalyzerWidget::onFormatClicked);
     controlsLayout->addWidget(formatBtn_);
 
-    parseBtn_ = new QPushButton("Parse", this);
+    parseBtn_ = new QPushButton(tr("Parse"), this);
     connect(parseBtn_, &QPushButton::clicked, this, &FrameAnalyzerWidget::onParseClicked);
     controlsLayout->addWidget(parseBtn_);
 
-    auto clearBtn = new QPushButton("Clear", this);
-    connect(clearBtn, &QPushButton::clicked, this, &FrameAnalyzerWidget::onClearClicked);
-    controlsLayout->addWidget(clearBtn);
+    clearBtn_ = new QPushButton(tr("Clear"), this);
+    connect(clearBtn_, &QPushButton::clicked, this, &FrameAnalyzerWidget::onClearClicked);
+    controlsLayout->addWidget(clearBtn_);
 
     groupLayout->addLayout(controlsLayout);
 
     // Input Editor
     inputEditor_ = new QPlainTextEdit(this);
-    inputEditor_->setPlaceholderText("Enter Hex string (e.g., 01 03 00 00 00 01 84 0A)");
+    inputEditor_->setPlaceholderText(tr("Enter Hex string (e.g., 01 03 00 00 00 01 84 0A)"));
     inputEditor_->setMaximumHeight(100);
     groupLayout->addWidget(inputEditor_);
 
-    layout()->addWidget(group);
+    layout()->addWidget(inputGroup_);
 }
 
 void FrameAnalyzerWidget::createResultGroup()
 {
-    auto group = new QGroupBox("Analysis Result", this);
-    auto groupLayout = new QVBoxLayout(group);
+    resultGroup_ = new QGroupBox(tr("Analysis Result"), this);
+    auto groupLayout = new QVBoxLayout(resultGroup_);
 
-    statusLabel_ = new QLabel("Ready", this);
+    statusLabel_ = new QLabel(tr("Ready"), this);
     statusLabel_->setStyleSheet("font-weight: bold; color: gray;");
     groupLayout->addWidget(statusLabel_);
 
@@ -102,20 +99,20 @@ void FrameAnalyzerWidget::createResultGroup()
 
     // Tab 1: Structure Overview
     overviewTree_ = new QTreeWidget(this);
-    overviewTree_->setHeaderLabels({"Field", "Value", "Description"});
+    overviewTree_->setHeaderLabels({tr("Field"), tr("Value"), tr("Description")});
     overviewTree_->setColumnWidth(0, 200);
     overviewTree_->setColumnWidth(1, 150);
-    resultTabs_->addTab(overviewTree_, "Structure");
+    resultTabs_->addTab(overviewTree_, tr("Structure"));
 
     // Tab 2: Decoded Data
     dataTable_ = new QTableWidget(this);
     dataTable_->setColumnCount(4);
-    dataTable_->setHorizontalHeaderLabels({"Address", "Hex", "Decimal", "Description"});
+    dataTable_->setHorizontalHeaderLabels({tr("Address"), tr("Hex"), tr("Decimal"), tr("Description")});
     dataTable_->horizontalHeader()->setSectionResizeMode(QHeaderView::Stretch);
-    resultTabs_->addTab(dataTable_, "Data Details");
+    resultTabs_->addTab(dataTable_, tr("Data Details"));
 
     groupLayout->addWidget(resultTabs_);
-    layout()->addWidget(group);
+    layout()->addWidget(resultGroup_);
 }
 
 void FrameAnalyzerWidget::onFormatClicked()
@@ -142,7 +139,7 @@ void FrameAnalyzerWidget::onClearClicked()
 
 void FrameAnalyzerWidget::clearResult()
 {
-    statusLabel_->setText("Ready");
+    statusLabel_->setText(tr("Ready"));
     statusLabel_->setStyleSheet("color: gray;");
     overviewTree_->clear();
     dataTable_->setRowCount(0);
@@ -154,7 +151,7 @@ void FrameAnalyzerWidget::onParseClicked()
 
     QString hexStr = inputEditor_->toPlainText().remove(QRegularExpression("[^0-9A-Fa-f]"));
     if (hexStr.isEmpty()) {
-        statusLabel_->setText("Error: Empty input");
+        statusLabel_->setText(tr("Error: Empty input"));
         statusLabel_->setStyleSheet("color: red;");
         return;
     }
@@ -171,31 +168,31 @@ void FrameAnalyzerWidget::onParseClicked()
 void FrameAnalyzerWidget::renderResult(const ParseResult& result)
 {
     if (!result.isValid) {
-        statusLabel_->setText("Parse Failed: " + result.error);
+        statusLabel_->setText(tr("Parse Failed: %1").arg(result.error));
         statusLabel_->setStyleSheet("color: red; font-weight: bold;");
         return;
     }
 
-    statusLabel_->setText(QString("Success (%1)").arg(result.protocol == ProtocolType::Tcp ? "TCP" : "RTU"));
+    statusLabel_->setText(tr("Success (%1)").arg(result.protocol == ProtocolType::Tcp ? tr("TCP") : tr("RTU")));
     statusLabel_->setStyleSheet("color: green; font-weight: bold;");
 
     // 1. Populate Overview Tree
     QTreeWidgetItem* root = new QTreeWidgetItem(overviewTree_);
-    root->setText(0, "Frame");
-    root->setText(1, QString("%1 bytes").arg(result.pduData.size() + (result.protocol == ProtocolType::Tcp ? 7 : 3))); // Approximate
+    root->setText(0, tr("Frame"));
+    root->setText(1, tr("%1 bytes").arg(result.pduData.size() + (result.protocol == ProtocolType::Tcp ? 7 : 3))); // Approximate
     
     // Header Info
     if (result.protocol == ProtocolType::Tcp) {
-        new QTreeWidgetItem(root, {"Transaction ID", QString::number(result.transactionId), ""});
-        new QTreeWidgetItem(root, {"Protocol ID", QString::number(result.protocolId), ""});
-        new QTreeWidgetItem(root, {"Length", QString::number(result.length), ""});
-        new QTreeWidgetItem(root, {"Unit ID", QString::number(result.slaveId), ""});
+        new QTreeWidgetItem(root, {tr("Transaction ID"), QString::number(result.transactionId), ""});
+        new QTreeWidgetItem(root, {tr("Protocol ID"), QString::number(result.protocolId), ""});
+        new QTreeWidgetItem(root, {tr("Length"), QString::number(result.length), ""});
+        new QTreeWidgetItem(root, {tr("Unit ID"), QString::number(result.slaveId), ""});
     } else {
-        new QTreeWidgetItem(root, {"Slave ID", QString::number(result.slaveId), ""});
+        new QTreeWidgetItem(root, {tr("Slave ID"), QString::number(result.slaveId), ""});
     }
 
     // Function Code
-    new QTreeWidgetItem(root, {"Function Code", QString::number((uint8_t)result.functionCode), result.isException ? "Exception" : "Normal"});
+    new QTreeWidgetItem(root, {tr("Function Code"), QString::number((uint8_t)result.functionCode), result.isException ? tr("Exception") : tr("Normal")});
 
     // PDU Data
     if (result.isException) {
@@ -227,6 +224,67 @@ void FrameAnalyzerWidget::renderResult(const ParseResult& result)
         }
         dataTable_->setItem(i, 2, new QTableWidgetItem(decStr));
         dataTable_->setItem(i, 3, new QTableWidgetItem(item.desc));
+    }
+}
+
+void FrameAnalyzerWidget::changeEvent(QEvent* event)
+{
+    if (event->type() == QEvent::LanguageChange) {
+        retranslateUi();
+    }
+    QWidget::changeEvent(event);
+}
+
+void FrameAnalyzerWidget::retranslateUi()
+{
+    if (inputGroup_) {
+        inputGroup_->setTitle(tr("Frame Input"));
+    }
+    if (protocolLabel_) {
+        protocolLabel_->setText(tr("Protocol:"));
+    }
+    if (protocolCombo_) {
+        protocolCombo_->setItemText(0, tr("Auto Detect"));
+        protocolCombo_->setItemText(1, tr("Modbus TCP"));
+        protocolCombo_->setItemText(2, tr("Modbus RTU"));
+    }
+    if (startAddrLabel_) {
+        startAddrLabel_->setText(tr("Start Address (for Response):"));
+    }
+    if (formatBtn_) {
+        formatBtn_->setText(tr("Format Hex"));
+    }
+    if (parseBtn_) {
+        parseBtn_->setText(tr("Parse"));
+    }
+    if (clearBtn_) {
+        clearBtn_->setText(tr("Clear"));
+    }
+    if (inputEditor_) {
+        inputEditor_->setPlaceholderText(tr("Enter Hex string (e.g., 01 03 00 00 00 01 84 0A)"));
+    }
+
+    if (resultGroup_) {
+        resultGroup_->setTitle(tr("Analysis Result"));
+    }
+    if (resultTabs_) {
+        resultTabs_->setTabText(0, tr("Structure"));
+        resultTabs_->setTabText(1, tr("Data Details"));
+    }
+    if (overviewTree_) {
+        QTreeWidgetItem* header = overviewTree_->headerItem();
+        header->setText(0, tr("Field"));
+        header->setText(1, tr("Value"));
+        header->setText(2, tr("Description"));
+    }
+    if (dataTable_) {
+        dataTable_->setHorizontalHeaderLabels({tr("Address"), tr("Hex"), tr("Decimal"), tr("Description")});
+    }
+
+    // Refresh result text if needed (simple approach: clear or keep existing static text)
+    // statusLabel_ text is dynamic, so we might leave it or reset to Ready if empty
+    if (statusLabel_ && statusLabel_->text() == "Ready") { // Basic check, ideally track state
+         statusLabel_->setText(tr("Ready"));
     }
 }
 

@@ -11,6 +11,7 @@ class QTableWidget;
 class QLabel;
 class QTreeWidget;
 class QTabWidget;
+class QGroupBox;
 namespace modbus::core::parser {
     struct ParseResult;
 }
@@ -29,8 +30,12 @@ private slots:
     void onClearClicked();
     void onFormatClicked(); // 格式化 Hex 输入
 
+protected:
+    void changeEvent(QEvent* event) override;
+
 private:
     void setupUi();
+    void retranslateUi();
     void createInputGroup();
     void createResultGroup();
     
@@ -40,13 +45,18 @@ private:
 
 private:
     // Input Controls
+    QGroupBox* inputGroup_ = nullptr;
+    QLabel* protocolLabel_ = nullptr;
+    QLabel* startAddrLabel_ = nullptr;
     QPlainTextEdit* inputEditor_ = nullptr;
     QComboBox* protocolCombo_ = nullptr;
     QSpinBox* startAddressSpin_ = nullptr;
     QPushButton* parseBtn_ = nullptr;
     QPushButton* formatBtn_ = nullptr;
+    QPushButton* clearBtn_ = nullptr;
 
     // Result Controls
+    QGroupBox* resultGroup_ = nullptr;
     QLabel* statusLabel_ = nullptr;
     QTreeWidget* overviewTree_ = nullptr;
     QTableWidget* dataTable_ = nullptr;
