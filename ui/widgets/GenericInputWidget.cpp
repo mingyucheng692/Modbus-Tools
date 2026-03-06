@@ -135,19 +135,13 @@ void GenericInputWidget::onSendClicked() {
 }
 
 void GenericInputWidget::onAutoSendToggled(bool checked) {
-    intervalSpin_->setEnabled(!checked); // Disable spinbox while running? Or keep enabled?
-    // Usually disable to prevent changing interval while running, or restart timer on change.
-    // Let's keep enabled but restart timer if changed? No, simpler to disable.
-    // Actually, allowing change is better UX.
-    intervalSpin_->setEnabled(true); 
-    
     if (checked) {
         autoSendTimer_->start(intervalSpin_->value());
-        sendBtn_->setEnabled(false); // Disable manual send? No, allow manual interleaved.
     } else {
         autoSendTimer_->stop();
-        sendBtn_->setEnabled(true);
     }
+    intervalSpin_->setEnabled(true);
+    sendBtn_->setEnabled(true);
 }
 
 void GenericInputWidget::onTimerTimeout() {

@@ -87,10 +87,6 @@ void GenericIoWorker::setupChannel()
 {
     if (!channel_) return;
 
-    channel_->setReadHandler([this](QByteArrayView data) {
-        emit dataReceived(QByteArray(data.data(), data.size()));
-    });
-
     channel_->setErrorHandler([this](const QString& err) {
         emit errorOccurred(err);
     });

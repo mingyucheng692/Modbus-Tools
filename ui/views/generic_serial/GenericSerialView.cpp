@@ -6,12 +6,12 @@
 #include <QVBoxLayout>
 #include <QHBoxLayout>
 #include <QGroupBox>
-#include <QDebug>
 #include <QThread>
 #include <QMetaObject>
 #include <QCheckBox>
 #include <QEvent>
 #include <spdlog/spdlog.h>
+#include "../../../core/io/IChannel.h"
 
 namespace ui::views::generic_serial {
 
@@ -87,9 +87,7 @@ void GenericSerialView::startWorker() {
 
     connect(worker, &io::GenericIoWorker::stateChanged, this, &GenericSerialView::onWorkerStateChanged);
     connect(worker, &io::GenericIoWorker::errorOccurred, this, &GenericSerialView::onWorkerError);
-    connect(worker, &io::GenericIoWorker::dataReceived, this, &GenericSerialView::onWorkerDataReceived);
     connect(worker, &io::GenericIoWorker::monitor, this, &GenericSerialView::onWorkerMonitor);
-    connect(worker, &io::GenericIoWorker::bytesWritten, [](qint64){}); // Ignored
     
     workerThread_->start();
     worker_.reset(worker);
@@ -131,18 +129,18 @@ void GenericSerialView::onSendRequested(const QByteArray& data) {
 }
 
 void GenericSerialView::onWorkerStateChanged(int state) {
-    bool connected = (state == 2); // Open
+    bool connected = (state == static_cast<int>(io::ChannelState::Open));
     connectionWidget_->setConnected(connected);
     dtrCheck_->setEnabled(connected);
     rtsCheck_->setEnabled(connected);
     
     QString stateStr;
     switch (state) {
-        case 0: stateStr = tr("Closed"); break;
-        case 1: stateStr = tr("Opening"); break;
-        case 2: stateStr = tr("Open"); break;
-        case 3: stateStr = tr("Closing"); break;
-        case 4: stateStr = tr("Error"); break;
+        case static_cast<int>(io::ChannelState::Closed): stateStr = tr("Closed"); break;
+        case static_cast<int>(io::ChannelState::Opening): stateStr = tr("Opening"); break;
+        case static_cast<int>(io::ChannelState::Open): stateStr = tr("Open"); break;
+        case static_cast<int>(io::ChannelState::Closing): stateStr = tr("Closing"); break;
+        case static_cast<int>(io::ChannelState::Error): stateStr = tr("Error"); break;
         default: stateStr = tr("Unknown"); break;
     }
     
@@ -152,10 +150,6 @@ void GenericSerialView::onWorkerStateChanged(int state) {
 void GenericSerialView::onWorkerError(const QString& error) {
     trafficMonitor_->appendInfo(tr("Error: %1").arg(error));
     spdlog::error("GenericSerial Error: {}", error.toStdString());
-}
-
-void GenericSerialView::onWorkerDataReceived(const QByteArray& data) {
-    // Handled by monitor for display
 }
 
 void GenericSerialView::onWorkerMonitor(bool isTx, const QByteArray& data) {

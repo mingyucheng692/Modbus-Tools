@@ -29,7 +29,6 @@ public slots:
 signals:
     void stateChanged(int state); // Maps to ChannelState
     void errorOccurred(const QString& error);
-    void dataReceived(const QByteArray& data);
     void monitor(bool isTx, const QByteArray& data);
     void bytesWritten(qint64 bytes);
 

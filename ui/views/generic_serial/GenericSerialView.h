@@ -37,7 +37,6 @@ private slots:
     void onSendRequested(const QByteArray& data);
     void onWorkerStateChanged(int state);
     void onWorkerError(const QString& error);
-    void onWorkerDataReceived(const QByteArray& data);
     void onWorkerMonitor(bool isTx, const QByteArray& data);
     
     // Serial Control

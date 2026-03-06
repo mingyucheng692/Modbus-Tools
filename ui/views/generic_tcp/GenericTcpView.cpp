@@ -6,11 +6,11 @@
 #include <QVBoxLayout>
 #include <QHBoxLayout>
 #include <QGroupBox>
-#include <QDebug>
 #include <QThread>
 #include <QMetaObject>
 #include <QEvent>
 #include <spdlog/spdlog.h>
+#include "../../../core/io/IChannel.h"
 
 namespace ui::views::generic_tcp {
 
@@ -68,9 +68,7 @@ void GenericTcpView::startWorker() {
     
     connect(worker, &io::GenericIoWorker::stateChanged, this, &GenericTcpView::onWorkerStateChanged);
     connect(worker, &io::GenericIoWorker::errorOccurred, this, &GenericTcpView::onWorkerError);
-    connect(worker, &io::GenericIoWorker::dataReceived, this, &GenericTcpView::onWorkerDataReceived);
     connect(worker, &io::GenericIoWorker::monitor, this, &GenericTcpView::onWorkerMonitor);
-    connect(worker, &io::GenericIoWorker::bytesWritten, this, &GenericTcpView::onWorkerBytesWritten);
 
     workerThread_->start();
     
@@ -125,41 +123,26 @@ void GenericTcpView::onWorkerStateChanged(int state) {
     // Map int back to ChannelState? Or just use int.
     // 0=Closed, 1=Opening, 2=Open, 3=Closing, 4=Error
     
-    bool connected = (state == 2); // Open
+    bool connected = (state == static_cast<int>(io::ChannelState::Open));
     connectionWidget_->setConnected(connected);
     
     QString stateStr;
     switch (state) {
-        case 0: stateStr = tr("Closed"); break;
-        case 1: stateStr = tr("Opening"); break;
-        case 2: stateStr = tr("Connected"); break;
-        case 3: stateStr = tr("Closing"); break;
-        case 4: stateStr = tr("Error"); break;
+        case static_cast<int>(io::ChannelState::Closed): stateStr = tr("Closed"); break;
+        case static_cast<int>(io::ChannelState::Opening): stateStr = tr("Opening"); break;
+        case static_cast<int>(io::ChannelState::Open): stateStr = tr("Connected"); break;
+        case static_cast<int>(io::ChannelState::Closing): stateStr = tr("Closing"); break;
+        case static_cast<int>(io::ChannelState::Error): stateStr = tr("Error"); break;
         default: stateStr = tr("Unknown"); break;
     }
     
     trafficMonitor_->appendInfo(tr("State changed: %1").arg(stateStr));
     
-    if (state == 4) { // Error
-        // Maybe show error in status bar?
-    }
 }
 
 void GenericTcpView::onWorkerError(const QString& error) {
     trafficMonitor_->appendInfo(tr("Error: %1").arg(error));
     spdlog::error("GenericTcp Error: {}", error.toStdString());
-}
-
-void GenericTcpView::onWorkerDataReceived(const QByteArray& data) {
-    // TrafficMonitor handles display (handled via onWorkerMonitor usually?)
-    // Wait, onWorkerMonitor handles both TX and RX for logging.
-    // dataReceived is for processing.
-    // Since this is a raw view, we might just rely on monitor?
-    // But monitor gives raw bytes.
-    // Let's use monitor for display to be consistent.
-    
-    // But wait, TrafficMonitor has appendRx/appendTx.
-    // monitor signal gives isTx bool.
 }
 
 void GenericTcpView::onWorkerMonitor(bool isTx, const QByteArray& data) {
@@ -168,10 +151,6 @@ void GenericTcpView::onWorkerMonitor(bool isTx, const QByteArray& data) {
     } else {
         trafficMonitor_->appendRx(data);
     }
-}
-
-void GenericTcpView::onWorkerBytesWritten(qint64 bytes) {
-    // Update stats if needed
 }
 
 void GenericTcpView::retranslateUi() {
