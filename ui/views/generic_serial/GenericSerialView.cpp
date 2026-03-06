@@ -2,11 +2,9 @@
 #include "../../widgets/SerialConnectionWidget.h"
 #include "../../widgets/TrafficMonitorWidget.h"
 #include "../../widgets/GenericInputWidget.h"
-#include "../../widgets/QuickCommandWidget.h"
 #include "../../../core/io/GenericIoWorker.h"
 #include <QVBoxLayout>
 #include <QHBoxLayout>
-#include <QSplitter>
 #include <QGroupBox>
 #include <QDebug>
 #include <QThread>
@@ -52,25 +50,9 @@ void GenericSerialView::setupUi() {
     
     mainLayout->addLayout(topLayout);
 
-    // 2. Central Area (Splitter: Traffic | QuickCommands)
-    auto splitter = new QSplitter(Qt::Horizontal, this);
-    
-    // Left: Traffic Monitor
-    trafficMonitor_ = new widgets::TrafficMonitorWidget(splitter);
-    splitter->addWidget(trafficMonitor_);
-    
-    // Right: Quick Commands (Collapsible via splitter)
-    quickCmdGroup_ = new QGroupBox(splitter);
-    auto quickCmdLayout = new QVBoxLayout(quickCmdGroup_);
-    quickCommandWidget_ = new widgets::QuickCommandWidget(quickCmdGroup_);
-    quickCmdLayout->addWidget(quickCommandWidget_);
-    splitter->addWidget(quickCmdGroup_);
-    
-    // Set initial sizes (Traffic 70%, QuickCmd 30%)
-    splitter->setStretchFactor(0, 7);
-    splitter->setStretchFactor(1, 3);
-    
-    mainLayout->addWidget(splitter, 1);
+    // 2. Central Area (Traffic Monitor)
+    trafficMonitor_ = new widgets::TrafficMonitorWidget(this);
+    mainLayout->addWidget(trafficMonitor_, 1);
 
     // 3. Input Section (Bottom)
     inputGroup_ = new QGroupBox(this);
@@ -86,9 +68,6 @@ void GenericSerialView::setupUi() {
             this, &GenericSerialView::onDisconnectClicked);
     
     connect(inputWidget_, &widgets::GenericInputWidget::sendRequested, 
-            this, &GenericSerialView::onSendRequested);
-            
-    connect(quickCommandWidget_, &widgets::QuickCommandWidget::sendRequested,
             this, &GenericSerialView::onSendRequested);
             
     connect(dtrCheck_, &QCheckBox::toggled, this, &GenericSerialView::onDtrChanged);
@@ -203,7 +182,6 @@ void GenericSerialView::onRtsChanged(bool checked) {
 
 void GenericSerialView::retranslateUi() {
     if (controlGroup_) controlGroup_->setTitle(tr("Control"));
-    if (quickCmdGroup_) quickCmdGroup_->setTitle(tr("Quick Commands"));
     if (inputGroup_) inputGroup_->setTitle(tr("Send Data"));
     if (dtrCheck_) dtrCheck_->setText(tr("DTR"));
     if (rtsCheck_) rtsCheck_->setText(tr("RTS"));

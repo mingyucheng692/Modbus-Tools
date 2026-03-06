@@ -12,7 +12,6 @@ namespace ui::widgets {
 class TcpConnectionWidget;
 class TrafficMonitorWidget;
 class GenericInputWidget;
-class QuickCommandWidget;
 }
 
 class QVBoxLayout;
@@ -51,8 +50,6 @@ private:
     widgets::TcpConnectionWidget* connectionWidget_ = nullptr;
     widgets::TrafficMonitorWidget* trafficMonitor_ = nullptr;
     widgets::GenericInputWidget* inputWidget_ = nullptr;
-    widgets::QuickCommandWidget* quickCommandWidget_ = nullptr;
-    QGroupBox* quickCmdGroup_ = nullptr;
     QGroupBox* inputGroup_ = nullptr;
 
     // Backend

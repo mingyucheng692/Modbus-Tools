@@ -19,8 +19,6 @@ target_sources(ui PRIVATE
     widgets/FunctionWidget.cpp
     widgets/ControlWidget.cpp
     widgets/TrafficMonitorWidget.cpp
-    widgets/QuickCommandWidget.cpp
-    widgets/QuickCommandWidget.h
     widgets/GenericInputWidget.cpp
     widgets/GenericInputWidget.h
     widgets/FrameAnalyzerWidget.cpp

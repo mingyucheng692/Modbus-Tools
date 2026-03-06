@@ -12,7 +12,6 @@ namespace ui::widgets {
 class SerialConnectionWidget;
 class TrafficMonitorWidget;
 class GenericInputWidget;
-class QuickCommandWidget;
 }
 
 class QVBoxLayout;
@@ -56,12 +55,10 @@ private:
     widgets::SerialConnectionWidget* connectionWidget_ = nullptr;
     widgets::TrafficMonitorWidget* trafficMonitor_ = nullptr;
     widgets::GenericInputWidget* inputWidget_ = nullptr;
-    widgets::QuickCommandWidget* quickCommandWidget_ = nullptr;
     
     QCheckBox* dtrCheck_ = nullptr;
     QCheckBox* rtsCheck_ = nullptr;
     QGroupBox* controlGroup_ = nullptr;
-    QGroupBox* quickCmdGroup_ = nullptr;
     QGroupBox* inputGroup_ = nullptr;
 
     // Backend

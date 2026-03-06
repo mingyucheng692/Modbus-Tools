@@ -2,11 +2,9 @@
 #include "../../widgets/TcpConnectionWidget.h"
 #include "../../widgets/TrafficMonitorWidget.h"
 #include "../../widgets/GenericInputWidget.h"
-#include "../../widgets/QuickCommandWidget.h"
 #include "../../../core/io/GenericIoWorker.h"
 #include <QVBoxLayout>
 #include <QHBoxLayout>
-#include <QSplitter>
 #include <QGroupBox>
 #include <QDebug>
 #include <QThread>
@@ -36,25 +34,9 @@ void GenericTcpView::setupUi() {
     connectionWidget_->setDefaultPort(8080); // Set default port for Generic TCP Client
     mainLayout->addWidget(connectionWidget_);
 
-    // 2. Central Area (Splitter: Traffic | QuickCommands)
-    auto splitter = new QSplitter(Qt::Horizontal, this);
-    
-    // Left: Traffic Monitor
-    trafficMonitor_ = new widgets::TrafficMonitorWidget(splitter);
-    splitter->addWidget(trafficMonitor_);
-    
-    // Right: Quick Commands (Collapsible via splitter)
-    quickCmdGroup_ = new QGroupBox(splitter);
-    auto quickCmdLayout = new QVBoxLayout(quickCmdGroup_);
-    quickCommandWidget_ = new widgets::QuickCommandWidget(quickCmdGroup_);
-    quickCmdLayout->addWidget(quickCommandWidget_);
-    splitter->addWidget(quickCmdGroup_);
-    
-    // Set initial sizes (Traffic 70%, QuickCmd 30%)
-    splitter->setStretchFactor(0, 7);
-    splitter->setStretchFactor(1, 3);
-    
-    mainLayout->addWidget(splitter, 1); // Stretch factor 1 to take available space
+    // 2. Central Area (Traffic Monitor)
+    trafficMonitor_ = new widgets::TrafficMonitorWidget(this);
+    mainLayout->addWidget(trafficMonitor_, 1);
 
     // 3. Input Section (Bottom)
     inputGroup_ = new QGroupBox(this);
@@ -70,9 +52,6 @@ void GenericTcpView::setupUi() {
             this, &GenericTcpView::onDisconnectClicked);
     
     connect(inputWidget_, &widgets::GenericInputWidget::sendRequested, 
-            this, &GenericTcpView::onSendRequested);
-            
-    connect(quickCommandWidget_, &widgets::QuickCommandWidget::sendRequested,
             this, &GenericTcpView::onSendRequested);
 
     retranslateUi();
@@ -196,7 +175,6 @@ void GenericTcpView::onWorkerBytesWritten(qint64 bytes) {
 }
 
 void GenericTcpView::retranslateUi() {
-    if (quickCmdGroup_) quickCmdGroup_->setTitle(tr("Quick Commands"));
     if (inputGroup_) inputGroup_->setTitle(tr("Send Data"));
 }
 
