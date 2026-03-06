@@ -1,4 +1,4 @@
-add_executable(ModbusTools
+add_executable(ModbusTools WIN32
     main.cpp
 )
 
