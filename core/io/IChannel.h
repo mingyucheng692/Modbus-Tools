@@ -3,6 +3,7 @@
 #include <QByteArrayView>
 #include <QString>
 #include <QtGlobal>
+#include <QMetaType>
 #include <functional>
 
 namespace io {
@@ -40,3 +41,5 @@ public:
 };
 
 }
+
+Q_DECLARE_METATYPE(io::ChannelState)

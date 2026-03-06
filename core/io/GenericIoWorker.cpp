@@ -3,13 +3,14 @@
 #include "SerialChannel.h"
 #include <QThread>
 #include <QMetaObject>
-#include <QDebug>
+#include <QMetaType>
 
 namespace io {
 
 GenericIoWorker::GenericIoWorker(QObject* parent)
     : QObject(parent)
 {
+    qRegisterMetaType<io::ChannelState>("io::ChannelState");
 }
 
 GenericIoWorker::~GenericIoWorker()
@@ -96,7 +97,7 @@ void GenericIoWorker::setupChannel()
     });
 
     channel_->setStateHandler([this](ChannelState state) {
-        emit stateChanged(static_cast<int>(state));
+        emit stateChanged(state);
     });
 }
 

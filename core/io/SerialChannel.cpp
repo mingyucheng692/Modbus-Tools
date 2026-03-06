@@ -72,10 +72,11 @@ bool SerialChannel::write(QByteArrayView data) {
 
     if (!isOpen()) return false;
     
-    qint64 written = serial_.write(data.data(), data.size());
-    if (written == data.size()) {
+    QByteArray dataBuffer(data.data(), data.size());
+    qint64 written = serial_.write(dataBuffer);
+    if (written == dataBuffer.size()) {
         addTx(written);
-        emitMonitor(true, QByteArray(data.data(), data.size()));
+        emitMonitor(true, dataBuffer);
         // serial_.waitForBytesWritten(timeouts().writeMs); // Optional: blocking write
         return true;
     }

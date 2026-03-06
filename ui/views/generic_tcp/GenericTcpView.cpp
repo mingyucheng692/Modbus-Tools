@@ -59,28 +59,24 @@ void GenericTcpView::setupUi() {
 
 void GenericTcpView::startWorker() {
     workerThread_ = new QThread(this);
-    auto* worker = new io::GenericIoWorker(); // Created, no parent yet (will move to thread)
+    auto* worker = new io::GenericIoWorker();
     worker->moveToThread(workerThread_);
 
-    // Connect signals/slots using queued connection
-    // We don't delete worker on thread finish, because unique_ptr owns it.
-    // connect(workerThread_, &QThread::finished, worker, &QObject::deleteLater); 
-    
     connect(worker, &io::GenericIoWorker::stateChanged, this, &GenericTcpView::onWorkerStateChanged);
     connect(worker, &io::GenericIoWorker::errorOccurred, this, &GenericTcpView::onWorkerError);
     connect(worker, &io::GenericIoWorker::monitor, this, &GenericTcpView::onWorkerMonitor);
 
     workerThread_->start();
-    
-    worker_.reset(worker);
+    worker_ = worker;
 }
 
 void GenericTcpView::stopWorker() {
     if (workerThread_) {
         // Close connection first
         if (worker_) {
-            // Invoke close on worker thread
-            QMetaObject::invokeMethod(worker_.get(), "close", Qt::BlockingQueuedConnection);
+            QMetaObject::invokeMethod(worker_, "close", Qt::BlockingQueuedConnection);
+            QMetaObject::invokeMethod(worker_, "deleteLater", Qt::QueuedConnection);
+            worker_ = nullptr;
         }
         
         workerThread_->quit();
@@ -88,7 +84,6 @@ void GenericTcpView::stopWorker() {
         delete workerThread_;
         workerThread_ = nullptr;
     }
-    // worker_ (unique_ptr) will be destroyed here.
 }
 
 void GenericTcpView::onConnectClicked(const QString& ip, int port) {
@@ -98,7 +93,7 @@ void GenericTcpView::onConnectClicked(const QString& ip, int port) {
     trafficMonitor_->appendInfo(tr("Connecting to %1:%2...").arg(ip).arg(port));
     
     // Invoke openTcp on worker thread
-    QMetaObject::invokeMethod(worker_.get(), "openTcp", 
+    QMetaObject::invokeMethod(worker_, "openTcp", 
                               Qt::QueuedConnection, 
                               Q_ARG(QString, ip), 
                               Q_ARG(int, port));
@@ -107,32 +102,29 @@ void GenericTcpView::onConnectClicked(const QString& ip, int port) {
 void GenericTcpView::onDisconnectClicked() {
     if (!worker_) return;
     
-    QMetaObject::invokeMethod(worker_.get(), "close", Qt::QueuedConnection);
+    QMetaObject::invokeMethod(worker_, "close", Qt::QueuedConnection);
 }
 
 void GenericTcpView::onSendRequested(const QByteArray& data) {
     if (!worker_) return;
     
     // Invoke write on worker thread
-    QMetaObject::invokeMethod(worker_.get(), "write", 
+    QMetaObject::invokeMethod(worker_, "write", 
                               Qt::QueuedConnection, 
                               Q_ARG(QByteArray, data));
 }
 
-void GenericTcpView::onWorkerStateChanged(int state) {
-    // Map int back to ChannelState? Or just use int.
-    // 0=Closed, 1=Opening, 2=Open, 3=Closing, 4=Error
-    
-    bool connected = (state == static_cast<int>(io::ChannelState::Open));
+void GenericTcpView::onWorkerStateChanged(io::ChannelState state) {
+    bool connected = (state == io::ChannelState::Open);
     connectionWidget_->setConnected(connected);
     
     QString stateStr;
     switch (state) {
-        case static_cast<int>(io::ChannelState::Closed): stateStr = tr("Closed"); break;
-        case static_cast<int>(io::ChannelState::Opening): stateStr = tr("Opening"); break;
-        case static_cast<int>(io::ChannelState::Open): stateStr = tr("Connected"); break;
-        case static_cast<int>(io::ChannelState::Closing): stateStr = tr("Closing"); break;
-        case static_cast<int>(io::ChannelState::Error): stateStr = tr("Error"); break;
+        case io::ChannelState::Closed: stateStr = tr("Closed"); break;
+        case io::ChannelState::Opening: stateStr = tr("Opening"); break;
+        case io::ChannelState::Open: stateStr = tr("Connected"); break;
+        case io::ChannelState::Closing: stateStr = tr("Closing"); break;
+        case io::ChannelState::Error: stateStr = tr("Error"); break;
         default: stateStr = tr("Unknown"); break;
     }
     

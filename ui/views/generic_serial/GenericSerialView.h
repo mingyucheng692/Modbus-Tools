@@ -2,7 +2,8 @@
 
 #include <QWidget>
 #include <memory>
-#include "../../../core/io/SerialChannel.h" // For SerialConfig
+#include "../../../core/io/SerialChannel.h"
+#include "../../../core/io/IChannel.h"
 
 namespace io {
 class GenericIoWorker;
@@ -35,7 +36,7 @@ private slots:
     void onConnectClicked(const io::SerialConfig& config);
     void onDisconnectClicked();
     void onSendRequested(const QByteArray& data);
-    void onWorkerStateChanged(int state);
+    void onWorkerStateChanged(io::ChannelState state);
     void onWorkerError(const QString& error);
     void onWorkerMonitor(bool isTx, const QByteArray& data);
     
@@ -61,7 +62,7 @@ private:
     QGroupBox* inputGroup_ = nullptr;
 
     // Backend
-    std::unique_ptr<io::GenericIoWorker> worker_; 
+    io::GenericIoWorker* worker_ = nullptr;
     QThread* workerThread_ = nullptr;
 };
 

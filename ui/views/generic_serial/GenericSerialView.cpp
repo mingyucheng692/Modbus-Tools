@@ -11,7 +11,6 @@
 #include <QCheckBox>
 #include <QEvent>
 #include <spdlog/spdlog.h>
-#include "../../../core/io/IChannel.h"
 
 namespace ui::views::generic_serial {
 
@@ -90,13 +89,15 @@ void GenericSerialView::startWorker() {
     connect(worker, &io::GenericIoWorker::monitor, this, &GenericSerialView::onWorkerMonitor);
     
     workerThread_->start();
-    worker_.reset(worker);
+    worker_ = worker;
 }
 
 void GenericSerialView::stopWorker() {
     if (workerThread_) {
         if (worker_) {
-            QMetaObject::invokeMethod(worker_.get(), "close", Qt::BlockingQueuedConnection);
+            QMetaObject::invokeMethod(worker_, "close", Qt::BlockingQueuedConnection);
+            QMetaObject::invokeMethod(worker_, "deleteLater", Qt::QueuedConnection);
+            worker_ = nullptr;
         }
         workerThread_->quit();
         workerThread_->wait();
@@ -111,36 +112,36 @@ void GenericSerialView::onConnectClicked(const io::SerialConfig& config) {
     spdlog::info("GenericSerial: Connecting to {}", config.portName.toStdString());
     trafficMonitor_->appendInfo(tr("Opening %1...").arg(config.portName));
     
-    QMetaObject::invokeMethod(worker_.get(), "openSerial", 
+    QMetaObject::invokeMethod(worker_, "openSerial", 
                               Qt::QueuedConnection, 
                               Q_ARG(io::SerialConfig, config));
 }
 
 void GenericSerialView::onDisconnectClicked() {
     if (!worker_) return;
-    QMetaObject::invokeMethod(worker_.get(), "close", Qt::QueuedConnection);
+    QMetaObject::invokeMethod(worker_, "close", Qt::QueuedConnection);
 }
 
 void GenericSerialView::onSendRequested(const QByteArray& data) {
     if (!worker_) return;
-    QMetaObject::invokeMethod(worker_.get(), "write", 
+    QMetaObject::invokeMethod(worker_, "write", 
                               Qt::QueuedConnection, 
                               Q_ARG(QByteArray, data));
 }
 
-void GenericSerialView::onWorkerStateChanged(int state) {
-    bool connected = (state == static_cast<int>(io::ChannelState::Open));
+void GenericSerialView::onWorkerStateChanged(io::ChannelState state) {
+    bool connected = (state == io::ChannelState::Open);
     connectionWidget_->setConnected(connected);
     dtrCheck_->setEnabled(connected);
     rtsCheck_->setEnabled(connected);
     
     QString stateStr;
     switch (state) {
-        case static_cast<int>(io::ChannelState::Closed): stateStr = tr("Closed"); break;
-        case static_cast<int>(io::ChannelState::Opening): stateStr = tr("Opening"); break;
-        case static_cast<int>(io::ChannelState::Open): stateStr = tr("Open"); break;
-        case static_cast<int>(io::ChannelState::Closing): stateStr = tr("Closing"); break;
-        case static_cast<int>(io::ChannelState::Error): stateStr = tr("Error"); break;
+        case io::ChannelState::Closed: stateStr = tr("Closed"); break;
+        case io::ChannelState::Opening: stateStr = tr("Opening"); break;
+        case io::ChannelState::Open: stateStr = tr("Open"); break;
+        case io::ChannelState::Closing: stateStr = tr("Closing"); break;
+        case io::ChannelState::Error: stateStr = tr("Error"); break;
         default: stateStr = tr("Unknown"); break;
     }
     
@@ -162,14 +163,14 @@ void GenericSerialView::onWorkerMonitor(bool isTx, const QByteArray& data) {
 
 void GenericSerialView::onDtrChanged(bool checked) {
     if (!worker_) return;
-    QMetaObject::invokeMethod(worker_.get(), "setDtr", 
+    QMetaObject::invokeMethod(worker_, "setDtr", 
                               Qt::QueuedConnection, 
                               Q_ARG(bool, checked));
 }
 
 void GenericSerialView::onRtsChanged(bool checked) {
     if (!worker_) return;
-    QMetaObject::invokeMethod(worker_.get(), "setRts", 
+    QMetaObject::invokeMethod(worker_, "setRts", 
                               Qt::QueuedConnection, 
                               Q_ARG(bool, checked));
 }

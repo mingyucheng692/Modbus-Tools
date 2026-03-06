@@ -3,6 +3,7 @@
 #include <QWidget>
 #include <memory>
 #include <QThread>
+#include "../../../core/io/IChannel.h"
 
 namespace io {
 class GenericIoWorker;
@@ -33,7 +34,7 @@ private slots:
     void onConnectClicked(const QString& ip, int port);
     void onDisconnectClicked();
     void onSendRequested(const QByteArray& data);
-    void onWorkerStateChanged(int state);
+    void onWorkerStateChanged(io::ChannelState state);
     void onWorkerError(const QString& error);
     void onWorkerMonitor(bool isTx, const QByteArray& data);
 
@@ -51,7 +52,7 @@ private:
     QGroupBox* inputGroup_ = nullptr;
 
     // Backend
-    std::unique_ptr<io::GenericIoWorker> worker_; // We might move this to a thread, so unique_ptr
+    io::GenericIoWorker* worker_ = nullptr;
     QThread* workerThread_ = nullptr;
 };
 

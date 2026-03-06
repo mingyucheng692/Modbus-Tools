@@ -27,7 +27,7 @@ public slots:
     void setRts(bool set);
 
 signals:
-    void stateChanged(int state); // Maps to ChannelState
+    void stateChanged(ChannelState state);
     void errorOccurred(const QString& error);
     void monitor(bool isTx, const QByteArray& data);
     void bytesWritten(qint64 bytes);
