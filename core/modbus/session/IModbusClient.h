@@ -1,8 +1,8 @@
 #pragma once
 
-#include <future>
 #include <memory>
 #include <QString>
+#include <QMetaType>
 #include "../base/ModbusFrame.h"
 #include "../base/ModbusConfig.h"
 
@@ -27,10 +27,9 @@ class IModbusClient {
 public:
     virtual ~IModbusClient() = default;
 
-    // 发送请求并等待响应（同步或异步通过 Future）
-    // 为了支持 Qt UI 线程不阻塞，建议内部实现为异步，这里返回 std::future
+    // 发送请求并等待响应（由 Worker 线程保证不阻塞 UI）
     // slaveId: 如果为 -1，则使用 setConfig 设置的默认 slaveId
-    virtual std::future<ModbusResponse> sendRequest(const base::Pdu& request, int slaveId = -1) = 0;
+    virtual ModbusResponse sendRequest(const base::Pdu& request, int slaveId = -1) = 0;
 
     // 发送原始数据（不经过 PDU 封装，直接写入通道）
     // 用于非标准测试
@@ -46,3 +45,5 @@ public:
 };
 
 } // namespace modbus::session
+
+Q_DECLARE_METATYPE(modbus::session::ModbusResponse)

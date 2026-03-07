@@ -5,24 +5,37 @@
 #include "../../io/SerialChannel.h"
 #include "../../io/TcpChannel.h"
 #include <QSerialPort>
+#include <QThread>
 
 namespace modbus::factory {
 
-std::unique_ptr<dispatch::ModbusWorker> ModbusFactory::createWorker(const base::ModbusConfig& config) {
+ModbusStack ModbusFactory::createStack(const base::ModbusConfig& config) {
+    ModbusStack stack;
     // 1. 创建底层通道 (IO)
-    auto channel = createChannel(config);
-    if (!channel) return nullptr;
+    stack.channel = createChannel(config);
+    if (!stack.channel) return stack;
 
     // 2. 创建传输层策略 (Protocol)
     auto transport = createTransport(config);
-    if (!transport) return nullptr;
+    if (!transport) return stack;
 
     // 3. 创建客户端会话 (Session)
-    auto client = std::make_shared<session::ModbusClient>(channel, transport);
-    client->setConfig(config);
+    stack.client = std::make_shared<session::ModbusClient>(stack.channel, transport);
+    stack.client->setConfig(config);
 
     // 4. 创建工作线程 (Dispatch)
-    return std::make_unique<dispatch::ModbusWorker>(client);
+    stack.thread = std::shared_ptr<QThread>(new QThread(), [](QThread* thread) {
+        if (thread) {
+            if (thread->isRunning()) {
+                thread->quit();
+                thread->wait();
+            }
+            delete thread;
+        }
+    });
+    auto workerRaw = new dispatch::ModbusWorker(stack.client, stack.thread.get(), stack.thread.get());
+    stack.worker = std::shared_ptr<dispatch::ModbusWorker>(workerRaw, [](dispatch::ModbusWorker*) {});
+    return stack;
 }
 
 std::shared_ptr<io::IChannel> ModbusFactory::createChannel(const base::ModbusConfig& config) {

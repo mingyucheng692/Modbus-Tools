@@ -1,84 +1,132 @@
 #include "ModbusWorker.h"
-#include <spdlog/spdlog.h>
+#include <QMetaObject>
+#include <QThread>
 
 namespace modbus::dispatch {
 
-ModbusWorker::ModbusWorker(std::shared_ptr<session::IModbusClient> client)
-    : client_(std::move(client)) {}
+ModbusWorker::ModbusWorker(std::shared_ptr<session::IModbusClient> client, QThread* workerThread, QObject* parent)
+    : QObject(parent),
+      client_(std::move(client)),
+      thread_(workerThread) {
+    qRegisterMetaType<modbus::session::ModbusResponse>("modbus::session::ModbusResponse");
+    if (thread_) {
+        moveToThread(thread_);
+    }
+}
 
 ModbusWorker::~ModbusWorker() {
     stop();
 }
 
 void ModbusWorker::start() {
-    if (running_) return;
-    
-    running_ = true;
-    queue_.start();
-    thread_ = std::thread(&ModbusWorker::loop, this);
-    spdlog::info("ModbusWorker started");
+    if (thread_ && !thread_->isRunning()) {
+        thread_->start();
+    }
 }
 
 void ModbusWorker::stop() {
-    if (!running_) return;
+    if (stopping_) return;
+    stopping_ = true;
 
-    running_ = false;
-    queue_.stop();
-    if (thread_.joinable()) {
-        thread_.join();
+    if (!thread_) {
+        stopping_ = false;
+        return;
     }
-    spdlog::info("ModbusWorker stopped");
+
+    if (QThread::currentThread() == thread_) {
+        handleDisconnect();
+        thread_->quit();
+        stopping_ = false;
+        return;
+    }
+
+    if (thread_->isRunning()) {
+        QMetaObject::invokeMethod(this, [this]() { handleDisconnect(); }, Qt::BlockingQueuedConnection);
+        thread_->quit();
+        thread_->wait();
+    }
+
+    stopping_ = false;
 }
 
-std::future<session::ModbusResponse> ModbusWorker::submit(base::Pdu request, int slaveId) {
-    // 这里如果 client 支持异步，我们可以直接调用 client->sendRequest
-    // 但为了统一管理任务（如优先级、取消等），也可以放入队列
-    // 目前简单实现：直接调用 client
-    if (!client_) {
-        // 返回一个包含错误的 Future
-        std::promise<session::ModbusResponse> promise;
-        promise.set_value(session::ModbusResponse::Error("No client attached"));
-        return promise.get_future();
+void ModbusWorker::submit(const base::Pdu& request, int slaveId, int requestId) {
+    if (!thread_) {
+        emit requestFinished(requestId, session::ModbusResponse::Error("Worker thread not available"));
+        return;
     }
-    return client_->sendRequest(request, slaveId);
+    QMetaObject::invokeMethod(this, [this, request, slaveId, requestId]() {
+        handleSubmit(request, slaveId, requestId);
+    }, Qt::QueuedConnection);
 }
 
 void ModbusWorker::sendRaw(const QByteArray& data) {
-    if (client_) {
-        client_->sendRaw(data);
+    if (!thread_) {
+        emit requestFinished(-1, session::ModbusResponse::Error("Worker thread not available"));
+        return;
     }
+    QMetaObject::invokeMethod(this, [this, data]() {
+        handleSendRaw(data);
+    }, Qt::QueuedConnection);
 }
 
-void ModbusWorker::loop() {
-    while (running_) {
-        // 阻塞等待命令
-        auto cmdOpt = queue_.pop();
-        if (!cmdOpt) {
-            // 队列停止且为空，退出循环
-            break;
-        }
+void ModbusWorker::requestConnect() {
+    if (!thread_) {
+        emit connectFinished(false, "Worker thread not available");
+        return;
+    }
+    QMetaObject::invokeMethod(this, [this]() {
+        handleConnect();
+    }, Qt::QueuedConnection);
+}
 
-        ModbusCommand& cmd = *cmdOpt;
-        
-        // 确保连接
-        if (!client_->isConnected()) {
-             if (!client_->connect()) {
-                 cmd.promise.set_value(session::ModbusResponse::Error("Failed to connect"));
-                 continue;
-             }
-        }
+void ModbusWorker::requestDisconnect() {
+    if (!thread_) return;
+    QMetaObject::invokeMethod(this, [this]() {
+        handleDisconnect();
+    }, Qt::QueuedConnection);
+}
 
-        // 执行命令 (Client 内部可能是同步或异步，但这里我们同步等待 Client 的 Future)
-        // 实际上 Client::sendRequest 是异步的，但为了保持 Worker 的串行性，我们这里 wait
-        try {
-            auto clientFuture = client_->sendRequest(cmd.request);
-            // 等待结果
-            auto response = clientFuture.get(); 
-            cmd.promise.set_value(response);
-        } catch (const std::exception& e) {
-            cmd.promise.set_value(session::ModbusResponse::Error(QString("Exception: %1").arg(e.what())));
+void ModbusWorker::handleSubmit(base::Pdu request, int slaveId, int requestId) {
+    if (!client_) {
+        emit requestFinished(requestId, session::ModbusResponse::Error("No client attached"));
+        return;
+    }
+    if (!client_->isConnected()) {
+        if (!client_->connect()) {
+            emit requestFinished(requestId, session::ModbusResponse::Error("Failed to connect"));
+            return;
         }
     }
+    auto response = client_->sendRequest(request, slaveId);
+    emit requestFinished(requestId, response);
+}
+
+void ModbusWorker::handleSendRaw(QByteArray data) {
+    if (!client_) {
+        return;
+    }
+    if (!client_->isConnected()) {
+        if (!client_->connect()) {
+            return;
+        }
+    }
+    client_->sendRaw(data);
+}
+
+void ModbusWorker::handleConnect() {
+    if (!client_) {
+        emit connectFinished(false, "No client attached");
+        return;
+    }
+    bool ok = client_->connect();
+    emit connectFinished(ok, ok ? QString() : QString("Failed to connect"));
+}
+
+void ModbusWorker::handleDisconnect() {
+    if (client_ && client_->isConnected()) {
+        client_->disconnect();
+    }
+    emit disconnectFinished();
 }
 
 } // namespace modbus::dispatch

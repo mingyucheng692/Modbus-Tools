@@ -15,7 +15,7 @@ public:
                  std::shared_ptr<transport::ITransport> transport);
     ~ModbusClient() override;
 
-    std::future<ModbusResponse> sendRequest(const base::Pdu& request, int slaveId = -1) override;
+    ModbusResponse sendRequest(const base::Pdu& request, int slaveId = -1) override;
     void sendRaw(const QByteArray& data) override;
     bool connect() override;
     void disconnect() override;

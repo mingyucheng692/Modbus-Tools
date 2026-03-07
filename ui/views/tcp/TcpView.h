@@ -2,6 +2,8 @@
 
 #include <QWidget>
 #include <memory>
+#include <unordered_map>
+#include <chrono>
 
 class QVBoxLayout;
 class QLabel;
@@ -13,7 +15,8 @@ class QEvent;
 
 namespace modbus::dispatch { class ModbusWorker; }
 namespace modbus::session { class IModbusClient; }
-namespace io { class TcpChannel; }
+namespace io { class IChannel; }
+class QThread;
 
 namespace ui::widgets {
     class TcpConnectionWidget;
@@ -38,6 +41,10 @@ private:
     QString formatData(const QByteArray& data, bool hex) const;
     void retranslateUi();
     void changeEvent(QEvent* event) override;
+    void releaseStack();
+    int nextRequestId();
+
+    enum class RequestKind { Read, Write, Poll };
 
     QVBoxLayout* mainLayout_ = nullptr;
     ui::widgets::TcpConnectionWidget* connectionWidget_ = nullptr;
@@ -54,9 +61,13 @@ private:
     QPushButton* clearReceiveButton_ = nullptr;
     QPushButton* clearSendButton_ = nullptr;
 
-    std::shared_ptr<io::TcpChannel> channel_;
+    std::shared_ptr<io::IChannel> channel_;
     std::shared_ptr<modbus::session::IModbusClient> client_;
     std::shared_ptr<modbus::dispatch::ModbusWorker> worker_;
+    std::shared_ptr<QThread> workerThread_;
+    std::unordered_map<int, std::chrono::steady_clock::time_point> requestStart_;
+    std::unordered_map<int, RequestKind> requestKinds_;
+    int requestId_ = 0;
 };
 
 } // namespace ui::views::tcp

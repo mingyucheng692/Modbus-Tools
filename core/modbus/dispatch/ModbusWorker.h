@@ -1,34 +1,41 @@
 #pragma once
 
-#include "CommandQueue.h"
 #include "../session/IModbusClient.h"
-#include <thread>
-#include <atomic>
 #include <memory>
+#include <QObject>
+#include <QPointer>
+#include <QThread>
 
 namespace modbus::dispatch {
 
-class ModbusWorker {
+class ModbusWorker : public QObject {
+    Q_OBJECT
 public:
-    explicit ModbusWorker(std::shared_ptr<session::IModbusClient> client);
-    ~ModbusWorker();
+    explicit ModbusWorker(std::shared_ptr<session::IModbusClient> client, QThread* workerThread, QObject* parent = nullptr);
+    ~ModbusWorker() override;
 
     void start();
     void stop();
 
-    // 提交任务，返回 Future
-    std::future<session::ModbusResponse> submit(base::Pdu request, int slaveId = -1);
-
-    // 发送原始数据
+    void submit(const base::Pdu& request, int slaveId, int requestId);
     void sendRaw(const QByteArray& data);
+    void requestConnect();
+    void requestDisconnect();
+
+signals:
+    void requestFinished(int requestId, modbus::session::ModbusResponse response);
+    void connectFinished(bool ok, const QString& error);
+    void disconnectFinished();
 
 private:
-    void loop();
+    void handleSubmit(base::Pdu request, int slaveId, int requestId);
+    void handleSendRaw(QByteArray data);
+    void handleConnect();
+    void handleDisconnect();
 
     std::shared_ptr<session::IModbusClient> client_;
-    CommandQueue queue_;
-    std::thread thread_;
-    std::atomic<bool> running_{false};
+    QPointer<QThread> thread_;
+    bool stopping_ = false;
 };
 
 } // namespace modbus::dispatch

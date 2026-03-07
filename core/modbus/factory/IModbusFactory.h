@@ -2,18 +2,26 @@
 
 #include <memory>
 #include "../dispatch/ModbusWorker.h"
+#include "../session/IModbusClient.h"
 #include "../base/ModbusConfig.h"
+#include "../../io/IChannel.h"
+#include <QThread>
 
 namespace modbus::factory {
 
 // 抽象工厂接口
+struct ModbusStack {
+    std::shared_ptr<io::IChannel> channel;
+    std::shared_ptr<session::IModbusClient> client;
+    std::shared_ptr<dispatch::ModbusWorker> worker;
+    std::shared_ptr<QThread> thread;
+};
+
 class IModbusFactory {
 public:
     virtual ~IModbusFactory() = default;
 
-    // 创建一个完全配置好的 Modbus Worker
-    // 包含：Channel (Serial/TCP) + Transport (RTU/TCP) + Client + Worker
-    virtual std::unique_ptr<dispatch::ModbusWorker> createWorker(const base::ModbusConfig& config) = 0;
+    virtual ModbusStack createStack(const base::ModbusConfig& config) = 0;
 };
 
 } // namespace modbus::factory

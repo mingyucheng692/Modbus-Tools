@@ -9,7 +9,7 @@ namespace modbus::factory {
 // 具体工厂实现
 class ModbusFactory : public IModbusFactory {
 public:
-    std::unique_ptr<dispatch::ModbusWorker> createWorker(const base::ModbusConfig& config) override;
+    ModbusStack createStack(const base::ModbusConfig& config) override;
 
 private:
     std::shared_ptr<io::IChannel> createChannel(const base::ModbusConfig& config);

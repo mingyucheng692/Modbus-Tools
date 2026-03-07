@@ -3,10 +3,7 @@
 #include "../../widgets/FunctionWidget.h"
 #include "../../widgets/TrafficMonitorWidget.h"
 #include "../../widgets/ControlWidget.h"
-#include "modbus/dispatch/ModbusWorker.h"
-#include "modbus/session/ModbusClient.h"
-#include "modbus/transport/RtuTransport.h"
-#include "io/SerialChannel.h"
+#include "modbus/factory/ModbusFactory.h"
 #include <QVBoxLayout>
 #include <QLabel>
 #include <QRegularExpression>
@@ -17,8 +14,9 @@
 #include <QPushButton>
 #include <QEvent>
 #include <spdlog/spdlog.h>
-#include <thread>
 #include <QMetaObject>
+#include <QPointer>
+#include <limits>
 
 namespace ui::views::rtu {
 
@@ -28,8 +26,7 @@ RtuView::RtuView(QWidget *parent)
 }
 
 RtuView::~RtuView() {
-    if (client_) client_->disconnect();
-    if (worker_) worker_->stop();
+    releaseStack();
 }
 
 void RtuView::setupUi() {
@@ -98,52 +95,98 @@ void RtuView::setupUi() {
         [this](const io::SerialConfig& config) {
             spdlog::info("RtuView: Connect requested to {}", config.portName.toStdString());
             trafficMonitor_->appendInfo(tr("Opening %1...").arg(config.portName));
-            
-            if (!channel_) {
-                channel_ = std::make_shared<io::SerialChannel>();
-                channel_->setMonitor([this](bool isTx, const QByteArray& data) {
-                    QMetaObject::invokeMethod(this, [this, isTx, data]() {
-                        if (isTx) {
-                            trafficMonitor_->appendTx(data);
-                            appendSendData(data);
-                        } else {
-                            trafficMonitor_->appendRx(data);
-                            appendReceiveData(data);
-                        }
-                    });
-                });
-            }
-            
-            auto transport = std::make_shared<modbus::transport::RtuTransport>();
-            client_ = std::make_shared<modbus::session::ModbusClient>(channel_, transport);
-            worker_ = std::make_shared<modbus::dispatch::ModbusWorker>(client_);
-            
-            channel_->setConfig(config);
-            worker_->start();
 
-            std::thread([this]() {
-                if (client_->connect()) {
-                    QMetaObject::invokeMethod(this, [this]() {
+            releaseStack();
+
+            modbus::base::ModbusConfig modbusConfig;
+            modbusConfig.mode = modbus::base::ModbusMode::RTU;
+            modbusConfig.portName = config.portName;
+            modbusConfig.baudRate = config.baudRate;
+            modbusConfig.dataBits = config.dataBits;
+            modbusConfig.stopBits = static_cast<int>(config.stopBits);
+            modbusConfig.parity = static_cast<int>(config.parity);
+            modbusConfig.slaveId = static_cast<uint8_t>(functionWidget_->getSlaveId());
+
+            modbus::factory::ModbusFactory factory;
+            auto stack = factory.createStack(modbusConfig);
+            if (!stack.worker || !stack.thread) {
+                trafficMonitor_->appendInfo(tr("Failed to create Modbus stack"));
+                return;
+            }
+
+            channel_ = std::move(stack.channel);
+            client_ = std::move(stack.client);
+            worker_ = std::move(stack.worker);
+            workerThread_ = std::move(stack.thread);
+
+            QPointer<RtuView> self(this);
+            channel_->setMonitor([self](bool isTx, const QByteArray& data) {
+                if (!self) return;
+                QMetaObject::invokeMethod(self, [self, isTx, data]() {
+                    if (!self) return;
+                    if (isTx) {
+                        self->trafficMonitor_->appendTx(data);
+                        self->appendSendData(data);
+                    } else {
+                        self->trafficMonitor_->appendRx(data);
+                        self->appendReceiveData(data);
+                    }
+                }, Qt::QueuedConnection);
+            });
+
+            connect(worker_.get(), &modbus::dispatch::ModbusWorker::connectFinished, this,
+                [this, self](bool ok, const QString& error) {
+                    if (!self) return;
+                    if (ok) {
                         connectionWidget_->setConnected(true);
                         trafficMonitor_->appendInfo(tr("Port Opened"));
-                    });
-                } else {
-                    QMetaObject::invokeMethod(this, [this]() {
+                    } else {
                         connectionWidget_->setConnected(false);
-                        trafficMonitor_->appendInfo(tr("Failed to open port"));
-                    });
-                }
-            }).detach();
+                        trafficMonitor_->appendInfo(tr("Failed to open port: %1").arg(error));
+                    }
+                }, Qt::QueuedConnection);
+
+            connect(worker_.get(), &modbus::dispatch::ModbusWorker::requestFinished, this,
+                [this, self](int requestId, const modbus::session::ModbusResponse& response) {
+                    if (!self) return;
+                    auto itStart = requestStart_.find(requestId);
+                    auto itKind = requestKinds_.find(requestId);
+                    if (itStart == requestStart_.end() || itKind == requestKinds_.end()) {
+                        return;
+                    }
+                    auto end = std::chrono::steady_clock::now();
+                    auto rtt = std::chrono::duration_cast<std::chrono::milliseconds>(end - itStart->second).count();
+
+                    controlWidget_->updateStats(true, -1);
+                    controlWidget_->updateStats(false, static_cast<int>(rtt));
+
+                    if (!response.isSuccess) {
+                        if (itKind->second == RequestKind::Poll) {
+                            trafficMonitor_->appendInfo(tr("Poll Error: %1").arg(response.error));
+                        } else {
+                            trafficMonitor_->appendInfo(tr("Error: %1").arg(response.error));
+                        }
+                    } else {
+                        if (itKind->second == RequestKind::Read) {
+                            trafficMonitor_->appendInfo(tr("Success: Response received"));
+                        } else if (itKind->second == RequestKind::Write) {
+                            trafficMonitor_->appendInfo(tr("Success: Write confirmed"));
+                        }
+                    }
+
+                    requestStart_.erase(itStart);
+                    requestKinds_.erase(itKind);
+                }, Qt::QueuedConnection);
+
+            worker_->start();
+            worker_->requestConnect();
     });
 
     connect(connectionWidget_, &widgets::SerialConnectionWidget::disconnectClicked,
         [this]() {
             spdlog::info("RtuView: Disconnect requested");
             trafficMonitor_->appendInfo(tr("Closed"));
-            
-            if (client_) client_->disconnect();
-            if (worker_) worker_->stop();
-            
+            releaseStack();
             connectionWidget_->setConnected(false);
     });
     
@@ -164,25 +207,10 @@ void RtuView::setupUi() {
             trafficMonitor_->appendInfo(tr("Sending Read Request FC:%1 Addr:%2 Qty:%3 Slave:%4")
                 .arg(fc).arg(addr).arg(qty).arg(slaveId));
 
-            auto start = std::chrono::steady_clock::now();
-
-            auto future = worker_->submit(request, slaveId);
-            std::thread([this, future = std::move(future), start]() mutable {
-                auto response = future.get();
-                auto end = std::chrono::steady_clock::now();
-                auto rtt = std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count();
-
-                QMetaObject::invokeMethod(this, [this, response, rtt]() {
-                    controlWidget_->updateStats(true, -1);
-                    controlWidget_->updateStats(false, rtt);
-
-                    if (!response.isSuccess) {
-                        trafficMonitor_->appendInfo(tr("Error: %1").arg(response.error));
-                    } else {
-                        trafficMonitor_->appendInfo(tr("Success: Response received"));
-                    }
-                });
-            }).detach();
+            int requestId = nextRequestId();
+            requestStart_[requestId] = std::chrono::steady_clock::now();
+            requestKinds_[requestId] = RequestKind::Read;
+            worker_->submit(request, slaveId, requestId);
     });
 
     connect(functionWidget_, &widgets::FunctionWidget::writeRequested,
@@ -401,25 +429,10 @@ void RtuView::setupUi() {
             trafficMonitor_->appendInfo(tr("Sending Write Request FC:%1 Addr:%2 Data:%3 Slave:%4")
                 .arg(fc).arg(addr).arg(dataStr).arg(slaveId));
 
-            auto start = std::chrono::steady_clock::now();
-
-            auto future = worker_->submit(request, slaveId);
-            std::thread([this, future = std::move(future), start]() mutable {
-                auto response = future.get();
-                auto end = std::chrono::steady_clock::now();
-                auto rtt = std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count();
-
-                QMetaObject::invokeMethod(this, [this, response, rtt]() {
-                    controlWidget_->updateStats(true, -1);
-                    controlWidget_->updateStats(false, rtt);
-
-                    if (!response.isSuccess) {
-                        trafficMonitor_->appendInfo(tr("Error: %1").arg(response.error));
-                    } else {
-                        trafficMonitor_->appendInfo(tr("Success: Write confirmed"));
-                    }
-                });
-            }).detach();
+            int requestId = nextRequestId();
+            requestStart_[requestId] = std::chrono::steady_clock::now();
+            requestKinds_[requestId] = RequestKind::Write;
+            worker_->submit(request, slaveId, requestId);
     });
     
     connect(functionWidget_, &widgets::FunctionWidget::rawSendRequested,
@@ -449,23 +462,10 @@ void RtuView::setupUi() {
             
             Pdu request(static_cast<FunctionCode>(fc), data);
             
-            auto start = std::chrono::steady_clock::now();
-
-            auto future = worker_->submit(request, slaveId);
-            std::thread([this, future = std::move(future), start]() mutable {
-                auto response = future.get();
-                auto end = std::chrono::steady_clock::now();
-                auto rtt = std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count();
-
-                QMetaObject::invokeMethod(this, [this, response, rtt]() {
-                    controlWidget_->updateStats(true, -1);
-                    controlWidget_->updateStats(false, rtt);
-
-                    if (!response.isSuccess) {
-                        trafficMonitor_->appendInfo(tr("Poll Error: %1").arg(response.error));
-                    }
-                });
-            }).detach();
+            int requestId = nextRequestId();
+            requestStart_[requestId] = std::chrono::steady_clock::now();
+            requestKinds_[requestId] = RequestKind::Poll;
+            worker_->submit(request, slaveId, requestId);
     });
 
     connect(clearReceiveButton_, &QPushButton::clicked, [this]() {
@@ -485,6 +485,25 @@ QString RtuView::formatData(const QByteArray& data, bool hex) const {
         return QString(data.toHex(' ').toUpper());
     }
     return QString::fromLatin1(data);
+}
+
+void RtuView::releaseStack() {
+    if (worker_) {
+        worker_->stop();
+    }
+    worker_.reset();
+    client_.reset();
+    channel_.reset();
+    workerThread_.reset();
+    requestStart_.clear();
+    requestKinds_.clear();
+}
+
+int RtuView::nextRequestId() {
+    if (requestId_ == std::numeric_limits<int>::max()) {
+        requestId_ = 0;
+    }
+    return ++requestId_;
 }
 
 void RtuView::appendReceiveData(const QByteArray& data) {

@@ -1,6 +1,7 @@
 #include "ModbusClient.h"
 #include <spdlog/spdlog.h>
 #include <chrono>
+#include <thread>
 
 namespace modbus::session {
 
@@ -55,40 +56,32 @@ void ModbusClient::setConfig(const base::ModbusConfig& config) {
     }
 }
 
-std::future<ModbusResponse> ModbusClient::sendRequest(const base::Pdu& request, int slaveId) {
-    // 使用 async 启动一个任务来执行阻塞式请求，不阻塞调用者
-    return std::async(std::launch::async, [this, request, slaveId]() {
-        std::lock_guard<std::mutex> lock(requestMutex_); // 确保一次只处理一个请求
-        
-        // 重试逻辑
-        int retries = config_.retries;
-        ModbusResponse lastResponse = ModbusResponse::Error("Unknown error");
+ModbusResponse ModbusClient::sendRequest(const base::Pdu& request, int slaveId) {
+    std::lock_guard<std::mutex> lock(requestMutex_);
+    
+    int retries = config_.retries;
+    ModbusResponse lastResponse = ModbusResponse::Error("Unknown error");
 
-        for (int i = 0; i <= retries; ++i) {
-            lastResponse = sendRequestInternal(request, slaveId);
-            if (lastResponse.isSuccess) {
-                return lastResponse;
-            }
-            
-            if (i < retries) {
-                spdlog::warn("Request failed, retrying... ({}/{}) Error: {}", 
-                             i + 1, retries, lastResponse.error.toStdString());
-                // 可以加一点延时
-                std::this_thread::sleep_for(std::chrono::milliseconds(100));
-            }
+    for (int i = 0; i <= retries; ++i) {
+        lastResponse = sendRequestInternal(request, slaveId);
+        if (lastResponse.isSuccess) {
+            return lastResponse;
         }
-        return lastResponse;
-    });
+        
+        if (i < retries) {
+            spdlog::warn("Request failed, retrying... ({}/{}) Error: {}", 
+                         i + 1, retries, lastResponse.error.toStdString());
+            std::this_thread::sleep_for(std::chrono::milliseconds(100));
+        }
+    }
+    return lastResponse;
 }
 
 void ModbusClient::sendRaw(const QByteArray& data) {
-    // 异步发送，避免阻塞调用线程
-    std::thread([this, data]() {
-        std::lock_guard<std::mutex> lock(requestMutex_); // 确保不与 sendRequest 冲突
-        if (isConnected()) {
-            channel_->write(data);
-        }
-    }).detach();
+    std::lock_guard<std::mutex> lock(requestMutex_);
+    if (isConnected()) {
+        channel_->write(data);
+    }
 }
 
 ModbusResponse ModbusClient::sendRequestInternal(const base::Pdu& request, int slaveId) {
