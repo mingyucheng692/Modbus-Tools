@@ -33,6 +33,7 @@ private:
     void applyModbusSettingsToViews();
     void openSettingsDialog();
     void openAboutDialog();
+    void showDisclaimerIfNeeded();
     void changeEvent(QEvent* event) override;
 
     QListWidget* navigationList_ = nullptr;

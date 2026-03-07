@@ -4,6 +4,7 @@
 #include "views/generic_tcp/GenericTcpView.h"
 #include "views/generic_serial/GenericSerialView.h"
 #include "widgets/FrameAnalyzerWidget.h"
+#include "widgets/DisclaimerDialog.h"
 #include "common/Theme.h"
 #include <QStackedWidget>
 #include <QListWidget>
@@ -87,6 +88,7 @@ void MainWindow::setupUi() {
     loadModbusSettings();
     applyModbusSettingsToViews();
     applyLanguage(currentLocale_);
+    showDisclaimerIfNeeded();
 }
 
 void MainWindow::createNavigation() {
@@ -256,6 +258,20 @@ void MainWindow::openAboutDialog() {
     connect(buttonBox, &QDialogButtonBox::accepted, &dialog, &QDialog::accept);
 
     dialog.exec();
+}
+
+void MainWindow::showDisclaimerIfNeeded() {
+    QSettings settings(QApplication::applicationDirPath() + "/config.ini", QSettings::IniFormat);
+    if (settings.value("app/disclaimerAccepted", false).toBool()) {
+        return;
+    }
+
+    widgets::DisclaimerDialog dialog(this);
+    if (dialog.exec() != QDialog::Accepted) {
+        qApp->quit();
+        return;
+    }
+    settings.setValue("app/disclaimerAccepted", true);
 }
 
 void MainWindow::applyLanguage(const QString& locale) {
