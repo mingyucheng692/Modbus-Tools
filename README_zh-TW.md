@@ -66,7 +66,7 @@ cmake --build build --config Release
 ### 4) 執行
 
 ```bash
-.\build\app\Release\ModbusTools.exe
+.\build\app\Release\Modbus-Tools.exe
 ```
 
 ## 語言切換

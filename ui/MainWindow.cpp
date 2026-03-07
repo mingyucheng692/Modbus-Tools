@@ -285,7 +285,7 @@ void MainWindow::applyLanguage(const QString& locale) {
     }
     if (locale == "zh_CN") {
         const bool qtLoaded = qtTranslator_.load("qtbase_zh_CN", QLibraryInfo::path(QLibraryInfo::TranslationsPath));
-        const bool appLoaded = appTranslator_.load(":/i18n/ModbusTools_zh_CN.qm");
+        const bool appLoaded = appTranslator_.load(":/i18n/Modbus-Tools_zh_CN.qm");
         if (qtLoaded) {
             qApp->installTranslator(&qtTranslator_);
         }
@@ -294,7 +294,7 @@ void MainWindow::applyLanguage(const QString& locale) {
         }
     } else if (locale == "zh_TW") {
         const bool qtLoaded = qtTranslator_.load("qtbase_zh_TW", QLibraryInfo::path(QLibraryInfo::TranslationsPath));
-        const bool appLoaded = appTranslator_.load(":/i18n/ModbusTools_zh_TW.qm");
+        const bool appLoaded = appTranslator_.load(":/i18n/Modbus-Tools_zh_TW.qm");
         if (qtLoaded) {
             qApp->installTranslator(&qtTranslator_);
         }

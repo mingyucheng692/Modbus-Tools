@@ -1,9 +1,11 @@
-add_executable(ModbusTools WIN32
+add_executable(Modbus-Tools WIN32
     app.rc
     main.cpp
 )
 
-target_link_libraries(${PROJECT_NAME} PRIVATE
+set_target_properties(Modbus-Tools PROPERTIES OUTPUT_NAME "Modbus-Tools")
+
+target_link_libraries(Modbus-Tools PRIVATE
     core
     ui
     Qt${QT_VERSION_MAJOR}::Core
@@ -12,7 +14,7 @@ target_link_libraries(${PROJECT_NAME} PRIVATE
 )
 
 if(MODBUS_TOOLS_ENABLE_PCH AND COMMAND target_precompile_headers)
-    target_precompile_headers(${PROJECT_NAME} PRIVATE
+    target_precompile_headers(Modbus-Tools PRIVATE
         <QtCore/QCoreApplication>
         <QtCore/QResource>
         <QtGui/QIcon>
