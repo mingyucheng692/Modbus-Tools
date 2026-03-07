@@ -1,4 +1,4 @@
-#include "RtuView.h"
+#include "ModbusRtuView.h"
 #include "../../widgets/SerialConnectionWidget.h"
 #include "../../widgets/FunctionWidget.h"
 #include "../../widgets/TrafficMonitorWidget.h"
@@ -18,31 +18,28 @@
 #include <QPointer>
 #include <limits>
 
-namespace ui::views::rtu {
+namespace ui::views::modbus_rtu {
 
-RtuView::RtuView(QWidget *parent)
+ModbusRtuView::ModbusRtuView(QWidget *parent)
     : QWidget(parent) {
     setupUi();
 }
 
-RtuView::~RtuView() {
+ModbusRtuView::~ModbusRtuView() {
     releaseStack();
 }
 
-void RtuView::setupUi() {
+void ModbusRtuView::setupUi() {
     mainLayout_ = new QVBoxLayout(this);
     mainLayout_->setContentsMargins(10, 10, 10, 10);
     mainLayout_->setSpacing(10);
     
-    // 1. Connection
     connectionWidget_ = new widgets::SerialConnectionWidget(this);
     mainLayout_->addWidget(connectionWidget_);
     
-    // 2. Functions
     functionWidget_ = new widgets::FunctionWidget(this);
     mainLayout_->addWidget(functionWidget_);
     
-    // 3. Traffic
     dataGroup_ = new QGroupBox(this);
     auto dataLayout = new QVBoxLayout(dataGroup_);
 
@@ -86,14 +83,12 @@ void RtuView::setupUi() {
     trafficMonitor_->setMinimumHeight(200);
     mainLayout_->addWidget(trafficMonitor_);
     
-    // 4. Control Options
     controlWidget_ = new widgets::ControlWidget(this);
     mainLayout_->addWidget(controlWidget_);
 
-    // Connect Signals
     connect(connectionWidget_, &widgets::SerialConnectionWidget::connectClicked, 
         [this](const io::SerialConfig& config) {
-            spdlog::info("RtuView: Connect requested to {}", config.portName.toStdString());
+            spdlog::info("ModbusRtuView: Connect requested to {}", config.portName.toStdString());
             trafficMonitor_->appendInfo(tr("Opening %1...").arg(config.portName));
 
             releaseStack();
@@ -119,7 +114,7 @@ void RtuView::setupUi() {
             worker_ = std::move(stack.worker);
             workerThread_ = std::move(stack.thread);
 
-            QPointer<RtuView> self(this);
+            QPointer<ModbusRtuView> self(this);
             channel_->setMonitor([self](bool isTx, const QByteArray& data) {
                 if (!self) return;
                 QMetaObject::invokeMethod(self, [self, isTx, data]() {
@@ -139,10 +134,10 @@ void RtuView::setupUi() {
                     if (!self) return;
                     if (ok) {
                         connectionWidget_->setConnected(true);
-                        trafficMonitor_->appendInfo(tr("Port Opened"));
+                        trafficMonitor_->appendInfo(tr("Connected"));
                     } else {
                         connectionWidget_->setConnected(false);
-                        trafficMonitor_->appendInfo(tr("Failed to open port: %1").arg(error));
+                        trafficMonitor_->appendInfo(tr("Connection failed: %1").arg(error));
                     }
                 }, Qt::QueuedConnection);
 
@@ -184,8 +179,8 @@ void RtuView::setupUi() {
 
     connect(connectionWidget_, &widgets::SerialConnectionWidget::disconnectClicked,
         [this]() {
-            spdlog::info("RtuView: Disconnect requested");
-            trafficMonitor_->appendInfo(tr("Closed"));
+            spdlog::info("ModbusRtuView: Disconnect requested");
+            trafficMonitor_->appendInfo(tr("Disconnected"));
             releaseStack();
             connectionWidget_->setConnected(false);
     });
@@ -220,6 +215,7 @@ void RtuView::setupUi() {
             using namespace modbus::base;
             
             QByteArray data;
+            
             data.append((char)((addr >> 8) & 0xFF));
             data.append((char)(addr & 0xFF));
 
@@ -480,14 +476,14 @@ void RtuView::setupUi() {
     retranslateUi();
 }
 
-QString RtuView::formatData(const QByteArray& data, bool hex) const {
+QString ModbusRtuView::formatData(const QByteArray& data, bool hex) const {
     if (hex) {
         return QString(data.toHex(' ').toUpper());
     }
     return QString::fromLatin1(data);
 }
 
-void RtuView::releaseStack() {
+void ModbusRtuView::releaseStack() {
     if (worker_) {
         worker_->stop();
     }
@@ -499,26 +495,26 @@ void RtuView::releaseStack() {
     requestKinds_.clear();
 }
 
-int RtuView::nextRequestId() {
+int ModbusRtuView::nextRequestId() {
     if (requestId_ == std::numeric_limits<int>::max()) {
         requestId_ = 0;
     }
     return ++requestId_;
 }
 
-void RtuView::appendReceiveData(const QByteArray& data) {
+void ModbusRtuView::appendReceiveData(const QByteArray& data) {
     if (!receiveTextEdit_) return;
     bool hex = receiveHexCheck_ ? receiveHexCheck_->isChecked() : true;
     receiveTextEdit_->append(formatData(data, hex));
 }
 
-void RtuView::appendSendData(const QByteArray& data) {
+void ModbusRtuView::appendSendData(const QByteArray& data) {
     if (!sendTextEdit_) return;
     bool hex = sendHexCheck_ ? sendHexCheck_->isChecked() : true;
     sendTextEdit_->append(formatData(data, hex));
 }
 
-void RtuView::retranslateUi() {
+void ModbusRtuView::retranslateUi() {
     if (dataGroup_) dataGroup_->setTitle(tr("Data Monitor"));
     if (receiveGroup_) receiveGroup_->setTitle(tr("Receive Data"));
     if (sendGroup_) sendGroup_->setTitle(tr("Send Data"));
@@ -528,11 +524,11 @@ void RtuView::retranslateUi() {
     if (clearSendButton_) clearSendButton_->setText(tr("Clear"));
 }
 
-void RtuView::changeEvent(QEvent* event) {
+void ModbusRtuView::changeEvent(QEvent* event) {
     if (event->type() == QEvent::LanguageChange) {
         retranslateUi();
     }
     QWidget::changeEvent(event);
 }
 
-} // namespace ui::views::rtu
+} // namespace ui::views::modbus_rtu

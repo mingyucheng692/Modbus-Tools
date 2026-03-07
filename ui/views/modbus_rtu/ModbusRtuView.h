@@ -19,20 +19,20 @@ namespace io { class IChannel; }
 class QThread;
 
 namespace ui::widgets {
-    class TcpConnectionWidget;
+    class SerialConnectionWidget;
     class FunctionWidget;
     class TrafficMonitorWidget;
     class ControlWidget;
 }
 
-namespace ui::views::tcp {
+namespace ui::views::modbus_rtu {
 
-class TcpView : public QWidget {
+class ModbusRtuView : public QWidget {
     Q_OBJECT
 
 public:
-    explicit TcpView(QWidget *parent = nullptr);
-    ~TcpView() override;
+    explicit ModbusRtuView(QWidget *parent = nullptr);
+    ~ModbusRtuView() override;
 
 private:
     void setupUi();
@@ -47,7 +47,7 @@ private:
     enum class RequestKind { Read, Write, Poll };
 
     QVBoxLayout* mainLayout_ = nullptr;
-    ui::widgets::TcpConnectionWidget* connectionWidget_ = nullptr;
+    ui::widgets::SerialConnectionWidget* connectionWidget_ = nullptr;
     ui::widgets::FunctionWidget* functionWidget_ = nullptr;
     ui::widgets::TrafficMonitorWidget* trafficMonitor_ = nullptr;
     ui::widgets::ControlWidget* controlWidget_ = nullptr;
@@ -70,4 +70,4 @@ private:
     int requestId_ = 0;
 };
 
-} // namespace ui::views::tcp
+} // namespace ui::views::modbus_rtu

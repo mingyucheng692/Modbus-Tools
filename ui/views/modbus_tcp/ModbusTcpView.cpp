@@ -1,4 +1,4 @@
-#include "TcpView.h"
+#include "ModbusTcpView.h"
 #include "../../widgets/TcpConnectionWidget.h"
 #include "../../widgets/FunctionWidget.h"
 #include "../../widgets/TrafficMonitorWidget.h"
@@ -18,31 +18,28 @@
 #include <QPointer>
 #include <limits>
 
-namespace ui::views::tcp {
+namespace ui::views::modbus_tcp {
 
-TcpView::TcpView(QWidget *parent)
+ModbusTcpView::ModbusTcpView(QWidget *parent)
     : QWidget(parent) {
     setupUi();
 }
 
-TcpView::~TcpView() {
+ModbusTcpView::~ModbusTcpView() {
     releaseStack();
 }
 
-void TcpView::setupUi() {
+void ModbusTcpView::setupUi() {
     mainLayout_ = new QVBoxLayout(this);
     mainLayout_->setContentsMargins(10, 10, 10, 10);
     mainLayout_->setSpacing(10);
     
-    // 1. Connection Section
     connectionWidget_ = new widgets::TcpConnectionWidget(this);
     mainLayout_->addWidget(connectionWidget_);
     
-    // 2. Modbus Functions Section
     functionWidget_ = new widgets::FunctionWidget(this);
     mainLayout_->addWidget(functionWidget_);
     
-    // 3. Data Traffic
     dataGroup_ = new QGroupBox(this);
     auto dataLayout = new QVBoxLayout(dataGroup_);
 
@@ -86,14 +83,12 @@ void TcpView::setupUi() {
     trafficMonitor_->setMinimumHeight(200);
     mainLayout_->addWidget(trafficMonitor_);
 
-    // 4. Control Options
     controlWidget_ = new widgets::ControlWidget(this);
     mainLayout_->addWidget(controlWidget_);
     
-    // Connect Signals (Logging for now)
     connect(connectionWidget_, &widgets::TcpConnectionWidget::connectClicked, 
         [this](const QString& ip, int port) {
-            spdlog::info("TcpView: Connect requested to {}:{}", ip.toStdString(), port);
+            spdlog::info("ModbusTcpView: Connect requested to {}:{}", ip.toStdString(), port);
             trafficMonitor_->appendInfo(tr("Connecting to %1:%2...").arg(ip).arg(port));
 
             releaseStack();
@@ -116,7 +111,7 @@ void TcpView::setupUi() {
             worker_ = std::move(stack.worker);
             workerThread_ = std::move(stack.thread);
 
-            QPointer<TcpView> self(this);
+            QPointer<ModbusTcpView> self(this);
             channel_->setMonitor([self](bool isTx, const QByteArray& data) {
                 if (!self) return;
                 QMetaObject::invokeMethod(self, [self, isTx, data]() {
@@ -181,7 +176,7 @@ void TcpView::setupUi() {
 
     connect(connectionWidget_, &widgets::TcpConnectionWidget::disconnectClicked,
         [this]() {
-            spdlog::info("TcpView: Disconnect requested");
+            spdlog::info("ModbusTcpView: Disconnect requested");
             trafficMonitor_->appendInfo(tr("Disconnected"));
             releaseStack();
             connectionWidget_->setConnected(false);
@@ -448,7 +443,6 @@ void TcpView::setupUi() {
         [this](uint8_t fc, int addr, int qty) {
             if (!worker_) return;
             
-            // Use Slave ID from Function Widget
             int slaveId = functionWidget_->getSlaveId();
             
             using namespace modbus::base;
@@ -479,14 +473,14 @@ void TcpView::setupUi() {
     retranslateUi();
 }
 
-QString TcpView::formatData(const QByteArray& data, bool hex) const {
+QString ModbusTcpView::formatData(const QByteArray& data, bool hex) const {
     if (hex) {
         return QString(data.toHex(' ').toUpper());
     }
     return QString::fromLatin1(data);
 }
 
-void TcpView::releaseStack() {
+void ModbusTcpView::releaseStack() {
     if (worker_) {
         worker_->stop();
     }
@@ -498,26 +492,26 @@ void TcpView::releaseStack() {
     requestKinds_.clear();
 }
 
-int TcpView::nextRequestId() {
+int ModbusTcpView::nextRequestId() {
     if (requestId_ == std::numeric_limits<int>::max()) {
         requestId_ = 0;
     }
     return ++requestId_;
 }
 
-void TcpView::appendReceiveData(const QByteArray& data) {
+void ModbusTcpView::appendReceiveData(const QByteArray& data) {
     if (!receiveTextEdit_) return;
     bool hex = receiveHexCheck_ ? receiveHexCheck_->isChecked() : true;
     receiveTextEdit_->append(formatData(data, hex));
 }
 
-void TcpView::appendSendData(const QByteArray& data) {
+void ModbusTcpView::appendSendData(const QByteArray& data) {
     if (!sendTextEdit_) return;
     bool hex = sendHexCheck_ ? sendHexCheck_->isChecked() : true;
     sendTextEdit_->append(formatData(data, hex));
 }
 
-void TcpView::retranslateUi() {
+void ModbusTcpView::retranslateUi() {
     if (dataGroup_) dataGroup_->setTitle(tr("Data Monitor"));
     if (receiveGroup_) receiveGroup_->setTitle(tr("Receive Data"));
     if (sendGroup_) sendGroup_->setTitle(tr("Send Data"));
@@ -527,11 +521,11 @@ void TcpView::retranslateUi() {
     if (clearSendButton_) clearSendButton_->setText(tr("Clear"));
 }
 
-void TcpView::changeEvent(QEvent* event) {
+void ModbusTcpView::changeEvent(QEvent* event) {
     if (event->type() == QEvent::LanguageChange) {
         retranslateUi();
     }
     QWidget::changeEvent(event);
 }
 
-} // namespace ui::views::tcp
+} // namespace ui::views::modbus_tcp

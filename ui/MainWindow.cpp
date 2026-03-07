@@ -1,6 +1,6 @@
 #include "MainWindow.h"
-#include "views/tcp/TcpView.h"
-#include "views/rtu/RtuView.h"
+#include "views/modbus_tcp/ModbusTcpView.h"
+#include "views/modbus_rtu/ModbusRtuView.h"
 #include "views/generic_tcp/GenericTcpView.h"
 #include "views/generic_serial/GenericSerialView.h"
 #include "widgets/FrameAnalyzerWidget.h"
@@ -48,8 +48,8 @@ void MainWindow::setupUi() {
     mainLayout->addWidget(stackedWidget_, 5); // Ratio 1:5
 
     // Add Views
-    stackedWidget_->addWidget(new views::tcp::TcpView(this));
-    stackedWidget_->addWidget(new views::rtu::RtuView(this));
+    stackedWidget_->addWidget(new views::modbus_tcp::ModbusTcpView(this));
+    stackedWidget_->addWidget(new views::modbus_rtu::ModbusRtuView(this));
     stackedWidget_->addWidget(new views::generic_tcp::GenericTcpView(this));
     stackedWidget_->addWidget(new views::generic_serial::GenericSerialView(this));
     stackedWidget_->addWidget(new widgets::FrameAnalyzerWidget(this));

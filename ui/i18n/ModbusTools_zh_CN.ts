@@ -343,7 +343,7 @@
     </message>
 </context>
 <context>
-    <name>ui::views::rtu::RtuView</name>
+    <name>ui::views::modbus_rtu::ModbusRtuView</name>
     <message>
         <location filename="../views/rtu/RtuView.cpp" line="100"/>
         <source>Opening %1...</source>
@@ -523,7 +523,7 @@
     </message>
 </context>
 <context>
-    <name>ui::views::tcp::TcpView</name>
+    <name>ui::views::modbus_tcp::ModbusTcpView</name>
     <message>
         <location filename="../views/tcp/TcpView.cpp" line="97"/>
         <source>Connecting to %1:%2...</source>

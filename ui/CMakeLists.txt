@@ -8,8 +8,10 @@ target_sources(ui PRIVATE
     common/Theme.cpp
     i18n/i18n.qrc
     MainWindow.cpp
-    views/tcp/TcpView.cpp
-    views/rtu/RtuView.cpp
+    views/modbus_tcp/ModbusTcpView.cpp
+    views/modbus_tcp/ModbusTcpView.h
+    views/modbus_rtu/ModbusRtuView.cpp
+    views/modbus_rtu/ModbusRtuView.h
     views/generic_tcp/GenericTcpView.cpp
     views/generic_tcp/GenericTcpView.h
     views/generic_serial/GenericSerialView.cpp
