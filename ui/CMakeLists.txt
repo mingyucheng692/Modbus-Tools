@@ -6,6 +6,8 @@ add_library(ui STATIC)
 
 target_sources(ui PRIVATE
     common/Theme.cpp
+    common/UpdateChecker.cpp
+    common/UpdateChecker.h
     assets.qrc
     i18n/i18n.qrc
     MainWindow.cpp
@@ -33,6 +35,7 @@ target_sources(ui PRIVATE
 target_link_libraries(ui PUBLIC
     Qt6::Widgets
     Qt6::Charts
+    Qt6::Network
     core
 )
 

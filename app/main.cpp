@@ -5,6 +5,10 @@
 #include "common/Theme.h"
 #include "logging/Logger.h"
 
+#ifndef MODBUS_TOOLS_APP_VERSION
+#error "MODBUS_TOOLS_APP_VERSION must be defined by CMake"
+#endif
+
 int main(int argc, char *argv[])
 {
     QApplication app(argc, argv);
@@ -13,7 +17,9 @@ int main(int argc, char *argv[])
     
     // Apply Light Theme
     ui::common::Theme::applyLight(app);
-    
+    app.setApplicationName("Modbus-Tools");
+    app.setApplicationVersion(QStringLiteral(MODBUS_TOOLS_APP_VERSION));
+
     logging::Init(app.applicationDirPath() + "/logs");
 
     app.setWindowIcon(QIcon(":/assets/logo.svg"));

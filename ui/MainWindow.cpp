@@ -6,6 +6,8 @@
 #include "widgets/FrameAnalyzerWidget.h"
 #include "widgets/DisclaimerDialog.h"
 #include "common/Theme.h"
+#include "common/UpdateChecker.h"
+#include <QDesktopServices>
 #include <QStackedWidget>
 #include <QListWidget>
 #include <QHBoxLayout>
@@ -25,7 +27,9 @@
 #include <QCheckBox>
 #include <QSpinBox>
 #include <QLabel>
+#include <QMessageBox>
 #include <QSettings>
+#include <QUrl>
 #include <spdlog/spdlog.h>
 #include "modbus/base/ModbusConfig.h"
 
@@ -74,6 +78,11 @@ void MainWindow::setupUi() {
             
     // Set default view
     navigationList_->setCurrentRow(0);
+
+    updateChecker_ = new common::UpdateChecker(this);
+    connect(updateChecker_, &common::UpdateChecker::updateAvailable, this, &MainWindow::handleUpdateAvailable);
+    connect(updateChecker_, &common::UpdateChecker::noUpdateAvailable, this, &MainWindow::handleNoUpdateAvailable);
+    connect(updateChecker_, &common::UpdateChecker::checkFailed, this, &MainWindow::handleUpdateCheckFailed);
 
     setupLanguageMenu();
     setupSettingsMenu();
@@ -137,6 +146,9 @@ void MainWindow::setupLanguageMenu() {
 
 void MainWindow::setupAboutMenu() {
     aboutMenu_ = menuBar()->addMenu(tr("About"));
+    checkUpdatesAction_ = aboutMenu_->addAction(tr("Check for Updates"));
+    connect(checkUpdatesAction_, &QAction::triggered, this, &MainWindow::checkForUpdates);
+    aboutMenu_->addSeparator();
     aboutAction_ = aboutMenu_->addAction(tr("About"));
     connect(aboutAction_, &QAction::triggered, this, &MainWindow::openAboutDialog);
 }
@@ -238,7 +250,7 @@ void MainWindow::openAboutDialog() {
     aboutLabel->setOpenExternalLinks(true);
     aboutLabel->setTextInteractionFlags(Qt::TextBrowserInteraction);
     aboutLabel->setText(tr("Welcome to Modbus-Tools<br>"
-                            "Version: v1.0.0<br><br>"
+                            "Version: v%1<br><br>"
                             "An open-source Modbus communication debugging assistant.<br>"
                             "Developer: mingyucheng692<br>"
                             "License: MIT License<br><br>"
@@ -250,7 +262,8 @@ void MainWindow::openAboutDialog() {
                             "<a href=\"https://github.com/mingyucheng692/Modbus-Tools/issues\">🐛 Issue Tracker</a>"
                             "<br><br>"
                             "--------------------------<br>"
-                            "This software is provided &quot;as is&quot; without warranty of any kind."));
+                            "This software is provided &quot;as is&quot; without warranty of any kind.")
+                           .arg(QApplication::applicationVersion()));
     layout->addWidget(aboutLabel);
 
     auto buttonBox = new QDialogButtonBox(QDialogButtonBox::Ok, &dialog);
@@ -258,6 +271,49 @@ void MainWindow::openAboutDialog() {
     connect(buttonBox, &QDialogButtonBox::accepted, &dialog, &QDialog::accept);
 
     dialog.exec();
+}
+
+void MainWindow::checkForUpdates() {
+    if (checkUpdatesAction_) {
+        checkUpdatesAction_->setEnabled(false);
+    }
+    updateChecker_->checkForUpdates();
+}
+
+void MainWindow::handleUpdateAvailable(const QString& currentVersion,
+                                       const QString& latestVersion,
+                                       const QString& downloadUrl,
+                                       const QString& releaseUrl) {
+    if (checkUpdatesAction_) {
+        checkUpdatesAction_->setEnabled(true);
+    }
+
+    const QString message = tr("Current version: v%1\nLatest version: v%2\n\nOpen download page now?")
+                                .arg(currentVersion, latestVersion);
+    const auto result = QMessageBox::question(this, tr("Update Available"), message, QMessageBox::Yes | QMessageBox::No);
+    if (result != QMessageBox::Yes) {
+        return;
+    }
+
+    const QString targetUrl = downloadUrl.isEmpty() ? releaseUrl : downloadUrl;
+    if (!targetUrl.isEmpty()) {
+        QDesktopServices::openUrl(QUrl(targetUrl));
+    }
+}
+
+void MainWindow::handleNoUpdateAvailable(const QString& currentVersion) {
+    if (checkUpdatesAction_) {
+        checkUpdatesAction_->setEnabled(true);
+    }
+    QMessageBox::information(this, tr("No Updates"),
+                             tr("You are already using the latest version: v%1").arg(currentVersion));
+}
+
+void MainWindow::handleUpdateCheckFailed(const QString& reason) {
+    if (checkUpdatesAction_) {
+        checkUpdatesAction_->setEnabled(true);
+    }
+    QMessageBox::warning(this, tr("Update Check Failed"), reason);
 }
 
 void MainWindow::showDisclaimerIfNeeded() {
@@ -327,6 +383,9 @@ void MainWindow::retranslateUi() {
     }
     if (modbusSettingsAction_) {
         modbusSettingsAction_->setText(tr("Modbus Settings"));
+    }
+    if (checkUpdatesAction_) {
+        checkUpdatesAction_->setText(tr("Check for Updates"));
     }
     if (aboutAction_) {
         aboutAction_->setText(tr("About"));

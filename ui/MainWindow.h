@@ -13,6 +13,7 @@ class QEvent;
 namespace ui {
 namespace views::modbus_tcp { class ModbusTcpView; }
 namespace views::modbus_rtu { class ModbusRtuView; }
+namespace common { class UpdateChecker; }
 
 class MainWindow : public QMainWindow {
     Q_OBJECT
@@ -33,6 +34,13 @@ private:
     void applyModbusSettingsToViews();
     void openSettingsDialog();
     void openAboutDialog();
+    void checkForUpdates();
+    void handleUpdateAvailable(const QString& currentVersion,
+                               const QString& latestVersion,
+                               const QString& downloadUrl,
+                               const QString& releaseUrl);
+    void handleNoUpdateAvailable(const QString& currentVersion);
+    void handleUpdateCheckFailed(const QString& reason);
     void showDisclaimerIfNeeded();
     void changeEvent(QEvent* event) override;
 
@@ -43,6 +51,7 @@ private:
     QMenu* settingsMenu_ = nullptr;
     QAction* modbusSettingsAction_ = nullptr;
     QMenu* aboutMenu_ = nullptr;
+    QAction* checkUpdatesAction_ = nullptr;
     QAction* aboutAction_ = nullptr;
     QMenu* languageMenu_ = nullptr;
     QActionGroup* languageActionGroup_ = nullptr;
@@ -51,6 +60,7 @@ private:
     QAction* langZhTwAction_ = nullptr;
     QTranslator qtTranslator_;
     QTranslator appTranslator_;
+    common::UpdateChecker* updateChecker_ = nullptr;
     QString currentLocale_ = "en_US";
     int modbusTimeoutMs_ = 1000;
     int modbusRetries_ = 0;
