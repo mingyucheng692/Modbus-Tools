@@ -393,11 +393,6 @@
         <translation>错误：0x05 十六进制值无效</translation>
     </message>
     <message>
-        <location filename="../views/modbus_rtu/ModbusRtuView.cpp" line="267"/>
-        <source>Error: Invalid ASCII value for 0x05</source>
-        <translation>错误：0x05 ASCII 值无效</translation>
-    </message>
-    <message>
         <location filename="../views/modbus_rtu/ModbusRtuView.cpp" line="277"/>
         <source>Error: Empty value for 0x06</source>
         <translation>错误：0x06 值为空</translation>
@@ -412,12 +407,6 @@
         <location filename="../views/modbus_rtu/ModbusRtuView.cpp" line="302"/>
         <source>Error: Invalid hex value for 0x06</source>
         <translation>错误：0x06 十六进制值无效</translation>
-    </message>
-    <message>
-        <location filename="../views/modbus_rtu/ModbusRtuView.cpp" line="308"/>
-        <location filename="../views/modbus_rtu/ModbusRtuView.cpp" line="314"/>
-        <source>Error: Invalid ASCII value for 0x06</source>
-        <translation>错误：0x06 ASCII 值无效</translation>
     </message>
     <message>
         <location filename="../views/modbus_rtu/ModbusRtuView.cpp" line="322"/>
@@ -458,11 +447,6 @@
         <location filename="../views/modbus_rtu/ModbusRtuView.cpp" line="371"/>
         <source>Error: Invalid hex value for 0x10</source>
         <translation>错误：0x10 十六进制值无效</translation>
-    </message>
-    <message>
-        <location filename="../views/modbus_rtu/ModbusRtuView.cpp" line="378"/>
-        <source>Error: Invalid ASCII value for 0x10</source>
-        <translation>错误：0x10 ASCII 值无效</translation>
     </message>
     <message>
         <location filename="../views/modbus_rtu/ModbusRtuView.cpp" line="387"/>
@@ -573,11 +557,6 @@
         <translation>错误：0x05 十六进制值无效</translation>
     </message>
     <message>
-        <location filename="../views/modbus_tcp/ModbusTcpView.cpp" line="270"/>
-        <source>Error: Invalid ASCII value for 0x05</source>
-        <translation>错误：0x05 ASCII 值无效</translation>
-    </message>
-    <message>
         <location filename="../views/modbus_tcp/ModbusTcpView.cpp" line="280"/>
         <source>Error: Empty value for 0x06</source>
         <translation>错误：0x06 值为空</translation>
@@ -592,12 +571,6 @@
         <location filename="../views/modbus_tcp/ModbusTcpView.cpp" line="305"/>
         <source>Error: Invalid hex value for 0x06</source>
         <translation>错误：0x06 十六进制值无效</translation>
-    </message>
-    <message>
-        <location filename="../views/modbus_tcp/ModbusTcpView.cpp" line="311"/>
-        <location filename="../views/modbus_tcp/ModbusTcpView.cpp" line="317"/>
-        <source>Error: Invalid ASCII value for 0x06</source>
-        <translation>错误：0x06 ASCII 值无效</translation>
     </message>
     <message>
         <location filename="../views/modbus_tcp/ModbusTcpView.cpp" line="325"/>
@@ -638,11 +611,6 @@
         <location filename="../views/modbus_tcp/ModbusTcpView.cpp" line="374"/>
         <source>Error: Invalid hex value for 0x10</source>
         <translation>错误：0x10 十六进制值无效</translation>
-    </message>
-    <message>
-        <location filename="../views/modbus_tcp/ModbusTcpView.cpp" line="381"/>
-        <source>Error: Invalid ASCII value for 0x10</source>
-        <translation>错误：0x10 ASCII 值无效</translation>
     </message>
     <message>
         <location filename="../views/modbus_tcp/ModbusTcpView.cpp" line="390"/>
@@ -1015,11 +983,6 @@
         <translation>十进制</translation>
     </message>
     <message>
-        <location filename="../widgets/FunctionWidget.cpp" line="206"/>
-        <source>ASCII</source>
-        <translation>ASCII</translation>
-    </message>
-    <message>
         <location filename="../widgets/FunctionWidget.cpp" line="209"/>
         <source>Read Coils (0x01)</source>
         <translation>读线圈 (0x01)</translation>
@@ -1317,16 +1280,6 @@
         <location filename="../widgets/TrafficMonitorWidget.cpp" line="171"/>
         <source>Traffic Monitor</source>
         <translation>通信监视</translation>
-    </message>
-    <message>
-        <location filename="../widgets/TrafficMonitorWidget.cpp" line="173"/>
-        <source>Hex View</source>
-        <translation>十六进制视图</translation>
-    </message>
-    <message>
-        <location filename="../widgets/TrafficMonitorWidget.cpp" line="174"/>
-        <source>ASCII View</source>
-        <translation>ASCII 视图</translation>
     </message>
     <message>
         <location filename="../widgets/TrafficMonitorWidget.cpp" line="176"/>

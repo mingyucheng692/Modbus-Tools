@@ -4,7 +4,6 @@
 #include <QListWidget>
 #include <QCheckBox>
 #include <QPushButton>
-#include <QComboBox>
 #include <QDateTime>
 #include <QGroupBox>
 #include <QListWidgetItem>
@@ -35,11 +34,6 @@ void TrafficMonitorWidget::setupUi() {
     // Toolbar
     auto toolbarLayout = new QHBoxLayout();
     
-    displayModeBox_ = new QComboBox(this);
-    displayModeBox_->addItem("");
-    displayModeBox_->addItem("");
-    toolbarLayout->addWidget(displayModeBox_);
-
     autoScrollCheck_ = new QCheckBox(this);
     autoScrollCheck_->setChecked(true);
     toolbarLayout->addWidget(autoScrollCheck_);
@@ -79,13 +73,6 @@ void TrafficMonitorWidget::setupUi() {
         menu.exec(logList_->mapToGlobal(pos));
     });
     
-    connect(displayModeBox_, QOverload<int>::of(&QComboBox::currentIndexChanged), this, [this](int){
-        // In a real app, we might want to refresh the list with new format.
-        // For now, it only affects new items.
-        // Ideally we store raw data and re-render.
-        // But for simplicity in Phase 3, we just keep it as is.
-    });
-
     retranslateUi();
 }
 
@@ -139,10 +126,6 @@ void TrafficMonitorWidget::clear() {
 }
 
 QString TrafficMonitorWidget::formatData(const QByteArray& data) const {
-    if (displayModeBox_->currentIndex() == 1) { // ASCII
-        return QString::fromLatin1(data);
-    }
-    // Hex Mode
     return QString(data.toHex(' ').toUpper());
 }
 
@@ -169,10 +152,6 @@ void TrafficMonitorWidget::onCopyClicked() {
 
 void TrafficMonitorWidget::retranslateUi() {
     if (groupBox_) groupBox_->setTitle(tr("Traffic Monitor"));
-    if (displayModeBox_) {
-        displayModeBox_->setItemText(0, tr("Hex View"));
-        displayModeBox_->setItemText(1, tr("ASCII View"));
-    }
     if (autoScrollCheck_) autoScrollCheck_->setText(tr("Auto Scroll"));
     if (showTxCheck_) showTxCheck_->setText(tr("TX"));
     if (showRxCheck_) showRxCheck_->setText(tr("RX"));

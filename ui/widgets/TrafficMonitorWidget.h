@@ -6,7 +6,6 @@
 class QListWidget;
 class QCheckBox;
 class QPushButton;
-class QComboBox;
 class QGroupBox;
 class QEvent;
 
@@ -39,7 +38,6 @@ private:
     QCheckBox* autoScrollCheck_ = nullptr;
     QCheckBox* showTxCheck_ = nullptr;
     QCheckBox* showRxCheck_ = nullptr;
-    QComboBox* displayModeBox_ = nullptr; // Hex, ASCII
     QPushButton* clearBtn_ = nullptr;
     QPushButton* saveBtn_ = nullptr;
 };

@@ -84,7 +84,6 @@ void FunctionWidget::setupStandardUi(QWidget* parent) {
     dataFormatBox_ = new QComboBox(parent);
     dataFormatBox_->addItem("", "Hex");
     dataFormatBox_->addItem("", "Decimal");
-    dataFormatBox_->addItem("", "ASCII");
     writeLayout->addWidget(dataFormatBox_);
     
     layout->addLayout(writeLayout);
@@ -203,7 +202,6 @@ void FunctionWidget::retranslateUi() {
     if (dataFormatBox_) {
         dataFormatBox_->setItemText(0, tr("Hex"));
         dataFormatBox_->setItemText(1, tr("Decimal"));
-        dataFormatBox_->setItemText(2, tr("ASCII"));
     }
     if (readBtn01_) {
         readBtn01_->setText(tr("Read Coils (0x01)"));

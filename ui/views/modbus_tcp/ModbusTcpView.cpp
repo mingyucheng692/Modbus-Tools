@@ -254,7 +254,7 @@ void ModbusTcpView::setupUi() {
                         return;
                     }
                     coilOn = (value != 0);
-                } else if (fmt == "Hex") {
+                } else {
                     QByteArray bytes = parseHexBytes(trimmed);
                     if (bytes.isEmpty()) {
                         trafficMonitor_->appendInfo(tr("Error: Invalid hex value for 0x05"));
@@ -275,21 +275,6 @@ void ModbusTcpView::setupUi() {
                         }
                         coilOn = raw == 0xFF00;
                     }
-                } else {
-                    QString upper = trimmed.toUpper();
-                    if (upper == "ON" || upper == "TRUE") {
-                        coilOn = true;
-                    } else if (upper == "OFF" || upper == "FALSE") {
-                        coilOn = false;
-                    } else {
-                        bool ok = false;
-                        int value = trimmed.toInt(&ok);
-                        if (!ok || (value != 0 && value != 1)) {
-                            trafficMonitor_->appendInfo(tr("Error: Invalid ASCII value for 0x05"));
-                            return;
-                        }
-                        coilOn = (value != 0);
-                    }
                 }
                 data.append(static_cast<char>(coilOn ? 0xFF : 0x00));
                 data.append(static_cast<char>(0x00));
@@ -307,7 +292,7 @@ void ModbusTcpView::setupUi() {
                     }
                     data.append(static_cast<char>((value >> 8) & 0xFF));
                     data.append(static_cast<char>(value & 0xFF));
-                } else if (fmt == "Hex") {
+                } else {
                     QByteArray bytes = parseHexBytes(trimmed);
                     if (bytes.isEmpty()) {
                         trafficMonitor_->appendInfo(tr("Error: Invalid hex value for 0x06"));
@@ -323,20 +308,6 @@ void ModbusTcpView::setupUi() {
                         trafficMonitor_->appendInfo(tr("Error: Invalid hex value for 0x06"));
                         return;
                     }
-                } else {
-                    QByteArray bytes = trimmed.toLatin1();
-                    if (bytes.isEmpty()) {
-                        trafficMonitor_->appendInfo(tr("Error: Invalid ASCII value for 0x06"));
-                        return;
-                    }
-                    if (bytes.size() == 1) {
-                        bytes.prepend(static_cast<char>(0x00));
-                    } else if (bytes.size() != 2) {
-                        trafficMonitor_->appendInfo(tr("Error: Invalid ASCII value for 0x06"));
-                        return;
-                    }
-                    data.append(bytes[0]);
-                    data.append(bytes[1]);
                 }
             } else if (fc == 0x0F) {
                 if (fmt != "Hex") {
@@ -386,21 +357,11 @@ void ModbusTcpView::setupUi() {
                         payload.append(static_cast<char>((value >> 8) & 0xFF));
                         payload.append(static_cast<char>(value & 0xFF));
                     }
-                } else if (fmt == "Hex") {
+                } else {
                     payload = parseHexBytes(trimmed);
                     if (payload.isEmpty() || (payload.size() % 2 != 0)) {
                         trafficMonitor_->appendInfo(tr("Error: Invalid hex value for 0x10"));
                         return;
-                    }
-                    registerCount = payload.size() / 2;
-                } else {
-                    payload = trimmed.toLatin1();
-                    if (payload.isEmpty()) {
-                        trafficMonitor_->appendInfo(tr("Error: Invalid ASCII value for 0x10"));
-                        return;
-                    }
-                    if (payload.size() % 2 == 1) {
-                        payload.prepend(static_cast<char>(0x00));
                     }
                     registerCount = payload.size() / 2;
                 }
