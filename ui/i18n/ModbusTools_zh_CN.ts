@@ -193,6 +193,18 @@
         <translation>语言</translation>
     </message>
     <message>
+        <location filename="../MainWindow.cpp" line="79"/>
+        <location filename="../MainWindow.cpp" line="171"/>
+        <source>Settings</source>
+        <translation>设置</translation>
+    </message>
+    <message>
+        <location filename="../MainWindow.cpp" line="80"/>
+        <location filename="../MainWindow.cpp" line="174"/>
+        <source>Modbus Settings</source>
+        <translation>Modbus重试设置</translation>
+    </message>
+    <message>
         <location filename="../MainWindow.cpp" line="86"/>
         <location filename="../MainWindow.cpp" line="148"/>
         <source>English (US)</source>
@@ -209,6 +221,31 @@
         <location filename="../MainWindow.cpp" line="156"/>
         <source>繁體中文</source>
         <translation>繁體中文</translation>
+    </message>
+    <message>
+        <location filename="../MainWindow.cpp" line="126"/>
+        <source>Modbus Settings</source>
+        <translation>Modbus重试设置</translation>
+    </message>
+    <message>
+        <location filename="../MainWindow.cpp" line="133"/>
+        <source>Request Timeout (ms):</source>
+        <translation>请求超时(ms)：</translation>
+    </message>
+    <message>
+        <location filename="../MainWindow.cpp" line="137"/>
+        <source>Enable Retry:</source>
+        <translation>启用重试：</translation>
+    </message>
+    <message>
+        <location filename="../MainWindow.cpp" line="142"/>
+        <source>Retry Count:</source>
+        <translation>重试次数：</translation>
+    </message>
+    <message>
+        <location filename="../MainWindow.cpp" line="147"/>
+        <source>Retry Interval (ms):</source>
+        <translation>重试间隔(ms)：</translation>
     </message>
 </context>
 <context>

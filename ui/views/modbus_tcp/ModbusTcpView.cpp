@@ -29,6 +29,18 @@ ModbusTcpView::~ModbusTcpView() {
     releaseStack();
 }
 
+void ModbusTcpView::updateModbusSettings(int timeoutMs, int retries, int retryIntervalMs) {
+    timeoutMs_ = timeoutMs;
+    retries_ = retries;
+    retryIntervalMs_ = retryIntervalMs;
+    if (client_) {
+        currentConfig_.timeoutMs = timeoutMs_;
+        currentConfig_.retries = retries_;
+        currentConfig_.retryIntervalMs = retryIntervalMs_;
+        client_->setConfig(currentConfig_);
+    }
+}
+
 void ModbusTcpView::setupUi() {
     mainLayout_ = new QVBoxLayout(this);
     mainLayout_->setContentsMargins(10, 10, 10, 10);
@@ -98,6 +110,9 @@ void ModbusTcpView::setupUi() {
             config.ipAddress = ip;
             config.port = port;
             config.slaveId = static_cast<uint8_t>(functionWidget_->getSlaveId());
+            config.timeoutMs = timeoutMs_;
+            config.retries = retries_;
+            config.retryIntervalMs = retryIntervalMs_;
 
             modbus::factory::ModbusFactory factory;
             auto stack = factory.createStack(config);
@@ -106,6 +121,7 @@ void ModbusTcpView::setupUi() {
                 return;
             }
 
+            currentConfig_ = config;
             channel_ = std::move(stack.channel);
             client_ = std::move(stack.client);
             worker_ = std::move(stack.worker);

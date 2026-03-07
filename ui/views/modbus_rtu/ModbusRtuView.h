@@ -4,6 +4,7 @@
 #include <memory>
 #include <unordered_map>
 #include <chrono>
+#include "modbus/base/ModbusConfig.h"
 
 class QVBoxLayout;
 class QLabel;
@@ -33,6 +34,7 @@ class ModbusRtuView : public QWidget {
 public:
     explicit ModbusRtuView(QWidget *parent = nullptr);
     ~ModbusRtuView() override;
+    void updateModbusSettings(int timeoutMs, int retries, int retryIntervalMs);
 
 private:
     void setupUi();
@@ -68,6 +70,10 @@ private:
     std::unordered_map<int, std::chrono::steady_clock::time_point> requestStart_;
     std::unordered_map<int, RequestKind> requestKinds_;
     int requestId_ = 0;
+    int timeoutMs_ = 1000;
+    int retries_ = 0;
+    int retryIntervalMs_ = 100;
+    modbus::base::ModbusConfig currentConfig_;
 };
 
 } // namespace ui::views::modbus_rtu

@@ -8,6 +8,7 @@
 #include <QStackedWidget>
 #include <QListWidget>
 #include <QHBoxLayout>
+#include <QVBoxLayout>
 #include <QWidget>
 #include <QMenuBar>
 #include <QMenu>
@@ -17,7 +18,14 @@
 #include <QEvent>
 #include <QTranslator>
 #include <QLibraryInfo>
+#include <QDialog>
+#include <QDialogButtonBox>
+#include <QFormLayout>
+#include <QCheckBox>
+#include <QSpinBox>
+#include <QSettings>
 #include <spdlog/spdlog.h>
+#include "modbus/base/ModbusConfig.h"
 
 namespace ui {
 
@@ -48,8 +56,10 @@ void MainWindow::setupUi() {
     mainLayout->addWidget(stackedWidget_, 5); // Ratio 1:5
 
     // Add Views
-    stackedWidget_->addWidget(new views::modbus_tcp::ModbusTcpView(this));
-    stackedWidget_->addWidget(new views::modbus_rtu::ModbusRtuView(this));
+    modbusTcpView_ = new views::modbus_tcp::ModbusTcpView(this);
+    stackedWidget_->addWidget(modbusTcpView_);
+    modbusRtuView_ = new views::modbus_rtu::ModbusRtuView(this);
+    stackedWidget_->addWidget(modbusRtuView_);
     stackedWidget_->addWidget(new views::generic_tcp::GenericTcpView(this));
     stackedWidget_->addWidget(new views::generic_serial::GenericSerialView(this));
     stackedWidget_->addWidget(new widgets::FrameAnalyzerWidget(this));
@@ -61,7 +71,10 @@ void MainWindow::setupUi() {
     // Set default view
     navigationList_->setCurrentRow(0);
 
+    setupSettingsMenu();
     setupLanguageMenu();
+    loadModbusSettings();
+    applyModbusSettingsToViews();
     applyLanguage(currentLocale_);
 }
 
@@ -76,6 +89,12 @@ void MainWindow::createNavigation() {
     // Style the navigation list a bit
     // Use light theme by default for now
     navigationList_->setStyleSheet(common::Theme::getNavigationStyle(false));
+}
+
+void MainWindow::setupSettingsMenu() {
+    settingsMenu_ = menuBar()->addMenu(tr("Settings"));
+    modbusSettingsAction_ = settingsMenu_->addAction(tr("Modbus Settings"));
+    connect(modbusSettingsAction_, &QAction::triggered, this, &MainWindow::openSettingsDialog);
 }
 
 void MainWindow::setupLanguageMenu() {
@@ -101,6 +120,79 @@ void MainWindow::setupLanguageMenu() {
     connect(languageActionGroup_, &QActionGroup::triggered, this, [this](QAction* action) {
         applyLanguage(action->data().toString());
     });
+}
+
+void MainWindow::loadModbusSettings() {
+    QSettings settings("ModbusTools", "ModbusTools");
+    modbus::base::ModbusConfig defaultConfig;
+    modbusTimeoutMs_ = settings.value("modbus/timeoutMs", defaultConfig.timeoutMs).toInt();
+    modbusRetries_ = settings.value("modbus/retryCount", defaultConfig.retries).toInt();
+    modbusRetryIntervalMs_ = settings.value("modbus/retryIntervalMs", defaultConfig.retryIntervalMs).toInt();
+    modbusRetryEnabled_ = settings.value("modbus/retryEnabled", false).toBool();
+}
+
+void MainWindow::applyModbusSettingsToViews() {
+    int effectiveRetries = modbusRetryEnabled_ ? modbusRetries_ : 0;
+    if (modbusTcpView_) {
+        modbusTcpView_->updateModbusSettings(modbusTimeoutMs_, effectiveRetries, modbusRetryIntervalMs_);
+    }
+    if (modbusRtuView_) {
+        modbusRtuView_->updateModbusSettings(modbusTimeoutMs_, effectiveRetries, modbusRetryIntervalMs_);
+    }
+}
+
+void MainWindow::openSettingsDialog() {
+    QDialog dialog(this);
+    dialog.setWindowTitle(tr("Modbus Settings"));
+    auto layout = new QVBoxLayout(&dialog);
+    auto formLayout = new QFormLayout();
+    auto timeoutSpin = new QSpinBox(&dialog);
+    timeoutSpin->setRange(100, 60000);
+    timeoutSpin->setSingleStep(100);
+    timeoutSpin->setValue(modbusTimeoutMs_);
+    formLayout->addRow(tr("Request Timeout (ms):"), timeoutSpin);
+
+    auto retryEnableCheck = new QCheckBox(&dialog);
+    retryEnableCheck->setChecked(modbusRetryEnabled_);
+    formLayout->addRow(tr("Enable Retry:"), retryEnableCheck);
+
+    auto retrySpin = new QSpinBox(&dialog);
+    retrySpin->setRange(0, 10);
+    retrySpin->setValue(modbusRetries_);
+    formLayout->addRow(tr("Retry Count:"), retrySpin);
+
+    auto retryIntervalSpin = new QSpinBox(&dialog);
+    retryIntervalSpin->setRange(10, 10000);
+    retryIntervalSpin->setSingleStep(10);
+    retryIntervalSpin->setValue(modbusRetryIntervalMs_);
+    formLayout->addRow(tr("Retry Interval (ms):"), retryIntervalSpin);
+
+    auto updateRetryControls = [retrySpin, retryIntervalSpin](bool enabled) {
+        retrySpin->setEnabled(enabled);
+        retryIntervalSpin->setEnabled(enabled);
+    };
+    updateRetryControls(modbusRetryEnabled_);
+    connect(retryEnableCheck, &QCheckBox::toggled, &dialog, updateRetryControls);
+
+    layout->addLayout(formLayout);
+
+    auto buttonBox = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel, &dialog);
+    layout->addWidget(buttonBox);
+    connect(buttonBox, &QDialogButtonBox::accepted, &dialog, &QDialog::accept);
+    connect(buttonBox, &QDialogButtonBox::rejected, &dialog, &QDialog::reject);
+
+    if (dialog.exec() == QDialog::Accepted) {
+        modbusTimeoutMs_ = timeoutSpin->value();
+        modbusRetryEnabled_ = retryEnableCheck->isChecked();
+        modbusRetries_ = retrySpin->value();
+        modbusRetryIntervalMs_ = retryIntervalSpin->value();
+        QSettings settings("ModbusTools", "ModbusTools");
+        settings.setValue("modbus/timeoutMs", modbusTimeoutMs_);
+        settings.setValue("modbus/retryCount", modbusRetries_);
+        settings.setValue("modbus/retryIntervalMs", modbusRetryIntervalMs_);
+        settings.setValue("modbus/retryEnabled", modbusRetryEnabled_);
+        applyModbusSettingsToViews();
+    }
 }
 
 void MainWindow::applyLanguage(const QString& locale) {
@@ -143,6 +235,12 @@ void MainWindow::retranslateUi() {
 
     if (languageMenu_) {
         languageMenu_->setTitle(tr("Language"));
+    }
+    if (settingsMenu_) {
+        settingsMenu_->setTitle(tr("Settings"));
+    }
+    if (modbusSettingsAction_) {
+        modbusSettingsAction_->setText(tr("Modbus Settings"));
     }
     if (langEnAction_) {
         langEnAction_->setText(tr("English (US)"));

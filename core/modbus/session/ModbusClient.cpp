@@ -71,7 +71,7 @@ ModbusResponse ModbusClient::sendRequest(const base::Pdu& request, int slaveId) 
         if (i < retries) {
             spdlog::warn("Request failed, retrying... ({}/{}) Error: {}", 
                          i + 1, retries, lastResponse.error.toStdString());
-            std::this_thread::sleep_for(std::chrono::milliseconds(100));
+            std::this_thread::sleep_for(std::chrono::milliseconds(config_.retryIntervalMs));
         }
     }
     return lastResponse;

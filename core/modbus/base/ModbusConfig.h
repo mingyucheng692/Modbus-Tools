@@ -34,7 +34,10 @@ struct ModbusConfig {
     int timeoutMs = 1000;
 
     // 重试次数
-    int retries = 3;
+    int retries = 0;
+
+    // 重试间隔 (毫秒)
+    int retryIntervalMs = 100;
 
     // 帧间隔 (RTU only, micro-seconds or char times)
     // 通常由驱动层处理，但在某些应用层实现中可能需要

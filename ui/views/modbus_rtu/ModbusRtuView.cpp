@@ -29,6 +29,18 @@ ModbusRtuView::~ModbusRtuView() {
     releaseStack();
 }
 
+void ModbusRtuView::updateModbusSettings(int timeoutMs, int retries, int retryIntervalMs) {
+    timeoutMs_ = timeoutMs;
+    retries_ = retries;
+    retryIntervalMs_ = retryIntervalMs;
+    if (client_) {
+        currentConfig_.timeoutMs = timeoutMs_;
+        currentConfig_.retries = retries_;
+        currentConfig_.retryIntervalMs = retryIntervalMs_;
+        client_->setConfig(currentConfig_);
+    }
+}
+
 void ModbusRtuView::setupUi() {
     mainLayout_ = new QVBoxLayout(this);
     mainLayout_->setContentsMargins(10, 10, 10, 10);
@@ -101,6 +113,9 @@ void ModbusRtuView::setupUi() {
             modbusConfig.stopBits = static_cast<int>(config.stopBits);
             modbusConfig.parity = static_cast<int>(config.parity);
             modbusConfig.slaveId = static_cast<uint8_t>(functionWidget_->getSlaveId());
+            modbusConfig.timeoutMs = timeoutMs_;
+            modbusConfig.retries = retries_;
+            modbusConfig.retryIntervalMs = retryIntervalMs_;
 
             modbus::factory::ModbusFactory factory;
             auto stack = factory.createStack(modbusConfig);
@@ -109,6 +124,7 @@ void ModbusRtuView::setupUi() {
                 return;
             }
 
+            currentConfig_ = modbusConfig;
             channel_ = std::move(stack.channel);
             client_ = std::move(stack.client);
             worker_ = std::move(stack.worker);
