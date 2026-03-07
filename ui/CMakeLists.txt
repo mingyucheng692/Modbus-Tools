@@ -37,3 +37,22 @@ target_link_libraries(ui PUBLIC
 target_include_directories(ui PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}
 )
+
+if(MODBUS_TOOLS_ENABLE_PCH AND COMMAND target_precompile_headers)
+    target_precompile_headers(ui PRIVATE
+        <QtCore/QObject>
+        <QtCore/QString>
+        <QtCore/QTimer>
+        <QtGui/QIcon>
+        <QtWidgets/QWidget>
+        <QtWidgets/QMainWindow>
+        <QtWidgets/QLayout>
+        <QtWidgets/QDialog>
+        <QtWidgets/QLabel>
+        <QtWidgets/QMenuBar>
+        <QtWidgets/QListWidget>
+        <QtCharts/QChartView>
+        <vector>
+        <memory>
+    )
+endif()

@@ -5,8 +5,15 @@ project(ModbusTools VERSION 0.1.0 LANGUAGES CXX)
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
+option(MODBUS_TOOLS_ENABLE_PARALLEL_COMPILE "Enable parallel compile for MSVC" ON)
+option(MODBUS_TOOLS_ENABLE_PCH "Enable precompiled headers" ON)
+
 if(MSVC)
-    add_compile_options(/utf-8 /MP)
+    if(MODBUS_TOOLS_ENABLE_PARALLEL_COMPILE)
+        add_compile_options(/utf-8 /MP)
+    else()
+        add_compile_options(/utf-8)
+    endif()
 endif()
 
 # Find Qt6

@@ -10,3 +10,14 @@ target_link_libraries(${PROJECT_NAME} PRIVATE
     Qt${QT_VERSION_MAJOR}::Gui
     Qt${QT_VERSION_MAJOR}::Widgets
 )
+
+if(MODBUS_TOOLS_ENABLE_PCH AND COMMAND target_precompile_headers)
+    target_precompile_headers(${PROJECT_NAME} PRIVATE
+        <QtCore/QCoreApplication>
+        <QtCore/QResource>
+        <QtGui/QIcon>
+        <QtWidgets/QApplication>
+        <spdlog/spdlog.h>
+        <memory>
+    )
+endif()

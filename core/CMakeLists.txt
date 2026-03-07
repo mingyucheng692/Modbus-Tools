@@ -47,4 +47,23 @@ target_include_directories(core PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}
 )
 
+if(MODBUS_TOOLS_ENABLE_PCH AND COMMAND target_precompile_headers)
+    target_precompile_headers(core PRIVATE
+        <QtCore/QObject>
+        <QtCore/QByteArray>
+        <QtCore/QString>
+        <QtCore/QDateTime>
+        <QtCore/QVector>
+        <QtCore/QMutex>
+        <QtCore/QSharedPointer>
+        <QtNetwork/QTcpSocket>
+        <QtNetwork/QHostAddress>
+        <QtSerialPort/QSerialPort>
+        <spdlog/spdlog.h>
+        <vector>
+        <string>
+        <memory>
+    )
+endif()
+
 set_property(TARGET core PROPERTY AUTOMOC ON)
