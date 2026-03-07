@@ -8,6 +8,7 @@ class QPushButton;
 class QLabel;
 class QGroupBox;
 class QEvent;
+class QString;
 
 namespace ui::widgets {
 
@@ -19,6 +20,7 @@ public:
     ~TcpConnectionWidget() override;
 
     void setDefaultPort(int port);
+    void setSettingsGroup(const QString& group);
     QString getIpAddress() const;
     int getPort() const;
 
@@ -31,6 +33,8 @@ public slots:
 
 private:
     void setupUi();
+    void loadSettings();
+    void saveSettings();
     void retranslateUi();
     void changeEvent(QEvent* event) override;
 
@@ -43,6 +47,8 @@ private:
     QLabel* statusLabel_ = nullptr;
     
     bool isConnected_ = false;
+    QString settingsGroup_ = "modbus/tcp";
+    int defaultPort_ = 502;
 };
 
 } // namespace ui::widgets

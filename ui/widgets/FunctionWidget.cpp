@@ -12,6 +12,9 @@
 #include <QTextEdit>
 #include <QTabWidget>
 #include <QEvent>
+#include <QSettings>
+#include <QApplication>
+#include <QSignalBlocker>
 
 namespace ui::widgets {
 
@@ -126,6 +129,11 @@ void FunctionWidget::setupStandardUi(QWidget* parent) {
 
     layout->addLayout(btnLayout);
     layout->addStretch();
+
+    connect(slaveIdEdit_, qOverload<int>(&QSpinBox::valueChanged), this, &FunctionWidget::saveSettings);
+    connect(addressEdit_, qOverload<int>(&QSpinBox::valueChanged), this, &FunctionWidget::saveSettings);
+    connect(quantityEdit_, qOverload<int>(&QSpinBox::valueChanged), this, &FunctionWidget::saveSettings);
+    connect(dataFormatBox_, qOverload<int>(&QComboBox::currentIndexChanged), this, &FunctionWidget::saveSettings);
 }
 
 void FunctionWidget::setupRawUi(QWidget* parent) {
@@ -151,8 +159,62 @@ int FunctionWidget::getSlaveId() const {
     return slaveIdEdit_ ? slaveIdEdit_->value() : 1;
 }
 
+int FunctionWidget::getStartAddress() const {
+    return addressEdit_ ? addressEdit_->value() : 0;
+}
+
 int FunctionWidget::getQuantity() const {
     return quantityEdit_ ? quantityEdit_->value() : 1;
+}
+
+int FunctionWidget::getFormatIndex() const {
+    return dataFormatBox_ ? dataFormatBox_->currentIndex() : 0;
+}
+
+void FunctionWidget::setSettingsGroup(const QString& group) {
+    settingsGroup_ = group;
+    loadSettings();
+}
+
+void FunctionWidget::loadSettings() {
+    if (settingsGroup_.isEmpty()) return;
+
+    QSettings settings(QApplication::applicationDirPath() + "/config.ini", QSettings::IniFormat);
+    QSignalBlocker b1(slaveIdEdit_);
+    QSignalBlocker b2(addressEdit_);
+    QSignalBlocker b3(quantityEdit_);
+    QSignalBlocker b4(dataFormatBox_);
+
+    const QString slaveKey = settingsGroup_ + "/slaveId";
+    const QString addrKey = settingsGroup_ + "/startAddr";
+    const QString qtyKey = settingsGroup_ + "/quantity";
+    const QString formatKey = settingsGroup_ + "/formatIndex";
+
+    const int slaveId = settings.value(slaveKey, slaveIdEdit_->value()).toInt();
+    const int startAddr = settings.value(addrKey, addressEdit_->value()).toInt();
+    const int quantity = settings.value(qtyKey, quantityEdit_->value()).toInt();
+    const int formatIndex = settings.value(formatKey, dataFormatBox_->currentIndex()).toInt();
+
+    slaveIdEdit_->setValue(slaveId);
+    addressEdit_->setValue(startAddr);
+    quantityEdit_->setValue(quantity);
+    if (formatIndex >= 0 && formatIndex < dataFormatBox_->count()) {
+        dataFormatBox_->setCurrentIndex(formatIndex);
+    }
+
+    if (!settings.contains(slaveKey)) settings.setValue(slaveKey, slaveId);
+    if (!settings.contains(addrKey)) settings.setValue(addrKey, startAddr);
+    if (!settings.contains(qtyKey)) settings.setValue(qtyKey, quantity);
+    if (!settings.contains(formatKey)) settings.setValue(formatKey, dataFormatBox_->currentIndex());
+}
+
+void FunctionWidget::saveSettings() {
+    if (settingsGroup_.isEmpty()) return;
+    QSettings settings(QApplication::applicationDirPath() + "/config.ini", QSettings::IniFormat);
+    settings.setValue(settingsGroup_ + "/slaveId", slaveIdEdit_->value());
+    settings.setValue(settingsGroup_ + "/startAddr", addressEdit_->value());
+    settings.setValue(settingsGroup_ + "/quantity", quantityEdit_->value());
+    settings.setValue(settingsGroup_ + "/formatIndex", dataFormatBox_->currentIndex());
 }
 
 void FunctionWidget::onReadClicked(uint8_t functionCode) {

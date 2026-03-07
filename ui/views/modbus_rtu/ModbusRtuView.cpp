@@ -47,9 +47,11 @@ void ModbusRtuView::setupUi() {
     mainLayout_->setSpacing(10);
     
     connectionWidget_ = new widgets::SerialConnectionWidget(this);
+    connectionWidget_->setSettingsGroup("modbus/rtu/serial");
     mainLayout_->addWidget(connectionWidget_);
     
     functionWidget_ = new widgets::FunctionWidget(this);
+    functionWidget_->setSettingsGroup("modbus/rtu/standard");
     mainLayout_->addWidget(functionWidget_);
     
     dataGroup_ = new QGroupBox(this);
@@ -93,9 +95,11 @@ void ModbusRtuView::setupUi() {
 
     trafficMonitor_ = new widgets::TrafficMonitorWidget(this);
     trafficMonitor_->setMinimumHeight(200);
+    trafficMonitor_->setSettingsGroup("modbus/rtu/traffic");
     mainLayout_->addWidget(trafficMonitor_);
     
     controlWidget_ = new widgets::ControlWidget(this);
+    controlWidget_->setSettingsGroup("modbus/rtu/control");
     mainLayout_->addWidget(controlWidget_);
 
     connect(connectionWidget_, &widgets::SerialConnectionWidget::connectClicked, 

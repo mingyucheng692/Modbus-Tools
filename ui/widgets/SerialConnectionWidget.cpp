@@ -6,6 +6,9 @@
 #include <QLabel>
 #include <QSerialPortInfo>
 #include <QEvent>
+#include <QSettings>
+#include <QApplication>
+#include <QSignalBlocker>
 
 namespace ui::widgets {
 
@@ -141,14 +144,82 @@ void SerialConnectionWidget::setupUi() {
         if (isConnected_) {
             emit disconnectClicked();
         } else {
-            emit connectClicked(getConfig());
+            const auto config = getConfig();
+            saveSettings();
+            emit connectClicked(config);
         }
     });
     layout->addWidget(connectBtn_);
     
     layout->addStretch();
 
+    connect(baudCombo_, &QComboBox::currentTextChanged, this, &SerialConnectionWidget::saveSettings);
+    connect(dataBitsCombo_, &QComboBox::currentTextChanged, this, &SerialConnectionWidget::saveSettings);
+    connect(parityCombo_, &QComboBox::currentTextChanged, this, &SerialConnectionWidget::saveSettings);
+    connect(stopBitsCombo_, &QComboBox::currentTextChanged, this, &SerialConnectionWidget::saveSettings);
+
+    loadSettings();
+
     retranslateUi();
+}
+
+void SerialConnectionWidget::setSettingsGroup(const QString& group) {
+    settingsGroup_ = group;
+    loadSettings();
+}
+
+void SerialConnectionWidget::loadSettings() {
+    if (settingsGroup_.isEmpty()) return;
+    QSettings settings(QApplication::applicationDirPath() + "/config.ini", QSettings::IniFormat);
+    QSignalBlocker b1(baudCombo_);
+    QSignalBlocker b2(dataBitsCombo_);
+    QSignalBlocker b3(parityCombo_);
+    QSignalBlocker b4(stopBitsCombo_);
+
+    const QString baudKey = settingsGroup_ + "/baudRate";
+    const QString dataKey = settingsGroup_ + "/dataBits";
+    const QString parityKey = settingsGroup_ + "/parity";
+    const QString stopKey = settingsGroup_ + "/stopBits";
+
+    const int fallbackBaud = settings.value("serial/baudRate", baudCombo_->currentText().toInt()).toInt();
+    const int baudRate = settings.value(baudKey, fallbackBaud).toInt();
+    const QString dataBits = settings.value(dataKey, dataBitsCombo_->currentText()).toString();
+    const QString parity = settings.value(parityKey, parityCombo_->currentText()).toString();
+    const QString stopBits = settings.value(stopKey, stopBitsCombo_->currentText()).toString();
+
+    const int baudIndex = baudCombo_->findText(QString::number(baudRate));
+    if (baudIndex >= 0) {
+        baudCombo_->setCurrentIndex(baudIndex);
+    }
+
+    const int dataIndex = dataBitsCombo_->findText(dataBits);
+    if (dataIndex >= 0) {
+        dataBitsCombo_->setCurrentIndex(dataIndex);
+    }
+
+    const int parityIndex = parityCombo_->findText(parity);
+    if (parityIndex >= 0) {
+        parityCombo_->setCurrentIndex(parityIndex);
+    }
+
+    const int stopIndex = stopBitsCombo_->findText(stopBits);
+    if (stopIndex >= 0) {
+        stopBitsCombo_->setCurrentIndex(stopIndex);
+    }
+
+    if (!settings.contains(baudKey)) settings.setValue(baudKey, baudRate);
+    if (!settings.contains(dataKey)) settings.setValue(dataKey, dataBitsCombo_->currentText());
+    if (!settings.contains(parityKey)) settings.setValue(parityKey, parityCombo_->currentText());
+    if (!settings.contains(stopKey)) settings.setValue(stopKey, stopBitsCombo_->currentText());
+}
+
+void SerialConnectionWidget::saveSettings() {
+    if (settingsGroup_.isEmpty()) return;
+    QSettings settings(QApplication::applicationDirPath() + "/config.ini", QSettings::IniFormat);
+    settings.setValue(settingsGroup_ + "/baudRate", baudCombo_->currentText().toInt());
+    settings.setValue(settingsGroup_ + "/dataBits", dataBitsCombo_->currentText());
+    settings.setValue(settingsGroup_ + "/parity", parityCombo_->currentText());
+    settings.setValue(settingsGroup_ + "/stopBits", stopBitsCombo_->currentText());
 }
 
 void SerialConnectionWidget::retranslateUi() {

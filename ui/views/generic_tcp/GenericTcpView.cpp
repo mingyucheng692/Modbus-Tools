@@ -31,17 +31,20 @@ void GenericTcpView::setupUi() {
 
     // 1. Connection Section (Top)
     connectionWidget_ = new widgets::TcpConnectionWidget(this);
-    connectionWidget_->setDefaultPort(8080); // Set default port for Generic TCP Client
+    connectionWidget_->setSettingsGroup("tcp_client");
+    connectionWidget_->setDefaultPort(8080);
     mainLayout->addWidget(connectionWidget_);
 
     // 2. Central Area (Traffic Monitor)
     trafficMonitor_ = new widgets::TrafficMonitorWidget(this);
+    trafficMonitor_->setSettingsGroup("tcp_client/traffic");
     mainLayout->addWidget(trafficMonitor_, 1);
 
     // 3. Input Section (Bottom)
     inputGroup_ = new QGroupBox(this);
     auto inputLayout = new QVBoxLayout(inputGroup_);
     inputWidget_ = new widgets::GenericInputWidget(inputGroup_);
+    inputWidget_->setSettingsGroup("tcp_client/input");
     inputLayout->addWidget(inputWidget_);
     mainLayout->addWidget(inputGroup_);
 

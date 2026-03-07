@@ -77,6 +77,13 @@ void MainWindow::setupUi() {
     setupLanguageMenu();
     setupSettingsMenu();
     setupAboutMenu();
+    {
+        QSettings settings(QApplication::applicationDirPath() + "/config.ini", QSettings::IniFormat);
+        currentLocale_ = settings.value("app/language", currentLocale_).toString();
+        if (!settings.contains("app/language")) {
+            settings.setValue("app/language", currentLocale_);
+        }
+    }
     loadModbusSettings();
     applyModbusSettingsToViews();
     applyLanguage(currentLocale_);
@@ -133,12 +140,24 @@ void MainWindow::setupAboutMenu() {
 }
 
 void MainWindow::loadModbusSettings() {
-    QSettings settings("ModbusTools", "ModbusTools");
+    QSettings settings(QApplication::applicationDirPath() + "/config.ini", QSettings::IniFormat);
     modbus::base::ModbusConfig defaultConfig;
     modbusTimeoutMs_ = settings.value("modbus/timeoutMs", defaultConfig.timeoutMs).toInt();
     modbusRetries_ = settings.value("modbus/retryCount", defaultConfig.retries).toInt();
     modbusRetryIntervalMs_ = settings.value("modbus/retryIntervalMs", defaultConfig.retryIntervalMs).toInt();
     modbusRetryEnabled_ = settings.value("modbus/retryEnabled", false).toBool();
+    if (!settings.contains("modbus/timeoutMs")) {
+        settings.setValue("modbus/timeoutMs", modbusTimeoutMs_);
+    }
+    if (!settings.contains("modbus/retryCount")) {
+        settings.setValue("modbus/retryCount", modbusRetries_);
+    }
+    if (!settings.contains("modbus/retryIntervalMs")) {
+        settings.setValue("modbus/retryIntervalMs", modbusRetryIntervalMs_);
+    }
+    if (!settings.contains("modbus/retryEnabled")) {
+        settings.setValue("modbus/retryEnabled", modbusRetryEnabled_);
+    }
 }
 
 void MainWindow::applyModbusSettingsToViews() {
@@ -196,7 +215,7 @@ void MainWindow::openSettingsDialog() {
         modbusRetryEnabled_ = retryEnableCheck->isChecked();
         modbusRetries_ = retrySpin->value();
         modbusRetryIntervalMs_ = retryIntervalSpin->value();
-        QSettings settings("ModbusTools", "ModbusTools");
+        QSettings settings(QApplication::applicationDirPath() + "/config.ini", QSettings::IniFormat);
         settings.setValue("modbus/timeoutMs", modbusTimeoutMs_);
         settings.setValue("modbus/retryCount", modbusRetries_);
         settings.setValue("modbus/retryIntervalMs", modbusRetryIntervalMs_);
@@ -244,6 +263,10 @@ void MainWindow::applyLanguage(const QString& locale) {
     qApp->removeTranslator(&appTranslator_);
 
     currentLocale_ = locale;
+    {
+        QSettings settings(QApplication::applicationDirPath() + "/config.ini", QSettings::IniFormat);
+        settings.setValue("app/language", currentLocale_);
+    }
     if (locale == "zh_CN") {
         const bool qtLoaded = qtTranslator_.load("qtbase_zh_CN", QLibraryInfo::path(QLibraryInfo::TranslationsPath));
         const bool appLoaded = appTranslator_.load(":/i18n/ModbusTools_zh_CN.qm");

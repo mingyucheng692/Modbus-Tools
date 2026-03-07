@@ -11,6 +11,7 @@ class QTabWidget;
 class QLabel;
 class QPushButton;
 class QEvent;
+class QString;
 
 namespace ui::widgets {
 
@@ -22,7 +23,10 @@ public:
     ~FunctionWidget() override;
 
     int getSlaveId() const;
+    int getStartAddress() const;
     int getQuantity() const;
+    int getFormatIndex() const;
+    void setSettingsGroup(const QString& group);
 
 signals:
     // Read: Function Code, Address, Quantity
@@ -38,6 +42,8 @@ private:
     void setupUi();
     void setupStandardUi(QWidget* parent);
     void setupRawUi(QWidget* parent);
+    void loadSettings();
+    void saveSettings();
     void retranslateUi();
     void changeEvent(QEvent* event) override;
     
@@ -70,6 +76,8 @@ private:
     QLabel* rawDataLabel_ = nullptr;
     QTextEdit* rawDataEdit_ = nullptr;
     QPushButton* rawSendBtn_ = nullptr;
+
+    QString settingsGroup_;
 };
 
 } // namespace ui::widgets

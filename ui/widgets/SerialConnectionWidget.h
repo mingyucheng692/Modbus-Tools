@@ -8,6 +8,7 @@ class QComboBox;
 class QPushButton;
 class QLabel;
 class QEvent;
+class QString;
 
 namespace ui::widgets {
 
@@ -19,6 +20,7 @@ public:
     ~SerialConnectionWidget() override;
 
     io::SerialConfig getConfig() const;
+    void setSettingsGroup(const QString& group);
 
 signals:
     void connectClicked(const io::SerialConfig& config);
@@ -30,6 +32,8 @@ public slots:
 
 private:
     void setupUi();
+    void loadSettings();
+    void saveSettings();
     void retranslateUi();
     void changeEvent(QEvent* event) override;
 
@@ -47,6 +51,7 @@ private:
     QPushButton* connectBtn_ = nullptr;
     
     bool isConnected_ = false;
+    QString settingsGroup_ = "serial";
 };
 
 } // namespace ui::widgets

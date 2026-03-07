@@ -6,6 +6,9 @@
 #include <QPushButton>
 #include <QGroupBox>
 #include <QEvent>
+#include <QSettings>
+#include <QApplication>
+#include <QSignalBlocker>
 
 namespace ui::widgets {
 
@@ -26,7 +29,7 @@ void TcpConnectionWidget::setupUi() {
     // IP Address
     hostLabel_ = new QLabel(this);
     layout->addWidget(hostLabel_);
-    ipEdit_ = new QLineEdit("127.0.0.1", this);
+    ipEdit_ = new QLineEdit(this);
     layout->addWidget(ipEdit_);
 
     // Port
@@ -54,17 +57,62 @@ void TcpConnectionWidget::setupUi() {
         if (isConnected_) {
             emit disconnectClicked();
         } else {
+            saveSettings();
             emit connectClicked(ipEdit_->text(), portEdit_->value());
         }
     });
+    connect(ipEdit_, &QLineEdit::textChanged, this, &TcpConnectionWidget::saveSettings);
+    connect(portEdit_, qOverload<int>(&QSpinBox::valueChanged), this, &TcpConnectionWidget::saveSettings);
 
+    loadSettings();
     retranslateUi();
 }
 
 void TcpConnectionWidget::setDefaultPort(int port) {
-    if (portEdit_) {
+    defaultPort_ = port;
+    if (!portEdit_) return;
+    if (settingsGroup_.isEmpty()) {
         portEdit_->setValue(port);
+        return;
     }
+    QSettings settings(QApplication::applicationDirPath() + "/config.ini", QSettings::IniFormat);
+    const QString key = settingsGroup_ + "/port";
+    if (!settings.contains(key)) {
+        portEdit_->setValue(port);
+        settings.setValue(key, port);
+    } else {
+        portEdit_->setValue(settings.value(key, port).toInt());
+    }
+}
+
+void TcpConnectionWidget::setSettingsGroup(const QString& group) {
+    settingsGroup_ = group;
+    loadSettings();
+}
+
+void TcpConnectionWidget::loadSettings() {
+    if (settingsGroup_.isEmpty()) return;
+    QSettings settings(QApplication::applicationDirPath() + "/config.ini", QSettings::IniFormat);
+    QSignalBlocker b1(ipEdit_);
+    QSignalBlocker b2(portEdit_);
+
+    const QString ipKey = settingsGroup_ + "/ip";
+    const QString portKey = settingsGroup_ + "/port";
+    const QString ip = settings.value(ipKey, "127.0.0.1").toString();
+    const int port = settings.value(portKey, defaultPort_).toInt();
+
+    ipEdit_->setText(ip);
+    portEdit_->setValue(port);
+
+    if (!settings.contains(ipKey)) settings.setValue(ipKey, ip);
+    if (!settings.contains(portKey)) settings.setValue(portKey, port);
+}
+
+void TcpConnectionWidget::saveSettings() {
+    if (settingsGroup_.isEmpty()) return;
+    QSettings settings(QApplication::applicationDirPath() + "/config.ini", QSettings::IniFormat);
+    settings.setValue(settingsGroup_ + "/ip", ipEdit_->text());
+    settings.setValue(settingsGroup_ + "/port", portEdit_->value());
 }
 
 QString TcpConnectionWidget::getIpAddress() const {

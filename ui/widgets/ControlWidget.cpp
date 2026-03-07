@@ -6,6 +6,9 @@
 #include <QComboBox>
 #include <QTimer>
 #include <QEvent>
+#include <QSettings>
+#include <QApplication>
+#include <QSignalBlocker>
 
 namespace ui::widgets {
 
@@ -31,6 +34,11 @@ ControlWidget::ControlWidget(QWidget *parent)
             pollTimer_->setInterval(val);
         }
     });
+
+    connect(intervalSpin_, qOverload<int>(&QSpinBox::valueChanged), this, &ControlWidget::saveSettings);
+    connect(fcCombo_, qOverload<int>(&QComboBox::currentIndexChanged), this, &ControlWidget::saveSettings);
+    connect(addrSpin_, qOverload<int>(&QSpinBox::valueChanged), this, &ControlWidget::saveSettings);
+    connect(qtySpin_, qOverload<int>(&QSpinBox::valueChanged), this, &ControlWidget::saveSettings);
 }
 
 ControlWidget::~ControlWidget() = default;
@@ -78,6 +86,51 @@ void ControlWidget::updateStatsLabel() {
                         .arg(txCount_)
                         .arg(rxCount_)
                         .arg(lastRtt_));
+}
+
+void ControlWidget::setSettingsGroup(const QString& group) {
+    settingsGroup_ = group;
+    loadSettings();
+}
+
+void ControlWidget::loadSettings() {
+    if (settingsGroup_.isEmpty()) return;
+    QSettings settings(QApplication::applicationDirPath() + "/config.ini", QSettings::IniFormat);
+    QSignalBlocker b1(intervalSpin_);
+    QSignalBlocker b2(fcCombo_);
+    QSignalBlocker b3(addrSpin_);
+    QSignalBlocker b4(qtySpin_);
+
+    const QString intervalKey = settingsGroup_ + "/intervalMs";
+    const QString fcKey = settingsGroup_ + "/fcIndex";
+    const QString addrKey = settingsGroup_ + "/addr";
+    const QString qtyKey = settingsGroup_ + "/qty";
+
+    const int interval = settings.value(intervalKey, intervalSpin_->value()).toInt();
+    const int fcIndex = settings.value(fcKey, fcCombo_->currentIndex()).toInt();
+    const int addr = settings.value(addrKey, addrSpin_->value()).toInt();
+    const int qty = settings.value(qtyKey, qtySpin_->value()).toInt();
+
+    intervalSpin_->setValue(interval);
+    if (fcIndex >= 0 && fcIndex < fcCombo_->count()) {
+        fcCombo_->setCurrentIndex(fcIndex);
+    }
+    addrSpin_->setValue(addr);
+    qtySpin_->setValue(qty);
+
+    if (!settings.contains(intervalKey)) settings.setValue(intervalKey, interval);
+    if (!settings.contains(fcKey)) settings.setValue(fcKey, fcCombo_->currentIndex());
+    if (!settings.contains(addrKey)) settings.setValue(addrKey, addr);
+    if (!settings.contains(qtyKey)) settings.setValue(qtyKey, qty);
+}
+
+void ControlWidget::saveSettings() {
+    if (settingsGroup_.isEmpty()) return;
+    QSettings settings(QApplication::applicationDirPath() + "/config.ini", QSettings::IniFormat);
+    settings.setValue(settingsGroup_ + "/intervalMs", intervalSpin_->value());
+    settings.setValue(settingsGroup_ + "/fcIndex", fcCombo_->currentIndex());
+    settings.setValue(settingsGroup_ + "/addr", addrSpin_->value());
+    settings.setValue(settingsGroup_ + "/qty", qtySpin_->value());
 }
 
 void ControlWidget::setupUi() {

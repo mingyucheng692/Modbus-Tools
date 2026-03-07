@@ -14,6 +14,9 @@
 #include <QClipboard>
 #include <QMenu>
 #include <QEvent>
+#include <QSettings>
+#include <QApplication>
+#include <QSignalBlocker>
 
 namespace ui::widgets {
 
@@ -67,6 +70,9 @@ void TrafficMonitorWidget::setupUi() {
     // Connections
     connect(clearBtn_, &QPushButton::clicked, this, &TrafficMonitorWidget::clear);
     connect(saveBtn_, &QPushButton::clicked, this, &TrafficMonitorWidget::onSaveClicked);
+    connect(autoScrollCheck_, &QCheckBox::toggled, this, &TrafficMonitorWidget::saveSettings);
+    connect(showTxCheck_, &QCheckBox::toggled, this, &TrafficMonitorWidget::saveSettings);
+    connect(showRxCheck_, &QCheckBox::toggled, this, &TrafficMonitorWidget::saveSettings);
     connect(logList_, &QListWidget::customContextMenuRequested, [this](const QPoint& pos) {
         QMenu menu(this);
         menu.addAction(tr("Copy"), this, &TrafficMonitorWidget::onCopyClicked);
@@ -123,6 +129,43 @@ void TrafficMonitorWidget::appendInfo(const QString& message) {
 
 void TrafficMonitorWidget::clear() {
     logList_->clear();
+}
+
+void TrafficMonitorWidget::setSettingsGroup(const QString& group) {
+    settingsGroup_ = group;
+    loadSettings();
+}
+
+void TrafficMonitorWidget::loadSettings() {
+    if (settingsGroup_.isEmpty()) return;
+    QSettings settings(QApplication::applicationDirPath() + "/config.ini", QSettings::IniFormat);
+    QSignalBlocker b1(autoScrollCheck_);
+    QSignalBlocker b2(showTxCheck_);
+    QSignalBlocker b3(showRxCheck_);
+
+    const QString autoKey = settingsGroup_ + "/autoScroll";
+    const QString txKey = settingsGroup_ + "/showTx";
+    const QString rxKey = settingsGroup_ + "/showRx";
+
+    const bool autoScroll = settings.value(autoKey, autoScrollCheck_->isChecked()).toBool();
+    const bool showTx = settings.value(txKey, showTxCheck_->isChecked()).toBool();
+    const bool showRx = settings.value(rxKey, showRxCheck_->isChecked()).toBool();
+
+    autoScrollCheck_->setChecked(autoScroll);
+    showTxCheck_->setChecked(showTx);
+    showRxCheck_->setChecked(showRx);
+
+    if (!settings.contains(autoKey)) settings.setValue(autoKey, autoScroll);
+    if (!settings.contains(txKey)) settings.setValue(txKey, showTx);
+    if (!settings.contains(rxKey)) settings.setValue(rxKey, showRx);
+}
+
+void TrafficMonitorWidget::saveSettings() {
+    if (settingsGroup_.isEmpty()) return;
+    QSettings settings(QApplication::applicationDirPath() + "/config.ini", QSettings::IniFormat);
+    settings.setValue(settingsGroup_ + "/autoScroll", autoScrollCheck_->isChecked());
+    settings.setValue(settingsGroup_ + "/showTx", showTxCheck_->isChecked());
+    settings.setValue(settingsGroup_ + "/showRx", showRxCheck_->isChecked());
 }
 
 QString TrafficMonitorWidget::formatData(const QByteArray& data) const {

@@ -14,6 +14,9 @@
 #include <QTabWidget>
 #include <QMessageBox>
 #include <QEvent>
+#include <QSettings>
+#include <QApplication>
+#include <QSignalBlocker>
 
 namespace ui::widgets {
 
@@ -83,7 +86,10 @@ void FrameAnalyzerWidget::createInputGroup()
     inputEditor_->setMaximumHeight(100);
     groupLayout->addWidget(inputEditor_);
 
+    connect(startAddressSpin_, qOverload<int>(&QSpinBox::valueChanged), this, &FrameAnalyzerWidget::saveSettings);
+
     layout()->addWidget(inputGroup_);
+    loadSettings();
 }
 
 void FrameAnalyzerWidget::createResultGroup()
@@ -164,6 +170,24 @@ void FrameAnalyzerWidget::onParseClicked()
 
     ParseResult result = ModbusFrameParser::parse(frame, type, startAddr);
     renderResult(result);
+}
+
+void FrameAnalyzerWidget::loadSettings()
+{
+    QSettings settings(QApplication::applicationDirPath() + "/config.ini", QSettings::IniFormat);
+    QSignalBlocker blocker(startAddressSpin_);
+    const QString key = "frame_analyzer/startAddr";
+    const int value = settings.value(key, startAddressSpin_->value()).toInt();
+    startAddressSpin_->setValue(value);
+    if (!settings.contains(key)) {
+        settings.setValue(key, value);
+    }
+}
+
+void FrameAnalyzerWidget::saveSettings()
+{
+    QSettings settings(QApplication::applicationDirPath() + "/config.ini", QSettings::IniFormat);
+    settings.setValue("frame_analyzer/startAddr", startAddressSpin_->value());
 }
 
 void FrameAnalyzerWidget::renderResult(const ParseResult& result)

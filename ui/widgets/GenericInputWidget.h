@@ -10,6 +10,7 @@ class QSpinBox;
 class QPushButton;
 class QProgressBar;
 class QEvent;
+class QString;
 
 namespace ui::widgets {
 
@@ -21,6 +22,7 @@ public:
     ~GenericInputWidget() override;
 
     void appendData(const QByteArray& data); // For feedback if needed? No, input is for sending.
+    void setSettingsGroup(const QString& group);
 
 signals:
     void sendRequested(const QByteArray& data);
@@ -43,6 +45,8 @@ private slots:
 private:
     void setupUi();
     QByteArray getData() const;
+    void loadSettings();
+    void saveSettings();
     void retranslateUi();
     void changeEvent(QEvent* event) override;
 
@@ -55,6 +59,7 @@ private:
     QPushButton* sendFileBtn_ = nullptr;
     
     QTimer* autoSendTimer_ = nullptr;
+    QString settingsGroup_;
 };
 
 } // namespace ui::widgets

@@ -47,9 +47,11 @@ void ModbusTcpView::setupUi() {
     mainLayout_->setSpacing(10);
     
     connectionWidget_ = new widgets::TcpConnectionWidget(this);
+    connectionWidget_->setSettingsGroup("modbus/tcp");
     mainLayout_->addWidget(connectionWidget_);
     
     functionWidget_ = new widgets::FunctionWidget(this);
+    functionWidget_->setSettingsGroup("modbus/tcp/standard");
     mainLayout_->addWidget(functionWidget_);
     
     dataGroup_ = new QGroupBox(this);
@@ -93,9 +95,11 @@ void ModbusTcpView::setupUi() {
 
     trafficMonitor_ = new widgets::TrafficMonitorWidget(this);
     trafficMonitor_->setMinimumHeight(200);
+    trafficMonitor_->setSettingsGroup("modbus/tcp/traffic");
     mainLayout_->addWidget(trafficMonitor_);
 
     controlWidget_ = new widgets::ControlWidget(this);
+    controlWidget_->setSettingsGroup("modbus/tcp/control");
     mainLayout_->addWidget(controlWidget_);
     
     connect(connectionWidget_, &widgets::TcpConnectionWidget::connectClicked, 

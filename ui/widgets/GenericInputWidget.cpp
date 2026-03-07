@@ -13,6 +13,9 @@
 #include <QMessageBox>
 #include <QDebug>
 #include <QEvent>
+#include <QSettings>
+#include <QApplication>
+#include <QSignalBlocker>
 
 namespace ui::widgets {
 
@@ -79,6 +82,8 @@ void GenericInputWidget::setupUi() {
     connect(asciiRadio_, &QRadioButton::toggled, [this](bool checked){
         if (checked) onFormatChanged();
     });
+    connect(hexRadio_, &QRadioButton::toggled, this, &GenericInputWidget::saveSettings);
+    connect(asciiRadio_, &QRadioButton::toggled, this, &GenericInputWidget::saveSettings);
     
     connect(autoSendCheck_, &QCheckBox::toggled, this, &GenericInputWidget::onAutoSendToggled);
     connect(sendBtn_, &QPushButton::clicked, this, &GenericInputWidget::onSendClicked);
@@ -112,6 +117,38 @@ void GenericInputWidget::onFormatChanged() {
         // For now, just set as Utf8
         inputEdit_->setText(QString::fromUtf8(data));
     }
+}
+
+void GenericInputWidget::setSettingsGroup(const QString& group) {
+    settingsGroup_ = group;
+    loadSettings();
+}
+
+void GenericInputWidget::loadSettings() {
+    if (settingsGroup_.isEmpty()) return;
+    QSettings settings(QApplication::applicationDirPath() + "/config.ini", QSettings::IniFormat);
+    const QString key = settingsGroup_ + "/format";
+    QString format = settings.value(key, "hex").toString().toLower();
+
+    QSignalBlocker b1(hexRadio_);
+    QSignalBlocker b2(asciiRadio_);
+    if (format == "ascii") {
+        asciiRadio_->setChecked(true);
+    } else {
+        hexRadio_->setChecked(true);
+        format = "hex";
+    }
+
+    if (!settings.contains(key)) {
+        settings.setValue(key, format);
+    }
+}
+
+void GenericInputWidget::saveSettings() {
+    if (settingsGroup_.isEmpty()) return;
+    QSettings settings(QApplication::applicationDirPath() + "/config.ini", QSettings::IniFormat);
+    const QString format = hexRadio_->isChecked() ? "hex" : "ascii";
+    settings.setValue(settingsGroup_ + "/format", format);
 }
 
 QByteArray GenericInputWidget::getData() const {

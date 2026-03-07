@@ -8,6 +8,7 @@ class QComboBox;
 class QLabel;
 class QTimer;
 class QEvent;
+class QString;
 
 namespace ui::widgets {
 
@@ -20,6 +21,7 @@ public:
 
     void updateStats(bool isTx, int rttMs, bool isError = false);
     void resetStats();
+    void setSettingsGroup(const QString& group);
 
 signals:
     // Poll Requested: Function Code, Address, Quantity
@@ -29,6 +31,8 @@ private:
     void setupUi();
     void onTimer();
     void updateStatsLabel();
+    void loadSettings();
+    void saveSettings();
     void retranslateUi();
     void changeEvent(QEvent* event) override;
 
@@ -51,6 +55,8 @@ private:
     int rxCount_ = 0;
     int errorCount_ = 0;
     int lastRtt_ = 0;
+
+    QString settingsGroup_;
 };
 
 } // namespace ui::widgets

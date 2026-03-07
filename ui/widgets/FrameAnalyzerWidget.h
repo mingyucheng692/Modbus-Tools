@@ -38,6 +38,8 @@ private:
     void retranslateUi();
     void createInputGroup();
     void createResultGroup();
+    void loadSettings();
+    void saveSettings();
     
     // 渲染解析结果
     void renderResult(const struct modbus::core::parser::ParseResult& result);
