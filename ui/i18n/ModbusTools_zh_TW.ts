@@ -247,6 +247,17 @@
         <source>Retry Interval (ms):</source>
         <translation>重試間隔(ms)：</translation>
     </message>
+    <message>
+        <location filename="../MainWindow.cpp" line="103"/>
+        <location filename="../MainWindow.cpp" line="229"/>
+        <source>About</source>
+        <translation>關於</translation>
+    </message>
+    <message>
+        <location filename="../MainWindow.cpp" line="192"/>
+        <source>Welcome to Modbus-Tools&lt;br&gt;Version: v1.0.0&lt;br&gt;&lt;br&gt;An open-source Modbus communication debugging assistant.&lt;br&gt;Developer: mingyucheng692&lt;br&gt;License: MIT License&lt;br&gt;&lt;br&gt;This project is developed in spare time, completely free and open-source.&lt;br&gt;Feel free to star on GitHub or submit issues.&lt;br&gt;Your feedback keeps the project improving!&lt;br&gt;&lt;br&gt;&lt;a href="https://github.com/mingyucheng692/Modbus-Tools"&gt;🌐 Visit GitHub Repository&lt;/a&gt;&amp;nbsp;&amp;nbsp;&amp;nbsp;&lt;a href="https://github.com/mingyucheng692/Modbus-Tools/issues"&gt;🐛 Issue Tracker&lt;/a&gt;&lt;br&gt;&lt;br&gt;--------------------------&lt;br&gt;This software is provided &amp;quot;as is&amp;quot; without warranty of any kind.</source>
+        <translation>歡迎使用 Modbus-Tools&lt;br&gt;版本：v1.0.0&lt;br&gt;&lt;br&gt;一款開源的 Modbus 通訊除錯助手。&lt;br&gt;開發者：mingyucheng692&lt;br&gt;授權條款：MIT License&lt;br&gt;&lt;br&gt;本專案由個人業餘開發，完全免費且開源。&lt;br&gt;歡迎在 GitHub 上 Star ⭐ 或提交 Issue。&lt;br&gt;您的回饋是專案持續改進的動力！&lt;br&gt;&lt;br&gt;&lt;a href="https://github.com/mingyucheng692/Modbus-Tools"&gt;🌐 造訪 GitHub 倉庫&lt;/a&gt;&amp;nbsp;&amp;nbsp;&amp;nbsp;&lt;a href="https://github.com/mingyucheng692/Modbus-Tools/issues"&gt;🐛 問題回報&lt;/a&gt;&lt;br&gt;&lt;br&gt;--------------------------&lt;br&gt;本軟體按&amp;quot;原樣&amp;quot;提供，無任何形式的保證。</translation>
+    </message>
 </context>
 <context>
     <name>ui::views::generic_serial::GenericSerialView</name>

@@ -26,11 +26,13 @@ private:
     void createNavigation();
     void setupSettingsMenu();
     void setupLanguageMenu();
+    void setupAboutMenu();
     void retranslateUi();
     void applyLanguage(const QString& locale);
     void loadModbusSettings();
     void applyModbusSettingsToViews();
     void openSettingsDialog();
+    void openAboutDialog();
     void changeEvent(QEvent* event) override;
 
     QListWidget* navigationList_ = nullptr;
@@ -39,6 +41,8 @@ private:
     views::modbus_rtu::ModbusRtuView* modbusRtuView_ = nullptr;
     QMenu* settingsMenu_ = nullptr;
     QAction* modbusSettingsAction_ = nullptr;
+    QMenu* aboutMenu_ = nullptr;
+    QAction* aboutAction_ = nullptr;
     QMenu* languageMenu_ = nullptr;
     QActionGroup* languageActionGroup_ = nullptr;
     QAction* langEnAction_ = nullptr;

@@ -23,6 +23,7 @@
 #include <QFormLayout>
 #include <QCheckBox>
 #include <QSpinBox>
+#include <QLabel>
 #include <QSettings>
 #include <spdlog/spdlog.h>
 #include "modbus/base/ModbusConfig.h"
@@ -73,8 +74,9 @@ void MainWindow::setupUi() {
     // Set default view
     navigationList_->setCurrentRow(0);
 
-    setupSettingsMenu();
     setupLanguageMenu();
+    setupSettingsMenu();
+    setupAboutMenu();
     loadModbusSettings();
     applyModbusSettingsToViews();
     applyLanguage(currentLocale_);
@@ -122,6 +124,12 @@ void MainWindow::setupLanguageMenu() {
     connect(languageActionGroup_, &QActionGroup::triggered, this, [this](QAction* action) {
         applyLanguage(action->data().toString());
     });
+}
+
+void MainWindow::setupAboutMenu() {
+    aboutMenu_ = menuBar()->addMenu(tr("About"));
+    aboutAction_ = aboutMenu_->addAction(tr("About"));
+    connect(aboutAction_, &QAction::triggered, this, &MainWindow::openAboutDialog);
 }
 
 void MainWindow::loadModbusSettings() {
@@ -197,6 +205,40 @@ void MainWindow::openSettingsDialog() {
     }
 }
 
+void MainWindow::openAboutDialog() {
+    QDialog dialog(this);
+    dialog.setWindowTitle(tr("About"));
+    dialog.setMinimumWidth(420);
+
+    auto layout = new QVBoxLayout(&dialog);
+    auto aboutLabel = new QLabel(&dialog);
+    aboutLabel->setWordWrap(true);
+    aboutLabel->setTextFormat(Qt::RichText);
+    aboutLabel->setOpenExternalLinks(true);
+    aboutLabel->setTextInteractionFlags(Qt::TextBrowserInteraction);
+    aboutLabel->setText(tr("Welcome to Modbus-Tools<br>"
+                            "Version: v1.0.0<br><br>"
+                            "An open-source Modbus communication debugging assistant.<br>"
+                            "Developer: mingyucheng692<br>"
+                            "License: MIT License<br><br>"
+                            "This project is developed in spare time, completely free and open-source.<br>"
+                            "Feel free to star on GitHub or submit issues.<br>"
+                            "Your feedback keeps the project improving!<br><br>"
+                            "<a href=\"https://github.com/mingyucheng692/Modbus-Tools\">🌐 Visit GitHub Repository</a>"
+                            "&nbsp;&nbsp;&nbsp;"
+                            "<a href=\"https://github.com/mingyucheng692/Modbus-Tools/issues\">🐛 Issue Tracker</a>"
+                            "<br><br>"
+                            "--------------------------<br>"
+                            "This software is provided &quot;as is&quot; without warranty of any kind."));
+    layout->addWidget(aboutLabel);
+
+    auto buttonBox = new QDialogButtonBox(QDialogButtonBox::Ok, &dialog);
+    layout->addWidget(buttonBox);
+    connect(buttonBox, &QDialogButtonBox::accepted, &dialog, &QDialog::accept);
+
+    dialog.exec();
+}
+
 void MainWindow::applyLanguage(const QString& locale) {
     qApp->removeTranslator(&qtTranslator_);
     qApp->removeTranslator(&appTranslator_);
@@ -241,8 +283,14 @@ void MainWindow::retranslateUi() {
     if (settingsMenu_) {
         settingsMenu_->setTitle(tr("Settings"));
     }
+    if (aboutMenu_) {
+        aboutMenu_->setTitle(tr("About"));
+    }
     if (modbusSettingsAction_) {
         modbusSettingsAction_->setText(tr("Modbus Settings"));
+    }
+    if (aboutAction_) {
+        aboutAction_->setText(tr("About"));
     }
     if (langEnAction_) {
         langEnAction_->setText(tr("English (US)"));
