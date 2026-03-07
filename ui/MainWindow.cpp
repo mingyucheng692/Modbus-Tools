@@ -5,6 +5,7 @@
 #include "views/generic_serial/GenericSerialView.h"
 #include "widgets/FrameAnalyzerWidget.h"
 #include "widgets/DisclaimerDialog.h"
+#include "widgets/UpdateSettingsDialog.h"
 #include "common/Theme.h"
 #include "common/UpdateChecker.h"
 #include <QDesktopServices>
@@ -25,6 +26,7 @@
 #include <QDialogButtonBox>
 #include <QFormLayout>
 #include <QCheckBox>
+#include <QDateTime>
 #include <QSpinBox>
 #include <QLabel>
 #include <QMessageBox>
@@ -95,8 +97,13 @@ void MainWindow::setupUi() {
         }
     }
     loadModbusSettings();
+    loadUpdateSettings();
     applyModbusSettingsToViews();
     applyLanguage(currentLocale_);
+    refreshUpdateIndicators();
+    if (shouldAutoCheckUpdates()) {
+        performUpdateCheck(false);
+    }
     showDisclaimerIfNeeded();
 }
 
@@ -116,7 +123,9 @@ void MainWindow::createNavigation() {
 void MainWindow::setupSettingsMenu() {
     settingsMenu_ = menuBar()->addMenu(tr("Settings"));
     modbusSettingsAction_ = settingsMenu_->addAction(tr("Modbus Settings"));
-    connect(modbusSettingsAction_, &QAction::triggered, this, &MainWindow::openSettingsDialog);
+    connect(modbusSettingsAction_, &QAction::triggered, this, &MainWindow::openModbusSettingsDialog);
+    updateSettingsAction_ = settingsMenu_->addAction(tr("Update Settings"));
+    connect(updateSettingsAction_, &QAction::triggered, this, &MainWindow::openUpdateSettingsDialog);
 }
 
 void MainWindow::setupLanguageMenu() {
@@ -151,6 +160,7 @@ void MainWindow::setupAboutMenu() {
     aboutMenu_->addSeparator();
     aboutAction_ = aboutMenu_->addAction(tr("About"));
     connect(aboutAction_, &QAction::triggered, this, &MainWindow::openAboutDialog);
+    refreshUpdateIndicators();
 }
 
 void MainWindow::loadModbusSettings() {
@@ -184,7 +194,18 @@ void MainWindow::applyModbusSettingsToViews() {
     }
 }
 
-void MainWindow::openSettingsDialog() {
+void MainWindow::loadUpdateSettings() {
+    QSettings settings(QApplication::applicationDirPath() + "/config.ini", QSettings::IniFormat);
+    updateCheckFrequency_ = settings.value("app/updateCheckFrequency", "startup").toString();
+    if (updateCheckFrequency_.isEmpty()) {
+        updateCheckFrequency_ = "startup";
+    }
+    if (!settings.contains("app/updateCheckFrequency")) {
+        settings.setValue("app/updateCheckFrequency", updateCheckFrequency_);
+    }
+}
+
+void MainWindow::openModbusSettingsDialog() {
     QDialog dialog(this);
     dialog.setWindowTitle(tr("Modbus Settings"));
     auto layout = new QVBoxLayout(&dialog);
@@ -238,6 +259,16 @@ void MainWindow::openSettingsDialog() {
     }
 }
 
+void MainWindow::openUpdateSettingsDialog() {
+    widgets::UpdateSettingsDialog dialog(updateCheckFrequency_, this);
+    if (dialog.exec() != QDialog::Accepted) {
+        return;
+    }
+    updateCheckFrequency_ = dialog.selectedFrequency();
+    QSettings settings(QApplication::applicationDirPath() + "/config.ini", QSettings::IniFormat);
+    settings.setValue("app/updateCheckFrequency", updateCheckFrequency_);
+}
+
 void MainWindow::openAboutDialog() {
     QDialog dialog(this);
     dialog.setWindowTitle(tr("About"));
@@ -274,10 +305,66 @@ void MainWindow::openAboutDialog() {
 }
 
 void MainWindow::checkForUpdates() {
+    if (updateAvailable_ && !pendingLatestVersion_.isEmpty()) {
+        const QString message = tr("Current version: v%1\nLatest version: v%2\n\nOpen download page now?")
+                                    .arg(common::UpdateChecker::currentVersion(), pendingLatestVersion_);
+        const auto result = QMessageBox::question(this, tr("Update Available"), message, QMessageBox::Yes | QMessageBox::No);
+        if (result == QMessageBox::Yes) {
+            const QString targetUrl = pendingDownloadUrl_.isEmpty() ? pendingReleaseUrl_ : pendingDownloadUrl_;
+            if (!targetUrl.isEmpty()) {
+                QDesktopServices::openUrl(QUrl(targetUrl));
+            }
+        }
+        return;
+    }
     if (checkUpdatesAction_) {
         checkUpdatesAction_->setEnabled(false);
     }
+    performUpdateCheck(true);
+}
+
+void MainWindow::performUpdateCheck(bool manual) {
+    checkingUpdateManually_ = manual;
+    QSettings settings(QApplication::applicationDirPath() + "/config.ini", QSettings::IniFormat);
+    settings.setValue("app/updateLastCheckUtc", QDateTime::currentDateTimeUtc().toString(Qt::ISODate));
     updateChecker_->checkForUpdates();
+}
+
+bool MainWindow::shouldAutoCheckUpdates() const {
+    if (updateCheckFrequency_ == "off") {
+        return false;
+    }
+    if (updateCheckFrequency_ == "startup") {
+        return true;
+    }
+    QSettings settings(QApplication::applicationDirPath() + "/config.ini", QSettings::IniFormat);
+    const QString lastCheckUtc = settings.value("app/updateLastCheckUtc").toString();
+    if (lastCheckUtc.isEmpty()) {
+        return true;
+    }
+    const QDateTime lastCheck = QDateTime::fromString(lastCheckUtc, Qt::ISODate);
+    if (!lastCheck.isValid()) {
+        return true;
+    }
+    const qint64 elapsedDays = lastCheck.daysTo(QDateTime::currentDateTimeUtc());
+    if (updateCheckFrequency_ == "weekly") {
+        return elapsedDays >= 7;
+    }
+    if (updateCheckFrequency_ == "monthly") {
+        return elapsedDays >= 30;
+    }
+    return true;
+}
+
+void MainWindow::refreshUpdateIndicators() {
+    const QString aboutText = tr("About");
+    const QString checkText = tr("Check for Updates");
+    if (aboutMenu_) {
+        aboutMenu_->setTitle(updateAvailable_ ? aboutText + QStringLiteral(" ●") : aboutText);
+    }
+    if (checkUpdatesAction_) {
+        checkUpdatesAction_->setText(updateAvailable_ ? checkText + QStringLiteral(" ●") : checkText);
+    }
 }
 
 void MainWindow::handleUpdateAvailable(const QString& currentVersion,
@@ -288,14 +375,24 @@ void MainWindow::handleUpdateAvailable(const QString& currentVersion,
         checkUpdatesAction_->setEnabled(true);
     }
 
+    updateAvailable_ = true;
+    pendingLatestVersion_ = latestVersion;
+    pendingDownloadUrl_ = downloadUrl;
+    pendingReleaseUrl_ = releaseUrl;
+    refreshUpdateIndicators();
+
+    if (!checkingUpdateManually_) {
+        return;
+    }
+
     const QString message = tr("Current version: v%1\nLatest version: v%2\n\nOpen download page now?")
-                                .arg(currentVersion, latestVersion);
+                                .arg(currentVersion, pendingLatestVersion_);
     const auto result = QMessageBox::question(this, tr("Update Available"), message, QMessageBox::Yes | QMessageBox::No);
     if (result != QMessageBox::Yes) {
         return;
     }
 
-    const QString targetUrl = downloadUrl.isEmpty() ? releaseUrl : downloadUrl;
+    const QString targetUrl = pendingDownloadUrl_.isEmpty() ? pendingReleaseUrl_ : pendingDownloadUrl_;
     if (!targetUrl.isEmpty()) {
         QDesktopServices::openUrl(QUrl(targetUrl));
     }
@@ -305,15 +402,24 @@ void MainWindow::handleNoUpdateAvailable(const QString& currentVersion) {
     if (checkUpdatesAction_) {
         checkUpdatesAction_->setEnabled(true);
     }
-    QMessageBox::information(this, tr("No Updates"),
-                             tr("You are already using the latest version: v%1").arg(currentVersion));
+    updateAvailable_ = false;
+    pendingLatestVersion_.clear();
+    pendingDownloadUrl_.clear();
+    pendingReleaseUrl_.clear();
+    refreshUpdateIndicators();
+    if (checkingUpdateManually_) {
+        QMessageBox::information(this, tr("No Updates"),
+                                 tr("You are already using the latest version: v%1").arg(currentVersion));
+    }
 }
 
 void MainWindow::handleUpdateCheckFailed(const QString& reason) {
     if (checkUpdatesAction_) {
         checkUpdatesAction_->setEnabled(true);
     }
-    QMessageBox::warning(this, tr("Update Check Failed"), reason);
+    if (checkingUpdateManually_) {
+        QMessageBox::warning(this, tr("Update Check Failed"), reason);
+    }
 }
 
 void MainWindow::showDisclaimerIfNeeded() {
@@ -384,6 +490,9 @@ void MainWindow::retranslateUi() {
     if (modbusSettingsAction_) {
         modbusSettingsAction_->setText(tr("Modbus Settings"));
     }
+    if (updateSettingsAction_) {
+        updateSettingsAction_->setText(tr("Update Settings"));
+    }
     if (checkUpdatesAction_) {
         checkUpdatesAction_->setText(tr("Check for Updates"));
     }
@@ -402,6 +511,7 @@ void MainWindow::retranslateUi() {
         langZhTwAction_->setText(tr("繁體中文"));
         langZhTwAction_->setChecked(currentLocale_ == "zh_TW");
     }
+    refreshUpdateIndicators();
 }
 
 void MainWindow::changeEvent(QEvent* event) {

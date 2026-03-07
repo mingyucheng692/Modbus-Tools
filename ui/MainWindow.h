@@ -14,6 +14,7 @@ namespace ui {
 namespace views::modbus_tcp { class ModbusTcpView; }
 namespace views::modbus_rtu { class ModbusRtuView; }
 namespace common { class UpdateChecker; }
+namespace widgets { class UpdateSettingsDialog; }
 
 class MainWindow : public QMainWindow {
     Q_OBJECT
@@ -31,10 +32,15 @@ private:
     void retranslateUi();
     void applyLanguage(const QString& locale);
     void loadModbusSettings();
+    void loadUpdateSettings();
     void applyModbusSettingsToViews();
-    void openSettingsDialog();
+    void openModbusSettingsDialog();
+    void openUpdateSettingsDialog();
     void openAboutDialog();
     void checkForUpdates();
+    void performUpdateCheck(bool manual);
+    bool shouldAutoCheckUpdates() const;
+    void refreshUpdateIndicators();
     void handleUpdateAvailable(const QString& currentVersion,
                                const QString& latestVersion,
                                const QString& downloadUrl,
@@ -50,6 +56,7 @@ private:
     views::modbus_rtu::ModbusRtuView* modbusRtuView_ = nullptr;
     QMenu* settingsMenu_ = nullptr;
     QAction* modbusSettingsAction_ = nullptr;
+    QAction* updateSettingsAction_ = nullptr;
     QMenu* aboutMenu_ = nullptr;
     QAction* checkUpdatesAction_ = nullptr;
     QAction* aboutAction_ = nullptr;
@@ -66,6 +73,12 @@ private:
     int modbusRetries_ = 0;
     int modbusRetryIntervalMs_ = 100;
     bool modbusRetryEnabled_ = false;
+    QString updateCheckFrequency_ = "startup";
+    bool updateAvailable_ = false;
+    bool checkingUpdateManually_ = false;
+    QString pendingLatestVersion_;
+    QString pendingDownloadUrl_;
+    QString pendingReleaseUrl_;
 };
 
 } // namespace ui

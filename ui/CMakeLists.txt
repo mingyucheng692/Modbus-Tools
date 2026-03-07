@@ -28,6 +28,8 @@ target_sources(ui PRIVATE
     widgets/GenericInputWidget.h
     widgets/DisclaimerDialog.cpp
     widgets/DisclaimerDialog.h
+    widgets/UpdateSettingsDialog.cpp
+    widgets/UpdateSettingsDialog.h
     widgets/FrameAnalyzerWidget.cpp
     widgets/FrameAnalyzerWidget.h
 )
