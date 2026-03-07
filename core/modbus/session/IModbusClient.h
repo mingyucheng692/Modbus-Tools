@@ -13,13 +13,14 @@ struct ModbusResponse {
     base::Pdu pdu;
     bool isSuccess = false;
     QString error;
+    int rttMs = -1;
 
-    static ModbusResponse Success(base::Pdu pdu) {
-        return {pdu, true, QString()};
+    static ModbusResponse Success(base::Pdu pdu, int rttMs = -1) {
+        return {pdu, true, QString(), rttMs};
     }
     
     static ModbusResponse Error(QString error) {
-        return {base::Pdu(), false, error};
+        return {base::Pdu(), false, error, -1};
     }
 };
 

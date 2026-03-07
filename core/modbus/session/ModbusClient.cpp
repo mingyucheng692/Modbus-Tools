@@ -102,6 +102,7 @@ ModbusResponse ModbusClient::sendRequestInternal(const base::Pdu& request, int s
     QByteArray adu = transport_->buildRequest(request, targetSlaveId);
 
     // 3. 发送数据
+    auto start = std::chrono::steady_clock::now();
     if (!channel_->write(adu)) {
         return ModbusResponse::Error("Write failed");
     }
@@ -109,8 +110,8 @@ ModbusResponse ModbusClient::sendRequestInternal(const base::Pdu& request, int s
     // 4. 等待响应
     std::unique_lock<std::mutex> lock(mutex_);
     
-    // 使用绝对时间作为截止日期，借鉴 HHE-Tools 的稳健设计，避免循环中相对时间重置
-    auto deadline = std::chrono::steady_clock::now() + std::chrono::milliseconds(config_.timeoutMs);
+    // 使用绝对时间作为截止日期，避免循环中相对时间重置
+    auto deadline = start + std::chrono::milliseconds(config_.timeoutMs);
 
     while (true) {
         // 使用带谓词的 wait_until，原子化检查条件，防止虚假唤醒和竞态
@@ -152,7 +153,11 @@ ModbusResponse ModbusClient::sendRequestInternal(const base::Pdu& request, int s
                      // 如果功能码不匹配，可能是迟到的干扰包，继续在截止时间内等待
                      continue;
                 }
-                return ModbusResponse::Success(*pdu);
+                
+                // 计算 RTT (基于底层发送完成到接收完整解析的时间)
+                auto rttMs = std::chrono::duration_cast<std::chrono::milliseconds>(
+                    std::chrono::steady_clock::now() - start).count();
+                return ModbusResponse::Success(*pdu, static_cast<int>(rttMs));
             } else {
                 return ModbusResponse::Error("Response parsing failed (Invalid format)");
             }

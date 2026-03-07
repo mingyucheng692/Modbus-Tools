@@ -50,7 +50,7 @@ private:
     int txCount_ = 0;
     int rxCount_ = 0;
     int errorCount_ = 0;
-    long long totalRtt_ = 0;
+    int lastRtt_ = 0;
 };
 
 } // namespace ui::widgets

@@ -163,13 +163,10 @@ void ModbusTcpView::setupUi() {
                         return;
                     }
 
-                    // 借鉴 HHE-Tools 的分流设计：仅在成功时计算 RTT 和 RX 计数
+                    // 分流设计：仅在成功时通过底层测量的精确 RTT 更新统计
                     if (response.isSuccess) {
-                        auto end = std::chrono::steady_clock::now();
-                        auto rtt = std::chrono::duration_cast<std::chrono::milliseconds>(end - itStart->second).count();
-                        
-                        // 更新成功统计 (RX + 1, 添加 RTT 样本)
-                        controlWidget_->updateStats(false, static_cast<int>(rtt));
+                        // 更新成功统计 (RX + 1, 更新 RTT)
+                        controlWidget_->updateStats(false, response.rttMs);
 
                         if (itKind->second == RequestKind::Read) {
                             trafficMonitor_->appendInfo(tr("Success: Response received"));

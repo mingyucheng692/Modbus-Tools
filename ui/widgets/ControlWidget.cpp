@@ -43,7 +43,7 @@ void ControlWidget::updateStats(bool isTx, int rttMs, bool isError) {
     } else {
         rxCount_++;
         if (rttMs >= 0) {
-            totalRtt_ += rttMs;
+            lastRtt_ = rttMs;
         }
     }
     updateStatsLabel();
@@ -53,7 +53,7 @@ void ControlWidget::resetStats() {
     txCount_ = 0;
     rxCount_ = 0;
     errorCount_ = 0;
-    totalRtt_ = 0;
+    lastRtt_ = 0;
     updateStatsLabel();
 }
 
@@ -74,11 +74,10 @@ void ControlWidget::onTimer() {
 }
 
 void ControlWidget::updateStatsLabel() {
-    double avgRtt = (rxCount_ > 0) ? (double)totalRtt_ / rxCount_ : 0.0;
-    statsLabel_->setText(tr("TX: %1 | RX: %2 | Avg RTT: %3 ms")
+    statsLabel_->setText(tr("TX: %1 | RX: %2 | RTT: %3 ms")
                         .arg(txCount_)
                         .arg(rxCount_)
-                        .arg(avgRtt, 0, 'f', 1));
+                        .arg(lastRtt_));
 }
 
 void ControlWidget::setupUi() {
