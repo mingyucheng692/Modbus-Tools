@@ -1,6 +1,6 @@
 #include "ModbusFactory.h"
-#include "../transport/RtuTransport.h"
-#include "../transport/TcpTransport.h"
+#include "../transport/ModbusRtuTransport.h"
+#include "../transport/ModbusTcpTransport.h"
 #include "../session/ModbusClient.h"
 #include "../../io/SerialChannel.h"
 #include "../../io/TcpChannel.h"
@@ -58,9 +58,9 @@ std::shared_ptr<io::IChannel> ModbusFactory::createChannel(const base::ModbusCon
 
 std::shared_ptr<transport::ITransport> ModbusFactory::createTransport(const base::ModbusConfig& config) {
     if (config.mode == base::ModbusMode::RTU) {
-        return std::make_shared<transport::RtuTransport>();
+        return std::make_shared<transport::ModbusRtuTransport>();
     } else {
-        return std::make_shared<transport::TcpTransport>();
+        return std::make_shared<transport::ModbusTcpTransport>();
     }
 }
 

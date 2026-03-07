@@ -5,15 +5,14 @@
 
 namespace modbus::transport {
 
-class TcpTransport : public ITransport {
+class ModbusRtuTransport : public ITransport {
 public:
-    TcpTransport();
     QByteArray buildRequest(const base::Pdu& pdu, uint8_t slaveId) override;
     std::optional<base::Pdu> parseResponse(const QByteArray& adu) override;
     int checkIntegrity(const QByteArray& data) override;
 
 private:
-    uint16_t transactionId_;
+    uint16_t calculateCrc(const QByteArray& data);
 };
 
 } // namespace modbus::transport

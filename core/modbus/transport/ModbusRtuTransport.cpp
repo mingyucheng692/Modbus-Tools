@@ -1,10 +1,10 @@
-#include "RtuTransport.h"
+#include "ModbusRtuTransport.h"
 #include <QDataStream>
 #include <QIODevice>
 
 namespace modbus::transport {
 
-QByteArray RtuTransport::buildRequest(const base::Pdu& pdu, uint8_t slaveId) {
+QByteArray ModbusRtuTransport::buildRequest(const base::Pdu& pdu, uint8_t slaveId) {
     QByteArray adu;
     QDataStream stream(&adu, QIODevice::WriteOnly);
     stream << slaveId;
@@ -23,7 +23,7 @@ QByteArray RtuTransport::buildRequest(const base::Pdu& pdu, uint8_t slaveId) {
     return adu;
 }
 
-std::optional<base::Pdu> RtuTransport::parseResponse(const QByteArray& adu) {
+std::optional<base::Pdu> ModbusRtuTransport::parseResponse(const QByteArray& adu) {
     if (adu.size() < 4) { // 最小长度：地址(1) + 功能码(1) + CRC(2)
         return std::nullopt;
     }
@@ -44,7 +44,7 @@ std::optional<base::Pdu> RtuTransport::parseResponse(const QByteArray& adu) {
     return base::Pdu(static_cast<base::FunctionCode>(fc), payload);
 }
 
-int RtuTransport::checkIntegrity(const QByteArray& data) {
+int ModbusRtuTransport::checkIntegrity(const QByteArray& data) {
     if (data.size() < 4) {
         return 0; // 不完整
     }
@@ -86,7 +86,7 @@ int RtuTransport::checkIntegrity(const QByteArray& data) {
     return 0;
 }
 
-uint16_t RtuTransport::calculateCrc(const QByteArray& data) {
+uint16_t ModbusRtuTransport::calculateCrc(const QByteArray& data) {
     uint16_t crc = 0xFFFF;
     for (char c : data) {
         crc ^= static_cast<uint8_t>(c);

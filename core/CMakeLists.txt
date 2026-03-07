@@ -16,10 +16,10 @@ target_sources(core PRIVATE
     modbus/base/ModbusConfig.h
     # modbus transport
     modbus/transport/ITransport.h
-    modbus/transport/RtuTransport.h
-    modbus/transport/RtuTransport.cpp
-    modbus/transport/TcpTransport.h
-    modbus/transport/TcpTransport.cpp
+    modbus/transport/ModbusRtuTransport.h
+    modbus/transport/ModbusRtuTransport.cpp
+    modbus/transport/ModbusTcpTransport.h
+    modbus/transport/ModbusTcpTransport.cpp
     # modbus session
     modbus/session/IModbusClient.h
     modbus/session/ModbusClient.h

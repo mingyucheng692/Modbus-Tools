@@ -1,11 +1,11 @@
-#include "TcpTransport.h"
+#include "ModbusTcpTransport.h"
 #include <QtEndian>
 
 namespace modbus::transport {
 
-TcpTransport::TcpTransport() : transactionId_(0) {}
+ModbusTcpTransport::ModbusTcpTransport() : transactionId_(0) {}
 
-QByteArray TcpTransport::buildRequest(const base::Pdu& pdu, uint8_t slaveId) {
+QByteArray ModbusTcpTransport::buildRequest(const base::Pdu& pdu, uint8_t slaveId) {
     QByteArray adu;
     uint16_t transactionId = transactionId_++;
     uint16_t length = static_cast<uint16_t>(1 + 1 + pdu.data().size());
@@ -22,7 +22,7 @@ QByteArray TcpTransport::buildRequest(const base::Pdu& pdu, uint8_t slaveId) {
     return adu;
 }
 
-std::optional<base::Pdu> TcpTransport::parseResponse(const QByteArray& adu) {
+std::optional<base::Pdu> ModbusTcpTransport::parseResponse(const QByteArray& adu) {
     if (adu.size() < 7) { // 最小 MBAP 长度
         return std::nullopt;
     }
@@ -55,7 +55,7 @@ std::optional<base::Pdu> TcpTransport::parseResponse(const QByteArray& adu) {
     return base::Pdu(static_cast<base::FunctionCode>(fc), payload);
 }
 
-int TcpTransport::checkIntegrity(const QByteArray& data) {
+int ModbusTcpTransport::checkIntegrity(const QByteArray& data) {
     if (data.size() < 6) {
         return 0;
     }
