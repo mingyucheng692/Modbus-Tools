@@ -109,26 +109,37 @@ ModbusResponse ModbusClient::sendRequestInternal(const base::Pdu& request, int s
     // 4. 等待响应
     std::unique_lock<std::mutex> lock(mutex_);
     
-    // 循环等待直到收到完整包或超时
-    auto start = std::chrono::steady_clock::now();
-    auto timeout = std::chrono::milliseconds(config_.timeoutMs);
+    // 使用绝对时间作为截止日期，借鉴 HHE-Tools 的稳健设计，避免循环中相对时间重置
+    auto deadline = std::chrono::steady_clock::now() + std::chrono::milliseconds(config_.timeoutMs);
 
     while (true) {
-        if (cv_.wait_for(lock, timeout) == std::cv_status::timeout) {
+        // 使用带谓词的 wait_until，原子化检查条件，防止虚假唤醒和竞态
+        bool signaled = cv_.wait_until(lock, deadline, [this]() {
+            return responseReady_ || !lastError_.isEmpty();
+        });
+
+        if (!signaled) {
             return ModbusResponse::Error("Timeout");
         }
 
         // 检查是否有错误
         if (!lastError_.isEmpty()) {
-            return ModbusResponse::Error(lastError_);
+            QString err = lastError_;
+            lastError_.clear(); // 清理状态槽为下次做准备
+            return ModbusResponse::Error(err);
         }
 
-        // 检查完整性
+        // 重置准备就绪标志
+        responseReady_ = false;
+
+        // 检查数据完整性
         int integrity = transport_->checkIntegrity(buffer_);
         if (integrity > 0) {
             // 收到完整包
             QByteArray frame = buffer_.left(integrity);
-            buffer_.clear();
+            // 关键改进：仅从缓冲区移除已处理数据，保留后续可能存在的粘包数据
+            buffer_.remove(0, integrity); 
+            
             auto pdu = transport_->parseResponse(frame);
             if (pdu) {
                 // 检查是否是异常响应
@@ -136,31 +147,23 @@ ModbusResponse ModbusClient::sendRequestInternal(const base::Pdu& request, int s
                     return ModbusResponse::Error(QString("Modbus Exception: %1")
                                                  .arg(static_cast<int>(pdu->exceptionCode())));
                 }
-                // 简单的请求/响应匹配：检查功能码
-                // 注意：如果从站返回异常，功能码最高位被置1
+                // 请求/响应匹配检查
                 if (pdu->originalFunctionCode() != request.functionCode()) {
-                     // 可能是迟到的包，或者是错误的包，继续等待？
-                     // 简单起见，这里认为是协议错误
-                     return ModbusResponse::Error(QString("Function code mismatch: sent %1, received %2")
-                                                  .arg(static_cast<int>(request.functionCode()))
-                                                  .arg(static_cast<int>(pdu->functionCode())));
+                     // 如果功能码不匹配，可能是迟到的干扰包，继续在截止时间内等待
+                     continue;
                 }
                 return ModbusResponse::Success(*pdu);
             } else {
-                return ModbusResponse::Error("Response parsing failed (CRC error or invalid format)");
+                return ModbusResponse::Error("Response parsing failed (Invalid format)");
             }
         } else if (integrity == -1) {
-            // 数据错误，丢弃缓冲区重新开始？或者直接报错
-            // 简单起见，清空缓冲区继续等待后续数据（如果是 TCP流），或者报错
-            // 这里选择报错重试
+            // 协议解析发生严重错误，需清空缓冲区
+            buffer_.clear();
             return ModbusResponse::Error("Invalid data received");
         }
         
-        // integrity == 0，数据不完整，继续 wait
-        
-        // 更新剩余超时时间
-        auto now = std::chrono::steady_clock::now();
-        if (now - start > timeout) {
+        // integrity == 0，数据尚不完整，继续循环等待直到 deadline
+        if (std::chrono::steady_clock::now() >= deadline) {
              return ModbusResponse::Error("Timeout while waiting for full packet");
         }
     }

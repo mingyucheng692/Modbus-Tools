@@ -33,8 +33,14 @@ ModbusStack ModbusFactory::createStack(const base::ModbusConfig& config) {
             delete thread;
         }
     });
-    auto workerRaw = new dispatch::ModbusWorker(stack.client, stack.thread.get(), stack.thread.get());
-    stack.worker = std::shared_ptr<dispatch::ModbusWorker>(workerRaw, [](dispatch::ModbusWorker*) {});
+
+    // 关键修正：不设置 parent 才能被 moveToThread
+    auto workerRaw = new dispatch::ModbusWorker(stack.client, stack.thread.get(), nullptr);
+    stack.worker = std::shared_ptr<dispatch::ModbusWorker>(workerRaw, [workerRaw](dispatch::ModbusWorker*) {
+        if (workerRaw) {
+            workerRaw->deleteLater(); // 确保在事件循环中安全删除
+        }
+    });
     return stack;
 }
 

@@ -162,23 +162,28 @@ void ModbusTcpView::setupUi() {
                     if (itStart == requestStart_.end() || itKind == requestKinds_.end()) {
                         return;
                     }
-                    auto end = std::chrono::steady_clock::now();
-                    auto rtt = std::chrono::duration_cast<std::chrono::milliseconds>(end - itStart->second).count();
 
-                    controlWidget_->updateStats(true, -1);
-                    controlWidget_->updateStats(false, static_cast<int>(rtt));
+                    // 借鉴 HHE-Tools 的分流设计：仅在成功时计算 RTT 和 RX 计数
+                    if (response.isSuccess) {
+                        auto end = std::chrono::steady_clock::now();
+                        auto rtt = std::chrono::duration_cast<std::chrono::milliseconds>(end - itStart->second).count();
+                        
+                        // 更新成功统计 (RX + 1, 添加 RTT 样本)
+                        controlWidget_->updateStats(false, static_cast<int>(rtt));
 
-                    if (!response.isSuccess) {
-                        if (itKind->second == RequestKind::Poll) {
-                            trafficMonitor_->appendInfo(tr("Poll Error: %1").arg(response.error));
-                        } else {
-                            trafficMonitor_->appendInfo(tr("Error: %1").arg(response.error));
-                        }
-                    } else {
                         if (itKind->second == RequestKind::Read) {
                             trafficMonitor_->appendInfo(tr("Success: Response received"));
                         } else if (itKind->second == RequestKind::Write) {
                             trafficMonitor_->appendInfo(tr("Success: Write confirmed"));
+                        }
+                    } else {
+                        // 失败路径：仅更新 Error 计数，跳过 RTT 统计防止均值偏移
+                        controlWidget_->updateStats(false, -1, true);
+
+                        if (itKind->second == RequestKind::Poll) {
+                            trafficMonitor_->appendInfo(tr("Poll Error: %1").arg(response.error));
+                        } else {
+                            trafficMonitor_->appendInfo(tr("Error: %1").arg(response.error));
                         }
                     }
 
@@ -218,6 +223,9 @@ void ModbusTcpView::setupUi() {
             int requestId = nextRequestId();
             requestStart_[requestId] = std::chrono::steady_clock::now();
             requestKinds_[requestId] = RequestKind::Read;
+            
+            // 提交时立即更新 TX 统计，符合视觉直觉
+            controlWidget_->updateStats(true, -1);
             worker_->submit(request, slaveId, requestId);
     });
 
@@ -402,6 +410,9 @@ void ModbusTcpView::setupUi() {
             int requestId = nextRequestId();
             requestStart_[requestId] = std::chrono::steady_clock::now();
             requestKinds_[requestId] = RequestKind::Write;
+            
+            // 提交时立即更新 TX 统计
+            controlWidget_->updateStats(true, -1);
             worker_->submit(request, slaveId, requestId);
     });
     
@@ -435,6 +446,9 @@ void ModbusTcpView::setupUi() {
             int requestId = nextRequestId();
             requestStart_[requestId] = std::chrono::steady_clock::now();
             requestKinds_[requestId] = RequestKind::Poll;
+            
+            // 轮询提交时更新 TX 统计
+            controlWidget_->updateStats(true, -1);
             worker_->submit(request, slaveId, requestId);
     });
 
