@@ -6,6 +6,7 @@ add_library(ui STATIC)
 
 target_sources(ui PRIVATE
     common/Theme.cpp
+    assets.qrc
     i18n/i18n.qrc
     MainWindow.cpp
     views/modbus_tcp/ModbusTcpView.cpp

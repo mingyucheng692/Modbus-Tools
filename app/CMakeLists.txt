@@ -1,4 +1,5 @@
 add_executable(ModbusTools WIN32
+    app.rc
     main.cpp
 )
 

@@ -1,5 +1,7 @@
 # Modbus-Tools
 
+![Modbus-Tools Logo](assets/logo.svg)
+
 Languages: [English](README.md) | [简体中文](README_zh-CN.md) | [繁體中文](README_zh-TW.md)
 
 A personal Modbus / generic communication debugging assistant built in spare time, focused on fast connect, fast send/receive, and fast analysis.

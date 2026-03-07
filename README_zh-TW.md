@@ -1,5 +1,7 @@
 # Modbus-Tools
 
+![Modbus-Tools Logo](assets/logo.svg)
+
 語言: [English](README.md) | [簡體中文](README_zh-CN.md) | [繁體中文](README_zh-TW.md)
 
 這是一個利用業餘時間開發的 Modbus／通用通訊除錯助手，聚焦於快速連線、快速收發與快速分析。
