@@ -7,6 +7,7 @@ namespace io {
 class ChannelBase : public IChannel {
 public:
     ChannelState state() const override;
+    void moveToThread(QThread* thread) override;
     bool isOpen() const override;
     void setTimeouts(const Timeouts& timeouts) override;
     Timeouts timeouts() const override;

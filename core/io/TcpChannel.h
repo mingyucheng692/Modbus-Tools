@@ -12,6 +12,7 @@ public:
 
     ChannelKind kind() const override { return ChannelKind::Tcp; }
     bool open() override;
+    void moveToThread(QThread* thread) override;
     void close() override;
     bool write(QByteArrayView data) override;
     

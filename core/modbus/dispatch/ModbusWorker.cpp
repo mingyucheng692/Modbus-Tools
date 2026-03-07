@@ -1,4 +1,5 @@
 #include "ModbusWorker.h"
+#include <spdlog/spdlog.h>
 #include <QMetaObject>
 #include <QThread>
 
@@ -27,6 +28,7 @@ void ModbusWorker::start() {
 void ModbusWorker::stop() {
     if (stopping_) return;
     stopping_ = true;
+    spdlog::info("ModbusWorker: Stopping...");
 
     if (!thread_) {
         stopping_ = false;
@@ -34,6 +36,8 @@ void ModbusWorker::stop() {
     }
 
     if (QThread::currentThread() == thread_) {
+        spdlog::info("ModbusWorker: Stop from worker thread");
+        if (client_) client_->abort();
         handleDisconnect();
         thread_->quit();
         stopping_ = false;
@@ -41,9 +45,19 @@ void ModbusWorker::stop() {
     }
 
     if (thread_->isRunning()) {
-        QMetaObject::invokeMethod(this, [this]() { handleDisconnect(); }, Qt::BlockingQueuedConnection);
+        spdlog::info("ModbusWorker: Aborting client and waiting for thread...");
+        if (client_) client_->abort();
+        QMetaObject::invokeMethod(this, [this]() { 
+            spdlog::info("ModbusWorker: Handling disconnect in thread");
+            handleDisconnect(); 
+        }, Qt::BlockingQueuedConnection);
+        spdlog::info("ModbusWorker: Quitting thread...");
         thread_->quit();
-        thread_->wait();
+        if (!thread_->wait(2000)) {
+            spdlog::error("ModbusWorker: Thread wait timeout (2s)!");
+        } else {
+            spdlog::info("ModbusWorker: Thread stopped successfully");
+        }
     }
 
     stopping_ = false;

@@ -41,6 +41,9 @@ public:
     virtual void disconnect() = 0;
     virtual bool isConnected() const = 0;
     
+    // 中止当前正在进行的后台请求（用于关机/退出）
+    virtual void abort() = 0;
+    
     // 更新配置
     virtual void setConfig(const base::ModbusConfig& config) = 0;
 };

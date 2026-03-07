@@ -20,6 +20,7 @@ public:
     bool connect() override;
     void disconnect() override;
     bool isConnected() const override;
+    void abort() override;
     void setConfig(const base::ModbusConfig& config) override;
 
 private:
@@ -38,8 +39,9 @@ private:
     bool responseReady_ = false;
     QString lastError_;
     
-    // 保护 sendRequest 串行执行
-    std::mutex requestMutex_;
+    // 保护 sendRequest 串行执行，使用递归锁防止 processEvents 导致重入死锁
+    std::recursive_mutex requestMutex_;
+    std::atomic<bool> aborted_ {false};
 };
 
 } // namespace modbus::session

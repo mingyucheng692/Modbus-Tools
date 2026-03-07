@@ -7,6 +7,11 @@ ChannelState ChannelBase::state() const
     return state_;
 }
 
+void ChannelBase::moveToThread(QThread* thread)
+{
+    Q_UNUSED(thread);
+}
+
 bool ChannelBase::isOpen() const
 {
     return state_ == ChannelState::Open;

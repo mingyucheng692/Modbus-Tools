@@ -1,4 +1,5 @@
 #include "SerialChannel.h"
+#include <spdlog/spdlog.h>
 #include <QThread>
 #include <QMetaObject>
 
@@ -46,6 +47,10 @@ bool SerialChannel::open() {
     }
 }
 
+void SerialChannel::moveToThread(QThread* thread) {
+    serial_.moveToThread(thread);
+}
+
 void SerialChannel::close() {
     if (QThread::currentThread() != serial_.thread()) {
         QMetaObject::invokeMethod(&serial_, [this]() {
@@ -77,7 +82,8 @@ bool SerialChannel::write(QByteArrayView data) {
     if (written == dataBuffer.size()) {
         addTx(written);
         emitMonitor(true, dataBuffer);
-        // serial_.waitForBytesWritten(timeouts().writeMs); // Optional: blocking write
+        // 关键：确保数据已发送出缓冲区，提高 RTT 测量和超时判断的准确性
+        serial_.waitForBytesWritten(timeouts().writeMs);
         return true;
     }
     return false;
@@ -116,6 +122,7 @@ void SerialChannel::setRts(bool set) {
 void SerialChannel::onReadyRead() {
     QByteArray data = serial_.readAll();
     if (!data.isEmpty()) {
+        spdlog::info("SerialChannel: Received {} bytes", data.size());
         addRx(data.size());
         emitMonitor(false, data);
         emitRead(data);

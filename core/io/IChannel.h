@@ -6,6 +6,8 @@
 #include <QMetaType>
 #include <functional>
 
+class QThread;
+
 namespace io {
 
 enum class ChannelKind { Tcp, Serial };
@@ -27,6 +29,7 @@ public:
     virtual ChannelKind kind() const = 0;
     virtual ChannelState state() const = 0;
     virtual bool open() = 0;
+    virtual void moveToThread(QThread* thread) = 0;
     virtual void close() = 0;
     virtual bool isOpen() const = 0;
     virtual void setTimeouts(const Timeouts& timeouts) = 0;

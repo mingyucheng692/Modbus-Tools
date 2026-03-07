@@ -34,7 +34,9 @@ ModbusStack ModbusFactory::createStack(const base::ModbusConfig& config) {
         }
     });
 
-    // 关键修正：不设置 parent 才能被 moveToThread
+    stack.channel->moveToThread(stack.thread.get());
+
+    // 关键修正：不设置 parent 才能 be moveToThread
     auto workerRaw = new dispatch::ModbusWorker(stack.client, stack.thread.get(), nullptr);
     stack.worker = std::shared_ptr<dispatch::ModbusWorker>(workerRaw, [workerRaw](dispatch::ModbusWorker*) {
         if (workerRaw) {

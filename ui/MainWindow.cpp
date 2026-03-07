@@ -34,7 +34,9 @@ MainWindow::MainWindow(QWidget *parent)
     setupUi();
 }
 
-MainWindow::~MainWindow() = default;
+MainWindow::~MainWindow() {
+    spdlog::info("MainWindow: Destructor entry");
+}
 
 void MainWindow::setupUi() {
     setWindowTitle(tr("Modbus Tools"));

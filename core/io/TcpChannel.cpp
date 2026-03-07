@@ -1,4 +1,5 @@
 #include "TcpChannel.h"
+#include <spdlog/spdlog.h>
 #include <QThread>
 #include <QMetaObject>
 
@@ -45,6 +46,10 @@ bool TcpChannel::open() {
     }
 }
 
+void TcpChannel::moveToThread(QThread* thread) {
+    socket_.moveToThread(thread);
+}
+
 void TcpChannel::close() {
     if (QThread::currentThread() != socket_.thread()) {
         QMetaObject::invokeMethod(&socket_, [this]() {
@@ -78,7 +83,8 @@ bool TcpChannel::write(QByteArrayView data) {
     if (written == dataBuffer.size()) {
         addTx(written);
         emitMonitor(true, dataBuffer);
-        // socket_.waitForBytesWritten(timeouts().writeMs);
+        // 关键：确保数据已发送出 OS 缓冲区，提高 RTT 测量和超时判断的准确性
+        socket_.waitForBytesWritten(timeouts().writeMs);
         return true;
     }
     return false;
@@ -92,6 +98,7 @@ void TcpChannel::setEndpoint(const QString& ip, int port) {
 void TcpChannel::onReadyRead() {
     QByteArray data = socket_.readAll();
     if (!data.isEmpty()) {
+        spdlog::info("TcpChannel: Received {} bytes", data.size());
         addRx(data.size());
         emitMonitor(false, data);
         emitRead(data);
