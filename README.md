@@ -123,6 +123,12 @@ This software does not constitute professional engineering advice. For industria
 ### 7. Agreement
 **Downloading, installing, or using this software indicates that you have read, understood, and agreed to this disclaimer. If you do not agree, do not use this software.**
 
+## 🙏 Acknowledgements
+
+This project uses the following open-source library. Thanks to the author for the outstanding contribution:
+
+- **[spdlog](https://github.com/gabime/spdlog)** (MIT License): A high-performance C++ logging library that provides reliable logging support for this project.
+
 ## Status
 
 This is an evolving personal debugging tool. Feel free to adapt it to your own workflow.
