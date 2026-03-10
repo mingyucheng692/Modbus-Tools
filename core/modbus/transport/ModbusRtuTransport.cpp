@@ -68,7 +68,7 @@ int ModbusRtuTransport::checkIntegrity(const QByteArray& data) {
         if (calculateCrc(dataWithoutCrc) == receivedCrc) {
             return data.size();
         }
-        return 0;
+        return -1;
     }
 
     if (data.size() < expectedLength) {
@@ -83,7 +83,7 @@ int ModbusRtuTransport::checkIntegrity(const QByteArray& data) {
         return expectedLength;
     }
 
-    return 0;
+    return -1;
 }
 
 uint16_t ModbusRtuTransport::calculateCrc(const QByteArray& data) {
