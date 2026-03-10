@@ -69,6 +69,7 @@ private:
     std::recursive_mutex requestMutex_;
     std::atomic<bool> aborted_ {false};
     std::atomic<RequestState> requestState_ {RequestState::Idle};
+    std::mutex pendingMutex_;
     int nextRequestId_ = 1;
     std::deque<PendingRequest> pendingRequests_;
 };

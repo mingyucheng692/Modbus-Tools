@@ -34,6 +34,7 @@ ModbusClient::RequestState ModbusClient::requestState() const {
 }
 
 int ModbusClient::enqueuePendingRequest(const base::Pdu& request, int slaveId) {
+    std::lock_guard<std::mutex> pendingLock(pendingMutex_);
     PendingRequest item;
     item.requestId = nextRequestId_++;
     item.functionCode = request.functionCode();
@@ -51,6 +52,7 @@ int ModbusClient::enqueuePendingRequest(const base::Pdu& request, int slaveId) {
 }
 
 void ModbusClient::finishPendingRequest(int requestId, bool success, const QString& error) {
+    std::lock_guard<std::mutex> pendingLock(pendingMutex_);
     auto it = std::find_if(pendingRequests_.begin(), pendingRequests_.end(), [requestId](const PendingRequest& item) {
         return item.requestId == requestId;
     });
@@ -74,6 +76,7 @@ void ModbusClient::clearRuntimeState(bool clearPendingQueue) {
     responseReady_ = false;
     lastError_.clear();
     if (clearPendingQueue) {
+        std::lock_guard<std::mutex> pendingLock(pendingMutex_);
         pendingRequests_.clear();
     }
 }
