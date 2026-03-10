@@ -2,6 +2,7 @@
 #include <spdlog/spdlog.h>
 #include <chrono>
 #include <thread>
+#include <algorithm>
 
 namespace modbus::session {
 
@@ -30,6 +31,41 @@ void ModbusClient::transitionTo(RequestState newState, const char* reason) {
 
 ModbusClient::RequestState ModbusClient::requestState() const {
     return requestState_.load();
+}
+
+int ModbusClient::enqueuePendingRequest(const base::Pdu& request, int slaveId) {
+    PendingRequest item;
+    item.requestId = nextRequestId_++;
+    item.functionCode = request.functionCode();
+    item.slaveId = (slaveId == -1) ? config_.slaveId : slaveId;
+    item.timeoutMs = config_.timeoutMs;
+    item.retries = config_.retries;
+    item.enqueueAt = std::chrono::steady_clock::now();
+    pendingRequests_.push_back(item);
+    spdlog::info("ModbusClient: enqueue request id={}, fc={}, slave={}, queue={}",
+                 item.requestId,
+                 static_cast<int>(item.functionCode),
+                 item.slaveId,
+                 pendingRequests_.size());
+    return item.requestId;
+}
+
+void ModbusClient::finishPendingRequest(int requestId, bool success, const QString& error) {
+    auto it = std::find_if(pendingRequests_.begin(), pendingRequests_.end(), [requestId](const PendingRequest& item) {
+        return item.requestId == requestId;
+    });
+    if (it == pendingRequests_.end()) {
+        spdlog::warn("ModbusClient: request id={} not found in queue", requestId);
+        return;
+    }
+    const auto waitMs = std::chrono::duration_cast<std::chrono::milliseconds>(
+        std::chrono::steady_clock::now() - it->enqueueAt).count();
+    spdlog::info("ModbusClient: finish request id={}, success={}, queue_wait={}ms, error='{}'",
+                 requestId,
+                 success,
+                 waitMs,
+                 error.toStdString());
+    pendingRequests_.erase(it);
 }
 
 ModbusClient::ModbusClient(std::shared_ptr<io::IChannel> channel, 
@@ -96,17 +132,20 @@ ModbusResponse ModbusClient::sendRequest(const base::Pdu& request, int slaveId) 
     
     int retries = config_.retries;
     ModbusResponse lastResponse = ModbusResponse::Error("Unknown error");
+    const int requestId = enqueuePendingRequest(request, slaveId);
     transitionTo(RequestState::Idle, "request-start");
 
     for (int i = 0; i <= retries; ++i) {
         if (aborted_) {
             transitionTo(RequestState::Aborted, "request-aborted-before-send");
+            finishPendingRequest(requestId, false, "Aborted");
             return ModbusResponse::Error("Aborted");
         }
 
         lastResponse = sendRequestInternal(request, slaveId);
         if (lastResponse.isSuccess) {
             transitionTo(RequestState::Completed, "request-success");
+            finishPendingRequest(requestId, true, QString());
             return lastResponse;
         }
         
@@ -122,6 +161,7 @@ ModbusResponse ModbusClient::sendRequest(const base::Pdu& request, int slaveId) 
     } else {
         transitionTo(RequestState::Failed, "request-failed");
     }
+    finishPendingRequest(requestId, false, lastResponse.error);
     return lastResponse;
 }
 

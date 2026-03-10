@@ -6,6 +6,8 @@
 #include <mutex>
 #include <condition_variable>
 #include <atomic>
+#include <deque>
+#include <chrono>
 
 namespace modbus::session {
 
@@ -34,11 +36,22 @@ public:
     RequestState requestState() const;
 
 private:
+    struct PendingRequest {
+        int requestId = 0;
+        int slaveId = 1;
+        int timeoutMs = 1000;
+        int retries = 0;
+        base::FunctionCode functionCode = base::FunctionCode::ReadHoldingRegisters;
+        std::chrono::steady_clock::time_point enqueueAt{};
+    };
+
     ModbusResponse sendRequestInternal(const base::Pdu& request, int slaveId);
     void onDataReceived(QByteArrayView data);
     void onError(const QString& error);
     void transitionTo(RequestState newState, const char* reason);
     static const char* toString(RequestState state);
+    int enqueuePendingRequest(const base::Pdu& request, int slaveId);
+    void finishPendingRequest(int requestId, bool success, const QString& error);
 
     std::shared_ptr<io::IChannel> channel_;
     std::shared_ptr<transport::ITransport> transport_;
@@ -55,6 +68,8 @@ private:
     std::recursive_mutex requestMutex_;
     std::atomic<bool> aborted_ {false};
     std::atomic<RequestState> requestState_ {RequestState::Idle};
+    int nextRequestId_ = 1;
+    std::deque<PendingRequest> pendingRequests_;
 };
 
 } // namespace modbus::session
