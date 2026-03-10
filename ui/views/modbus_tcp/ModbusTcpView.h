@@ -40,6 +40,8 @@ private:
     void setupUi();
     void appendReceiveData(const QByteArray& data);
     void appendSendData(const QByteArray& data);
+    void refreshReceiveDisplay();
+    void refreshSendDisplay();
     QString formatData(const QByteArray& data, bool hex) const;
     void retranslateUi();
     void changeEvent(QEvent* event) override;
@@ -60,8 +62,12 @@ private:
     QTextEdit* sendTextEdit_ = nullptr;
     QCheckBox* receiveHexCheck_ = nullptr;
     QCheckBox* sendHexCheck_ = nullptr;
+    QPushButton* copyReceiveButton_ = nullptr;
+    QPushButton* copySendButton_ = nullptr;
     QPushButton* clearReceiveButton_ = nullptr;
     QPushButton* clearSendButton_ = nullptr;
+    QByteArray lastReceiveFrame_;
+    QByteArray lastSendFrame_;
 
     std::shared_ptr<io::IChannel> channel_;
     std::shared_ptr<modbus::session::IModbusClient> client_;

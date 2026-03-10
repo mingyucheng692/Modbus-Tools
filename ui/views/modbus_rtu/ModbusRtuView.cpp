@@ -13,6 +13,8 @@
 #include <QCheckBox>
 #include <QPushButton>
 #include <QEvent>
+#include <QClipboard>
+#include <QGuiApplication>
 #include <spdlog/spdlog.h>
 #include <QMetaObject>
 #include <QPointer>
@@ -55,20 +57,21 @@ void ModbusRtuView::setupUi() {
     mainLayout_->addWidget(functionWidget_);
     
     dataGroup_ = new QGroupBox(this);
-    auto dataLayout = new QVBoxLayout(dataGroup_);
+    auto dataLayout = new QHBoxLayout(dataGroup_);
 
     receiveGroup_ = new QGroupBox(dataGroup_);
     auto receiveLayout = new QVBoxLayout(receiveGroup_);
     auto receiveToolbar = new QHBoxLayout();
     receiveHexCheck_ = new QCheckBox(receiveGroup_);
     receiveHexCheck_->setChecked(true);
+    copyReceiveButton_ = new QPushButton(receiveGroup_);
     clearReceiveButton_ = new QPushButton(receiveGroup_);
     receiveToolbar->addWidget(receiveHexCheck_);
     receiveToolbar->addStretch();
+    receiveToolbar->addWidget(copyReceiveButton_);
     receiveToolbar->addWidget(clearReceiveButton_);
     receiveTextEdit_ = new QTextEdit(receiveGroup_);
     receiveTextEdit_->setReadOnly(true);
-    receiveTextEdit_->setMaximumHeight(180);
     receiveTextEdit_->document()->setMaximumBlockCount(1000);
     receiveLayout->addLayout(receiveToolbar);
     receiveLayout->addWidget(receiveTextEdit_);
@@ -78,23 +81,24 @@ void ModbusRtuView::setupUi() {
     auto sendToolbar = new QHBoxLayout();
     sendHexCheck_ = new QCheckBox(sendGroup_);
     sendHexCheck_->setChecked(true);
+    copySendButton_ = new QPushButton(sendGroup_);
     clearSendButton_ = new QPushButton(sendGroup_);
     sendToolbar->addWidget(sendHexCheck_);
     sendToolbar->addStretch();
+    sendToolbar->addWidget(copySendButton_);
     sendToolbar->addWidget(clearSendButton_);
     sendTextEdit_ = new QTextEdit(sendGroup_);
     sendTextEdit_->setReadOnly(true);
-    sendTextEdit_->setMaximumHeight(180);
     sendTextEdit_->document()->setMaximumBlockCount(1000);
     sendLayout->addLayout(sendToolbar);
     sendLayout->addWidget(sendTextEdit_);
 
-    dataLayout->addWidget(receiveGroup_);
-    dataLayout->addWidget(sendGroup_);
+    dataLayout->addWidget(receiveGroup_, 1);
+    dataLayout->addWidget(sendGroup_, 1);
     mainLayout_->addWidget(dataGroup_);
 
     trafficMonitor_ = new widgets::TrafficMonitorWidget(this);
-    trafficMonitor_->setMinimumHeight(200);
+    trafficMonitor_->setMinimumHeight(320);
     trafficMonitor_->setSettingsGroup("modbus/rtu/traffic");
     mainLayout_->addWidget(trafficMonitor_);
     
@@ -454,10 +458,30 @@ void ModbusRtuView::setupUi() {
     });
 
     connect(clearReceiveButton_, &QPushButton::clicked, [this]() {
+        lastReceiveFrame_.clear();
         if (receiveTextEdit_) receiveTextEdit_->clear();
     });
     connect(clearSendButton_, &QPushButton::clicked, [this]() {
+        lastSendFrame_.clear();
         if (sendTextEdit_) sendTextEdit_->clear();
+    });
+    connect(copyReceiveButton_, &QPushButton::clicked, [this]() {
+        if (!receiveTextEdit_) return;
+        auto* clipboard = QGuiApplication::clipboard();
+        if (!clipboard) return;
+        clipboard->setText(receiveTextEdit_->toPlainText());
+    });
+    connect(copySendButton_, &QPushButton::clicked, [this]() {
+        if (!sendTextEdit_) return;
+        auto* clipboard = QGuiApplication::clipboard();
+        if (!clipboard) return;
+        clipboard->setText(sendTextEdit_->toPlainText());
+    });
+    connect(receiveHexCheck_, &QCheckBox::toggled, this, [this]() {
+        refreshReceiveDisplay();
+    });
+    connect(sendHexCheck_, &QCheckBox::toggled, this, [this]() {
+        refreshSendDisplay();
     });
     
     mainLayout_->addStretch();
@@ -492,15 +516,33 @@ int ModbusRtuView::nextRequestId() {
 }
 
 void ModbusRtuView::appendReceiveData(const QByteArray& data) {
-    if (!receiveTextEdit_) return;
-    bool hex = receiveHexCheck_ ? receiveHexCheck_->isChecked() : true;
-    receiveTextEdit_->append(formatData(data, hex));
+    lastReceiveFrame_ = data;
+    refreshReceiveDisplay();
 }
 
 void ModbusRtuView::appendSendData(const QByteArray& data) {
+    lastSendFrame_ = data;
+    refreshSendDisplay();
+}
+
+void ModbusRtuView::refreshReceiveDisplay() {
+    if (!receiveTextEdit_) return;
+    if (lastReceiveFrame_.isEmpty()) {
+        receiveTextEdit_->clear();
+        return;
+    }
+    bool hex = receiveHexCheck_ ? receiveHexCheck_->isChecked() : true;
+    receiveTextEdit_->setPlainText(tr("[%1] %2").arg(tr("RX")).arg(formatData(lastReceiveFrame_, hex)));
+}
+
+void ModbusRtuView::refreshSendDisplay() {
     if (!sendTextEdit_) return;
+    if (lastSendFrame_.isEmpty()) {
+        sendTextEdit_->clear();
+        return;
+    }
     bool hex = sendHexCheck_ ? sendHexCheck_->isChecked() : true;
-    sendTextEdit_->append(formatData(data, hex));
+    sendTextEdit_->setPlainText(tr("[%1] %2").arg(tr("TX")).arg(formatData(lastSendFrame_, hex)));
 }
 
 void ModbusRtuView::retranslateUi() {
@@ -509,8 +551,12 @@ void ModbusRtuView::retranslateUi() {
     if (sendGroup_) sendGroup_->setTitle(tr("Send Data"));
     if (receiveHexCheck_) receiveHexCheck_->setText(tr("HEX"));
     if (sendHexCheck_) sendHexCheck_->setText(tr("HEX"));
+    if (copyReceiveButton_) copyReceiveButton_->setText(tr("Copy"));
+    if (copySendButton_) copySendButton_->setText(tr("Copy"));
     if (clearReceiveButton_) clearReceiveButton_->setText(tr("Clear"));
     if (clearSendButton_) clearSendButton_->setText(tr("Clear"));
+    refreshReceiveDisplay();
+    refreshSendDisplay();
 }
 
 void ModbusRtuView::changeEvent(QEvent* event) {

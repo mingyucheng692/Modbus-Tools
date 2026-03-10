@@ -7,9 +7,9 @@ class QSpinBox;
 class QLineEdit;
 class QComboBox;
 class QTextEdit;
-class QTabWidget;
 class QLabel;
 class QPushButton;
+class QGroupBox;
 class QEvent;
 class QString;
 
@@ -52,7 +52,8 @@ private:
     void onRawSendClicked();
 
     // Standard UI
-    QTabWidget* tabWidget_ = nullptr;
+    QGroupBox* standardGroup_ = nullptr;
+    QGroupBox* rawGroup_ = nullptr;
     QLabel* slaveIdLabel_ = nullptr;
     QSpinBox* slaveIdEdit_ = nullptr;
     QLabel* addressLabel_ = nullptr;

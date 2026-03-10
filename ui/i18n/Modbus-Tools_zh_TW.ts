@@ -23,125 +23,100 @@
 <context>
     <name>ModbusFrameParser</name>
     <message>
-        <location filename="../../core/modbus/parser/ModbusFrameParser.cpp" line="14"/>
         <source>Illegal Function</source>
-        <translation>非法功能碼</translation>
+        <translation type="vanished">非法功能碼</translation>
     </message>
     <message>
-        <location filename="../../core/modbus/parser/ModbusFrameParser.cpp" line="16"/>
         <source>Illegal Data Address</source>
-        <translation>非法資料位址</translation>
+        <translation type="vanished">非法資料位址</translation>
     </message>
     <message>
-        <location filename="../../core/modbus/parser/ModbusFrameParser.cpp" line="18"/>
         <source>Illegal Data Value</source>
-        <translation>非法資料值</translation>
+        <translation type="vanished">非法資料值</translation>
     </message>
     <message>
-        <location filename="../../core/modbus/parser/ModbusFrameParser.cpp" line="20"/>
         <source>Server Device Failure</source>
-        <translation>伺服器設備故障</translation>
+        <translation type="vanished">伺服器設備故障</translation>
     </message>
     <message>
-        <location filename="../../core/modbus/parser/ModbusFrameParser.cpp" line="22"/>
         <source>Acknowledge</source>
-        <translation>確認</translation>
+        <translation type="vanished">確認</translation>
     </message>
     <message>
-        <location filename="../../core/modbus/parser/ModbusFrameParser.cpp" line="24"/>
         <source>Server Device Busy</source>
-        <translation>伺服器設備忙碌</translation>
+        <translation type="vanished">伺服器設備忙碌</translation>
     </message>
     <message>
-        <location filename="../../core/modbus/parser/ModbusFrameParser.cpp" line="26"/>
         <source>Memory Parity Error</source>
-        <translation>記憶體同位檢查錯誤</translation>
+        <translation type="vanished">記憶體同位檢查錯誤</translation>
     </message>
     <message>
-        <location filename="../../core/modbus/parser/ModbusFrameParser.cpp" line="28"/>
         <source>Gateway Path Unavailable</source>
-        <translation>閘道路徑無法使用</translation>
+        <translation type="vanished">閘道路徑無法使用</translation>
     </message>
     <message>
-        <location filename="../../core/modbus/parser/ModbusFrameParser.cpp" line="30"/>
         <source>Gateway Target Device Failed To Respond</source>
-        <translation>閘道目標設備無回應</translation>
+        <translation type="vanished">閘道目標設備無回應</translation>
     </message>
     <message>
-        <location filename="../../core/modbus/parser/ModbusFrameParser.cpp" line="32"/>
         <source>Unknown Exception</source>
-        <translation>未知異常</translation>
+        <translation type="vanished">未知異常</translation>
     </message>
     <message>
-        <location filename="../../core/modbus/parser/ModbusFrameParser.cpp" line="43"/>
         <source>Empty frame data</source>
-        <translation>幀資料為空</translation>
+        <translation type="vanished">幀資料為空</translation>
     </message>
     <message>
-        <location filename="../../core/modbus/parser/ModbusFrameParser.cpp" line="55"/>
         <source>Unable to identify protocol (neither valid TCP nor RTU)</source>
-        <translation>無法識別通訊協定（非有效 TCP 或 RTU）</translation>
+        <translation type="vanished">無法識別通訊協定（非有效 TCP 或 RTU）</translation>
     </message>
     <message>
-        <location filename="../../core/modbus/parser/ModbusFrameParser.cpp" line="109"/>
         <source>Frame too short for Modbus TCP</source>
-        <translation>Modbus TCP 幀太短</translation>
+        <translation type="vanished">Modbus TCP 幀太短</translation>
     </message>
     <message>
-        <location filename="../../core/modbus/parser/ModbusFrameParser.cpp" line="125"/>
         <source>Incomplete TCP frame. Expected %1 bytes, got %2</source>
-        <translation>TCP 幀不完整。預期 %1 位元組，實際 %2</translation>
+        <translation type="vanished">TCP 幀不完整。預期 %1 位元組，實際 %2</translation>
     </message>
     <message>
-        <location filename="../../core/modbus/parser/ModbusFrameParser.cpp" line="168"/>
         <source>CRC Mismatch. Expected %1, Got %2</source>
-        <translation>CRC 檢查失敗。預期 %1，實際 %2</translation>
+        <translation type="vanished">CRC 檢查失敗。預期 %1，實際 %2</translation>
     </message>
     <message>
-        <location filename="../../core/modbus/parser/ModbusFrameParser.cpp" line="223"/>
         <source>Request: Start Address %1, Quantity %2</source>
-        <translation>請求：起始位址 %1，數量 %2</translation>
+        <translation type="vanished">請求：起始位址 %1，數量 %2</translation>
     </message>
     <message>
-        <location filename="../../core/modbus/parser/ModbusFrameParser.cpp" line="254"/>
         <source>Register %1</source>
-        <translation>暫存器 %1</translation>
+        <translation type="vanished">暫存器 %1</translation>
     </message>
     <message>
-        <location filename="../../core/modbus/parser/ModbusFrameParser.cpp" line="272"/>
         <source>Coil %1: %2</source>
-        <translation>線圈 %1: %2</translation>
+        <translation type="vanished">線圈 %1: %2</translation>
     </message>
     <message>
-        <location filename="../../core/modbus/parser/ModbusFrameParser.cpp" line="297"/>
         <source>Write Coil ON</source>
-        <translation>寫入線圈 ON</translation>
+        <translation type="vanished">寫入線圈 ON</translation>
     </message>
     <message>
-        <location filename="../../core/modbus/parser/ModbusFrameParser.cpp" line="298"/>
         <source>Write Coil OFF</source>
-        <translation>寫入線圈 OFF</translation>
+        <translation type="vanished">寫入線圈 OFF</translation>
     </message>
     <message>
-        <location filename="../../core/modbus/parser/ModbusFrameParser.cpp" line="301"/>
-        <location filename="../../core/modbus/parser/ModbusFrameParser.cpp" line="336"/>
         <source>Write Register %1</source>
-        <translation>寫入暫存器 %1</translation>
+        <translation type="vanished">寫入暫存器 %1</translation>
     </message>
     <message>
-        <location filename="../../core/modbus/parser/ModbusFrameParser.cpp" line="319"/>
         <source>Response: Written %1 items starting at %2</source>
-        <translation>回應：從 %2 開始寫入 %1 項</translation>
+        <translation type="vanished">回應：從 %2 開始寫入 %1 項</translation>
     </message>
     <message>
-        <location filename="../../core/modbus/parser/ModbusFrameParser.cpp" line="360"/>
         <source>Write Coil %1: %2</source>
-        <translation>寫入線圈 %1: %2</translation>
+        <translation type="vanished">寫入線圈 %1: %2</translation>
     </message>
     <message>
-        <location filename="../../core/modbus/parser/ModbusFrameParser.cpp" line="372"/>
         <source>Unsupported Function Code for deep parsing</source>
-        <translation>不支援深度解析的功能碼</translation>
+        <translation type="vanished">不支援深度解析的功能碼</translation>
     </message>
 </context>
 <context>
@@ -466,7 +441,7 @@ Open download page now?</source>
 <context>
     <name>ui::views::modbus_rtu::ModbusRtuView</name>
     <message>
-        <location filename="../views/modbus_rtu/ModbusRtuView.cpp" line="108"/>
+        <location filename="../views/modbus_rtu/ModbusRtuView.cpp" line="112"/>
         <source>Opening %1...</source>
         <translation>正在開啟 %1...</translation>
     </message>
@@ -483,162 +458,184 @@ Open download page now?</source>
         <translation type="vanished">已關閉</translation>
     </message>
     <message>
-        <location filename="../views/modbus_rtu/ModbusRtuView.cpp" line="224"/>
+        <location filename="../views/modbus_rtu/ModbusRtuView.cpp" line="228"/>
         <source>Sending Read Request FC:%1 Addr:%2 Qty:%3 Slave:%4</source>
         <translation>發送讀取請求 FC:%1 位址:%2 數量:%3 從站:%4</translation>
     </message>
     <message>
-        <location filename="../views/modbus_rtu/ModbusRtuView.cpp" line="190"/>
+        <location filename="../views/modbus_rtu/ModbusRtuView.cpp" line="194"/>
         <source>Error: %1</source>
         <translation>錯誤：%1</translation>
     </message>
     <message>
-        <location filename="../views/modbus_rtu/ModbusRtuView.cpp" line="127"/>
+        <location filename="../views/modbus_rtu/ModbusRtuView.cpp" line="131"/>
         <source>Failed to create Modbus stack</source>
         <translation>更新設定</translation>
     </message>
     <message>
-        <location filename="../views/modbus_rtu/ModbusRtuView.cpp" line="157"/>
+        <location filename="../views/modbus_rtu/ModbusRtuView.cpp" line="161"/>
         <source>Connected</source>
         <translation type="unfinished">已連線</translation>
     </message>
     <message>
-        <location filename="../views/modbus_rtu/ModbusRtuView.cpp" line="160"/>
+        <location filename="../views/modbus_rtu/ModbusRtuView.cpp" line="164"/>
         <source>Connection failed: %1</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../views/modbus_rtu/ModbusRtuView.cpp" line="179"/>
+        <location filename="../views/modbus_rtu/ModbusRtuView.cpp" line="183"/>
         <source>Success: Response received</source>
         <translation>成功：已收到回應</translation>
     </message>
     <message>
-        <location filename="../views/modbus_rtu/ModbusRtuView.cpp" line="205"/>
+        <location filename="../views/modbus_rtu/ModbusRtuView.cpp" line="209"/>
         <source>Disconnected</source>
         <translation type="unfinished">已斷線</translation>
     </message>
     <message>
-        <location filename="../views/modbus_rtu/ModbusRtuView.cpp" line="280"/>
+        <location filename="../views/modbus_rtu/ModbusRtuView.cpp" line="284"/>
         <source>Error: Invalid decimal value for 0x05</source>
         <translation>錯誤：0x05 十進位值無效</translation>
     </message>
     <message>
-        <location filename="../views/modbus_rtu/ModbusRtuView.cpp" line="287"/>
-        <location filename="../views/modbus_rtu/ModbusRtuView.cpp" line="293"/>
-        <location filename="../views/modbus_rtu/ModbusRtuView.cpp" line="300"/>
+        <location filename="../views/modbus_rtu/ModbusRtuView.cpp" line="291"/>
+        <location filename="../views/modbus_rtu/ModbusRtuView.cpp" line="297"/>
+        <location filename="../views/modbus_rtu/ModbusRtuView.cpp" line="304"/>
         <source>Error: Invalid hex value for 0x05</source>
         <translation>錯誤：0x05 十六進位值無效</translation>
     </message>
     <message>
-        <location filename="../views/modbus_rtu/ModbusRtuView.cpp" line="310"/>
+        <location filename="../views/modbus_rtu/ModbusRtuView.cpp" line="314"/>
         <source>Error: Empty value for 0x06</source>
         <translation>錯誤：0x06 值為空</translation>
     </message>
     <message>
-        <location filename="../views/modbus_rtu/ModbusRtuView.cpp" line="317"/>
+        <location filename="../views/modbus_rtu/ModbusRtuView.cpp" line="321"/>
         <source>Error: Invalid decimal value for 0x06</source>
         <translation>錯誤：0x06 十進位值無效</translation>
     </message>
     <message>
-        <location filename="../views/modbus_rtu/ModbusRtuView.cpp" line="325"/>
-        <location filename="../views/modbus_rtu/ModbusRtuView.cpp" line="335"/>
+        <location filename="../views/modbus_rtu/ModbusRtuView.cpp" line="329"/>
+        <location filename="../views/modbus_rtu/ModbusRtuView.cpp" line="339"/>
         <source>Error: Invalid hex value for 0x06</source>
         <translation>錯誤：0x06 十六進位值無效</translation>
     </message>
     <message>
-        <location filename="../views/modbus_rtu/ModbusRtuView.cpp" line="341"/>
+        <location filename="../views/modbus_rtu/ModbusRtuView.cpp" line="345"/>
         <source>Error: 0x0F requires Hex data</source>
         <translation>錯誤：0x0F 需要十六進位資料</translation>
     </message>
     <message>
-        <location filename="../views/modbus_rtu/ModbusRtuView.cpp" line="346"/>
+        <location filename="../views/modbus_rtu/ModbusRtuView.cpp" line="350"/>
         <source>Error: Invalid hex value for 0x0F</source>
         <translation>錯誤：0x0F 十六進位值無效</translation>
     </message>
     <message>
-        <location filename="../views/modbus_rtu/ModbusRtuView.cpp" line="351"/>
+        <location filename="../views/modbus_rtu/ModbusRtuView.cpp" line="355"/>
         <source>Error: Invalid quantity for 0x0F</source>
         <translation>錯誤：0x0F 數量無效</translation>
     </message>
     <message>
-        <location filename="../views/modbus_rtu/ModbusRtuView.cpp" line="356"/>
+        <location filename="../views/modbus_rtu/ModbusRtuView.cpp" line="360"/>
         <source>Error: Coil data length mismatch for 0x0F</source>
         <translation>錯誤：0x0F 線圈資料長度不相符</translation>
     </message>
     <message>
-        <location filename="../views/modbus_rtu/ModbusRtuView.cpp" line="365"/>
+        <location filename="../views/modbus_rtu/ModbusRtuView.cpp" line="369"/>
         <source>Error: Empty value for 0x10</source>
         <translation>錯誤：0x10 值為空</translation>
     </message>
     <message>
-        <location filename="../views/modbus_rtu/ModbusRtuView.cpp" line="370"/>
+        <location filename="../views/modbus_rtu/ModbusRtuView.cpp" line="374"/>
         <source>Error: Invalid quantity for 0x10</source>
         <translation>錯誤：0x10 數量無效</translation>
     </message>
     <message>
-        <location filename="../views/modbus_rtu/ModbusRtuView.cpp" line="379"/>
+        <location filename="../views/modbus_rtu/ModbusRtuView.cpp" line="383"/>
         <source>Error: Invalid decimal list for 0x10</source>
         <translation>錯誤：0x10 十進位清單無效</translation>
     </message>
     <message>
-        <location filename="../views/modbus_rtu/ModbusRtuView.cpp" line="390"/>
+        <location filename="../views/modbus_rtu/ModbusRtuView.cpp" line="394"/>
         <source>Error: Invalid hex value for 0x10</source>
         <translation>錯誤：0x10 十六進位值無效</translation>
     </message>
     <message>
-        <location filename="../views/modbus_rtu/ModbusRtuView.cpp" line="396"/>
+        <location filename="../views/modbus_rtu/ModbusRtuView.cpp" line="400"/>
         <source>Error: Quantity does not match data length for 0x10</source>
         <translation>錯誤：0x10 數量與資料長度不相符</translation>
     </message>
     <message>
-        <location filename="../views/modbus_rtu/ModbusRtuView.cpp" line="404"/>
+        <location filename="../views/modbus_rtu/ModbusRtuView.cpp" line="408"/>
         <source>Error: Unsupported write function code</source>
         <translation>錯誤：不支援的寫入功能碼</translation>
     </message>
     <message>
-        <location filename="../views/modbus_rtu/ModbusRtuView.cpp" line="410"/>
+        <location filename="../views/modbus_rtu/ModbusRtuView.cpp" line="414"/>
         <source>Sending Write Request FC:%1 Addr:%2 Data:%3 Slave:%4</source>
         <translation>發送寫入請求 FC:%1 位址:%2 資料:%3 從站:%4</translation>
     </message>
     <message>
-        <location filename="../views/modbus_rtu/ModbusRtuView.cpp" line="181"/>
+        <location filename="../views/modbus_rtu/ModbusRtuView.cpp" line="185"/>
         <source>Success: Write confirmed</source>
         <translation>成功：寫入已確認</translation>
     </message>
     <message>
-        <location filename="../views/modbus_rtu/ModbusRtuView.cpp" line="425"/>
+        <location filename="../views/modbus_rtu/ModbusRtuView.cpp" line="429"/>
         <source>Sending Raw Data: %1</source>
         <translation>發送原始資料：%1</translation>
     </message>
     <message>
-        <location filename="../views/modbus_rtu/ModbusRtuView.cpp" line="188"/>
+        <location filename="../views/modbus_rtu/ModbusRtuView.cpp" line="192"/>
         <source>Poll Error: %1</source>
         <translation>輪詢錯誤：%1</translation>
     </message>
     <message>
-        <location filename="../views/modbus_rtu/ModbusRtuView.cpp" line="507"/>
+        <location filename="../views/modbus_rtu/ModbusRtuView.cpp" line="535"/>
+        <location filename="../views/modbus_rtu/ModbusRtuView.cpp" line="545"/>
+        <source>[%1] %2</source>
+        <translation>[%1] %2</translation>
+    </message>
+    <message>
+        <location filename="../views/modbus_rtu/ModbusRtuView.cpp" line="535"/>
+        <source>RX</source>
+        <translation>接收</translation>
+    </message>
+    <message>
+        <location filename="../views/modbus_rtu/ModbusRtuView.cpp" line="545"/>
+        <source>TX</source>
+        <translation>送出</translation>
+    </message>
+    <message>
+        <location filename="../views/modbus_rtu/ModbusRtuView.cpp" line="549"/>
         <source>Data Monitor</source>
         <translation>資料監視</translation>
     </message>
     <message>
-        <location filename="../views/modbus_rtu/ModbusRtuView.cpp" line="508"/>
+        <location filename="../views/modbus_rtu/ModbusRtuView.cpp" line="550"/>
         <source>Receive Data</source>
         <translation>接收資料</translation>
     </message>
     <message>
-        <location filename="../views/modbus_rtu/ModbusRtuView.cpp" line="509"/>
+        <location filename="../views/modbus_rtu/ModbusRtuView.cpp" line="551"/>
         <source>Send Data</source>
         <translation>發送資料</translation>
     </message>
     <message>
-        <location filename="../views/modbus_rtu/ModbusRtuView.cpp" line="510"/>
-        <location filename="../views/modbus_rtu/ModbusRtuView.cpp" line="511"/>
+        <location filename="../views/modbus_rtu/ModbusRtuView.cpp" line="552"/>
+        <location filename="../views/modbus_rtu/ModbusRtuView.cpp" line="553"/>
         <source>HEX</source>
         <translation>HEX</translation>
     </message>
     <message>
-        <location filename="../views/modbus_rtu/ModbusRtuView.cpp" line="512"/>
-        <location filename="../views/modbus_rtu/ModbusRtuView.cpp" line="513"/>
+        <location filename="../views/modbus_rtu/ModbusRtuView.cpp" line="554"/>
+        <location filename="../views/modbus_rtu/ModbusRtuView.cpp" line="555"/>
+        <source>Copy</source>
+        <translation>複製</translation>
+    </message>
+    <message>
+        <location filename="../views/modbus_rtu/ModbusRtuView.cpp" line="556"/>
+        <location filename="../views/modbus_rtu/ModbusRtuView.cpp" line="557"/>
         <source>Clear</source>
         <translation>清除</translation>
     </message>
@@ -646,12 +643,12 @@ Open download page now?</source>
 <context>
     <name>ui::views::modbus_tcp::ModbusTcpView</name>
     <message>
-        <location filename="../views/modbus_tcp/ModbusTcpView.cpp" line="108"/>
+        <location filename="../views/modbus_tcp/ModbusTcpView.cpp" line="112"/>
         <source>Connecting to %1:%2...</source>
         <translation>正在連線 %1:%2...</translation>
     </message>
     <message>
-        <location filename="../views/modbus_tcp/ModbusTcpView.cpp" line="154"/>
+        <location filename="../views/modbus_tcp/ModbusTcpView.cpp" line="158"/>
         <source>Connected</source>
         <translation>已連線</translation>
     </message>
@@ -660,157 +657,179 @@ Open download page now?</source>
         <translation type="vanished">連線失敗</translation>
     </message>
     <message>
-        <location filename="../views/modbus_tcp/ModbusTcpView.cpp" line="202"/>
+        <location filename="../views/modbus_tcp/ModbusTcpView.cpp" line="206"/>
         <source>Disconnected</source>
         <translation>已斷線</translation>
     </message>
     <message>
-        <location filename="../views/modbus_tcp/ModbusTcpView.cpp" line="221"/>
+        <location filename="../views/modbus_tcp/ModbusTcpView.cpp" line="225"/>
         <source>Sending Read Request FC:%1 Addr:%2 Qty:%3 Slave:%4</source>
         <translation>發送讀取請求 FC:%1 位址:%2 數量:%3 從站:%4</translation>
     </message>
     <message>
-        <location filename="../views/modbus_tcp/ModbusTcpView.cpp" line="187"/>
+        <location filename="../views/modbus_tcp/ModbusTcpView.cpp" line="191"/>
         <source>Error: %1</source>
         <translation>錯誤：%1</translation>
     </message>
     <message>
-        <location filename="../views/modbus_tcp/ModbusTcpView.cpp" line="124"/>
+        <location filename="../views/modbus_tcp/ModbusTcpView.cpp" line="128"/>
         <source>Failed to create Modbus stack</source>
-        <translation type="unfinished"></translation>
+        <translation type="unfinished">更新設定</translation>
     </message>
     <message>
-        <location filename="../views/modbus_tcp/ModbusTcpView.cpp" line="157"/>
+        <location filename="../views/modbus_tcp/ModbusTcpView.cpp" line="161"/>
         <source>Connection failed: %1</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../views/modbus_tcp/ModbusTcpView.cpp" line="176"/>
+        <location filename="../views/modbus_tcp/ModbusTcpView.cpp" line="180"/>
         <source>Success: Response received</source>
         <translation>成功：已收到回應</translation>
     </message>
     <message>
-        <location filename="../views/modbus_tcp/ModbusTcpView.cpp" line="278"/>
+        <location filename="../views/modbus_tcp/ModbusTcpView.cpp" line="282"/>
         <source>Error: Invalid decimal value for 0x05</source>
         <translation>錯誤：0x05 十進位值無效</translation>
     </message>
     <message>
-        <location filename="../views/modbus_tcp/ModbusTcpView.cpp" line="285"/>
-        <location filename="../views/modbus_tcp/ModbusTcpView.cpp" line="291"/>
-        <location filename="../views/modbus_tcp/ModbusTcpView.cpp" line="298"/>
+        <location filename="../views/modbus_tcp/ModbusTcpView.cpp" line="289"/>
+        <location filename="../views/modbus_tcp/ModbusTcpView.cpp" line="295"/>
+        <location filename="../views/modbus_tcp/ModbusTcpView.cpp" line="302"/>
         <source>Error: Invalid hex value for 0x05</source>
         <translation>錯誤：0x05 十六進位值無效</translation>
     </message>
     <message>
-        <location filename="../views/modbus_tcp/ModbusTcpView.cpp" line="308"/>
+        <location filename="../views/modbus_tcp/ModbusTcpView.cpp" line="312"/>
         <source>Error: Empty value for 0x06</source>
         <translation>錯誤：0x06 值為空</translation>
     </message>
     <message>
-        <location filename="../views/modbus_tcp/ModbusTcpView.cpp" line="315"/>
+        <location filename="../views/modbus_tcp/ModbusTcpView.cpp" line="319"/>
         <source>Error: Invalid decimal value for 0x06</source>
         <translation>錯誤：0x06 十進位值無效</translation>
     </message>
     <message>
-        <location filename="../views/modbus_tcp/ModbusTcpView.cpp" line="323"/>
-        <location filename="../views/modbus_tcp/ModbusTcpView.cpp" line="333"/>
+        <location filename="../views/modbus_tcp/ModbusTcpView.cpp" line="327"/>
+        <location filename="../views/modbus_tcp/ModbusTcpView.cpp" line="337"/>
         <source>Error: Invalid hex value for 0x06</source>
         <translation>錯誤：0x06 十六進位值無效</translation>
     </message>
     <message>
-        <location filename="../views/modbus_tcp/ModbusTcpView.cpp" line="339"/>
+        <location filename="../views/modbus_tcp/ModbusTcpView.cpp" line="343"/>
         <source>Error: 0x0F requires Hex data</source>
         <translation>錯誤：0x0F 需要十六進位資料</translation>
     </message>
     <message>
-        <location filename="../views/modbus_tcp/ModbusTcpView.cpp" line="344"/>
+        <location filename="../views/modbus_tcp/ModbusTcpView.cpp" line="348"/>
         <source>Error: Invalid hex value for 0x0F</source>
         <translation>錯誤：0x0F 十六進位值無效</translation>
     </message>
     <message>
-        <location filename="../views/modbus_tcp/ModbusTcpView.cpp" line="349"/>
+        <location filename="../views/modbus_tcp/ModbusTcpView.cpp" line="353"/>
         <source>Error: Invalid quantity for 0x0F</source>
         <translation>錯誤：0x0F 數量無效</translation>
     </message>
     <message>
-        <location filename="../views/modbus_tcp/ModbusTcpView.cpp" line="354"/>
+        <location filename="../views/modbus_tcp/ModbusTcpView.cpp" line="358"/>
         <source>Error: Coil data length mismatch for 0x0F</source>
         <translation>錯誤：0x0F 線圈資料長度不相符</translation>
     </message>
     <message>
-        <location filename="../views/modbus_tcp/ModbusTcpView.cpp" line="363"/>
+        <location filename="../views/modbus_tcp/ModbusTcpView.cpp" line="367"/>
         <source>Error: Empty value for 0x10</source>
         <translation>錯誤：0x10 值為空</translation>
     </message>
     <message>
-        <location filename="../views/modbus_tcp/ModbusTcpView.cpp" line="368"/>
+        <location filename="../views/modbus_tcp/ModbusTcpView.cpp" line="372"/>
         <source>Error: Invalid quantity for 0x10</source>
         <translation>錯誤：0x10 數量無效</translation>
     </message>
     <message>
-        <location filename="../views/modbus_tcp/ModbusTcpView.cpp" line="377"/>
+        <location filename="../views/modbus_tcp/ModbusTcpView.cpp" line="381"/>
         <source>Error: Invalid decimal list for 0x10</source>
         <translation>錯誤：0x10 十進位清單無效</translation>
     </message>
     <message>
-        <location filename="../views/modbus_tcp/ModbusTcpView.cpp" line="388"/>
+        <location filename="../views/modbus_tcp/ModbusTcpView.cpp" line="392"/>
         <source>Error: Invalid hex value for 0x10</source>
         <translation>錯誤：0x10 十六進位值無效</translation>
     </message>
     <message>
-        <location filename="../views/modbus_tcp/ModbusTcpView.cpp" line="394"/>
+        <location filename="../views/modbus_tcp/ModbusTcpView.cpp" line="398"/>
         <source>Error: Quantity does not match data length for 0x10</source>
         <translation>錯誤：0x10 數量與資料長度不相符</translation>
     </message>
     <message>
-        <location filename="../views/modbus_tcp/ModbusTcpView.cpp" line="402"/>
+        <location filename="../views/modbus_tcp/ModbusTcpView.cpp" line="406"/>
         <source>Error: Unsupported write function code</source>
         <translation>錯誤：不支援的寫入功能碼</translation>
     </message>
     <message>
-        <location filename="../views/modbus_tcp/ModbusTcpView.cpp" line="408"/>
+        <location filename="../views/modbus_tcp/ModbusTcpView.cpp" line="412"/>
         <source>Sending Write Request FC:%1 Addr:%2 Data:%3 Slave:%4</source>
         <translation>發送寫入請求 FC:%1 位址:%2 資料:%3 從站:%4</translation>
     </message>
     <message>
-        <location filename="../views/modbus_tcp/ModbusTcpView.cpp" line="178"/>
+        <location filename="../views/modbus_tcp/ModbusTcpView.cpp" line="182"/>
         <source>Success: Write confirmed</source>
         <translation>成功：寫入已確認</translation>
     </message>
     <message>
-        <location filename="../views/modbus_tcp/ModbusTcpView.cpp" line="424"/>
+        <location filename="../views/modbus_tcp/ModbusTcpView.cpp" line="428"/>
         <source>Sending Raw Data: %1</source>
         <translation>發送原始資料：%1</translation>
     </message>
     <message>
-        <location filename="../views/modbus_tcp/ModbusTcpView.cpp" line="185"/>
+        <location filename="../views/modbus_tcp/ModbusTcpView.cpp" line="189"/>
         <source>Poll Error: %1</source>
         <translation>輪詢錯誤：%1</translation>
     </message>
     <message>
-        <location filename="../views/modbus_tcp/ModbusTcpView.cpp" line="507"/>
+        <location filename="../views/modbus_tcp/ModbusTcpView.cpp" line="535"/>
+        <location filename="../views/modbus_tcp/ModbusTcpView.cpp" line="545"/>
+        <source>[%1] %2</source>
+        <translation>[%1] %2</translation>
+    </message>
+    <message>
+        <location filename="../views/modbus_tcp/ModbusTcpView.cpp" line="535"/>
+        <source>RX</source>
+        <translation>接收</translation>
+    </message>
+    <message>
+        <location filename="../views/modbus_tcp/ModbusTcpView.cpp" line="545"/>
+        <source>TX</source>
+        <translation>送出</translation>
+    </message>
+    <message>
+        <location filename="../views/modbus_tcp/ModbusTcpView.cpp" line="549"/>
         <source>Data Monitor</source>
         <translation>資料監視</translation>
     </message>
     <message>
-        <location filename="../views/modbus_tcp/ModbusTcpView.cpp" line="508"/>
+        <location filename="../views/modbus_tcp/ModbusTcpView.cpp" line="550"/>
         <source>Receive Data</source>
         <translation>接收資料</translation>
     </message>
     <message>
-        <location filename="../views/modbus_tcp/ModbusTcpView.cpp" line="509"/>
+        <location filename="../views/modbus_tcp/ModbusTcpView.cpp" line="551"/>
         <source>Send Data</source>
         <translation>發送資料</translation>
     </message>
     <message>
-        <location filename="../views/modbus_tcp/ModbusTcpView.cpp" line="510"/>
-        <location filename="../views/modbus_tcp/ModbusTcpView.cpp" line="511"/>
+        <location filename="../views/modbus_tcp/ModbusTcpView.cpp" line="552"/>
+        <location filename="../views/modbus_tcp/ModbusTcpView.cpp" line="553"/>
         <source>HEX</source>
         <translation>HEX</translation>
     </message>
     <message>
-        <location filename="../views/modbus_tcp/ModbusTcpView.cpp" line="512"/>
-        <location filename="../views/modbus_tcp/ModbusTcpView.cpp" line="513"/>
+        <location filename="../views/modbus_tcp/ModbusTcpView.cpp" line="554"/>
+        <location filename="../views/modbus_tcp/ModbusTcpView.cpp" line="555"/>
+        <source>Copy</source>
+        <translation>複製</translation>
+    </message>
+    <message>
+        <location filename="../views/modbus_tcp/ModbusTcpView.cpp" line="556"/>
+        <location filename="../views/modbus_tcp/ModbusTcpView.cpp" line="557"/>
         <source>Clear</source>
         <translation>清除</translation>
     </message>
@@ -1082,102 +1101,102 @@ Open download page now?</source>
 <context>
     <name>ui::widgets::FunctionWidget</name>
     <message>
-        <location filename="../widgets/FunctionWidget.cpp" line="243"/>
+        <location filename="../widgets/FunctionWidget.cpp" line="239"/>
         <source>Standard</source>
         <translation>標準</translation>
     </message>
     <message>
-        <location filename="../widgets/FunctionWidget.cpp" line="244"/>
+        <location filename="../widgets/FunctionWidget.cpp" line="242"/>
         <source>Raw</source>
         <translation>原始</translation>
     </message>
     <message>
-        <location filename="../widgets/FunctionWidget.cpp" line="247"/>
+        <location filename="../widgets/FunctionWidget.cpp" line="245"/>
         <source>Slave ID:</source>
         <translation>從站ID：</translation>
     </message>
     <message>
-        <location filename="../widgets/FunctionWidget.cpp" line="250"/>
+        <location filename="../widgets/FunctionWidget.cpp" line="248"/>
         <source>Start Addr:</source>
         <translation>起始位址：</translation>
     </message>
     <message>
-        <location filename="../widgets/FunctionWidget.cpp" line="253"/>
+        <location filename="../widgets/FunctionWidget.cpp" line="251"/>
         <source>Quantity:</source>
         <translation>數量：</translation>
     </message>
     <message>
-        <location filename="../widgets/FunctionWidget.cpp" line="256"/>
+        <location filename="../widgets/FunctionWidget.cpp" line="254"/>
         <source>Write Data:</source>
         <translation>寫入資料：</translation>
     </message>
     <message>
-        <location filename="../widgets/FunctionWidget.cpp" line="259"/>
+        <location filename="../widgets/FunctionWidget.cpp" line="257"/>
         <source>Space separated hex (e.g., 01 02) or values</source>
         <translation>以空格分隔的十六進位(如 01 02)或數值</translation>
     </message>
     <message>
-        <location filename="../widgets/FunctionWidget.cpp" line="262"/>
+        <location filename="../widgets/FunctionWidget.cpp" line="260"/>
         <source>Format:</source>
         <translation>格式：</translation>
     </message>
     <message>
-        <location filename="../widgets/FunctionWidget.cpp" line="265"/>
+        <location filename="../widgets/FunctionWidget.cpp" line="263"/>
         <source>Hex</source>
         <translation>十六進位</translation>
     </message>
     <message>
-        <location filename="../widgets/FunctionWidget.cpp" line="266"/>
+        <location filename="../widgets/FunctionWidget.cpp" line="264"/>
         <source>Decimal</source>
         <translation>十進位</translation>
     </message>
     <message>
-        <location filename="../widgets/FunctionWidget.cpp" line="269"/>
+        <location filename="../widgets/FunctionWidget.cpp" line="267"/>
         <source>Read Coils (0x01)</source>
         <translation>讀取線圈 (0x01)</translation>
     </message>
     <message>
-        <location filename="../widgets/FunctionWidget.cpp" line="272"/>
+        <location filename="../widgets/FunctionWidget.cpp" line="270"/>
         <source>Read Discrete (0x02)</source>
         <translation>讀取離散輸入 (0x02)</translation>
     </message>
     <message>
-        <location filename="../widgets/FunctionWidget.cpp" line="275"/>
+        <location filename="../widgets/FunctionWidget.cpp" line="273"/>
         <source>Read Holding (0x03)</source>
         <translation>讀取保持暫存器 (0x03)</translation>
     </message>
     <message>
-        <location filename="../widgets/FunctionWidget.cpp" line="278"/>
+        <location filename="../widgets/FunctionWidget.cpp" line="276"/>
         <source>Read Input (0x04)</source>
         <translation>讀取輸入暫存器 (0x04)</translation>
     </message>
     <message>
-        <location filename="../widgets/FunctionWidget.cpp" line="281"/>
+        <location filename="../widgets/FunctionWidget.cpp" line="279"/>
         <source>Write Coil (0x05)</source>
         <translation>寫入單線圈 (0x05)</translation>
     </message>
     <message>
-        <location filename="../widgets/FunctionWidget.cpp" line="284"/>
+        <location filename="../widgets/FunctionWidget.cpp" line="282"/>
         <source>Write Reg (0x06)</source>
         <translation>寫入單暫存器 (0x06)</translation>
     </message>
     <message>
-        <location filename="../widgets/FunctionWidget.cpp" line="287"/>
+        <location filename="../widgets/FunctionWidget.cpp" line="285"/>
         <source>Write Multi Coils (0x0F)</source>
         <translation>寫入多線圈 (0x0F)</translation>
     </message>
     <message>
-        <location filename="../widgets/FunctionWidget.cpp" line="290"/>
+        <location filename="../widgets/FunctionWidget.cpp" line="288"/>
         <source>Write Multi Regs (0x10)</source>
         <translation>寫入多暫存器 (0x10)</translation>
     </message>
     <message>
-        <location filename="../widgets/FunctionWidget.cpp" line="293"/>
+        <location filename="../widgets/FunctionWidget.cpp" line="291"/>
         <source>Raw Hex Data (e.g., 01 03 00 00 00 01 84 0A):</source>
         <translation>原始十六進位資料(如 01 03 00 00 00 01 84 0A)：</translation>
     </message>
     <message>
-        <location filename="../widgets/FunctionWidget.cpp" line="296"/>
+        <location filename="../widgets/FunctionWidget.cpp" line="294"/>
         <source>Send Raw</source>
         <translation>發送原始資料</translation>
     </message>
@@ -1444,7 +1463,7 @@ Open download page now?</source>
     <message>
         <location filename="../widgets/UpdateSettingsDialog.cpp" line="21"/>
         <source>Update Settings</source>
-        <translation type="unfinished"></translation>
+        <translation type="unfinished">更新設定</translation>
     </message>
     <message>
         <location filename="../widgets/UpdateSettingsDialog.cpp" line="26"/>

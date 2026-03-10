@@ -10,7 +10,6 @@
 #include <QGroupBox>
 
 #include <QTextEdit>
-#include <QTabWidget>
 #include <QEvent>
 #include <QSettings>
 #include <QApplication>
@@ -28,20 +27,16 @@ FunctionWidget::~FunctionWidget() = default;
 void FunctionWidget::setupUi() {
     auto mainLayout = new QVBoxLayout(this);
     mainLayout->setContentsMargins(0, 0, 0, 0);
+    mainLayout->setSpacing(8);
 
-    tabWidget_ = new QTabWidget(this);
-    
-    // Tab 1: Standard
-    auto standardTab = new QWidget();
-    setupStandardUi(standardTab);
-    tabWidget_->addTab(standardTab, "");
+    standardGroup_ = new QGroupBox(this);
+    setupStandardUi(standardGroup_);
+    mainLayout->addWidget(standardGroup_);
 
-    // Tab 2: Raw
-    auto rawTab = new QWidget();
-    setupRawUi(rawTab);
-    tabWidget_->addTab(rawTab, "");
+    rawGroup_ = new QGroupBox(this);
+    setupRawUi(rawGroup_);
+    mainLayout->addWidget(rawGroup_);
 
-    mainLayout->addWidget(tabWidget_);
     retranslateUi();
 }
 
@@ -143,6 +138,7 @@ void FunctionWidget::setupRawUi(QWidget* parent) {
     layout->addWidget(rawDataLabel_);
     
     rawDataEdit_ = new QTextEdit(parent);
+    rawDataEdit_->setMaximumHeight(96);
     layout->addWidget(rawDataEdit_);
 
     auto btnLayout = new QHBoxLayout();
@@ -239,9 +235,11 @@ void FunctionWidget::onRawSendClicked() {
 }
 
 void FunctionWidget::retranslateUi() {
-    if (tabWidget_) {
-        tabWidget_->setTabText(0, tr("Standard"));
-        tabWidget_->setTabText(1, tr("Raw"));
+    if (standardGroup_) {
+        standardGroup_->setTitle(tr("Standard"));
+    }
+    if (rawGroup_) {
+        rawGroup_->setTitle(tr("Raw"));
     }
     if (slaveIdLabel_) {
         slaveIdLabel_->setText(tr("Slave ID:"));
