@@ -4,6 +4,7 @@
 #include "../session/ModbusClient.h"
 #include "../../io/SerialChannel.h"
 #include "../../io/TcpChannel.h"
+#include <QMetaObject>
 #include <QSerialPort>
 #include <QThread>
 
@@ -38,9 +39,14 @@ ModbusStack ModbusFactory::createStack(const base::ModbusConfig& config) {
 
     // 关键修正：不设置 parent 才能 be moveToThread
     auto workerRaw = new dispatch::ModbusWorker(stack.client, stack.thread.get(), nullptr);
-    stack.worker = std::shared_ptr<dispatch::ModbusWorker>(workerRaw, [workerRaw](dispatch::ModbusWorker*) {
-        if (workerRaw) {
-            workerRaw->deleteLater(); // 确保在事件循环中安全删除
+    stack.worker = std::shared_ptr<dispatch::ModbusWorker>(workerRaw, [](dispatch::ModbusWorker* worker) {
+        if (worker) {
+            QThread* workerThread = worker->thread();
+            if (workerThread && workerThread->isRunning()) {
+                QMetaObject::invokeMethod(worker, "deleteLater", Qt::QueuedConnection);
+            } else {
+                delete worker;
+            }
         }
     });
     return stack;
