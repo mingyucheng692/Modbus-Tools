@@ -96,6 +96,10 @@ ModbusClient::ModbusClient(std::shared_ptr<io::IChannel> channel,
 }
 
 ModbusClient::~ModbusClient() {
+    if (channel_) {
+        channel_->setReadHandler({});
+        channel_->setErrorHandler({});
+    }
     disconnect();
 }
 
