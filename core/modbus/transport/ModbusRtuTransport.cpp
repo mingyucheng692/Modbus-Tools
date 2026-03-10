@@ -1,4 +1,5 @@
 #include "ModbusRtuTransport.h"
+#include "../base/ModbusCrc.h"
 #include <QDataStream>
 #include <QIODevice>
 
@@ -93,19 +94,7 @@ int ModbusRtuTransport::checkIntegrity(const QByteArray& data) {
 }
 
 uint16_t ModbusRtuTransport::calculateCrc(const QByteArray& data) {
-    uint16_t crc = 0xFFFF;
-    for (char c : data) {
-        crc ^= static_cast<uint8_t>(c);
-        for (int i = 0; i < 8; ++i) {
-            if (crc & 0x0001) {
-                crc >>= 1;
-                crc ^= 0xA001;
-            } else {
-                crc >>= 1;
-            }
-        }
-    }
-    return crc;
+    return base::calculateModbusRtuCrc(data);
 }
 
 } // namespace modbus::transport
