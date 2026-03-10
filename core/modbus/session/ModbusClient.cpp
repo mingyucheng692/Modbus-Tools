@@ -277,8 +277,8 @@ ModbusResponse ModbusClient::sendRequestInternal(const base::Pdu& request, int s
                     transitionTo(RequestState::Completed, "response-parsed");
                     return ModbusResponse::Success(*pdu, static_cast<int>(rttMs));
                 } else {
-                    transitionTo(RequestState::Failed, "response-parse-failed");
-                    return ModbusResponse::Error("Response parsing failed");
+                    lock.lock();
+                    continue;
                 }
             } else if (integrity == -1) {
                 buffer_.clear();
