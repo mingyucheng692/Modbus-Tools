@@ -184,6 +184,10 @@ void ModbusWorker::handleSendRaw(QByteArray data) {
 }
 
 void ModbusWorker::handleConnect() {
+    if (stopping_) {
+        emit connectFinished(false, "Worker is stopping");
+        return;
+    }
     if (!client_) {
         emit connectFinished(false, "No client attached");
         return;
