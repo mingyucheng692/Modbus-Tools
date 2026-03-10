@@ -37,12 +37,13 @@ ModbusStack ModbusFactory::createStack(const base::ModbusConfig& config) {
 
     stack.channel->moveToThread(stack.thread.get());
 
-    // 关键修正：不设置 parent 才能 be moveToThread
+    auto workerThread = stack.thread;
     auto workerRaw = new dispatch::ModbusWorker(stack.client, stack.thread.get(), nullptr);
-    stack.worker = std::shared_ptr<dispatch::ModbusWorker>(workerRaw, [](dispatch::ModbusWorker* worker) {
+    stack.worker = std::shared_ptr<dispatch::ModbusWorker>(workerRaw, [workerThread](dispatch::ModbusWorker* worker) {
         if (worker) {
-            QThread* workerThread = worker->thread();
-            if (workerThread && workerThread->isRunning()) {
+            worker->stop();
+            QThread* thread = workerThread.get();
+            if (thread && thread->isRunning()) {
                 QMetaObject::invokeMethod(worker, "deleteLater", Qt::QueuedConnection);
             } else {
                 delete worker;
