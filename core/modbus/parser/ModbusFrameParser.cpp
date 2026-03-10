@@ -225,14 +225,28 @@ void ModbusFrameParser::parsePdu(ParseResult& result, const QByteArray& pdu, uin
         } else {
             // Response: [ByteCount(1)] [Data(N)]
             result.type = FrameType::Response;
-            if (pdu.size() < 2) break;
+            if (pdu.size() < 2) {
+                result.isValid = false;
+                result.error = QCoreApplication::translate("ModbusFrameParser", "Response PDU too short");
+                break;
+            }
             
             uint8_t byteCount;
             stream >> byteCount;
+            if (byteCount != static_cast<uint8_t>(result.pduData.size() - 1)) {
+                result.isValid = false;
+                result.error = QCoreApplication::translate("ModbusFrameParser", "Byte count does not match payload length");
+                break;
+            }
             
             // 解析数据
             if (result.functionCode == FunctionCode::ReadHoldingRegisters || 
                 result.functionCode == FunctionCode::ReadInputRegisters) {
+                if ((byteCount % 2) != 0) {
+                    result.isValid = false;
+                    result.error = QCoreApplication::translate("ModbusFrameParser", "Register byte count must be even");
+                    break;
+                }
                 // 寄存器数据 (每2字节一个)
                 int count = byteCount / 2;
                 for (int i = 0; i < count; ++i) {
@@ -323,8 +337,18 @@ void ModbusFrameParser::parsePdu(ParseResult& result, const QByteArray& pdu, uin
             uint16_t start, quant;
             uint8_t byteCount;
             stream >> start >> quant >> byteCount;
+            if (result.pduData.size() < 5 || byteCount > static_cast<uint8_t>(result.pduData.size() - 5)) {
+                result.isValid = false;
+                result.error = QCoreApplication::translate("ModbusFrameParser", "Write request byte count exceeds payload");
+                break;
+            }
             
             if (result.functionCode == FunctionCode::WriteMultipleRegisters) {
+                if ((byteCount % 2) != 0) {
+                    result.isValid = false;
+                    result.error = QCoreApplication::translate("ModbusFrameParser", "Register byte count must be even");
+                    break;
+                }
                 int count = byteCount / 2;
                 for (int i = 0; i < count; ++i) {
                     uint16_t val;
