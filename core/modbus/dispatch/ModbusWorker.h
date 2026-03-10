@@ -39,6 +39,7 @@ private:
     void handleSendRaw(QByteArray data);
     void handleConnect();
     void handleDisconnect();
+    void handleRequestDisconnectInThread();
     void handleStopInThread();
     void drainQueuedRequests(const QString& reason);
     void scheduleProcessQueue();

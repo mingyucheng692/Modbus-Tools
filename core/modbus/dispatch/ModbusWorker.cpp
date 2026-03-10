@@ -99,7 +99,7 @@ void ModbusWorker::requestConnect() {
 void ModbusWorker::requestDisconnect() {
     if (!thread_) return;
     QMetaObject::invokeMethod(this, [this]() {
-        handleDisconnect();
+        handleRequestDisconnectInThread();
     }, Qt::QueuedConnection);
 }
 
@@ -182,6 +182,14 @@ void ModbusWorker::handleDisconnect() {
         client_->disconnect();
     }
     emit disconnectFinished();
+}
+
+void ModbusWorker::handleRequestDisconnectInThread() {
+    if (client_) {
+        client_->abort();
+    }
+    drainQueuedRequests("Disconnected");
+    handleDisconnect();
 }
 
 void ModbusWorker::handleStopInThread() {
