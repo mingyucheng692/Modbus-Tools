@@ -285,9 +285,11 @@ ModbusResponse ModbusClient::sendRequestInternal(const base::Pdu& request, int s
                     continue;
                 }
             } else if (integrity == -1) {
-                buffer_.clear();
-                transitionTo(RequestState::Failed, "integrity-failed");
-                return ModbusResponse::Error("Invalid data received");
+                if (!buffer_.isEmpty()) {
+                    buffer_.remove(0, 1);
+                }
+                responseReady_ = !buffer_.isEmpty();
+                continue;
             }
             break;
         }
