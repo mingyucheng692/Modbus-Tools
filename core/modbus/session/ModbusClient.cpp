@@ -233,6 +233,8 @@ ModbusResponse ModbusClient::sendRequestInternal(const base::Pdu& request, int s
     // 使用绝对时间作为截止日期，避免循环中相对时间重置
     auto deadline = start + std::chrono::milliseconds(config_.timeoutMs);
     transitionTo(RequestState::Waiting, "wait-response");
+    int droppedInvalidBytes = 0;
+    constexpr int kMaxDroppedInvalidBytes = 256;
 
     spdlog::info("ModbusClient: Entering wait loop, deadline in {}ms", config_.timeoutMs);
     
@@ -295,6 +297,11 @@ ModbusResponse ModbusClient::sendRequestInternal(const base::Pdu& request, int s
             } else if (integrity == -1) {
                 if (!buffer_.isEmpty()) {
                     buffer_.remove(0, 1);
+                    ++droppedInvalidBytes;
+                }
+                if (droppedInvalidBytes > kMaxDroppedInvalidBytes) {
+                    transitionTo(RequestState::Failed, "too-many-invalid-bytes");
+                    return ModbusResponse::Error("Too many invalid response bytes");
                 }
                 responseReady_ = !buffer_.isEmpty();
                 continue;
