@@ -14,6 +14,8 @@ public:
 
 private:
     uint16_t transactionId_;
+    uint16_t expectedResponseTransactionId_ = 0;
+    bool hasPendingRequest_ = false;
 };
 
 } // namespace modbus::transport
