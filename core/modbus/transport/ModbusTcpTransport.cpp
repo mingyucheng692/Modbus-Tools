@@ -9,6 +9,7 @@ QByteArray ModbusTcpTransport::buildRequest(const base::Pdu& pdu, uint8_t slaveI
     QByteArray adu;
     uint16_t transactionId = transactionId_++;
     expectedResponseTransactionId_ = transactionId;
+    expectedResponseUnitId_ = slaveId;
     hasPendingRequest_ = true;
     uint16_t length = static_cast<uint16_t>(1 + 1 + pdu.data().size());
     adu.append(static_cast<char>((transactionId >> 8) & 0xFF));
@@ -43,6 +44,10 @@ std::optional<base::Pdu> ModbusTcpTransport::parseResponse(const QByteArray& adu
         return std::nullopt;
     }
     if (hasPendingRequest_ && transactionId != expectedResponseTransactionId_) {
+        return std::nullopt;
+    }
+    const uint8_t unitId = static_cast<uint8_t>(adu[6]);
+    if (hasPendingRequest_ && unitId != expectedResponseUnitId_) {
         return std::nullopt;
     }
 

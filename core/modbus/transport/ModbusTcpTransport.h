@@ -15,6 +15,7 @@ public:
 private:
     uint16_t transactionId_;
     uint16_t expectedResponseTransactionId_ = 0;
+    uint8_t expectedResponseUnitId_ = 0;
     bool hasPendingRequest_ = false;
 };
 
