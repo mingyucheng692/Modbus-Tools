@@ -25,9 +25,9 @@ QByteArray ModbusRtuTransport::buildRequest(const base::Pdu& pdu, uint8_t slaveI
     return adu;
 }
 
-std::optional<base::Pdu> ModbusRtuTransport::parseResponse(const QByteArray& adu) {
+ParseResponseResult ModbusRtuTransport::parseResponse(const QByteArray& adu) {
     if (adu.size() < 4) { // 最小长度：地址(1) + 功能码(1) + CRC(2)
-        return std::nullopt;
+        return {ParseResponseStatus::Invalid, std::nullopt};
     }
 
     // 校验 CRC
@@ -36,18 +36,18 @@ std::optional<base::Pdu> ModbusRtuTransport::parseResponse(const QByteArray& adu
     
     QByteArray dataWithoutCrc = adu.left(adu.size() - 2);
     if (calculateCrc(dataWithoutCrc) != receivedCrc) {
-        return std::nullopt; // CRC 错误
+        return {ParseResponseStatus::Invalid, std::nullopt};
     }
 
     uint8_t slaveId = static_cast<uint8_t>(adu[0]);
     if (hasPendingRequest_ && slaveId != expectedResponseSlaveId_) {
-        return std::nullopt;
+        return {ParseResponseStatus::Unmatched, std::nullopt};
     }
     hasPendingRequest_ = false;
     uint8_t fc = static_cast<uint8_t>(adu[1]);
     QByteArray payload = adu.mid(2, adu.size() - 4);
 
-    return base::Pdu(static_cast<base::FunctionCode>(fc), payload);
+    return {ParseResponseStatus::Ok, base::Pdu(static_cast<base::FunctionCode>(fc), payload)};
 }
 
 int ModbusRtuTransport::checkIntegrity(const QByteArray& data) {

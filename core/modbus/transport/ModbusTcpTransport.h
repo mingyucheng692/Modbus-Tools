@@ -9,7 +9,7 @@ class ModbusTcpTransport : public ITransport {
 public:
     ModbusTcpTransport();
     QByteArray buildRequest(const base::Pdu& pdu, uint8_t slaveId) override;
-    std::optional<base::Pdu> parseResponse(const QByteArray& adu) override;
+    ParseResponseResult parseResponse(const QByteArray& adu) override;
     int checkIntegrity(const QByteArray& data) override;
 
 private:

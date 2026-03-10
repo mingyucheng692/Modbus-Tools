@@ -267,23 +267,31 @@ ModbusResponse ModbusClient::sendRequestInternal(const base::Pdu& request, int s
                 QByteArray frame = buffer_.left(integrity);
                 buffer_.remove(0, integrity);
                 lock.unlock();
-                auto pdu = transport_->parseResponse(frame);
-                if (pdu) {
-                    if (pdu->isException()) {
+                auto parseResult = transport_->parseResponse(frame);
+                if (parseResult.status == transport::ParseResponseStatus::Ok && parseResult.pdu) {
+                    const auto& pdu = *parseResult.pdu;
+                    if (pdu.isException()) {
                         transitionTo(RequestState::Failed, "modbus-exception");
-                        return ModbusResponse::Error(QString("Modbus Exception: %1").arg(static_cast<int>(pdu->exceptionCode())));
+                        return ModbusResponse::Error(QString("Modbus Exception: %1").arg(static_cast<int>(pdu.exceptionCode())));
                     }
-                    if (pdu->originalFunctionCode() != request.functionCode()) {
+                    if (pdu.originalFunctionCode() != request.functionCode()) {
                         lock.lock();
                         continue;
                     }
                     auto rttMs = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - start).count();
                     transitionTo(RequestState::Completed, "response-parsed");
-                    return ModbusResponse::Success(*pdu, static_cast<int>(rttMs));
-                } else {
+                    return ModbusResponse::Success(pdu, static_cast<int>(rttMs));
+                }
+                if (parseResult.status == transport::ParseResponseStatus::Unmatched) {
                     lock.lock();
                     continue;
                 }
+                if (parseResult.status == transport::ParseResponseStatus::Invalid) {
+                    transitionTo(RequestState::Failed, "response-parse-failed");
+                    return ModbusResponse::Error("Response parsing failed");
+                }
+                lock.lock();
+                continue;
             } else if (integrity == -1) {
                 if (!buffer_.isEmpty()) {
                     buffer_.remove(0, 1);
