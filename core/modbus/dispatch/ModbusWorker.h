@@ -2,6 +2,7 @@
 
 #include "../session/IModbusClient.h"
 #include <memory>
+#include <deque>
 #include <QObject>
 #include <QPointer>
 #include <QThread>
@@ -28,14 +29,26 @@ signals:
     void disconnectFinished();
 
 private:
+    struct QueuedRequest {
+        base::Pdu request;
+        int slaveId = -1;
+        int requestId = -1;
+    };
+
     void handleSubmit(base::Pdu request, int slaveId, int requestId);
     void handleSendRaw(QByteArray data);
     void handleConnect();
     void handleDisconnect();
+    void handleStopInThread();
+    void drainQueuedRequests(const QString& reason);
+    void scheduleProcessQueue();
+    void processQueue();
 
     std::shared_ptr<session::IModbusClient> client_;
     QPointer<QThread> thread_;
     bool stopping_ = false;
+    bool processing_ = false;
+    std::deque<QueuedRequest> queuedRequests_;
 };
 
 } // namespace modbus::dispatch

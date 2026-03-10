@@ -37,8 +37,7 @@ void ModbusWorker::stop() {
 
     if (QThread::currentThread() == thread_) {
         spdlog::info("ModbusWorker: Stop from worker thread");
-        if (client_) client_->abort();
-        handleDisconnect();
+        handleStopInThread();
         thread_->quit();
         stopping_ = false;
         return;
@@ -46,10 +45,9 @@ void ModbusWorker::stop() {
 
     if (thread_->isRunning()) {
         spdlog::info("ModbusWorker: Aborting client and waiting for thread...");
-        if (client_) client_->abort();
         QMetaObject::invokeMethod(this, [this]() { 
-            spdlog::info("ModbusWorker: Handling disconnect in thread");
-            handleDisconnect(); 
+            spdlog::info("ModbusWorker: Handling stop in thread");
+            handleStopInThread(); 
         }, Qt::BlockingQueuedConnection);
         spdlog::info("ModbusWorker: Quitting thread...");
         thread_->quit();
@@ -69,7 +67,12 @@ void ModbusWorker::submit(const base::Pdu& request, int slaveId, int requestId) 
         return;
     }
     QMetaObject::invokeMethod(this, [this, request, slaveId, requestId]() {
-        handleSubmit(request, slaveId, requestId);
+        if (stopping_) {
+            emit requestFinished(requestId, session::ModbusResponse::Error("Worker is stopping"));
+            return;
+        }
+        queuedRequests_.push_back(QueuedRequest{request, slaveId, requestId});
+        scheduleProcessQueue();
     }, Qt::QueuedConnection);
 }
 
@@ -101,6 +104,10 @@ void ModbusWorker::requestDisconnect() {
 }
 
 void ModbusWorker::handleSubmit(base::Pdu request, int slaveId, int requestId) {
+    if (stopping_) {
+        emit requestFinished(requestId, session::ModbusResponse::Error("Worker is stopping"));
+        return;
+    }
     if (!client_) {
         emit requestFinished(requestId, session::ModbusResponse::Error("No client attached"));
         return;
@@ -113,6 +120,40 @@ void ModbusWorker::handleSubmit(base::Pdu request, int slaveId, int requestId) {
     }
     auto response = client_->sendRequest(request, slaveId);
     emit requestFinished(requestId, response);
+}
+
+void ModbusWorker::drainQueuedRequests(const QString& reason) {
+    while (!queuedRequests_.empty()) {
+        auto item = queuedRequests_.front();
+        queuedRequests_.pop_front();
+        emit requestFinished(item.requestId, session::ModbusResponse::Error(reason));
+    }
+}
+
+void ModbusWorker::scheduleProcessQueue() {
+    if (processing_ || queuedRequests_.empty() || stopping_) {
+        return;
+    }
+    QMetaObject::invokeMethod(this, [this]() {
+        processQueue();
+    }, Qt::QueuedConnection);
+}
+
+void ModbusWorker::processQueue() {
+    if (processing_ || stopping_) {
+        return;
+    }
+    if (queuedRequests_.empty()) {
+        return;
+    }
+    processing_ = true;
+    auto item = queuedRequests_.front();
+    queuedRequests_.pop_front();
+    handleSubmit(item.request, item.slaveId, item.requestId);
+    processing_ = false;
+    if (!queuedRequests_.empty() && !stopping_) {
+        scheduleProcessQueue();
+    }
 }
 
 void ModbusWorker::handleSendRaw(QByteArray data) {
@@ -141,6 +182,14 @@ void ModbusWorker::handleDisconnect() {
         client_->disconnect();
     }
     emit disconnectFinished();
+}
+
+void ModbusWorker::handleStopInThread() {
+    if (client_) {
+        client_->abort();
+    }
+    drainQueuedRequests("Worker stopped");
+    handleDisconnect();
 }
 
 } // namespace modbus::dispatch
