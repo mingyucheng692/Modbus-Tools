@@ -11,6 +11,15 @@ namespace modbus::session {
 
 class ModbusClient : public IModbusClient {
 public:
+    enum class RequestState {
+        Idle,
+        Sending,
+        Waiting,
+        Completed,
+        Failed,
+        Aborted
+    };
+
     ModbusClient(std::shared_ptr<io::IChannel> channel, 
                  std::shared_ptr<transport::ITransport> transport);
     ~ModbusClient() override;
@@ -22,11 +31,14 @@ public:
     bool isConnected() const override;
     void abort() override;
     void setConfig(const base::ModbusConfig& config) override;
+    RequestState requestState() const;
 
 private:
     ModbusResponse sendRequestInternal(const base::Pdu& request, int slaveId);
     void onDataReceived(QByteArrayView data);
     void onError(const QString& error);
+    void transitionTo(RequestState newState, const char* reason);
+    static const char* toString(RequestState state);
 
     std::shared_ptr<io::IChannel> channel_;
     std::shared_ptr<transport::ITransport> transport_;
@@ -42,6 +54,7 @@ private:
     // 保护 sendRequest 串行执行，使用递归锁防止 processEvents 导致重入死锁
     std::recursive_mutex requestMutex_;
     std::atomic<bool> aborted_ {false};
+    std::atomic<RequestState> requestState_ {RequestState::Idle};
 };
 
 } // namespace modbus::session
