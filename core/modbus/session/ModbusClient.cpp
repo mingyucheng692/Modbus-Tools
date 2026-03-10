@@ -98,11 +98,12 @@ ModbusClient::ModbusClient(std::shared_ptr<io::IChannel> channel,
 }
 
 ModbusClient::~ModbusClient() {
+    abort();
     if (channel_) {
         channel_->setReadHandler({});
         channel_->setErrorHandler({});
     }
-    disconnect();
+    clearRuntimeState(true);
 }
 
 bool ModbusClient::connect() {
@@ -127,6 +128,9 @@ void ModbusClient::disconnect() {
     aborted_ = true;
     if (channel_) {
         channel_->close();
+        if (QCoreApplication::instance()) {
+            channel_->moveToThread(QCoreApplication::instance()->thread());
+        }
     }
     clearRuntimeState(true);
     aborted_ = false;

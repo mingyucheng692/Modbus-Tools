@@ -24,6 +24,10 @@ TcpChannel::~TcpChannel() {
 
 bool TcpChannel::open() {
     if (QThread::currentThread() != socket_.thread()) {
+        QThread* ownerThread = socket_.thread();
+        if (!ownerThread || !ownerThread->isRunning()) {
+            return false;
+        }
         bool result = false;
         QMetaObject::invokeMethod(&socket_, [this, &result]() {
             result = this->open();
@@ -52,6 +56,11 @@ void TcpChannel::moveToThread(QThread* thread) {
 
 void TcpChannel::close() {
     if (QThread::currentThread() != socket_.thread()) {
+        QThread* ownerThread = socket_.thread();
+        if (!ownerThread || !ownerThread->isRunning()) {
+            setState(ChannelState::Closed);
+            return;
+        }
         QMetaObject::invokeMethod(&socket_, [this]() {
             this->close();
         }, Qt::BlockingQueuedConnection);
@@ -68,6 +77,10 @@ void TcpChannel::close() {
 
 bool TcpChannel::write(QByteArrayView data) {
     if (QThread::currentThread() != socket_.thread()) {
+        QThread* ownerThread = socket_.thread();
+        if (!ownerThread || !ownerThread->isRunning()) {
+            return false;
+        }
         bool result = false;
         QByteArray dataCopy(data.data(), data.size());
         QMetaObject::invokeMethod(&socket_, [this, dataCopy, &result]() {

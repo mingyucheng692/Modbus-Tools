@@ -48,6 +48,7 @@ private:
     std::shared_ptr<session::IModbusClient> client_;
     QPointer<QThread> thread_;
     bool stopping_ = false;
+    bool stopped_ = false;
     bool processing_ = false;
     std::deque<QueuedRequest> queuedRequests_;
 };

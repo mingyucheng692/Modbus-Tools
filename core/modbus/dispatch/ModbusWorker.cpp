@@ -32,19 +32,24 @@ void ModbusWorker::start() {
 }
 
 void ModbusWorker::stop() {
-    if (stopping_) return;
+    if (stopping_ || stopped_) return;
     stopping_ = true;
     spdlog::info("ModbusWorker: Stopping...");
 
     if (!thread_) {
         handleStopInThread();
+        stopped_ = true;
         stopping_ = false;
         return;
     }
 
     if (!thread_->isRunning()) {
         spdlog::info("ModbusWorker: Stop with non-running worker thread");
-        handleStopInThread();
+        if (client_) {
+            client_->abort();
+        }
+        drainQueuedRequests("Worker stopped");
+        stopped_ = true;
         stopping_ = false;
         return;
     }
@@ -53,23 +58,33 @@ void ModbusWorker::stop() {
         spdlog::info("ModbusWorker: Stop from worker thread");
         handleStopInThread();
         thread_->quit();
+        stopped_ = true;
         stopping_ = false;
         return;
     }
 
     spdlog::info("ModbusWorker: Aborting client and waiting for thread...");
-    QMetaObject::invokeMethod(this, [this]() { 
+    if (client_) {
+        client_->abort();
+    }
+    QMetaObject::invokeMethod(this, [this]() {
         spdlog::info("ModbusWorker: Handling stop in thread");
-        handleStopInThread(); 
+        handleStopInThread();
     }, Qt::BlockingQueuedConnection);
     spdlog::info("ModbusWorker: Quitting thread...");
     thread_->quit();
     if (!thread_->wait(2000)) {
         spdlog::error("ModbusWorker: Thread wait timeout (2s)!");
+        thread_->requestInterruption();
+        thread_->quit();
+        if (!thread_->wait(1000)) {
+            spdlog::error("ModbusWorker: Thread still running after interruption, skip force terminate");
+        }
     } else {
         spdlog::info("ModbusWorker: Thread stopped successfully");
     }
 
+    stopped_ = true;
     stopping_ = false;
 }
 

@@ -20,6 +20,10 @@ SerialChannel::~SerialChannel() {
 
 bool SerialChannel::open() {
     if (QThread::currentThread() != serial_.thread()) {
+        QThread* ownerThread = serial_.thread();
+        if (!ownerThread || !ownerThread->isRunning()) {
+            return false;
+        }
         bool result = false;
         QMetaObject::invokeMethod(&serial_, [this, &result]() {
             result = this->open();
@@ -53,6 +57,11 @@ void SerialChannel::moveToThread(QThread* thread) {
 
 void SerialChannel::close() {
     if (QThread::currentThread() != serial_.thread()) {
+        QThread* ownerThread = serial_.thread();
+        if (!ownerThread || !ownerThread->isRunning()) {
+            setState(ChannelState::Closed);
+            return;
+        }
         QMetaObject::invokeMethod(&serial_, [this]() {
             this->close();
         }, Qt::BlockingQueuedConnection);
@@ -67,6 +76,10 @@ void SerialChannel::close() {
 
 bool SerialChannel::write(QByteArrayView data) {
     if (QThread::currentThread() != serial_.thread()) {
+        QThread* ownerThread = serial_.thread();
+        if (!ownerThread || !ownerThread->isRunning()) {
+            return false;
+        }
         bool result = false;
         QByteArray dataCopy(data.data(), data.size());
         QMetaObject::invokeMethod(&serial_, [this, dataCopy, &result]() {

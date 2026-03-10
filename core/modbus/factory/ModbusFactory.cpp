@@ -29,7 +29,11 @@ ModbusStack ModbusFactory::createStack(const base::ModbusConfig& config) {
         if (thread) {
             if (thread->isRunning()) {
                 thread->quit();
-                thread->wait();
+                if (!thread->wait(2000)) {
+                    thread->requestInterruption();
+                    thread->quit();
+                    thread->wait(1000);
+                }
             }
             delete thread;
         }
