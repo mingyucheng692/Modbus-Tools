@@ -2,8 +2,6 @@
 #include <spdlog/spdlog.h>
 #include <chrono>
 #include <thread>
-#include <QCoreApplication>
-#include <QEventLoop>
 
 namespace modbus::session {
 
@@ -172,31 +170,19 @@ ModbusResponse ModbusClient::sendRequestInternal(const base::Pdu& request, int s
     spdlog::info("ModbusClient: Entering wait loop, deadline in {}ms", config_.timeoutMs);
     
     while (true) {
+        std::unique_lock<std::mutex> lock(mutex_);
+        const bool notified = cv_.wait_until(lock, deadline, [this]() {
+            return aborted_.load() || responseReady_ || !lastError_.isEmpty();
+        });
+        if (!notified) {
+            transitionTo(RequestState::Failed, "timeout");
+            return ModbusResponse::Error("Timeout");
+        }
         if (aborted_) {
             spdlog::info("ModbusClient: Aborted during wait");
             transitionTo(RequestState::Aborted, "aborted-during-wait");
             return ModbusResponse::Error("Aborted");
         }
-
-        // 关键修复：允许在等待期间处理当前线程的信号。
-        QCoreApplication::processEvents(QEventLoop::AllEvents);
-
-        {
-            std::lock_guard<std::mutex> lock(mutex_);
-            if (responseReady_ || !lastError_.isEmpty()) {
-                // 有信号或错误，进入后续处理
-            } else if (std::chrono::steady_clock::now() >= deadline) {
-                transitionTo(RequestState::Failed, "timeout");
-                return ModbusResponse::Error("Timeout");
-            } else {
-                // 继续等待信号
-                std::this_thread::sleep_for(std::chrono::milliseconds(1));
-                continue;
-            }
-        }
-
-        std::unique_lock<std::mutex> lock(mutex_);
-        // 检查是否有错误
         if (!lastError_.isEmpty()) {
             QString err = lastError_;
             lastError_.clear();
@@ -204,7 +190,6 @@ ModbusResponse ModbusClient::sendRequestInternal(const base::Pdu& request, int s
             return ModbusResponse::Error(err);
         }
 
-        // 重置准备就绪标志，开始检查数据
         responseReady_ = false;
 
         int integrity = transport_->checkIntegrity(buffer_);
@@ -219,7 +204,7 @@ ModbusResponse ModbusClient::sendRequestInternal(const base::Pdu& request, int s
                     return ModbusResponse::Error(QString("Modbus Exception: %1").arg(static_cast<int>(pdu->exceptionCode())));
                 }
                 if (pdu->originalFunctionCode() != request.functionCode()) {
-                     continue; // 匹配失败，可能还有后续包，继续等待
+                    continue;
                 }
                 
                 auto rttMs = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - start).count();
@@ -235,10 +220,9 @@ ModbusResponse ModbusClient::sendRequestInternal(const base::Pdu& request, int s
             return ModbusResponse::Error("Invalid data received");
         }
         
-        // integrity == 0，数据尚不完整，继续循环等待直到 deadline
         if (std::chrono::steady_clock::now() >= deadline) {
-             transitionTo(RequestState::Failed, "timeout-full-packet");
-             return ModbusResponse::Error("Timeout while waiting for full packet");
+            transitionTo(RequestState::Failed, "timeout-full-packet");
+            return ModbusResponse::Error("Timeout while waiting for full packet");
         }
     }
 }
