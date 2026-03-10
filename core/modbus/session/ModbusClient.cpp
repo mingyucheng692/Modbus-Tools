@@ -68,6 +68,16 @@ void ModbusClient::finishPendingRequest(int requestId, bool success, const QStri
     pendingRequests_.erase(it);
 }
 
+void ModbusClient::clearRuntimeState(bool clearPendingQueue) {
+    std::lock_guard<std::mutex> lock(mutex_);
+    buffer_.clear();
+    responseReady_ = false;
+    lastError_.clear();
+    if (clearPendingQueue) {
+        pendingRequests_.clear();
+    }
+}
+
 ModbusClient::ModbusClient(std::shared_ptr<io::IChannel> channel, 
                            std::shared_ptr<transport::ITransport> transport)
     : channel_(std::move(channel)), transport_(std::move(transport)) {
@@ -95,13 +105,22 @@ bool ModbusClient::connect() {
     timeouts.writeMs = config_.timeoutMs;
     channel_->setTimeouts(timeouts);
     
-    return channel_->open();
+    const bool opened = channel_->open();
+    if (opened) {
+        aborted_ = false;
+        clearRuntimeState(false);
+        transitionTo(RequestState::Idle, "connect");
+    }
+    return opened;
 }
 
 void ModbusClient::disconnect() {
+    aborted_ = true;
     if (channel_) {
         channel_->close();
     }
+    clearRuntimeState(true);
+    aborted_ = false;
     transitionTo(RequestState::Idle, "disconnect");
 }
 
@@ -129,6 +148,7 @@ void ModbusClient::setConfig(const base::ModbusConfig& config) {
 
 ModbusResponse ModbusClient::sendRequest(const base::Pdu& request, int slaveId) {
     std::lock_guard<std::recursive_mutex> lock(requestMutex_);
+    aborted_ = false;
     
     int retries = config_.retries;
     ModbusResponse lastResponse = ModbusResponse::Error("Unknown error");

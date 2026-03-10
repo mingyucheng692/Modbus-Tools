@@ -52,6 +52,7 @@ private:
     static const char* toString(RequestState state);
     int enqueuePendingRequest(const base::Pdu& request, int slaveId);
     void finishPendingRequest(int requestId, bool success, const QString& error);
+    void clearRuntimeState(bool clearPendingQueue);
 
     std::shared_ptr<io::IChannel> channel_;
     std::shared_ptr<transport::ITransport> transport_;
