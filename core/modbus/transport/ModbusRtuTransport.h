@@ -13,6 +13,8 @@ public:
 
 private:
     uint16_t calculateCrc(const QByteArray& data);
+    uint8_t expectedResponseSlaveId_ = 0;
+    bool hasPendingRequest_ = false;
 };
 
 } // namespace modbus::transport

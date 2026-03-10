@@ -6,6 +6,8 @@ namespace modbus::transport {
 
 QByteArray ModbusRtuTransport::buildRequest(const base::Pdu& pdu, uint8_t slaveId) {
     QByteArray adu;
+    expectedResponseSlaveId_ = slaveId;
+    hasPendingRequest_ = true;
     QDataStream stream(&adu, QIODevice::WriteOnly);
     stream << slaveId;
     stream << static_cast<uint8_t>(pdu.functionCode());
@@ -38,6 +40,10 @@ std::optional<base::Pdu> ModbusRtuTransport::parseResponse(const QByteArray& adu
     }
 
     uint8_t slaveId = static_cast<uint8_t>(adu[0]);
+    if (hasPendingRequest_ && slaveId != expectedResponseSlaveId_) {
+        return std::nullopt;
+    }
+    hasPendingRequest_ = false;
     uint8_t fc = static_cast<uint8_t>(adu[1]);
     QByteArray payload = adu.mid(2, adu.size() - 4);
 
