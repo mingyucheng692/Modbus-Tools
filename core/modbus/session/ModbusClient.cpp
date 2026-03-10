@@ -231,12 +231,14 @@ ModbusResponse ModbusClient::sendRequestInternal(const base::Pdu& request, int s
     
     while (true) {
         std::unique_lock<std::mutex> lock(mutex_);
-        const bool notified = cv_.wait_until(lock, deadline, [this]() {
-            return aborted_.load() || responseReady_ || !lastError_.isEmpty();
-        });
-        if (!notified) {
-            transitionTo(RequestState::Failed, "timeout");
-            return ModbusResponse::Error("Timeout");
+        if (!responseReady_ && lastError_.isEmpty() && !aborted_.load()) {
+            const bool notified = cv_.wait_until(lock, deadline, [this]() {
+                return aborted_.load() || responseReady_ || !lastError_.isEmpty();
+            });
+            if (!notified) {
+                transitionTo(RequestState::Failed, "timeout");
+                return ModbusResponse::Error("Timeout");
+            }
         }
         if (aborted_) {
             spdlog::info("ModbusClient: Aborted during wait");
@@ -252,32 +254,35 @@ ModbusResponse ModbusClient::sendRequestInternal(const base::Pdu& request, int s
 
         responseReady_ = false;
 
-        int integrity = transport_->checkIntegrity(buffer_);
-        if (integrity > 0) {
-            QByteArray frame = buffer_.left(integrity);
-            buffer_.remove(0, integrity); 
-            
-            auto pdu = transport_->parseResponse(frame);
-            if (pdu) {
-                if (pdu->isException()) {
-                    transitionTo(RequestState::Failed, "modbus-exception");
-                    return ModbusResponse::Error(QString("Modbus Exception: %1").arg(static_cast<int>(pdu->exceptionCode())));
+        while (true) {
+            int integrity = transport_->checkIntegrity(buffer_);
+            if (integrity > 0) {
+                QByteArray frame = buffer_.left(integrity);
+                buffer_.remove(0, integrity);
+                lock.unlock();
+                auto pdu = transport_->parseResponse(frame);
+                if (pdu) {
+                    if (pdu->isException()) {
+                        transitionTo(RequestState::Failed, "modbus-exception");
+                        return ModbusResponse::Error(QString("Modbus Exception: %1").arg(static_cast<int>(pdu->exceptionCode())));
+                    }
+                    if (pdu->originalFunctionCode() != request.functionCode()) {
+                        lock.lock();
+                        continue;
+                    }
+                    auto rttMs = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - start).count();
+                    transitionTo(RequestState::Completed, "response-parsed");
+                    return ModbusResponse::Success(*pdu, static_cast<int>(rttMs));
+                } else {
+                    transitionTo(RequestState::Failed, "response-parse-failed");
+                    return ModbusResponse::Error("Response parsing failed");
                 }
-                if (pdu->originalFunctionCode() != request.functionCode()) {
-                    continue;
-                }
-                
-                auto rttMs = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - start).count();
-                transitionTo(RequestState::Completed, "response-parsed");
-                return ModbusResponse::Success(*pdu, static_cast<int>(rttMs));
-            } else {
-                transitionTo(RequestState::Failed, "response-parse-failed");
-                return ModbusResponse::Error("Response parsing failed");
+            } else if (integrity == -1) {
+                buffer_.clear();
+                transitionTo(RequestState::Failed, "integrity-failed");
+                return ModbusResponse::Error("Invalid data received");
             }
-        } else if (integrity == -1) {
-            buffer_.clear();
-            transitionTo(RequestState::Failed, "integrity-failed");
-            return ModbusResponse::Error("Invalid data received");
+            break;
         }
         
         if (std::chrono::steady_clock::now() >= deadline) {
