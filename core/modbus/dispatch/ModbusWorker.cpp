@@ -5,6 +5,12 @@
 
 namespace modbus::dispatch {
 
+namespace {
+bool isThreadReady(const QPointer<QThread>& thread) {
+    return thread && thread->isRunning();
+}
+}
+
 ModbusWorker::ModbusWorker(std::shared_ptr<session::IModbusClient> client, QThread* workerThread, QObject* parent)
     : QObject(parent),
       client_(std::move(client)),
@@ -62,8 +68,8 @@ void ModbusWorker::stop() {
 }
 
 void ModbusWorker::submit(const base::Pdu& request, int slaveId, int requestId) {
-    if (!thread_) {
-        emit requestFinished(requestId, session::ModbusResponse::Error("Worker thread not available"));
+    if (!isThreadReady(thread_)) {
+        emit requestFinished(requestId, session::ModbusResponse::Error("Worker thread not running"));
         return;
     }
     QMetaObject::invokeMethod(this, [this, request, slaveId, requestId]() {
@@ -77,8 +83,8 @@ void ModbusWorker::submit(const base::Pdu& request, int slaveId, int requestId) 
 }
 
 void ModbusWorker::sendRaw(const QByteArray& data) {
-    if (!thread_) {
-        emit requestFinished(-1, session::ModbusResponse::Error("Worker thread not available"));
+    if (!isThreadReady(thread_)) {
+        emit requestFinished(-1, session::ModbusResponse::Error("Worker thread not running"));
         return;
     }
     QMetaObject::invokeMethod(this, [this, data]() {
@@ -87,8 +93,8 @@ void ModbusWorker::sendRaw(const QByteArray& data) {
 }
 
 void ModbusWorker::requestConnect() {
-    if (!thread_) {
-        emit connectFinished(false, "Worker thread not available");
+    if (!isThreadReady(thread_)) {
+        emit connectFinished(false, "Worker thread not running");
         return;
     }
     QMetaObject::invokeMethod(this, [this]() {
@@ -97,7 +103,10 @@ void ModbusWorker::requestConnect() {
 }
 
 void ModbusWorker::requestDisconnect() {
-    if (!thread_) return;
+    if (!isThreadReady(thread_)) {
+        emit disconnectFinished();
+        return;
+    }
     QMetaObject::invokeMethod(this, [this]() {
         handleRequestDisconnectInThread();
     }, Qt::QueuedConnection);
