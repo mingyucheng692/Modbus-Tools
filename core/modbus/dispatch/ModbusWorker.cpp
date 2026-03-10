@@ -110,7 +110,7 @@ void ModbusWorker::requestConnect() {
 
 void ModbusWorker::requestDisconnect() {
     if (!isThreadReady(thread_)) {
-        emit disconnectFinished();
+        handleRequestDisconnectInThread();
         return;
     }
     QMetaObject::invokeMethod(this, [this]() {
