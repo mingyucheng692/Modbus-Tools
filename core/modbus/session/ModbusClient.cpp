@@ -3,6 +3,8 @@
 #include <chrono>
 #include <thread>
 #include <algorithm>
+#include <QCoreApplication>
+#include <QEventLoop>
 
 namespace modbus::session {
 
@@ -241,12 +243,21 @@ ModbusResponse ModbusClient::sendRequestInternal(const base::Pdu& request, int s
     while (true) {
         std::unique_lock<std::mutex> lock(mutex_);
         if (!responseReady_ && lastError_.isEmpty() && !aborted_.load()) {
-            const bool notified = cv_.wait_until(lock, deadline, [this]() {
+            const auto now = std::chrono::steady_clock::now();
+            const auto waitSlice = std::min(deadline, now + std::chrono::milliseconds(10));
+            const bool notified = cv_.wait_until(lock, waitSlice, [this]() {
                 return aborted_.load() || responseReady_ || !lastError_.isEmpty();
             });
             if (!notified) {
-                transitionTo(RequestState::Failed, "timeout");
-                return ModbusResponse::Error("Timeout");
+                if (std::chrono::steady_clock::now() >= deadline) {
+                    transitionTo(RequestState::Failed, "timeout");
+                    return ModbusResponse::Error("Timeout");
+                }
+                lock.unlock();
+                if (QCoreApplication::instance()) {
+                    QCoreApplication::processEvents(QEventLoop::AllEvents, 1);
+                }
+                continue;
             }
         }
         if (aborted_) {
