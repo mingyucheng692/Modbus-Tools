@@ -1,11 +1,11 @@
 #include "TrafficMonitorWidget.h"
+#include "CollapsibleSection.h"
 #include <QVBoxLayout>
 #include <QHBoxLayout>
 #include <QListWidget>
 #include <QCheckBox>
 #include <QPushButton>
 #include <QDateTime>
-#include <QGroupBox>
 #include <QListWidgetItem>
 #include <QFileDialog>
 #include <QFile>
@@ -31,8 +31,8 @@ void TrafficMonitorWidget::setupUi() {
     auto mainLayout = new QVBoxLayout(this);
     mainLayout->setContentsMargins(0, 0, 0, 0);
 
-    groupBox_ = new QGroupBox(this);
-    auto layout = new QVBoxLayout(groupBox_);
+    section_ = new CollapsibleSection(this);
+    auto layout = new QVBoxLayout(section_->contentWidget());
 
     // Toolbar
     auto toolbarLayout = new QHBoxLayout();
@@ -65,7 +65,7 @@ void TrafficMonitorWidget::setupUi() {
     logList_->setContextMenuPolicy(Qt::CustomContextMenu);
     layout->addWidget(logList_);
 
-    mainLayout->addWidget(groupBox_);
+    mainLayout->addWidget(section_);
 
     // Connections
     connect(clearBtn_, &QPushButton::clicked, this, &TrafficMonitorWidget::clear);
@@ -133,6 +133,9 @@ void TrafficMonitorWidget::clear() {
 
 void TrafficMonitorWidget::setSettingsGroup(const QString& group) {
     settingsGroup_ = group;
+    if (section_) {
+        section_->setSettingsKey(settingsGroup_ + "/ui/trafficMonitorCollapsed");
+    }
     loadSettings();
 }
 
@@ -194,7 +197,7 @@ void TrafficMonitorWidget::onCopyClicked() {
 }
 
 void TrafficMonitorWidget::retranslateUi() {
-    if (groupBox_) groupBox_->setTitle(tr("Traffic Monitor"));
+    if (section_) section_->setTitle(tr("Traffic Monitor"));
     if (autoScrollCheck_) autoScrollCheck_->setText(tr("Auto Scroll"));
     if (showTxCheck_) showTxCheck_->setText(tr("TX"));
     if (showRxCheck_) showRxCheck_->setText(tr("RX"));

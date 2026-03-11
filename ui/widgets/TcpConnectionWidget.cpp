@@ -1,10 +1,10 @@
 #include "TcpConnectionWidget.h"
+#include "CollapsibleSection.h"
 #include <QHBoxLayout>
 #include <QLabel>
 #include <QLineEdit>
 #include <QSpinBox>
 #include <QPushButton>
-#include <QGroupBox>
 #include <QEvent>
 #include <QSettings>
 #include <QApplication>
@@ -23,8 +23,8 @@ void TcpConnectionWidget::setupUi() {
     auto mainLayout = new QHBoxLayout(this);
     mainLayout->setContentsMargins(0, 0, 0, 0);
 
-    groupBox_ = new QGroupBox(this);
-    auto layout = new QHBoxLayout(groupBox_);
+    section_ = new CollapsibleSection(this);
+    auto layout = new QHBoxLayout(section_->contentWidget());
 
     // IP Address
     hostLabel_ = new QLabel(this);
@@ -50,7 +50,7 @@ void TcpConnectionWidget::setupUi() {
     layout->addWidget(statusLabel_);
 
     layout->addStretch();
-    mainLayout->addWidget(groupBox_);
+    mainLayout->addWidget(section_);
 
     // Connections
     connect(connectBtn_, &QPushButton::clicked, this, [this]() {
@@ -65,6 +65,7 @@ void TcpConnectionWidget::setupUi() {
     connect(portEdit_, qOverload<int>(&QSpinBox::valueChanged), this, &TcpConnectionWidget::saveSettings);
 
     loadSettings();
+    section_->setSettingsKey(settingsGroup_ + "/ui/connectionSettingsCollapsed");
     retranslateUi();
 }
 
@@ -87,6 +88,9 @@ void TcpConnectionWidget::setDefaultPort(int port) {
 
 void TcpConnectionWidget::setSettingsGroup(const QString& group) {
     settingsGroup_ = group;
+    if (section_) {
+        section_->setSettingsKey(settingsGroup_ + "/ui/connectionSettingsCollapsed");
+    }
     loadSettings();
 }
 
@@ -141,8 +145,8 @@ void TcpConnectionWidget::setConnected(bool connected) {
 }
 
 void TcpConnectionWidget::retranslateUi() {
-    if (groupBox_) {
-        groupBox_->setTitle(tr("Connection Settings"));
+    if (section_) {
+        section_->setTitle(tr("Connection Settings"));
     }
     if (hostLabel_) {
         hostLabel_->setText(tr("Host:"));

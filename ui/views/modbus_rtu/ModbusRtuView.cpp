@@ -3,6 +3,7 @@
 #include "../../widgets/FunctionWidget.h"
 #include "../../widgets/TrafficMonitorWidget.h"
 #include "../../widgets/ControlWidget.h"
+#include "../../widgets/CollapsibleSection.h"
 #include "../../common/ConnectionAlert.h"
 #include "modbus/factory/ModbusFactory.h"
 #include <QVBoxLayout>
@@ -58,10 +59,11 @@ void ModbusRtuView::setupUi() {
     functionWidget_->setSettingsGroup("modbus/rtu/standard");
     mainLayout_->addWidget(functionWidget_);
     
-    dataGroup_ = new QGroupBox(this);
-    auto dataLayout = new QHBoxLayout(dataGroup_);
+    dataGroup_ = new widgets::CollapsibleSection(this);
+    dataGroup_->setSettingsKey("modbus/rtu/ui/dataMonitorCollapsed");
+    auto dataLayout = new QHBoxLayout(dataGroup_->contentWidget());
 
-    receiveGroup_ = new QGroupBox(dataGroup_);
+    receiveGroup_ = new QGroupBox(dataGroup_->contentWidget());
     auto receiveLayout = new QVBoxLayout(receiveGroup_);
     auto receiveToolbar = new QHBoxLayout();
     receiveHexCheck_ = new QCheckBox(receiveGroup_);
@@ -79,7 +81,7 @@ void ModbusRtuView::setupUi() {
     receiveLayout->addLayout(receiveToolbar);
     receiveLayout->addWidget(receiveTextEdit_);
 
-    sendGroup_ = new QGroupBox(dataGroup_);
+    sendGroup_ = new QGroupBox(dataGroup_->contentWidget());
     auto sendLayout = new QVBoxLayout(sendGroup_);
     auto sendToolbar = new QHBoxLayout();
     sendHexCheck_ = new QCheckBox(sendGroup_);
@@ -100,7 +102,7 @@ void ModbusRtuView::setupUi() {
     dataLayout->addWidget(receiveGroup_, 1);
     dataLayout->addWidget(sendGroup_, 1);
     trafficMonitor_ = new widgets::TrafficMonitorWidget(this);
-    trafficMonitor_->setMinimumHeight(180);
+    trafficMonitor_->setMinimumHeight(36);
     trafficMonitor_->setSettingsGroup("modbus/rtu/traffic");
 
     auto monitorSplitter = new QSplitter(Qt::Vertical, this);

@@ -69,7 +69,7 @@ MainWindow::~MainWindow() {
 
 void MainWindow::setupUi() {
     setWindowTitle(tr("Modbus Tools"));
-    resize(1200, 800);
+    resize(980, 640);
 
     // Central widget with HBox layout
     auto centralWidget = new QWidget(this);

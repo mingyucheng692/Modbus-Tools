@@ -6,11 +6,11 @@ class QLineEdit;
 class QSpinBox;
 class QPushButton;
 class QLabel;
-class QGroupBox;
 class QEvent;
 class QString;
 
 namespace ui::widgets {
+class CollapsibleSection;
 
 class TcpConnectionWidget : public QWidget {
     Q_OBJECT
@@ -38,7 +38,7 @@ private:
     void retranslateUi();
     void changeEvent(QEvent* event) override;
 
-    QGroupBox* groupBox_ = nullptr;
+    CollapsibleSection* section_ = nullptr;
     QLabel* hostLabel_ = nullptr;
     QLabel* portLabel_ = nullptr;
     QLineEdit* ipEdit_ = nullptr;

@@ -9,11 +9,11 @@ class QComboBox;
 class QTextEdit;
 class QLabel;
 class QPushButton;
-class QGroupBox;
 class QEvent;
 class QString;
 
 namespace ui::widgets {
+class CollapsibleSection;
 
 class FunctionWidget : public QWidget {
     Q_OBJECT
@@ -52,8 +52,8 @@ private:
     void onRawSendClicked();
 
     // Standard UI
-    QGroupBox* standardGroup_ = nullptr;
-    QGroupBox* rawGroup_ = nullptr;
+    CollapsibleSection* standardSection_ = nullptr;
+    CollapsibleSection* rawSection_ = nullptr;
     QLabel* slaveIdLabel_ = nullptr;
     QSpinBox* slaveIdEdit_ = nullptr;
     QLabel* addressLabel_ = nullptr;

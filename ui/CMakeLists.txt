@@ -26,6 +26,8 @@ target_sources(ui PRIVATE
     widgets/TrafficMonitorWidget.cpp
     widgets/GenericInputWidget.cpp
     widgets/GenericInputWidget.h
+    widgets/CollapsibleSection.cpp
+    widgets/CollapsibleSection.h
     widgets/DisclaimerDialog.cpp
     widgets/DisclaimerDialog.h
     widgets/UpdateSettingsDialog.cpp

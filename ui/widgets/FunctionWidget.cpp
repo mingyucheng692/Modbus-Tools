@@ -1,4 +1,5 @@
 #include "FunctionWidget.h"
+#include "CollapsibleSection.h"
 #include <QVBoxLayout>
 #include <QHBoxLayout>
 #include <QGridLayout>
@@ -7,8 +8,6 @@
 #include <QLineEdit>
 #include <QComboBox>
 #include <QPushButton>
-#include <QGroupBox>
-
 #include <QTextEdit>
 #include <QEvent>
 #include <QSettings>
@@ -29,13 +28,13 @@ void FunctionWidget::setupUi() {
     mainLayout->setContentsMargins(0, 0, 0, 0);
     mainLayout->setSpacing(8);
 
-    standardGroup_ = new QGroupBox(this);
-    setupStandardUi(standardGroup_);
-    mainLayout->addWidget(standardGroup_);
+    standardSection_ = new CollapsibleSection(this);
+    setupStandardUi(standardSection_->contentWidget());
+    mainLayout->addWidget(standardSection_);
 
-    rawGroup_ = new QGroupBox(this);
-    setupRawUi(rawGroup_);
-    mainLayout->addWidget(rawGroup_);
+    rawSection_ = new CollapsibleSection(this);
+    setupRawUi(rawSection_->contentWidget());
+    mainLayout->addWidget(rawSection_);
 
     retranslateUi();
 }
@@ -169,6 +168,12 @@ int FunctionWidget::getFormatIndex() const {
 
 void FunctionWidget::setSettingsGroup(const QString& group) {
     settingsGroup_ = group;
+    if (standardSection_) {
+        standardSection_->setSettingsKey(settingsGroup_ + "/ui/standardCollapsed");
+    }
+    if (rawSection_) {
+        rawSection_->setSettingsKey(settingsGroup_ + "/ui/rawCollapsed");
+    }
     loadSettings();
 }
 
@@ -235,11 +240,11 @@ void FunctionWidget::onRawSendClicked() {
 }
 
 void FunctionWidget::retranslateUi() {
-    if (standardGroup_) {
-        standardGroup_->setTitle(tr("Standard"));
+    if (standardSection_) {
+        standardSection_->setTitle(tr("Standard"));
     }
-    if (rawGroup_) {
-        rawGroup_->setTitle(tr("Raw"));
+    if (rawSection_) {
+        rawSection_->setTitle(tr("Raw"));
     }
     if (slaveIdLabel_) {
         slaveIdLabel_->setText(tr("Slave ID:"));

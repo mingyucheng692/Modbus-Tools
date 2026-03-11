@@ -24,6 +24,7 @@ namespace ui::widgets {
     class FunctionWidget;
     class TrafficMonitorWidget;
     class ControlWidget;
+    class CollapsibleSection;
 }
 
 namespace ui::views::modbus_tcp {
@@ -55,7 +56,7 @@ private:
     ui::widgets::FunctionWidget* functionWidget_ = nullptr;
     ui::widgets::TrafficMonitorWidget* trafficMonitor_ = nullptr;
     ui::widgets::ControlWidget* controlWidget_ = nullptr;
-    QGroupBox* dataGroup_ = nullptr;
+    ui::widgets::CollapsibleSection* dataGroup_ = nullptr;
     QGroupBox* receiveGroup_ = nullptr;
     QGroupBox* sendGroup_ = nullptr;
     QTextEdit* receiveTextEdit_ = nullptr;

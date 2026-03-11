@@ -1,10 +1,10 @@
 #include "SerialConnectionWidget.h"
+#include "CollapsibleSection.h"
 #include <QHBoxLayout>
 #include <QVBoxLayout>
 #include <QComboBox>
 #include <QPushButton>
 #include <QLabel>
-#include <QGroupBox>
 #include <QSerialPortInfo>
 #include <QEvent>
 #include <QSettings>
@@ -102,8 +102,8 @@ void SerialConnectionWidget::setupUi() {
     auto* mainLayout = new QHBoxLayout(this);
     mainLayout->setContentsMargins(0, 0, 0, 0);
 
-    groupBox_ = new QGroupBox(this);
-    auto* layout = new QHBoxLayout(groupBox_);
+    section_ = new CollapsibleSection(this);
+    auto* layout = new QHBoxLayout(section_->contentWidget());
 
     // Port
     portLabel_ = new QLabel(this);
@@ -169,7 +169,7 @@ void SerialConnectionWidget::setupUi() {
     layout->addWidget(statusLabel_);
     
     layout->addStretch();
-    mainLayout->addWidget(groupBox_);
+    mainLayout->addWidget(section_);
 
     connect(portCombo_, qOverload<int>(&QComboBox::currentIndexChanged), this, &SerialConnectionWidget::saveSettings);
     connect(baudCombo_, &QComboBox::currentTextChanged, this, &SerialConnectionWidget::saveSettings);
@@ -178,12 +178,16 @@ void SerialConnectionWidget::setupUi() {
     connect(stopBitsCombo_, &QComboBox::currentTextChanged, this, &SerialConnectionWidget::saveSettings);
 
     loadSettings();
+    section_->setSettingsKey(settingsGroup_ + "/ui/connectionSettingsCollapsed");
 
     retranslateUi();
 }
 
 void SerialConnectionWidget::setSettingsGroup(const QString& group) {
     settingsGroup_ = group;
+    if (section_) {
+        section_->setSettingsKey(settingsGroup_ + "/ui/connectionSettingsCollapsed");
+    }
     loadSettings();
 }
 
@@ -253,8 +257,8 @@ void SerialConnectionWidget::saveSettings() {
 }
 
 void SerialConnectionWidget::retranslateUi() {
-    if (groupBox_) {
-        groupBox_->setTitle(tr("Connection Settings"));
+    if (section_) {
+        section_->setTitle(tr("Connection Settings"));
     }
     if (portLabel_) {
         portLabel_->setText(tr("Port:"));
