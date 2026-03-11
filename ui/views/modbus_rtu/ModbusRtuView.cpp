@@ -3,6 +3,7 @@
 #include "../../widgets/FunctionWidget.h"
 #include "../../widgets/TrafficMonitorWidget.h"
 #include "../../widgets/ControlWidget.h"
+#include "../../common/ConnectionAlert.h"
 #include "modbus/factory/ModbusFactory.h"
 #include <QVBoxLayout>
 #include <QLabel>
@@ -213,9 +214,17 @@ void ModbusRtuView::setupUi() {
             connectionWidget_->setConnected(false);
     });
 
+    auto ensureConnected = [this]() {
+        if (worker_ && client_ && client_->isConnected()) {
+            return true;
+        }
+        ui::common::ConnectionAlert::showNotConnected(this);
+        return false;
+    };
+
     connect(functionWidget_, &widgets::FunctionWidget::readRequested,
-        [this](uint8_t fc, int addr, int qty, int slaveId) {
-            if (!worker_) return;
+        [this, ensureConnected](uint8_t fc, int addr, int qty, int slaveId) {
+            if (!ensureConnected()) return;
             
             using namespace modbus::base;
             QByteArray data;
@@ -239,8 +248,8 @@ void ModbusRtuView::setupUi() {
     });
 
     connect(functionWidget_, &widgets::FunctionWidget::writeRequested,
-        [this](uint8_t fc, int addr, const QString& dataStr, const QString& fmt, int slaveId) {
-            if (!worker_) return;
+        [this, ensureConnected](uint8_t fc, int addr, const QString& dataStr, const QString& fmt, int slaveId) {
+            if (!ensureConnected()) return;
 
             using namespace modbus::base;
             
@@ -425,8 +434,8 @@ void ModbusRtuView::setupUi() {
     });
     
     connect(functionWidget_, &widgets::FunctionWidget::rawSendRequested,
-        [this](const QByteArray& data) {
-            if (!worker_) return;
+        [this, ensureConnected](const QByteArray& data) {
+            if (!ensureConnected()) return;
             
             trafficMonitor_->appendInfo(tr("Sending Raw Data: %1").arg(QString(data.toHex(' ').toUpper())));
             
@@ -436,8 +445,8 @@ void ModbusRtuView::setupUi() {
     });
 
     connect(controlWidget_, &widgets::ControlWidget::pollRequested,
-        [this](uint8_t fc, int addr, int qty) {
-            if (!worker_) return;
+        [this, ensureConnected](uint8_t fc, int addr, int qty) {
+            if (!ensureConnected()) return;
             
             int slaveId = functionWidget_->getSlaveId();
             
