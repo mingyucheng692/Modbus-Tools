@@ -46,6 +46,7 @@ CollapsibleSection::CollapsibleSection(QWidget* parent)
     });
 
     updateToggleUi();
+    updateSectionGeometry();
 }
 
 QWidget* CollapsibleSection::contentWidget() const {
@@ -67,6 +68,7 @@ void CollapsibleSection::setExpanded(bool expanded) {
         bodyGroup_->setVisible(expanded_);
     }
     updateToggleUi();
+    updateSectionGeometry();
     emit expandedChanged(expanded_);
 }
 
@@ -87,12 +89,39 @@ void CollapsibleSection::updateToggleUi() {
     toggleButton_->setToolTip(expanded_ ? tr("Collapse") : tr("Expand"));
 }
 
+void CollapsibleSection::updateSectionGeometry() {
+    if (!bodyGroup_) {
+        return;
+    }
+    if (expanded_) {
+        bodyGroup_->setMaximumHeight(QWIDGETSIZE_MAX);
+        setMinimumHeight(0);
+        setMaximumHeight(QWIDGETSIZE_MAX);
+        QSizePolicy policy = sizePolicy();
+        policy.setVerticalPolicy(QSizePolicy::Preferred);
+        setSizePolicy(policy);
+    } else {
+        bodyGroup_->setMaximumHeight(0);
+        const int collapsedHeight = headerWidget_ ? headerWidget_->sizeHint().height() : 0;
+        setMinimumHeight(collapsedHeight);
+        setMaximumHeight(collapsedHeight);
+        QSizePolicy policy = sizePolicy();
+        policy.setVerticalPolicy(QSizePolicy::Fixed);
+        setSizePolicy(policy);
+    }
+    updateGeometry();
+    if (auto* parent = parentWidget()) {
+        parent->updateGeometry();
+    }
+}
+
 void CollapsibleSection::loadSettings() {
     if (settingsKey_.isEmpty()) {
         if (bodyGroup_) {
             bodyGroup_->setVisible(expanded_);
         }
         updateToggleUi();
+        updateSectionGeometry();
         return;
     }
     QSettings settings(QApplication::applicationDirPath() + "/config.ini", QSettings::IniFormat);
@@ -102,6 +131,7 @@ void CollapsibleSection::loadSettings() {
         bodyGroup_->setVisible(expanded_);
     }
     updateToggleUi();
+    updateSectionGeometry();
     if (!settings.contains(settingsKey_)) {
         settings.setValue(settingsKey_, false);
     }

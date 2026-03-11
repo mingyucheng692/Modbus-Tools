@@ -13,6 +13,7 @@
 #include <QSettings>
 #include <QApplication>
 #include <QSignalBlocker>
+#include <QSizePolicy>
 
 namespace ui::widgets {
 
@@ -41,6 +42,7 @@ void FunctionWidget::setupUi() {
 
 void FunctionWidget::setupStandardUi(QWidget* parent) {
     auto layout = new QVBoxLayout(parent);
+    layout->setContentsMargins(20, 0, 20, 0);
     
     // Row 1: Parameters
     auto paramLayout = new QHBoxLayout();
@@ -87,6 +89,8 @@ void FunctionWidget::setupStandardUi(QWidget* parent) {
 
     // Row 3: Function Buttons
     auto btnLayout = new QGridLayout();
+    btnLayout->setHorizontalSpacing(10);
+    btnLayout->setVerticalSpacing(8);
     
     // Read Buttons
     readBtn01_ = new QPushButton(parent);
@@ -121,6 +125,18 @@ void FunctionWidget::setupStandardUi(QWidget* parent) {
     btnLayout->addWidget(writeBtn0F_, 1, 2);
     btnLayout->addWidget(writeBtn10_, 1, 3);
 
+    for (int col = 0; col < 4; ++col) {
+        btnLayout->setColumnStretch(col, 1);
+    }
+
+    const QList<QPushButton*> fcButtons = {
+        readBtn01_, readBtn02_, readBtn03_, readBtn04_,
+        writeBtn05_, writeBtn06_, writeBtn0F_, writeBtn10_
+    };
+    for (auto* button : fcButtons) {
+        button->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);
+    }
+
     layout->addLayout(btnLayout);
     layout->addStretch();
 
@@ -132,6 +148,7 @@ void FunctionWidget::setupStandardUi(QWidget* parent) {
 
 void FunctionWidget::setupRawUi(QWidget* parent) {
     auto layout = new QVBoxLayout(parent);
+    layout->setContentsMargins(20, 0, 20, 0);
 
     rawDataLabel_ = new QLabel(parent);
     layout->addWidget(rawDataLabel_);
@@ -228,15 +245,12 @@ void FunctionWidget::onWriteClicked(uint8_t functionCode) {
 
 void FunctionWidget::onRawSendClicked() {
     QString text = rawDataEdit_->toPlainText();
-    // Simple Hex parsing: remove spaces, convert to byte array
     text = text.remove(' ');
     text = text.remove('\n');
     text = text.remove('\r');
     
     QByteArray data = QByteArray::fromHex(text.toLatin1());
-    if (!data.isEmpty()) {
-        emit rawSendRequested(data);
-    }
+    emit rawSendRequested(data);
 }
 
 void FunctionWidget::retranslateUi() {

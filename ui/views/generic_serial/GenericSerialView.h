@@ -13,6 +13,7 @@ namespace ui::widgets {
 class SerialConnectionWidget;
 class TrafficMonitorWidget;
 class GenericInputWidget;
+class CollapsibleSection;
 }
 
 class QVBoxLayout;
@@ -59,11 +60,12 @@ private:
     QCheckBox* dtrCheck_ = nullptr;
     QCheckBox* rtsCheck_ = nullptr;
     QGroupBox* controlGroup_ = nullptr;
-    QGroupBox* inputGroup_ = nullptr;
+    widgets::CollapsibleSection* inputSection_ = nullptr;
 
     // Backend
     io::GenericIoWorker* worker_ = nullptr;
     QThread* workerThread_ = nullptr;
+    bool isConnected_ = false;
 };
 
 } // namespace ui::views::generic_serial

@@ -26,6 +26,7 @@ signals:
 
 private:
     void updateToggleUi();
+    void updateSectionGeometry();
     void loadSettings();
     void saveSettings() const;
     void changeEvent(QEvent* event) override;

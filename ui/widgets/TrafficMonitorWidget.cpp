@@ -63,6 +63,7 @@ void TrafficMonitorWidget::setupUi() {
     logList_->setAlternatingRowColors(true);
     logList_->setSelectionMode(QAbstractItemView::ExtendedSelection);
     logList_->setContextMenuPolicy(Qt::CustomContextMenu);
+    logList_->setMinimumHeight(120);
     layout->addWidget(logList_);
 
     mainLayout->addWidget(section_);

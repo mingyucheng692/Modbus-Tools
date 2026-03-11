@@ -17,7 +17,6 @@
 #include <QEvent>
 #include <QClipboard>
 #include <QGuiApplication>
-#include <QSplitter>
 #include <spdlog/spdlog.h>
 #include <QMetaObject>
 #include <QPointer>
@@ -105,13 +104,8 @@ void ModbusRtuView::setupUi() {
     trafficMonitor_->setMinimumHeight(36);
     trafficMonitor_->setSettingsGroup("modbus/rtu/traffic");
 
-    auto monitorSplitter = new QSplitter(Qt::Vertical, this);
-    monitorSplitter->setChildrenCollapsible(false);
-    monitorSplitter->addWidget(dataGroup_);
-    monitorSplitter->addWidget(trafficMonitor_);
-    monitorSplitter->setStretchFactor(0, 1);
-    monitorSplitter->setStretchFactor(1, 1);
-    mainLayout_->addWidget(monitorSplitter, 1);
+    mainLayout_->addWidget(dataGroup_);
+    mainLayout_->addWidget(trafficMonitor_);
     
     controlWidget_ = new widgets::ControlWidget(this);
     controlWidget_->setSettingsGroup("modbus/rtu/control");
@@ -444,6 +438,7 @@ void ModbusRtuView::setupUi() {
     connect(functionWidget_, &widgets::FunctionWidget::rawSendRequested,
         [this, ensureConnected](const QByteArray& data) {
             if (!ensureConnected()) return;
+            if (data.isEmpty()) return;
             
             trafficMonitor_->appendInfo(tr("Sending Raw Data: %1").arg(QString(data.toHex(' ').toUpper())));
             

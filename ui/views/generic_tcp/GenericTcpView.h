@@ -13,12 +13,12 @@ namespace ui::widgets {
 class TcpConnectionWidget;
 class TrafficMonitorWidget;
 class GenericInputWidget;
+class CollapsibleSection;
 }
 
 class QVBoxLayout;
 class QHBoxLayout;
 class QSplitter;
-class QGroupBox;
 class QEvent;
 
 namespace ui::views::generic_tcp {
@@ -49,11 +49,12 @@ private:
     widgets::TcpConnectionWidget* connectionWidget_ = nullptr;
     widgets::TrafficMonitorWidget* trafficMonitor_ = nullptr;
     widgets::GenericInputWidget* inputWidget_ = nullptr;
-    QGroupBox* inputGroup_ = nullptr;
+    widgets::CollapsibleSection* inputSection_ = nullptr;
 
     // Backend
     io::GenericIoWorker* worker_ = nullptr;
     QThread* workerThread_ = nullptr;
+    bool isConnected_ = false;
 };
 
 } // namespace ui::views::generic_tcp

@@ -2,6 +2,8 @@
 #include "../../widgets/SerialConnectionWidget.h"
 #include "../../widgets/TrafficMonitorWidget.h"
 #include "../../widgets/GenericInputWidget.h"
+#include "../../widgets/CollapsibleSection.h"
+#include "../../common/ConnectionAlert.h"
 #include "../../../core/io/GenericIoWorker.h"
 #include <QVBoxLayout>
 #include <QHBoxLayout>
@@ -27,7 +29,7 @@ GenericSerialView::~GenericSerialView() {
 void GenericSerialView::setupUi() {
     auto mainLayout = new QVBoxLayout(this);
     mainLayout->setContentsMargins(10, 10, 10, 10);
-    mainLayout->setSpacing(10);
+    mainLayout->setSpacing(4);
 
     // 1. Connection Section (Top)
     auto topLayout = new QHBoxLayout();
@@ -51,14 +53,17 @@ void GenericSerialView::setupUi() {
 
     // 2. Central Area (Traffic Monitor)
     trafficMonitor_ = new widgets::TrafficMonitorWidget(this);
-    mainLayout->addWidget(trafficMonitor_, 1);
+    mainLayout->addWidget(trafficMonitor_);
 
     // 3. Input Section (Bottom)
-    inputGroup_ = new QGroupBox(this);
-    auto inputLayout = new QVBoxLayout(inputGroup_);
-    inputWidget_ = new widgets::GenericInputWidget(inputGroup_);
+    inputSection_ = new widgets::CollapsibleSection(this);
+    inputSection_->setSettingsKey("serial_port/ui/inputCollapsed");
+    auto inputLayout = new QVBoxLayout(inputSection_->contentWidget());
+    inputLayout->setContentsMargins(0, 0, 0, 0);
+    inputWidget_ = new widgets::GenericInputWidget(inputSection_->contentWidget());
     inputLayout->addWidget(inputWidget_);
-    mainLayout->addWidget(inputGroup_);
+    mainLayout->addWidget(inputSection_);
+    mainLayout->addStretch();
 
     // Connections
     connect(connectionWidget_, &widgets::SerialConnectionWidget::connectClicked, 
@@ -124,16 +129,20 @@ void GenericSerialView::onDisconnectClicked() {
 
 void GenericSerialView::onSendRequested(const QByteArray& data) {
     if (!worker_) return;
+    if (!isConnected_) {
+        ui::common::ConnectionAlert::showNotConnected(this);
+        return;
+    }
     QMetaObject::invokeMethod(worker_, "write", 
                               Qt::QueuedConnection, 
                               Q_ARG(QByteArray, data));
 }
 
 void GenericSerialView::onWorkerStateChanged(io::ChannelState state) {
-    bool connected = (state == io::ChannelState::Open);
-    connectionWidget_->setConnected(connected);
-    dtrCheck_->setEnabled(connected);
-    rtsCheck_->setEnabled(connected);
+    isConnected_ = (state == io::ChannelState::Open);
+    connectionWidget_->setConnected(isConnected_);
+    dtrCheck_->setEnabled(isConnected_);
+    rtsCheck_->setEnabled(isConnected_);
     
     QString stateStr;
     switch (state) {
@@ -177,7 +186,7 @@ void GenericSerialView::onRtsChanged(bool checked) {
 
 void GenericSerialView::retranslateUi() {
     if (controlGroup_) controlGroup_->setTitle(tr("Control"));
-    if (inputGroup_) inputGroup_->setTitle(tr("Send Data"));
+    if (inputSection_) inputSection_->setTitle(tr("Send Data"));
     if (dtrCheck_) dtrCheck_->setText(tr("DTR"));
     if (rtsCheck_) rtsCheck_->setText(tr("RTS"));
 }
