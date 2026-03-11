@@ -64,6 +64,7 @@ void ModbusRtuView::setupUi() {
     auto receiveToolbar = new QHBoxLayout();
     receiveHexCheck_ = new QCheckBox(receiveGroup_);
     receiveHexCheck_->setChecked(true);
+    receiveHexCheck_->setVisible(false);
     copyReceiveButton_ = new QPushButton(receiveGroup_);
     clearReceiveButton_ = new QPushButton(receiveGroup_);
     receiveToolbar->addWidget(receiveHexCheck_);
@@ -81,6 +82,7 @@ void ModbusRtuView::setupUi() {
     auto sendToolbar = new QHBoxLayout();
     sendHexCheck_ = new QCheckBox(sendGroup_);
     sendHexCheck_->setChecked(true);
+    sendHexCheck_->setVisible(false);
     copySendButton_ = new QPushButton(sendGroup_);
     clearSendButton_ = new QPushButton(sendGroup_);
     sendToolbar->addWidget(sendHexCheck_);
@@ -210,7 +212,7 @@ void ModbusRtuView::setupUi() {
             releaseStack();
             connectionWidget_->setConnected(false);
     });
-    
+
     connect(functionWidget_, &widgets::FunctionWidget::readRequested,
         [this](uint8_t fc, int addr, int qty, int slaveId) {
             if (!worker_) return;
