@@ -31,6 +31,9 @@
 #include <QComboBox>
 #include <QAbstractSpinBox>
 #include <QLabel>
+#include <QToolButton>
+#include <QListWidgetItem>
+#include <QStyle>
 #include <QMessageBox>
 #include <QSettings>
 #include <QUrl>
@@ -80,7 +83,7 @@ void MainWindow::setupUi() {
 
     // Navigation
     createNavigation();
-    mainLayout->addWidget(navigationList_, 1);
+    mainLayout->addWidget(navigationPane_);
 
     // Content Area
     stackedWidget_ = new QStackedWidget(this);
@@ -115,10 +118,15 @@ void MainWindow::setupUi() {
     {
         QSettings settings(QApplication::applicationDirPath() + "/config.ini", QSettings::IniFormat);
         currentLocale_ = settings.value("app/language", currentLocale_).toString();
+        navigationCollapsed_ = settings.value("app/navigationCollapsed", false).toBool();
         if (!settings.contains("app/language")) {
             settings.setValue("app/language", currentLocale_);
         }
+        if (!settings.contains("app/navigationCollapsed")) {
+            settings.setValue("app/navigationCollapsed", navigationCollapsed_);
+        }
     }
+    setNavigationCollapsed(navigationCollapsed_);
     loadModbusSettings();
     loadUpdateSettings();
     applyModbusSettingsToViews();
@@ -131,16 +139,60 @@ void MainWindow::setupUi() {
 }
 
 void MainWindow::createNavigation() {
-    navigationList_ = new QListWidget(this);
-    navigationList_->addItem(tr("Modbus TCP"));
-    navigationList_->addItem(tr("Modbus RTU"));
-    navigationList_->addItem(tr("TCP Client"));
-    navigationList_->addItem(tr("Serial Port"));
-    navigationList_->addItem(tr("Frame Analyzer"));
-    
-    // Style the navigation list a bit
-    // Use light theme by default for now
+    navigationPane_ = new QWidget(this);
+    auto paneLayout = new QVBoxLayout(navigationPane_);
+    paneLayout->setContentsMargins(0, 0, 0, 0);
+    paneLayout->setSpacing(0);
+
+    navigationToggleButton_ = new QToolButton(navigationPane_);
+    navigationToggleButton_->setToolButtonStyle(Qt::ToolButtonTextOnly);
+    navigationToggleButton_->setFixedHeight(28);
+    paneLayout->addWidget(navigationToggleButton_);
+
+    navigationList_ = new QListWidget(navigationPane_);
+    navigationList_->addItem(new QListWidgetItem(style()->standardIcon(QStyle::SP_ComputerIcon), tr("Modbus TCP")));
+    navigationList_->addItem(new QListWidgetItem(style()->standardIcon(QStyle::SP_DriveNetIcon), tr("Modbus RTU")));
+    navigationList_->addItem(new QListWidgetItem(style()->standardIcon(QStyle::SP_DialogOpenButton), tr("TCP Client")));
+    navigationList_->addItem(new QListWidgetItem(style()->standardIcon(QStyle::SP_DriveHDIcon), tr("Serial Port")));
+    navigationList_->addItem(new QListWidgetItem(style()->standardIcon(QStyle::SP_FileDialogDetailedView), tr("Frame Analyzer")));
+    navigationList_->setIconSize(QSize(18, 18));
+    paneLayout->addWidget(navigationList_);
+
     navigationList_->setStyleSheet(common::Theme::getNavigationStyle(false));
+    connect(navigationToggleButton_, &QToolButton::clicked, this, [this]() {
+        setNavigationCollapsed(!navigationCollapsed_);
+        QSettings settings(QApplication::applicationDirPath() + "/config.ini", QSettings::IniFormat);
+        settings.setValue("app/navigationCollapsed", navigationCollapsed_);
+    });
+}
+
+void MainWindow::setNavigationCollapsed(bool collapsed) {
+    navigationCollapsed_ = collapsed;
+    if (navigationPane_) {
+        navigationPane_->setFixedWidth(navigationCollapsed_ ? navigationCollapsedWidth_ : navigationExpandedWidth_);
+    }
+    if (navigationList_) {
+        for (int i = 0; i < navigationList_->count(); ++i) {
+            auto* item = navigationList_->item(i);
+            if (!item) {
+                continue;
+            }
+            const QString title = item->toolTip().isEmpty() ? item->text() : item->toolTip();
+            item->setToolTip(title);
+            item->setText(navigationCollapsed_ ? QString() : title);
+            item->setTextAlignment(navigationCollapsed_ ? Qt::AlignCenter : (Qt::AlignLeft | Qt::AlignVCenter));
+            item->setSizeHint(navigationCollapsed_ ? QSize(48, 44) : QSize());
+        }
+    }
+    updateNavigationToggleUi();
+}
+
+void MainWindow::updateNavigationToggleUi() {
+    if (!navigationToggleButton_) {
+        return;
+    }
+    navigationToggleButton_->setText(navigationCollapsed_ ? QStringLiteral("≫") : QStringLiteral("≪"));
+    navigationToggleButton_->setToolTip(navigationCollapsed_ ? tr("Expand Navigation") : tr("Collapse Navigation"));
 }
 
 void MainWindow::setupSettingsMenu() {
@@ -494,11 +546,28 @@ void MainWindow::applyLanguage(const QString& locale) {
 void MainWindow::retranslateUi() {
     setWindowTitle(tr("Modbus Tools"));
     if (navigationList_ && navigationList_->count() >= 5) {
-        navigationList_->item(0)->setText(tr("Modbus TCP"));
-        navigationList_->item(1)->setText(tr("Modbus RTU"));
-        navigationList_->item(2)->setText(tr("TCP Client"));
-        navigationList_->item(3)->setText(tr("Serial Port"));
-        navigationList_->item(4)->setText(tr("Frame Analyzer"));
+        navigationList_->item(0)->setToolTip(tr("Modbus TCP"));
+        navigationList_->item(1)->setToolTip(tr("Modbus RTU"));
+        navigationList_->item(2)->setToolTip(tr("TCP Client"));
+        navigationList_->item(3)->setToolTip(tr("Serial Port"));
+        navigationList_->item(4)->setToolTip(tr("Frame Analyzer"));
+        if (!navigationCollapsed_) {
+            navigationList_->item(0)->setText(tr("Modbus TCP"));
+            navigationList_->item(1)->setText(tr("Modbus RTU"));
+            navigationList_->item(2)->setText(tr("TCP Client"));
+            navigationList_->item(3)->setText(tr("Serial Port"));
+            navigationList_->item(4)->setText(tr("Frame Analyzer"));
+        } else {
+            navigationList_->item(0)->setText(QString());
+            navigationList_->item(1)->setText(QString());
+            navigationList_->item(2)->setText(QString());
+            navigationList_->item(3)->setText(QString());
+            navigationList_->item(4)->setText(QString());
+        }
+    }
+    updateNavigationToggleUi();
+    if (navigationPane_) {
+        navigationPane_->setFixedWidth(navigationCollapsed_ ? navigationCollapsedWidth_ : navigationExpandedWidth_);
     }
 
     if (languageMenu_) {

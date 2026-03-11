@@ -10,6 +10,8 @@ class QActionGroup;
 class QMenu;
 class QEvent;
 class QObject;
+class QWidget;
+class QToolButton;
 
 namespace ui {
 namespace views::modbus_tcp { class ModbusTcpView; }
@@ -27,6 +29,8 @@ public:
 private:
     void setupUi();
     void createNavigation();
+    void setNavigationCollapsed(bool collapsed);
+    void updateNavigationToggleUi();
     void setupSettingsMenu();
     void setupLanguageMenu();
     void setupAboutMenu();
@@ -52,6 +56,8 @@ private:
     void changeEvent(QEvent* event) override;
 
     QListWidget* navigationList_ = nullptr;
+    QWidget* navigationPane_ = nullptr;
+    QToolButton* navigationToggleButton_ = nullptr;
     QStackedWidget* stackedWidget_ = nullptr;
     views::modbus_tcp::ModbusTcpView* modbusTcpView_ = nullptr;
     views::modbus_rtu::ModbusRtuView* modbusRtuView_ = nullptr;
@@ -81,6 +87,9 @@ private:
     QString pendingDownloadUrl_;
     QString pendingReleaseUrl_;
     QObject* parameterWheelBlocker_ = nullptr;
+    bool navigationCollapsed_ = false;
+    int navigationExpandedWidth_ = 180;
+    int navigationCollapsedWidth_ = 64;
 };
 
 } // namespace ui
