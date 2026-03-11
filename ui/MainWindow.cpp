@@ -28,12 +28,33 @@
 #include <QCheckBox>
 #include <QDateTime>
 #include <QSpinBox>
+#include <QComboBox>
+#include <QAbstractSpinBox>
 #include <QLabel>
 #include <QMessageBox>
 #include <QSettings>
 #include <QUrl>
 #include <spdlog/spdlog.h>
 #include "modbus/base/ModbusConfig.h"
+
+namespace {
+class ParameterWheelBlocker : public QObject {
+public:
+    explicit ParameterWheelBlocker(QObject* parent = nullptr) : QObject(parent) {}
+
+protected:
+    bool eventFilter(QObject* watched, QEvent* event) override {
+        if (event->type() != QEvent::Wheel) {
+            return QObject::eventFilter(watched, event);
+        }
+        if (qobject_cast<QAbstractSpinBox*>(watched) || qobject_cast<QComboBox*>(watched)) {
+            event->ignore();
+            return true;
+        }
+        return QObject::eventFilter(watched, event);
+    }
+};
+}
 
 namespace ui {
 
@@ -89,6 +110,8 @@ void MainWindow::setupUi() {
     setupLanguageMenu();
     setupSettingsMenu();
     setupAboutMenu();
+    parameterWheelBlocker_ = new ParameterWheelBlocker(this);
+    qApp->installEventFilter(parameterWheelBlocker_);
     {
         QSettings settings(QApplication::applicationDirPath() + "/config.ini", QSettings::IniFormat);
         currentLocale_ = settings.value("app/language", currentLocale_).toString();

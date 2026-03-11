@@ -9,6 +9,7 @@ class QAction;
 class QActionGroup;
 class QMenu;
 class QEvent;
+class QObject;
 
 namespace ui {
 namespace views::modbus_tcp { class ModbusTcpView; }
@@ -79,6 +80,7 @@ private:
     QString pendingLatestVersion_;
     QString pendingDownloadUrl_;
     QString pendingReleaseUrl_;
+    QObject* parameterWheelBlocker_ = nullptr;
 };
 
 } // namespace ui
