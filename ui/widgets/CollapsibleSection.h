@@ -4,7 +4,7 @@
 
 class QLabel;
 class QPushButton;
-class QFrame;
+class QGroupBox;
 class QEvent;
 class QString;
 
@@ -30,9 +30,10 @@ private:
     void saveSettings() const;
     void changeEvent(QEvent* event) override;
 
-    QFrame* headerFrame_ = nullptr;
+    QWidget* headerWidget_ = nullptr;
     QLabel* titleLabel_ = nullptr;
     QPushButton* toggleButton_ = nullptr;
+    QGroupBox* bodyGroup_ = nullptr;
     QWidget* contentContainer_ = nullptr;
     QString settingsKey_;
     bool expanded_ = true;

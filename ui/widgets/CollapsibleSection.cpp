@@ -3,7 +3,7 @@
 #include <QHBoxLayout>
 #include <QLabel>
 #include <QPushButton>
-#include <QFrame>
+#include <QGroupBox>
 #include <QSettings>
 #include <QApplication>
 #include <QEvent>
@@ -14,25 +14,29 @@ CollapsibleSection::CollapsibleSection(QWidget* parent)
     : QWidget(parent) {
     auto mainLayout = new QVBoxLayout(this);
     mainLayout->setContentsMargins(0, 0, 0, 0);
-    mainLayout->setSpacing(0);
+    mainLayout->setSpacing(4);
 
-    headerFrame_ = new QFrame(this);
-    headerFrame_->setFrameShape(QFrame::StyledPanel);
-    auto headerLayout = new QHBoxLayout(headerFrame_);
-    headerLayout->setContentsMargins(8, 4, 8, 4);
+    headerWidget_ = new QWidget(this);
+    auto headerLayout = new QHBoxLayout(headerWidget_);
+    headerLayout->setContentsMargins(0, 0, 0, 0);
 
-    titleLabel_ = new QLabel(headerFrame_);
+    titleLabel_ = new QLabel(headerWidget_);
     headerLayout->addWidget(titleLabel_);
     headerLayout->addStretch();
 
-    toggleButton_ = new QPushButton(headerFrame_);
+    toggleButton_ = new QPushButton(headerWidget_);
     toggleButton_->setFixedWidth(28);
     headerLayout->addWidget(toggleButton_);
 
-    contentContainer_ = new QWidget(this);
+    bodyGroup_ = new QGroupBox(this);
+    bodyGroup_->setTitle(QString());
+    auto bodyLayout = new QVBoxLayout(bodyGroup_);
+    bodyLayout->setContentsMargins(8, 8, 8, 8);
+    contentContainer_ = new QWidget(bodyGroup_);
+    bodyLayout->addWidget(contentContainer_);
 
-    mainLayout->addWidget(headerFrame_);
-    mainLayout->addWidget(contentContainer_);
+    mainLayout->addWidget(headerWidget_);
+    mainLayout->addWidget(bodyGroup_);
 
     connect(toggleButton_, &QPushButton::clicked, this, [this]() {
         setExpanded(!expanded_);
@@ -59,8 +63,8 @@ void CollapsibleSection::setExpanded(bool expanded) {
         return;
     }
     expanded_ = expanded;
-    if (contentContainer_) {
-        contentContainer_->setVisible(expanded_);
+    if (bodyGroup_) {
+        bodyGroup_->setVisible(expanded_);
     }
     updateToggleUi();
     emit expandedChanged(expanded_);
@@ -85,8 +89,8 @@ void CollapsibleSection::updateToggleUi() {
 
 void CollapsibleSection::loadSettings() {
     if (settingsKey_.isEmpty()) {
-        if (contentContainer_) {
-            contentContainer_->setVisible(expanded_);
+        if (bodyGroup_) {
+            bodyGroup_->setVisible(expanded_);
         }
         updateToggleUi();
         return;
@@ -94,8 +98,8 @@ void CollapsibleSection::loadSettings() {
     QSettings settings(QApplication::applicationDirPath() + "/config.ini", QSettings::IniFormat);
     const bool collapsed = settings.value(settingsKey_, false).toBool();
     expanded_ = !collapsed;
-    if (contentContainer_) {
-        contentContainer_->setVisible(expanded_);
+    if (bodyGroup_) {
+        bodyGroup_->setVisible(expanded_);
     }
     updateToggleUi();
     if (!settings.contains(settingsKey_)) {
