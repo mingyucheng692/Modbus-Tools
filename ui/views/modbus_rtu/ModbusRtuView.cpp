@@ -16,6 +16,7 @@
 #include <QEvent>
 #include <QClipboard>
 #include <QGuiApplication>
+#include <QSplitter>
 #include <spdlog/spdlog.h>
 #include <QMetaObject>
 #include <QPointer>
@@ -98,14 +99,17 @@ void ModbusRtuView::setupUi() {
 
     dataLayout->addWidget(receiveGroup_, 1);
     dataLayout->addWidget(sendGroup_, 1);
-    mainLayout_->addWidget(dataGroup_);
-
     trafficMonitor_ = new widgets::TrafficMonitorWidget(this);
-    trafficMonitor_->setMinimumHeight(320);
+    trafficMonitor_->setMinimumHeight(180);
     trafficMonitor_->setSettingsGroup("modbus/rtu/traffic");
-    mainLayout_->addWidget(trafficMonitor_);
-    mainLayout_->setStretchFactor(dataGroup_, 1);
-    mainLayout_->setStretchFactor(trafficMonitor_, 1);
+
+    auto monitorSplitter = new QSplitter(Qt::Vertical, this);
+    monitorSplitter->setChildrenCollapsible(false);
+    monitorSplitter->addWidget(dataGroup_);
+    monitorSplitter->addWidget(trafficMonitor_);
+    monitorSplitter->setStretchFactor(0, 1);
+    monitorSplitter->setStretchFactor(1, 1);
+    mainLayout_->addWidget(monitorSplitter, 1);
     
     controlWidget_ = new widgets::ControlWidget(this);
     controlWidget_->setSettingsGroup("modbus/rtu/control");
