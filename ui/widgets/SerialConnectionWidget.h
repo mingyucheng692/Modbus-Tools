@@ -7,6 +7,7 @@
 class QComboBox;
 class QPushButton;
 class QLabel;
+class QGroupBox;
 class QEvent;
 class QString;
 
@@ -49,6 +50,8 @@ private:
     QLabel* stopBitsLabel_ = nullptr;
     QComboBox* stopBitsCombo_ = nullptr;
     QPushButton* connectBtn_ = nullptr;
+    QLabel* statusLabel_ = nullptr;
+    QGroupBox* groupBox_ = nullptr;
     
     bool isConnected_ = false;
     QString settingsGroup_ = "serial";

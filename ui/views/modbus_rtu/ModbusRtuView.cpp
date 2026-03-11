@@ -104,6 +104,8 @@ void ModbusRtuView::setupUi() {
     trafficMonitor_->setMinimumHeight(320);
     trafficMonitor_->setSettingsGroup("modbus/rtu/traffic");
     mainLayout_->addWidget(trafficMonitor_);
+    mainLayout_->setStretchFactor(dataGroup_, 1);
+    mainLayout_->setStretchFactor(trafficMonitor_, 1);
     
     controlWidget_ = new widgets::ControlWidget(this);
     controlWidget_->setSettingsGroup("modbus/rtu/control");

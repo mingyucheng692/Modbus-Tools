@@ -4,6 +4,7 @@
 #include <QComboBox>
 #include <QPushButton>
 #include <QLabel>
+#include <QGroupBox>
 #include <QSerialPortInfo>
 #include <QEvent>
 #include <QSettings>
@@ -51,7 +52,15 @@ io::SerialConfig SerialConnectionWidget::getConfig() const {
 
 void SerialConnectionWidget::setConnected(bool connected) {
     isConnected_ = connected;
-    connectBtn_->setText(connected ? tr("Disconnect") : tr("Connect"));
+    if (connected) {
+        connectBtn_->setText(tr("Disconnect"));
+        statusLabel_->setText(tr("Connected"));
+        statusLabel_->setStyleSheet("color: green; font-weight: bold;");
+    } else {
+        connectBtn_->setText(tr("Connect"));
+        statusLabel_->setText(tr("Disconnected"));
+        statusLabel_->setStyleSheet("color: red; font-weight: bold;");
+    }
     
     portCombo_->setEnabled(!connected);
     baudCombo_->setEnabled(!connected);
@@ -86,11 +95,15 @@ void SerialConnectionWidget::refreshPorts() {
     } else if (portCombo_->count() > 0) {
         portCombo_->setCurrentIndex(0);
     }
+    saveSettings();
 }
 
 void SerialConnectionWidget::setupUi() {
-    auto* layout = new QHBoxLayout(this);
-    layout->setContentsMargins(0, 0, 0, 0);
+    auto* mainLayout = new QHBoxLayout(this);
+    mainLayout->setContentsMargins(0, 0, 0, 0);
+
+    groupBox_ = new QGroupBox(this);
+    auto* layout = new QHBoxLayout(groupBox_);
 
     // Port
     portLabel_ = new QLabel(this);
@@ -150,9 +163,15 @@ void SerialConnectionWidget::setupUi() {
         }
     });
     layout->addWidget(connectBtn_);
+
+    statusLabel_ = new QLabel(this);
+    statusLabel_->setStyleSheet("color: red; font-weight: bold;");
+    layout->addWidget(statusLabel_);
     
     layout->addStretch();
+    mainLayout->addWidget(groupBox_);
 
+    connect(portCombo_, qOverload<int>(&QComboBox::currentIndexChanged), this, &SerialConnectionWidget::saveSettings);
     connect(baudCombo_, &QComboBox::currentTextChanged, this, &SerialConnectionWidget::saveSettings);
     connect(dataBitsCombo_, &QComboBox::currentTextChanged, this, &SerialConnectionWidget::saveSettings);
     connect(parityCombo_, &QComboBox::currentTextChanged, this, &SerialConnectionWidget::saveSettings);
@@ -180,12 +199,14 @@ void SerialConnectionWidget::loadSettings() {
     const QString dataKey = settingsGroup_ + "/dataBits";
     const QString parityKey = settingsGroup_ + "/parity";
     const QString stopKey = settingsGroup_ + "/stopBits";
+    const QString portKey = settingsGroup_ + "/portName";
 
     const int fallbackBaud = settings.value("serial/baudRate", baudCombo_->currentText().toInt()).toInt();
     const int baudRate = settings.value(baudKey, fallbackBaud).toInt();
     const QString dataBits = settings.value(dataKey, dataBitsCombo_->currentText()).toString();
     const QString parity = settings.value(parityKey, parityCombo_->currentText()).toString();
     const QString stopBits = settings.value(stopKey, stopBitsCombo_->currentText()).toString();
+    const QString portName = settings.value(portKey, portCombo_->currentData().toString()).toString();
 
     const int baudIndex = baudCombo_->findText(QString::number(baudRate));
     if (baudIndex >= 0) {
@@ -207,10 +228,18 @@ void SerialConnectionWidget::loadSettings() {
         stopBitsCombo_->setCurrentIndex(stopIndex);
     }
 
+    if (!portName.isEmpty()) {
+        const int portIndex = portCombo_->findData(portName);
+        if (portIndex >= 0) {
+            portCombo_->setCurrentIndex(portIndex);
+        }
+    }
+
     if (!settings.contains(baudKey)) settings.setValue(baudKey, baudRate);
     if (!settings.contains(dataKey)) settings.setValue(dataKey, dataBitsCombo_->currentText());
     if (!settings.contains(parityKey)) settings.setValue(parityKey, parityCombo_->currentText());
     if (!settings.contains(stopKey)) settings.setValue(stopKey, stopBitsCombo_->currentText());
+    if (!settings.contains(portKey)) settings.setValue(portKey, portCombo_->currentData().toString());
 }
 
 void SerialConnectionWidget::saveSettings() {
@@ -220,9 +249,13 @@ void SerialConnectionWidget::saveSettings() {
     settings.setValue(settingsGroup_ + "/dataBits", dataBitsCombo_->currentText());
     settings.setValue(settingsGroup_ + "/parity", parityCombo_->currentText());
     settings.setValue(settingsGroup_ + "/stopBits", stopBitsCombo_->currentText());
+    settings.setValue(settingsGroup_ + "/portName", portCombo_->currentData().toString());
 }
 
 void SerialConnectionWidget::retranslateUi() {
+    if (groupBox_) {
+        groupBox_->setTitle(tr("Connection Settings"));
+    }
     if (portLabel_) {
         portLabel_->setText(tr("Port:"));
     }
