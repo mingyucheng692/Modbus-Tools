@@ -245,10 +245,11 @@ void FrameAnalyzerWidget::createResultGroup()
 
     // Tab 2: Decoded Data
     dataTable_ = new QTableWidget(this);
-    dataTable_->setColumnCount(5);
-    dataTable_->setHorizontalHeaderLabels({tr("Address"), tr("Hex"), tr("Decimal"), tr("Binary"), tr("Description")});
+    dataTable_->setColumnCount(7);
+    dataTable_->setHorizontalHeaderLabels({tr("Address"), tr("Hex"), tr("Decimal"), tr("Binary"), tr("Data Type"), tr("Scale"), tr("Description")});
     dataTable_->horizontalHeader()->setSectionResizeMode(QHeaderView::ResizeToContents);
-    dataTable_->horizontalHeader()->setSectionResizeMode(4, QHeaderView::Stretch); // Description stretches
+    dataTable_->horizontalHeader()->setSectionResizeMode(6, QHeaderView::Stretch);
+    connect(dataTable_, &QTableWidget::itemChanged, this, &FrameAnalyzerWidget::onDataTableItemChanged);
     resultTabs_->addTab(dataTable_, tr("Data Details"));
 
     groupLayout->addWidget(resultTabs_);
@@ -283,6 +284,48 @@ void FrameAnalyzerWidget::clearResult()
     statusLabel_->setStyleSheet("color: gray;");
     overviewTree_->clear();
     dataTable_->setRowCount(0);
+}
+
+uint16_t FrameAnalyzerWidget::rowAddress(int row) const
+{
+    if (!dataTable_ || row < 0 || row >= dataTable_->rowCount()) {
+        return 0;
+    }
+    const QTableWidgetItem* addrItem = dataTable_->item(row, 0);
+    if (!addrItem) {
+        return 0;
+    }
+    bool ok = false;
+    const uint16_t address = static_cast<uint16_t>(addrItem->text().toUInt(&ok));
+    return ok ? address : 0;
+}
+
+void FrameAnalyzerWidget::onDataTableItemChanged(QTableWidgetItem* item)
+{
+    if (isUpdatingDataTable_ || !item) {
+        return;
+    }
+    const int col = item->column();
+    if (col != 4 && col != 5 && col != 6) {
+        return;
+    }
+    const uint16_t address = rowAddress(item->row());
+    DataMetadata meta = metadataByAddress_.value(address);
+    if (col == 4) {
+        meta.dataType = item->text().trimmed();
+    } else if (col == 5) {
+        bool ok = false;
+        const double parsedScale = item->text().toDouble(&ok);
+        if (!ok) {
+            QSignalBlocker blocker(dataTable_);
+            item->setText(QString::number(meta.scale, 'g', 12));
+            return;
+        }
+        meta.scale = parsedScale;
+    } else {
+        meta.description = item->text();
+    }
+    metadataByAddress_.insert(address, meta);
 }
 
 void FrameAnalyzerWidget::onParseClicked()
@@ -369,15 +412,19 @@ void FrameAnalyzerWidget::renderResult(const ParseResult& result)
     overviewTree_->expandAll();
 
     // 2. Populate Data Table
+    isUpdatingDataTable_ = true;
     dataTable_->setRowCount(result.dataItems.size());
     for (int i = 0; i < result.dataItems.size(); ++i) {
         const auto& item = result.dataItems[i];
+        DataMetadata meta = metadataByAddress_.value(item.address);
         
-        // Address
-        dataTable_->setItem(i, 0, new QTableWidgetItem(QString::number(item.address)));
-        
-        // Hex
-        dataTable_->setItem(i, 1, new QTableWidgetItem(formatHexValue(item.rawBytes, item.hexString)));
+        auto* addressItem = new QTableWidgetItem(QString::number(item.address));
+        addressItem->setFlags(addressItem->flags() & ~Qt::ItemIsEditable);
+        dataTable_->setItem(i, 0, addressItem);
+
+        auto* hexItem = new QTableWidgetItem(formatHexValue(item.rawBytes, item.hexString));
+        hexItem->setFlags(hexItem->flags() & ~Qt::ItemIsEditable);
+        dataTable_->setItem(i, 1, hexItem);
         
         // Decimal (Smart display)
         QString decStr = "-";
@@ -395,14 +442,25 @@ void FrameAnalyzerWidget::renderResult(const ParseResult& result)
         }
         auto decItem = new QTableWidgetItem(decStr);
         decItem->setForeground(textColor);
+        decItem->setFlags(decItem->flags() & ~Qt::ItemIsEditable);
         dataTable_->setItem(i, 2, decItem);
 
-        // Binary
-        dataTable_->setItem(i, 3, new QTableWidgetItem(formatBinaryValue(item.rawBytes, item.binaryString)));
+        auto* binaryItem = new QTableWidgetItem(formatBinaryValue(item.rawBytes, item.binaryString));
+        binaryItem->setFlags(binaryItem->flags() & ~Qt::ItemIsEditable);
+        dataTable_->setItem(i, 3, binaryItem);
 
-        // Description
-        dataTable_->setItem(i, 4, new QTableWidgetItem(item.desc));
+        auto* dataTypeItem = new QTableWidgetItem(meta.dataType);
+        dataTable_->setItem(i, 4, dataTypeItem);
+
+        auto* scaleItem = new QTableWidgetItem(QString::number(meta.scale, 'g', 12));
+        dataTable_->setItem(i, 5, scaleItem);
+
+        auto* descItem = new QTableWidgetItem(meta.description);
+        dataTable_->setItem(i, 6, descItem);
+
+        metadataByAddress_.insert(item.address, meta);
     }
+    isUpdatingDataTable_ = false;
 }
 
 void FrameAnalyzerWidget::changeEvent(QEvent* event)
@@ -463,7 +521,7 @@ void FrameAnalyzerWidget::retranslateUi()
         header->setText(2, tr("Description"));
     }
     if (dataTable_) {
-        dataTable_->setHorizontalHeaderLabels({tr("Address"), tr("Hex"), tr("Decimal"), tr("Binary"), tr("Description")});
+        dataTable_->setHorizontalHeaderLabels({tr("Address"), tr("Hex"), tr("Decimal"), tr("Binary"), tr("Data Type"), tr("Scale"), tr("Description")});
     }
 
     // Refresh result text if needed (simple approach: clear or keep existing static text)

@@ -2,6 +2,7 @@
 
 #include <QWidget>
 #include <QScopedPointer>
+#include <QMap>
 
 class QPlainTextEdit;
 class QComboBox;
@@ -12,6 +13,7 @@ class QLabel;
 class QTreeWidget;
 class QTabWidget;
 class QGroupBox;
+class QTableWidgetItem;
 namespace modbus::core::parser {
     struct ParseResult;
 }
@@ -48,6 +50,8 @@ private:
     QString formatDecimalValue(const QVariant& value) const;
     QString formatHexValue(const QByteArray& rawBytes, const QString& fallbackHex) const;
     QString formatBinaryValue(const QByteArray& rawBytes, const QString& fallbackBinary) const;
+    void onDataTableItemChanged(QTableWidgetItem* item);
+    uint16_t rowAddress(int row) const;
     
     // 渲染解析结果
     void renderResult(const struct modbus::core::parser::ParseResult& result);
@@ -74,6 +78,13 @@ private:
     QTableWidget* dataTable_ = nullptr;
     QTabWidget* resultTabs_ = nullptr;
     NumberDisplayMode displayMode_ = NumberDisplayMode::Unsigned;
+    struct DataMetadata {
+        QString dataType;
+        double scale = 1.0;
+        QString description;
+    };
+    QMap<uint16_t, DataMetadata> metadataByAddress_;
+    bool isUpdatingDataTable_ = false;
 };
 
 } // namespace ui::widgets
