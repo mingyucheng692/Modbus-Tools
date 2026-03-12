@@ -94,6 +94,15 @@ void FrameAnalyzerWidget::createInputGroup()
     startAddressSpin_->setValue(0);
     controlsLayout->addWidget(startAddressSpin_);
 
+    controlsLayout->addSpacing(20);
+    displayModeLabel_ = new QLabel(tr("Decode Mode:"), this);
+    controlsLayout->addWidget(displayModeLabel_);
+    displayModeCombo_ = new QComboBox(this);
+    displayModeCombo_->addItem(tr("Unsigned"), static_cast<int>(NumberDisplayMode::Unsigned));
+    displayModeCombo_->addItem(tr("Signed"), static_cast<int>(NumberDisplayMode::Signed));
+    displayModeCombo_->setCurrentIndex(0);
+    controlsLayout->addWidget(displayModeCombo_);
+
     controlsLayout->addStretch();
     
     formatBtn_ = new QPushButton(tr("Format Hex"), this);
@@ -117,6 +126,19 @@ void FrameAnalyzerWidget::createInputGroup()
     groupLayout->addWidget(inputEditor_);
 
     connect(startAddressSpin_, qOverload<int>(&QSpinBox::valueChanged), this, &FrameAnalyzerWidget::saveSettings);
+    connect(displayModeCombo_, qOverload<int>(&QComboBox::currentIndexChanged), this, [this](int index) {
+        if (index < 0) {
+            return;
+        }
+        const auto selected = static_cast<NumberDisplayMode>(displayModeCombo_->itemData(index).toInt());
+        if (displayMode_ == selected) {
+            return;
+        }
+        displayMode_ = selected;
+        if (!inputEditor_->toPlainText().trimmed().isEmpty()) {
+            onParseClicked();
+        }
+    });
 
     layout()->addWidget(inputGroup_);
     loadSettings();
@@ -325,6 +347,13 @@ void FrameAnalyzerWidget::retranslateUi()
     }
     if (startAddrLabel_) {
         startAddrLabel_->setText(tr("Start Address (for Response):"));
+    }
+    if (displayModeLabel_) {
+        displayModeLabel_->setText(tr("Decode Mode:"));
+    }
+    if (displayModeCombo_) {
+        displayModeCombo_->setItemText(0, tr("Unsigned"));
+        displayModeCombo_->setItemText(1, tr("Signed"));
     }
     if (formatBtn_) {
         formatBtn_->setText(tr("Format Hex"));

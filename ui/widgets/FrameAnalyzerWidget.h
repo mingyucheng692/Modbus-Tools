@@ -58,8 +58,10 @@ private:
     QGroupBox* inputGroup_ = nullptr;
     QLabel* protocolLabel_ = nullptr;
     QLabel* startAddrLabel_ = nullptr;
+    QLabel* displayModeLabel_ = nullptr;
     QPlainTextEdit* inputEditor_ = nullptr;
     QComboBox* protocolCombo_ = nullptr;
+    QComboBox* displayModeCombo_ = nullptr;
     QSpinBox* startAddressSpin_ = nullptr;
     QPushButton* parseBtn_ = nullptr;
     QPushButton* formatBtn_ = nullptr;
