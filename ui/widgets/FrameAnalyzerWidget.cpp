@@ -30,6 +30,36 @@ FrameAnalyzerWidget::FrameAnalyzerWidget(QWidget* parent)
 
 FrameAnalyzerWidget::~FrameAnalyzerWidget() = default;
 
+QString FrameAnalyzerWidget::formatDecimalValue(const QVariant& value) const
+{
+    if (!value.isValid()) {
+        return "-";
+    }
+    if (value.typeId() == QMetaType::Bool) {
+        return value.toBool() ? "1" : "0";
+    }
+    if (value.typeId() == QMetaType::UShort || value.typeId() == QMetaType::UInt || value.typeId() == QMetaType::Int) {
+        const uint16_t uVal = static_cast<uint16_t>(value.toUInt());
+        if (displayMode_ == NumberDisplayMode::Signed) {
+            return QString::number(static_cast<int16_t>(uVal));
+        }
+        return QString::number(uVal);
+    }
+    return value.toString();
+}
+
+QString FrameAnalyzerWidget::formatHexValue(const QByteArray& rawBytes, const QString& fallbackHex) const
+{
+    Q_UNUSED(rawBytes);
+    return fallbackHex;
+}
+
+QString FrameAnalyzerWidget::formatBinaryValue(const QByteArray& rawBytes, const QString& fallbackBinary) const
+{
+    Q_UNUSED(rawBytes);
+    return fallbackBinary;
+}
+
 void FrameAnalyzerWidget::setupUi()
 {
     auto mainLayout = new QVBoxLayout(this);
@@ -244,7 +274,7 @@ void FrameAnalyzerWidget::renderResult(const ParseResult& result)
         dataTable_->setItem(i, 0, new QTableWidgetItem(QString::number(item.address)));
         
         // Hex
-        dataTable_->setItem(i, 1, new QTableWidgetItem(item.hexString));
+        dataTable_->setItem(i, 1, new QTableWidgetItem(formatHexValue(item.rawBytes, item.hexString)));
         
         // Decimal (Smart display)
         QString decStr = "-";
@@ -252,25 +282,20 @@ void FrameAnalyzerWidget::renderResult(const ParseResult& result)
         
         if (item.value.isValid()) {
             if (item.value.typeId() == QMetaType::Bool) {
-                // Coil
-                bool val = item.value.toBool();
-                decStr = val ? "1" : "0";
+                const bool val = item.value.toBool();
                 textColor = val ? Qt::darkGreen : Qt::darkRed;
-            } else if (item.value.typeId() == QMetaType::UShort || item.value.typeId() == QMetaType::UInt || item.value.typeId() == QMetaType::Int) {
-                // Register
-                uint16_t uVal = static_cast<uint16_t>(item.value.toUInt());
-                int16_t sVal = static_cast<int16_t>(uVal);
-                decStr = QString("%1 (%2)").arg(uVal).arg(sVal);
-            } else {
-                decStr = item.value.toString();
+            } else if (item.value.typeId() == QMetaType::Short || item.value.typeId() == QMetaType::Int) {
+                const int numeric = item.value.toInt();
+                textColor = numeric < 0 ? QColor(180, 30, 30) : Qt::black;
             }
+            decStr = formatDecimalValue(item.value);
         }
         auto decItem = new QTableWidgetItem(decStr);
         decItem->setForeground(textColor);
         dataTable_->setItem(i, 2, decItem);
 
         // Binary
-        dataTable_->setItem(i, 3, new QTableWidgetItem(item.binaryString));
+        dataTable_->setItem(i, 3, new QTableWidgetItem(formatBinaryValue(item.rawBytes, item.binaryString)));
 
         // Description
         dataTable_->setItem(i, 4, new QTableWidgetItem(item.desc));

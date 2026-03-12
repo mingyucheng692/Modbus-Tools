@@ -34,12 +34,20 @@ protected:
     void changeEvent(QEvent* event) override;
 
 private:
+    enum class NumberDisplayMode {
+        Unsigned,
+        Signed
+    };
+
     void setupUi();
     void retranslateUi();
     void createInputGroup();
     void createResultGroup();
     void loadSettings();
     void saveSettings();
+    QString formatDecimalValue(const QVariant& value) const;
+    QString formatHexValue(const QByteArray& rawBytes, const QString& fallbackHex) const;
+    QString formatBinaryValue(const QByteArray& rawBytes, const QString& fallbackBinary) const;
     
     // 渲染解析结果
     void renderResult(const struct modbus::core::parser::ParseResult& result);
@@ -63,6 +71,7 @@ private:
     QTreeWidget* overviewTree_ = nullptr;
     QTableWidget* dataTable_ = nullptr;
     QTabWidget* resultTabs_ = nullptr;
+    NumberDisplayMode displayMode_ = NumberDisplayMode::Unsigned;
 };
 
 } // namespace ui::widgets
