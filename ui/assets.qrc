@@ -1,5 +1,11 @@
 <RCC>
     <qresource prefix="/assets">
-        <file>../assets/logo.svg</file>
+        <file alias="Frame-Analyzer.ico">../assets/Frame-Analyzer.ico</file>
+        <file alias="Modbus-RTU.ico">../assets/Modbus-RTU.ico</file>
+        <file alias="Modbus-TCP.ico">../assets/Modbus-TCP.ico</file>
+        <file alias="Serial-Port.ico">../assets/Serial-Port.ico</file>
+        <file alias="TCP-Client.ico">../assets/TCP-Client.ico</file>
+        <file alias="logo.ico">../assets/logo.ico</file>
+        <file alias="logo.svg">../assets/logo.svg</file>
     </qresource>
 </RCC>

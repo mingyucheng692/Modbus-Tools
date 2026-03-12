@@ -34,6 +34,10 @@
 #include <QToolButton>
 #include <QListWidgetItem>
 #include <QStyle>
+#include <QImage>
+#include <QPainter>
+#include <QIcon>
+#include <QColor>
 #include <QMessageBox>
 #include <QSettings>
 #include <QUrl>
@@ -41,6 +45,104 @@
 #include "modbus/base/ModbusConfig.h"
 
 namespace {
+QIcon buildNavigationIcon(const QString& resourcePath, const QColor& accentColor) {
+    QPixmap sourcePixmap;
+    const QIcon sourceIcon(resourcePath);
+    const QList<QSize> candidateSizes = sourceIcon.availableSizes();
+    if (!candidateSizes.isEmpty()) {
+        QSize best = candidateSizes.first();
+        for (const QSize& size : candidateSizes) {
+            if (size.width() * size.height() > best.width() * best.height()) {
+                best = size;
+            }
+        }
+        sourcePixmap = sourceIcon.pixmap(best);
+    } else {
+        sourcePixmap.load(resourcePath);
+    }
+    if (sourcePixmap.isNull()) {
+        sourcePixmap = sourceIcon.pixmap(256, 256);
+    }
+    if (sourcePixmap.isNull()) {
+        return QIcon();
+    }
+
+    QImage image = sourcePixmap.toImage().convertToFormat(QImage::Format_ARGB32);
+    int minX = image.width();
+    int minY = image.height();
+    int maxX = -1;
+    int maxY = -1;
+
+    for (int y = 0; y < image.height(); ++y) {
+        for (int x = 0; x < image.width(); ++x) {
+            QColor pixel = QColor::fromRgba(image.pixel(x, y));
+            if (pixel.alpha() == 0) {
+                continue;
+            }
+            if (pixel.red() > 245 && pixel.green() > 245 && pixel.blue() > 245) {
+                pixel.setAlpha(0);
+                image.setPixelColor(x, y, pixel);
+                continue;
+            }
+
+            const int lightness = qBound(35, qGray(pixel.red(), pixel.green(), pixel.blue()), 215);
+            QColor recolored = accentColor;
+            recolored.setHsl(accentColor.hslHue(), qMax(accentColor.hslSaturation(), 120), lightness, pixel.alpha());
+            image.setPixelColor(x, y, recolored);
+
+            minX = qMin(minX, x);
+            minY = qMin(minY, y);
+            maxX = qMax(maxX, x);
+            maxY = qMax(maxY, y);
+        }
+    }
+
+    if (maxX < minX || maxY < minY) {
+        return QIcon(QPixmap::fromImage(image));
+    }
+
+    const QRect contentRect(minX, minY, maxX - minX + 1, maxY - minY + 1);
+    QImage cropped = image.copy(contentRect);
+    QIcon resultIcon;
+    const QList<int> sizes = {20, 22, 24, 28, 32, 40, 48};
+    for (int size : sizes) {
+        QImage canvas(size, size, QImage::Format_ARGB32_Premultiplied);
+        canvas.fill(Qt::transparent);
+        QPainter painter(&canvas);
+        QImage scaled = cropped.scaled(size - 1, size - 1, Qt::KeepAspectRatio, Qt::SmoothTransformation);
+        const QPoint topLeft((canvas.width() - scaled.width()) / 2, (canvas.height() - scaled.height()) / 2);
+        painter.drawImage(topLeft, scaled);
+        painter.end();
+        resultIcon.addPixmap(QPixmap::fromImage(canvas));
+
+        const int highSize = size * 2;
+        QImage canvas2x(highSize, highSize, QImage::Format_ARGB32_Premultiplied);
+        canvas2x.fill(Qt::transparent);
+        QPainter painter2x(&canvas2x);
+        QImage scaled2x = cropped.scaled(highSize - 2, highSize - 2, Qt::KeepAspectRatio, Qt::SmoothTransformation);
+        const QPoint topLeft2x((canvas2x.width() - scaled2x.width()) / 2, (canvas2x.height() - scaled2x.height()) / 2);
+        painter2x.drawImage(topLeft2x, scaled2x);
+        painter2x.end();
+        QPixmap hiPixmap = QPixmap::fromImage(canvas2x);
+        hiPixmap.setDevicePixelRatio(2.0);
+        resultIcon.addPixmap(hiPixmap);
+
+        const int ultraSize = size * 3;
+        QImage canvas3x(ultraSize, ultraSize, QImage::Format_ARGB32_Premultiplied);
+        canvas3x.fill(Qt::transparent);
+        QPainter painter3x(&canvas3x);
+        QImage scaled3x = cropped.scaled(ultraSize - 3, ultraSize - 3, Qt::KeepAspectRatio, Qt::SmoothTransformation);
+        const QPoint topLeft3x((canvas3x.width() - scaled3x.width()) / 2, (canvas3x.height() - scaled3x.height()) / 2);
+        painter3x.drawImage(topLeft3x, scaled3x);
+        painter3x.end();
+        QPixmap ultraPixmap = QPixmap::fromImage(canvas3x);
+        ultraPixmap.setDevicePixelRatio(3.0);
+        resultIcon.addPixmap(ultraPixmap);
+    }
+
+    return resultIcon;
+}
+
 class ParameterWheelBlocker : public QObject {
 public:
     explicit ParameterWheelBlocker(QObject* parent = nullptr) : QObject(parent) {}
@@ -150,12 +252,18 @@ void MainWindow::createNavigation() {
     paneLayout->addWidget(navigationToggleButton_);
 
     navigationList_ = new QListWidget(navigationPane_);
-    navigationList_->addItem(new QListWidgetItem(style()->standardIcon(QStyle::SP_ComputerIcon), tr("Modbus TCP")));
-    navigationList_->addItem(new QListWidgetItem(style()->standardIcon(QStyle::SP_DriveNetIcon), tr("Modbus RTU")));
-    navigationList_->addItem(new QListWidgetItem(style()->standardIcon(QStyle::SP_DialogOpenButton), tr("TCP Client")));
-    navigationList_->addItem(new QListWidgetItem(style()->standardIcon(QStyle::SP_DriveHDIcon), tr("Serial Port")));
-    navigationList_->addItem(new QListWidgetItem(style()->standardIcon(QStyle::SP_FileDialogDetailedView), tr("Frame Analyzer")));
-    navigationList_->setIconSize(QSize(18, 18));
+    const QIcon modbusTcpIcon = buildNavigationIcon(":/assets/Modbus-TCP.ico", QColor("#3B82F6"));
+    const QIcon modbusRtuIcon = buildNavigationIcon(":/assets/Modbus-RTU.ico", QColor("#8B5CF6"));
+    const QIcon tcpClientIcon = buildNavigationIcon(":/assets/TCP-Client.ico", QColor("#06B6D4"));
+    const QIcon serialPortIcon = buildNavigationIcon(":/assets/Serial-Port.ico", QColor("#F59E0B"));
+    const QIcon frameAnalyzerIcon = buildNavigationIcon(":/assets/Frame-Analyzer.ico", QColor("#10B981"));
+
+    navigationList_->addItem(new QListWidgetItem(modbusTcpIcon.isNull() ? style()->standardIcon(QStyle::SP_ComputerIcon) : modbusTcpIcon, tr("Modbus TCP")));
+    navigationList_->addItem(new QListWidgetItem(modbusRtuIcon.isNull() ? style()->standardIcon(QStyle::SP_DriveNetIcon) : modbusRtuIcon, tr("Modbus RTU")));
+    navigationList_->addItem(new QListWidgetItem(tcpClientIcon.isNull() ? style()->standardIcon(QStyle::SP_DialogOpenButton) : tcpClientIcon, tr("TCP Client")));
+    navigationList_->addItem(new QListWidgetItem(serialPortIcon.isNull() ? style()->standardIcon(QStyle::SP_DriveHDIcon) : serialPortIcon, tr("Serial Port")));
+    navigationList_->addItem(new QListWidgetItem(frameAnalyzerIcon.isNull() ? style()->standardIcon(QStyle::SP_FileDialogDetailedView) : frameAnalyzerIcon, tr("Frame Analyzer")));
+    navigationList_->setIconSize(QSize(24, 24));
     paneLayout->addWidget(navigationList_);
 
     navigationList_->setStyleSheet(common::Theme::getNavigationStyle(false));
