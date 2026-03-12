@@ -722,10 +722,8 @@ void FrameAnalyzerWidget::retranslateUi()
         dataTable_->setHorizontalHeaderLabels({tr("Address"), tr("Hex"), tr("Decimal"), tr("Binary"), tr("Scale"), tr("Value"), tr("Description")});
     }
 
-    // Refresh result text if needed (simple approach: clear or keep existing static text)
-    // statusLabel_ text is dynamic, so we might leave it or reset to Ready if empty
-    if (statusLabel_ && statusLabel_->text() == "Ready") { // Basic check, ideally track state
-         statusLabel_->setText(tr("Ready"));
+    if (statusLabel_ && statusLabel_->styleSheet().contains("color: gray", Qt::CaseInsensitive)) {
+        statusLabel_->setText(tr("Ready"));
     }
 }
 

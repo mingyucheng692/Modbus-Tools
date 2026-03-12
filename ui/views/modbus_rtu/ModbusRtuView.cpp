@@ -101,7 +101,7 @@ void ModbusRtuView::setupUi() {
     dataLayout->addWidget(receiveGroup_, 1);
     dataLayout->addWidget(sendGroup_, 1);
     trafficMonitor_ = new widgets::TrafficMonitorWidget(this);
-    trafficMonitor_->setMinimumHeight(88);
+    trafficMonitor_->setMinimumHeight(140);
     trafficMonitor_->setSettingsGroup("modbus/rtu/traffic");
 
     mainLayout_->addWidget(dataGroup_);
