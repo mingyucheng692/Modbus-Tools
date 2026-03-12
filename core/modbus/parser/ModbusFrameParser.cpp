@@ -219,9 +219,9 @@ void ModbusFrameParser::parsePdu(ParseResult& result, const QByteArray& pdu, uin
             result.type = FrameType::Request;
             uint16_t start, quantity;
             stream >> start >> quantity;
+            Q_UNUSED(quantity);
             DataItem item;
             item.address = start;
-            item.desc = QCoreApplication::translate("ModbusFrameParser", "Request: Start Address %1, Quantity %2").arg(start).arg(quantity);
             result.dataItems.append(item);
         } else {
             // Response: [ByteCount(1)] [Data(N)]
@@ -264,10 +264,6 @@ void ModbusFrameParser::parsePdu(ParseResult& result, const QByteArray& pdu, uin
                     for (int k = 12; k > 0; k -= 4) binStr.insert(k, ' ');
                     item.binaryString = binStr;
 
-                    // Signed value for description
-                    int16_t signedVal = static_cast<int16_t>(val);
-                    item.desc = QCoreApplication::translate("ModbusFrameParser", "Register %1").arg(item.address);
-                    
                     result.dataItems.append(item);
                 }
             } else {
@@ -284,9 +280,6 @@ void ModbusFrameParser::parsePdu(ParseResult& result, const QByteArray& pdu, uin
                         item.value = isOn;
                         item.hexString = isOn ? "01" : "00";
                         item.binaryString = isOn ? "1" : "0";
-                        item.desc = QCoreApplication::translate("ModbusFrameParser", "Coil %1: %2")
-                                        .arg(item.address)
-                                        .arg(isOn ? "ON" : "OFF");
                         result.dataItems.append(item);
                         currentBitAddress++;
                     }
@@ -309,11 +302,8 @@ void ModbusFrameParser::parsePdu(ParseResult& result, const QByteArray& pdu, uin
         
         if (result.functionCode == FunctionCode::WriteSingleCoil) {
             bool isOn = (val == 0xFF00);
-            item.desc = isOn ? QCoreApplication::translate("ModbusFrameParser", "Write Coil ON") 
-                             : QCoreApplication::translate("ModbusFrameParser", "Write Coil OFF");
             item.binaryString = isOn ? "1" : "0";
         } else {
-            item.desc = QCoreApplication::translate("ModbusFrameParser", "Write Register %1").arg(addr);
             QString binStr = QString::number(val, 2).rightJustified(16, '0');
             for (int k = 12; k > 0; k -= 4) binStr.insert(k, ' ');
             item.binaryString = binStr;
@@ -329,9 +319,9 @@ void ModbusFrameParser::parsePdu(ParseResult& result, const QByteArray& pdu, uin
             result.type = FrameType::Response;
             uint16_t start, quant;
             stream >> start >> quant;
+            Q_UNUSED(quant);
             DataItem item;
             item.address = start;
-            item.desc = QCoreApplication::translate("ModbusFrameParser", "Response: Written %1 items starting at %2").arg(quant).arg(start);
             result.dataItems.append(item);
         } else {
             result.type = FrameType::Request;
@@ -358,7 +348,6 @@ void ModbusFrameParser::parsePdu(ParseResult& result, const QByteArray& pdu, uin
                     item.address = start + i;
                     item.value = val;
                     item.hexString = QString("%1").arg(val, 4, 16, QChar('0')).toUpper();
-                    item.desc = QCoreApplication::translate("ModbusFrameParser", "Write Register %1").arg(item.address);
                     
                     QString binStr = QString::number(val, 2).rightJustified(16, '0');
                     for (int k = 12; k > 0; k -= 4) binStr.insert(k, ' ');
@@ -382,9 +371,6 @@ void ModbusFrameParser::parsePdu(ParseResult& result, const QByteArray& pdu, uin
                          item.value = isOn;
                          item.hexString = isOn ? "01" : "00";
                          item.binaryString = isOn ? "1" : "0";
-                         item.desc = QCoreApplication::translate("ModbusFrameParser", "Write Coil %1: %2")
-                                         .arg(item.address)
-                                         .arg(isOn ? "ON" : "OFF");
                          result.dataItems.append(item);
                          currentBitAddress++;
                      }
