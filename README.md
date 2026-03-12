@@ -13,9 +13,11 @@ A personal Modbus / generic communication debugging assistant built in spare tim
 
 - Modbus TCP debugging: connect, function code requests, TX/RX monitoring
 - Modbus RTU debugging: serial config, request sending, response parsing
+- Unified request stats in Modbus TCP/RTU: TX / RX / FAIL / RTT
 - Generic TCP client: custom send/receive with traffic monitoring
 - Generic serial tool: serial connect and raw data TX/RX
-- Frame analyzer: structured Modbus frame parsing
+- Frame analyzer: structured Modbus frame parsing with editable metadata (Scale, Description)
+- Frame analyzer decoded table support scaled `Value` (`raw * scale`) and resizable columns
 - Configurable Modbus timeout, retry count, retry interval
 
 ## Tech Stack
@@ -48,7 +50,7 @@ cd Modbus-Tools
 If already cloned without submodules:
 
 ```bash
-git submodule update --init --recursive
+git submodule update --init --recursive --progress
 ```
 
 ### 2) Configure

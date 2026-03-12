@@ -13,9 +13,11 @@
 
 - Modbus TCP 调试：连接、功能码请求、报文收发监控
 - Modbus RTU 调试：串口参数配置、请求发送、响应解析
+- Modbus TCP/RTU 统一请求统计：TX / RX / FAIL / RTT
 - 通用 TCP Client：自定义数据收发与流量监控
 - 通用串口工具：串口连接、原始数据发送接收
-- 帧分析器：对 Modbus 报文做结构化解析
+- 帧分析器：对 Modbus 报文做结构化解析，支持元数据编辑（Scale、Description）
+- 帧分析器数据表支持换算后 Value 列（`raw * scale`），并支持列宽拖拽调整
 - 可配置 Modbus 超时、重试次数、重试间隔
 
 ## 技术栈
@@ -48,7 +50,7 @@ cd Modbus-Tools
 如果已克隆但未拉子模块：
 
 ```bash
-git submodule update --init --recursive
+git submodule update --init --recursive --progress
 ```
 
 ### 2) 配置工程

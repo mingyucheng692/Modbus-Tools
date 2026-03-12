@@ -13,9 +13,11 @@
 
 - Modbus TCP 除錯：連線、功能碼請求、收發監控
 - Modbus RTU 除錯：序列埠參數設定、請求送出、回應解析
+- Modbus TCP/RTU 統一請求統計：TX / RX / FAIL / RTT
 - 通用 TCP Client：自訂資料收發與流量監控
 - 通用序列埠工具：序列埠連線、原始資料收發
-- 幀分析器：對 Modbus 報文做結構化解析
+- 幀分析器：對 Modbus 報文做結構化解析，支援中繼資料編輯（Scale、Description）
+- 幀分析器資料表支持換算後 Value 欄（`raw * scale`），並支援欄寬拖曳調整
 - 可設定 Modbus 逾時、重試次數、重試間隔
 
 ## 技術棧
@@ -48,7 +50,7 @@ cd Modbus-Tools
 若已克隆但未拉子模組：
 
 ```bash
-git submodule update --init --recursive
+git submodule update --init --recursive --progress
 ```
 
 ### 2) 設定工程
