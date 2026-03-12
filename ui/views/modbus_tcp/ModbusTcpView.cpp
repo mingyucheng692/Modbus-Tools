@@ -101,7 +101,7 @@ void ModbusTcpView::setupUi() {
     dataLayout->addWidget(receiveGroup_, 1);
     dataLayout->addWidget(sendGroup_, 1);
     trafficMonitor_ = new widgets::TrafficMonitorWidget(this);
-    trafficMonitor_->setMinimumHeight(36);
+    trafficMonitor_->setMinimumHeight(140);
     trafficMonitor_->setSettingsGroup("modbus/tcp/traffic");
 
     mainLayout_->addWidget(dataGroup_);
