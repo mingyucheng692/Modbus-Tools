@@ -17,6 +17,11 @@
 #include <QSettings>
 #include <QApplication>
 #include <QSignalBlocker>
+#include <QFileDialog>
+#include <QFile>
+#include <QJsonDocument>
+#include <QJsonObject>
+#include <QJsonArray>
 
 namespace ui::widgets {
 
@@ -65,6 +70,69 @@ QString FrameAnalyzerWidget::formatDecimalValue(const QVariant& value) const
         return QString::number(uVal);
     }
     return value.toString();
+}
+
+double FrameAnalyzerWidget::numericValueForDisplay(const QVariant& value, bool* ok) const
+{
+    if (ok) {
+        *ok = false;
+    }
+    if (!value.isValid() || value.typeId() == QMetaType::Bool) {
+        return 0.0;
+    }
+    if (value.typeId() == QMetaType::UShort || value.typeId() == QMetaType::UInt || value.typeId() == QMetaType::Int) {
+        const uint16_t uVal = static_cast<uint16_t>(value.toUInt());
+        if (ok) {
+            *ok = true;
+        }
+        if (displayMode_ == NumberDisplayMode::Signed) {
+            return static_cast<double>(static_cast<int16_t>(uVal));
+        }
+        return static_cast<double>(uVal);
+    }
+    bool localOk = false;
+    const double parsed = value.toDouble(&localOk);
+    if (ok) {
+        *ok = localOk;
+    }
+    return localOk ? parsed : 0.0;
+}
+
+QString FrameAnalyzerWidget::buildDescriptionTooltip(const QVariant& value, const DataMetadata& meta) const
+{
+    QStringList lines;
+    if (!meta.dataType.trimmed().isEmpty()) {
+        lines << tr("Type: %1").arg(meta.dataType.trimmed());
+    }
+    if (!meta.description.trimmed().isEmpty()) {
+        lines << tr("Description: %1").arg(meta.description.trimmed());
+    }
+    bool ok = false;
+    const double raw = numericValueForDisplay(value, &ok);
+    if (ok) {
+        const double scaled = raw * meta.scale;
+        lines << tr("Raw: %1").arg(QString::number(raw, 'g', 12));
+        lines << tr("Scale: %1").arg(QString::number(meta.scale, 'g', 12));
+        lines << tr("Scaled: %1").arg(QString::number(scaled, 'g', 12));
+    }
+    return lines.join('\n');
+}
+
+void FrameAnalyzerWidget::applyMetadataToRow(int row, const QVariant& value, const DataMetadata& meta)
+{
+    if (!dataTable_ || row < 0 || row >= dataTable_->rowCount()) {
+        return;
+    }
+    QTableWidgetItem* descItem = dataTable_->item(row, 6);
+    if (!descItem) {
+        return;
+    }
+    const QString tooltip = buildDescriptionTooltip(value, meta);
+    descItem->setToolTip(tooltip);
+    QTableWidgetItem* scaleItem = dataTable_->item(row, 5);
+    if (scaleItem && scaleItem->text().trimmed().isEmpty()) {
+        scaleItem->setText(QString::number(meta.scale, 'g', 12));
+    }
 }
 
 QString FrameAnalyzerWidget::formatHexValue(const QByteArray& rawBytes, const QString& fallbackHex) const
@@ -144,11 +212,13 @@ QString FrameAnalyzerWidget::formatBinaryValue(const QByteArray& rawBytes, const
 void FrameAnalyzerWidget::setupUi()
 {
     auto mainLayout = new QVBoxLayout(this);
-    mainLayout->setContentsMargins(10, 10, 10, 10);
-    mainLayout->setSpacing(10);
+    mainLayout->setContentsMargins(8, 8, 8, 8);
+    mainLayout->setSpacing(6);
 
     createInputGroup();
     createResultGroup();
+    mainLayout->setStretch(0, 0);
+    mainLayout->setStretch(1, 1);
 }
 
 void FrameAnalyzerWidget::createInputGroup()
@@ -190,6 +260,14 @@ void FrameAnalyzerWidget::createInputGroup()
     connect(formatBtn_, &QPushButton::clicked, this, &FrameAnalyzerWidget::onFormatClicked);
     controlsLayout->addWidget(formatBtn_);
 
+    importJsonBtn_ = new QPushButton(tr("Import JSON"), this);
+    connect(importJsonBtn_, &QPushButton::clicked, this, &FrameAnalyzerWidget::onImportJsonClicked);
+    controlsLayout->addWidget(importJsonBtn_);
+
+    exportJsonBtn_ = new QPushButton(tr("Export JSON"), this);
+    connect(exportJsonBtn_, &QPushButton::clicked, this, &FrameAnalyzerWidget::onExportJsonClicked);
+    controlsLayout->addWidget(exportJsonBtn_);
+
     parseBtn_ = new QPushButton(tr("Parse"), this);
     connect(parseBtn_, &QPushButton::clicked, this, &FrameAnalyzerWidget::onParseClicked);
     controlsLayout->addWidget(parseBtn_);
@@ -203,7 +281,7 @@ void FrameAnalyzerWidget::createInputGroup()
     // Input Editor
     inputEditor_ = new QPlainTextEdit(this);
     inputEditor_->setPlaceholderText(tr("Enter Hex string (e.g., 01 03 00 00 00 01 84 0A)"));
-    inputEditor_->setMaximumHeight(100);
+    inputEditor_->setMaximumHeight(72);
     groupLayout->addWidget(inputEditor_);
 
     connect(startAddressSpin_, qOverload<int>(&QSpinBox::valueChanged), this, &FrameAnalyzerWidget::saveSettings);
@@ -278,6 +356,98 @@ void FrameAnalyzerWidget::onClearClicked()
     clearResult();
 }
 
+void FrameAnalyzerWidget::onExportJsonClicked()
+{
+    const QString filePath = QFileDialog::getSaveFileName(this, tr("Export Frame Metadata"), "", tr("JSON Files (*.json)"));
+    if (filePath.isEmpty()) {
+        return;
+    }
+    exportMetadataToJson(filePath);
+}
+
+void FrameAnalyzerWidget::onImportJsonClicked()
+{
+    const QString filePath = QFileDialog::getOpenFileName(this, tr("Import Frame Metadata"), "", tr("JSON Files (*.json)"));
+    if (filePath.isEmpty()) {
+        return;
+    }
+    importMetadataFromJson(filePath);
+}
+
+void FrameAnalyzerWidget::exportMetadataToJson(const QString& filePath)
+{
+    QJsonObject root;
+    root.insert("version", 1);
+    root.insert("startAddress", startAddressSpin_ ? startAddressSpin_->value() : 0);
+    root.insert("displayMode", displayMode_ == NumberDisplayMode::Signed ? "signed" : "unsigned");
+    QJsonArray items;
+    for (auto it = metadataByAddress_.cbegin(); it != metadataByAddress_.cend(); ++it) {
+        QJsonObject item;
+        item.insert("address", static_cast<int>(it.key()));
+        item.insert("dataType", it.value().dataType);
+        item.insert("description", it.value().description);
+        item.insert("scale", it.value().scale);
+        items.append(item);
+    }
+    root.insert("items", items);
+
+    QFile file(filePath);
+    if (!file.open(QIODevice::WriteOnly | QIODevice::Truncate)) {
+        QMessageBox::warning(this, tr("Export Failed"), tr("Cannot write file: %1").arg(filePath));
+        return;
+    }
+    file.write(QJsonDocument(root).toJson(QJsonDocument::Indented));
+    file.close();
+}
+
+void FrameAnalyzerWidget::importMetadataFromJson(const QString& filePath)
+{
+    QFile file(filePath);
+    if (!file.open(QIODevice::ReadOnly)) {
+        QMessageBox::warning(this, tr("Import Failed"), tr("Cannot open file: %1").arg(filePath));
+        return;
+    }
+    const QJsonDocument doc = QJsonDocument::fromJson(file.readAll());
+    file.close();
+    if (!doc.isObject()) {
+        QMessageBox::warning(this, tr("Import Failed"), tr("Invalid JSON format."));
+        return;
+    }
+    const QJsonObject root = doc.object();
+    if (root.contains("startAddress") && startAddressSpin_) {
+        startAddressSpin_->setValue(root.value("startAddress").toInt(startAddressSpin_->value()));
+    }
+    if (root.contains("displayMode") && displayModeCombo_) {
+        const QString mode = root.value("displayMode").toString().trimmed().toLower();
+        const int index = mode == "signed" ? 1 : 0;
+        displayModeCombo_->setCurrentIndex(index);
+    }
+
+    metadataByAddress_.clear();
+    const QJsonArray items = root.value("items").toArray();
+    for (const QJsonValue& value : items) {
+        if (!value.isObject()) {
+            continue;
+        }
+        const QJsonObject item = value.toObject();
+        const int addressValue = item.value("address").toInt(-1);
+        if (addressValue < 0 || addressValue > 65535) {
+            continue;
+        }
+        const uint16_t address = static_cast<uint16_t>(addressValue);
+        DataMetadata meta;
+        meta.dataType = item.value("dataType").toString();
+        meta.description = item.value("description").toString();
+        meta.scale = item.value("scale").toDouble(1.0);
+        metadataByAddress_.insert(address, meta);
+    }
+    if (!inputEditor_->toPlainText().trimmed().isEmpty()) {
+        onParseClicked();
+    } else {
+        clearResult();
+    }
+}
+
 void FrameAnalyzerWidget::clearResult()
 {
     statusLabel_->setText(tr("Ready"));
@@ -326,6 +496,12 @@ void FrameAnalyzerWidget::onDataTableItemChanged(QTableWidgetItem* item)
         meta.description = item->text();
     }
     metadataByAddress_.insert(address, meta);
+    QTableWidgetItem* decItem = dataTable_->item(item->row(), 2);
+    QVariant value;
+    if (decItem && decItem->text() != "-") {
+        value = decItem->text().toDouble();
+    }
+    applyMetadataToRow(item->row(), value, meta);
 }
 
 void FrameAnalyzerWidget::onParseClicked()
@@ -459,6 +635,7 @@ void FrameAnalyzerWidget::renderResult(const ParseResult& result)
         dataTable_->setItem(i, 6, descItem);
 
         metadataByAddress_.insert(item.address, meta);
+        applyMetadataToRow(i, item.value, meta);
     }
     isUpdatingDataTable_ = false;
 }
@@ -496,6 +673,12 @@ void FrameAnalyzerWidget::retranslateUi()
     }
     if (formatBtn_) {
         formatBtn_->setText(tr("Format Hex"));
+    }
+    if (importJsonBtn_) {
+        importJsonBtn_->setText(tr("Import JSON"));
+    }
+    if (exportJsonBtn_) {
+        exportJsonBtn_->setText(tr("Export JSON"));
     }
     if (parseBtn_) {
         parseBtn_->setText(tr("Parse"));

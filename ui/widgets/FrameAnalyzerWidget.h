@@ -31,6 +31,8 @@ private slots:
     void onParseClicked();
     void onClearClicked();
     void onFormatClicked(); // 格式化 Hex 输入
+    void onExportJsonClicked();
+    void onImportJsonClicked();
 
 protected:
     void changeEvent(QEvent* event) override;
@@ -39,6 +41,11 @@ private:
     enum class NumberDisplayMode {
         Unsigned,
         Signed
+    };
+    struct DataMetadata {
+        QString dataType;
+        double scale = 1.0;
+        QString description;
     };
 
     void setupUi();
@@ -52,6 +59,11 @@ private:
     QString formatBinaryValue(const QByteArray& rawBytes, const QString& fallbackBinary) const;
     void onDataTableItemChanged(QTableWidgetItem* item);
     uint16_t rowAddress(int row) const;
+    double numericValueForDisplay(const QVariant& value, bool* ok) const;
+    QString buildDescriptionTooltip(const QVariant& value, const DataMetadata& meta) const;
+    void applyMetadataToRow(int row, const QVariant& value, const DataMetadata& meta);
+    void exportMetadataToJson(const QString& filePath);
+    void importMetadataFromJson(const QString& filePath);
     
     // 渲染解析结果
     void renderResult(const struct modbus::core::parser::ParseResult& result);
@@ -69,6 +81,8 @@ private:
     QSpinBox* startAddressSpin_ = nullptr;
     QPushButton* parseBtn_ = nullptr;
     QPushButton* formatBtn_ = nullptr;
+    QPushButton* importJsonBtn_ = nullptr;
+    QPushButton* exportJsonBtn_ = nullptr;
     QPushButton* clearBtn_ = nullptr;
 
     // Result Controls
@@ -78,11 +92,6 @@ private:
     QTableWidget* dataTable_ = nullptr;
     QTabWidget* resultTabs_ = nullptr;
     NumberDisplayMode displayMode_ = NumberDisplayMode::Unsigned;
-    struct DataMetadata {
-        QString dataType;
-        double scale = 1.0;
-        QString description;
-    };
     QMap<uint16_t, DataMetadata> metadataByAddress_;
     bool isUpdatingDataTable_ = false;
 };
