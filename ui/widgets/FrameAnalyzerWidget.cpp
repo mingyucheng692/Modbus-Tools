@@ -22,6 +22,25 @@ namespace ui::widgets {
 
 using namespace modbus::core::parser;
 
+namespace {
+QString groupBits(const QString& bits)
+{
+    QString grouped = bits;
+    for (int k = grouped.size() - 4; k > 0; k -= 4) {
+        grouped.insert(k, ' ');
+    }
+    return grouped;
+}
+
+uint32_t maskForBits(int bitWidth)
+{
+    if (bitWidth >= 32) {
+        return 0xFFFFFFFFu;
+    }
+    return (1u << bitWidth) - 1u;
+}
+}
+
 FrameAnalyzerWidget::FrameAnalyzerWidget(QWidget* parent)
     : QWidget(parent)
 {
@@ -50,14 +69,76 @@ QString FrameAnalyzerWidget::formatDecimalValue(const QVariant& value) const
 
 QString FrameAnalyzerWidget::formatHexValue(const QByteArray& rawBytes, const QString& fallbackHex) const
 {
-    Q_UNUSED(rawBytes);
-    return fallbackHex;
+    QString normalized = QString(rawBytes.toHex()).toUpper();
+    if (normalized.isEmpty()) {
+        normalized = fallbackHex;
+    }
+    normalized.remove(QRegularExpression("[^0-9A-Fa-f]"));
+    if (normalized.isEmpty()) {
+        return fallbackHex;
+    }
+    const int digits = normalized.size();
+    bool ok = false;
+    const uint32_t rawValue = normalized.toUInt(&ok, 16);
+    if (!ok) {
+        return fallbackHex;
+    }
+    const int bitWidth = qMax(1, digits * 4);
+    const uint32_t masked = rawValue & maskForBits(bitWidth);
+    const QString rawHex = QString("%1").arg(masked, digits, 16, QChar('0')).toUpper();
+    if (displayMode_ == NumberDisplayMode::Unsigned) {
+        return QString("0x%1").arg(rawHex);
+    }
+    if (bitWidth == 16) {
+        const int16_t signedValue = static_cast<int16_t>(masked);
+        return QString("0x%1 (%2)").arg(rawHex).arg(signedValue);
+    }
+    if (bitWidth == 8) {
+        const int8_t signedValue = static_cast<int8_t>(masked);
+        return QString("0x%1 (%2)").arg(rawHex).arg(signedValue);
+    }
+    return QString("0x%1").arg(rawHex);
 }
 
 QString FrameAnalyzerWidget::formatBinaryValue(const QByteArray& rawBytes, const QString& fallbackBinary) const
 {
-    Q_UNUSED(rawBytes);
-    return fallbackBinary;
+    bool ok = false;
+    uint32_t rawValue = 0;
+    int bitWidth = 0;
+    if (!rawBytes.isEmpty()) {
+        QString normalized = QString(rawBytes.toHex()).toUpper();
+        normalized.remove(QRegularExpression("[^0-9A-Fa-f]"));
+        if (normalized.isEmpty()) {
+            return fallbackBinary;
+        }
+        rawValue = normalized.toUInt(&ok, 16);
+        bitWidth = qMax(1, normalized.size() * 4);
+    } else {
+        QString bitText = fallbackBinary;
+        bitText.remove(QRegularExpression("[^01]"));
+        if (bitText.isEmpty()) {
+            return fallbackBinary;
+        }
+        rawValue = bitText.toUInt(&ok, 2);
+        bitWidth = qMax(1, bitText.size());
+    }
+    if (!ok) {
+        return fallbackBinary;
+    }
+    const uint32_t masked = rawValue & maskForBits(bitWidth);
+    const QString bits = groupBits(QString::number(masked, 2).rightJustified(bitWidth, '0'));
+    if (displayMode_ == NumberDisplayMode::Unsigned) {
+        return bits;
+    }
+    if (bitWidth == 16) {
+        const int16_t signedValue = static_cast<int16_t>(masked);
+        return QString("%1 (%2)").arg(bits).arg(signedValue);
+    }
+    if (bitWidth == 8) {
+        const int8_t signedValue = static_cast<int8_t>(masked);
+        return QString("%1 (%2)").arg(bits).arg(signedValue);
+    }
+    return bits;
 }
 
 void FrameAnalyzerWidget::setupUi()
