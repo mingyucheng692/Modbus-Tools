@@ -98,12 +98,19 @@ double FrameAnalyzerWidget::numericValueForDisplay(const QVariant& value, bool* 
     return localOk ? parsed : 0.0;
 }
 
+QString FrameAnalyzerWidget::formatScaledValue(const QVariant& value, const DataMetadata& meta) const
+{
+    bool ok = false;
+    const double raw = numericValueForDisplay(value, &ok);
+    if (!ok) {
+        return "-";
+    }
+    return QString::number(raw * meta.scale, 'g', 12);
+}
+
 QString FrameAnalyzerWidget::buildDescriptionTooltip(const QVariant& value, const DataMetadata& meta) const
 {
     QStringList lines;
-    if (!meta.dataType.trimmed().isEmpty()) {
-        lines << tr("Type: %1").arg(meta.dataType.trimmed());
-    }
     if (!meta.description.trimmed().isEmpty()) {
         lines << tr("Description: %1").arg(meta.description.trimmed());
     }
@@ -129,7 +136,11 @@ void FrameAnalyzerWidget::applyMetadataToRow(int row, const QVariant& value, con
     }
     const QString tooltip = buildDescriptionTooltip(value, meta);
     descItem->setToolTip(tooltip);
-    QTableWidgetItem* scaleItem = dataTable_->item(row, 5);
+    QTableWidgetItem* scaledItem = dataTable_->item(row, 5);
+    if (scaledItem) {
+        scaledItem->setText(formatScaledValue(value, meta));
+    }
+    QTableWidgetItem* scaleItem = dataTable_->item(row, 4);
     if (scaleItem && scaleItem->text().trimmed().isEmpty()) {
         scaleItem->setText(QString::number(meta.scale, 'g', 12));
     }
@@ -307,9 +318,17 @@ void FrameAnalyzerWidget::createResultGroup()
     // Tab 2: Decoded Data
     dataTable_ = new QTableWidget(this);
     dataTable_->setColumnCount(7);
-    dataTable_->setHorizontalHeaderLabels({tr("Address"), tr("Hex"), tr("Decimal"), tr("Binary"), tr("Data Type"), tr("Scale"), tr("Description")});
-    dataTable_->horizontalHeader()->setSectionResizeMode(QHeaderView::ResizeToContents);
-    dataTable_->horizontalHeader()->setSectionResizeMode(6, QHeaderView::Stretch);
+    dataTable_->setHorizontalHeaderLabels({tr("Address"), tr("Hex"), tr("Decimal"), tr("Binary"), tr("Scale"), tr("Value"), tr("Description")});
+    dataTable_->horizontalHeader()->setSectionResizeMode(QHeaderView::Interactive);
+    dataTable_->horizontalHeader()->setMinimumSectionSize(56);
+    dataTable_->horizontalHeader()->setStretchLastSection(true);
+    dataTable_->setColumnWidth(0, 72);
+    dataTable_->setColumnWidth(1, 120);
+    dataTable_->setColumnWidth(2, 88);
+    dataTable_->setColumnWidth(3, 150);
+    dataTable_->setColumnWidth(4, 88);
+    dataTable_->setColumnWidth(5, 96);
+    dataTable_->setColumnWidth(6, 260);
     connect(dataTable_, &QTableWidget::itemChanged, this, &FrameAnalyzerWidget::onDataTableItemChanged);
     resultTabs_->addTab(dataTable_, tr("Data Details"));
 
@@ -383,7 +402,6 @@ void FrameAnalyzerWidget::exportMetadataToJson(const QString& filePath)
     for (auto it = metadataByAddress_.cbegin(); it != metadataByAddress_.cend(); ++it) {
         QJsonObject item;
         item.insert("address", static_cast<int>(it.key()));
-        item.insert("dataType", it.value().dataType);
         item.insert("description", it.value().description);
         item.insert("scale", it.value().scale);
         items.append(item);
@@ -435,7 +453,6 @@ void FrameAnalyzerWidget::importMetadataFromJson(const QString& filePath)
         }
         const uint16_t address = static_cast<uint16_t>(addressValue);
         DataMetadata meta;
-        meta.dataType = item.value("dataType").toString();
         meta.description = item.value("description").toString();
         meta.scale = item.value("scale").toDouble(1.0);
         metadataByAddress_.insert(address, meta);
@@ -475,14 +492,12 @@ void FrameAnalyzerWidget::onDataTableItemChanged(QTableWidgetItem* item)
         return;
     }
     const int col = item->column();
-    if (col != 4 && col != 5 && col != 6) {
+    if (col != 4 && col != 6) {
         return;
     }
     const uint16_t address = rowAddress(item->row());
     DataMetadata meta = metadataByAddress_.value(address);
     if (col == 4) {
-        meta.dataType = item->text().trimmed();
-    } else if (col == 5) {
         bool ok = false;
         const double parsedScale = item->text().toDouble(&ok);
         if (!ok) {
@@ -491,7 +506,7 @@ void FrameAnalyzerWidget::onDataTableItemChanged(QTableWidgetItem* item)
             return;
         }
         meta.scale = parsedScale;
-    } else {
+    } else if (col == 6) {
         meta.description = item->text();
     }
     metadataByAddress_.insert(address, meta);
@@ -624,11 +639,12 @@ void FrameAnalyzerWidget::renderResult(const ParseResult& result)
         binaryItem->setFlags(binaryItem->flags() & ~Qt::ItemIsEditable);
         dataTable_->setItem(i, 3, binaryItem);
 
-        auto* dataTypeItem = new QTableWidgetItem(meta.dataType);
-        dataTable_->setItem(i, 4, dataTypeItem);
-
         auto* scaleItem = new QTableWidgetItem(QString::number(meta.scale, 'g', 12));
-        dataTable_->setItem(i, 5, scaleItem);
+        dataTable_->setItem(i, 4, scaleItem);
+
+        auto* valueItem = new QTableWidgetItem(formatScaledValue(item.value, meta));
+        valueItem->setFlags(valueItem->flags() & ~Qt::ItemIsEditable);
+        dataTable_->setItem(i, 5, valueItem);
 
         auto* descItem = new QTableWidgetItem(meta.description);
         dataTable_->setItem(i, 6, descItem);
@@ -703,7 +719,7 @@ void FrameAnalyzerWidget::retranslateUi()
         header->setText(2, tr("Description"));
     }
     if (dataTable_) {
-        dataTable_->setHorizontalHeaderLabels({tr("Address"), tr("Hex"), tr("Decimal"), tr("Binary"), tr("Data Type"), tr("Scale"), tr("Description")});
+        dataTable_->setHorizontalHeaderLabels({tr("Address"), tr("Hex"), tr("Decimal"), tr("Binary"), tr("Scale"), tr("Value"), tr("Description")});
     }
 
     // Refresh result text if needed (simple approach: clear or keep existing static text)

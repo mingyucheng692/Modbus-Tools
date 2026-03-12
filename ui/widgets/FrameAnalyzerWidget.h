@@ -43,7 +43,6 @@ private:
         Signed
     };
     struct DataMetadata {
-        QString dataType;
         double scale = 1.0;
         QString description;
     };
@@ -60,6 +59,7 @@ private:
     void onDataTableItemChanged(QTableWidgetItem* item);
     uint16_t rowAddress(int row) const;
     double numericValueForDisplay(const QVariant& value, bool* ok) const;
+    QString formatScaledValue(const QVariant& value, const DataMetadata& meta) const;
     QString buildDescriptionTooltip(const QVariant& value, const DataMetadata& meta) const;
     void applyMetadataToRow(int row, const QVariant& value, const DataMetadata& meta);
     void exportMetadataToJson(const QString& filePath);

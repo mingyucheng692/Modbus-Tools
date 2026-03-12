@@ -264,6 +264,7 @@ void MainWindow::createNavigation() {
     navigationList_->addItem(new QListWidgetItem(serialPortIcon.isNull() ? style()->standardIcon(QStyle::SP_DriveHDIcon) : serialPortIcon, tr("Serial Port")));
     navigationList_->addItem(new QListWidgetItem(frameAnalyzerIcon.isNull() ? style()->standardIcon(QStyle::SP_FileDialogDetailedView) : frameAnalyzerIcon, tr("Frame Analyzer")));
     navigationList_->setIconSize(QSize(24, 24));
+    navigationList_->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
     paneLayout->addWidget(navigationList_);
 
     navigationList_->setStyleSheet(common::Theme::getNavigationStyle(false));
