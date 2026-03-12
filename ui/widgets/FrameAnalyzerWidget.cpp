@@ -245,28 +245,11 @@ void FrameAnalyzerWidget::createInputGroup()
     startAddressSpin_->setValue(0);
     controlsLayout->addWidget(startAddressSpin_);
 
-    controlsLayout->addSpacing(20);
-    displayModeLabel_ = new QLabel(tr("Decode Mode:"), this);
-    controlsLayout->addWidget(displayModeLabel_);
-    displayModeCombo_ = new QComboBox(this);
-    displayModeCombo_->addItem(tr("Unsigned"), static_cast<int>(NumberDisplayMode::Unsigned));
-    displayModeCombo_->addItem(tr("Signed"), static_cast<int>(NumberDisplayMode::Signed));
-    displayModeCombo_->setCurrentIndex(0);
-    controlsLayout->addWidget(displayModeCombo_);
-
     controlsLayout->addStretch();
     
     formatBtn_ = new QPushButton(tr("Format Hex"), this);
     connect(formatBtn_, &QPushButton::clicked, this, &FrameAnalyzerWidget::onFormatClicked);
     controlsLayout->addWidget(formatBtn_);
-
-    importJsonBtn_ = new QPushButton(tr("Import JSON"), this);
-    connect(importJsonBtn_, &QPushButton::clicked, this, &FrameAnalyzerWidget::onImportJsonClicked);
-    controlsLayout->addWidget(importJsonBtn_);
-
-    exportJsonBtn_ = new QPushButton(tr("Export JSON"), this);
-    connect(exportJsonBtn_, &QPushButton::clicked, this, &FrameAnalyzerWidget::onExportJsonClicked);
-    controlsLayout->addWidget(exportJsonBtn_);
 
     parseBtn_ = new QPushButton(tr("Parse"), this);
     connect(parseBtn_, &QPushButton::clicked, this, &FrameAnalyzerWidget::onParseClicked);
@@ -285,20 +268,6 @@ void FrameAnalyzerWidget::createInputGroup()
     groupLayout->addWidget(inputEditor_);
 
     connect(startAddressSpin_, qOverload<int>(&QSpinBox::valueChanged), this, &FrameAnalyzerWidget::saveSettings);
-    connect(displayModeCombo_, qOverload<int>(&QComboBox::currentIndexChanged), this, [this](int index) {
-        if (index < 0) {
-            return;
-        }
-        const auto selected = static_cast<NumberDisplayMode>(displayModeCombo_->itemData(index).toInt());
-        if (displayMode_ == selected) {
-            return;
-        }
-        displayMode_ = selected;
-        if (!inputEditor_->toPlainText().trimmed().isEmpty()) {
-            onParseClicked();
-        }
-    });
-
     layout()->addWidget(inputGroup_);
     loadSettings();
 }
@@ -308,9 +277,23 @@ void FrameAnalyzerWidget::createResultGroup()
     resultGroup_ = new QGroupBox(tr("Analysis Result"), this);
     auto groupLayout = new QVBoxLayout(resultGroup_);
 
+    auto resultToolbarLayout = new QHBoxLayout();
     statusLabel_ = new QLabel(tr("Ready"), this);
     statusLabel_->setStyleSheet("font-weight: bold; color: gray;");
-    groupLayout->addWidget(statusLabel_);
+    resultToolbarLayout->addWidget(statusLabel_);
+    resultToolbarLayout->addStretch();
+    displayModeLabel_ = new QLabel(tr("Decode Mode:"), this);
+    resultToolbarLayout->addWidget(displayModeLabel_);
+    displayModeCombo_ = new QComboBox(this);
+    displayModeCombo_->addItem(tr("Unsigned"), static_cast<int>(NumberDisplayMode::Unsigned));
+    displayModeCombo_->addItem(tr("Signed"), static_cast<int>(NumberDisplayMode::Signed));
+    displayModeCombo_->setCurrentIndex(0);
+    resultToolbarLayout->addWidget(displayModeCombo_);
+    importJsonBtn_ = new QPushButton(tr("Import JSON"), this);
+    resultToolbarLayout->addWidget(importJsonBtn_);
+    exportJsonBtn_ = new QPushButton(tr("Export JSON"), this);
+    resultToolbarLayout->addWidget(exportJsonBtn_);
+    groupLayout->addLayout(resultToolbarLayout);
 
     resultTabs_ = new QTabWidget(this);
 
@@ -329,6 +312,22 @@ void FrameAnalyzerWidget::createResultGroup()
     dataTable_->horizontalHeader()->setSectionResizeMode(6, QHeaderView::Stretch);
     connect(dataTable_, &QTableWidget::itemChanged, this, &FrameAnalyzerWidget::onDataTableItemChanged);
     resultTabs_->addTab(dataTable_, tr("Data Details"));
+
+    connect(importJsonBtn_, &QPushButton::clicked, this, &FrameAnalyzerWidget::onImportJsonClicked);
+    connect(exportJsonBtn_, &QPushButton::clicked, this, &FrameAnalyzerWidget::onExportJsonClicked);
+    connect(displayModeCombo_, qOverload<int>(&QComboBox::currentIndexChanged), this, [this](int index) {
+        if (index < 0) {
+            return;
+        }
+        const auto selected = static_cast<NumberDisplayMode>(displayModeCombo_->itemData(index).toInt());
+        if (displayMode_ == selected) {
+            return;
+        }
+        displayMode_ = selected;
+        if (!inputEditor_->toPlainText().trimmed().isEmpty()) {
+            onParseClicked();
+        }
+    });
 
     groupLayout->addWidget(resultTabs_);
     layout()->addWidget(resultGroup_);
