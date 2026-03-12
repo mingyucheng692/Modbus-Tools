@@ -70,7 +70,7 @@ void GenericInputWidget::setupUi() {
     
     // Send Button
     sendBtn_ = new QPushButton(this);
-    sendBtn_->setMinimumWidth(80);
+    sendBtn_->setMinimumWidth(64);
     controlLayout->addWidget(sendBtn_);
     
     mainLayout->addLayout(controlLayout);

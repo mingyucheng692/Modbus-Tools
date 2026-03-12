@@ -42,7 +42,7 @@ void FunctionWidget::setupUi() {
 
 void FunctionWidget::setupStandardUi(QWidget* parent) {
     auto layout = new QVBoxLayout(parent);
-    layout->setContentsMargins(20, 0, 20, 0);
+    layout->setContentsMargins(8, 0, 8, 0);
     
     // Row 1: Parameters
     auto paramLayout = new QHBoxLayout();
@@ -138,7 +138,6 @@ void FunctionWidget::setupStandardUi(QWidget* parent) {
     }
 
     layout->addLayout(btnLayout);
-    layout->addStretch();
 
     connect(slaveIdEdit_, qOverload<int>(&QSpinBox::valueChanged), this, &FunctionWidget::saveSettings);
     connect(addressEdit_, qOverload<int>(&QSpinBox::valueChanged), this, &FunctionWidget::saveSettings);
@@ -148,7 +147,7 @@ void FunctionWidget::setupStandardUi(QWidget* parent) {
 
 void FunctionWidget::setupRawUi(QWidget* parent) {
     auto layout = new QVBoxLayout(parent);
-    layout->setContentsMargins(20, 0, 20, 0);
+    layout->setContentsMargins(8, 0, 8, 0);
 
     rawDataLabel_ = new QLabel(parent);
     layout->addWidget(rawDataLabel_);

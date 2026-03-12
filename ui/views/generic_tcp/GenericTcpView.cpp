@@ -27,7 +27,7 @@ GenericTcpView::~GenericTcpView() {
 
 void GenericTcpView::setupUi() {
     auto mainLayout = new QVBoxLayout(this);
-    mainLayout->setContentsMargins(10, 10, 10, 10);
+    mainLayout->setContentsMargins(6, 6, 6, 6);
     mainLayout->setSpacing(4);
 
     // 1. Connection Section (Top)
@@ -50,7 +50,9 @@ void GenericTcpView::setupUi() {
     inputWidget_->setSettingsGroup("tcp_client/input");
     inputLayout->addWidget(inputWidget_);
     mainLayout->addWidget(inputSection_);
-    mainLayout->addStretch();
+    mainLayout->setStretch(0, 0);
+    mainLayout->setStretch(1, 1);
+    mainLayout->setStretch(2, 0);
 
     // Connections
     connect(connectionWidget_, &widgets::TcpConnectionWidget::connectClicked, 

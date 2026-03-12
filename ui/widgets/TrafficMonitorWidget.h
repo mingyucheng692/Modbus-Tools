@@ -34,6 +34,7 @@ private:
     QString formatData(const QByteArray& data) const;
     void loadSettings();
     void saveSettings();
+    void syncCollapsedGeometry(bool expanded);
     void retranslateUi();
     void changeEvent(QEvent* event) override;
 

@@ -47,8 +47,8 @@ void ModbusRtuView::updateModbusSettings(int timeoutMs, int retries, int retryIn
 
 void ModbusRtuView::setupUi() {
     mainLayout_ = new QVBoxLayout(this);
-    mainLayout_->setContentsMargins(10, 10, 10, 10);
-    mainLayout_->setSpacing(10);
+    mainLayout_->setContentsMargins(6, 6, 6, 6);
+    mainLayout_->setSpacing(6);
     
     connectionWidget_ = new widgets::SerialConnectionWidget(this);
     connectionWidget_->setSettingsGroup("modbus/rtu/serial");
@@ -101,7 +101,7 @@ void ModbusRtuView::setupUi() {
     dataLayout->addWidget(receiveGroup_, 1);
     dataLayout->addWidget(sendGroup_, 1);
     trafficMonitor_ = new widgets::TrafficMonitorWidget(this);
-    trafficMonitor_->setMinimumHeight(140);
+    trafficMonitor_->setMinimumHeight(88);
     trafficMonitor_->setSettingsGroup("modbus/rtu/traffic");
 
     mainLayout_->addWidget(dataGroup_);

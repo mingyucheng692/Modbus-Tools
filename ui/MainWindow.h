@@ -88,8 +88,8 @@ private:
     QString pendingReleaseUrl_;
     QObject* parameterWheelBlocker_ = nullptr;
     bool navigationCollapsed_ = false;
-    int navigationExpandedWidth_ = 180;
-    int navigationCollapsedWidth_ = 64;
+    int navigationExpandedWidth_ = 160;
+    int navigationCollapsedWidth_ = 52;
 };
 
 } // namespace ui

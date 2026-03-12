@@ -17,6 +17,7 @@
 #include <QSettings>
 #include <QApplication>
 #include <QSignalBlocker>
+#include <QSizePolicy>
 
 namespace ui::widgets {
 
@@ -63,10 +64,12 @@ void TrafficMonitorWidget::setupUi() {
     logList_->setAlternatingRowColors(true);
     logList_->setSelectionMode(QAbstractItemView::ExtendedSelection);
     logList_->setContextMenuPolicy(Qt::CustomContextMenu);
-    logList_->setMinimumHeight(120);
+    logList_->setMinimumHeight(64);
     layout->addWidget(logList_);
 
     mainLayout->addWidget(section_);
+    setMinimumHeight(0);
+    syncCollapsedGeometry(section_->isExpanded());
 
     // Connections
     connect(clearBtn_, &QPushButton::clicked, this, &TrafficMonitorWidget::clear);
@@ -74,6 +77,7 @@ void TrafficMonitorWidget::setupUi() {
     connect(autoScrollCheck_, &QCheckBox::toggled, this, &TrafficMonitorWidget::saveSettings);
     connect(showTxCheck_, &QCheckBox::toggled, this, &TrafficMonitorWidget::saveSettings);
     connect(showRxCheck_, &QCheckBox::toggled, this, &TrafficMonitorWidget::saveSettings);
+    connect(section_, &CollapsibleSection::expandedChanged, this, &TrafficMonitorWidget::syncCollapsedGeometry);
     connect(logList_, &QListWidget::customContextMenuRequested, [this](const QPoint& pos) {
         QMenu menu(this);
         menu.addAction(tr("Copy"), this, &TrafficMonitorWidget::onCopyClicked);
@@ -170,6 +174,14 @@ void TrafficMonitorWidget::saveSettings() {
     settings.setValue(settingsGroup_ + "/autoScroll", autoScrollCheck_->isChecked());
     settings.setValue(settingsGroup_ + "/showTx", showTxCheck_->isChecked());
     settings.setValue(settingsGroup_ + "/showRx", showRxCheck_->isChecked());
+}
+
+void TrafficMonitorWidget::syncCollapsedGeometry(bool expanded) {
+    setMinimumHeight(expanded ? 88 : 0);
+    QSizePolicy policy = sizePolicy();
+    policy.setVerticalPolicy(expanded ? QSizePolicy::MinimumExpanding : QSizePolicy::Minimum);
+    setSizePolicy(policy);
+    updateGeometry();
 }
 
 QString TrafficMonitorWidget::formatData(const QByteArray& data) const {

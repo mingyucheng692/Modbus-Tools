@@ -109,7 +109,7 @@ void SerialConnectionWidget::setupUi() {
     portLabel_ = new QLabel(this);
     layout->addWidget(portLabel_);
     portCombo_ = new QComboBox(this);
-    portCombo_->setMinimumWidth(80);
+    portCombo_->setMinimumWidth(64);
     layout->addWidget(portCombo_);
 
     refreshBtn_ = new QPushButton("R", this);
@@ -132,7 +132,7 @@ void SerialConnectionWidget::setupUi() {
     dataBitsCombo_ = new QComboBox(this);
     dataBitsCombo_->addItems({"8", "7"});
     dataBitsCombo_->setCurrentText("8");
-    dataBitsCombo_->setFixedWidth(50);
+    dataBitsCombo_->setMinimumWidth(40);
     layout->addWidget(dataBitsCombo_);
 
     // Parity
@@ -140,7 +140,7 @@ void SerialConnectionWidget::setupUi() {
     layout->addWidget(parityLabel_);
     parityCombo_ = new QComboBox(this);
     parityCombo_->addItems({"None", "Even", "Odd", "Space", "Mark"});
-    parityCombo_->setFixedWidth(70);
+    parityCombo_->setMinimumWidth(58);
     layout->addWidget(parityCombo_);
 
     // Stop Bits
@@ -148,7 +148,7 @@ void SerialConnectionWidget::setupUi() {
     layout->addWidget(stopBitsLabel_);
     stopBitsCombo_ = new QComboBox(this);
     stopBitsCombo_->addItems({"1", "1.5", "2"});
-    stopBitsCombo_->setFixedWidth(50);
+    stopBitsCombo_->setMinimumWidth(40);
     layout->addWidget(stopBitsCombo_);
 
     // Connect Button
