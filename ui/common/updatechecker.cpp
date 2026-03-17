@@ -29,11 +29,9 @@ namespace {
 #define MODBUS_TOOLS_PLATFORM "windows-x86_64"
 #endif
 
-bool shouldIncludePrerelease() {
-    bool ok = false;
-    const int flag = qEnvironmentVariableIntValue("MODBUS_TOOLS_INCLUDE_PRERELEASE", &ok);
-    return ok && flag != 0;
-}
+#ifndef MODBUS_TOOLS_INCLUDE_PRERELEASE
+#define MODBUS_TOOLS_INCLUDE_PRERELEASE 0
+#endif
 
 }
 
@@ -59,10 +57,10 @@ void UpdateChecker::checkForUpdates() {
         }
 
         const QJsonDocument document = QJsonDocument::fromJson(reply->readAll());
+        constexpr bool includePrerelease = MODBUS_TOOLS_INCLUDE_PRERELEASE != 0;
         QJsonObject root;
         if (document.isArray()) {
             const QJsonArray releases = document.array();
-            const bool includePrerelease = shouldIncludePrerelease();
             for (const QJsonValue& releaseValue : releases) {
                 if (!releaseValue.isObject()) {
                     continue;
@@ -81,7 +79,7 @@ void UpdateChecker::checkForUpdates() {
             root = document.object();
             if (root.value("draft").toBool()) {
                 root = QJsonObject();
-            } else if (root.value("prerelease").toBool() && !shouldIncludePrerelease()) {
+            } else if (root.value("prerelease").toBool() && !includePrerelease) {
                 root = QJsonObject();
             }
         }

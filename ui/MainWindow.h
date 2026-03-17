@@ -48,6 +48,7 @@ private:
     bool shouldAutoCheckUpdates() const;
     void refreshUpdateIndicators();
     void cleanupUpdateArtifacts();
+    void promptUpdateAction(const QString& currentVersion);
     bool tryStartSilentUpdate();
     bool downloadUpdateAsset(const QUrl& url, const QString& filePath, QString& errorMessage) const;
     QString calculateFileSha256(const QString& filePath) const;

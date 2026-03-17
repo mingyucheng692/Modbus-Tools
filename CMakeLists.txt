@@ -7,6 +7,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 option(MODBUS_TOOLS_ENABLE_PARALLEL_COMPILE "Enable parallel compile for MSVC" ON)
 option(MODBUS_TOOLS_ENABLE_PCH "Enable precompiled headers" ON)
+option(MODBUS_TOOLS_INCLUDE_PRERELEASE "Include pre-release when checking updates" OFF)
 
 if(MSVC)
     if(MODBUS_TOOLS_ENABLE_PARALLEL_COMPILE)
@@ -33,7 +34,13 @@ add_subdirectory(ui)
 add_subdirectory(app)
 add_subdirectory(updater)
 
-set(MODBUS_TOOLS_RELEASES_API_URL "https://api.github.com/repos/mingyucheng692/Modbus-Tools/releases")
+if(MODBUS_TOOLS_INCLUDE_PRERELEASE)
+    set(MODBUS_TOOLS_RELEASES_API_URL "https://api.github.com/repos/mingyucheng692/Modbus-Tools/releases")
+    set(MODBUS_TOOLS_INCLUDE_PRERELEASE_VALUE 1)
+else()
+    set(MODBUS_TOOLS_RELEASES_API_URL "https://api.github.com/repos/mingyucheng692/Modbus-Tools/releases/latest")
+    set(MODBUS_TOOLS_INCLUDE_PRERELEASE_VALUE 0)
+endif()
 set(MODBUS_TOOLS_RELEASES_PAGE_URL "https://github.com/mingyucheng692/Modbus-Tools/releases")
 set(MODBUS_TOOLS_PLATFORM "windows-x86_64")
 
@@ -42,6 +49,7 @@ target_compile_definitions(core PUBLIC
     MODBUS_TOOLS_RELEASES_API_URL="${MODBUS_TOOLS_RELEASES_API_URL}"
     MODBUS_TOOLS_RELEASES_PAGE_URL="${MODBUS_TOOLS_RELEASES_PAGE_URL}"
     MODBUS_TOOLS_PLATFORM="${MODBUS_TOOLS_PLATFORM}"
+    MODBUS_TOOLS_INCLUDE_PRERELEASE=${MODBUS_TOOLS_INCLUDE_PRERELEASE_VALUE}
 )
 
 target_compile_definitions(ui PUBLIC
@@ -49,6 +57,7 @@ target_compile_definitions(ui PUBLIC
     MODBUS_TOOLS_RELEASES_API_URL="${MODBUS_TOOLS_RELEASES_API_URL}"
     MODBUS_TOOLS_RELEASES_PAGE_URL="${MODBUS_TOOLS_RELEASES_PAGE_URL}"
     MODBUS_TOOLS_PLATFORM="${MODBUS_TOOLS_PLATFORM}"
+    MODBUS_TOOLS_INCLUDE_PRERELEASE=${MODBUS_TOOLS_INCLUDE_PRERELEASE_VALUE}
 )
 
 target_compile_definitions(Modbus-Tools PRIVATE
@@ -56,4 +65,5 @@ target_compile_definitions(Modbus-Tools PRIVATE
     MODBUS_TOOLS_RELEASES_API_URL="${MODBUS_TOOLS_RELEASES_API_URL}"
     MODBUS_TOOLS_RELEASES_PAGE_URL="${MODBUS_TOOLS_RELEASES_PAGE_URL}"
     MODBUS_TOOLS_PLATFORM="${MODBUS_TOOLS_PLATFORM}"
+    MODBUS_TOOLS_INCLUDE_PRERELEASE=${MODBUS_TOOLS_INCLUDE_PRERELEASE_VALUE}
 )

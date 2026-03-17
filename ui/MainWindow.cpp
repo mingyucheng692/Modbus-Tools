@@ -50,6 +50,8 @@
 #include <QIcon>
 #include <QColor>
 #include <QMessageBox>
+#include <QProgressDialog>
+#include <QPushButton>
 #include <QSettings>
 #include <QStandardPaths>
 #include <QUrl>
@@ -508,17 +510,7 @@ void MainWindow::openAboutDialog() {
 
 void MainWindow::checkForUpdates() {
     if (updateAvailable_ && !pendingLatestVersion_.isEmpty()) {
-        const QString message = tr("Current version: v%1\nLatest version: v%2\n\nOpen download page now?")
-                                    .arg(common::UpdateChecker::currentVersion(), pendingLatestVersion_);
-        const auto result = QMessageBox::question(this, tr("Update Available"), message, QMessageBox::Yes | QMessageBox::No);
-        if (result == QMessageBox::Yes) {
-            if (!tryStartSilentUpdate()) {
-                const QString targetUrl = pendingDownloadUrl_.isEmpty() ? pendingReleaseUrl_ : pendingDownloadUrl_;
-                if (!targetUrl.isEmpty()) {
-                    QDesktopServices::openUrl(QUrl(targetUrl));
-                }
-            }
-        }
+        promptUpdateAction(common::UpdateChecker::currentVersion());
         return;
     }
     if (checkUpdatesAction_) {
@@ -595,38 +587,63 @@ bool MainWindow::downloadUpdateAsset(const QUrl& url, const QString& filePath, Q
         return false;
     }
 
+    QFile outputFile(filePath);
+    if (!outputFile.open(QIODevice::WriteOnly | QIODevice::Truncate)) {
+        errorMessage = tr("Failed to write update file");
+        return false;
+    }
+
     QNetworkAccessManager manager;
     QNetworkRequest request(url);
     request.setHeader(QNetworkRequest::UserAgentHeader,
                       QStringLiteral("Modbus-Tools/%1").arg(common::UpdateChecker::currentVersion()));
     QNetworkReply* reply = manager.get(request);
 
+    const QString assetName = QFileInfo(filePath).fileName();
+    QProgressDialog progressDialog(tr("Downloading %1").arg(assetName),
+                                   tr("Cancel"),
+                                   0,
+                                   100,
+                                   const_cast<MainWindow*>(this));
+    progressDialog.setWindowTitle(tr("Downloading Update"));
+    progressDialog.setWindowModality(Qt::WindowModal);
+    progressDialog.setMinimumDuration(0);
+    progressDialog.setValue(0);
+
+    connect(&progressDialog, &QProgressDialog::canceled, reply, &QNetworkReply::abort);
+    connect(reply, &QNetworkReply::readyRead, [&outputFile, reply]() {
+        outputFile.write(reply->readAll());
+    });
+    connect(reply, &QNetworkReply::downloadProgress, &progressDialog, [&progressDialog](qint64 received, qint64 total) {
+        if (total > 0) {
+            const int progress = static_cast<int>((received * 100) / total);
+            progressDialog.setValue(qBound(0, progress, 100));
+        } else {
+            progressDialog.setValue(0);
+        }
+    });
+
     QEventLoop loop;
     connect(reply, &QNetworkReply::finished, &loop, &QEventLoop::quit);
     loop.exec();
 
-    QByteArray payload;
-    if (reply->error() == QNetworkReply::NoError) {
-        payload = reply->readAll();
-    } else {
-        errorMessage = reply->errorString();
+    progressDialog.setValue(100);
+    outputFile.write(reply->readAll());
+    outputFile.close();
+
+    if (reply->error() != QNetworkReply::NoError) {
+        errorMessage = reply->error() == QNetworkReply::OperationCanceledError
+                           ? tr("Download canceled")
+                           : reply->errorString();
+        reply->deleteLater();
+        QFile::remove(filePath);
+        return false;
     }
+
     reply->deleteLater();
-
-    if (payload.isEmpty()) {
-        if (errorMessage.isEmpty()) {
-            errorMessage = tr("Downloaded file is empty");
-        }
-        return false;
-    }
-
-    QFile outputFile(filePath);
-    if (!outputFile.open(QIODevice::WriteOnly | QIODevice::Truncate)) {
-        errorMessage = tr("Failed to write update file");
-        return false;
-    }
-    if (outputFile.write(payload) != payload.size()) {
-        errorMessage = tr("Failed to save update file");
+    if (QFileInfo(filePath).size() <= 0) {
+        errorMessage = tr("Downloaded file is empty");
+        QFile::remove(filePath);
         return false;
     }
     return true;
@@ -808,6 +825,44 @@ bool MainWindow::tryStartSilentUpdate() {
     return true;
 }
 
+void MainWindow::promptUpdateAction(const QString& currentVersion) {
+    const QString fullDownloadUrl = pendingFullPackageUrl_.isEmpty() ? pendingReleaseUrl_ : pendingFullPackageUrl_;
+    const bool hasUpdateOnly = !pendingUpdateOnlyUrl_.isEmpty();
+    const QString baseMessage = tr("Current version: v%1\nLatest version: v%2")
+                                    .arg(currentVersion, pendingLatestVersion_);
+
+    if (!hasUpdateOnly) {
+        const QString message = baseMessage + tr("\n\nUpdateOnly package is unavailable for this release.\nOpen download page now?");
+        const auto result = QMessageBox::question(this, tr("Update Available"), message, QMessageBox::Yes | QMessageBox::No);
+        if (result == QMessageBox::Yes && !fullDownloadUrl.isEmpty()) {
+            QDesktopServices::openUrl(QUrl(fullDownloadUrl));
+        }
+        return;
+    }
+
+    QMessageBox messageBox(this);
+    messageBox.setIcon(QMessageBox::Question);
+    messageBox.setWindowTitle(tr("Update Available"));
+    messageBox.setText(baseMessage + tr("\n\nChoose update method:"));
+    auto* updateNowButton = messageBox.addButton(tr("Update Main Program"), QMessageBox::AcceptRole);
+    QPushButton* downloadFullButton = nullptr;
+    if (!fullDownloadUrl.isEmpty()) {
+        downloadFullButton = messageBox.addButton(tr("Download Full Package"), QMessageBox::ActionRole);
+    }
+    messageBox.addButton(QMessageBox::Cancel);
+    messageBox.exec();
+
+    if (messageBox.clickedButton() == updateNowButton) {
+        if (!tryStartSilentUpdate()) {
+            QMessageBox::warning(this, tr("Update Check Failed"), tr("Main program update failed"));
+        }
+        return;
+    }
+    if (downloadFullButton && messageBox.clickedButton() == downloadFullButton) {
+        QDesktopServices::openUrl(QUrl(fullDownloadUrl));
+    }
+}
+
 void MainWindow::handleUpdateAvailable(const QString& currentVersion,
                                        const QString& latestVersion,
                                        const QString& updateOnlyUrl,
@@ -832,20 +887,7 @@ void MainWindow::handleUpdateAvailable(const QString& currentVersion,
     if (!checkingUpdateManually_) {
         return;
     }
-
-    const QString message = tr("Current version: v%1\nLatest version: v%2\n\nOpen download page now?")
-                                .arg(currentVersion, pendingLatestVersion_);
-    const auto result = QMessageBox::question(this, tr("Update Available"), message, QMessageBox::Yes | QMessageBox::No);
-    if (result != QMessageBox::Yes) {
-        return;
-    }
-
-    if (!tryStartSilentUpdate()) {
-        const QString targetUrl = pendingDownloadUrl_.isEmpty() ? pendingReleaseUrl_ : pendingDownloadUrl_;
-        if (!targetUrl.isEmpty()) {
-            QDesktopServices::openUrl(QUrl(targetUrl));
-        }
-    }
+    promptUpdateAction(currentVersion);
 }
 
 void MainWindow::handleNoUpdateAvailable(const QString& currentVersion) {
