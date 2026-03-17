@@ -18,7 +18,7 @@ namespace {
 #endif
 
 #ifndef MODBUS_TOOLS_RELEASES_API_URL
-#define MODBUS_TOOLS_RELEASES_API_URL "https://api.github.com/repos/mingyucheng692/Modbus-Tools/releases/latest"
+#define MODBUS_TOOLS_RELEASES_API_URL "https://api.github.com/repos/mingyucheng692/Modbus-Tools/releases"
 #endif
 
 #ifndef MODBUS_TOOLS_RELEASES_PAGE_URL
@@ -28,6 +28,12 @@ namespace {
 #ifndef MODBUS_TOOLS_PLATFORM
 #define MODBUS_TOOLS_PLATFORM "windows-x86_64"
 #endif
+
+bool shouldIncludePrerelease() {
+    bool ok = false;
+    const int flag = qEnvironmentVariableIntValue("MODBUS_TOOLS_INCLUDE_PRERELEASE", &ok);
+    return ok && flag != 0;
+}
 
 }
 
@@ -53,13 +59,34 @@ void UpdateChecker::checkForUpdates() {
         }
 
         const QJsonDocument document = QJsonDocument::fromJson(reply->readAll());
-        if (!document.isObject()) {
-            emit checkFailed(tr("Invalid release response"));
-            return;
+        QJsonObject root;
+        if (document.isArray()) {
+            const QJsonArray releases = document.array();
+            const bool includePrerelease = shouldIncludePrerelease();
+            for (const QJsonValue& releaseValue : releases) {
+                if (!releaseValue.isObject()) {
+                    continue;
+                }
+                const QJsonObject candidate = releaseValue.toObject();
+                if (candidate.value("draft").toBool()) {
+                    continue;
+                }
+                if (!includePrerelease && candidate.value("prerelease").toBool()) {
+                    continue;
+                }
+                root = candidate;
+                break;
+            }
+        } else if (document.isObject()) {
+            root = document.object();
+            if (root.value("draft").toBool()) {
+                root = QJsonObject();
+            } else if (root.value("prerelease").toBool() && !shouldIncludePrerelease()) {
+                root = QJsonObject();
+            }
         }
 
-        const QJsonObject root = document.object();
-        if (root.value("draft").toBool() || root.value("prerelease").toBool()) {
+        if (root.isEmpty()) {
             emit noUpdateAvailable(currentVersion());
             return;
         }
