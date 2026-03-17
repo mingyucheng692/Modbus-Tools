@@ -37,7 +37,6 @@
 #include <QNetworkAccessManager>
 #include <QNetworkReply>
 #include <QNetworkRequest>
-#include <QProcess>
 #include <QSpinBox>
 #include <QComboBox>
 #include <QAbstractSpinBox>
@@ -56,6 +55,11 @@
 #include <QUrl>
 #include <spdlog/spdlog.h>
 #include "modbus/base/ModbusConfig.h"
+
+#ifdef Q_OS_WIN
+#include <windows.h>
+#include <shellapi.h>
+#endif
 
 namespace {
 QIcon buildNavigationIcon(const QString& resourcePath, const QColor& accentColor) {
@@ -696,12 +700,34 @@ bool MainWindow::launchUpdater(const QString& taskFilePath, QString& errorMessag
         errorMessage = tr("Updater not found");
         return false;
     }
-    const QStringList arguments = {QStringLiteral("--task"), QDir::toNativeSeparators(taskFilePath)};
-    if (!QProcess::startDetached(updaterPath, arguments, QApplication::applicationDirPath())) {
+#ifdef Q_OS_WIN
+    const QString parameters = QStringLiteral("--task \"%1\"").arg(QDir::toNativeSeparators(taskFilePath));
+    SHELLEXECUTEINFOW shellExecInfo{};
+    shellExecInfo.cbSize = sizeof(SHELLEXECUTEINFOW);
+    shellExecInfo.fMask = SEE_MASK_NOCLOSEPROCESS;
+    shellExecInfo.hwnd = nullptr;
+    shellExecInfo.lpVerb = L"runas";
+    const std::wstring updaterPathW = QDir::toNativeSeparators(updaterPath).toStdWString();
+    const std::wstring parametersW = parameters.toStdWString();
+    const std::wstring workingDirW = QDir::toNativeSeparators(QApplication::applicationDirPath()).toStdWString();
+    shellExecInfo.lpFile = updaterPathW.c_str();
+    shellExecInfo.lpParameters = parametersW.c_str();
+    shellExecInfo.lpDirectory = workingDirW.c_str();
+    shellExecInfo.nShow = SW_SHOWNORMAL;
+    if (!ShellExecuteExW(&shellExecInfo)) {
         errorMessage = tr("Failed to launch updater");
         return false;
     }
+    if (shellExecInfo.hProcess) {
+        CloseHandle(shellExecInfo.hProcess);
+    }
     return true;
+#else
+    Q_UNUSED(taskFilePath);
+    Q_UNUSED(updaterPath);
+    errorMessage = tr("Failed to launch updater");
+    return false;
+#endif
 }
 
 bool MainWindow::tryStartSilentUpdate() {

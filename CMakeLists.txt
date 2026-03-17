@@ -31,6 +31,7 @@ endif()
 add_subdirectory(core)
 add_subdirectory(ui)
 add_subdirectory(app)
+add_subdirectory(updater)
 
 set(MODBUS_TOOLS_RELEASES_API_URL "https://api.github.com/repos/mingyucheng692/Modbus-Tools/releases/latest")
 set(MODBUS_TOOLS_RELEASES_PAGE_URL "https://github.com/mingyucheng692/Modbus-Tools/releases")
