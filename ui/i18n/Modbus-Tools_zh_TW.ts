@@ -326,6 +326,124 @@ Open download page now?</source>
         <translation>更新檢查失敗</translation>
     </message>
     <message>
+        <location filename="../MainWindow.cpp" line="579"/>
+        <source>Invalid update URL</source>
+        <translation>更新連結無效</translation>
+    </message>
+    <message>
+        <location filename="../MainWindow.cpp" line="586"/>
+        <source>Failed to create update directory</source>
+        <translation>建立更新目錄失敗</translation>
+    </message>
+    <message>
+        <location filename="../MainWindow.cpp" line="592"/>
+        <source>Failed to write update file</source>
+        <translation>寫入更新檔案失敗</translation>
+    </message>
+    <message>
+        <location filename="../MainWindow.cpp" line="603"/>
+        <source>Downloading %1</source>
+        <translation>正在下載 %1</translation>
+    </message>
+    <message>
+        <location filename="../MainWindow.cpp" line="604"/>
+        <source>Cancel</source>
+        <translation>取消</translation>
+    </message>
+    <message>
+        <location filename="../MainWindow.cpp" line="608"/>
+        <source>Downloading Update</source>
+        <translation>正在下載更新</translation>
+    </message>
+    <message>
+        <location filename="../MainWindow.cpp" line="636"/>
+        <source>Download canceled</source>
+        <translation>下載已取消</translation>
+    </message>
+    <message>
+        <location filename="../MainWindow.cpp" line="645"/>
+        <source>Downloaded file is empty</source>
+        <translation>下載檔案為空</translation>
+    </message>
+    <message>
+        <location filename="../MainWindow.cpp" line="702"/>
+        <source>Failed to create update task file</source>
+        <translation>建立更新任務檔案失敗</translation>
+    </message>
+    <message>
+        <location filename="../MainWindow.cpp" line="708"/>
+        <source>Failed to write update task file</source>
+        <translation>寫入更新任務檔案失敗</translation>
+    </message>
+    <message>
+        <location filename="../MainWindow.cpp" line="717"/>
+        <source>Updater not found</source>
+        <translation>找不到更新器</translation>
+    </message>
+    <message>
+        <location filename="../MainWindow.cpp" line="735"/>
+        <location filename="../MainWindow.cpp" line="745"/>
+        <source>Failed to launch updater</source>
+        <translation>啟動更新器失敗</translation>
+    </message>
+    <message>
+        <location filename="../MainWindow.cpp" line="781"/>
+        <source>Missing update checksum</source>
+        <translation>缺少更新校驗值</translation>
+    </message>
+    <message>
+        <location filename="../MainWindow.cpp" line="795"/>
+        <source>Unable to resolve update checksum</source>
+        <translation>無法解析更新校驗值</translation>
+    </message>
+    <message>
+        <location filename="../MainWindow.cpp" line="804"/>
+        <source>Update file verification failed</source>
+        <translation>更新檔案校驗失敗</translation>
+    </message>
+    <message>
+        <location filename="../MainWindow.cpp" line="831"/>
+        <source>Current version: v%1
+Latest version: v%2</source>
+        <translation>目前版本：v%1
+最新版本：v%2</translation>
+    </message>
+    <message>
+        <location filename="../MainWindow.cpp" line="835"/>
+        <source>
+
+UpdateOnly package is unavailable for this release.
+Open download page now?</source>
+        <translation>
+
+此版本未提供 UpdateOnly 增量包。
+是否立即開啟下載頁面？</translation>
+    </message>
+    <message>
+        <location filename="../MainWindow.cpp" line="846"/>
+        <source>
+
+Choose update method:</source>
+        <translation>
+
+請選擇更新方式：</translation>
+    </message>
+    <message>
+        <location filename="../MainWindow.cpp" line="847"/>
+        <source>Update Main Program</source>
+        <translation>更新主程式</translation>
+    </message>
+    <message>
+        <location filename="../MainWindow.cpp" line="850"/>
+        <source>Download Full Package</source>
+        <translation>下載完整安裝包</translation>
+    </message>
+    <message>
+        <location filename="../MainWindow.cpp" line="857"/>
+        <source>Main program update failed</source>
+        <translation>主程式更新失敗</translation>
+    </message>
+    <message>
         <location filename="../MainWindow.cpp" line="341"/>
         <location filename="../MainWindow.cpp" line="345"/>
         <location filename="../MainWindow.cpp" line="458"/>
