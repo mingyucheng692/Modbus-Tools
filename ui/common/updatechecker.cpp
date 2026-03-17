@@ -7,6 +7,7 @@
 #include <QNetworkAccessManager>
 #include <QNetworkReply>
 #include <QNetworkRequest>
+#include <QRegularExpression>
 #include <QStringList>
 #include <QUrl>
 
@@ -58,6 +59,11 @@ void UpdateChecker::checkForUpdates() {
         }
 
         const QJsonObject root = document.object();
+        if (root.value("draft").toBool() || root.value("prerelease").toBool()) {
+            emit noUpdateAvailable(currentVersion());
+            return;
+        }
+
         const QString latestVersion = normalizeVersion(root.value("tag_name").toString());
         if (latestVersion.isEmpty()) {
             emit checkFailed(tr("Release tag is missing"));
@@ -69,31 +75,55 @@ void UpdateChecker::checkForUpdates() {
             releaseUrl = releasePageUrl();
         }
 
-        QString downloadUrl;
-        const QString expectedAsset = expectedZipName(latestVersion);
+        QString updateOnlyUrl;
+        QString updateOnlySha256;
+        QString checksumsUrl;
+        QString fullPackageUrl;
+        const QString expectedUpdateOnlyAsset = expectedUpdateOnlyName(latestVersion);
+        const QString expectedSetupAsset = expectedSetupName(latestVersion);
+        const QString expectedZipAsset = expectedZipName(latestVersion);
         const QJsonArray assets = root.value("assets").toArray();
+        const QRegularExpression digestPattern(QStringLiteral("^sha256:([a-fA-F0-9]{64})$"));
         for (const QJsonValue& assetValue : assets) {
             if (!assetValue.isObject()) {
                 continue;
             }
             const QJsonObject asset = assetValue.toObject();
             const QString assetName = asset.value("name").toString();
-            if (assetName.compare(expectedAsset, Qt::CaseInsensitive) == 0) {
-                downloadUrl = asset.value("browser_download_url").toString();
-                break;
+            const QString assetUrl = asset.value("browser_download_url").toString();
+            if (assetName.compare(expectedUpdateOnlyAsset, Qt::CaseInsensitive) == 0) {
+                updateOnlyUrl = assetUrl;
+                const QString digestRaw = asset.value("digest").toString().trimmed();
+                const QRegularExpressionMatch digestMatch = digestPattern.match(digestRaw);
+                if (digestMatch.hasMatch()) {
+                    updateOnlySha256 = digestMatch.captured(1).toLower();
+                }
+            } else if (assetName.compare(QStringLiteral("sha256sums.txt"), Qt::CaseInsensitive) == 0) {
+                checksumsUrl = assetUrl;
+            } else if (assetName.compare(expectedSetupAsset, Qt::CaseInsensitive) == 0 ||
+                       assetName.compare(expectedZipAsset, Qt::CaseInsensitive) == 0) {
+                if (fullPackageUrl.isEmpty()) {
+                    fullPackageUrl = assetUrl;
+                }
             }
         }
 
-        if (downloadUrl.isEmpty() && !assets.isEmpty() && assets.first().isObject()) {
-            downloadUrl = assets.first().toObject().value("browser_download_url").toString();
+        if (fullPackageUrl.isEmpty() && !assets.isEmpty() && assets.first().isObject()) {
+            fullPackageUrl = assets.first().toObject().value("browser_download_url").toString();
         }
-        if (downloadUrl.isEmpty()) {
-            downloadUrl = releaseUrl;
+        if (fullPackageUrl.isEmpty()) {
+            fullPackageUrl = releaseUrl;
         }
 
         const int compareResult = compareVersions(latestVersion, currentVersion());
         if (compareResult > 0) {
-            emit updateAvailable(currentVersion(), latestVersion, downloadUrl, releaseUrl);
+            emit updateAvailable(currentVersion(),
+                                 latestVersion,
+                                 updateOnlyUrl,
+                                 updateOnlySha256,
+                                 checksumsUrl,
+                                 fullPackageUrl,
+                                 releaseUrl);
             return;
         }
 
@@ -115,6 +145,14 @@ QString UpdateChecker::packagePlatform() {
 
 QString UpdateChecker::releasePageUrl() {
     return QStringLiteral(MODBUS_TOOLS_RELEASES_PAGE_URL);
+}
+
+QString UpdateChecker::expectedUpdateOnlyName(const QString& version) {
+    return QStringLiteral("Modbus-Tools-v%1-%2-UpdateOnly.exe").arg(version, packagePlatform());
+}
+
+QString UpdateChecker::expectedSetupName(const QString& version) {
+    return QStringLiteral("Modbus-Tools-v%1-%2-Setup.exe").arg(version, packagePlatform());
 }
 
 QString UpdateChecker::expectedZipName(const QString& version) {

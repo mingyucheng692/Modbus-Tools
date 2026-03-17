@@ -12,6 +12,7 @@ class QEvent;
 class QObject;
 class QWidget;
 class QToolButton;
+class QUrl;
 
 namespace ui {
 namespace views::modbus_tcp { class ModbusTcpView; }
@@ -46,9 +47,22 @@ private:
     void performUpdateCheck(bool manual);
     bool shouldAutoCheckUpdates() const;
     void refreshUpdateIndicators();
+    void cleanupUpdateArtifacts();
+    bool tryStartSilentUpdate();
+    bool downloadUpdateAsset(const QUrl& url, const QString& filePath, QString& errorMessage) const;
+    QString calculateFileSha256(const QString& filePath) const;
+    QString resolveSha256FromChecksums(const QString& checksumsPath, const QString& targetFileName) const;
+    bool writeUpdateTaskFile(const QString& taskFilePath,
+                             const QString& newExePath,
+                             const QString& expectedSha256,
+                             QString& errorMessage) const;
+    bool launchUpdater(const QString& taskFilePath, QString& errorMessage) const;
     void handleUpdateAvailable(const QString& currentVersion,
                                const QString& latestVersion,
-                               const QString& downloadUrl,
+                               const QString& updateOnlyUrl,
+                               const QString& updateOnlySha256,
+                               const QString& checksumsUrl,
+                               const QString& fullPackageUrl,
                                const QString& releaseUrl);
     void handleNoUpdateAvailable(const QString& currentVersion);
     void handleUpdateCheckFailed(const QString& reason);
@@ -84,6 +98,10 @@ private:
     bool updateAvailable_ = false;
     bool checkingUpdateManually_ = false;
     QString pendingLatestVersion_;
+    QString pendingUpdateOnlyUrl_;
+    QString pendingUpdateOnlySha256_;
+    QString pendingChecksumsUrl_;
+    QString pendingFullPackageUrl_;
     QString pendingDownloadUrl_;
     QString pendingReleaseUrl_;
     QObject* parameterWheelBlocker_ = nullptr;

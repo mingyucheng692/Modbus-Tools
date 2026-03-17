@@ -26,11 +26,23 @@
 #include <QDialogButtonBox>
 #include <QFormLayout>
 #include <QCheckBox>
+#include <QCryptographicHash>
 #include <QDateTime>
+#include <QDir>
+#include <QEventLoop>
+#include <QFile>
+#include <QFileInfo>
+#include <QJsonDocument>
+#include <QJsonObject>
+#include <QNetworkAccessManager>
+#include <QNetworkReply>
+#include <QNetworkRequest>
+#include <QProcess>
 #include <QSpinBox>
 #include <QComboBox>
 #include <QAbstractSpinBox>
 #include <QLabel>
+#include <QRegularExpression>
 #include <QToolButton>
 #include <QListWidgetItem>
 #include <QStyle>
@@ -40,6 +52,7 @@
 #include <QColor>
 #include <QMessageBox>
 #include <QSettings>
+#include <QStandardPaths>
 #include <QUrl>
 #include <spdlog/spdlog.h>
 #include "modbus/base/ModbusConfig.h"
@@ -229,6 +242,7 @@ void MainWindow::setupUi() {
         }
     }
     setNavigationCollapsed(navigationCollapsed_);
+    cleanupUpdateArtifacts();
     loadModbusSettings();
     loadUpdateSettings();
     applyModbusSettingsToViews();
@@ -494,9 +508,11 @@ void MainWindow::checkForUpdates() {
                                     .arg(common::UpdateChecker::currentVersion(), pendingLatestVersion_);
         const auto result = QMessageBox::question(this, tr("Update Available"), message, QMessageBox::Yes | QMessageBox::No);
         if (result == QMessageBox::Yes) {
-            const QString targetUrl = pendingDownloadUrl_.isEmpty() ? pendingReleaseUrl_ : pendingDownloadUrl_;
-            if (!targetUrl.isEmpty()) {
-                QDesktopServices::openUrl(QUrl(targetUrl));
+            if (!tryStartSilentUpdate()) {
+                const QString targetUrl = pendingDownloadUrl_.isEmpty() ? pendingReleaseUrl_ : pendingDownloadUrl_;
+                if (!targetUrl.isEmpty()) {
+                    QDesktopServices::openUrl(QUrl(targetUrl));
+                }
             }
         }
         return;
@@ -551,9 +567,227 @@ void MainWindow::refreshUpdateIndicators() {
     }
 }
 
+void MainWindow::cleanupUpdateArtifacts() {
+    const QDir appDir(QApplication::applicationDirPath());
+    QFile::remove(appDir.filePath("modbus-tools.exe.bak"));
+    QFile::remove(appDir.filePath("updater.old.exe"));
+    const QString tempRoot = QStandardPaths::writableLocation(QStandardPaths::TempLocation);
+    if (tempRoot.isEmpty()) {
+        return;
+    }
+    QDir(QStringLiteral("%1/ModbusToolsUpdate").arg(tempRoot)).removeRecursively();
+}
+
+bool MainWindow::downloadUpdateAsset(const QUrl& url, const QString& filePath, QString& errorMessage) const {
+    if (!url.isValid()) {
+        errorMessage = tr("Invalid update URL");
+        return false;
+    }
+
+    QFileInfo fileInfo(filePath);
+    QDir dir = fileInfo.dir();
+    if (!dir.exists() && !dir.mkpath(".")) {
+        errorMessage = tr("Failed to create update directory");
+        return false;
+    }
+
+    QNetworkAccessManager manager;
+    QNetworkRequest request(url);
+    request.setHeader(QNetworkRequest::UserAgentHeader,
+                      QStringLiteral("Modbus-Tools/%1").arg(common::UpdateChecker::currentVersion()));
+    QNetworkReply* reply = manager.get(request);
+
+    QEventLoop loop;
+    connect(reply, &QNetworkReply::finished, &loop, &QEventLoop::quit);
+    loop.exec();
+
+    QByteArray payload;
+    if (reply->error() == QNetworkReply::NoError) {
+        payload = reply->readAll();
+    } else {
+        errorMessage = reply->errorString();
+    }
+    reply->deleteLater();
+
+    if (payload.isEmpty()) {
+        if (errorMessage.isEmpty()) {
+            errorMessage = tr("Downloaded file is empty");
+        }
+        return false;
+    }
+
+    QFile outputFile(filePath);
+    if (!outputFile.open(QIODevice::WriteOnly | QIODevice::Truncate)) {
+        errorMessage = tr("Failed to write update file");
+        return false;
+    }
+    if (outputFile.write(payload) != payload.size()) {
+        errorMessage = tr("Failed to save update file");
+        return false;
+    }
+    return true;
+}
+
+QString MainWindow::calculateFileSha256(const QString& filePath) const {
+    QFile file(filePath);
+    if (!file.open(QIODevice::ReadOnly)) {
+        return {};
+    }
+    QCryptographicHash hash(QCryptographicHash::Sha256);
+    if (!hash.addData(&file)) {
+        return {};
+    }
+    return hash.result().toHex();
+}
+
+QString MainWindow::resolveSha256FromChecksums(const QString& checksumsPath, const QString& targetFileName) const {
+    QFile checksumsFile(checksumsPath);
+    if (!checksumsFile.open(QIODevice::ReadOnly | QIODevice::Text)) {
+        return {};
+    }
+    const QStringList lines = QString::fromUtf8(checksumsFile.readAll()).split('\n');
+    const QRegularExpression pattern(QStringLiteral("^\\s*([a-fA-F0-9]{64})\\s+\\*?(.+?)\\s*$"));
+    for (const QString& line : lines) {
+        const QRegularExpressionMatch match = pattern.match(line);
+        if (!match.hasMatch()) {
+            continue;
+        }
+        const QString fileName = QFileInfo(match.captured(2).trimmed()).fileName();
+        if (fileName.compare(targetFileName, Qt::CaseInsensitive) == 0) {
+            return match.captured(1).toLower();
+        }
+    }
+    return {};
+}
+
+bool MainWindow::writeUpdateTaskFile(const QString& taskFilePath,
+                                     const QString& newExePath,
+                                     const QString& expectedSha256,
+                                     QString& errorMessage) const {
+    const QString targetExePath = QCoreApplication::applicationFilePath();
+    const QString backupExePath = targetExePath + ".bak";
+    QJsonObject root;
+    root.insert("schemaVersion", 1);
+    root.insert("launcherPid", static_cast<qint64>(QCoreApplication::applicationPid()));
+    root.insert("targetExePath", QDir::toNativeSeparators(targetExePath));
+    root.insert("newExePath", QDir::toNativeSeparators(newExePath));
+    root.insert("backupExePath", QDir::toNativeSeparators(backupExePath));
+    root.insert("expectedVersion", pendingLatestVersion_);
+    root.insert("expectedSha256", expectedSha256);
+    root.insert("restartAfterUpdate", true);
+
+    QFile taskFile(taskFilePath);
+    if (!taskFile.open(QIODevice::WriteOnly | QIODevice::Truncate)) {
+        errorMessage = tr("Failed to create update task file");
+        return false;
+    }
+
+    const QByteArray jsonBytes = QJsonDocument(root).toJson(QJsonDocument::Indented);
+    if (taskFile.write(jsonBytes) != jsonBytes.size()) {
+        errorMessage = tr("Failed to write update task file");
+        return false;
+    }
+    return true;
+}
+
+bool MainWindow::launchUpdater(const QString& taskFilePath, QString& errorMessage) const {
+    const QString updaterPath = QDir(QApplication::applicationDirPath()).filePath("updater.exe");
+    if (!QFileInfo::exists(updaterPath)) {
+        errorMessage = tr("Updater not found");
+        return false;
+    }
+    const QStringList arguments = {QStringLiteral("--task"), QDir::toNativeSeparators(taskFilePath)};
+    if (!QProcess::startDetached(updaterPath, arguments, QApplication::applicationDirPath())) {
+        errorMessage = tr("Failed to launch updater");
+        return false;
+    }
+    return true;
+}
+
+bool MainWindow::tryStartSilentUpdate() {
+    if (pendingUpdateOnlyUrl_.isEmpty()) {
+        return false;
+    }
+
+    const QString tempRoot = QStandardPaths::writableLocation(QStandardPaths::TempLocation);
+    if (tempRoot.isEmpty()) {
+        return false;
+    }
+    const QDir workingDir(QStringLiteral("%1/ModbusToolsUpdate").arg(tempRoot));
+    QDir().mkpath(workingDir.path());
+
+    const QUrl updateUrl(pendingUpdateOnlyUrl_);
+    const QString updateFileName = QFileInfo(updateUrl.path()).fileName();
+    if (updateFileName.isEmpty()) {
+        return false;
+    }
+    const QString updateFilePath = workingDir.filePath(updateFileName);
+
+    QString errorMessage;
+    if (!downloadUpdateAsset(updateUrl, updateFilePath, errorMessage)) {
+        if (checkingUpdateManually_) {
+            QMessageBox::warning(this, tr("Update Check Failed"), errorMessage);
+        }
+        return false;
+    }
+
+    QString expectedSha = pendingUpdateOnlySha256_.trimmed().toLower();
+    if (expectedSha.isEmpty()) {
+        if (pendingChecksumsUrl_.isEmpty()) {
+            if (checkingUpdateManually_) {
+                QMessageBox::warning(this, tr("Update Check Failed"), tr("Missing update checksum"));
+            }
+            return false;
+        }
+        const QString checksumsPath = workingDir.filePath("sha256sums.txt");
+        if (!downloadUpdateAsset(QUrl(pendingChecksumsUrl_), checksumsPath, errorMessage)) {
+            if (checkingUpdateManually_) {
+                QMessageBox::warning(this, tr("Update Check Failed"), errorMessage);
+            }
+            return false;
+        }
+        expectedSha = resolveSha256FromChecksums(checksumsPath, updateFileName);
+        if (expectedSha.isEmpty()) {
+            if (checkingUpdateManually_) {
+                QMessageBox::warning(this, tr("Update Check Failed"), tr("Unable to resolve update checksum"));
+            }
+            return false;
+        }
+    }
+
+    const QString actualSha = calculateFileSha256(updateFilePath);
+    if (actualSha.isEmpty() || actualSha.compare(expectedSha, Qt::CaseInsensitive) != 0) {
+        if (checkingUpdateManually_) {
+            QMessageBox::warning(this, tr("Update Check Failed"), tr("Update file verification failed"));
+        }
+        return false;
+    }
+
+    const QString taskFilePath = workingDir.filePath("update_task.json");
+    if (!writeUpdateTaskFile(taskFilePath, updateFilePath, expectedSha, errorMessage)) {
+        if (checkingUpdateManually_) {
+            QMessageBox::warning(this, tr("Update Check Failed"), errorMessage);
+        }
+        return false;
+    }
+
+    if (!launchUpdater(taskFilePath, errorMessage)) {
+        if (checkingUpdateManually_) {
+            QMessageBox::warning(this, tr("Update Check Failed"), errorMessage);
+        }
+        return false;
+    }
+
+    qApp->quit();
+    return true;
+}
+
 void MainWindow::handleUpdateAvailable(const QString& currentVersion,
                                        const QString& latestVersion,
-                                       const QString& downloadUrl,
+                                       const QString& updateOnlyUrl,
+                                       const QString& updateOnlySha256,
+                                       const QString& checksumsUrl,
+                                       const QString& fullPackageUrl,
                                        const QString& releaseUrl) {
     if (checkUpdatesAction_) {
         checkUpdatesAction_->setEnabled(true);
@@ -561,7 +795,11 @@ void MainWindow::handleUpdateAvailable(const QString& currentVersion,
 
     updateAvailable_ = true;
     pendingLatestVersion_ = latestVersion;
-    pendingDownloadUrl_ = downloadUrl;
+    pendingUpdateOnlyUrl_ = updateOnlyUrl;
+    pendingUpdateOnlySha256_ = updateOnlySha256;
+    pendingChecksumsUrl_ = checksumsUrl;
+    pendingFullPackageUrl_ = fullPackageUrl;
+    pendingDownloadUrl_ = pendingFullPackageUrl_;
     pendingReleaseUrl_ = releaseUrl;
     refreshUpdateIndicators();
 
@@ -576,9 +814,11 @@ void MainWindow::handleUpdateAvailable(const QString& currentVersion,
         return;
     }
 
-    const QString targetUrl = pendingDownloadUrl_.isEmpty() ? pendingReleaseUrl_ : pendingDownloadUrl_;
-    if (!targetUrl.isEmpty()) {
-        QDesktopServices::openUrl(QUrl(targetUrl));
+    if (!tryStartSilentUpdate()) {
+        const QString targetUrl = pendingDownloadUrl_.isEmpty() ? pendingReleaseUrl_ : pendingDownloadUrl_;
+        if (!targetUrl.isEmpty()) {
+            QDesktopServices::openUrl(QUrl(targetUrl));
+        }
     }
 }
 
@@ -588,6 +828,10 @@ void MainWindow::handleNoUpdateAvailable(const QString& currentVersion) {
     }
     updateAvailable_ = false;
     pendingLatestVersion_.clear();
+    pendingUpdateOnlyUrl_.clear();
+    pendingUpdateOnlySha256_.clear();
+    pendingChecksumsUrl_.clear();
+    pendingFullPackageUrl_.clear();
     pendingDownloadUrl_.clear();
     pendingReleaseUrl_.clear();
     refreshUpdateIndicators();

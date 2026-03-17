@@ -17,12 +17,17 @@ public:
     static QString currentVersion();
     static QString packagePlatform();
     static QString releasePageUrl();
+    static QString expectedUpdateOnlyName(const QString& version);
+    static QString expectedSetupName(const QString& version);
     static QString expectedZipName(const QString& version);
 
 signals:
     void updateAvailable(const QString& currentVersion,
                          const QString& latestVersion,
-                         const QString& downloadUrl,
+                         const QString& updateOnlyUrl,
+                         const QString& updateOnlySha256,
+                         const QString& checksumsUrl,
+                         const QString& fullPackageUrl,
                          const QString& releaseUrl);
     void noUpdateAvailable(const QString& currentVersion);
     void checkFailed(const QString& reason);
