@@ -52,6 +52,7 @@
 #include <QMessageBox>
 #include <QProgressDialog>
 #include <QPushButton>
+#include <QScrollArea>
 #include <QSettings>
 #include <QStandardPaths>
 #include <QUrl>
@@ -162,6 +163,23 @@ QIcon buildNavigationIcon(const QString& resourcePath, const QColor& accentColor
     return resultIcon;
 }
 
+QWidget* createScrollablePage(QWidget* page, QWidget* parent) {
+    auto* scrollArea = new QScrollArea(parent);
+    scrollArea->setWidgetResizable(true);
+    scrollArea->setFrameShape(QFrame::NoFrame);
+    scrollArea->setHorizontalScrollBarPolicy(Qt::ScrollBarAsNeeded);
+    scrollArea->setVerticalScrollBarPolicy(Qt::ScrollBarAsNeeded);
+
+    auto* container = new QWidget(scrollArea);
+    auto* layout = new QVBoxLayout(container);
+    layout->setContentsMargins(0, 0, 0, 0);
+    layout->setSpacing(0);
+    layout->setSizeConstraint(QLayout::SetMinimumSize);
+    layout->addWidget(page);
+    scrollArea->setWidget(container);
+    return scrollArea;
+}
+
 class ParameterWheelBlocker : public QObject {
 public:
     explicit ParameterWheelBlocker(QObject* parent = nullptr) : QObject(parent) {}
@@ -213,12 +231,12 @@ void MainWindow::setupUi() {
 
     // Add Views
     modbusTcpView_ = new views::modbus_tcp::ModbusTcpView(this);
-    stackedWidget_->addWidget(modbusTcpView_);
+    stackedWidget_->addWidget(createScrollablePage(modbusTcpView_, stackedWidget_));
     modbusRtuView_ = new views::modbus_rtu::ModbusRtuView(this);
-    stackedWidget_->addWidget(modbusRtuView_);
-    stackedWidget_->addWidget(new views::generic_tcp::GenericTcpView(this));
-    stackedWidget_->addWidget(new views::generic_serial::GenericSerialView(this));
-    stackedWidget_->addWidget(new widgets::FrameAnalyzerWidget(this));
+    stackedWidget_->addWidget(createScrollablePage(modbusRtuView_, stackedWidget_));
+    stackedWidget_->addWidget(createScrollablePage(new views::generic_tcp::GenericTcpView(this), stackedWidget_));
+    stackedWidget_->addWidget(createScrollablePage(new views::generic_serial::GenericSerialView(this), stackedWidget_));
+    stackedWidget_->addWidget(createScrollablePage(new widgets::FrameAnalyzerWidget(this), stackedWidget_));
 
     // Connect Navigation
     connect(navigationList_, &QListWidget::currentRowChanged,
