@@ -16,6 +16,7 @@
 #include <QPushButton>
 #include <QEvent>
 #include <QClipboard>
+#include <QCoreApplication>
 #include <QGuiApplication>
 #include <spdlog/spdlog.h>
 #include <QMetaObject>
@@ -23,6 +24,16 @@
 #include <limits>
 
 namespace ui::views::modbus_tcp {
+
+namespace {
+QString connectedText() {
+    return QCoreApplication::translate("ui::views::modbus_tcp::ModbusTcpView", "Connected");
+}
+
+QString disconnectedText() {
+    return QCoreApplication::translate("ui::views::modbus_tcp::ModbusTcpView", "Disconnected");
+}
+}
 
 ModbusTcpView::ModbusTcpView(QWidget *parent)
     : QWidget(parent) {
@@ -159,10 +170,20 @@ void ModbusTcpView::setupUi() {
                 if (!self) return;
                 QMetaObject::invokeMethod(self, [self, state]() {
                     if (!self) return;
-                    if (state == io::ChannelState::Closed && self->tcpSessionConnected_) {
+                    const bool wasConnected = self->tcpSessionConnected_;
+                    if (state == io::ChannelState::Open) {
+                        self->tcpSessionConnected_ = true;
+                        self->suppressDisconnectAlert_ = false;
+                        self->connectionWidget_->setConnected(true);
+                        if (!wasConnected) {
+                            self->trafficMonitor_->appendInfo(connectedText());
+                        }
+                        return;
+                    }
+                    if (state == io::ChannelState::Closed && wasConnected) {
                         self->tcpSessionConnected_ = false;
                         self->connectionWidget_->setConnected(false);
-                        self->trafficMonitor_->appendInfo(self->tr("Disconnected"));
+                        self->trafficMonitor_->appendInfo(disconnectedText());
                         if (!self->suppressDisconnectAlert_) {
                             ui::common::ConnectionAlert::showDisconnected(self);
                         }
@@ -173,11 +194,14 @@ void ModbusTcpView::setupUi() {
             connect(worker_.get(), &modbus::dispatch::ModbusWorker::connectFinished, this,
                 [this, self](bool ok, const QString& error) {
                     if (!self) return;
+                    const bool wasConnected = tcpSessionConnected_;
                     tcpSessionConnected_ = ok;
                     if (ok) {
                         suppressDisconnectAlert_ = false;
                         connectionWidget_->setConnected(true);
-                        trafficMonitor_->appendInfo(tr("Connected"));
+                        if (!wasConnected) {
+                            trafficMonitor_->appendInfo(tr("Connected"));
+                        }
                     } else {
                         connectionWidget_->setConnected(false);
                         trafficMonitor_->appendInfo(tr("Connection failed: %1").arg(error));
