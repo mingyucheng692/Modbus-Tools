@@ -32,6 +32,16 @@
         <source>Please connect first.</source>
         <translation>請先連線設備</translation>
     </message>
+    <message>
+        <location filename="../common/ConnectionAlert.h" line="18"/>
+        <source>Connection Lost</source>
+        <translation>連線中斷</translation>
+    </message>
+    <message>
+        <location filename="../common/ConnectionAlert.h" line="18"/>
+        <source>TCP connection was closed.</source>
+        <translation>TCP 連線已關閉。</translation>
+    </message>
 </context>
 <context>
     <name>ModbusFrameParser</name>
@@ -172,156 +182,162 @@
 <context>
     <name>ui::MainWindow</name>
     <message>
-        <location filename="../MainWindow.cpp" line="176"/>
-        <location filename="../MainWindow.cpp" line="656"/>
+        <location filename="../MainWindow.cpp" line="195"/>
+        <location filename="../MainWindow.cpp" line="968"/>
         <source>Modbus Tools</source>
         <translation>Modbus 工具</translation>
     </message>
     <message>
-        <location filename="../MainWindow.cpp" line="261"/>
-        <location filename="../MainWindow.cpp" line="658"/>
-        <location filename="../MainWindow.cpp" line="664"/>
+        <location filename="../MainWindow.cpp" line="281"/>
+        <location filename="../MainWindow.cpp" line="970"/>
+        <location filename="../MainWindow.cpp" line="976"/>
         <source>Modbus TCP</source>
         <translation>Modbus TCP</translation>
     </message>
     <message>
-        <location filename="../MainWindow.cpp" line="262"/>
-        <location filename="../MainWindow.cpp" line="659"/>
-        <location filename="../MainWindow.cpp" line="665"/>
+        <location filename="../MainWindow.cpp" line="282"/>
+        <location filename="../MainWindow.cpp" line="971"/>
+        <location filename="../MainWindow.cpp" line="977"/>
         <source>Modbus RTU</source>
         <translation>Modbus RTU</translation>
     </message>
     <message>
-        <location filename="../MainWindow.cpp" line="263"/>
-        <location filename="../MainWindow.cpp" line="660"/>
-        <location filename="../MainWindow.cpp" line="666"/>
+        <location filename="../MainWindow.cpp" line="283"/>
+        <location filename="../MainWindow.cpp" line="972"/>
+        <location filename="../MainWindow.cpp" line="978"/>
         <source>TCP Client</source>
         <translation>TCP 用戶端</translation>
     </message>
     <message>
-        <location filename="../MainWindow.cpp" line="264"/>
-        <location filename="../MainWindow.cpp" line="661"/>
-        <location filename="../MainWindow.cpp" line="667"/>
+        <location filename="../MainWindow.cpp" line="284"/>
+        <location filename="../MainWindow.cpp" line="973"/>
+        <location filename="../MainWindow.cpp" line="979"/>
         <source>Serial Port</source>
         <translation>序列埠</translation>
     </message>
     <message>
-        <location filename="../MainWindow.cpp" line="265"/>
-        <location filename="../MainWindow.cpp" line="662"/>
-        <location filename="../MainWindow.cpp" line="668"/>
+        <location filename="../MainWindow.cpp" line="285"/>
+        <location filename="../MainWindow.cpp" line="974"/>
+        <location filename="../MainWindow.cpp" line="980"/>
         <source>Frame Analyzer</source>
         <translation>報文分析</translation>
     </message>
     <message>
-        <location filename="../MainWindow.cpp" line="316"/>
-        <location filename="../MainWindow.cpp" line="683"/>
+        <location filename="../MainWindow.cpp" line="336"/>
+        <location filename="../MainWindow.cpp" line="995"/>
         <source>Language</source>
         <translation>語言</translation>
     </message>
     <message>
-        <location filename="../MainWindow.cpp" line="308"/>
-        <location filename="../MainWindow.cpp" line="686"/>
+        <location filename="../MainWindow.cpp" line="328"/>
+        <location filename="../MainWindow.cpp" line="998"/>
         <source>Settings</source>
         <translation>設定</translation>
     </message>
     <message>
-        <location filename="../MainWindow.cpp" line="304"/>
+        <location filename="../MainWindow.cpp" line="324"/>
         <source>Expand Navigation</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../MainWindow.cpp" line="304"/>
+        <location filename="../MainWindow.cpp" line="324"/>
         <source>Collapse Navigation</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../MainWindow.cpp" line="309"/>
-        <location filename="../MainWindow.cpp" line="394"/>
-        <location filename="../MainWindow.cpp" line="692"/>
+        <location filename="../MainWindow.cpp" line="329"/>
+        <location filename="../MainWindow.cpp" line="414"/>
+        <location filename="../MainWindow.cpp" line="1004"/>
         <source>Modbus Settings</source>
         <translation>Modbus設定</translation>
     </message>
     <message>
-        <location filename="../MainWindow.cpp" line="311"/>
-        <location filename="../MainWindow.cpp" line="695"/>
+        <location filename="../MainWindow.cpp" line="331"/>
+        <location filename="../MainWindow.cpp" line="1007"/>
         <source>Update Settings</source>
         <translation>更新設定</translation>
     </message>
     <message>
-        <location filename="../MainWindow.cpp" line="320"/>
-        <location filename="../MainWindow.cpp" line="704"/>
+        <location filename="../MainWindow.cpp" line="340"/>
+        <location filename="../MainWindow.cpp" line="1016"/>
         <source>English (US)</source>
         <translation>英語（美國）</translation>
     </message>
     <message>
-        <location filename="../MainWindow.cpp" line="325"/>
-        <location filename="../MainWindow.cpp" line="708"/>
+        <location filename="../MainWindow.cpp" line="345"/>
+        <location filename="../MainWindow.cpp" line="1020"/>
         <source>简体中文</source>
         <translation>簡體中文</translation>
     </message>
     <message>
-        <location filename="../MainWindow.cpp" line="330"/>
-        <location filename="../MainWindow.cpp" line="712"/>
+        <location filename="../MainWindow.cpp" line="350"/>
+        <location filename="../MainWindow.cpp" line="1024"/>
         <source>繁體中文</source>
         <translation>繁體中文</translation>
     </message>
     <message>
-        <location filename="../MainWindow.cpp" line="342"/>
-        <location filename="../MainWindow.cpp" line="545"/>
-        <location filename="../MainWindow.cpp" line="698"/>
+        <location filename="../MainWindow.cpp" line="362"/>
+        <location filename="../MainWindow.cpp" line="557"/>
+        <location filename="../MainWindow.cpp" line="1010"/>
         <source>Check for Updates</source>
         <translation>檢查更新</translation>
     </message>
     <message>
-        <location filename="../MainWindow.cpp" line="401"/>
+        <location filename="../MainWindow.cpp" line="421"/>
         <source>Request Timeout (ms):</source>
         <translation>請求逾時(ms)：</translation>
     </message>
     <message>
-        <location filename="../MainWindow.cpp" line="405"/>
+        <location filename="../MainWindow.cpp" line="425"/>
         <source>Enable Retry:</source>
         <translation>啟用重試：</translation>
     </message>
     <message>
-        <location filename="../MainWindow.cpp" line="410"/>
+        <location filename="../MainWindow.cpp" line="430"/>
         <source>Retry Count:</source>
         <translation>重試次數：</translation>
     </message>
     <message>
-        <location filename="../MainWindow.cpp" line="416"/>
+        <location filename="../MainWindow.cpp" line="436"/>
         <source>Retry Interval (ms):</source>
         <translation>重試間隔(ms)：</translation>
     </message>
     <message>
-        <location filename="../MainWindow.cpp" line="493"/>
-        <location filename="../MainWindow.cpp" line="572"/>
         <source>Current version: v%1
 Latest version: v%2
 
 Open download page now?</source>
-        <translation>目前版本：v%1
+        <translation type="vanished">目前版本：v%1
 最新版本：v%2
 
 立即開啟下載頁面嗎？</translation>
     </message>
     <message>
-        <location filename="../MainWindow.cpp" line="495"/>
-        <location filename="../MainWindow.cpp" line="574"/>
+        <location filename="../MainWindow.cpp" line="836"/>
+        <location filename="../MainWindow.cpp" line="845"/>
         <source>Update Available</source>
         <translation>發現新版本</translation>
     </message>
     <message>
-        <location filename="../MainWindow.cpp" line="595"/>
+        <location filename="../MainWindow.cpp" line="907"/>
         <source>No Updates</source>
         <translation>沒有可用更新</translation>
     </message>
     <message>
-        <location filename="../MainWindow.cpp" line="596"/>
+        <location filename="../MainWindow.cpp" line="908"/>
         <source>You are already using the latest version: v%1</source>
         <translation>目前已是最新版本：v%1</translation>
     </message>
     <message>
-        <location filename="../MainWindow.cpp" line="605"/>
+        <location filename="../MainWindow.cpp" line="772"/>
+        <location filename="../MainWindow.cpp" line="781"/>
+        <location filename="../MainWindow.cpp" line="788"/>
+        <location filename="../MainWindow.cpp" line="795"/>
+        <location filename="../MainWindow.cpp" line="804"/>
+        <location filename="../MainWindow.cpp" line="812"/>
+        <location filename="../MainWindow.cpp" line="819"/>
+        <location filename="../MainWindow.cpp" line="857"/>
+        <location filename="../MainWindow.cpp" line="917"/>
         <source>Update Check Failed</source>
         <translation>更新檢查失敗</translation>
     </message>
@@ -444,12 +460,12 @@ Choose update method:</source>
         <translation>主程式更新失敗</translation>
     </message>
     <message>
-        <location filename="../MainWindow.cpp" line="341"/>
-        <location filename="../MainWindow.cpp" line="345"/>
-        <location filename="../MainWindow.cpp" line="458"/>
-        <location filename="../MainWindow.cpp" line="544"/>
-        <location filename="../MainWindow.cpp" line="689"/>
-        <location filename="../MainWindow.cpp" line="701"/>
+        <location filename="../MainWindow.cpp" line="361"/>
+        <location filename="../MainWindow.cpp" line="365"/>
+        <location filename="../MainWindow.cpp" line="478"/>
+        <location filename="../MainWindow.cpp" line="556"/>
+        <location filename="../MainWindow.cpp" line="1001"/>
+        <location filename="../MainWindow.cpp" line="1013"/>
         <source>About</source>
         <translation>關於</translation>
     </message>
@@ -474,7 +490,7 @@ Choose update method:</source>
         <translation type="vanished">更新檢查頻率：</translation>
     </message>
     <message>
-        <location filename="../MainWindow.cpp" line="467"/>
+        <location filename="../MainWindow.cpp" line="487"/>
         <source>Welcome to Modbus-Tools&lt;br&gt;Version: v%1&lt;br&gt;&lt;br&gt;An open-source Modbus communication debugging assistant.&lt;br&gt;Developer: mingyucheng692&lt;br&gt;License: MIT License&lt;br&gt;&lt;br&gt;This project is developed in spare time, completely free and open-source.&lt;br&gt;Feel free to star on GitHub or submit issues.&lt;br&gt;Your feedback keeps the project improving!&lt;br&gt;&lt;br&gt;&lt;a href=&quot;https://github.com/mingyucheng692/Modbus-Tools&quot;&gt;🌐 Visit GitHub Repository&lt;/a&gt;&amp;nbsp;&amp;nbsp;&amp;nbsp;&lt;a href=&quot;https://github.com/mingyucheng692/Modbus-Tools/issues&quot;&gt;🐛 Issue Tracker&lt;/a&gt;&lt;br&gt;&lt;br&gt;--------------------------&lt;br&gt;This software is provided &amp;quot;as is&amp;quot; without warranty of any kind.</source>
         <translation>歡迎使用 Modbus-Tools&lt;br&gt;版本：v%1&lt;br&gt;&lt;br&gt;一款開源的 Modbus 通訊除錯助手。&lt;br&gt;開發者：mingyucheng692&lt;br&gt;授權條款：MIT License&lt;br&gt;&lt;br&gt;本專案由個人業餘開發，完全免費且開源。&lt;br&gt;歡迎在 GitHub 上 Star ⭐ 或提交 Issue。&lt;br&gt;您的回饋是專案持續改進的動力！&lt;br&gt;&lt;br&gt;&lt;a href=&quot;https://github.com/mingyucheng692/Modbus-Tools&quot;&gt;🌐 造訪 GitHub 倉庫&lt;/a&gt;&amp;nbsp;&amp;nbsp;&amp;nbsp;&lt;a href=&quot;https://github.com/mingyucheng692/Modbus-Tools/issues&quot;&gt;🐛 問題回報&lt;/a&gt;&lt;br&gt;&lt;br&gt;--------------------------&lt;br&gt;本軟體按&amp;quot;原樣&amp;quot;提供，無任何形式的保證。</translation>
     </message>
@@ -482,12 +498,11 @@ Choose update method:</source>
 <context>
     <name>ui::common::UpdateChecker</name>
     <message>
-        <location filename="../common/updatechecker.cpp" line="56"/>
         <source>Invalid release response</source>
-        <translation>發布資訊回應無效</translation>
+        <translation type="vanished">發布資訊回應無效</translation>
     </message>
     <message>
-        <location filename="../common/updatechecker.cpp" line="63"/>
+        <location filename="../common/updatechecker.cpp" line="94"/>
         <source>Release tag is missing</source>
         <translation>發布標籤缺失</translation>
     </message>
@@ -567,47 +582,47 @@ Choose update method:</source>
 <context>
     <name>ui::views::generic_tcp::GenericTcpView</name>
     <message>
-        <location filename="../views/generic_tcp/GenericTcpView.cpp" line="102"/>
+        <location filename="../views/generic_tcp/GenericTcpView.cpp" line="104"/>
         <source>Connecting to %1:%2...</source>
         <translation>正在連線 %1:%2...</translation>
     </message>
     <message>
-        <location filename="../views/generic_tcp/GenericTcpView.cpp" line="135"/>
+        <location filename="../views/generic_tcp/GenericTcpView.cpp" line="142"/>
         <source>Closed</source>
         <translation>已關閉</translation>
     </message>
     <message>
-        <location filename="../views/generic_tcp/GenericTcpView.cpp" line="136"/>
+        <location filename="../views/generic_tcp/GenericTcpView.cpp" line="143"/>
         <source>Opening</source>
         <translation>正在開啟</translation>
     </message>
     <message>
-        <location filename="../views/generic_tcp/GenericTcpView.cpp" line="137"/>
+        <location filename="../views/generic_tcp/GenericTcpView.cpp" line="144"/>
         <source>Connected</source>
         <translation>已連線</translation>
     </message>
     <message>
-        <location filename="../views/generic_tcp/GenericTcpView.cpp" line="138"/>
+        <location filename="../views/generic_tcp/GenericTcpView.cpp" line="145"/>
         <source>Closing</source>
         <translation>正在關閉</translation>
     </message>
     <message>
-        <location filename="../views/generic_tcp/GenericTcpView.cpp" line="139"/>
+        <location filename="../views/generic_tcp/GenericTcpView.cpp" line="146"/>
         <source>Error</source>
         <translation>錯誤</translation>
     </message>
     <message>
-        <location filename="../views/generic_tcp/GenericTcpView.cpp" line="140"/>
+        <location filename="../views/generic_tcp/GenericTcpView.cpp" line="147"/>
         <source>Unknown</source>
         <translation>未知</translation>
     </message>
     <message>
-        <location filename="../views/generic_tcp/GenericTcpView.cpp" line="143"/>
+        <location filename="../views/generic_tcp/GenericTcpView.cpp" line="150"/>
         <source>State changed: %1</source>
         <translation>狀態已變更：%1</translation>
     </message>
     <message>
-        <location filename="../views/generic_tcp/GenericTcpView.cpp" line="148"/>
+        <location filename="../views/generic_tcp/GenericTcpView.cpp" line="158"/>
         <source>Error: %1</source>
         <translation>錯誤：%1</translation>
     </message>
@@ -616,7 +631,7 @@ Choose update method:</source>
         <translation type="vanished">快速指令</translation>
     </message>
     <message>
-        <location filename="../views/generic_tcp/GenericTcpView.cpp" line="161"/>
+        <location filename="../views/generic_tcp/GenericTcpView.cpp" line="171"/>
         <source>Send Data</source>
         <translation>發送資料</translation>
     </message>
@@ -826,12 +841,12 @@ Choose update method:</source>
 <context>
     <name>ui::views::modbus_tcp::ModbusTcpView</name>
     <message>
-        <location filename="../views/modbus_tcp/ModbusTcpView.cpp" line="117"/>
+        <location filename="../views/modbus_tcp/ModbusTcpView.cpp" line="118"/>
         <source>Connecting to %1:%2...</source>
         <translation>正在連線 %1:%2...</translation>
     </message>
     <message>
-        <location filename="../views/modbus_tcp/ModbusTcpView.cpp" line="163"/>
+        <location filename="../views/modbus_tcp/ModbusTcpView.cpp" line="180"/>
         <source>Connected</source>
         <translation>已連線</translation>
     </message>
@@ -840,179 +855,179 @@ Choose update method:</source>
         <translation type="vanished">連線失敗</translation>
     </message>
     <message>
-        <location filename="../views/modbus_tcp/ModbusTcpView.cpp" line="211"/>
+        <location filename="../views/modbus_tcp/ModbusTcpView.cpp" line="231"/>
         <source>Disconnected</source>
         <translation>已斷線</translation>
     </message>
     <message>
-        <location filename="../views/modbus_tcp/ModbusTcpView.cpp" line="238"/>
+        <location filename="../views/modbus_tcp/ModbusTcpView.cpp" line="257"/>
         <source>Sending Read Request FC:%1 Addr:%2 Qty:%3 Slave:%4</source>
         <translation>發送讀取請求 FC:%1 位址:%2 數量:%3 從站:%4</translation>
     </message>
     <message>
-        <location filename="../views/modbus_tcp/ModbusTcpView.cpp" line="196"/>
+        <location filename="../views/modbus_tcp/ModbusTcpView.cpp" line="213"/>
         <source>Error: %1</source>
         <translation>錯誤：%1</translation>
     </message>
     <message>
-        <location filename="../views/modbus_tcp/ModbusTcpView.cpp" line="133"/>
+        <location filename="../views/modbus_tcp/ModbusTcpView.cpp" line="134"/>
         <source>Failed to create Modbus stack</source>
         <translation type="unfinished">更新設定</translation>
     </message>
     <message>
-        <location filename="../views/modbus_tcp/ModbusTcpView.cpp" line="166"/>
+        <location filename="../views/modbus_tcp/ModbusTcpView.cpp" line="183"/>
         <source>Connection failed: %1</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../views/modbus_tcp/ModbusTcpView.cpp" line="185"/>
+        <location filename="../views/modbus_tcp/ModbusTcpView.cpp" line="202"/>
         <source>Success: Response received</source>
         <translation>成功：已收到回應</translation>
     </message>
     <message>
-        <location filename="../views/modbus_tcp/ModbusTcpView.cpp" line="295"/>
+        <location filename="../views/modbus_tcp/ModbusTcpView.cpp" line="314"/>
         <source>Error: Invalid decimal value for 0x05</source>
         <translation>錯誤：0x05 十進位值無效</translation>
     </message>
     <message>
-        <location filename="../views/modbus_tcp/ModbusTcpView.cpp" line="302"/>
-        <location filename="../views/modbus_tcp/ModbusTcpView.cpp" line="308"/>
-        <location filename="../views/modbus_tcp/ModbusTcpView.cpp" line="315"/>
+        <location filename="../views/modbus_tcp/ModbusTcpView.cpp" line="321"/>
+        <location filename="../views/modbus_tcp/ModbusTcpView.cpp" line="327"/>
+        <location filename="../views/modbus_tcp/ModbusTcpView.cpp" line="334"/>
         <source>Error: Invalid hex value for 0x05</source>
         <translation>錯誤：0x05 十六進位值無效</translation>
     </message>
     <message>
-        <location filename="../views/modbus_tcp/ModbusTcpView.cpp" line="325"/>
+        <location filename="../views/modbus_tcp/ModbusTcpView.cpp" line="344"/>
         <source>Error: Empty value for 0x06</source>
         <translation>錯誤：0x06 值為空</translation>
     </message>
     <message>
-        <location filename="../views/modbus_tcp/ModbusTcpView.cpp" line="332"/>
+        <location filename="../views/modbus_tcp/ModbusTcpView.cpp" line="351"/>
         <source>Error: Invalid decimal value for 0x06</source>
         <translation>錯誤：0x06 十進位值無效</translation>
     </message>
     <message>
-        <location filename="../views/modbus_tcp/ModbusTcpView.cpp" line="340"/>
-        <location filename="../views/modbus_tcp/ModbusTcpView.cpp" line="350"/>
+        <location filename="../views/modbus_tcp/ModbusTcpView.cpp" line="359"/>
+        <location filename="../views/modbus_tcp/ModbusTcpView.cpp" line="369"/>
         <source>Error: Invalid hex value for 0x06</source>
         <translation>錯誤：0x06 十六進位值無效</translation>
     </message>
     <message>
-        <location filename="../views/modbus_tcp/ModbusTcpView.cpp" line="356"/>
+        <location filename="../views/modbus_tcp/ModbusTcpView.cpp" line="375"/>
         <source>Error: 0x0F requires Hex data</source>
         <translation>錯誤：0x0F 需要十六進位資料</translation>
     </message>
     <message>
-        <location filename="../views/modbus_tcp/ModbusTcpView.cpp" line="361"/>
+        <location filename="../views/modbus_tcp/ModbusTcpView.cpp" line="380"/>
         <source>Error: Invalid hex value for 0x0F</source>
         <translation>錯誤：0x0F 十六進位值無效</translation>
     </message>
     <message>
-        <location filename="../views/modbus_tcp/ModbusTcpView.cpp" line="366"/>
+        <location filename="../views/modbus_tcp/ModbusTcpView.cpp" line="385"/>
         <source>Error: Invalid quantity for 0x0F</source>
         <translation>錯誤：0x0F 數量無效</translation>
     </message>
     <message>
-        <location filename="../views/modbus_tcp/ModbusTcpView.cpp" line="371"/>
+        <location filename="../views/modbus_tcp/ModbusTcpView.cpp" line="390"/>
         <source>Error: Coil data length mismatch for 0x0F</source>
         <translation>錯誤：0x0F 線圈資料長度不相符</translation>
     </message>
     <message>
-        <location filename="../views/modbus_tcp/ModbusTcpView.cpp" line="380"/>
+        <location filename="../views/modbus_tcp/ModbusTcpView.cpp" line="399"/>
         <source>Error: Empty value for 0x10</source>
         <translation>錯誤：0x10 值為空</translation>
     </message>
     <message>
-        <location filename="../views/modbus_tcp/ModbusTcpView.cpp" line="385"/>
+        <location filename="../views/modbus_tcp/ModbusTcpView.cpp" line="404"/>
         <source>Error: Invalid quantity for 0x10</source>
         <translation>錯誤：0x10 數量無效</translation>
     </message>
     <message>
-        <location filename="../views/modbus_tcp/ModbusTcpView.cpp" line="394"/>
+        <location filename="../views/modbus_tcp/ModbusTcpView.cpp" line="413"/>
         <source>Error: Invalid decimal list for 0x10</source>
         <translation>錯誤：0x10 十進位清單無效</translation>
     </message>
     <message>
-        <location filename="../views/modbus_tcp/ModbusTcpView.cpp" line="405"/>
+        <location filename="../views/modbus_tcp/ModbusTcpView.cpp" line="424"/>
         <source>Error: Invalid hex value for 0x10</source>
         <translation>錯誤：0x10 十六進位值無效</translation>
     </message>
     <message>
-        <location filename="../views/modbus_tcp/ModbusTcpView.cpp" line="411"/>
+        <location filename="../views/modbus_tcp/ModbusTcpView.cpp" line="430"/>
         <source>Error: Quantity does not match data length for 0x10</source>
         <translation>錯誤：0x10 數量與資料長度不相符</translation>
     </message>
     <message>
-        <location filename="../views/modbus_tcp/ModbusTcpView.cpp" line="419"/>
+        <location filename="../views/modbus_tcp/ModbusTcpView.cpp" line="438"/>
         <source>Error: Unsupported write function code</source>
         <translation>錯誤：不支援的寫入功能碼</translation>
     </message>
     <message>
-        <location filename="../views/modbus_tcp/ModbusTcpView.cpp" line="425"/>
+        <location filename="../views/modbus_tcp/ModbusTcpView.cpp" line="444"/>
         <source>Sending Write Request FC:%1 Addr:%2 Data:%3 Slave:%4</source>
         <translation>發送寫入請求 FC:%1 位址:%2 資料:%3 從站:%4</translation>
     </message>
     <message>
-        <location filename="../views/modbus_tcp/ModbusTcpView.cpp" line="187"/>
+        <location filename="../views/modbus_tcp/ModbusTcpView.cpp" line="204"/>
         <source>Success: Write confirmed</source>
         <translation>成功：寫入已確認</translation>
     </message>
     <message>
-        <location filename="../views/modbus_tcp/ModbusTcpView.cpp" line="442"/>
+        <location filename="../views/modbus_tcp/ModbusTcpView.cpp" line="461"/>
         <source>Sending Raw Data: %1</source>
         <translation>發送原始資料：%1</translation>
     </message>
     <message>
-        <location filename="../views/modbus_tcp/ModbusTcpView.cpp" line="194"/>
+        <location filename="../views/modbus_tcp/ModbusTcpView.cpp" line="211"/>
         <source>Poll Error: %1</source>
         <translation>輪詢錯誤：%1</translation>
     </message>
     <message>
-        <location filename="../views/modbus_tcp/ModbusTcpView.cpp" line="549"/>
-        <location filename="../views/modbus_tcp/ModbusTcpView.cpp" line="559"/>
+        <location filename="../views/modbus_tcp/ModbusTcpView.cpp" line="570"/>
+        <location filename="../views/modbus_tcp/ModbusTcpView.cpp" line="580"/>
         <source>[%1] %2</source>
         <translation>[%1] %2</translation>
     </message>
     <message>
-        <location filename="../views/modbus_tcp/ModbusTcpView.cpp" line="549"/>
+        <location filename="../views/modbus_tcp/ModbusTcpView.cpp" line="570"/>
         <source>RX</source>
         <translation>接收</translation>
     </message>
     <message>
-        <location filename="../views/modbus_tcp/ModbusTcpView.cpp" line="559"/>
+        <location filename="../views/modbus_tcp/ModbusTcpView.cpp" line="580"/>
         <source>TX</source>
         <translation>送出</translation>
     </message>
     <message>
-        <location filename="../views/modbus_tcp/ModbusTcpView.cpp" line="563"/>
+        <location filename="../views/modbus_tcp/ModbusTcpView.cpp" line="584"/>
         <source>Data Monitor</source>
         <translation>資料監視</translation>
     </message>
     <message>
-        <location filename="../views/modbus_tcp/ModbusTcpView.cpp" line="564"/>
+        <location filename="../views/modbus_tcp/ModbusTcpView.cpp" line="585"/>
         <source>Receive Data</source>
         <translation>接收資料</translation>
     </message>
     <message>
-        <location filename="../views/modbus_tcp/ModbusTcpView.cpp" line="565"/>
+        <location filename="../views/modbus_tcp/ModbusTcpView.cpp" line="586"/>
         <source>Send Data</source>
         <translation>發送資料</translation>
     </message>
     <message>
-        <location filename="../views/modbus_tcp/ModbusTcpView.cpp" line="566"/>
-        <location filename="../views/modbus_tcp/ModbusTcpView.cpp" line="567"/>
+        <location filename="../views/modbus_tcp/ModbusTcpView.cpp" line="587"/>
+        <location filename="../views/modbus_tcp/ModbusTcpView.cpp" line="588"/>
         <source>HEX</source>
         <translation>HEX</translation>
     </message>
     <message>
-        <location filename="../views/modbus_tcp/ModbusTcpView.cpp" line="568"/>
-        <location filename="../views/modbus_tcp/ModbusTcpView.cpp" line="569"/>
+        <location filename="../views/modbus_tcp/ModbusTcpView.cpp" line="589"/>
+        <location filename="../views/modbus_tcp/ModbusTcpView.cpp" line="590"/>
         <source>Copy</source>
         <translation>複製</translation>
     </message>
     <message>
-        <location filename="../views/modbus_tcp/ModbusTcpView.cpp" line="570"/>
-        <location filename="../views/modbus_tcp/ModbusTcpView.cpp" line="571"/>
+        <location filename="../views/modbus_tcp/ModbusTcpView.cpp" line="591"/>
+        <location filename="../views/modbus_tcp/ModbusTcpView.cpp" line="592"/>
         <source>Clear</source>
         <translation>清除</translation>
     </message>
