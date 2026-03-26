@@ -370,6 +370,9 @@ void FrameAnalyzerWidget::createResultGroup()
     resultToolbarLayout->addWidget(exportCsvBtn_);
     copyMapBtn_ = new QPushButton(tr("Copy Map"), this);
     resultToolbarLayout->addWidget(copyMapBtn_);
+    toggleHistoryBtn_ = new QPushButton(this);
+    toggleHistoryBtn_->setFixedHeight(24);
+    resultToolbarLayout->addWidget(toggleHistoryBtn_);
     groupLayout->addLayout(resultToolbarLayout);
 
     resultTabs_ = new QTabWidget(this);
@@ -424,22 +427,28 @@ void FrameAnalyzerWidget::createResultGroup()
 
     historyGroup_ = new QGroupBox(tr("History"), this);
     auto historyLayout = new QVBoxLayout(historyGroup_);
+    historyLayout->setContentsMargins(6, 6, 6, 6);
+    historyLayout->setSpacing(4);
     historyList_ = new QListWidget(historyGroup_);
-    historyGroup_->setMinimumWidth(180);
-    historyGroup_->setMaximumWidth(240);
+    historyGroup_->setMinimumWidth(120);
+    historyGroup_->setMaximumWidth(168);
     historyLayout->addWidget(historyList_);
     clearHistoryBtn_ = new QPushButton(tr("Clear History"), historyGroup_);
+    clearHistoryBtn_->setFixedHeight(24);
     historyLayout->addWidget(clearHistoryBtn_);
 
     connect(historyList_, &QListWidget::currentRowChanged, this, &FrameAnalyzerWidget::onHistorySelectionChanged);
     connect(clearHistoryBtn_, &QPushButton::clicked, this, &FrameAnalyzerWidget::onClearHistoryClicked);
+    connect(toggleHistoryBtn_, &QPushButton::clicked, this, [this]() {
+        setHistoryCollapsed(!historyCollapsed_);
+    });
 
     auto contentLayout = new QHBoxLayout();
     contentLayout->setSpacing(8);
     contentLayout->addWidget(resultTabs_, 1);
     contentLayout->addWidget(historyGroup_);
+    setHistoryCollapsed(false);
     groupLayout->addLayout(contentLayout, 1);
-    layout()->addWidget(resultGroup_);
 }
 
 void FrameAnalyzerWidget::onFormatClicked()
@@ -1000,6 +1009,23 @@ QString FrameAnalyzerWidget::historyItemText(const ParseResult& result) const
         .arg(typeText);
 }
 
+void FrameAnalyzerWidget::setHistoryCollapsed(bool collapsed)
+{
+    historyCollapsed_ = collapsed;
+    if (historyGroup_) {
+        historyGroup_->setVisible(!collapsed);
+    }
+    updateHistoryToggleText();
+}
+
+void FrameAnalyzerWidget::updateHistoryToggleText()
+{
+    if (!toggleHistoryBtn_) {
+        return;
+    }
+    toggleHistoryBtn_->setText(historyCollapsed_ ? tr("Show History") : tr("Hide History"));
+}
+
 void FrameAnalyzerWidget::changeEvent(QEvent* event)
 {
     if (event->type() == QEvent::LanguageChange) {
@@ -1046,6 +1072,7 @@ void FrameAnalyzerWidget::retranslateUi()
     if (copyMapBtn_) {
         copyMapBtn_->setText(tr("Copy Map"));
     }
+    updateHistoryToggleText();
     if (parseBtn_) {
         parseBtn_->setText(tr("Parse"));
         parseBtn_->setEnabled(!parseInProgress_);

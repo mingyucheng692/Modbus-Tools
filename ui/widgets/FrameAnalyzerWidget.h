@@ -82,6 +82,8 @@ private:
     void addToHistory(const modbus::core::parser::ParseResult& result);
     void refreshHistoryList();
     QString historyItemText(const modbus::core::parser::ParseResult& result) const;
+    void setHistoryCollapsed(bool collapsed);
+    void updateHistoryToggleText();
     
     // 渲染解析结果
     void renderResult(const modbus::core::parser::ParseResult& result);
@@ -103,6 +105,7 @@ private:
     QPushButton* exportJsonBtn_ = nullptr;
     QPushButton* exportCsvBtn_ = nullptr;
     QPushButton* copyMapBtn_ = nullptr;
+    QPushButton* toggleHistoryBtn_ = nullptr;
     QPushButton* clearBtn_ = nullptr;
 
     // Result Controls
@@ -115,6 +118,7 @@ private:
     QGroupBox* historyGroup_ = nullptr;
     QListWidget* historyList_ = nullptr;
     QPushButton* clearHistoryBtn_ = nullptr;
+    bool historyCollapsed_ = false;
     NumberDisplayMode displayMode_ = NumberDisplayMode::Unsigned;
     QMap<uint16_t, DataMetadata> metadataByAddress_;
     QList<modbus::core::parser::ParseResult> historyResults_;
