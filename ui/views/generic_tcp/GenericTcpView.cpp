@@ -83,6 +83,7 @@ void GenericTcpView::stopWorker() {
     if (workerThread_) {
         // Close connection first
         if (worker_) {
+            suppressDisconnectAlert_ = true;
             QMetaObject::invokeMethod(worker_, "close", Qt::BlockingQueuedConnection);
             QMetaObject::invokeMethod(worker_, "deleteLater", Qt::QueuedConnection);
             worker_ = nullptr;
@@ -99,6 +100,7 @@ void GenericTcpView::onConnectClicked(const QString& ip, int port) {
     if (!worker_) return;
     
     spdlog::info("GenericTcp: Connecting to {}:{}", ip.toStdString(), port);
+    suppressDisconnectAlert_ = false;
     trafficMonitor_->appendInfo(tr("Connecting to %1:%2...").arg(ip).arg(port));
     
     // Invoke openTcp on worker thread
@@ -111,6 +113,7 @@ void GenericTcpView::onConnectClicked(const QString& ip, int port) {
 void GenericTcpView::onDisconnectClicked() {
     if (!worker_) return;
     
+    suppressDisconnectAlert_ = true;
     QMetaObject::invokeMethod(worker_, "close", Qt::QueuedConnection);
 }
 
@@ -127,8 +130,12 @@ void GenericTcpView::onSendRequested(const QByteArray& data) {
 }
 
 void GenericTcpView::onWorkerStateChanged(io::ChannelState state) {
+    const bool wasConnected = isConnected_;
     isConnected_ = (state == io::ChannelState::Open);
     connectionWidget_->setConnected(isConnected_);
+    if (state == io::ChannelState::Open) {
+        suppressDisconnectAlert_ = false;
+    }
     
     QString stateStr;
     switch (state) {
@@ -141,6 +148,9 @@ void GenericTcpView::onWorkerStateChanged(io::ChannelState state) {
     }
     
     trafficMonitor_->appendInfo(tr("State changed: %1").arg(stateStr));
+    if (state == io::ChannelState::Closed && wasConnected && !suppressDisconnectAlert_) {
+        ui::common::ConnectionAlert::showDisconnected(this);
+    }
     
 }
 

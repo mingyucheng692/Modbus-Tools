@@ -13,6 +13,10 @@ public:
     static void showNotConnected(QWidget* parent) {
         QMessageBox::warning(parent, tr("Not Connected"), tr("Please connect first."));
     }
+
+    static void showDisconnected(QWidget* parent) {
+        QMessageBox::warning(parent, tr("Connection Lost"), tr("TCP connection was closed."));
+    }
 };
 
 } // namespace ui::common

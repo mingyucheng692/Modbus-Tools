@@ -114,6 +114,7 @@ void ModbusTcpView::setupUi() {
     connect(connectionWidget_, &widgets::TcpConnectionWidget::connectClicked, 
         [this](const QString& ip, int port) {
             spdlog::info("ModbusTcpView: Connect requested to {}:{}", ip.toStdString(), port);
+            suppressDisconnectAlert_ = false;
             trafficMonitor_->appendInfo(tr("Connecting to %1:%2...").arg(ip).arg(port));
 
             releaseStack();
@@ -154,11 +155,27 @@ void ModbusTcpView::setupUi() {
                     }
                 }, Qt::QueuedConnection);
             });
+            channel_->setStateHandler([self](io::ChannelState state) {
+                if (!self) return;
+                QMetaObject::invokeMethod(self, [self, state]() {
+                    if (!self) return;
+                    if (state == io::ChannelState::Closed && self->tcpSessionConnected_) {
+                        self->tcpSessionConnected_ = false;
+                        self->connectionWidget_->setConnected(false);
+                        self->trafficMonitor_->appendInfo(self->tr("Disconnected"));
+                        if (!self->suppressDisconnectAlert_) {
+                            ui::common::ConnectionAlert::showDisconnected(self);
+                        }
+                    }
+                }, Qt::QueuedConnection);
+            });
 
             connect(worker_.get(), &modbus::dispatch::ModbusWorker::connectFinished, this,
                 [this, self](bool ok, const QString& error) {
                     if (!self) return;
+                    tcpSessionConnected_ = ok;
                     if (ok) {
+                        suppressDisconnectAlert_ = false;
                         connectionWidget_->setConnected(true);
                         trafficMonitor_->appendInfo(tr("Connected"));
                     } else {
@@ -208,9 +225,11 @@ void ModbusTcpView::setupUi() {
     connect(connectionWidget_, &widgets::TcpConnectionWidget::disconnectClicked,
         [this]() {
             spdlog::info("ModbusTcpView: Disconnect requested");
+            suppressDisconnectAlert_ = true;
+            tcpSessionConnected_ = false;
+            connectionWidget_->setConnected(false);
             trafficMonitor_->appendInfo(tr("Disconnected"));
             releaseStack();
-            connectionWidget_->setConnected(false);
     });
 
     auto ensureConnected = [this]() {
@@ -511,6 +530,8 @@ QString ModbusTcpView::formatData(const QByteArray& data, bool hex) const {
 }
 
 void ModbusTcpView::releaseStack() {
+    suppressDisconnectAlert_ = true;
+    tcpSessionConnected_ = false;
     if (worker_) {
         worker_->stop();
     }
