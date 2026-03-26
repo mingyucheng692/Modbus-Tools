@@ -203,6 +203,7 @@ void ModbusFrameParser::parsePdu(ParseResult& result, const QByteArray& pdu, uin
     result.functionCode = static_cast<modbus::base::FunctionCode>(fcByte);
     result.pduData = pdu.mid(1);
     result.isValid = true;
+    const uint16_t effectiveStartAddress = determineEffectiveStartAddress(result.functionCode, pdu, startAddress);
 
     using namespace modbus::base;
     QDataStream stream(result.pduData);
@@ -221,7 +222,7 @@ void ModbusFrameParser::parsePdu(ParseResult& result, const QByteArray& pdu, uin
             stream >> start >> quantity;
             Q_UNUSED(quantity);
             DataItem item;
-            item.address = start;
+            item.address = effectiveStartAddress;
             result.dataItems.append(item);
         } else {
             // Response: [ByteCount(1)] [Data(N)]
@@ -254,7 +255,7 @@ void ModbusFrameParser::parsePdu(ParseResult& result, const QByteArray& pdu, uin
                     uint16_t val;
                     stream >> val;
                     DataItem item;
-                    item.address = startAddress + i;
+                    item.address = effectiveStartAddress + i;
                     item.value = val;
                     item.hexString = QString("%1").arg(val, 4, 16, QChar('0')).toUpper();
                     
@@ -276,7 +277,7 @@ void ModbusFrameParser::parsePdu(ParseResult& result, const QByteArray& pdu, uin
                     for (int bit = 0; bit < 8; ++bit) {
                         bool isOn = (byteVal >> bit) & 0x01;
                         DataItem item;
-                        item.address = startAddress + currentBitAddress;
+                        item.address = effectiveStartAddress + currentBitAddress;
                         item.value = isOn;
                         item.hexString = isOn ? "01" : "00";
                         item.binaryString = isOn ? "1" : "0";
@@ -388,6 +389,51 @@ void ModbusFrameParser::parsePdu(ParseResult& result, const QByteArray& pdu, uin
 uint16_t ModbusFrameParser::calculateCrc(const QByteArray& data)
 {
     return modbus::base::calculateModbusRtuCrc(data);
+}
+
+bool ModbusFrameParser::hasAddressInPdu(modbus::base::FunctionCode functionCode, const QByteArray& pdu)
+{
+    using namespace modbus::base;
+    if (pdu.size() < 5) {
+        return false;
+    }
+
+    switch (functionCode) {
+    case FunctionCode::ReadCoils:
+    case FunctionCode::ReadDiscreteInputs:
+    case FunctionCode::ReadHoldingRegisters:
+    case FunctionCode::ReadInputRegisters:
+        return pdu.size() == 5;
+    case FunctionCode::WriteSingleCoil:
+    case FunctionCode::WriteSingleRegister:
+    case FunctionCode::WriteMultipleCoils:
+    case FunctionCode::WriteMultipleRegisters:
+        return true;
+    default:
+        return false;
+    }
+}
+
+uint16_t ModbusFrameParser::extractAddressFromPdu(const QByteArray& pdu)
+{
+    if (pdu.size() < 3) {
+        return 0;
+    }
+
+    return qFromBigEndian<uint16_t>(reinterpret_cast<const uchar*>(pdu.constData() + 1));
+}
+
+uint16_t ModbusFrameParser::determineEffectiveStartAddress(modbus::base::FunctionCode functionCode,
+                                                           const QByteArray& pdu,
+                                                           uint16_t userStartAddress)
+{
+    if (hasAddressInPdu(functionCode, pdu)) {
+        return extractAddressFromPdu(pdu);
+    }
+    if (userStartAddress != 0) {
+        return userStartAddress;
+    }
+    return 0;
 }
 
 } // namespace modbus::core::parser

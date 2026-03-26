@@ -88,6 +88,11 @@ private:
     
     // PDU 解析通用逻辑
     static void parsePdu(ParseResult& result, const QByteArray& pdu, uint16_t startAddress);
+    static bool hasAddressInPdu(modbus::base::FunctionCode functionCode, const QByteArray& pdu);
+    static uint16_t extractAddressFromPdu(const QByteArray& pdu);
+    static uint16_t determineEffectiveStartAddress(modbus::base::FunctionCode functionCode,
+                                                   const QByteArray& pdu,
+                                                   uint16_t userStartAddress);
     
     // 辅助函数
     static uint16_t calculateCrc(const QByteArray& data);
