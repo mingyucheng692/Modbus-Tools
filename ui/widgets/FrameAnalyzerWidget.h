@@ -76,7 +76,6 @@ private:
     void applyMetadataToRow(int row, const QVariant& value, const DataMetadata& meta);
     void exportMetadataToJson(const QString& filePath);
     void importMetadataFromJson(const QString& filePath);
-    QString formatRawFrameStructure(const modbus::core::parser::ParseResult& result) const;
     void exportCurrentTableToCsv(const QString& filePath) const;
     QString buildRegisterMapText() const;
     QString escapeCsvValue(const QString& value) const;
@@ -111,7 +110,6 @@ private:
     QLabel* statusLabel_ = nullptr;
     QWidget* structureTab_ = nullptr;
     QTreeWidget* overviewTree_ = nullptr;
-    QPlainTextEdit* rawFrameView_ = nullptr;
     QTableWidget* dataTable_ = nullptr;
     QTabWidget* resultTabs_ = nullptr;
     QGroupBox* historyGroup_ = nullptr;

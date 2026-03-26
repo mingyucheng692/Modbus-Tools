@@ -34,6 +34,16 @@ namespace ui::widgets {
 using namespace modbus::core::parser;
 
 namespace {
+QString byteHex(const QByteArray& bytes)
+{
+    QStringList parts;
+    parts.reserve(bytes.size());
+    for (unsigned char byte : bytes) {
+        parts << QString("%1").arg(byte, 2, 16, QChar('0')).toUpper();
+    }
+    return parts.join(' ');
+}
+
 QString groupBits(const QString& bits)
 {
     QString grouped = bits;
@@ -375,12 +385,6 @@ void FrameAnalyzerWidget::createResultGroup()
     overviewTree_->setColumnWidth(1, 150);
     structureLayout->addWidget(overviewTree_, 3);
 
-    rawFrameView_ = new QPlainTextEdit(structureTab_);
-    rawFrameView_->setReadOnly(true);
-    rawFrameView_->setPlaceholderText(tr("Raw frame layout will appear here after parsing."));
-    rawFrameView_->setMinimumHeight(160);
-    structureLayout->addWidget(rawFrameView_, 2);
-
     resultTabs_->addTab(structureTab_, tr("Structure"));
 
     // Tab 2: Decoded Data
@@ -605,7 +609,6 @@ void FrameAnalyzerWidget::clearResult()
     statusLabel_->setText(tr("Ready"));
     statusLabel_->setStyleSheet("color: gray;");
     overviewTree_->clear();
-    rawFrameView_->clear();
     dataTable_->setRowCount(0);
 }
 
@@ -707,40 +710,116 @@ void FrameAnalyzerWidget::renderResult(const ParseResult& result)
     statusLabel_->setText(tr("Success (%1)").arg(result.protocol == ProtocolType::Tcp ? tr("TCP") : tr("RTU")));
     statusLabel_->setStyleSheet("color: green; font-weight: bold;");
 
-    // 1. Populate Overview Tree
+    auto addItem = [](QTreeWidgetItem* parent, const QString& field, const QString& value, const QString& description = QString()) {
+        return new QTreeWidgetItem(parent, {field, value, description});
+    };
+    auto normalize = [](QString text) {
+        return text.simplified();
+    };
+    auto buildDescription = [&](const QStringList& parts) {
+        QStringList uniqueParts;
+        for (const QString& part : parts) {
+            const QString trimmed = part.trimmed();
+            if (trimmed.isEmpty()) {
+                continue;
+            }
+            bool duplicated = false;
+            const QString normalizedPart = normalize(trimmed);
+            for (const QString& existing : uniqueParts) {
+                if (normalize(existing) == normalizedPart) {
+                    duplicated = true;
+                    break;
+                }
+            }
+            if (!duplicated) {
+                uniqueParts << trimmed;
+            }
+        }
+        return uniqueParts.join(" | ");
+    };
+    auto protocolText = result.protocol == ProtocolType::Tcp ? tr("TCP") : tr("RTU");
+    auto typeText =
+        result.type == FrameType::Request ? tr("Request") :
+        result.type == FrameType::Response ? tr("Response") :
+        result.type == FrameType::Exception ? tr("Exception") :
+        tr("Unknown");
+    const QString functionCodeHex = QString("0x%1")
+                                        .arg(static_cast<int>(result.functionCode), 2, 16, QChar('0'))
+                                        .toUpper();
+
     QTreeWidgetItem* root = new QTreeWidgetItem(overviewTree_);
     root->setText(0, tr("Frame"));
-    root->setText(1, tr("%1 bytes").arg(result.pduData.size() + (result.protocol == ProtocolType::Tcp ? 7 : 3))); // Approximate
-    
-    // Header Info
+    root->setText(1, tr("%1 bytes").arg(result.rawFrame.size()));
+    root->setText(2, buildDescription({protocolText, typeText}));
+
+    addItem(root, tr("Frame Bytes"), byteHex(result.rawFrame), tr("Complete raw frame"));
+
     if (result.protocol == ProtocolType::Tcp) {
-        new QTreeWidgetItem(root, {tr("Transaction ID"), QString::number(result.transactionId), ""});
-        new QTreeWidgetItem(root, {tr("Protocol ID"), QString::number(result.protocolId), ""});
-        new QTreeWidgetItem(root, {tr("Length"), QString::number(result.length), ""});
-        new QTreeWidgetItem(root, {tr("Unit ID"), QString::number(result.slaveId), ""});
+        QTreeWidgetItem* mbapItem = addItem(root, tr("MBAP Header"), byteHex(result.rawFrame.left(7)), tr("Transaction + Protocol + Length + Unit ID"));
+        addItem(mbapItem,
+                tr("Transaction ID"),
+                QString("%1 (%2)").arg(result.transactionId).arg(byteHex(result.rawFrame.mid(0, 2))),
+                tr("Request/response correlation ID"));
+        addItem(mbapItem,
+                tr("Protocol ID"),
+                QString("%1 (%2)").arg(result.protocolId).arg(byteHex(result.rawFrame.mid(2, 2))),
+                tr("Modbus TCP protocol identifier"));
+        addItem(mbapItem,
+                tr("Length"),
+                QString("%1 (%2)").arg(result.length).arg(byteHex(result.rawFrame.mid(4, 2))),
+                tr("Remaining bytes after this field"));
+        addItem(mbapItem,
+                tr("Unit ID"),
+                QString("%1 (%2)").arg(result.slaveId).arg(byteHex(result.rawFrame.mid(6, 1))),
+                tr("Target slave / unit address"));
     } else {
-        new QTreeWidgetItem(root, {tr("Slave ID"), QString::number(result.slaveId), ""});
+        addItem(root,
+                tr("Slave ID"),
+                QString("%1 (%2)").arg(result.slaveId).arg(byteHex(result.rawFrame.mid(0, 1))),
+                tr("Target slave address"));
     }
 
-    // Function Code
-    new QTreeWidgetItem(root, {tr("Function Code"), QString::number((uint8_t)result.functionCode), result.isException ? tr("Exception") : tr("Normal")});
+    const int pduOffset = result.protocol == ProtocolType::Tcp ? 7 : 1;
+    const int pduLength = result.protocol == ProtocolType::Tcp ? qMax(0, result.rawFrame.size() - 7) : qMax(0, result.rawFrame.size() - 3);
+    const QByteArray pduBytes = result.rawFrame.mid(pduOffset, pduLength);
+    QTreeWidgetItem* pduItem = addItem(root, tr("PDU"), pduBytes.isEmpty() ? tr("(empty)") : byteHex(pduBytes), tr("Function code + payload"));
+    addItem(pduItem,
+            tr("Function Code"),
+            QString("%1 (%2)").arg(functionCodeHex).arg(byteHex(result.rawFrame.mid(pduOffset, 1))),
+            buildDescription({typeText, result.isException ? tr("Exception response") : tr("Normal response")}));
 
-    // PDU Data
+    const QByteArray payloadBytes = pduBytes.size() > 1 ? pduBytes.mid(1) : QByteArray();
+    addItem(pduItem,
+            tr("Payload"),
+            payloadBytes.isEmpty() ? tr("(empty)") : byteHex(payloadBytes),
+            result.isException ? tr("Exception detail payload") : tr("Application data payload"));
+
     if (result.isException) {
-        new QTreeWidgetItem(root, {"Exception Code", QString::number((uint8_t)result.exceptionCode), result.error});
+        addItem(pduItem,
+                tr("Exception Code"),
+                QString("0x%1").arg(static_cast<int>(result.exceptionCode), 2, 16, QChar('0')).toUpper(),
+                buildDescription({result.error, tr("Exception detail payload")}));
     }
 
-    // Checksum (RTU)
     if (result.protocol == ProtocolType::Rtu) {
-        auto crcItem = new QTreeWidgetItem(root, {"CRC16", QString("%1").arg(result.checksum, 4, 16, QChar('0')).toUpper(), result.checksumValid ? "Valid" : "Invalid"});
+        const QByteArray crcBytes = result.rawFrame.right(2);
+        QString crcDescription = result.checksumValid ? tr("CRC valid") : tr("CRC invalid");
+        if (!result.checksumValid) {
+            crcDescription = buildDescription({
+                crcDescription,
+                tr("Calculated: 0x%1").arg(QString("%1").arg(result.calculatedChecksum, 4, 16, QChar('0')).toUpper())
+            });
+        }
+        auto* crcItem = addItem(root,
+                                tr("CRC16"),
+                                QString("0x%1 (%2)").arg(QString("%1").arg(result.checksum, 4, 16, QChar('0')).toUpper()).arg(byteHex(crcBytes)),
+                                crcDescription);
         if (!result.checksumValid) {
             crcItem->setForeground(2, Qt::red);
-            crcItem->setText(2, QString("Invalid (Calc: %1)").arg(QString::number(result.calculatedChecksum, 16).toUpper()));
         }
     }
 
     overviewTree_->expandAll();
-    rawFrameView_->setPlainText(formatRawFrameStructure(result));
 
     isUpdatingDataTable_ = true;
     dataTable_->setRowCount(result.dataItems.size());
@@ -811,58 +890,6 @@ void FrameAnalyzerWidget::onParseFinished(const ParseResult& result, quint64 req
     if (result.isValid) {
         addToHistory(result);
     }
-}
-
-QString FrameAnalyzerWidget::formatRawFrameStructure(const ParseResult& result) const
-{
-    if (result.rawFrame.isEmpty()) {
-        return QString();
-    }
-
-    auto byteHex = [](const QByteArray& bytes) {
-        QStringList parts;
-        parts.reserve(bytes.size());
-        for (unsigned char byte : bytes) {
-            parts << QString("%1").arg(byte, 2, 16, QChar('0')).toUpper();
-        }
-        return parts.join(' ');
-    };
-
-    QStringList lines;
-    lines << tr("Frame Bytes: %1").arg(byteHex(result.rawFrame));
-    lines << QString();
-
-    if (result.protocol == ProtocolType::Tcp) {
-        const QByteArray transactionId = result.rawFrame.mid(0, 2);
-        const QByteArray protocolId = result.rawFrame.mid(2, 2);
-        const QByteArray length = result.rawFrame.mid(4, 2);
-        const QByteArray unitId = result.rawFrame.mid(6, 1);
-        const QByteArray functionCode = result.rawFrame.mid(7, 1);
-        const QByteArray payload = result.rawFrame.mid(8);
-
-        lines << tr("[MBAP Header]");
-        lines << tr("Transaction ID : %1").arg(byteHex(transactionId));
-        lines << tr("Protocol ID    : %1").arg(byteHex(protocolId));
-        lines << tr("Length         : %1").arg(byteHex(length));
-        lines << tr("Unit ID        : %1").arg(byteHex(unitId));
-        lines << QString();
-        lines << tr("[PDU]");
-        lines << tr("Function Code  : %1").arg(byteHex(functionCode));
-        lines << tr("Payload        : %1").arg(payload.isEmpty() ? tr("(empty)") : byteHex(payload));
-    } else {
-        const QByteArray slaveId = result.rawFrame.mid(0, 1);
-        const QByteArray functionCode = result.rawFrame.mid(1, 1);
-        const QByteArray payload = result.rawFrame.mid(2, qMax(0, result.rawFrame.size() - 4));
-        const QByteArray crc = result.rawFrame.right(2);
-
-        lines << tr("[RTU Frame]");
-        lines << tr("Slave ID       : %1").arg(byteHex(slaveId));
-        lines << tr("Function Code  : %1").arg(byteHex(functionCode));
-        lines << tr("Payload        : %1").arg(payload.isEmpty() ? tr("(empty)") : byteHex(payload));
-        lines << tr("CRC16 (Lo Hi)  : %1").arg(byteHex(crc));
-    }
-
-    return lines.join('\n');
 }
 
 void FrameAnalyzerWidget::exportCurrentTableToCsv(const QString& filePath) const
@@ -1045,9 +1072,6 @@ void FrameAnalyzerWidget::retranslateUi()
         header->setText(0, tr("Field"));
         header->setText(1, tr("Value"));
         header->setText(2, tr("Description"));
-    }
-    if (rawFrameView_ && rawFrameView_->toPlainText().isEmpty()) {
-        rawFrameView_->setPlaceholderText(tr("Raw frame layout will appear here after parsing."));
     }
     if (dataTable_) {
         dataTable_->setHorizontalHeaderLabels({tr("Address"), tr("Hex"), tr("Decimal"), tr("Binary"), tr("Scale"), tr("Value"), tr("Description")});
