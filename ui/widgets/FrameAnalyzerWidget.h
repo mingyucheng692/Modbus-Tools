@@ -14,6 +14,7 @@ class QTreeWidget;
 class QTabWidget;
 class QGroupBox;
 class QTableWidgetItem;
+class QWidget;
 namespace modbus::core::parser {
     struct ParseResult;
 }
@@ -64,6 +65,7 @@ private:
     void applyMetadataToRow(int row, const QVariant& value, const DataMetadata& meta);
     void exportMetadataToJson(const QString& filePath);
     void importMetadataFromJson(const QString& filePath);
+    QString formatRawFrameStructure(const struct modbus::core::parser::ParseResult& result) const;
     
     // 渲染解析结果
     void renderResult(const struct modbus::core::parser::ParseResult& result);
@@ -88,7 +90,9 @@ private:
     // Result Controls
     QGroupBox* resultGroup_ = nullptr;
     QLabel* statusLabel_ = nullptr;
+    QWidget* structureTab_ = nullptr;
     QTreeWidget* overviewTree_ = nullptr;
+    QPlainTextEdit* rawFrameView_ = nullptr;
     QTableWidget* dataTable_ = nullptr;
     QTabWidget* resultTabs_ = nullptr;
     NumberDisplayMode displayMode_ = NumberDisplayMode::Unsigned;

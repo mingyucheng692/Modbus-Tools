@@ -62,6 +62,8 @@ struct ParseResult {
     // 解析出的数据列表
     QVector<DataItem> dataItems;
     
+    QByteArray rawFrame;
+
     // 原始 PDU 数据 (去除头部和校验)
     QByteArray pduData;
 };

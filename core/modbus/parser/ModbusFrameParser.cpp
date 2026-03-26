@@ -104,6 +104,7 @@ ParseResult ModbusFrameParser::parseTcp(const QByteArray& frame, uint16_t startA
     ParseResult result;
     result.timestamp = QDateTime::currentDateTime();
     result.protocol = ProtocolType::Tcp;
+    result.rawFrame = frame;
 
     if (frame.size() < 8) {
         result.isValid = false;
@@ -146,6 +147,7 @@ ParseResult ModbusFrameParser::parseRtu(const QByteArray& frame, uint16_t startA
     ParseResult result;
     result.timestamp = QDateTime::currentDateTime();
     result.protocol = ProtocolType::Rtu;
+    result.rawFrame = frame;
 
     if (frame.size() < 4) {
         result.isValid = false;

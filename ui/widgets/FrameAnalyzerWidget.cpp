@@ -22,6 +22,7 @@
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QJsonArray>
+#include <QStringList>
 
 namespace ui::widgets {
 
@@ -308,12 +309,24 @@ void FrameAnalyzerWidget::createResultGroup()
 
     resultTabs_ = new QTabWidget(this);
 
-    // Tab 1: Structure Overview
-    overviewTree_ = new QTreeWidget(this);
+    structureTab_ = new QWidget(this);
+    auto structureLayout = new QVBoxLayout(structureTab_);
+    structureLayout->setContentsMargins(0, 0, 0, 0);
+    structureLayout->setSpacing(6);
+
+    overviewTree_ = new QTreeWidget(structureTab_);
     overviewTree_->setHeaderLabels({tr("Field"), tr("Value"), tr("Description")});
     overviewTree_->setColumnWidth(0, 200);
     overviewTree_->setColumnWidth(1, 150);
-    resultTabs_->addTab(overviewTree_, tr("Structure"));
+    structureLayout->addWidget(overviewTree_, 3);
+
+    rawFrameView_ = new QPlainTextEdit(structureTab_);
+    rawFrameView_->setReadOnly(true);
+    rawFrameView_->setPlaceholderText(tr("Raw frame layout will appear here after parsing."));
+    rawFrameView_->setMinimumHeight(160);
+    structureLayout->addWidget(rawFrameView_, 2);
+
+    resultTabs_->addTab(structureTab_, tr("Structure"));
 
     // Tab 2: Decoded Data
     dataTable_ = new QTableWidget(this);
@@ -469,6 +482,7 @@ void FrameAnalyzerWidget::clearResult()
     statusLabel_->setText(tr("Ready"));
     statusLabel_->setStyleSheet("color: gray;");
     overviewTree_->clear();
+    rawFrameView_->clear();
     dataTable_->setRowCount(0);
 }
 
@@ -600,8 +614,8 @@ void FrameAnalyzerWidget::renderResult(const ParseResult& result)
     }
 
     overviewTree_->expandAll();
+    rawFrameView_->setPlainText(formatRawFrameStructure(result));
 
-    // 2. Populate Data Table
     isUpdatingDataTable_ = true;
     dataTable_->setRowCount(result.dataItems.size());
     for (int i = 0; i < result.dataItems.size(); ++i) {
@@ -653,6 +667,58 @@ void FrameAnalyzerWidget::renderResult(const ParseResult& result)
         applyMetadataToRow(i, item.value, meta);
     }
     isUpdatingDataTable_ = false;
+}
+
+QString FrameAnalyzerWidget::formatRawFrameStructure(const ParseResult& result) const
+{
+    if (result.rawFrame.isEmpty()) {
+        return QString();
+    }
+
+    auto byteHex = [](const QByteArray& bytes) {
+        QStringList parts;
+        parts.reserve(bytes.size());
+        for (unsigned char byte : bytes) {
+            parts << QString("%1").arg(byte, 2, 16, QChar('0')).toUpper();
+        }
+        return parts.join(' ');
+    };
+
+    QStringList lines;
+    lines << tr("Frame Bytes: %1").arg(byteHex(result.rawFrame));
+    lines << QString();
+
+    if (result.protocol == ProtocolType::Tcp) {
+        const QByteArray transactionId = result.rawFrame.mid(0, 2);
+        const QByteArray protocolId = result.rawFrame.mid(2, 2);
+        const QByteArray length = result.rawFrame.mid(4, 2);
+        const QByteArray unitId = result.rawFrame.mid(6, 1);
+        const QByteArray functionCode = result.rawFrame.mid(7, 1);
+        const QByteArray payload = result.rawFrame.mid(8);
+
+        lines << tr("[MBAP Header]");
+        lines << tr("Transaction ID : %1").arg(byteHex(transactionId));
+        lines << tr("Protocol ID    : %1").arg(byteHex(protocolId));
+        lines << tr("Length         : %1").arg(byteHex(length));
+        lines << tr("Unit ID        : %1").arg(byteHex(unitId));
+        lines << QString();
+        lines << tr("[PDU]");
+        lines << tr("Function Code  : %1").arg(byteHex(functionCode));
+        lines << tr("Payload        : %1").arg(payload.isEmpty() ? tr("(empty)") : byteHex(payload));
+    } else {
+        const QByteArray slaveId = result.rawFrame.mid(0, 1);
+        const QByteArray functionCode = result.rawFrame.mid(1, 1);
+        const QByteArray payload = result.rawFrame.mid(2, qMax(0, result.rawFrame.size() - 4));
+        const QByteArray crc = result.rawFrame.right(2);
+
+        lines << tr("[RTU Frame]");
+        lines << tr("Slave ID       : %1").arg(byteHex(slaveId));
+        lines << tr("Function Code  : %1").arg(byteHex(functionCode));
+        lines << tr("Payload        : %1").arg(payload.isEmpty() ? tr("(empty)") : byteHex(payload));
+        lines << tr("CRC16 (Lo Hi)  : %1").arg(byteHex(crc));
+    }
+
+    return lines.join('\n');
 }
 
 void FrameAnalyzerWidget::changeEvent(QEvent* event)
@@ -717,6 +783,9 @@ void FrameAnalyzerWidget::retranslateUi()
         header->setText(0, tr("Field"));
         header->setText(1, tr("Value"));
         header->setText(2, tr("Description"));
+    }
+    if (rawFrameView_ && rawFrameView_->toPlainText().isEmpty()) {
+        rawFrameView_->setPlaceholderText(tr("Raw frame layout will appear here after parsing."));
     }
     if (dataTable_) {
         dataTable_->setHorizontalHeaderLabels({tr("Address"), tr("Hex"), tr("Decimal"), tr("Binary"), tr("Scale"), tr("Value"), tr("Description")});
