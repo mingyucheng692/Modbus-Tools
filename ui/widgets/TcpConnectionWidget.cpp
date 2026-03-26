@@ -27,14 +27,14 @@ void TcpConnectionWidget::setupUi() {
 
     section_ = new CollapsibleSection(this);
     auto layout = new QHBoxLayout(section_->contentWidget());
-    layout->setContentsMargins(6, 0, 6, 0);
-    layout->setSpacing(4);
+    layout->setContentsMargins(4, 0, 4, 0);
+    layout->setSpacing(2);
 
     // IP Address
     hostLabel_ = new QLabel(this);
     layout->addWidget(hostLabel_);
     ipEdit_ = new QLineEdit(this);
-    ipEdit_->setMinimumWidth(128);
+    ipEdit_->setMinimumWidth(112);
     ipEdit_->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);
     layout->addWidget(ipEdit_);
 
@@ -44,19 +44,19 @@ void TcpConnectionWidget::setupUi() {
     portEdit_ = new QSpinBox(this);
     portEdit_->setRange(1, 65535);
     portEdit_->setValue(502);
-    portEdit_->setFixedWidth(80);
+    portEdit_->setFixedWidth(76);
     layout->addWidget(portEdit_);
 
     // Connect Button
     connectBtn_ = new QPushButton(this);
-    connectBtn_->setMinimumWidth(92);
+    connectBtn_->setMinimumWidth(84);
     connectBtn_->setSizePolicy(QSizePolicy::Minimum, QSizePolicy::Fixed);
     layout->addWidget(connectBtn_);
 
     // Status
     statusLabel_ = new QLabel(this);
     statusLabel_->setStyleSheet("color: red; font-weight: bold;");
-    statusLabel_->setMinimumWidth(108);
+    statusLabel_->setMinimumWidth(96);
     statusLabel_->setSizePolicy(QSizePolicy::Minimum, QSizePolicy::Preferred);
     layout->addWidget(statusLabel_);
 

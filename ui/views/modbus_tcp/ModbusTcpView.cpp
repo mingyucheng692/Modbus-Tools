@@ -59,8 +59,8 @@ void ModbusTcpView::updateModbusSettings(int timeoutMs, int retries, int retryIn
 
 void ModbusTcpView::setupUi() {
     mainLayout_ = new QVBoxLayout(this);
-    mainLayout_->setContentsMargins(4, 4, 4, 4);
-    mainLayout_->setSpacing(4);
+    mainLayout_->setContentsMargins(2, 2, 2, 2);
+    mainLayout_->setSpacing(2);
     
     connectionWidget_ = new widgets::TcpConnectionWidget(this);
     connectionWidget_->setSettingsGroup("modbus/tcp");
@@ -73,8 +73,8 @@ void ModbusTcpView::setupUi() {
     dataGroup_ = new widgets::CollapsibleSection(this);
     dataGroup_->setSettingsKey("modbus/tcp/ui/dataMonitorCollapsed");
     auto dataLayout = new QHBoxLayout(dataGroup_->contentWidget());
-    dataLayout->setContentsMargins(6, 0, 6, 6);
-    dataLayout->setSpacing(6);
+    dataLayout->setContentsMargins(4, 0, 4, 4);
+    dataLayout->setSpacing(4);
 
     receiveGroup_ = new QGroupBox(dataGroup_->contentWidget());
     auto receiveLayout = new QVBoxLayout(receiveGroup_);

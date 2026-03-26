@@ -43,20 +43,20 @@ void FunctionWidget::setupUi() {
 
 void FunctionWidget::setupStandardUi(QWidget* parent) {
     auto layout = new QVBoxLayout(parent);
-    layout->setContentsMargins(6, 0, 6, 0);
-    layout->setSpacing(4);
+    layout->setContentsMargins(4, 0, 4, 0);
+    layout->setSpacing(2);
     
     // Row 1: Parameters
     auto paramLayout = new QHBoxLayout();
     paramLayout->setContentsMargins(0, 0, 0, 0);
-    paramLayout->setSpacing(4);
+    paramLayout->setSpacing(2);
     
     slaveIdLabel_ = new QLabel(parent);
     paramLayout->addWidget(slaveIdLabel_);
     slaveIdEdit_ = new QSpinBox(parent);
     slaveIdEdit_->setRange(1, 247);
     slaveIdEdit_->setValue(1);
-    slaveIdEdit_->setFixedWidth(64);
+    slaveIdEdit_->setFixedWidth(60);
     paramLayout->addWidget(slaveIdEdit_);
 
     addressLabel_ = new QLabel(parent);
@@ -64,7 +64,7 @@ void FunctionWidget::setupStandardUi(QWidget* parent) {
     addressEdit_ = new QSpinBox(parent);
     addressEdit_->setRange(0, 65535);
     addressEdit_->setValue(0);
-    addressEdit_->setFixedWidth(72);
+    addressEdit_->setFixedWidth(68);
     paramLayout->addWidget(addressEdit_);
 
     quantityLabel_ = new QLabel(parent);
@@ -72,7 +72,7 @@ void FunctionWidget::setupStandardUi(QWidget* parent) {
     quantityEdit_ = new QSpinBox(parent);
     quantityEdit_->setRange(1, 125); // Typical Modbus Limit
     quantityEdit_->setValue(10);
-    quantityEdit_->setFixedWidth(68);
+    quantityEdit_->setFixedWidth(64);
     paramLayout->addWidget(quantityEdit_);
     
     paramLayout->addStretch();
@@ -81,7 +81,7 @@ void FunctionWidget::setupStandardUi(QWidget* parent) {
     // Row 2: Write Data Input
     auto writeLayout = new QHBoxLayout();
     writeLayout->setContentsMargins(0, 0, 0, 0);
-    writeLayout->setSpacing(4);
+    writeLayout->setSpacing(2);
     writeDataLabel_ = new QLabel(parent);
     writeLayout->addWidget(writeDataLabel_);
     writeDataEdit_ = new QLineEdit(parent);
@@ -93,7 +93,7 @@ void FunctionWidget::setupStandardUi(QWidget* parent) {
     dataFormatBox_ = new QComboBox(parent);
     dataFormatBox_->addItem("", "Hex");
     dataFormatBox_->addItem("", "Decimal");
-    dataFormatBox_->setFixedWidth(84);
+    dataFormatBox_->setFixedWidth(76);
     writeLayout->addWidget(dataFormatBox_);
     
     layout->addLayout(writeLayout);
@@ -101,8 +101,8 @@ void FunctionWidget::setupStandardUi(QWidget* parent) {
     // Row 3: Function Buttons
     auto btnLayout = new QGridLayout();
     btnLayout->setContentsMargins(0, 0, 0, 0);
-    btnLayout->setHorizontalSpacing(4);
-    btnLayout->setVerticalSpacing(4);
+    btnLayout->setHorizontalSpacing(2);
+    btnLayout->setVerticalSpacing(2);
     
     // Read Buttons
     readBtn01_ = new QPushButton(parent);
@@ -147,9 +147,9 @@ void FunctionWidget::setupStandardUi(QWidget* parent) {
     };
     QFont buttonFont = readBtn01_->font();
     if (buttonFont.pointSizeF() > 0.0) {
-        buttonFont.setPointSizeF(buttonFont.pointSizeF() - 1.0);
-        if (buttonFont.pointSizeF() < 8.5) {
-            buttonFont.setPointSizeF(8.5);
+        buttonFont.setPointSizeF(buttonFont.pointSizeF() - 1.5);
+        if (buttonFont.pointSizeF() < 8.0) {
+            buttonFont.setPointSizeF(8.0);
         }
     }
     for (auto* button : fcButtons) {
@@ -157,7 +157,7 @@ void FunctionWidget::setupStandardUi(QWidget* parent) {
         button->setSizePolicy(QSizePolicy::Ignored, QSizePolicy::Fixed);
         button->setMinimumWidth(0);
         button->setMinimumHeight(26);
-        button->setStyleSheet("padding-left: 4px; padding-right: 4px;");
+        button->setStyleSheet("padding-left: 2px; padding-right: 2px;");
     }
 
     layout->addLayout(btnLayout);
