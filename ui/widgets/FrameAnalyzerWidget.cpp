@@ -22,6 +22,7 @@
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QJsonArray>
+#include <QListWidget>
 #include <QStringList>
 
 namespace ui::widgets {
@@ -362,6 +363,22 @@ void FrameAnalyzerWidget::createResultGroup()
     });
 
     groupLayout->addWidget(resultTabs_);
+
+    historyGroup_ = new QGroupBox(tr("History"), this);
+    auto historyLayout = new QVBoxLayout(historyGroup_);
+    auto historyToolbarLayout = new QHBoxLayout();
+    historyToolbarLayout->addStretch();
+    clearHistoryBtn_ = new QPushButton(tr("Clear History"), historyGroup_);
+    historyToolbarLayout->addWidget(clearHistoryBtn_);
+    historyLayout->addLayout(historyToolbarLayout);
+
+    historyList_ = new QListWidget(historyGroup_);
+    historyList_->setMaximumHeight(150);
+    historyLayout->addWidget(historyList_);
+
+    connect(historyList_, &QListWidget::currentRowChanged, this, &FrameAnalyzerWidget::onHistorySelectionChanged);
+    connect(clearHistoryBtn_, &QPushButton::clicked, this, &FrameAnalyzerWidget::onClearHistoryClicked);
+    groupLayout->addWidget(historyGroup_);
     layout()->addWidget(resultGroup_);
 }
 
@@ -385,6 +402,21 @@ void FrameAnalyzerWidget::onClearClicked()
 {
     inputEditor_->clear();
     clearResult();
+}
+
+void FrameAnalyzerWidget::onHistorySelectionChanged(int row)
+{
+    if (row < 0 || row >= historyResults_.size()) {
+        return;
+    }
+    currentResult_ = historyResults_.at(row);
+    renderResult(currentResult_);
+}
+
+void FrameAnalyzerWidget::onClearHistoryClicked()
+{
+    historyResults_.clear();
+    historyList_->clear();
 }
 
 void FrameAnalyzerWidget::onExportJsonClicked()
@@ -550,6 +582,10 @@ void FrameAnalyzerWidget::onParseClicked()
 
     ParseResult result = ModbusFrameParser::parse(frame, type, startAddr);
     renderResult(result);
+    currentResult_ = result;
+    if (result.isValid) {
+        addToHistory(result);
+    }
 }
 
 void FrameAnalyzerWidget::loadSettings()
@@ -721,6 +757,49 @@ QString FrameAnalyzerWidget::formatRawFrameStructure(const ParseResult& result) 
     return lines.join('\n');
 }
 
+void FrameAnalyzerWidget::addToHistory(const ParseResult& result)
+{
+    historyResults_.prepend(result);
+    while (historyResults_.size() > kMaxHistoryCount) {
+        historyResults_.removeLast();
+    }
+    refreshHistoryList();
+}
+
+void FrameAnalyzerWidget::refreshHistoryList()
+{
+    if (!historyList_) {
+        return;
+    }
+
+    const QSignalBlocker blocker(historyList_);
+    historyList_->clear();
+    for (const ParseResult& result : historyResults_) {
+        historyList_->addItem(historyItemText(result));
+    }
+    if (!historyResults_.isEmpty()) {
+        historyList_->setCurrentRow(0);
+    }
+}
+
+QString FrameAnalyzerWidget::historyItemText(const ParseResult& result) const
+{
+    const QString protocolText = result.protocol == ProtocolType::Tcp ? tr("TCP") : tr("RTU");
+    const QString functionCodeText = QString("0x%1")
+                                         .arg(static_cast<int>(result.functionCode), 2, 16, QChar('0'))
+                                         .toUpper();
+    const QString typeText =
+        result.type == FrameType::Request ? tr("Request") :
+        result.type == FrameType::Response ? tr("Response") :
+        result.type == FrameType::Exception ? tr("Exception") :
+        tr("Unknown");
+    return QString("[%1] %2 %3 %4")
+        .arg(result.timestamp.toString("hh:mm:ss"))
+        .arg(protocolText)
+        .arg(functionCodeText)
+        .arg(typeText);
+}
+
 void FrameAnalyzerWidget::changeEvent(QEvent* event)
 {
     if (event->type() == QEvent::LanguageChange) {
@@ -774,6 +853,9 @@ void FrameAnalyzerWidget::retranslateUi()
     if (resultGroup_) {
         resultGroup_->setTitle(tr("Analysis Result"));
     }
+    if (historyGroup_) {
+        historyGroup_->setTitle(tr("History"));
+    }
     if (resultTabs_) {
         resultTabs_->setTabText(0, tr("Structure"));
         resultTabs_->setTabText(1, tr("Data Details"));
@@ -789,6 +871,12 @@ void FrameAnalyzerWidget::retranslateUi()
     }
     if (dataTable_) {
         dataTable_->setHorizontalHeaderLabels({tr("Address"), tr("Hex"), tr("Decimal"), tr("Binary"), tr("Scale"), tr("Value"), tr("Description")});
+    }
+    if (clearHistoryBtn_) {
+        clearHistoryBtn_->setText(tr("Clear History"));
+    }
+    if (historyList_) {
+        refreshHistoryList();
     }
 
     if (statusLabel_ && statusLabel_->styleSheet().contains("color: gray", Qt::CaseInsensitive)) {

@@ -3,6 +3,8 @@
 #include <QWidget>
 #include <QScopedPointer>
 #include <QMap>
+#include <QList>
+#include "modbus/parser/ModbusFrameParser.h"
 
 class QPlainTextEdit;
 class QComboBox;
@@ -15,9 +17,7 @@ class QTabWidget;
 class QGroupBox;
 class QTableWidgetItem;
 class QWidget;
-namespace modbus::core::parser {
-    struct ParseResult;
-}
+class QListWidget;
 
 namespace ui::widgets {
 
@@ -34,6 +34,8 @@ private slots:
     void onFormatClicked(); // 格式化 Hex 输入
     void onExportJsonClicked();
     void onImportJsonClicked();
+    void onHistorySelectionChanged(int row);
+    void onClearHistoryClicked();
 
 protected:
     void changeEvent(QEvent* event) override;
@@ -65,10 +67,13 @@ private:
     void applyMetadataToRow(int row, const QVariant& value, const DataMetadata& meta);
     void exportMetadataToJson(const QString& filePath);
     void importMetadataFromJson(const QString& filePath);
-    QString formatRawFrameStructure(const struct modbus::core::parser::ParseResult& result) const;
+    QString formatRawFrameStructure(const modbus::core::parser::ParseResult& result) const;
+    void addToHistory(const modbus::core::parser::ParseResult& result);
+    void refreshHistoryList();
+    QString historyItemText(const modbus::core::parser::ParseResult& result) const;
     
     // 渲染解析结果
-    void renderResult(const struct modbus::core::parser::ParseResult& result);
+    void renderResult(const modbus::core::parser::ParseResult& result);
     void clearResult();
 
 private:
@@ -95,9 +100,15 @@ private:
     QPlainTextEdit* rawFrameView_ = nullptr;
     QTableWidget* dataTable_ = nullptr;
     QTabWidget* resultTabs_ = nullptr;
+    QGroupBox* historyGroup_ = nullptr;
+    QListWidget* historyList_ = nullptr;
+    QPushButton* clearHistoryBtn_ = nullptr;
     NumberDisplayMode displayMode_ = NumberDisplayMode::Unsigned;
     QMap<uint16_t, DataMetadata> metadataByAddress_;
+    QList<modbus::core::parser::ParseResult> historyResults_;
+    modbus::core::parser::ParseResult currentResult_;
     bool isUpdatingDataTable_ = false;
+    static constexpr int kMaxHistoryCount = 20;
 };
 
 } // namespace ui::widgets
