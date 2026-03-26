@@ -77,6 +77,7 @@ private:
     std::unordered_map<int, std::chrono::steady_clock::time_point> requestStart_;
     std::unordered_map<int, RequestKind> requestKinds_;
     int requestId_ = 0;
+    quint64 connectionGeneration_ = 0;
     bool tcpSessionConnected_ = false;
     bool suppressDisconnectAlert_ = false;
     int timeoutMs_ = 1000;

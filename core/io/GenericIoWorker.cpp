@@ -18,9 +18,10 @@ GenericIoWorker::~GenericIoWorker()
     cleanupChannel();
 }
 
-void GenericIoWorker::openTcp(const QString& ip, int port)
+void GenericIoWorker::openTcp(const QString& ip, int port, quint64 generation)
 {
     cleanupChannel();
+    channelGeneration_ = generation;
 
     auto tcp = std::make_shared<TcpChannel>();
     tcp->setEndpoint(ip, port);
@@ -98,6 +99,7 @@ void GenericIoWorker::setupChannel()
 
     channel_->setStateHandler([this](ChannelState state) {
         emit stateChanged(state);
+        emit stateChangedWithGeneration(state, channelGeneration_);
     });
 }
 

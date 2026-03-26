@@ -4,6 +4,7 @@
 #include "../../widgets/GenericInputWidget.h"
 #include "../../widgets/CollapsibleSection.h"
 #include "../../common/ConnectionAlert.h"
+#include "../../common/TcpConnectionStateCoordinator.h"
 #include "../../../core/io/GenericIoWorker.h"
 #include <QVBoxLayout>
 #include <QHBoxLayout>
@@ -71,7 +72,7 @@ void GenericTcpView::startWorker() {
     auto* worker = new io::GenericIoWorker();
     worker->moveToThread(workerThread_);
 
-    connect(worker, &io::GenericIoWorker::stateChanged, this, &GenericTcpView::onWorkerStateChanged);
+    connect(worker, &io::GenericIoWorker::stateChangedWithGeneration, this, &GenericTcpView::onWorkerStateChanged);
     connect(worker, &io::GenericIoWorker::errorOccurred, this, &GenericTcpView::onWorkerError);
     connect(worker, &io::GenericIoWorker::monitor, this, &GenericTcpView::onWorkerMonitor);
 
@@ -101,13 +102,15 @@ void GenericTcpView::onConnectClicked(const QString& ip, int port) {
     
     spdlog::info("GenericTcp: Connecting to {}:{}", ip.toStdString(), port);
     suppressDisconnectAlert_ = false;
+    const quint64 generation = ++connectionGeneration_;
     trafficMonitor_->appendInfo(tr("Connecting to %1:%2...").arg(ip).arg(port));
     
     // Invoke openTcp on worker thread
     QMetaObject::invokeMethod(worker_, "openTcp", 
                               Qt::QueuedConnection, 
                               Q_ARG(QString, ip), 
-                              Q_ARG(int, port));
+                              Q_ARG(int, port),
+                              Q_ARG(quint64, generation));
 }
 
 void GenericTcpView::onDisconnectClicked() {
@@ -129,11 +132,20 @@ void GenericTcpView::onSendRequested(const QByteArray& data) {
                               Q_ARG(QByteArray, data));
 }
 
-void GenericTcpView::onWorkerStateChanged(io::ChannelState state) {
+void GenericTcpView::onWorkerStateChanged(io::ChannelState state, quint64 generation) {
+    if (generation != connectionGeneration_) {
+        return;
+    }
+
     const bool wasConnected = isConnected_;
+    const auto transition = ui::common::TcpConnectionStateCoordinator::transition(
+        state,
+        wasConnected,
+        suppressDisconnectAlert_);
+
     isConnected_ = (state == io::ChannelState::Open);
     connectionWidget_->setConnected(isConnected_);
-    if (state == io::ChannelState::Open) {
+    if (transition.clearSuppressDisconnectAlert) {
         suppressDisconnectAlert_ = false;
     }
     
@@ -148,7 +160,7 @@ void GenericTcpView::onWorkerStateChanged(io::ChannelState state) {
     }
     
     trafficMonitor_->appendInfo(tr("State changed: %1").arg(stateStr));
-    if (state == io::ChannelState::Closed && wasConnected && !suppressDisconnectAlert_) {
+    if (transition.showDisconnectAlert) {
         ui::common::ConnectionAlert::showDisconnected(this);
     }
     

@@ -34,7 +34,7 @@ private slots:
     void onConnectClicked(const QString& ip, int port);
     void onDisconnectClicked();
     void onSendRequested(const QByteArray& data);
-    void onWorkerStateChanged(io::ChannelState state);
+    void onWorkerStateChanged(io::ChannelState state, quint64 generation);
     void onWorkerError(const QString& error);
     void onWorkerMonitor(bool isTx, const QByteArray& data);
 
@@ -56,6 +56,7 @@ private:
     QThread* workerThread_ = nullptr;
     bool isConnected_ = false;
     bool suppressDisconnectAlert_ = false;
+    quint64 connectionGeneration_ = 0;
 };
 
 } // namespace ui::views::generic_tcp

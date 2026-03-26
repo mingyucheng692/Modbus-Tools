@@ -5,6 +5,7 @@
 #include "../../widgets/ControlWidget.h"
 #include "../../widgets/CollapsibleSection.h"
 #include "../../common/ConnectionAlert.h"
+#include "../../common/TcpConnectionStateCoordinator.h"
 #include "modbus/factory/ModbusFactory.h"
 #include <QVBoxLayout>
 #include <QLabel>
@@ -125,10 +126,10 @@ void ModbusTcpView::setupUi() {
     connect(connectionWidget_, &widgets::TcpConnectionWidget::connectClicked, 
         [this](const QString& ip, int port) {
             spdlog::info("ModbusTcpView: Connect requested to {}:{}", ip.toStdString(), port);
-            suppressDisconnectAlert_ = false;
-            trafficMonitor_->appendInfo(tr("Connecting to %1:%2...").arg(ip).arg(port));
-
             releaseStack();
+            suppressDisconnectAlert_ = false;
+            const quint64 generation = connectionGeneration_;
+            trafficMonitor_->appendInfo(tr("Connecting to %1:%2...").arg(ip).arg(port));
 
             modbus::base::ModbusConfig config;
             config.mode = modbus::base::ModbusMode::TCP;
@@ -153,10 +154,11 @@ void ModbusTcpView::setupUi() {
             workerThread_ = std::move(stack.thread);
 
             QPointer<ModbusTcpView> self(this);
-            channel_->setMonitor([self](bool isTx, const QByteArray& data) {
+            channel_->setMonitor([self, generation](bool isTx, const QByteArray& data) {
                 if (!self) return;
-                QMetaObject::invokeMethod(self, [self, isTx, data]() {
+                QMetaObject::invokeMethod(self, [self, generation, isTx, data]() {
                     if (!self) return;
+                    if (generation != self->connectionGeneration_) return;
                     if (isTx) {
                         self->trafficMonitor_->appendTx(data);
                         self->appendSendData(data);
@@ -166,25 +168,35 @@ void ModbusTcpView::setupUi() {
                     }
                 }, Qt::QueuedConnection);
             });
-            channel_->setStateHandler([self](io::ChannelState state) {
+            channel_->setStateHandler([self, generation](io::ChannelState state) {
                 if (!self) return;
-                QMetaObject::invokeMethod(self, [self, state]() {
+                QMetaObject::invokeMethod(self, [self, generation, state]() {
                     if (!self) return;
+                    if (generation != self->connectionGeneration_) return;
                     const bool wasConnected = self->tcpSessionConnected_;
-                    if (state == io::ChannelState::Open) {
+                    const auto transition = ui::common::TcpConnectionStateCoordinator::transition(
+                        state,
+                        wasConnected,
+                        self->suppressDisconnectAlert_);
+                    if (transition.setConnected) {
                         self->tcpSessionConnected_ = true;
-                        self->suppressDisconnectAlert_ = false;
                         self->connectionWidget_->setConnected(true);
-                        if (!wasConnected) {
-                            self->trafficMonitor_->appendInfo(connectedText());
-                        }
+                        self->trafficMonitor_->appendInfo(connectedText());
+                    } else if (state == io::ChannelState::Open) {
+                        self->tcpSessionConnected_ = true;
+                        self->connectionWidget_->setConnected(true);
+                    }
+                    if (transition.clearSuppressDisconnectAlert) {
+                        self->suppressDisconnectAlert_ = false;
+                    }
+                    if (transition.setConnected) {
                         return;
                     }
-                    if (state == io::ChannelState::Closed && wasConnected) {
+                    if (transition.setDisconnected) {
                         self->tcpSessionConnected_ = false;
                         self->connectionWidget_->setConnected(false);
                         self->trafficMonitor_->appendInfo(disconnectedText());
-                        if (!self->suppressDisconnectAlert_) {
+                        if (transition.showDisconnectAlert) {
                             ui::common::ConnectionAlert::showDisconnected(self);
                         }
                     }
@@ -192,8 +204,9 @@ void ModbusTcpView::setupUi() {
             });
 
             connect(worker_.get(), &modbus::dispatch::ModbusWorker::connectFinished, this,
-                [this, self](bool ok, const QString& error) {
+                [this, self, generation](bool ok, const QString& error) {
                     if (!self) return;
+                    if (generation != connectionGeneration_) return;
                     const bool wasConnected = tcpSessionConnected_;
                     tcpSessionConnected_ = ok;
                     if (ok) {
@@ -209,8 +222,9 @@ void ModbusTcpView::setupUi() {
                 }, Qt::QueuedConnection);
 
             connect(worker_.get(), &modbus::dispatch::ModbusWorker::requestFinished, this,
-                [this, self](int requestId, const modbus::session::ModbusResponse& response) {
+                [this, self, generation](int requestId, const modbus::session::ModbusResponse& response) {
                     if (!self) return;
+                    if (generation != connectionGeneration_) return;
                     auto itStart = requestStart_.find(requestId);
                     auto itKind = requestKinds_.find(requestId);
                     if (itStart == requestStart_.end() || itKind == requestKinds_.end()) {
@@ -554,6 +568,7 @@ QString ModbusTcpView::formatData(const QByteArray& data, bool hex) const {
 }
 
 void ModbusTcpView::releaseStack() {
+    ++connectionGeneration_;
     suppressDisconnectAlert_ = true;
     tcpSessionConnected_ = false;
     if (worker_) {
