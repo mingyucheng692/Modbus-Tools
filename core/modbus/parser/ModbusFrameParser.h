@@ -5,6 +5,7 @@
 #include <QVector>
 #include <QVariant>
 #include <QDateTime>
+#include <QMetaType>
 #include <optional>
 #include <modbus/base/ModbusTypes.h>
 
@@ -102,3 +103,6 @@ private:
 };
 
 } // namespace modbus::core::parser
+
+Q_DECLARE_METATYPE(modbus::core::parser::ProtocolType)
+Q_DECLARE_METATYPE(modbus::core::parser::ParseResult)

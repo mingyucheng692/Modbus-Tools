@@ -26,6 +26,8 @@
 #include <QStringList>
 #include <QClipboard>
 #include <QTextStream>
+#include <QThread>
+#include <QObject>
 
 namespace ui::widgets {
 
@@ -48,15 +50,61 @@ uint32_t maskForBits(int bitWidth)
     }
     return (1u << bitWidth) - 1u;
 }
+
+class FrameParseWorker : public QObject {
+    Q_OBJECT
+
+public slots:
+    void parseFrame(const QString& input, ProtocolType type, uint16_t startAddress, quint64 requestId)
+    {
+        QString hexStr = input;
+        hexStr.remove(QRegularExpression("[^0-9A-Fa-f]"));
+
+        ParseResult result;
+        result.timestamp = QDateTime::currentDateTime();
+        if (hexStr.isEmpty()) {
+            result.isValid = false;
+            result.error = QCoreApplication::translate("FrameAnalyzerWidget", "Error: Empty input");
+        } else {
+            const QByteArray frame = QByteArray::fromHex(hexStr.toLatin1());
+            result = ModbusFrameParser::parse(frame, type, startAddress);
+        }
+
+        emit parseFinished(result, requestId);
+    }
+
+signals:
+    void parseFinished(const modbus::core::parser::ParseResult& result, quint64 requestId);
+};
 }
 
 FrameAnalyzerWidget::FrameAnalyzerWidget(QWidget* parent)
     : QWidget(parent)
 {
+    qRegisterMetaType<ProtocolType>("modbus::core::parser::ProtocolType");
+    qRegisterMetaType<ParseResult>("modbus::core::parser::ParseResult");
+
+    parseThread_ = new QThread(this);
+    parseWorker_ = new FrameParseWorker();
+    parseWorker_->moveToThread(parseThread_);
+    connect(this, &FrameAnalyzerWidget::parseRequested, parseWorker_, [this](const QString& input, ProtocolType type, uint16_t startAddress, quint64 requestId) {
+        auto* worker = static_cast<FrameParseWorker*>(parseWorker_);
+        worker->parseFrame(input, type, startAddress, requestId);
+    }, Qt::QueuedConnection);
+    connect(parseWorker_, SIGNAL(parseFinished(modbus::core::parser::ParseResult,quint64)), this, SLOT(onParseFinished(modbus::core::parser::ParseResult,quint64)), Qt::QueuedConnection);
+    connect(parseThread_, &QThread::finished, parseWorker_, &QObject::deleteLater);
+    parseThread_->start();
+
     setupUi();
 }
 
-FrameAnalyzerWidget::~FrameAnalyzerWidget() = default;
+FrameAnalyzerWidget::~FrameAnalyzerWidget()
+{
+    if (parseThread_) {
+        parseThread_->quit();
+        parseThread_->wait();
+    }
+}
 
 QString FrameAnalyzerWidget::formatDecimalValue(const QVariant& value) const
 {
@@ -408,6 +456,11 @@ void FrameAnalyzerWidget::onFormatClicked()
 
 void FrameAnalyzerWidget::onClearClicked()
 {
+    ++latestParseRequestId_;
+    parseInProgress_ = false;
+    if (parseBtn_) {
+        parseBtn_->setEnabled(true);
+    }
     inputEditor_->clear();
     clearResult();
 }
@@ -605,25 +658,24 @@ void FrameAnalyzerWidget::onDataTableItemChanged(QTableWidgetItem* item)
 void FrameAnalyzerWidget::onParseClicked()
 {
     clearResult();
-
-    QString hexStr = inputEditor_->toPlainText().remove(QRegularExpression("[^0-9A-Fa-f]"));
+    QString hexStr = inputEditor_->toPlainText();
+    hexStr.remove(QRegularExpression("[^0-9A-Fa-f]"));
     if (hexStr.isEmpty()) {
         statusLabel_->setText(tr("Error: Empty input"));
         statusLabel_->setStyleSheet("color: red;");
         return;
     }
-
-    QByteArray frame = QByteArray::fromHex(hexStr.toLatin1());
     
     ProtocolType type = protocolCombo_->currentData().value<ProtocolType>();
     uint16_t startAddr = static_cast<uint16_t>(startAddressSpin_->value());
-
-    ParseResult result = ModbusFrameParser::parse(frame, type, startAddr);
-    renderResult(result);
-    currentResult_ = result;
-    if (result.isValid) {
-        addToHistory(result);
+    ++latestParseRequestId_;
+    parseInProgress_ = true;
+    statusLabel_->setText(tr("Parsing..."));
+    statusLabel_->setStyleSheet("color: #CC7A00; font-weight: bold;");
+    if (parseBtn_) {
+        parseBtn_->setEnabled(false);
     }
+    emit parseRequested(inputEditor_->toPlainText(), type, startAddr, latestParseRequestId_);
 }
 
 void FrameAnalyzerWidget::loadSettings()
@@ -741,6 +793,24 @@ void FrameAnalyzerWidget::renderResult(const ParseResult& result)
         applyMetadataToRow(i, item.value, meta);
     }
     isUpdatingDataTable_ = false;
+}
+
+void FrameAnalyzerWidget::onParseFinished(const ParseResult& result, quint64 requestId)
+{
+    if (requestId != latestParseRequestId_) {
+        return;
+    }
+
+    parseInProgress_ = false;
+    if (parseBtn_) {
+        parseBtn_->setEnabled(true);
+    }
+
+    currentResult_ = result;
+    renderResult(result);
+    if (result.isValid) {
+        addToHistory(result);
+    }
 }
 
 QString FrameAnalyzerWidget::formatRawFrameStructure(const ParseResult& result) const
@@ -951,6 +1021,7 @@ void FrameAnalyzerWidget::retranslateUi()
     }
     if (parseBtn_) {
         parseBtn_->setText(tr("Parse"));
+        parseBtn_->setEnabled(!parseInProgress_);
     }
     if (clearBtn_) {
         clearBtn_->setText(tr("Clear"));
@@ -994,3 +1065,5 @@ void FrameAnalyzerWidget::retranslateUi()
 }
 
 } // namespace ui::widgets
+
+#include "FrameAnalyzerWidget.moc"

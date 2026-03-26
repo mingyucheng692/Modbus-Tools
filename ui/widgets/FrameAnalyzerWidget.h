@@ -19,6 +19,8 @@ class QTableWidgetItem;
 class QWidget;
 class QListWidget;
 class QString;
+class QThread;
+class QObject;
 
 namespace ui::widgets {
 
@@ -28,6 +30,9 @@ class FrameAnalyzerWidget : public QWidget {
 public:
     explicit FrameAnalyzerWidget(QWidget* parent = nullptr);
     ~FrameAnalyzerWidget() override;
+
+signals:
+    void parseRequested(const QString& input, modbus::core::parser::ProtocolType type, uint16_t startAddress, quint64 requestId);
 
 private slots:
     void onParseClicked();
@@ -39,6 +44,7 @@ private slots:
     void onCopyRegisterMapClicked();
     void onHistorySelectionChanged(int row);
     void onClearHistoryClicked();
+    void onParseFinished(const modbus::core::parser::ParseResult& result, quint64 requestId);
 
 protected:
     void changeEvent(QEvent* event) override;
@@ -115,6 +121,10 @@ private:
     QMap<uint16_t, DataMetadata> metadataByAddress_;
     QList<modbus::core::parser::ParseResult> historyResults_;
     modbus::core::parser::ParseResult currentResult_;
+    QThread* parseThread_ = nullptr;
+    QObject* parseWorker_ = nullptr;
+    quint64 latestParseRequestId_ = 0;
+    bool parseInProgress_ = false;
     bool isUpdatingDataTable_ = false;
     static constexpr int kMaxHistoryCount = 20;
 };
