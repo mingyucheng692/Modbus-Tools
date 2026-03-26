@@ -28,6 +28,7 @@
 #include <QTextStream>
 #include <QThread>
 #include <QObject>
+#include <QSplitter>
 
 namespace ui::widgets {
 
@@ -290,8 +291,15 @@ void FrameAnalyzerWidget::setupUi()
 
     createInputGroup();
     createResultGroup();
-    mainLayout->setStretch(0, 0);
-    mainLayout->setStretch(1, 1);
+    mainSplitter_ = new QSplitter(Qt::Vertical, this);
+    mainSplitter_->setChildrenCollapsible(false);
+    mainSplitter_->setHandleWidth(6);
+    mainSplitter_->addWidget(inputGroup_);
+    mainSplitter_->addWidget(resultGroup_);
+    mainSplitter_->setStretchFactor(0, 0);
+    mainSplitter_->setStretchFactor(1, 1);
+    mainSplitter_->setSizes({140, 520});
+    mainLayout->addWidget(mainSplitter_, 1);
 }
 
 void FrameAnalyzerWidget::createInputGroup()
@@ -337,11 +345,12 @@ void FrameAnalyzerWidget::createInputGroup()
     // Input Editor
     inputEditor_ = new QPlainTextEdit(this);
     inputEditor_->setPlaceholderText(tr("Enter Hex string (e.g., 01 03 00 00 00 01 84 0A)"));
-    inputEditor_->setMaximumHeight(72);
+    inputEditor_->setMinimumHeight(64);
+    inputEditor_->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
     groupLayout->addWidget(inputEditor_);
 
     connect(startAddressSpin_, qOverload<int>(&QSpinBox::valueChanged), this, &FrameAnalyzerWidget::saveSettings);
-    layout()->addWidget(inputGroup_);
+    inputGroup_->setMinimumHeight(0);
     loadSettings();
 }
 
@@ -376,16 +385,19 @@ void FrameAnalyzerWidget::createResultGroup()
     groupLayout->addLayout(resultToolbarLayout);
 
     resultTabs_ = new QTabWidget(this);
+    resultTabs_->setMinimumSize(0, 0);
 
     structureTab_ = new QWidget(this);
     auto structureLayout = new QVBoxLayout(structureTab_);
     structureLayout->setContentsMargins(0, 0, 0, 0);
     structureLayout->setSpacing(6);
+    structureTab_->setMinimumSize(0, 0);
 
     overviewTree_ = new QTreeWidget(structureTab_);
     overviewTree_->setHeaderLabels({tr("Field"), tr("Value"), tr("Description")});
     overviewTree_->setColumnWidth(0, 200);
     overviewTree_->setColumnWidth(1, 150);
+    overviewTree_->setMinimumSize(0, 0);
     structureLayout->addWidget(overviewTree_, 3);
 
     resultTabs_->addTab(structureTab_, tr("Structure"));
@@ -395,8 +407,9 @@ void FrameAnalyzerWidget::createResultGroup()
     dataTable_->setColumnCount(7);
     dataTable_->setHorizontalHeaderLabels({tr("Address"), tr("Hex"), tr("Decimal"), tr("Binary"), tr("Scale"), tr("Value"), tr("Description")});
     dataTable_->horizontalHeader()->setSectionResizeMode(QHeaderView::Interactive);
-    dataTable_->horizontalHeader()->setMinimumSectionSize(56);
+    dataTable_->horizontalHeader()->setMinimumSectionSize(40);
     dataTable_->horizontalHeader()->setStretchLastSection(true);
+    dataTable_->setMinimumSize(0, 0);
     dataTable_->setColumnWidth(0, 72);
     dataTable_->setColumnWidth(1, 120);
     dataTable_->setColumnWidth(2, 88);
@@ -430,9 +443,10 @@ void FrameAnalyzerWidget::createResultGroup()
     historyLayout->setContentsMargins(6, 6, 6, 6);
     historyLayout->setSpacing(4);
     historyList_ = new QListWidget(historyGroup_);
-    historyGroup_->setMinimumWidth(120);
-    historyGroup_->setMaximumWidth(168);
+    historyGroup_->setMinimumWidth(0);
+    historyGroup_->setMaximumWidth(180);
     historyLayout->addWidget(historyList_);
+    historyList_->setMinimumSize(0, 0);
     clearHistoryBtn_ = new QPushButton(tr("Clear History"), historyGroup_);
     clearHistoryBtn_->setFixedHeight(24);
     historyLayout->addWidget(clearHistoryBtn_);
@@ -443,12 +457,26 @@ void FrameAnalyzerWidget::createResultGroup()
         setHistoryCollapsed(!historyCollapsed_);
     });
 
-    auto contentLayout = new QHBoxLayout();
-    contentLayout->setSpacing(8);
-    contentLayout->addWidget(resultTabs_, 1);
-    contentLayout->addWidget(historyGroup_);
+    contentSplitter_ = new QSplitter(Qt::Horizontal, resultGroup_);
+    contentSplitter_->setHandleWidth(6);
+    contentSplitter_->addWidget(resultTabs_);
+    contentSplitter_->addWidget(historyGroup_);
+    contentSplitter_->setStretchFactor(0, 1);
+    contentSplitter_->setStretchFactor(1, 0);
+    contentSplitter_->setSizes({720, lastHistoryPanelWidth_});
+    connect(contentSplitter_, &QSplitter::splitterMoved, this, [this]() {
+        if (!contentSplitter_) {
+            return;
+        }
+        const QList<int> sizes = contentSplitter_->sizes();
+        if (sizes.size() > 1 && sizes.at(1) > 0) {
+            lastHistoryPanelWidth_ = sizes.at(1);
+        }
+    });
+
     setHistoryCollapsed(false);
-    groupLayout->addLayout(contentLayout, 1);
+    resultGroup_->setMinimumHeight(0);
+    groupLayout->addWidget(contentSplitter_, 1);
 }
 
 void FrameAnalyzerWidget::onFormatClicked()
@@ -1012,7 +1040,25 @@ QString FrameAnalyzerWidget::historyItemText(const ParseResult& result) const
 void FrameAnalyzerWidget::setHistoryCollapsed(bool collapsed)
 {
     historyCollapsed_ = collapsed;
-    if (historyGroup_) {
+    if (contentSplitter_ && historyGroup_) {
+        if (collapsed) {
+            const QList<int> sizes = contentSplitter_->sizes();
+            if (sizes.size() > 1 && sizes.at(1) > 0) {
+                lastHistoryPanelWidth_ = sizes.at(1);
+            }
+            historyGroup_->hide();
+        } else {
+            historyGroup_->show();
+            const QList<int> sizes = contentSplitter_->sizes();
+            int totalWidth = 0;
+            for (int size : sizes) {
+                totalWidth += size;
+            }
+            totalWidth = qMax(totalWidth, resultGroup_ ? resultGroup_->width() : 0);
+            const int historyWidth = qMax(120, lastHistoryPanelWidth_);
+            contentSplitter_->setSizes({qMax(0, totalWidth - historyWidth), historyWidth});
+        }
+    } else if (historyGroup_) {
         historyGroup_->setVisible(!collapsed);
     }
     updateHistoryToggleText();

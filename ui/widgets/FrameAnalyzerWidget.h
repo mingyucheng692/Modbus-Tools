@@ -21,6 +21,7 @@ class QListWidget;
 class QString;
 class QThread;
 class QObject;
+class QSplitter;
 
 namespace ui::widgets {
 
@@ -92,6 +93,7 @@ private:
 private:
     // Input Controls
     QGroupBox* inputGroup_ = nullptr;
+    QSplitter* mainSplitter_ = nullptr;
     QLabel* protocolLabel_ = nullptr;
     QLabel* startAddrLabel_ = nullptr;
     QLabel* displayModeLabel_ = nullptr;
@@ -115,10 +117,12 @@ private:
     QTreeWidget* overviewTree_ = nullptr;
     QTableWidget* dataTable_ = nullptr;
     QTabWidget* resultTabs_ = nullptr;
+    QSplitter* contentSplitter_ = nullptr;
     QGroupBox* historyGroup_ = nullptr;
     QListWidget* historyList_ = nullptr;
     QPushButton* clearHistoryBtn_ = nullptr;
     bool historyCollapsed_ = false;
+    int lastHistoryPanelWidth_ = 148;
     NumberDisplayMode displayMode_ = NumberDisplayMode::Unsigned;
     QMap<uint16_t, DataMetadata> metadataByAddress_;
     QList<modbus::core::parser::ParseResult> historyResults_;
