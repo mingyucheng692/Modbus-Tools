@@ -824,6 +824,16 @@ void FrameAnalyzerWidget::exportCurrentTableToCsv(const QString& filePath) const
 QString FrameAnalyzerWidget::buildRegisterMapText() const
 {
     QStringList lines;
+    const QString protocolText = currentResult_.protocol == ProtocolType::Tcp ? tr("TCP") : tr("RTU");
+    const QString functionCodeText = QString("0x%1")
+                                         .arg(static_cast<int>(currentResult_.functionCode), 2, 16, QChar('0'))
+                                         .toUpper();
+    lines << tr("Protocol:\t%1").arg(protocolText);
+    lines << tr("Function Code:\t%1").arg(functionCodeText);
+    lines << tr("Timestamp:\t%1").arg(currentResult_.timestamp.toString("yyyy-MM-dd hh:mm:ss.zzz"));
+    lines << tr("Rows:\t%1").arg(dataTable_->rowCount());
+    lines << QString();
+
     QStringList headerValues;
     for (int column = 0; column < dataTable_->columnCount(); ++column) {
         const QTableWidgetItem* headerItem = dataTable_->horizontalHeaderItem(column);
