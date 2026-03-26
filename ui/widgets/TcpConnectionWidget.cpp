@@ -9,6 +9,7 @@
 #include <QSettings>
 #include <QApplication>
 #include <QSignalBlocker>
+#include <QSizePolicy>
 
 namespace ui::widgets {
 
@@ -22,14 +23,19 @@ TcpConnectionWidget::~TcpConnectionWidget() = default;
 void TcpConnectionWidget::setupUi() {
     auto mainLayout = new QHBoxLayout(this);
     mainLayout->setContentsMargins(0, 0, 0, 0);
+    mainLayout->setSpacing(0);
 
     section_ = new CollapsibleSection(this);
     auto layout = new QHBoxLayout(section_->contentWidget());
+    layout->setContentsMargins(8, 0, 8, 0);
+    layout->setSpacing(6);
 
     // IP Address
     hostLabel_ = new QLabel(this);
     layout->addWidget(hostLabel_);
     ipEdit_ = new QLineEdit(this);
+    ipEdit_->setMinimumWidth(180);
+    ipEdit_->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);
     layout->addWidget(ipEdit_);
 
     // Port
@@ -38,15 +44,19 @@ void TcpConnectionWidget::setupUi() {
     portEdit_ = new QSpinBox(this);
     portEdit_->setRange(1, 65535);
     portEdit_->setValue(502);
+    portEdit_->setFixedWidth(88);
     layout->addWidget(portEdit_);
 
     // Connect Button
     connectBtn_ = new QPushButton(this);
+    connectBtn_->setMinimumWidth(108);
     layout->addWidget(connectBtn_);
 
     // Status
     statusLabel_ = new QLabel(this);
     statusLabel_->setStyleSheet("color: red; font-weight: bold;");
+    statusLabel_->setMinimumWidth(120);
+    statusLabel_->setSizePolicy(QSizePolicy::Minimum, QSizePolicy::Preferred);
     layout->addWidget(statusLabel_);
 
     layout->addStretch();

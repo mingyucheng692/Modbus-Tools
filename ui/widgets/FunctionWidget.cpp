@@ -43,15 +43,19 @@ void FunctionWidget::setupUi() {
 void FunctionWidget::setupStandardUi(QWidget* parent) {
     auto layout = new QVBoxLayout(parent);
     layout->setContentsMargins(8, 0, 8, 0);
+    layout->setSpacing(6);
     
     // Row 1: Parameters
     auto paramLayout = new QHBoxLayout();
+    paramLayout->setContentsMargins(0, 0, 0, 0);
+    paramLayout->setSpacing(6);
     
     slaveIdLabel_ = new QLabel(parent);
     paramLayout->addWidget(slaveIdLabel_);
     slaveIdEdit_ = new QSpinBox(parent);
     slaveIdEdit_->setRange(1, 247);
     slaveIdEdit_->setValue(1);
+    slaveIdEdit_->setFixedWidth(72);
     paramLayout->addWidget(slaveIdEdit_);
 
     addressLabel_ = new QLabel(parent);
@@ -59,6 +63,7 @@ void FunctionWidget::setupStandardUi(QWidget* parent) {
     addressEdit_ = new QSpinBox(parent);
     addressEdit_->setRange(0, 65535);
     addressEdit_->setValue(0);
+    addressEdit_->setFixedWidth(76);
     paramLayout->addWidget(addressEdit_);
 
     quantityLabel_ = new QLabel(parent);
@@ -66,6 +71,7 @@ void FunctionWidget::setupStandardUi(QWidget* parent) {
     quantityEdit_ = new QSpinBox(parent);
     quantityEdit_->setRange(1, 125); // Typical Modbus Limit
     quantityEdit_->setValue(10);
+    quantityEdit_->setFixedWidth(76);
     paramLayout->addWidget(quantityEdit_);
     
     paramLayout->addStretch();
@@ -73,9 +79,12 @@ void FunctionWidget::setupStandardUi(QWidget* parent) {
 
     // Row 2: Write Data Input
     auto writeLayout = new QHBoxLayout();
+    writeLayout->setContentsMargins(0, 0, 0, 0);
+    writeLayout->setSpacing(6);
     writeDataLabel_ = new QLabel(parent);
     writeLayout->addWidget(writeDataLabel_);
     writeDataEdit_ = new QLineEdit(parent);
+    writeDataEdit_->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);
     writeLayout->addWidget(writeDataEdit_);
     
     formatLabel_ = new QLabel(parent);
@@ -83,14 +92,16 @@ void FunctionWidget::setupStandardUi(QWidget* parent) {
     dataFormatBox_ = new QComboBox(parent);
     dataFormatBox_->addItem("", "Hex");
     dataFormatBox_->addItem("", "Decimal");
+    dataFormatBox_->setFixedWidth(92);
     writeLayout->addWidget(dataFormatBox_);
     
     layout->addLayout(writeLayout);
 
     // Row 3: Function Buttons
     auto btnLayout = new QGridLayout();
-    btnLayout->setHorizontalSpacing(10);
-    btnLayout->setVerticalSpacing(8);
+    btnLayout->setContentsMargins(0, 0, 0, 0);
+    btnLayout->setHorizontalSpacing(6);
+    btnLayout->setVerticalSpacing(6);
     
     // Read Buttons
     readBtn01_ = new QPushButton(parent);
@@ -135,6 +146,8 @@ void FunctionWidget::setupStandardUi(QWidget* parent) {
     };
     for (auto* button : fcButtons) {
         button->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);
+        button->setMinimumWidth(0);
+        button->setMinimumHeight(28);
     }
 
     layout->addLayout(btnLayout);

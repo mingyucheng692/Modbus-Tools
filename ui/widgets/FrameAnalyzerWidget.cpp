@@ -363,6 +363,8 @@ void FrameAnalyzerWidget::createResultGroup()
     auto groupLayout = new QVBoxLayout(resultGroup_);
 
     auto resultToolbarLayout = new QHBoxLayout();
+    resultToolbarLayout->setContentsMargins(0, 0, 0, 0);
+    resultToolbarLayout->setSpacing(6);
     statusLabel_ = new QLabel(tr("Ready"), this);
     statusLabel_->setStyleSheet("font-weight: bold; color: gray;");
     resultToolbarLayout->addWidget(statusLabel_);
@@ -373,17 +375,25 @@ void FrameAnalyzerWidget::createResultGroup()
     displayModeCombo_->addItem(tr("Unsigned"), static_cast<int>(NumberDisplayMode::Unsigned));
     displayModeCombo_->addItem(tr("Signed"), static_cast<int>(NumberDisplayMode::Signed));
     displayModeCombo_->setCurrentIndex(0);
+    displayModeCombo_->setMinimumContentsLength(8);
+    displayModeCombo_->setSizeAdjustPolicy(QComboBox::AdjustToMinimumContentsLengthWithIcon);
     resultToolbarLayout->addWidget(displayModeCombo_);
-    importJsonBtn_ = new QPushButton(tr("Import JSON"), this);
-    resultToolbarLayout->addWidget(importJsonBtn_);
-    exportJsonBtn_ = new QPushButton(tr("Export JSON"), this);
-    resultToolbarLayout->addWidget(exportJsonBtn_);
+    resultToolbarLayout->addSpacing(6);
+    importJsonBtn_ = new QPushButton(tr("Import Config"), this);
+    exportJsonBtn_ = new QPushButton(tr("Export Config"), this);
     exportCsvBtn_ = new QPushButton(tr("Export CSV"), this);
-    resultToolbarLayout->addWidget(exportCsvBtn_);
     copyMapBtn_ = new QPushButton(tr("Copy Map"), this);
-    resultToolbarLayout->addWidget(copyMapBtn_);
+    const QList<QPushButton*> actionButtons = {
+        importJsonBtn_, exportJsonBtn_, exportCsvBtn_, copyMapBtn_
+    };
+    for (auto* button : actionButtons) {
+        button->setMinimumWidth(0);
+        button->setMinimumHeight(28);
+        resultToolbarLayout->addWidget(button);
+    }
     toggleHistoryBtn_ = new QPushButton(this);
-    toggleHistoryBtn_->setFixedHeight(24);
+    toggleHistoryBtn_->setMinimumWidth(0);
+    toggleHistoryBtn_->setMinimumHeight(28);
     resultToolbarLayout->addWidget(toggleHistoryBtn_);
     groupLayout->addLayout(resultToolbarLayout);
 
@@ -1142,21 +1152,29 @@ void FrameAnalyzerWidget::retranslateUi()
     if (displayModeCombo_) {
         displayModeCombo_->setItemText(0, tr("Unsigned"));
         displayModeCombo_->setItemText(1, tr("Signed"));
+        displayModeCombo_->setToolTip(tr("Choose how parsed numeric values are displayed."));
     }
     if (formatBtn_) {
         formatBtn_->setText(tr("Format Hex"));
     }
     if (importJsonBtn_) {
-        importJsonBtn_->setText(tr("Import JSON"));
+        importJsonBtn_->setText(tr("Import Config"));
+        importJsonBtn_->setToolTip(tr("Import saved field scale and description settings from a JSON file."));
     }
     if (exportJsonBtn_) {
-        exportJsonBtn_->setText(tr("Export JSON"));
+        exportJsonBtn_->setText(tr("Export Config"));
+        exportJsonBtn_->setToolTip(tr("Export current field scale and description settings to a JSON file."));
     }
     if (exportCsvBtn_) {
         exportCsvBtn_->setText(tr("Export CSV"));
+        exportCsvBtn_->setToolTip(tr("Export the parsed register data in the current table as a CSV file."));
     }
     if (copyMapBtn_) {
         copyMapBtn_->setText(tr("Copy Map"));
+        copyMapBtn_->setToolTip(tr("Copy the current register map text for quick sharing."));
+    }
+    if (toggleHistoryBtn_) {
+        toggleHistoryBtn_->setToolTip(tr("Show or hide the parse history panel."));
     }
     updateHistoryToggleText();
     if (parseBtn_) {

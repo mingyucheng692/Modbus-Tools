@@ -31,12 +31,17 @@ TrafficMonitorWidget::~TrafficMonitorWidget() = default;
 void TrafficMonitorWidget::setupUi() {
     auto mainLayout = new QVBoxLayout(this);
     mainLayout->setContentsMargins(0, 0, 0, 0);
+    mainLayout->setSpacing(0);
 
     section_ = new CollapsibleSection(this);
     auto layout = new QVBoxLayout(section_->contentWidget());
+    layout->setContentsMargins(8, 0, 8, 0);
+    layout->setSpacing(6);
 
     // Toolbar
     auto toolbarLayout = new QHBoxLayout();
+    toolbarLayout->setContentsMargins(0, 0, 0, 0);
+    toolbarLayout->setSpacing(6);
     
     autoScrollCheck_ = new QCheckBox(this);
     autoScrollCheck_->setChecked(true);
@@ -65,6 +70,7 @@ void TrafficMonitorWidget::setupUi() {
     logList_->setSelectionMode(QAbstractItemView::ExtendedSelection);
     logList_->setContextMenuPolicy(Qt::CustomContextMenu);
     logList_->setMinimumHeight(64);
+    logList_->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
     layout->addWidget(logList_);
 
     mainLayout->addWidget(section_);
@@ -177,9 +183,10 @@ void TrafficMonitorWidget::saveSettings() {
 }
 
 void TrafficMonitorWidget::syncCollapsedGeometry(bool expanded) {
-    setMinimumHeight(expanded ? 88 : 0);
+    const int expandedMinimumHeight = qMax(140, minimumSizeHint().height());
+    setMinimumHeight(expanded ? expandedMinimumHeight : 0);
     QSizePolicy policy = sizePolicy();
-    policy.setVerticalPolicy(expanded ? QSizePolicy::MinimumExpanding : QSizePolicy::Minimum);
+    policy.setVerticalPolicy(expanded ? QSizePolicy::Preferred : QSizePolicy::Minimum);
     setSizePolicy(policy);
     updateGeometry();
 }

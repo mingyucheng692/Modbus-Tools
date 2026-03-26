@@ -167,16 +167,10 @@ QWidget* createScrollablePage(QWidget* page, QWidget* parent) {
     auto* scrollArea = new QScrollArea(parent);
     scrollArea->setWidgetResizable(true);
     scrollArea->setFrameShape(QFrame::NoFrame);
-    scrollArea->setHorizontalScrollBarPolicy(Qt::ScrollBarAsNeeded);
+    scrollArea->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
     scrollArea->setVerticalScrollBarPolicy(Qt::ScrollBarAsNeeded);
-
-    auto* container = new QWidget(scrollArea);
-    auto* layout = new QVBoxLayout(container);
-    layout->setContentsMargins(0, 0, 0, 0);
-    layout->setSpacing(0);
-    layout->setSizeConstraint(QLayout::SetMinimumSize);
-    layout->addWidget(page);
-    scrollArea->setWidget(container);
+    page->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Preferred);
+    scrollArea->setWidget(page);
     return scrollArea;
 }
 
