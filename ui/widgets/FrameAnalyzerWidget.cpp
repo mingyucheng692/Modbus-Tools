@@ -422,23 +422,23 @@ void FrameAnalyzerWidget::createResultGroup()
         }
     });
 
-    groupLayout->addWidget(resultTabs_);
-
     historyGroup_ = new QGroupBox(tr("History"), this);
     auto historyLayout = new QVBoxLayout(historyGroup_);
-    auto historyToolbarLayout = new QHBoxLayout();
-    historyToolbarLayout->addStretch();
-    clearHistoryBtn_ = new QPushButton(tr("Clear History"), historyGroup_);
-    historyToolbarLayout->addWidget(clearHistoryBtn_);
-    historyLayout->addLayout(historyToolbarLayout);
-
     historyList_ = new QListWidget(historyGroup_);
-    historyList_->setMaximumHeight(150);
+    historyGroup_->setMinimumWidth(180);
+    historyGroup_->setMaximumWidth(240);
     historyLayout->addWidget(historyList_);
+    clearHistoryBtn_ = new QPushButton(tr("Clear History"), historyGroup_);
+    historyLayout->addWidget(clearHistoryBtn_);
 
     connect(historyList_, &QListWidget::currentRowChanged, this, &FrameAnalyzerWidget::onHistorySelectionChanged);
     connect(clearHistoryBtn_, &QPushButton::clicked, this, &FrameAnalyzerWidget::onClearHistoryClicked);
-    groupLayout->addWidget(historyGroup_);
+
+    auto contentLayout = new QHBoxLayout();
+    contentLayout->setSpacing(8);
+    contentLayout->addWidget(resultTabs_, 1);
+    contentLayout->addWidget(historyGroup_);
+    groupLayout->addLayout(contentLayout, 1);
     layout()->addWidget(resultGroup_);
 }
 
