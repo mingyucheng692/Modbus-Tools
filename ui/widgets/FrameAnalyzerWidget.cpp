@@ -25,6 +25,7 @@
 #include <QListWidget>
 #include <QStringList>
 #include <QClipboard>
+#include <QResizeEvent>
 #include <QTextStream>
 #include <QThread>
 #include <QObject>
@@ -35,6 +36,8 @@ namespace ui::widgets {
 using namespace modbus::core::parser;
 
 namespace {
+constexpr int kAdaptiveHistoryCollapseWidth = 1040;
+
 QString byteHex(const QByteArray& bytes)
 {
     QStringList parts;
@@ -386,6 +389,7 @@ void FrameAnalyzerWidget::createResultGroup()
 
     resultTabs_ = new QTabWidget(this);
     resultTabs_->setMinimumSize(0, 0);
+    resultTabs_->setMinimumWidth(320);
 
     structureTab_ = new QWidget(this);
     auto structureLayout = new QVBoxLayout(structureTab_);
@@ -442,6 +446,7 @@ void FrameAnalyzerWidget::createResultGroup()
     auto historyLayout = new QVBoxLayout(historyGroup_);
     historyLayout->setContentsMargins(6, 6, 6, 6);
     historyLayout->setSpacing(4);
+    historyGroup_->setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Expanding);
     historyList_ = new QListWidget(historyGroup_);
     historyGroup_->setMinimumWidth(0);
     historyGroup_->setMaximumWidth(180);
@@ -454,13 +459,17 @@ void FrameAnalyzerWidget::createResultGroup()
     connect(historyList_, &QListWidget::currentRowChanged, this, &FrameAnalyzerWidget::onHistorySelectionChanged);
     connect(clearHistoryBtn_, &QPushButton::clicked, this, &FrameAnalyzerWidget::onClearHistoryClicked);
     connect(toggleHistoryBtn_, &QPushButton::clicked, this, [this]() {
+        historyAutoCollapsed_ = false;
         setHistoryCollapsed(!historyCollapsed_);
     });
 
     contentSplitter_ = new QSplitter(Qt::Horizontal, resultGroup_);
+    contentSplitter_->setChildrenCollapsible(true);
     contentSplitter_->setHandleWidth(6);
     contentSplitter_->addWidget(resultTabs_);
     contentSplitter_->addWidget(historyGroup_);
+    contentSplitter_->setCollapsible(0, false);
+    contentSplitter_->setCollapsible(1, true);
     contentSplitter_->setStretchFactor(0, 1);
     contentSplitter_->setStretchFactor(1, 0);
     contentSplitter_->setSizes({720, lastHistoryPanelWidth_});
@@ -475,6 +484,7 @@ void FrameAnalyzerWidget::createResultGroup()
     });
 
     setHistoryCollapsed(false);
+    updateAdaptiveLayout();
     resultGroup_->setMinimumHeight(0);
     groupLayout->addWidget(contentSplitter_, 1);
 }
@@ -1047,6 +1057,7 @@ void FrameAnalyzerWidget::setHistoryCollapsed(bool collapsed)
                 lastHistoryPanelWidth_ = sizes.at(1);
             }
             historyGroup_->hide();
+            contentSplitter_->setSizes({1, 0});
         } else {
             historyGroup_->show();
             const QList<int> sizes = contentSplitter_->sizes();
@@ -1064,6 +1075,29 @@ void FrameAnalyzerWidget::setHistoryCollapsed(bool collapsed)
     updateHistoryToggleText();
 }
 
+void FrameAnalyzerWidget::updateAdaptiveLayout()
+{
+    if (!contentSplitter_ || !historyGroup_) {
+        return;
+    }
+
+    const bool shouldAutoCollapseHistory = width() < kAdaptiveHistoryCollapseWidth;
+    if (shouldAutoCollapseHistory) {
+        if (!historyCollapsed_) {
+            historyAutoCollapsed_ = true;
+            setHistoryCollapsed(true);
+        }
+        return;
+    }
+
+    if (historyAutoCollapsed_) {
+        historyAutoCollapsed_ = false;
+        if (historyCollapsed_) {
+            setHistoryCollapsed(false);
+        }
+    }
+}
+
 void FrameAnalyzerWidget::updateHistoryToggleText()
 {
     if (!toggleHistoryBtn_) {
@@ -1078,6 +1112,12 @@ void FrameAnalyzerWidget::changeEvent(QEvent* event)
         retranslateUi();
     }
     QWidget::changeEvent(event);
+}
+
+void FrameAnalyzerWidget::resizeEvent(QResizeEvent* event)
+{
+    QWidget::resizeEvent(event);
+    updateAdaptiveLayout();
 }
 
 void FrameAnalyzerWidget::retranslateUi()

@@ -22,6 +22,7 @@ class QString;
 class QThread;
 class QObject;
 class QSplitter;
+class QResizeEvent;
 
 namespace ui::widgets {
 
@@ -49,6 +50,7 @@ private slots:
 
 protected:
     void changeEvent(QEvent* event) override;
+    void resizeEvent(QResizeEvent* event) override;
 
 private:
     enum class NumberDisplayMode {
@@ -85,6 +87,7 @@ private:
     QString historyItemText(const modbus::core::parser::ParseResult& result) const;
     void setHistoryCollapsed(bool collapsed);
     void updateHistoryToggleText();
+    void updateAdaptiveLayout();
     
     // 渲染解析结果
     void renderResult(const modbus::core::parser::ParseResult& result);
@@ -122,6 +125,7 @@ private:
     QListWidget* historyList_ = nullptr;
     QPushButton* clearHistoryBtn_ = nullptr;
     bool historyCollapsed_ = false;
+    bool historyAutoCollapsed_ = false;
     int lastHistoryPanelWidth_ = 148;
     NumberDisplayMode displayMode_ = NumberDisplayMode::Unsigned;
     QMap<uint16_t, DataMetadata> metadataByAddress_;
