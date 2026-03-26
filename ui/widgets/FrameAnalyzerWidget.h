@@ -18,6 +18,7 @@ class QGroupBox;
 class QTableWidgetItem;
 class QWidget;
 class QListWidget;
+class QString;
 
 namespace ui::widgets {
 
@@ -34,6 +35,8 @@ private slots:
     void onFormatClicked(); // 格式化 Hex 输入
     void onExportJsonClicked();
     void onImportJsonClicked();
+    void onExportCsvClicked();
+    void onCopyRegisterMapClicked();
     void onHistorySelectionChanged(int row);
     void onClearHistoryClicked();
 
@@ -68,6 +71,9 @@ private:
     void exportMetadataToJson(const QString& filePath);
     void importMetadataFromJson(const QString& filePath);
     QString formatRawFrameStructure(const modbus::core::parser::ParseResult& result) const;
+    void exportCurrentTableToCsv(const QString& filePath) const;
+    QString buildRegisterMapText() const;
+    QString escapeCsvValue(const QString& value) const;
     void addToHistory(const modbus::core::parser::ParseResult& result);
     void refreshHistoryList();
     QString historyItemText(const modbus::core::parser::ParseResult& result) const;
@@ -90,6 +96,8 @@ private:
     QPushButton* formatBtn_ = nullptr;
     QPushButton* importJsonBtn_ = nullptr;
     QPushButton* exportJsonBtn_ = nullptr;
+    QPushButton* exportCsvBtn_ = nullptr;
+    QPushButton* copyMapBtn_ = nullptr;
     QPushButton* clearBtn_ = nullptr;
 
     // Result Controls

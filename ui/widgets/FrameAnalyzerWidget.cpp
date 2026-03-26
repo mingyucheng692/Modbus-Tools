@@ -24,6 +24,8 @@
 #include <QJsonArray>
 #include <QListWidget>
 #include <QStringList>
+#include <QClipboard>
+#include <QTextStream>
 
 namespace ui::widgets {
 
@@ -306,6 +308,10 @@ void FrameAnalyzerWidget::createResultGroup()
     resultToolbarLayout->addWidget(importJsonBtn_);
     exportJsonBtn_ = new QPushButton(tr("Export JSON"), this);
     resultToolbarLayout->addWidget(exportJsonBtn_);
+    exportCsvBtn_ = new QPushButton(tr("Export CSV"), this);
+    resultToolbarLayout->addWidget(exportCsvBtn_);
+    copyMapBtn_ = new QPushButton(tr("Copy Map"), this);
+    resultToolbarLayout->addWidget(copyMapBtn_);
     groupLayout->addLayout(resultToolbarLayout);
 
     resultTabs_ = new QTabWidget(this);
@@ -348,6 +354,8 @@ void FrameAnalyzerWidget::createResultGroup()
 
     connect(importJsonBtn_, &QPushButton::clicked, this, &FrameAnalyzerWidget::onImportJsonClicked);
     connect(exportJsonBtn_, &QPushButton::clicked, this, &FrameAnalyzerWidget::onExportJsonClicked);
+    connect(exportCsvBtn_, &QPushButton::clicked, this, &FrameAnalyzerWidget::onExportCsvClicked);
+    connect(copyMapBtn_, &QPushButton::clicked, this, &FrameAnalyzerWidget::onCopyRegisterMapClicked);
     connect(displayModeCombo_, qOverload<int>(&QComboBox::currentIndexChanged), this, [this](int index) {
         if (index < 0) {
             return;
@@ -435,6 +443,36 @@ void FrameAnalyzerWidget::onImportJsonClicked()
         return;
     }
     importMetadataFromJson(filePath);
+}
+
+void FrameAnalyzerWidget::onExportCsvClicked()
+{
+    if (!currentResult_.isValid || !dataTable_ || dataTable_->rowCount() == 0) {
+        QMessageBox::information(this, tr("No Data"), tr("There is no parsed data to export."));
+        return;
+    }
+
+    const QString filePath = QFileDialog::getSaveFileName(
+        this,
+        tr("Export CSV"),
+        QString("frame_analysis_%1.csv").arg(QDateTime::currentDateTime().toString("yyyyMMdd_HHmmss")),
+        tr("CSV Files (*.csv)"));
+    if (filePath.isEmpty()) {
+        return;
+    }
+
+    exportCurrentTableToCsv(filePath);
+}
+
+void FrameAnalyzerWidget::onCopyRegisterMapClicked()
+{
+    if (!currentResult_.isValid || !dataTable_ || dataTable_->rowCount() == 0) {
+        QMessageBox::information(this, tr("No Data"), tr("There is no parsed data to copy."));
+        return;
+    }
+
+    QApplication::clipboard()->setText(buildRegisterMapText());
+    QMessageBox::information(this, tr("Copied"), tr("Register map copied to clipboard."));
 }
 
 void FrameAnalyzerWidget::exportMetadataToJson(const QString& filePath)
@@ -757,6 +795,61 @@ QString FrameAnalyzerWidget::formatRawFrameStructure(const ParseResult& result) 
     return lines.join('\n');
 }
 
+void FrameAnalyzerWidget::exportCurrentTableToCsv(const QString& filePath) const
+{
+    QFile file(filePath);
+    if (!file.open(QIODevice::WriteOnly | QIODevice::Truncate | QIODevice::Text)) {
+        QMessageBox::warning(const_cast<FrameAnalyzerWidget*>(this), tr("Export Failed"), tr("Cannot write file: %1").arg(filePath));
+        return;
+    }
+
+    QTextStream stream(&file);
+    QStringList headerValues;
+    for (int column = 0; column < dataTable_->columnCount(); ++column) {
+        const QTableWidgetItem* headerItem = dataTable_->horizontalHeaderItem(column);
+        headerValues << escapeCsvValue(headerItem ? headerItem->text() : QString());
+    }
+    stream << headerValues.join(',') << '\n';
+
+    for (int row = 0; row < dataTable_->rowCount(); ++row) {
+        QStringList rowValues;
+        for (int column = 0; column < dataTable_->columnCount(); ++column) {
+            const QTableWidgetItem* item = dataTable_->item(row, column);
+            rowValues << escapeCsvValue(item ? item->text() : QString());
+        }
+        stream << rowValues.join(',') << '\n';
+    }
+}
+
+QString FrameAnalyzerWidget::buildRegisterMapText() const
+{
+    QStringList lines;
+    QStringList headerValues;
+    for (int column = 0; column < dataTable_->columnCount(); ++column) {
+        const QTableWidgetItem* headerItem = dataTable_->horizontalHeaderItem(column);
+        headerValues << (headerItem ? headerItem->text() : QString());
+    }
+    lines << headerValues.join('\t');
+
+    for (int row = 0; row < dataTable_->rowCount(); ++row) {
+        QStringList rowValues;
+        for (int column = 0; column < dataTable_->columnCount(); ++column) {
+            const QTableWidgetItem* item = dataTable_->item(row, column);
+            rowValues << (item ? item->text() : QString());
+        }
+        lines << rowValues.join('\t');
+    }
+
+    return lines.join('\n');
+}
+
+QString FrameAnalyzerWidget::escapeCsvValue(const QString& value) const
+{
+    QString escaped = value;
+    escaped.replace('"', "\"\"");
+    return QString("\"%1\"").arg(escaped);
+}
+
 void FrameAnalyzerWidget::addToHistory(const ParseResult& result)
 {
     historyResults_.prepend(result);
@@ -839,6 +932,12 @@ void FrameAnalyzerWidget::retranslateUi()
     }
     if (exportJsonBtn_) {
         exportJsonBtn_->setText(tr("Export JSON"));
+    }
+    if (exportCsvBtn_) {
+        exportCsvBtn_->setText(tr("Export CSV"));
+    }
+    if (copyMapBtn_) {
+        copyMapBtn_->setText(tr("Copy Map"));
     }
     if (parseBtn_) {
         parseBtn_->setText(tr("Parse"));
