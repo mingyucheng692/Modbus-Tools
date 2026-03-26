@@ -47,8 +47,8 @@ void ModbusRtuView::updateModbusSettings(int timeoutMs, int retries, int retryIn
 
 void ModbusRtuView::setupUi() {
     mainLayout_ = new QVBoxLayout(this);
-    mainLayout_->setContentsMargins(6, 6, 6, 6);
-    mainLayout_->setSpacing(6);
+    mainLayout_->setContentsMargins(4, 4, 4, 4);
+    mainLayout_->setSpacing(4);
     
     connectionWidget_ = new widgets::SerialConnectionWidget(this);
     connectionWidget_->setSettingsGroup("modbus/rtu/serial");
@@ -61,6 +61,8 @@ void ModbusRtuView::setupUi() {
     dataGroup_ = new widgets::CollapsibleSection(this);
     dataGroup_->setSettingsKey("modbus/rtu/ui/dataMonitorCollapsed");
     auto dataLayout = new QHBoxLayout(dataGroup_->contentWidget());
+    dataLayout->setContentsMargins(6, 0, 6, 6);
+    dataLayout->setSpacing(6);
 
     receiveGroup_ = new QGroupBox(dataGroup_->contentWidget());
     auto receiveLayout = new QVBoxLayout(receiveGroup_);

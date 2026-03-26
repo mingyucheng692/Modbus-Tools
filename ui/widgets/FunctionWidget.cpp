@@ -12,6 +12,7 @@
 #include <QEvent>
 #include <QSettings>
 #include <QApplication>
+#include <QFont>
 #include <QSignalBlocker>
 #include <QSizePolicy>
 
@@ -42,20 +43,20 @@ void FunctionWidget::setupUi() {
 
 void FunctionWidget::setupStandardUi(QWidget* parent) {
     auto layout = new QVBoxLayout(parent);
-    layout->setContentsMargins(8, 0, 8, 0);
-    layout->setSpacing(6);
+    layout->setContentsMargins(6, 0, 6, 0);
+    layout->setSpacing(4);
     
     // Row 1: Parameters
     auto paramLayout = new QHBoxLayout();
     paramLayout->setContentsMargins(0, 0, 0, 0);
-    paramLayout->setSpacing(6);
+    paramLayout->setSpacing(4);
     
     slaveIdLabel_ = new QLabel(parent);
     paramLayout->addWidget(slaveIdLabel_);
     slaveIdEdit_ = new QSpinBox(parent);
     slaveIdEdit_->setRange(1, 247);
     slaveIdEdit_->setValue(1);
-    slaveIdEdit_->setFixedWidth(72);
+    slaveIdEdit_->setFixedWidth(64);
     paramLayout->addWidget(slaveIdEdit_);
 
     addressLabel_ = new QLabel(parent);
@@ -63,7 +64,7 @@ void FunctionWidget::setupStandardUi(QWidget* parent) {
     addressEdit_ = new QSpinBox(parent);
     addressEdit_->setRange(0, 65535);
     addressEdit_->setValue(0);
-    addressEdit_->setFixedWidth(76);
+    addressEdit_->setFixedWidth(72);
     paramLayout->addWidget(addressEdit_);
 
     quantityLabel_ = new QLabel(parent);
@@ -71,7 +72,7 @@ void FunctionWidget::setupStandardUi(QWidget* parent) {
     quantityEdit_ = new QSpinBox(parent);
     quantityEdit_->setRange(1, 125); // Typical Modbus Limit
     quantityEdit_->setValue(10);
-    quantityEdit_->setFixedWidth(76);
+    quantityEdit_->setFixedWidth(68);
     paramLayout->addWidget(quantityEdit_);
     
     paramLayout->addStretch();
@@ -80,7 +81,7 @@ void FunctionWidget::setupStandardUi(QWidget* parent) {
     // Row 2: Write Data Input
     auto writeLayout = new QHBoxLayout();
     writeLayout->setContentsMargins(0, 0, 0, 0);
-    writeLayout->setSpacing(6);
+    writeLayout->setSpacing(4);
     writeDataLabel_ = new QLabel(parent);
     writeLayout->addWidget(writeDataLabel_);
     writeDataEdit_ = new QLineEdit(parent);
@@ -92,7 +93,7 @@ void FunctionWidget::setupStandardUi(QWidget* parent) {
     dataFormatBox_ = new QComboBox(parent);
     dataFormatBox_->addItem("", "Hex");
     dataFormatBox_->addItem("", "Decimal");
-    dataFormatBox_->setFixedWidth(92);
+    dataFormatBox_->setFixedWidth(84);
     writeLayout->addWidget(dataFormatBox_);
     
     layout->addLayout(writeLayout);
@@ -100,8 +101,8 @@ void FunctionWidget::setupStandardUi(QWidget* parent) {
     // Row 3: Function Buttons
     auto btnLayout = new QGridLayout();
     btnLayout->setContentsMargins(0, 0, 0, 0);
-    btnLayout->setHorizontalSpacing(6);
-    btnLayout->setVerticalSpacing(6);
+    btnLayout->setHorizontalSpacing(4);
+    btnLayout->setVerticalSpacing(4);
     
     // Read Buttons
     readBtn01_ = new QPushButton(parent);
@@ -144,10 +145,19 @@ void FunctionWidget::setupStandardUi(QWidget* parent) {
         readBtn01_, readBtn02_, readBtn03_, readBtn04_,
         writeBtn05_, writeBtn06_, writeBtn0F_, writeBtn10_
     };
+    QFont buttonFont = readBtn01_->font();
+    if (buttonFont.pointSizeF() > 0.0) {
+        buttonFont.setPointSizeF(buttonFont.pointSizeF() - 1.0);
+        if (buttonFont.pointSizeF() < 8.5) {
+            buttonFont.setPointSizeF(8.5);
+        }
+    }
     for (auto* button : fcButtons) {
-        button->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);
+        button->setFont(buttonFont);
+        button->setSizePolicy(QSizePolicy::Ignored, QSizePolicy::Fixed);
         button->setMinimumWidth(0);
-        button->setMinimumHeight(28);
+        button->setMinimumHeight(26);
+        button->setStyleSheet("padding-left: 4px; padding-right: 4px;");
     }
 
     layout->addLayout(btnLayout);

@@ -137,8 +137,8 @@ void ControlWidget::saveSettings() {
 
 void ControlWidget::setupUi() {
     auto layout = new QHBoxLayout(this);
-    layout->setContentsMargins(4, 5, 4, 5);
-    layout->setSpacing(6);
+    layout->setContentsMargins(4, 4, 4, 4);
+    layout->setSpacing(4);
     
     // Poll Enable
     enablePollCheck_ = new QCheckBox(this);
@@ -151,7 +151,7 @@ void ControlWidget::setupUi() {
     intervalSpin_->setRange(10, 60000);
     intervalSpin_->setValue(1000);
     intervalSpin_->setSingleStep(100);
-    intervalSpin_->setFixedWidth(92);
+    intervalSpin_->setFixedWidth(84);
     layout->addWidget(intervalSpin_);
     
     // Function Code
@@ -160,7 +160,7 @@ void ControlWidget::setupUi() {
     fcCombo_ = new QComboBox(this);
     fcCombo_->addItems({"", "", "", ""});
     fcCombo_->setCurrentIndex(2); // Default to 03
-    fcCombo_->setMinimumContentsLength(14);
+    fcCombo_->setMinimumContentsLength(12);
     fcCombo_->setSizeAdjustPolicy(QComboBox::AdjustToMinimumContentsLengthWithIcon);
     layout->addWidget(fcCombo_);
     
@@ -170,7 +170,7 @@ void ControlWidget::setupUi() {
     addrSpin_ = new QSpinBox(this);
     addrSpin_->setRange(0, 65535);
     addrSpin_->setValue(0);
-    addrSpin_->setFixedWidth(76);
+    addrSpin_->setFixedWidth(72);
     layout->addWidget(addrSpin_);
     
     // Quantity
@@ -179,7 +179,7 @@ void ControlWidget::setupUi() {
     qtySpin_ = new QSpinBox(this);
     qtySpin_->setRange(1, 125);
     qtySpin_->setValue(1);
-    qtySpin_->setFixedWidth(70);
+    qtySpin_->setFixedWidth(64);
     layout->addWidget(qtySpin_);
     
     layout->addStretch();
