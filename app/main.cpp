@@ -26,7 +26,7 @@ int main(int argc, char *argv[])
 
     ui::MainWindow window;
     window.setWindowIcon(QIcon(":/assets/logo.svg"));
-    window.showMaximized();
+    window.show();
 
     spdlog::info("Modbus-Tools initialized");
 

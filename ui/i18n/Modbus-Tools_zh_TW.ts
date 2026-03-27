@@ -1253,12 +1253,6 @@ Choose update method:</source>
         <translation>匯出 CSV</translation>
     </message>
     <message>
-        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="385"/>
-        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="1173"/>
-        <source>Copy Map</source>
-        <translation>複製映射</translation>
-    </message>
-    <message>
         <location filename="../widgets/FrameAnalyzerWidget.cpp" line="411"/>
         <location filename="../widgets/FrameAnalyzerWidget.cpp" line="1203"/>
         <source>Field</source>
@@ -1365,21 +1359,6 @@ Choose update method:</source>
         <location filename="../widgets/FrameAnalyzerWidget.cpp" line="573"/>
         <source>CSV Files (*.csv)</source>
         <translation>CSV 檔案 (*.csv)</translation>
-    </message>
-    <message>
-        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="584"/>
-        <source>There is no parsed data to copy.</source>
-        <translation>沒有可複製的解析資料。</translation>
-    </message>
-    <message>
-        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="589"/>
-        <source>Copied</source>
-        <translation>已複製</translation>
-    </message>
-    <message>
-        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="589"/>
-        <source>Register map copied to clipboard.</source>
-        <translation>寄存器映射已複製到剪貼簿。</translation>
     </message>
     <message>
         <location filename="../widgets/FrameAnalyzerWidget.cpp" line="610"/>
@@ -1664,11 +1643,6 @@ Choose update method:</source>
         <location filename="../widgets/FrameAnalyzerWidget.cpp" line="1170"/>
         <source>Export the parsed register data in the current table as a CSV file.</source>
         <translation>將目前表格中的解析寄存器資料匯出為 CSV 檔。</translation>
-    </message>
-    <message>
-        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="1174"/>
-        <source>Copy the current register map text for quick sharing.</source>
-        <translation>複製目前寄存器映射文字，方便快速分享。</translation>
     </message>
     <message>
         <location filename="../widgets/FrameAnalyzerWidget.cpp" line="1177"/>

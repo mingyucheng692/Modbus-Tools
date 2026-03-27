@@ -24,7 +24,6 @@
 #include <QJsonArray>
 #include <QListWidget>
 #include <QStringList>
-#include <QClipboard>
 #include <QResizeEvent>
 #include <QTextStream>
 #include <QThread>
@@ -382,9 +381,8 @@ void FrameAnalyzerWidget::createResultGroup()
     importJsonBtn_ = new QPushButton(tr("Import Config"), this);
     exportJsonBtn_ = new QPushButton(tr("Export Config"), this);
     exportCsvBtn_ = new QPushButton(tr("Export CSV"), this);
-    copyMapBtn_ = new QPushButton(tr("Copy Map"), this);
     const QList<QPushButton*> actionButtons = {
-        importJsonBtn_, exportJsonBtn_, exportCsvBtn_, copyMapBtn_
+        importJsonBtn_, exportJsonBtn_, exportCsvBtn_
     };
     for (auto* button : actionButtons) {
         button->setMinimumWidth(0);
@@ -437,7 +435,6 @@ void FrameAnalyzerWidget::createResultGroup()
     connect(importJsonBtn_, &QPushButton::clicked, this, &FrameAnalyzerWidget::onImportJsonClicked);
     connect(exportJsonBtn_, &QPushButton::clicked, this, &FrameAnalyzerWidget::onExportJsonClicked);
     connect(exportCsvBtn_, &QPushButton::clicked, this, &FrameAnalyzerWidget::onExportCsvClicked);
-    connect(copyMapBtn_, &QPushButton::clicked, this, &FrameAnalyzerWidget::onCopyRegisterMapClicked);
     connect(displayModeCombo_, qOverload<int>(&QComboBox::currentIndexChanged), this, [this](int index) {
         if (index < 0) {
             return;
@@ -576,17 +573,6 @@ void FrameAnalyzerWidget::onExportCsvClicked()
     }
 
     exportCurrentTableToCsv(filePath);
-}
-
-void FrameAnalyzerWidget::onCopyRegisterMapClicked()
-{
-    if (!currentResult_.isValid || !dataTable_ || dataTable_->rowCount() == 0) {
-        QMessageBox::information(this, tr("No Data"), tr("There is no parsed data to copy."));
-        return;
-    }
-
-    QApplication::clipboard()->setText(buildRegisterMapText());
-    QMessageBox::information(this, tr("Copied"), tr("Register map copied to clipboard."));
 }
 
 void FrameAnalyzerWidget::exportMetadataToJson(const QString& filePath)
@@ -975,38 +961,6 @@ void FrameAnalyzerWidget::exportCurrentTableToCsv(const QString& filePath) const
     }
 }
 
-QString FrameAnalyzerWidget::buildRegisterMapText() const
-{
-    QStringList lines;
-    const QString protocolText = currentResult_.protocol == ProtocolType::Tcp ? tr("TCP") : tr("RTU");
-    const QString functionCodeText = QString("0x%1")
-                                         .arg(static_cast<int>(currentResult_.functionCode), 2, 16, QChar('0'))
-                                         .toUpper();
-    lines << tr("Protocol:\t%1").arg(protocolText);
-    lines << tr("Function Code:\t%1").arg(functionCodeText);
-    lines << tr("Timestamp:\t%1").arg(currentResult_.timestamp.toString("yyyy-MM-dd hh:mm:ss.zzz"));
-    lines << tr("Rows:\t%1").arg(dataTable_->rowCount());
-    lines << QString();
-
-    QStringList headerValues;
-    for (int column = 0; column < dataTable_->columnCount(); ++column) {
-        const QTableWidgetItem* headerItem = dataTable_->horizontalHeaderItem(column);
-        headerValues << (headerItem ? headerItem->text() : QString());
-    }
-    lines << headerValues.join('\t');
-
-    for (int row = 0; row < dataTable_->rowCount(); ++row) {
-        QStringList rowValues;
-        for (int column = 0; column < dataTable_->columnCount(); ++column) {
-            const QTableWidgetItem* item = dataTable_->item(row, column);
-            rowValues << (item ? item->text() : QString());
-        }
-        lines << rowValues.join('\t');
-    }
-
-    return lines.join('\n');
-}
-
 QString FrameAnalyzerWidget::escapeCsvValue(const QString& value) const
 {
     QString escaped = value;
@@ -1168,10 +1122,6 @@ void FrameAnalyzerWidget::retranslateUi()
     if (exportCsvBtn_) {
         exportCsvBtn_->setText(tr("Export CSV"));
         exportCsvBtn_->setToolTip(tr("Export the parsed register data in the current table as a CSV file."));
-    }
-    if (copyMapBtn_) {
-        copyMapBtn_->setText(tr("Copy Map"));
-        copyMapBtn_->setToolTip(tr("Copy the current register map text for quick sharing."));
     }
     if (toggleHistoryBtn_) {
         toggleHistoryBtn_->setToolTip(tr("Show or hide the parse history panel."));

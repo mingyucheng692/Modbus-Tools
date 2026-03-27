@@ -43,7 +43,6 @@ private slots:
     void onExportJsonClicked();
     void onImportJsonClicked();
     void onExportCsvClicked();
-    void onCopyRegisterMapClicked();
     void onHistorySelectionChanged(int row);
     void onClearHistoryClicked();
     void onParseFinished(const modbus::core::parser::ParseResult& result, quint64 requestId);
@@ -80,7 +79,6 @@ private:
     void exportMetadataToJson(const QString& filePath);
     void importMetadataFromJson(const QString& filePath);
     void exportCurrentTableToCsv(const QString& filePath) const;
-    QString buildRegisterMapText() const;
     QString escapeCsvValue(const QString& value) const;
     void addToHistory(const modbus::core::parser::ParseResult& result);
     void refreshHistoryList();
@@ -109,7 +107,6 @@ private:
     QPushButton* importJsonBtn_ = nullptr;
     QPushButton* exportJsonBtn_ = nullptr;
     QPushButton* exportCsvBtn_ = nullptr;
-    QPushButton* copyMapBtn_ = nullptr;
     QPushButton* toggleHistoryBtn_ = nullptr;
     QPushButton* clearBtn_ = nullptr;
 
