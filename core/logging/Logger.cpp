@@ -1,5 +1,6 @@
 #include "Logger.h"
 
+#include <QDateTime>
 #include <QDir>
 #include <QtGlobal>
 #include <spdlog/sinks/basic_file_sink.h>
@@ -46,7 +47,9 @@ void Init(const QString& logDir)
     }
 
     auto consoleSink = std::make_shared<spdlog::sinks::stdout_color_sink_mt>();
-    auto filePath = dir.filePath("modbus-tools.log").toStdString();
+    const QString timestamp = QDateTime::currentDateTime().toString("yyyyMMdd-HHmmss");
+    const QString fileName = QString("modbus-tools_%1.log").arg(timestamp);
+    auto filePath = dir.filePath(fileName).toStdString();
     auto fileSink = std::make_shared<spdlog::sinks::basic_file_sink_mt>(filePath, true);
     std::vector<spdlog::sink_ptr> sinks{consoleSink, fileSink};
 
