@@ -1,4 +1,5 @@
 #include "ModbusTcpView.h"
+#include "../../common/ISettingsService.h"
 #include "../../widgets/TcpConnectionWidget.h"
 #include "../../widgets/FunctionWidget.h"
 #include "../../widgets/TrafficMonitorWidget.h"
@@ -36,8 +37,9 @@ QString disconnectedText() {
 }
 }
 
-ModbusTcpView::ModbusTcpView(QWidget *parent)
-    : QWidget(parent) {
+ModbusTcpView::ModbusTcpView(ui::common::ISettingsService* settingsService, QWidget *parent)
+    : QWidget(parent),
+      settingsService_(settingsService) {
     setupUi();
 }
 
@@ -62,15 +64,15 @@ void ModbusTcpView::setupUi() {
     mainLayout_->setContentsMargins(2, 2, 2, 2);
     mainLayout_->setSpacing(2);
     
-    connectionWidget_ = new widgets::TcpConnectionWidget(this);
+    connectionWidget_ = new widgets::TcpConnectionWidget(settingsService_, this);
     connectionWidget_->setSettingsGroup("modbus/tcp");
     mainLayout_->addWidget(connectionWidget_);
     
-    functionWidget_ = new widgets::FunctionWidget(this);
+    functionWidget_ = new widgets::FunctionWidget(settingsService_, this);
     functionWidget_->setSettingsGroup("modbus/tcp/standard");
     mainLayout_->addWidget(functionWidget_);
     
-    dataGroup_ = new widgets::CollapsibleSection(this);
+    dataGroup_ = new widgets::CollapsibleSection(settingsService_, this);
     dataGroup_->setSettingsKey("modbus/tcp/ui/dataMonitorCollapsed");
     auto dataLayout = new QHBoxLayout(dataGroup_->contentWidget());
     dataLayout->setContentsMargins(4, 0, 4, 4);
@@ -114,14 +116,14 @@ void ModbusTcpView::setupUi() {
 
     dataLayout->addWidget(receiveGroup_, 1);
     dataLayout->addWidget(sendGroup_, 1);
-    trafficMonitor_ = new widgets::TrafficMonitorWidget(this);
+    trafficMonitor_ = new widgets::TrafficMonitorWidget(settingsService_, this);
     trafficMonitor_->setMinimumHeight(140);
     trafficMonitor_->setSettingsGroup("modbus/tcp/traffic");
 
     mainLayout_->addWidget(dataGroup_);
     mainLayout_->addWidget(trafficMonitor_);
 
-    controlWidget_ = new widgets::ControlWidget(this);
+    controlWidget_ = new widgets::ControlWidget(settingsService_, this);
     controlWidget_->setSettingsGroup("modbus/tcp/control");
     mainLayout_->addWidget(controlWidget_);
     

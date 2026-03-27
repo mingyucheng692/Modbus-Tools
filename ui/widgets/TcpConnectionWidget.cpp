@@ -1,20 +1,20 @@
 #include "TcpConnectionWidget.h"
 #include "CollapsibleSection.h"
+#include "../common/ISettingsService.h"
 #include <QHBoxLayout>
 #include <QLabel>
 #include <QLineEdit>
 #include <QSpinBox>
 #include <QPushButton>
 #include <QEvent>
-#include <QSettings>
-#include <QApplication>
 #include <QSignalBlocker>
 #include <QSizePolicy>
 
 namespace ui::widgets {
 
-TcpConnectionWidget::TcpConnectionWidget(QWidget *parent)
-    : QWidget(parent) {
+TcpConnectionWidget::TcpConnectionWidget(ui::common::ISettingsService* settingsService, QWidget *parent)
+    : QWidget(parent),
+      settingsService_(settingsService) {
     setupUi();
 }
 
@@ -25,7 +25,7 @@ void TcpConnectionWidget::setupUi() {
     mainLayout->setContentsMargins(0, 0, 0, 0);
     mainLayout->setSpacing(0);
 
-    section_ = new CollapsibleSection(this);
+    section_ = new CollapsibleSection(settingsService_, this);
     auto layout = new QHBoxLayout(section_->contentWidget());
     layout->setContentsMargins(4, 0, 4, 0);
     layout->setSpacing(2);
@@ -87,13 +87,14 @@ void TcpConnectionWidget::setDefaultPort(int port) {
         portEdit_->setValue(port);
         return;
     }
-    QSettings settings(QApplication::applicationDirPath() + "/config.ini", QSettings::IniFormat);
     const QString key = settingsGroup_ + "/port";
-    if (!settings.contains(key)) {
+    if (!settingsService_ || !settingsService_->contains(key)) {
         portEdit_->setValue(port);
-        settings.setValue(key, port);
+        if (settingsService_) {
+            settingsService_->setValue(key, port);
+        }
     } else {
-        portEdit_->setValue(settings.value(key, port).toInt());
+        portEdit_->setValue(settingsService_->value(key).toInt());
     }
 }
 
@@ -106,28 +107,23 @@ void TcpConnectionWidget::setSettingsGroup(const QString& group) {
 }
 
 void TcpConnectionWidget::loadSettings() {
-    if (settingsGroup_.isEmpty()) return;
-    QSettings settings(QApplication::applicationDirPath() + "/config.ini", QSettings::IniFormat);
+    if (settingsGroup_.isEmpty() || !settingsService_) return;
     QSignalBlocker b1(ipEdit_);
     QSignalBlocker b2(portEdit_);
 
     const QString ipKey = settingsGroup_ + "/ip";
     const QString portKey = settingsGroup_ + "/port";
-    const QString ip = settings.value(ipKey, "127.0.0.1").toString();
-    const int port = settings.value(portKey, defaultPort_).toInt();
+    const QString ip = settingsService_->value(ipKey).toString();
+    const int port = settingsService_->value(portKey).toInt();
 
     ipEdit_->setText(ip);
     portEdit_->setValue(port);
-
-    if (!settings.contains(ipKey)) settings.setValue(ipKey, ip);
-    if (!settings.contains(portKey)) settings.setValue(portKey, port);
 }
 
 void TcpConnectionWidget::saveSettings() {
-    if (settingsGroup_.isEmpty()) return;
-    QSettings settings(QApplication::applicationDirPath() + "/config.ini", QSettings::IniFormat);
-    settings.setValue(settingsGroup_ + "/ip", ipEdit_->text());
-    settings.setValue(settingsGroup_ + "/port", portEdit_->value());
+    if (settingsGroup_.isEmpty() || !settingsService_) return;
+    settingsService_->setValue(settingsGroup_ + "/ip", ipEdit_->text());
+    settingsService_->setValue(settingsGroup_ + "/port", portEdit_->value());
 }
 
 QString TcpConnectionWidget::getIpAddress() const {

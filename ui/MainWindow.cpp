@@ -6,6 +6,8 @@
 #include "widgets/FrameAnalyzerWidget.h"
 #include "widgets/DisclaimerDialog.h"
 #include "widgets/UpdateSettingsDialog.h"
+#include "common/SettingsService.h"
+#include "common/SettingsKeys.h"
 #include "common/Theme.h"
 #include "common/UpdateChecker.h"
 #include <QDesktopServices>
@@ -20,6 +22,7 @@
 #include <QActionGroup>
 #include <QApplication>
 #include <QEvent>
+#include <QCloseEvent>
 #include <QTranslator>
 #include <QLibraryInfo>
 #include <QDialog>
@@ -45,6 +48,7 @@
 #include <QToolButton>
 #include <QListWidgetItem>
 #include <QStyle>
+#include <QLocale>
 #include <QImage>
 #include <QPainter>
 #include <QIcon>
@@ -53,7 +57,6 @@
 #include <QProgressDialog>
 #include <QPushButton>
 #include <QScrollArea>
-#include <QSettings>
 #include <QStandardPaths>
 #include <QUrl>
 #include <spdlog/spdlog.h>
@@ -195,7 +198,8 @@ protected:
 namespace ui {
 
 MainWindow::MainWindow(QWidget *parent)
-    : QMainWindow(parent) {
+    : QMainWindow(parent),
+      settingsService_(new common::SettingsService(this)) {
     setupUi();
 }
 
@@ -206,7 +210,12 @@ MainWindow::~MainWindow() {
 void MainWindow::setupUi() {
     setWindowTitle(tr("Modbus Tools"));
     setMinimumSize(720, 480);
+    using namespace common::settings_keys;
     resize(1280, 800);
+    const QByteArray geometry = settingsService_->value(kAppMainWindowGeometry).toByteArray();
+    if (!geometry.isEmpty()) {
+        restoreGeometry(geometry);
+    }
 
     // Central widget with HBox layout
     auto centralWidget = new QWidget(this);
@@ -224,13 +233,13 @@ void MainWindow::setupUi() {
     mainLayout->addWidget(stackedWidget_, 5); // Ratio 1:5
 
     // Add Views
-    modbusTcpView_ = new views::modbus_tcp::ModbusTcpView(this);
+    modbusTcpView_ = new views::modbus_tcp::ModbusTcpView(settingsService_, this);
     stackedWidget_->addWidget(createScrollablePage(modbusTcpView_, stackedWidget_));
-    modbusRtuView_ = new views::modbus_rtu::ModbusRtuView(this);
+    modbusRtuView_ = new views::modbus_rtu::ModbusRtuView(settingsService_, this);
     stackedWidget_->addWidget(createScrollablePage(modbusRtuView_, stackedWidget_));
-    stackedWidget_->addWidget(createScrollablePage(new views::generic_tcp::GenericTcpView(this), stackedWidget_));
-    stackedWidget_->addWidget(createScrollablePage(new views::generic_serial::GenericSerialView(this), stackedWidget_));
-    stackedWidget_->addWidget(createScrollablePage(new widgets::FrameAnalyzerWidget(this), stackedWidget_));
+    stackedWidget_->addWidget(createScrollablePage(new views::generic_tcp::GenericTcpView(settingsService_, this), stackedWidget_));
+    stackedWidget_->addWidget(createScrollablePage(new views::generic_serial::GenericSerialView(settingsService_, this), stackedWidget_));
+    stackedWidget_->addWidget(createScrollablePage(new widgets::FrameAnalyzerWidget(settingsService_, this), stackedWidget_));
 
     // Connect Navigation
     connect(navigationList_, &QListWidget::currentRowChanged,
@@ -247,19 +256,18 @@ void MainWindow::setupUi() {
     setupLanguageMenu();
     setupSettingsMenu();
     setupAboutMenu();
+    const QByteArray windowState = settingsService_->value(kAppMainWindowState).toByteArray();
+    if (!windowState.isEmpty()) {
+        restoreState(windowState);
+    }
     parameterWheelBlocker_ = new ParameterWheelBlocker(this);
     qApp->installEventFilter(parameterWheelBlocker_);
-    {
-        QSettings settings(QApplication::applicationDirPath() + "/config.ini", QSettings::IniFormat);
-        currentLocale_ = settings.value("app/language", currentLocale_).toString();
-        navigationCollapsed_ = settings.value("app/navigationCollapsed", false).toBool();
-        if (!settings.contains("app/language")) {
-            settings.setValue("app/language", currentLocale_);
-        }
-        if (!settings.contains("app/navigationCollapsed")) {
-            settings.setValue("app/navigationCollapsed", navigationCollapsed_);
-        }
+    currentLocale_ = settingsService_->value(kAppLanguage).toString();
+    if (currentLocale_.isEmpty() || currentLocale_ == "system") {
+        const QString systemName = QLocale::system().name();
+        currentLocale_ = systemName == "zh_CN" ? "zh_CN" : (systemName == "zh_TW" ? "zh_TW" : "en_US");
     }
+    navigationCollapsed_ = settingsService_->value(kAppNavigationCollapsed).toBool();
     setNavigationCollapsed(navigationCollapsed_);
     cleanupUpdateArtifacts();
     loadModbusSettings();
@@ -303,8 +311,7 @@ void MainWindow::createNavigation() {
     navigationList_->setStyleSheet(common::Theme::getNavigationStyle(false));
     connect(navigationToggleButton_, &QToolButton::clicked, this, [this]() {
         setNavigationCollapsed(!navigationCollapsed_);
-        QSettings settings(QApplication::applicationDirPath() + "/config.ini", QSettings::IniFormat);
-        settings.setValue("app/navigationCollapsed", navigationCollapsed_);
+        settingsService_->setValue(common::settings_keys::kAppNavigationCollapsed, navigationCollapsed_);
     });
 }
 
@@ -381,24 +388,11 @@ void MainWindow::setupAboutMenu() {
 }
 
 void MainWindow::loadModbusSettings() {
-    QSettings settings(QApplication::applicationDirPath() + "/config.ini", QSettings::IniFormat);
-    modbus::base::ModbusConfig defaultConfig;
-    modbusTimeoutMs_ = settings.value("modbus/timeoutMs", defaultConfig.timeoutMs).toInt();
-    modbusRetries_ = settings.value("modbus/retryCount", defaultConfig.retries).toInt();
-    modbusRetryIntervalMs_ = settings.value("modbus/retryIntervalMs", defaultConfig.retryIntervalMs).toInt();
-    modbusRetryEnabled_ = settings.value("modbus/retryEnabled", false).toBool();
-    if (!settings.contains("modbus/timeoutMs")) {
-        settings.setValue("modbus/timeoutMs", modbusTimeoutMs_);
-    }
-    if (!settings.contains("modbus/retryCount")) {
-        settings.setValue("modbus/retryCount", modbusRetries_);
-    }
-    if (!settings.contains("modbus/retryIntervalMs")) {
-        settings.setValue("modbus/retryIntervalMs", modbusRetryIntervalMs_);
-    }
-    if (!settings.contains("modbus/retryEnabled")) {
-        settings.setValue("modbus/retryEnabled", modbusRetryEnabled_);
-    }
+    using namespace common::settings_keys;
+    modbusTimeoutMs_ = settingsService_->value(kModbusTimeoutMs).toInt();
+    modbusRetries_ = settingsService_->value(kModbusRetryCount).toInt();
+    modbusRetryIntervalMs_ = settingsService_->value(kModbusRetryIntervalMs).toInt();
+    modbusRetryEnabled_ = settingsService_->value(kModbusRetryEnabled).toBool();
 }
 
 void MainWindow::applyModbusSettingsToViews() {
@@ -412,13 +406,9 @@ void MainWindow::applyModbusSettingsToViews() {
 }
 
 void MainWindow::loadUpdateSettings() {
-    QSettings settings(QApplication::applicationDirPath() + "/config.ini", QSettings::IniFormat);
-    updateCheckFrequency_ = settings.value("app/updateCheckFrequency", "startup").toString();
+    updateCheckFrequency_ = settingsService_->value(common::settings_keys::kAppUpdateCheckFrequency).toString();
     if (updateCheckFrequency_.isEmpty()) {
         updateCheckFrequency_ = "startup";
-    }
-    if (!settings.contains("app/updateCheckFrequency")) {
-        settings.setValue("app/updateCheckFrequency", updateCheckFrequency_);
     }
 }
 
@@ -467,11 +457,11 @@ void MainWindow::openModbusSettingsDialog() {
         modbusRetryEnabled_ = retryEnableCheck->isChecked();
         modbusRetries_ = retrySpin->value();
         modbusRetryIntervalMs_ = retryIntervalSpin->value();
-        QSettings settings(QApplication::applicationDirPath() + "/config.ini", QSettings::IniFormat);
-        settings.setValue("modbus/timeoutMs", modbusTimeoutMs_);
-        settings.setValue("modbus/retryCount", modbusRetries_);
-        settings.setValue("modbus/retryIntervalMs", modbusRetryIntervalMs_);
-        settings.setValue("modbus/retryEnabled", modbusRetryEnabled_);
+        using namespace common::settings_keys;
+        settingsService_->setValue(kModbusTimeoutMs, modbusTimeoutMs_);
+        settingsService_->setValue(kModbusRetryCount, modbusRetries_);
+        settingsService_->setValue(kModbusRetryIntervalMs, modbusRetryIntervalMs_);
+        settingsService_->setValue(kModbusRetryEnabled, modbusRetryEnabled_);
         applyModbusSettingsToViews();
     }
 }
@@ -482,8 +472,7 @@ void MainWindow::openUpdateSettingsDialog() {
         return;
     }
     updateCheckFrequency_ = dialog.selectedFrequency();
-    QSettings settings(QApplication::applicationDirPath() + "/config.ini", QSettings::IniFormat);
-    settings.setValue("app/updateCheckFrequency", updateCheckFrequency_);
+    settingsService_->setValue(common::settings_keys::kAppUpdateCheckFrequency, updateCheckFrequency_);
 }
 
 void MainWindow::openAboutDialog() {
@@ -534,8 +523,7 @@ void MainWindow::checkForUpdates() {
 
 void MainWindow::performUpdateCheck(bool manual) {
     checkingUpdateManually_ = manual;
-    QSettings settings(QApplication::applicationDirPath() + "/config.ini", QSettings::IniFormat);
-    settings.setValue("app/updateLastCheckUtc", QDateTime::currentDateTimeUtc().toString(Qt::ISODate));
+    settingsService_->setValue(common::settings_keys::kAppUpdateLastCheckUtc, QDateTime::currentDateTimeUtc().toString(Qt::ISODate));
     updateChecker_->checkForUpdates();
 }
 
@@ -546,8 +534,7 @@ bool MainWindow::shouldAutoCheckUpdates() const {
     if (updateCheckFrequency_ == "startup") {
         return true;
     }
-    QSettings settings(QApplication::applicationDirPath() + "/config.ini", QSettings::IniFormat);
-    const QString lastCheckUtc = settings.value("app/updateLastCheckUtc").toString();
+    const QString lastCheckUtc = settingsService_->value(common::settings_keys::kAppUpdateLastCheckUtc).toString();
     if (lastCheckUtc.isEmpty()) {
         return true;
     }
@@ -932,8 +919,7 @@ void MainWindow::handleUpdateCheckFailed(const QString& reason) {
 }
 
 void MainWindow::showDisclaimerIfNeeded() {
-    QSettings settings(QApplication::applicationDirPath() + "/config.ini", QSettings::IniFormat);
-    if (settings.value("app/disclaimerAccepted", false).toBool()) {
+    if (settingsService_->value(common::settings_keys::kAppDisclaimerAccepted).toBool()) {
         return;
     }
 
@@ -942,7 +928,13 @@ void MainWindow::showDisclaimerIfNeeded() {
         qApp->quit();
         return;
     }
-    settings.setValue("app/disclaimerAccepted", true);
+    settingsService_->setValue(common::settings_keys::kAppDisclaimerAccepted, true);
+}
+
+void MainWindow::saveWindowSettings() {
+    settingsService_->setValue(common::settings_keys::kAppMainWindowGeometry, saveGeometry());
+    settingsService_->setValue(common::settings_keys::kAppMainWindowState, saveState());
+    settingsService_->sync();
 }
 
 void MainWindow::applyLanguage(const QString& locale) {
@@ -950,11 +942,15 @@ void MainWindow::applyLanguage(const QString& locale) {
     qApp->removeTranslator(&appTranslator_);
 
     currentLocale_ = locale;
-    {
-        QSettings settings(QApplication::applicationDirPath() + "/config.ini", QSettings::IniFormat);
-        settings.setValue("app/language", currentLocale_);
+    settingsService_->setValue(common::settings_keys::kAppLanguage, currentLocale_);
+
+    QString effectiveLocale = locale;
+    if (effectiveLocale == "system") {
+        const QString systemName = QLocale::system().name();
+        effectiveLocale = systemName == "zh_CN" ? "zh_CN" : (systemName == "zh_TW" ? "zh_TW" : "en_US");
     }
-    if (locale == "zh_CN") {
+
+    if (effectiveLocale == "zh_CN") {
         const bool qtLoaded = qtTranslator_.load("qtbase_zh_CN", QLibraryInfo::path(QLibraryInfo::TranslationsPath));
         const bool appLoaded = appTranslator_.load(":/i18n/Modbus-Tools_zh_CN.qm");
         if (qtLoaded) {
@@ -963,7 +959,7 @@ void MainWindow::applyLanguage(const QString& locale) {
         if (appLoaded) {
             qApp->installTranslator(&appTranslator_);
         }
-    } else if (locale == "zh_TW") {
+    } else if (effectiveLocale == "zh_TW") {
         const bool qtLoaded = qtTranslator_.load("qtbase_zh_TW", QLibraryInfo::path(QLibraryInfo::TranslationsPath));
         const bool appLoaded = appTranslator_.load(":/i18n/Modbus-Tools_zh_TW.qm");
         if (qtLoaded) {
@@ -1045,6 +1041,11 @@ void MainWindow::changeEvent(QEvent* event) {
         retranslateUi();
     }
     QMainWindow::changeEvent(event);
+}
+
+void MainWindow::closeEvent(QCloseEvent* event) {
+    saveWindowSettings();
+    QMainWindow::closeEvent(event);
 }
 
 } // namespace ui

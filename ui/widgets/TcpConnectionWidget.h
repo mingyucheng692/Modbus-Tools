@@ -9,6 +9,10 @@ class QLabel;
 class QEvent;
 class QString;
 
+namespace ui::common {
+class ISettingsService;
+}
+
 namespace ui::widgets {
 class CollapsibleSection;
 
@@ -16,7 +20,7 @@ class TcpConnectionWidget : public QWidget {
     Q_OBJECT
 
 public:
-    explicit TcpConnectionWidget(QWidget *parent = nullptr);
+    explicit TcpConnectionWidget(ui::common::ISettingsService* settingsService, QWidget *parent = nullptr);
     ~TcpConnectionWidget() override;
 
     void setDefaultPort(int port);
@@ -48,6 +52,7 @@ private:
     
     bool isConnected_ = false;
     QString settingsGroup_ = "modbus/tcp";
+    ui::common::ISettingsService* settingsService_ = nullptr;
     int defaultPort_ = 502;
 };
 

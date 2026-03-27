@@ -10,13 +10,17 @@ class QTimer;
 class QEvent;
 class QString;
 
+namespace ui::common {
+class ISettingsService;
+}
+
 namespace ui::widgets {
 
 class ControlWidget : public QWidget {
     Q_OBJECT
 
 public:
-    explicit ControlWidget(QWidget *parent = nullptr);
+    explicit ControlWidget(ui::common::ISettingsService* settingsService, QWidget *parent = nullptr);
     ~ControlWidget() override;
 
     void updateStats(bool isTx, int rttMs, bool isError = false);
@@ -57,6 +61,7 @@ private:
     int lastRtt_ = 0;
 
     QString settingsGroup_;
+    ui::common::ISettingsService* settingsService_ = nullptr;
 };
 
 } // namespace ui::widgets

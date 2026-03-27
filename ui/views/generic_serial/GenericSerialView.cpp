@@ -1,4 +1,5 @@
 #include "GenericSerialView.h"
+#include "../../common/ISettingsService.h"
 #include "../../widgets/SerialConnectionWidget.h"
 #include "../../widgets/TrafficMonitorWidget.h"
 #include "../../widgets/GenericInputWidget.h"
@@ -16,8 +17,9 @@
 
 namespace ui::views::generic_serial {
 
-GenericSerialView::GenericSerialView(QWidget *parent)
-    : QWidget(parent) {
+GenericSerialView::GenericSerialView(ui::common::ISettingsService* settingsService, QWidget *parent)
+    : QWidget(parent),
+      settingsService_(settingsService) {
     setupUi();
     startWorker();
 }
@@ -33,7 +35,8 @@ void GenericSerialView::setupUi() {
 
     // 1. Connection Section (Top)
     auto topLayout = new QHBoxLayout();
-    connectionWidget_ = new widgets::SerialConnectionWidget(this);
+    connectionWidget_ = new widgets::SerialConnectionWidget(settingsService_, this);
+    connectionWidget_->setSettingsGroup("serial_port");
     topLayout->addWidget(connectionWidget_);
     
     // Serial Controls (DTR/RTS)
@@ -52,15 +55,17 @@ void GenericSerialView::setupUi() {
     mainLayout->addLayout(topLayout);
 
     // 2. Central Area (Traffic Monitor)
-    trafficMonitor_ = new widgets::TrafficMonitorWidget(this);
+    trafficMonitor_ = new widgets::TrafficMonitorWidget(settingsService_, this);
+    trafficMonitor_->setSettingsGroup("serial_port/traffic");
     mainLayout->addWidget(trafficMonitor_);
 
     // 3. Input Section (Bottom)
-    inputSection_ = new widgets::CollapsibleSection(this);
+    inputSection_ = new widgets::CollapsibleSection(settingsService_, this);
     inputSection_->setSettingsKey("serial_port/ui/inputCollapsed");
     auto inputLayout = new QVBoxLayout(inputSection_->contentWidget());
     inputLayout->setContentsMargins(0, 0, 0, 0);
-    inputWidget_ = new widgets::GenericInputWidget(inputSection_->contentWidget());
+    inputWidget_ = new widgets::GenericInputWidget(settingsService_, inputSection_->contentWidget());
+    inputWidget_->setSettingsGroup("serial_port/input");
     inputLayout->addWidget(inputWidget_);
     mainLayout->addWidget(inputSection_);
     mainLayout->setStretch(0, 0);
@@ -82,6 +87,10 @@ void GenericSerialView::setupUi() {
     // Disable controls initially
     dtrCheck_->setEnabled(false);
     rtsCheck_->setEnabled(false);
+    if (settingsService_) {
+        dtrCheck_->setChecked(settingsService_->value("serial_port/dtr").toBool());
+        rtsCheck_->setChecked(settingsService_->value("serial_port/rts").toBool());
+    }
 
     retranslateUi();
 }
@@ -173,6 +182,9 @@ void GenericSerialView::onWorkerMonitor(bool isTx, const QByteArray& data) {
 }
 
 void GenericSerialView::onDtrChanged(bool checked) {
+    if (settingsService_) {
+        settingsService_->setValue("serial_port/dtr", checked);
+    }
     if (!worker_) return;
     QMetaObject::invokeMethod(worker_, "setDtr", 
                               Qt::QueuedConnection, 
@@ -180,6 +192,9 @@ void GenericSerialView::onDtrChanged(bool checked) {
 }
 
 void GenericSerialView::onRtsChanged(bool checked) {
+    if (settingsService_) {
+        settingsService_->setValue("serial_port/rts", checked);
+    }
     if (!worker_) return;
     QMetaObject::invokeMethod(worker_, "setRts", 
                               Qt::QueuedConnection, 

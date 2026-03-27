@@ -1,5 +1,6 @@
 #include "FunctionWidget.h"
 #include "CollapsibleSection.h"
+#include "../common/ISettingsService.h"
 #include <QVBoxLayout>
 #include <QHBoxLayout>
 #include <QGridLayout>
@@ -10,16 +11,15 @@
 #include <QPushButton>
 #include <QTextEdit>
 #include <QEvent>
-#include <QSettings>
-#include <QApplication>
 #include <QFont>
 #include <QSignalBlocker>
 #include <QSizePolicy>
 
 namespace ui::widgets {
 
-FunctionWidget::FunctionWidget(QWidget *parent)
-    : QWidget(parent) {
+FunctionWidget::FunctionWidget(ui::common::ISettingsService* settingsService, QWidget *parent)
+    : QWidget(parent),
+      settingsService_(settingsService) {
     setupUi();
 }
 
@@ -30,11 +30,11 @@ void FunctionWidget::setupUi() {
     mainLayout->setContentsMargins(0, 0, 0, 0);
     mainLayout->setSpacing(8);
 
-    standardSection_ = new CollapsibleSection(this);
+    standardSection_ = new CollapsibleSection(settingsService_, this);
     setupStandardUi(standardSection_->contentWidget());
     mainLayout->addWidget(standardSection_);
 
-    rawSection_ = new CollapsibleSection(this);
+    rawSection_ = new CollapsibleSection(settingsService_, this);
     setupRawUi(rawSection_->contentWidget());
     mainLayout->addWidget(rawSection_);
 
@@ -217,9 +217,7 @@ void FunctionWidget::setSettingsGroup(const QString& group) {
 }
 
 void FunctionWidget::loadSettings() {
-    if (settingsGroup_.isEmpty()) return;
-
-    QSettings settings(QApplication::applicationDirPath() + "/config.ini", QSettings::IniFormat);
+    if (settingsGroup_.isEmpty() || !settingsService_) return;
     QSignalBlocker b1(slaveIdEdit_);
     QSignalBlocker b2(addressEdit_);
     QSignalBlocker b3(quantityEdit_);
@@ -230,10 +228,10 @@ void FunctionWidget::loadSettings() {
     const QString qtyKey = settingsGroup_ + "/quantity";
     const QString formatKey = settingsGroup_ + "/formatIndex";
 
-    const int slaveId = settings.value(slaveKey, slaveIdEdit_->value()).toInt();
-    const int startAddr = settings.value(addrKey, addressEdit_->value()).toInt();
-    const int quantity = settings.value(qtyKey, quantityEdit_->value()).toInt();
-    const int formatIndex = settings.value(formatKey, dataFormatBox_->currentIndex()).toInt();
+    const int slaveId = settingsService_->value(slaveKey).toInt();
+    const int startAddr = settingsService_->value(addrKey).toInt();
+    const int quantity = settingsService_->value(qtyKey).toInt();
+    const int formatIndex = settingsService_->value(formatKey).toInt();
 
     slaveIdEdit_->setValue(slaveId);
     addressEdit_->setValue(startAddr);
@@ -241,20 +239,14 @@ void FunctionWidget::loadSettings() {
     if (formatIndex >= 0 && formatIndex < dataFormatBox_->count()) {
         dataFormatBox_->setCurrentIndex(formatIndex);
     }
-
-    if (!settings.contains(slaveKey)) settings.setValue(slaveKey, slaveId);
-    if (!settings.contains(addrKey)) settings.setValue(addrKey, startAddr);
-    if (!settings.contains(qtyKey)) settings.setValue(qtyKey, quantity);
-    if (!settings.contains(formatKey)) settings.setValue(formatKey, dataFormatBox_->currentIndex());
 }
 
 void FunctionWidget::saveSettings() {
-    if (settingsGroup_.isEmpty()) return;
-    QSettings settings(QApplication::applicationDirPath() + "/config.ini", QSettings::IniFormat);
-    settings.setValue(settingsGroup_ + "/slaveId", slaveIdEdit_->value());
-    settings.setValue(settingsGroup_ + "/startAddr", addressEdit_->value());
-    settings.setValue(settingsGroup_ + "/quantity", quantityEdit_->value());
-    settings.setValue(settingsGroup_ + "/formatIndex", dataFormatBox_->currentIndex());
+    if (settingsGroup_.isEmpty() || !settingsService_) return;
+    settingsService_->setValue(settingsGroup_ + "/slaveId", slaveIdEdit_->value());
+    settingsService_->setValue(settingsGroup_ + "/startAddr", addressEdit_->value());
+    settingsService_->setValue(settingsGroup_ + "/quantity", quantityEdit_->value());
+    settingsService_->setValue(settingsGroup_ + "/formatIndex", dataFormatBox_->currentIndex());
 }
 
 void FunctionWidget::onReadClicked(uint8_t functionCode) {

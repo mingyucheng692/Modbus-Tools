@@ -1,17 +1,17 @@
 #include "CollapsibleSection.h"
+#include "../common/ISettingsService.h"
 #include <QVBoxLayout>
 #include <QHBoxLayout>
 #include <QLabel>
 #include <QPushButton>
 #include <QGroupBox>
-#include <QSettings>
-#include <QApplication>
 #include <QEvent>
 
 namespace ui::widgets {
 
-CollapsibleSection::CollapsibleSection(QWidget* parent)
-    : QWidget(parent) {
+CollapsibleSection::CollapsibleSection(ui::common::ISettingsService* settingsService, QWidget* parent)
+    : QWidget(parent),
+      settingsService_(settingsService) {
     auto mainLayout = new QVBoxLayout(this);
     mainLayout->setContentsMargins(0, 0, 0, 0);
     mainLayout->setSpacing(4);
@@ -124,25 +124,23 @@ void CollapsibleSection::loadSettings() {
         updateSectionGeometry();
         return;
     }
-    QSettings settings(QApplication::applicationDirPath() + "/config.ini", QSettings::IniFormat);
-    const bool collapsed = settings.value(settingsKey_, false).toBool();
+    const bool collapsed = settingsService_ ? settingsService_->value(settingsKey_).toBool() : false;
     expanded_ = !collapsed;
     if (bodyGroup_) {
         bodyGroup_->setVisible(expanded_);
     }
     updateToggleUi();
     updateSectionGeometry();
-    if (!settings.contains(settingsKey_)) {
-        settings.setValue(settingsKey_, false);
+    if (settingsService_ && !settingsService_->contains(settingsKey_)) {
+        settingsService_->setValue(settingsKey_, false);
     }
 }
 
 void CollapsibleSection::saveSettings() const {
-    if (settingsKey_.isEmpty()) {
+    if (settingsKey_.isEmpty() || !settingsService_) {
         return;
     }
-    QSettings settings(QApplication::applicationDirPath() + "/config.ini", QSettings::IniFormat);
-    settings.setValue(settingsKey_, !expanded_);
+    settingsService_->setValue(settingsKey_, !expanded_);
 }
 
 void CollapsibleSection::changeEvent(QEvent* event) {

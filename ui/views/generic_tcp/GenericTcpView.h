@@ -21,13 +21,17 @@ class QHBoxLayout;
 class QSplitter;
 class QEvent;
 
+namespace ui::common {
+class ISettingsService;
+}
+
 namespace ui::views::generic_tcp {
 
 class GenericTcpView : public QWidget {
     Q_OBJECT
 
 public:
-    explicit GenericTcpView(QWidget *parent = nullptr);
+    explicit GenericTcpView(ui::common::ISettingsService* settingsService, QWidget *parent = nullptr);
     ~GenericTcpView() override;
 
 private slots:
@@ -57,6 +61,7 @@ private:
     bool isConnected_ = false;
     bool suppressDisconnectAlert_ = false;
     quint64 connectionGeneration_ = 0;
+    ui::common::ISettingsService* settingsService_ = nullptr;
 };
 
 } // namespace ui::views::generic_tcp

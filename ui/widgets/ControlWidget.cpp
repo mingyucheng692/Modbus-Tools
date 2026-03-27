@@ -1,4 +1,5 @@
 #include "ControlWidget.h"
+#include "../common/ISettingsService.h"
 #include <QHBoxLayout>
 #include <QLabel>
 #include <QCheckBox>
@@ -6,15 +7,14 @@
 #include <QComboBox>
 #include <QTimer>
 #include <QEvent>
-#include <QSettings>
-#include <QApplication>
 #include <QSignalBlocker>
 #include <QSizePolicy>
 
 namespace ui::widgets {
 
-ControlWidget::ControlWidget(QWidget *parent)
-    : QWidget(parent) {
+ControlWidget::ControlWidget(ui::common::ISettingsService* settingsService, QWidget *parent)
+    : QWidget(parent),
+      settingsService_(settingsService) {
     setupUi();
     
     pollTimer_ = new QTimer(this);
@@ -40,6 +40,7 @@ ControlWidget::ControlWidget(QWidget *parent)
     connect(fcCombo_, qOverload<int>(&QComboBox::currentIndexChanged), this, &ControlWidget::saveSettings);
     connect(addrSpin_, qOverload<int>(&QSpinBox::valueChanged), this, &ControlWidget::saveSettings);
     connect(qtySpin_, qOverload<int>(&QSpinBox::valueChanged), this, &ControlWidget::saveSettings);
+    connect(enablePollCheck_, &QCheckBox::toggled, this, &ControlWidget::saveSettings);
 }
 
 ControlWidget::~ControlWidget() = default;
@@ -96,8 +97,7 @@ void ControlWidget::setSettingsGroup(const QString& group) {
 }
 
 void ControlWidget::loadSettings() {
-    if (settingsGroup_.isEmpty()) return;
-    QSettings settings(QApplication::applicationDirPath() + "/config.ini", QSettings::IniFormat);
+    if (settingsGroup_.isEmpty() || !settingsService_) return;
     QSignalBlocker b1(intervalSpin_);
     QSignalBlocker b2(fcCombo_);
     QSignalBlocker b3(addrSpin_);
@@ -108,11 +108,13 @@ void ControlWidget::loadSettings() {
     const QString addrKey = settingsGroup_ + "/addr";
     const QString qtyKey = settingsGroup_ + "/qty";
 
-    const int interval = settings.value(intervalKey, intervalSpin_->value()).toInt();
-    const int fcIndex = settings.value(fcKey, fcCombo_->currentIndex()).toInt();
-    const int addr = settings.value(addrKey, addrSpin_->value()).toInt();
-    const int qty = settings.value(qtyKey, qtySpin_->value()).toInt();
+    const bool enablePoll = settingsService_->value(settingsGroup_ + "/enablePoll").toBool();
+    const int interval = settingsService_->value(intervalKey).toInt();
+    const int fcIndex = settingsService_->value(fcKey).toInt();
+    const int addr = settingsService_->value(addrKey).toInt();
+    const int qty = settingsService_->value(qtyKey).toInt();
 
+    enablePollCheck_->setChecked(enablePoll);
     intervalSpin_->setValue(interval);
     if (fcIndex >= 0 && fcIndex < fcCombo_->count()) {
         fcCombo_->setCurrentIndex(fcIndex);
@@ -120,19 +122,20 @@ void ControlWidget::loadSettings() {
     addrSpin_->setValue(addr);
     qtySpin_->setValue(qty);
 
-    if (!settings.contains(intervalKey)) settings.setValue(intervalKey, interval);
-    if (!settings.contains(fcKey)) settings.setValue(fcKey, fcCombo_->currentIndex());
-    if (!settings.contains(addrKey)) settings.setValue(addrKey, addr);
-    if (!settings.contains(qtyKey)) settings.setValue(qtyKey, qty);
+    if (enablePollCheck_->isChecked()) {
+        pollTimer_->start(intervalSpin_->value());
+    } else {
+        pollTimer_->stop();
+    }
 }
 
 void ControlWidget::saveSettings() {
-    if (settingsGroup_.isEmpty()) return;
-    QSettings settings(QApplication::applicationDirPath() + "/config.ini", QSettings::IniFormat);
-    settings.setValue(settingsGroup_ + "/intervalMs", intervalSpin_->value());
-    settings.setValue(settingsGroup_ + "/fcIndex", fcCombo_->currentIndex());
-    settings.setValue(settingsGroup_ + "/addr", addrSpin_->value());
-    settings.setValue(settingsGroup_ + "/qty", qtySpin_->value());
+    if (settingsGroup_.isEmpty() || !settingsService_) return;
+    settingsService_->setValue(settingsGroup_ + "/enablePoll", enablePollCheck_->isChecked());
+    settingsService_->setValue(settingsGroup_ + "/intervalMs", intervalSpin_->value());
+    settingsService_->setValue(settingsGroup_ + "/fcIndex", fcCombo_->currentIndex());
+    settingsService_->setValue(settingsGroup_ + "/addr", addrSpin_->value());
+    settingsService_->setValue(settingsGroup_ + "/qty", qtySpin_->value());
 }
 
 void ControlWidget::setupUi() {

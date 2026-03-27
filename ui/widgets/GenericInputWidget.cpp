@@ -1,4 +1,5 @@
 #include "GenericInputWidget.h"
+#include "../common/ISettingsService.h"
 #include <QVBoxLayout>
 #include <QHBoxLayout>
 #include <QTextEdit>
@@ -13,14 +14,13 @@
 #include <QMessageBox>
 #include <QDebug>
 #include <QEvent>
-#include <QSettings>
-#include <QApplication>
 #include <QSignalBlocker>
 
 namespace ui::widgets {
 
-GenericInputWidget::GenericInputWidget(QWidget *parent)
-    : QWidget(parent)
+GenericInputWidget::GenericInputWidget(ui::common::ISettingsService* settingsService, QWidget *parent)
+    : QWidget(parent),
+      settingsService_(settingsService)
 {
     setupUi();
     autoSendTimer_ = new QTimer(this);
@@ -86,6 +86,8 @@ void GenericInputWidget::setupUi() {
     connect(asciiRadio_, &QRadioButton::toggled, this, &GenericInputWidget::saveSettings);
     
     connect(autoSendCheck_, &QCheckBox::toggled, this, &GenericInputWidget::onAutoSendToggled);
+    connect(autoSendCheck_, &QCheckBox::toggled, this, &GenericInputWidget::saveSettings);
+    connect(intervalSpin_, qOverload<int>(&QSpinBox::valueChanged), this, &GenericInputWidget::saveSettings);
     connect(sendBtn_, &QPushButton::clicked, this, &GenericInputWidget::onSendClicked);
     connect(sendFileBtn_, &QPushButton::clicked, this, &GenericInputWidget::onSendFileClicked);
 
@@ -125,30 +127,37 @@ void GenericInputWidget::setSettingsGroup(const QString& group) {
 }
 
 void GenericInputWidget::loadSettings() {
-    if (settingsGroup_.isEmpty()) return;
-    QSettings settings(QApplication::applicationDirPath() + "/config.ini", QSettings::IniFormat);
+    if (settingsGroup_.isEmpty() || !settingsService_) return;
     const QString key = settingsGroup_ + "/format";
-    QString format = settings.value(key, "hex").toString().toLower();
+    QString format = settingsService_->value(key).toString().toLower();
+    const bool autoSend = settingsService_->value(settingsGroup_ + "/autoSend").toBool();
+    const int intervalMs = settingsService_->value(settingsGroup_ + "/intervalMs").toInt();
 
     QSignalBlocker b1(hexRadio_);
     QSignalBlocker b2(asciiRadio_);
+    QSignalBlocker b3(autoSendCheck_);
+    QSignalBlocker b4(intervalSpin_);
     if (format == "ascii") {
         asciiRadio_->setChecked(true);
     } else {
         hexRadio_->setChecked(true);
-        format = "hex";
     }
-
-    if (!settings.contains(key)) {
-        settings.setValue(key, format);
+    autoSendCheck_->setChecked(autoSend);
+    intervalSpin_->setValue(intervalMs);
+    intervalSpin_->setEnabled(autoSend);
+    if (autoSend) {
+        autoSendTimer_->start(intervalMs);
+    } else {
+        autoSendTimer_->stop();
     }
 }
 
 void GenericInputWidget::saveSettings() {
-    if (settingsGroup_.isEmpty()) return;
-    QSettings settings(QApplication::applicationDirPath() + "/config.ini", QSettings::IniFormat);
+    if (settingsGroup_.isEmpty() || !settingsService_) return;
     const QString format = hexRadio_->isChecked() ? "hex" : "ascii";
-    settings.setValue(settingsGroup_ + "/format", format);
+    settingsService_->setValue(settingsGroup_ + "/format", format);
+    settingsService_->setValue(settingsGroup_ + "/autoSend", autoSendCheck_->isChecked());
+    settingsService_->setValue(settingsGroup_ + "/intervalMs", intervalSpin_->value());
 }
 
 QByteArray GenericInputWidget::getData() const {
@@ -177,7 +186,7 @@ void GenericInputWidget::onAutoSendToggled(bool checked) {
     } else {
         autoSendTimer_->stop();
     }
-    intervalSpin_->setEnabled(true);
+    intervalSpin_->setEnabled(checked);
     sendBtn_->setEnabled(true);
 }
 

@@ -1,5 +1,6 @@
 #include "SerialConnectionWidget.h"
 #include "CollapsibleSection.h"
+#include "../common/ISettingsService.h"
 #include <QHBoxLayout>
 #include <QVBoxLayout>
 #include <QComboBox>
@@ -7,14 +8,13 @@
 #include <QLabel>
 #include <QSerialPortInfo>
 #include <QEvent>
-#include <QSettings>
-#include <QApplication>
 #include <QSignalBlocker>
 
 namespace ui::widgets {
 
-SerialConnectionWidget::SerialConnectionWidget(QWidget *parent)
-    : QWidget(parent) {
+SerialConnectionWidget::SerialConnectionWidget(ui::common::ISettingsService* settingsService, QWidget *parent)
+    : QWidget(parent),
+      settingsService_(settingsService) {
     setupUi();
     refreshPorts();
 }
@@ -102,7 +102,7 @@ void SerialConnectionWidget::setupUi() {
     auto* mainLayout = new QHBoxLayout(this);
     mainLayout->setContentsMargins(0, 0, 0, 0);
 
-    section_ = new CollapsibleSection(this);
+    section_ = new CollapsibleSection(settingsService_, this);
     auto* layout = new QHBoxLayout(section_->contentWidget());
 
     // Port
@@ -192,8 +192,7 @@ void SerialConnectionWidget::setSettingsGroup(const QString& group) {
 }
 
 void SerialConnectionWidget::loadSettings() {
-    if (settingsGroup_.isEmpty()) return;
-    QSettings settings(QApplication::applicationDirPath() + "/config.ini", QSettings::IniFormat);
+    if (settingsGroup_.isEmpty() || !settingsService_) return;
     QSignalBlocker b1(baudCombo_);
     QSignalBlocker b2(dataBitsCombo_);
     QSignalBlocker b3(parityCombo_);
@@ -205,12 +204,12 @@ void SerialConnectionWidget::loadSettings() {
     const QString stopKey = settingsGroup_ + "/stopBits";
     const QString portKey = settingsGroup_ + "/portName";
 
-    const int fallbackBaud = settings.value("serial/baudRate", baudCombo_->currentText().toInt()).toInt();
-    const int baudRate = settings.value(baudKey, fallbackBaud).toInt();
-    const QString dataBits = settings.value(dataKey, dataBitsCombo_->currentText()).toString();
-    const QString parity = settings.value(parityKey, parityCombo_->currentText()).toString();
-    const QString stopBits = settings.value(stopKey, stopBitsCombo_->currentText()).toString();
-    const QString portName = settings.value(portKey, portCombo_->currentData().toString()).toString();
+    const int fallbackBaud = settingsService_->value("serial/baudRate").toInt();
+    const int baudRate = settingsService_->contains(baudKey) ? settingsService_->value(baudKey).toInt() : fallbackBaud;
+    const QString dataBits = settingsService_->value(dataKey).toString();
+    const QString parity = settingsService_->value(parityKey).toString();
+    const QString stopBits = settingsService_->value(stopKey).toString();
+    const QString portName = settingsService_->value(portKey).toString();
 
     const int baudIndex = baudCombo_->findText(QString::number(baudRate));
     if (baudIndex >= 0) {
@@ -238,22 +237,15 @@ void SerialConnectionWidget::loadSettings() {
             portCombo_->setCurrentIndex(portIndex);
         }
     }
-
-    if (!settings.contains(baudKey)) settings.setValue(baudKey, baudRate);
-    if (!settings.contains(dataKey)) settings.setValue(dataKey, dataBitsCombo_->currentText());
-    if (!settings.contains(parityKey)) settings.setValue(parityKey, parityCombo_->currentText());
-    if (!settings.contains(stopKey)) settings.setValue(stopKey, stopBitsCombo_->currentText());
-    if (!settings.contains(portKey)) settings.setValue(portKey, portCombo_->currentData().toString());
 }
 
 void SerialConnectionWidget::saveSettings() {
-    if (settingsGroup_.isEmpty()) return;
-    QSettings settings(QApplication::applicationDirPath() + "/config.ini", QSettings::IniFormat);
-    settings.setValue(settingsGroup_ + "/baudRate", baudCombo_->currentText().toInt());
-    settings.setValue(settingsGroup_ + "/dataBits", dataBitsCombo_->currentText());
-    settings.setValue(settingsGroup_ + "/parity", parityCombo_->currentText());
-    settings.setValue(settingsGroup_ + "/stopBits", stopBitsCombo_->currentText());
-    settings.setValue(settingsGroup_ + "/portName", portCombo_->currentData().toString());
+    if (settingsGroup_.isEmpty() || !settingsService_) return;
+    settingsService_->setValue(settingsGroup_ + "/baudRate", baudCombo_->currentText());
+    settingsService_->setValue(settingsGroup_ + "/dataBits", dataBitsCombo_->currentText());
+    settingsService_->setValue(settingsGroup_ + "/parity", parityCombo_->currentText());
+    settingsService_->setValue(settingsGroup_ + "/stopBits", stopBitsCombo_->currentText());
+    settingsService_->setValue(settingsGroup_ + "/portName", portCombo_->currentData().toString());
 }
 
 void SerialConnectionWidget::retranslateUi() {

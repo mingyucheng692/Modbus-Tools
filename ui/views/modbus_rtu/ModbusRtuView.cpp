@@ -1,4 +1,5 @@
 #include "ModbusRtuView.h"
+#include "../../common/ISettingsService.h"
 #include "../../widgets/SerialConnectionWidget.h"
 #include "../../widgets/FunctionWidget.h"
 #include "../../widgets/TrafficMonitorWidget.h"
@@ -24,8 +25,9 @@
 
 namespace ui::views::modbus_rtu {
 
-ModbusRtuView::ModbusRtuView(QWidget *parent)
-    : QWidget(parent) {
+ModbusRtuView::ModbusRtuView(ui::common::ISettingsService* settingsService, QWidget *parent)
+    : QWidget(parent),
+      settingsService_(settingsService) {
     setupUi();
 }
 
@@ -50,15 +52,15 @@ void ModbusRtuView::setupUi() {
     mainLayout_->setContentsMargins(2, 2, 2, 2);
     mainLayout_->setSpacing(2);
     
-    connectionWidget_ = new widgets::SerialConnectionWidget(this);
+    connectionWidget_ = new widgets::SerialConnectionWidget(settingsService_, this);
     connectionWidget_->setSettingsGroup("modbus/rtu/serial");
     mainLayout_->addWidget(connectionWidget_);
     
-    functionWidget_ = new widgets::FunctionWidget(this);
+    functionWidget_ = new widgets::FunctionWidget(settingsService_, this);
     functionWidget_->setSettingsGroup("modbus/rtu/standard");
     mainLayout_->addWidget(functionWidget_);
     
-    dataGroup_ = new widgets::CollapsibleSection(this);
+    dataGroup_ = new widgets::CollapsibleSection(settingsService_, this);
     dataGroup_->setSettingsKey("modbus/rtu/ui/dataMonitorCollapsed");
     auto dataLayout = new QHBoxLayout(dataGroup_->contentWidget());
     dataLayout->setContentsMargins(4, 0, 4, 4);
@@ -102,14 +104,14 @@ void ModbusRtuView::setupUi() {
 
     dataLayout->addWidget(receiveGroup_, 1);
     dataLayout->addWidget(sendGroup_, 1);
-    trafficMonitor_ = new widgets::TrafficMonitorWidget(this);
+    trafficMonitor_ = new widgets::TrafficMonitorWidget(settingsService_, this);
     trafficMonitor_->setMinimumHeight(140);
     trafficMonitor_->setSettingsGroup("modbus/rtu/traffic");
 
     mainLayout_->addWidget(dataGroup_);
     mainLayout_->addWidget(trafficMonitor_);
     
-    controlWidget_ = new widgets::ControlWidget(this);
+    controlWidget_ = new widgets::ControlWidget(settingsService_, this);
     controlWidget_->setSettingsGroup("modbus/rtu/control");
     mainLayout_->addWidget(controlWidget_);
 

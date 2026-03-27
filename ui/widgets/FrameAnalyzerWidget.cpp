@@ -1,4 +1,6 @@
 #include "FrameAnalyzerWidget.h"
+#include "../common/ISettingsService.h"
+#include "../common/SettingsKeys.h"
 #include "modbus/parser/ModbusFrameParser.h"
 #include <QVBoxLayout>
 #include <QHBoxLayout>
@@ -14,8 +16,6 @@
 #include <QTabWidget>
 #include <QMessageBox>
 #include <QEvent>
-#include <QSettings>
-#include <QApplication>
 #include <QSignalBlocker>
 #include <QFileDialog>
 #include <QFile>
@@ -91,8 +91,9 @@ signals:
 };
 }
 
-FrameAnalyzerWidget::FrameAnalyzerWidget(QWidget* parent)
-    : QWidget(parent)
+FrameAnalyzerWidget::FrameAnalyzerWidget(ui::common::ISettingsService* settingsService, QWidget* parent)
+    : QWidget(parent),
+      settingsService_(settingsService)
 {
     qRegisterMetaType<ProtocolType>("modbus::core::parser::ProtocolType");
     qRegisterMetaType<ParseResult>("modbus::core::parser::ParseResult");
@@ -726,20 +727,20 @@ void FrameAnalyzerWidget::onParseClicked()
 
 void FrameAnalyzerWidget::loadSettings()
 {
-    QSettings settings(QApplication::applicationDirPath() + "/config.ini", QSettings::IniFormat);
-    QSignalBlocker blocker(startAddressSpin_);
-    const QString key = "frame_analyzer/startAddr";
-    const int value = settings.value(key, startAddressSpin_->value()).toInt();
-    startAddressSpin_->setValue(value);
-    if (!settings.contains(key)) {
-        settings.setValue(key, value);
+    if (!settingsService_) {
+        return;
     }
+    QSignalBlocker blocker(startAddressSpin_);
+    const int value = settingsService_->value(common::settings_keys::kFrameAnalyzerStartAddr).toInt();
+    startAddressSpin_->setValue(value);
 }
 
 void FrameAnalyzerWidget::saveSettings()
 {
-    QSettings settings(QApplication::applicationDirPath() + "/config.ini", QSettings::IniFormat);
-    settings.setValue("frame_analyzer/startAddr", startAddressSpin_->value());
+    if (!settingsService_) {
+        return;
+    }
+    settingsService_->setValue(common::settings_keys::kFrameAnalyzerStartAddr, startAddressSpin_->value());
 }
 
 void FrameAnalyzerWidget::renderResult(const ParseResult& result)

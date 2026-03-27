@@ -12,6 +12,10 @@ class QPushButton;
 class QEvent;
 class QString;
 
+namespace ui::common {
+class ISettingsService;
+}
+
 namespace ui::widgets {
 class CollapsibleSection;
 
@@ -19,7 +23,7 @@ class FunctionWidget : public QWidget {
     Q_OBJECT
 
 public:
-    explicit FunctionWidget(QWidget *parent = nullptr);
+    explicit FunctionWidget(ui::common::ISettingsService* settingsService, QWidget *parent = nullptr);
     ~FunctionWidget() override;
 
     int getSlaveId() const;
@@ -79,6 +83,7 @@ private:
     QPushButton* rawSendBtn_ = nullptr;
 
     QString settingsGroup_;
+    ui::common::ISettingsService* settingsService_ = nullptr;
 };
 
 } // namespace ui::widgets

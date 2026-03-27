@@ -14,6 +14,10 @@ class QTextEdit;
 class QPushButton;
 class QEvent;
 
+namespace ui::common {
+class ISettingsService;
+}
+
 namespace modbus::dispatch { class ModbusWorker; }
 namespace modbus::session { class IModbusClient; }
 namespace io { class IChannel; }
@@ -33,7 +37,7 @@ class ModbusRtuView : public QWidget {
     Q_OBJECT
 
 public:
-    explicit ModbusRtuView(QWidget *parent = nullptr);
+    explicit ModbusRtuView(ui::common::ISettingsService* settingsService, QWidget *parent = nullptr);
     ~ModbusRtuView() override;
     void updateModbusSettings(int timeoutMs, int retries, int retryIntervalMs);
 
@@ -81,6 +85,7 @@ private:
     int retries_ = 0;
     int retryIntervalMs_ = 100;
     modbus::base::ModbusConfig currentConfig_;
+    ui::common::ISettingsService* settingsService_ = nullptr;
 };
 
 } // namespace ui::views::modbus_rtu

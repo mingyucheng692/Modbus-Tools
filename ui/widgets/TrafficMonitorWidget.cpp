@@ -1,5 +1,6 @@
 #include "TrafficMonitorWidget.h"
 #include "CollapsibleSection.h"
+#include "../common/ISettingsService.h"
 #include <QVBoxLayout>
 #include <QHBoxLayout>
 #include <QListWidget>
@@ -14,15 +15,14 @@
 #include <QClipboard>
 #include <QMenu>
 #include <QEvent>
-#include <QSettings>
-#include <QApplication>
 #include <QSignalBlocker>
 #include <QSizePolicy>
 
 namespace ui::widgets {
 
-TrafficMonitorWidget::TrafficMonitorWidget(QWidget *parent)
-    : QWidget(parent) {
+TrafficMonitorWidget::TrafficMonitorWidget(ui::common::ISettingsService* settingsService, QWidget *parent)
+    : QWidget(parent),
+      settingsService_(settingsService) {
     setupUi();
 }
 
@@ -33,7 +33,7 @@ void TrafficMonitorWidget::setupUi() {
     mainLayout->setContentsMargins(0, 0, 0, 0);
     mainLayout->setSpacing(0);
 
-    section_ = new CollapsibleSection(this);
+    section_ = new CollapsibleSection(settingsService_, this);
     auto layout = new QVBoxLayout(section_->contentWidget());
     layout->setContentsMargins(8, 0, 8, 0);
     layout->setSpacing(6);
@@ -151,8 +151,7 @@ void TrafficMonitorWidget::setSettingsGroup(const QString& group) {
 }
 
 void TrafficMonitorWidget::loadSettings() {
-    if (settingsGroup_.isEmpty()) return;
-    QSettings settings(QApplication::applicationDirPath() + "/config.ini", QSettings::IniFormat);
+    if (settingsGroup_.isEmpty() || !settingsService_) return;
     QSignalBlocker b1(autoScrollCheck_);
     QSignalBlocker b2(showTxCheck_);
     QSignalBlocker b3(showRxCheck_);
@@ -161,25 +160,20 @@ void TrafficMonitorWidget::loadSettings() {
     const QString txKey = settingsGroup_ + "/showTx";
     const QString rxKey = settingsGroup_ + "/showRx";
 
-    const bool autoScroll = settings.value(autoKey, autoScrollCheck_->isChecked()).toBool();
-    const bool showTx = settings.value(txKey, showTxCheck_->isChecked()).toBool();
-    const bool showRx = settings.value(rxKey, showRxCheck_->isChecked()).toBool();
+    const bool autoScroll = settingsService_->value(autoKey).toBool();
+    const bool showTx = settingsService_->value(txKey).toBool();
+    const bool showRx = settingsService_->value(rxKey).toBool();
 
     autoScrollCheck_->setChecked(autoScroll);
     showTxCheck_->setChecked(showTx);
     showRxCheck_->setChecked(showRx);
-
-    if (!settings.contains(autoKey)) settings.setValue(autoKey, autoScroll);
-    if (!settings.contains(txKey)) settings.setValue(txKey, showTx);
-    if (!settings.contains(rxKey)) settings.setValue(rxKey, showRx);
 }
 
 void TrafficMonitorWidget::saveSettings() {
-    if (settingsGroup_.isEmpty()) return;
-    QSettings settings(QApplication::applicationDirPath() + "/config.ini", QSettings::IniFormat);
-    settings.setValue(settingsGroup_ + "/autoScroll", autoScrollCheck_->isChecked());
-    settings.setValue(settingsGroup_ + "/showTx", showTxCheck_->isChecked());
-    settings.setValue(settingsGroup_ + "/showRx", showRxCheck_->isChecked());
+    if (settingsGroup_.isEmpty() || !settingsService_) return;
+    settingsService_->setValue(settingsGroup_ + "/autoScroll", autoScrollCheck_->isChecked());
+    settingsService_->setValue(settingsGroup_ + "/showTx", showTxCheck_->isChecked());
+    settingsService_->setValue(settingsGroup_ + "/showRx", showRxCheck_->isChecked());
 }
 
 void TrafficMonitorWidget::syncCollapsedGeometry(bool expanded) {

@@ -1,4 +1,5 @@
 #include "GenericTcpView.h"
+#include "../../common/ISettingsService.h"
 #include "../../widgets/TcpConnectionWidget.h"
 #include "../../widgets/TrafficMonitorWidget.h"
 #include "../../widgets/GenericInputWidget.h"
@@ -16,8 +17,9 @@
 
 namespace ui::views::generic_tcp {
 
-GenericTcpView::GenericTcpView(QWidget *parent)
-    : QWidget(parent) {
+GenericTcpView::GenericTcpView(ui::common::ISettingsService* settingsService, QWidget *parent)
+    : QWidget(parent),
+      settingsService_(settingsService) {
     setupUi();
     startWorker();
 }
@@ -32,22 +34,22 @@ void GenericTcpView::setupUi() {
     mainLayout->setSpacing(4);
 
     // 1. Connection Section (Top)
-    connectionWidget_ = new widgets::TcpConnectionWidget(this);
+    connectionWidget_ = new widgets::TcpConnectionWidget(settingsService_, this);
     connectionWidget_->setSettingsGroup("tcp_client");
     connectionWidget_->setDefaultPort(8080);
     mainLayout->addWidget(connectionWidget_);
 
     // 2. Central Area (Traffic Monitor)
-    trafficMonitor_ = new widgets::TrafficMonitorWidget(this);
+    trafficMonitor_ = new widgets::TrafficMonitorWidget(settingsService_, this);
     trafficMonitor_->setSettingsGroup("tcp_client/traffic");
     mainLayout->addWidget(trafficMonitor_);
 
     // 3. Input Section (Bottom)
-    inputSection_ = new widgets::CollapsibleSection(this);
+    inputSection_ = new widgets::CollapsibleSection(settingsService_, this);
     inputSection_->setSettingsKey("tcp_client/ui/inputCollapsed");
     auto inputLayout = new QVBoxLayout(inputSection_->contentWidget());
     inputLayout->setContentsMargins(0, 0, 0, 0);
-    inputWidget_ = new widgets::GenericInputWidget(inputSection_->contentWidget());
+    inputWidget_ = new widgets::GenericInputWidget(settingsService_, inputSection_->contentWidget());
     inputWidget_->setSettingsGroup("tcp_client/input");
     inputLayout->addWidget(inputWidget_);
     mainLayout->addWidget(inputSection_);

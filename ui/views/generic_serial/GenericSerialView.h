@@ -24,13 +24,17 @@ class QThread;
 class QGroupBox;
 class QEvent;
 
+namespace ui::common {
+class ISettingsService;
+}
+
 namespace ui::views::generic_serial {
 
 class GenericSerialView : public QWidget {
     Q_OBJECT
 
 public:
-    explicit GenericSerialView(QWidget *parent = nullptr);
+    explicit GenericSerialView(ui::common::ISettingsService* settingsService, QWidget *parent = nullptr);
     ~GenericSerialView() override;
 
 private slots:
@@ -66,6 +70,7 @@ private:
     io::GenericIoWorker* worker_ = nullptr;
     QThread* workerThread_ = nullptr;
     bool isConnected_ = false;
+    ui::common::ISettingsService* settingsService_ = nullptr;
 };
 
 } // namespace ui::views::generic_serial

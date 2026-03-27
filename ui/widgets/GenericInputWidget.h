@@ -12,13 +12,17 @@ class QProgressBar;
 class QEvent;
 class QString;
 
+namespace ui::common {
+class ISettingsService;
+}
+
 namespace ui::widgets {
 
 class GenericInputWidget : public QWidget {
     Q_OBJECT
 
 public:
-    explicit GenericInputWidget(QWidget *parent = nullptr);
+    explicit GenericInputWidget(ui::common::ISettingsService* settingsService, QWidget *parent = nullptr);
     ~GenericInputWidget() override;
 
     void appendData(const QByteArray& data); // For feedback if needed? No, input is for sending.
@@ -60,6 +64,7 @@ private:
     
     QTimer* autoSendTimer_ = nullptr;
     QString settingsGroup_;
+    ui::common::ISettingsService* settingsService_ = nullptr;
 };
 
 } // namespace ui::widgets

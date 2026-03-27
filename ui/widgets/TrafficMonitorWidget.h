@@ -9,6 +9,10 @@ class QPushButton;
 class QEvent;
 class QString;
 
+namespace ui::common {
+class ISettingsService;
+}
+
 namespace ui::widgets {
 class CollapsibleSection;
 
@@ -16,7 +20,7 @@ class TrafficMonitorWidget : public QWidget {
     Q_OBJECT
 
 public:
-    explicit TrafficMonitorWidget(QWidget *parent = nullptr);
+    explicit TrafficMonitorWidget(ui::common::ISettingsService* settingsService, QWidget *parent = nullptr);
     ~TrafficMonitorWidget() override;
 
     void appendTx(const QByteArray& data);
@@ -47,6 +51,7 @@ private:
     QPushButton* saveBtn_ = nullptr;
 
     QString settingsGroup_;
+    ui::common::ISettingsService* settingsService_ = nullptr;
 };
 
 } // namespace ui::widgets

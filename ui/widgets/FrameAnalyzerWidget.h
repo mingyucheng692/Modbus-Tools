@@ -24,13 +24,17 @@ class QObject;
 class QSplitter;
 class QResizeEvent;
 
+namespace ui::common {
+class ISettingsService;
+}
+
 namespace ui::widgets {
 
 class FrameAnalyzerWidget : public QWidget {
     Q_OBJECT
 
 public:
-    explicit FrameAnalyzerWidget(QWidget* parent = nullptr);
+    explicit FrameAnalyzerWidget(ui::common::ISettingsService* settingsService, QWidget* parent = nullptr);
     ~FrameAnalyzerWidget() override;
 
 signals:
@@ -133,6 +137,7 @@ private:
     quint64 latestParseRequestId_ = 0;
     bool parseInProgress_ = false;
     bool isUpdatingDataTable_ = false;
+    ui::common::ISettingsService* settingsService_ = nullptr;
     static constexpr int kMaxHistoryCount = 20;
 };
 

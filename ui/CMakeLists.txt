@@ -5,6 +5,10 @@ set(CMAKE_AUTORCC ON)
 add_library(ui STATIC)
 
 target_sources(ui PRIVATE
+    common/ISettingsService.h
+    common/SettingsKeys.h
+    common/SettingsService.cpp
+    common/SettingsService.h
     common/Theme.cpp
     common/UpdateChecker.cpp
     common/UpdateChecker.h

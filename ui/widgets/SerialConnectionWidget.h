@@ -10,6 +10,10 @@ class QLabel;
 class QEvent;
 class QString;
 
+namespace ui::common {
+class ISettingsService;
+}
+
 namespace ui::widgets {
 class CollapsibleSection;
 
@@ -17,7 +21,7 @@ class SerialConnectionWidget : public QWidget {
     Q_OBJECT
 
 public:
-    explicit SerialConnectionWidget(QWidget *parent = nullptr);
+    explicit SerialConnectionWidget(ui::common::ISettingsService* settingsService, QWidget *parent = nullptr);
     ~SerialConnectionWidget() override;
 
     io::SerialConfig getConfig() const;
@@ -55,6 +59,7 @@ private:
     
     bool isConnected_ = false;
     QString settingsGroup_ = "serial";
+    ui::common::ISettingsService* settingsService_ = nullptr;
 };
 
 } // namespace ui::widgets

@@ -9,6 +9,7 @@ class QAction;
 class QActionGroup;
 class QMenu;
 class QEvent;
+class QCloseEvent;
 class QObject;
 class QWidget;
 class QToolButton;
@@ -18,6 +19,7 @@ namespace ui {
 namespace views::modbus_tcp { class ModbusTcpView; }
 namespace views::modbus_rtu { class ModbusRtuView; }
 namespace common { class UpdateChecker; }
+namespace common { class SettingsService; }
 namespace widgets { class UpdateSettingsDialog; }
 
 class MainWindow : public QMainWindow {
@@ -50,6 +52,7 @@ private:
     void cleanupUpdateArtifacts();
     void promptUpdateAction(const QString& currentVersion);
     bool tryStartSilentUpdate();
+    void saveWindowSettings();
     bool downloadUpdateAsset(const QUrl& url, const QString& filePath, QString& errorMessage) const;
     QString calculateFileSha256(const QString& filePath) const;
     QString resolveSha256FromChecksums(const QString& checksumsPath, const QString& targetFileName) const;
@@ -69,6 +72,7 @@ private:
     void handleUpdateCheckFailed(const QString& reason);
     void showDisclaimerIfNeeded();
     void changeEvent(QEvent* event) override;
+    void closeEvent(QCloseEvent* event) override;
 
     QListWidget* navigationList_ = nullptr;
     QWidget* navigationPane_ = nullptr;
@@ -90,6 +94,7 @@ private:
     QTranslator qtTranslator_;
     QTranslator appTranslator_;
     common::UpdateChecker* updateChecker_ = nullptr;
+    common::SettingsService* settingsService_ = nullptr;
     QString currentLocale_ = "en_US";
     int modbusTimeoutMs_ = 1000;
     int modbusRetries_ = 0;
