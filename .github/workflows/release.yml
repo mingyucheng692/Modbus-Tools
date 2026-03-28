@@ -28,7 +28,7 @@ jobs:
           host: 'windows'
           target: 'desktop'
           arch: 'win64_msvc2022_64'
-          modules: "qtserialport qtcharts qtnetwork qtwidgets"
+          modules: "qtserialport qtcharts"
           cache: 'true'
 
       - name: Build Project
