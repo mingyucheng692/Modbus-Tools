@@ -1,0 +1,84 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  build-and-release:
+    runs-on: windows-latest
+    
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          fetch-depth: 0
+
+      - name: Setup MSVC Environment
+        uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: x64
+
+      - name: Install Qt
+        uses: jurplel/install-qt-action@v3
+        with:
+          version: '6.10.1' # Qt6, specific version can be adjusted
+          host: 'windows'
+          target: 'desktop'
+          arch: 'win64_msvc2019_64'
+          cache: 'true'
+
+      - name: Build Project
+        shell: bash
+        run: |
+          cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
+          cmake --build build --config Release
+
+      - name: Prepare Release Artifacts
+        shell: pwsh
+        run: |
+          # Define Tag Name
+          $TAG_NAME = "${{ github.ref_name }}"
+          
+          # Paths
+          $BUILD_DIR = "build/app/Release"
+          $RELEASE_DIR = "release_pkg"
+          $ZIP_NAME = "Modbus-Tools-$TAG_NAME-windows-x86_64.zip"
+          $SINGLE_EXE_NAME = "Modbus-Tools-$TAG_NAME-windows-x86_64-UpdateOnly.exe"
+          
+          # Create Release Directory
+          New-Item -ItemType Directory -Force -Path $RELEASE_DIR
+          
+          # Artifact A: Full Package (ZIP)
+          Copy-Item -Path "$BUILD_DIR/Modbus-Tools.exe" -Destination $RELEASE_DIR
+          Copy-Item -Path "$BUILD_DIR/updater.exe" -Destination $RELEASE_DIR -ErrorAction SilentlyContinue
+          
+          # Run windeployqt
+          windeployqt --release --compiler-runtime "$RELEASE_DIR/Modbus-Tools.exe"
+          
+          # Compress to ZIP
+          Compress-Archive -Path "$RELEASE_DIR/*" -DestinationPath $ZIP_NAME
+          
+          # Artifact B: Single Executable (Update Only)
+          Copy-Item -Path "$BUILD_DIR/Modbus-Tools.exe" -Destination $SINGLE_EXE_NAME
+          
+          # Calculate SHA256
+          $ZipHash = (Get-FileHash -Algorithm SHA256 -Path $ZIP_NAME).Hash.ToLower()
+          $ExeHash = (Get-FileHash -Algorithm SHA256 -Path $SINGLE_EXE_NAME).Hash.ToLower()
+          
+          # Save hashes to files
+          Set-Content -Path "$ZIP_NAME.sha256" -Value "$ZipHash  $ZIP_NAME"
+          Set-Content -Path "$SINGLE_EXE_NAME.sha256" -Value "$ExeHash  $SINGLE_EXE_NAME"
+
+      - name: Release to GitHub
+        uses: softprops/action-gh-release@v2
+        with:
+          draft: true
+          files: |
+            Modbus-Tools-*-windows-x86_64.zip
+            Modbus-Tools-*-windows-x86_64-UpdateOnly.exe
+            *.sha256
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
