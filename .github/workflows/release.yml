@@ -60,8 +60,15 @@ jobs:
           Copy-Item -Path "$BUILD_DIR/updater.exe" -Destination $RELEASE_DIR -ErrorAction SilentlyContinue
           
           # Run windeployqt
-          windeployqt --release --compiler-runtime "$RELEASE_DIR/Modbus-Tools.exe"
+          windeployqt --release "$RELEASE_DIR/Modbus-Tools.exe"
           
+          $SYSTEM32 = "C:\Windows\System32"
+          Copy-Item "$SYSTEM32\msvcp140.dll" -Destination $RELEASE_DIR -ErrorAction SilentlyContinue
+          Copy-Item "$SYSTEM32\vcruntime140.dll" -Destination $RELEASE_DIR -ErrorAction SilentlyContinue
+          Copy-Item "$SYSTEM32\vcruntime140_1.dll" -Destination $RELEASE_DIR -ErrorAction SilentlyContinue
+
+          Remove-Item -Path "$RELEASE_DIR\vc_redist.x64.exe" -Force -ErrorAction SilentlyContinue
+
           # Compress to ZIP
           Compress-Archive -Path "$RELEASE_DIR/*" -DestinationPath $ZIP_NAME
           
