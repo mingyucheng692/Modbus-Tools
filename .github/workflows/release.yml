@@ -5,6 +5,9 @@ on:
     tags:
       - 'v*'
 
+permissions:
+  contents: write    # 允许创建/更新 Release 和上传资产
+
 jobs:
   build-and-release:
     runs-on: windows-latest
