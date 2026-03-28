@@ -9,16 +9,43 @@ A personal Modbus / generic communication debugging assistant built in spare tim
 - Default UI language: `en_US`
 - Quick switch to: `zh_CN`, `zh_TW`
 
-## Features
+## 💡 Design Philosophy & Core Features
 
-- Modbus TCP debugging: connect, function code requests, TX/RX monitoring
-- Modbus RTU debugging: serial config, request sending, response parsing
-- Unified request stats in Modbus TCP/RTU: TX / RX / FAIL / RTT
-- Generic TCP client: custom send/receive with traffic monitoring
-- Generic serial tool: serial connect and raw data TX/RX
-- Frame analyzer: structured Modbus frame parsing with editable metadata (Scale, Description)
-- Frame analyzer decoded table support scaled `Value` (`raw * scale`) and resizable columns
-- Configurable Modbus timeout, retry count, retry interval
+The goal of this tool is to simplify the basic workflow of **"sending frames, viewing logs, and analyzing frames"** during the testing phase.
+It does not pursue a comprehensive feature set, but focuses on improving usability and efficiency when debugging basic communication protocols.
+
+> **⚠️ Note: This tool is designed ONLY for development, testing, and learning purposes. It provides NO guarantees regarding communication reliability or stability. Do NOT use it in any production environment or mission-critical system. See the Disclaimer below.**
+
+### 🔌 1. Fast Connection & Frame Building
+- **Intuitive Configuration**: Modbus TCP / RTU connection parameters are located on the left panel for quick setup.
+- **Quick Command Sending**: Fill in `Slave ID`, `Start Address`, and `Data`, then click the corresponding function code button to send. The program automatically builds the frame and calculates the checksum (CRC/LRC).
+- **Flexible Data Formats**: Supports switching between `Hex` and `Decimal` formats to accommodate different data input requirements.
+- **Raw Mode**: Provides a Raw mode for sending custom Hex frames, suitable for verifying non-standard protocols or abnormal workflows.
+
+![Modbus-TCP Fast Frame Builder](docs/images/modbus-tcp-frame-builder.png)
+
+### 🕵️‍♂️ 2. Traffic Monitor & Logging
+- **Separated TX/RX Display**: Transmitted (TX) and received (RX) data are identified by different colors, accompanied by millisecond-level timestamps.
+- **Data Stream Filtering**: Supports filtering to view only TX or RX data via checkboxes, facilitating observation of specific directional frames during continuous polling.
+- **Copy & Record**: Supports quick copying of individual frame contents, and the current complete communication log can be exported and saved to assist in test recording.
+
+### 🧩 3. Frame Analyzer
+This module is used to assist in analyzing Hex frames. After parsing, it displays the frame structure and data in a tabular format.
+- **Decode Mode Switch**: Supports switching between `Unsigned` and `Signed` modes, synchronously updating the corresponding decimal, Hex, binary, and numerical values.
+- **Multiplier Scaling (Scale)**: Supports setting conversion multipliers (e.g., `0.1`) for specific registers to visually display the converted engineering values in the table.
+- **Register Description**: Supports adding custom descriptions (e.g., "Voltage", "Speed") to register addresses for easy cross-referencing.
+- **Configuration Persistence & JSON Templates**: Configured multipliers and descriptions are automatically saved. Configurations can be exported as JSON templates for reuse when testing similar devices.
+- **Utility Features**: Provides Hex format cleaning, response frame start address configuration, and basic protocol auto-detection (TCP/RTU).
+
+![Frame Analyzer Overview](docs/images/frame-analyzer-overview.png)
+![Frame Analyzer Address Scale Description](docs/images/frame-analyzer-address-scale-description.png)
+
+### 🛠️ 4. Auxiliary Tools & Configuration
+In addition to the core Modbus functionality, some basic generic testing tools are provided:
+- **Generic TCP Client**: For basic custom network frame transmission and reception testing.
+- **Generic Serial Tool**: For basic serial port transmission and reception testing (supports ASCII/Hex).
+- **Request Statistics Panel**: Provides basic TX / RX / FAIL / RTT statistical data.
+- **Retry Strategy Configuration**: Allows custom configuration of Modbus request timeouts, retry counts, and retry intervals.
 
 ## Tech Stack
 
