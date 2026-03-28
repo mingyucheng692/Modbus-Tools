@@ -27,7 +27,7 @@ jobs:
           version: '6.10.1' # Qt6, specific version can be adjusted
           host: 'windows'
           target: 'desktop'
-          arch: 'win64_msvc2019_64'
+          arch: 'win64_msvc2022_64'
           cache: 'true'
 
       - name: Build Project
