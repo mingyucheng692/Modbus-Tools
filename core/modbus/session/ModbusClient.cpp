@@ -1,4 +1,5 @@
 #include "ModbusClient.h"
+#include "AppConstants.h"
 #include <spdlog/spdlog.h>
 #include <chrono>
 #include <thread>
@@ -240,8 +241,6 @@ ModbusResponse ModbusClient::sendRequestInternal(const base::Pdu& request, int s
     auto deadline = start + std::chrono::milliseconds(config_.timeoutMs);
     transitionTo(RequestState::Waiting, "wait-response");
     int droppedInvalidBytes = 0;
-    constexpr int kMaxDroppedInvalidBytes = 256;
-
     spdlog::info("ModbusClient: Entering wait loop, deadline in {}ms", config_.timeoutMs);
     
     while (true) {
@@ -314,7 +313,7 @@ ModbusResponse ModbusClient::sendRequestInternal(const base::Pdu& request, int s
                     buffer_.remove(0, 1);
                     ++droppedInvalidBytes;
                 }
-                if (droppedInvalidBytes > kMaxDroppedInvalidBytes) {
+                if (droppedInvalidBytes > app::constants::Constants::Modbus::kMaxDroppedInvalidBytes) {
                     transitionTo(RequestState::Failed, "too-many-invalid-bytes");
                     return ModbusResponse::Error("Too many invalid response bytes");
                 }

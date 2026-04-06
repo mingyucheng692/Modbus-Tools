@@ -1,5 +1,6 @@
 #pragma once
 
+#include "AppConstants.h"
 #include <QWidget>
 
 class QLineEdit;
@@ -53,7 +54,7 @@ private:
     bool isConnected_ = false;
     QString settingsGroup_ = "modbus/tcp";
     ui::common::ISettingsService* settingsService_ = nullptr;
-    int defaultPort_ = 502;
+    int defaultPort_ = app::constants::Constants::Network::kDefaultModbusTcpPort;
 };
 
 } // namespace ui::widgets

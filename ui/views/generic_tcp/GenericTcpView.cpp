@@ -1,4 +1,5 @@
 #include "GenericTcpView.h"
+#include "AppConstants.h"
 #include "../../common/ISettingsService.h"
 #include "../../widgets/TcpConnectionWidget.h"
 #include "../../widgets/TrafficMonitorWidget.h"
@@ -36,7 +37,7 @@ void GenericTcpView::setupUi() {
     // 1. Connection Section (Top)
     connectionWidget_ = new widgets::TcpConnectionWidget(settingsService_, this);
     connectionWidget_->setSettingsGroup("tcp_client");
-    connectionWidget_->setDefaultPort(8080);
+    connectionWidget_->setDefaultPort(app::constants::Constants::Network::kDefaultGenericTcpPort);
     mainLayout->addWidget(connectionWidget_);
 
     // 2. Central Area (Traffic Monitor)

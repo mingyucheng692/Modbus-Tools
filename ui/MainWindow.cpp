@@ -1,4 +1,5 @@
 #include "MainWindow.h"
+#include "AppConstants.h"
 #include "views/modbus_tcp/ModbusTcpView.h"
 #include "views/modbus_rtu/ModbusRtuView.h"
 #include "views/generic_tcp/GenericTcpView.h"
@@ -517,7 +518,7 @@ void MainWindow::applyModbusSettingsToViews() {
 void MainWindow::loadUpdateSettings() {
     updateCheckFrequency_ = settingsService_->value(common::settings_keys::kAppUpdateCheckFrequency).toString();
     if (updateCheckFrequency_.isEmpty()) {
-        updateCheckFrequency_ = "startup";
+        updateCheckFrequency_ = QStringLiteral("startup");
     }
 }
 
@@ -527,8 +528,9 @@ void MainWindow::openModbusSettingsDialog() {
     auto layout = new QVBoxLayout(&dialog);
     auto formLayout = new QFormLayout();
     auto timeoutSpin = new QSpinBox(&dialog);
-    timeoutSpin->setRange(100, 60000);
-    timeoutSpin->setSingleStep(100);
+    timeoutSpin->setRange(app::constants::Constants::Modbus::kMinTimeoutMs,
+                          app::constants::Constants::Modbus::kMaxTimeoutMs);
+    timeoutSpin->setSingleStep(app::constants::Constants::Modbus::kTimeoutStepMs);
     timeoutSpin->setValue(modbusTimeoutMs_);
     formLayout->addRow(tr("Request Timeout (ms):"), timeoutSpin);
 
@@ -537,13 +539,15 @@ void MainWindow::openModbusSettingsDialog() {
     formLayout->addRow(tr("Enable Retry:"), retryEnableCheck);
 
     auto retrySpin = new QSpinBox(&dialog);
-    retrySpin->setRange(0, 10);
+    retrySpin->setRange(app::constants::Constants::Modbus::kMinRetryCount,
+                        app::constants::Constants::Modbus::kMaxRetryCount);
     retrySpin->setValue(modbusRetries_);
     formLayout->addRow(tr("Retry Count:"), retrySpin);
 
     auto retryIntervalSpin = new QSpinBox(&dialog);
-    retryIntervalSpin->setRange(10, 10000);
-    retryIntervalSpin->setSingleStep(10);
+    retryIntervalSpin->setRange(app::constants::Constants::Modbus::kMinRetryIntervalMs,
+                                app::constants::Constants::Modbus::kMaxRetryIntervalMs);
+    retryIntervalSpin->setSingleStep(app::constants::Constants::Modbus::kRetryIntervalStepMs);
     retryIntervalSpin->setValue(modbusRetryIntervalMs_);
     formLayout->addRow(tr("Retry Interval (ms):"), retryIntervalSpin);
 

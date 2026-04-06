@@ -1,4 +1,5 @@
 #include "SerialConnectionWidget.h"
+#include "AppConstants.h"
 #include "CollapsibleSection.h"
 #include "../common/ISettingsService.h"
 #include <QHBoxLayout>
@@ -30,7 +31,7 @@ io::SerialConfig SerialConnectionWidget::getConfig() const {
     
     bool ok;
     config.baudRate = baudCombo_->currentText().toInt(&ok);
-    if (!ok) config.baudRate = 9600;
+    if (!ok) config.baudRate = app::constants::Constants::Serial::kDefaultBaudRate;
     config.dataBits = dataBitsCombo_->currentText().toInt();
     
     // Stop Bits
@@ -122,16 +123,20 @@ void SerialConnectionWidget::setupUi() {
     baudLabel_ = new QLabel(this);
     layout->addWidget(baudLabel_);
     baudCombo_ = new QComboBox(this);
-    baudCombo_->addItems({"9600", "19200", "38400", "57600", "115200"});
-    baudCombo_->setCurrentText("9600");
+    baudCombo_->addItems({QString::fromLatin1(app::constants::Constants::Serial::kDefaultBaudRateText),
+                          QStringLiteral("19200"),
+                          QStringLiteral("38400"),
+                          QStringLiteral("57600"),
+                          QStringLiteral("115200")});
+    baudCombo_->setCurrentText(QString::fromLatin1(app::constants::Constants::Serial::kDefaultBaudRateText));
     layout->addWidget(baudCombo_);
 
     // Data Bits
     dataBitsLabel_ = new QLabel(this);
     layout->addWidget(dataBitsLabel_);
     dataBitsCombo_ = new QComboBox(this);
-    dataBitsCombo_->addItems({"8", "7"});
-    dataBitsCombo_->setCurrentText("8");
+    dataBitsCombo_->addItems({QString::fromLatin1(app::constants::Constants::Serial::kDefaultDataBitsText), QStringLiteral("7")});
+    dataBitsCombo_->setCurrentText(QString::fromLatin1(app::constants::Constants::Serial::kDefaultDataBitsText));
     dataBitsCombo_->setMinimumWidth(40);
     layout->addWidget(dataBitsCombo_);
 
@@ -139,7 +144,11 @@ void SerialConnectionWidget::setupUi() {
     parityLabel_ = new QLabel(this);
     layout->addWidget(parityLabel_);
     parityCombo_ = new QComboBox(this);
-    parityCombo_->addItems({"None", "Even", "Odd", "Space", "Mark"});
+    parityCombo_->addItems({QString::fromLatin1(app::constants::Constants::Serial::kDefaultParityText),
+                            QStringLiteral("Even"),
+                            QStringLiteral("Odd"),
+                            QStringLiteral("Space"),
+                            QStringLiteral("Mark")});
     parityCombo_->setMinimumWidth(58);
     layout->addWidget(parityCombo_);
 
@@ -147,7 +156,9 @@ void SerialConnectionWidget::setupUi() {
     stopBitsLabel_ = new QLabel(this);
     layout->addWidget(stopBitsLabel_);
     stopBitsCombo_ = new QComboBox(this);
-    stopBitsCombo_->addItems({"1", "1.5", "2"});
+    stopBitsCombo_->addItems({QString::fromLatin1(app::constants::Constants::Serial::kDefaultStopBitsText),
+                              QStringLiteral("1.5"),
+                              QStringLiteral("2")});
     stopBitsCombo_->setMinimumWidth(40);
     layout->addWidget(stopBitsCombo_);
 

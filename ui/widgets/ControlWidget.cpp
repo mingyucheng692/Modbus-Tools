@@ -1,4 +1,5 @@
 #include "ControlWidget.h"
+#include "AppConstants.h"
 #include "../common/ISettingsService.h"
 #include <QHBoxLayout>
 #include <QLabel>
@@ -151,9 +152,10 @@ void ControlWidget::setupUi() {
     intervalLabel_ = new QLabel(this);
     layout->addWidget(intervalLabel_);
     intervalSpin_ = new QSpinBox(this);
-    intervalSpin_->setRange(10, 60000);
-    intervalSpin_->setValue(1000);
-    intervalSpin_->setSingleStep(100);
+    intervalSpin_->setRange(app::constants::Constants::Polling::kMinIntervalMs,
+                            app::constants::Constants::Polling::kMaxIntervalMs);
+    intervalSpin_->setValue(app::constants::Constants::Polling::kDefaultIntervalMs);
+    intervalSpin_->setSingleStep(app::constants::Constants::Polling::kIntervalStepMs);
     intervalSpin_->setFixedWidth(78);
     layout->addWidget(intervalSpin_);
     
@@ -162,7 +164,7 @@ void ControlWidget::setupUi() {
     layout->addWidget(fcLabel_);
     fcCombo_ = new QComboBox(this);
     fcCombo_->addItems({"", "", "", ""});
-    fcCombo_->setCurrentIndex(2); // Default to 03
+    fcCombo_->setCurrentIndex(app::constants::Constants::Modbus::kDefaultControlFunctionIndex);
     fcCombo_->setMinimumContentsLength(11);
     fcCombo_->setSizeAdjustPolicy(QComboBox::AdjustToMinimumContentsLengthWithIcon);
     layout->addWidget(fcCombo_);
@@ -171,8 +173,9 @@ void ControlWidget::setupUi() {
     addrLabel_ = new QLabel(this);
     layout->addWidget(addrLabel_);
     addrSpin_ = new QSpinBox(this);
-    addrSpin_->setRange(0, 65535);
-    addrSpin_->setValue(0);
+    addrSpin_->setRange(app::constants::Constants::Modbus::kMinAddress,
+                        app::constants::Constants::Modbus::kMaxAddress);
+    addrSpin_->setValue(app::constants::Constants::Modbus::kDefaultControlAddress);
     addrSpin_->setFixedWidth(68);
     layout->addWidget(addrSpin_);
     
@@ -180,8 +183,9 @@ void ControlWidget::setupUi() {
     qtyLabel_ = new QLabel(this);
     layout->addWidget(qtyLabel_);
     qtySpin_ = new QSpinBox(this);
-    qtySpin_->setRange(1, 125);
-    qtySpin_->setValue(1);
+    qtySpin_->setRange(app::constants::Constants::Modbus::kMinQuantity,
+                       app::constants::Constants::Modbus::kMaxReadQuantity);
+    qtySpin_->setValue(app::constants::Constants::Modbus::kDefaultControlQuantity);
     qtySpin_->setFixedWidth(60);
     layout->addWidget(qtySpin_);
     

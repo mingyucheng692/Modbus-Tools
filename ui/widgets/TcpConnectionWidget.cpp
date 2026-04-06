@@ -1,4 +1,5 @@
 #include "TcpConnectionWidget.h"
+#include "AppConstants.h"
 #include "CollapsibleSection.h"
 #include "../common/ISettingsService.h"
 #include <QHBoxLayout>
@@ -42,8 +43,9 @@ void TcpConnectionWidget::setupUi() {
     portLabel_ = new QLabel(this);
     layout->addWidget(portLabel_);
     portEdit_ = new QSpinBox(this);
-    portEdit_->setRange(1, 65535);
-    portEdit_->setValue(502);
+    portEdit_->setRange(app::constants::Constants::Network::kMinTcpPort,
+                        app::constants::Constants::Network::kMaxTcpPort);
+    portEdit_->setValue(app::constants::Constants::Network::kDefaultModbusTcpPort);
     portEdit_->setFixedWidth(76);
     layout->addWidget(portEdit_);
 

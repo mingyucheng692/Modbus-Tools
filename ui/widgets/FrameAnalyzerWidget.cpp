@@ -1,4 +1,5 @@
 #include "FrameAnalyzerWidget.h"
+#include "AppConstants.h"
 #include "../common/ISettingsService.h"
 #include "../common/SettingsKeys.h"
 #include "modbus/parser/ModbusFrameParser.h"
@@ -35,7 +36,6 @@ namespace ui::widgets {
 using namespace modbus::core::parser;
 
 namespace {
-constexpr int kAdaptiveHistoryCollapseWidth = 1040;
 
 QString byteHex(const QByteArray& bytes)
 {
@@ -325,8 +325,9 @@ void FrameAnalyzerWidget::createInputGroup()
     startAddrLabel_ = new QLabel(tr("Start Address (for Response):"), this);
     controlsLayout->addWidget(startAddrLabel_);
     startAddressSpin_ = new QSpinBox(this);
-    startAddressSpin_->setRange(0, 65535);
-    startAddressSpin_->setValue(0);
+    startAddressSpin_->setRange(app::constants::Constants::Modbus::kMinAddress,
+                                app::constants::Constants::Modbus::kMaxAddress);
+    startAddressSpin_->setValue(app::constants::Constants::Modbus::kDefaultStandardStartAddress);
     controlsLayout->addWidget(startAddressSpin_);
 
     controlsLayout->addStretch();
@@ -745,15 +746,6 @@ void FrameAnalyzerWidget::saveSettings()
 
 void FrameAnalyzerWidget::renderResult(const ParseResult& result)
 {
-    if (!result.isValid) {
-        statusLabel_->setText(tr("Parse Failed: %1").arg(result.error));
-        statusLabel_->setStyleSheet("color: red; font-weight: bold;");
-        return;
-    }
-
-    statusLabel_->setText(tr("Success (%1)").arg(result.protocol == ProtocolType::Tcp ? tr("TCP") : tr("RTU")));
-    statusLabel_->setStyleSheet("color: green; font-weight: bold;");
-
     auto addItem = [](QTreeWidgetItem* parent, const QString& field, const QString& value, const QString& description = QString()) {
         return new QTreeWidgetItem(parent, {field, value, description});
     };
@@ -787,6 +779,34 @@ void FrameAnalyzerWidget::renderResult(const ParseResult& result)
         result.type == FrameType::Response ? tr("Response") :
         result.type == FrameType::Exception ? tr("Exception") :
         tr("Unknown");
+
+    if (!result.isValid) {
+        statusLabel_->setText(tr("Parse Failed: %1").arg(result.error));
+        statusLabel_->setStyleSheet("color: red; font-weight: bold;");
+
+        QTreeWidgetItem* root = new QTreeWidgetItem(overviewTree_);
+        root->setText(0, tr("Frame"));
+        root->setText(1, result.rawFrame.isEmpty() ? tr("Unknown") : tr("%1 bytes").arg(result.rawFrame.size()));
+        root->setText(2, tr("Parse error"));
+
+        if (!result.rawFrame.isEmpty()) {
+            addItem(root, tr("Frame Bytes"), byteHex(result.rawFrame), tr("Complete raw frame"));
+        }
+        addItem(root, tr("Protocol"), result.protocol == ProtocolType::Unknown ? tr("Unknown") : protocolText, tr("Protocol detected before parse failed"));
+        addItem(root, tr("Error"), result.error, tr("Detailed parse failure reason"));
+        if (result.protocol == ProtocolType::Rtu && result.checksum != 0) {
+            addItem(root,
+                    tr("CRC16"),
+                    QString("0x%1").arg(QString("%1").arg(result.checksum, 4, 16, QChar('0')).toUpper()),
+                    result.checksumValid ? tr("CRC valid") : tr("CRC invalid"));
+        }
+        overviewTree_->expandAll();
+        return;
+    }
+
+    statusLabel_->setText(tr("Success (%1)").arg(result.protocol == ProtocolType::Tcp ? tr("TCP") : tr("RTU")));
+    statusLabel_->setStyleSheet("color: green; font-weight: bold;");
+
     const QString functionCodeHex = QString("0x%1")
                                         .arg(static_cast<int>(result.functionCode), 2, 16, QChar('0'))
                                         .toUpper();
@@ -972,7 +992,7 @@ QString FrameAnalyzerWidget::escapeCsvValue(const QString& value) const
 void FrameAnalyzerWidget::addToHistory(const ParseResult& result)
 {
     historyResults_.prepend(result);
-    while (historyResults_.size() > kMaxHistoryCount) {
+    while (historyResults_.size() > app::constants::Constants::Ui::kFrameAnalyzerMaxHistoryItems) {
         historyResults_.removeLast();
     }
     refreshHistoryList();
@@ -1046,8 +1066,8 @@ void FrameAnalyzerWidget::updateAdaptiveLayout()
         return;
     }
 
-    const bool shouldAutoCollapseHistory = width() < kAdaptiveHistoryCollapseWidth;
-    if (shouldAutoCollapseHistory) {
+    const bool shouldAutoCollapse = width() < app::constants::Constants::Ui::kFrameAnalyzerAdaptiveHistoryCollapseWidth;
+    if (shouldAutoCollapse) {
         if (!historyCollapsed_) {
             historyAutoCollapsed_ = true;
             setHistoryCollapsed(true);

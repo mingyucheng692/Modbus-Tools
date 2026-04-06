@@ -7,6 +7,20 @@
 
 namespace modbus::core::parser {
 
+namespace {
+
+QString formatFunctionCodeHex(uint8_t functionCode)
+{
+    return QString("%1").arg(functionCode, 2, 16, QChar('0')).toUpper();
+}
+
+QString formatFrameHex(const QByteArray& frame)
+{
+    return frame.toHex(' ').toUpper();
+}
+
+} // namespace
+
 QString ModbusFrameParser::getExceptionString(modbus::base::ExceptionCode code)
 {
     using namespace modbus::base;
@@ -38,6 +52,7 @@ ParseResult ModbusFrameParser::parse(const QByteArray& frame, ProtocolType type,
 {
     ParseResult result;
     result.timestamp = QDateTime::currentDateTime();
+    result.rawFrame = frame;
 
     if (frame.isEmpty()) {
         result.isValid = false;
@@ -53,7 +68,11 @@ ParseResult ModbusFrameParser::parse(const QByteArray& frame, ProtocolType type,
             type = ProtocolType::Rtu;
         } else {
             result.isValid = false;
-            result.error = QCoreApplication::translate("ModbusFrameParser", "Unable to identify protocol (neither valid TCP nor RTU)");
+            result.error = QCoreApplication::translate(
+                               "ModbusFrameParser",
+                               "Unable to identify protocol. Frame length: %1 bytes, data: %2")
+                               .arg(frame.size())
+                               .arg(formatFrameHex(frame));
             return result;
         }
     }
@@ -108,7 +127,10 @@ ParseResult ModbusFrameParser::parseTcp(const QByteArray& frame, uint16_t startA
 
     if (frame.size() < 8) {
         result.isValid = false;
-        result.error = QCoreApplication::translate("ModbusFrameParser", "Frame too short for Modbus TCP");
+        result.error = QCoreApplication::translate(
+                           "ModbusFrameParser",
+                           "Frame too short for Modbus TCP. Expected at least 8 bytes, got %1")
+                           .arg(frame.size());
         return result;
     }
 
@@ -132,7 +154,11 @@ ParseResult ModbusFrameParser::parseTcp(const QByteArray& frame, uint16_t startA
     int pduSize = result.length - 1;
     if (pduSize <= 0) {
         result.isValid = false;
-        result.error = "Invalid PDU length";
+        result.error = QCoreApplication::translate(
+                           "ModbusFrameParser",
+                           "Invalid TCP PDU length. MBAP length field is %1, so PDU length is %2")
+                           .arg(result.length)
+                           .arg(pduSize);
         return result;
     }
 
@@ -151,7 +177,10 @@ ParseResult ModbusFrameParser::parseRtu(const QByteArray& frame, uint16_t startA
 
     if (frame.size() < 4) {
         result.isValid = false;
-        result.error = "Frame too short for Modbus RTU";
+        result.error = QCoreApplication::translate(
+                           "ModbusFrameParser",
+                           "Frame too short for Modbus RTU. Expected at least 4 bytes, got %1")
+                           .arg(frame.size());
         return result;
     }
 
@@ -183,7 +212,9 @@ void ModbusFrameParser::parsePdu(ParseResult& result, const QByteArray& pdu, uin
 {
     if (pdu.isEmpty()) {
         result.isValid = false;
-        result.error = "Empty PDU";
+        result.error = QCoreApplication::translate(
+                           "ModbusFrameParser",
+                           "Empty PDU. Function code is missing from the frame");
         return;
     }
 
@@ -193,11 +224,22 @@ void ModbusFrameParser::parsePdu(ParseResult& result, const QByteArray& pdu, uin
     if (result.isException) {
         result.functionCode = static_cast<modbus::base::FunctionCode>(fcByte & 0x7F);
         result.type = FrameType::Exception;
-        if (pdu.size() >= 2) {
-            result.exceptionCode = static_cast<modbus::base::ExceptionCode>(pdu[1]);
-            QString exceptionDesc = getExceptionString(result.exceptionCode);
-            result.error = QString("%1 (Code %2)").arg(exceptionDesc).arg(static_cast<int>(result.exceptionCode));
+        if (pdu.size() < 2) {
+            result.isValid = false;
+            result.error = QCoreApplication::translate(
+                               "ModbusFrameParser",
+                               "Exception PDU too short for function 0x%1. Expected 2 bytes, got %2")
+                               .arg(formatFunctionCodeHex(fcByte & 0x7F))
+                               .arg(pdu.size());
+            return;
         }
+        result.exceptionCode = static_cast<modbus::base::ExceptionCode>(pdu[1]);
+        const QString exceptionDesc = getExceptionString(result.exceptionCode);
+        result.error = QCoreApplication::translate(
+                           "ModbusFrameParser",
+                           "Modbus exception: %1 (code %2)")
+                           .arg(exceptionDesc)
+                           .arg(static_cast<int>(result.exceptionCode));
         result.isValid = true;
         return;
     }
@@ -231,7 +273,11 @@ void ModbusFrameParser::parsePdu(ParseResult& result, const QByteArray& pdu, uin
             result.type = FrameType::Response;
             if (pdu.size() < 2) {
                 result.isValid = false;
-                result.error = QCoreApplication::translate("ModbusFrameParser", "Response PDU too short");
+                result.error = QCoreApplication::translate(
+                                   "ModbusFrameParser",
+                                   "Response PDU too short for function 0x%1. Expected at least 2 bytes, got %2")
+                                   .arg(formatFunctionCodeHex(fcByte))
+                                   .arg(pdu.size());
                 break;
             }
             
@@ -239,7 +285,12 @@ void ModbusFrameParser::parsePdu(ParseResult& result, const QByteArray& pdu, uin
             stream >> byteCount;
             if (byteCount != static_cast<uint8_t>(result.pduData.size() - 1)) {
                 result.isValid = false;
-                result.error = QCoreApplication::translate("ModbusFrameParser", "Byte count does not match payload length");
+                result.error = QCoreApplication::translate(
+                                   "ModbusFrameParser",
+                                   "Byte count mismatch for function 0x%1. Declared %2, actual %3")
+                                   .arg(formatFunctionCodeHex(fcByte))
+                                   .arg(byteCount)
+                                   .arg(result.pduData.size() - 1);
                 break;
             }
             
@@ -248,7 +299,10 @@ void ModbusFrameParser::parsePdu(ParseResult& result, const QByteArray& pdu, uin
                 result.functionCode == FunctionCode::ReadInputRegisters) {
                 if ((byteCount % 2) != 0) {
                     result.isValid = false;
-                    result.error = QCoreApplication::translate("ModbusFrameParser", "Register byte count must be even");
+                    result.error = QCoreApplication::translate(
+                                       "ModbusFrameParser",
+                                       "Register byte count must be even, got %1")
+                                       .arg(byteCount);
                     break;
                 }
                 // 寄存器数据 (每2字节一个)
@@ -333,14 +387,21 @@ void ModbusFrameParser::parsePdu(ParseResult& result, const QByteArray& pdu, uin
             stream >> start >> quant >> byteCount;
             if (result.pduData.size() < 5 || byteCount > static_cast<uint8_t>(result.pduData.size() - 5)) {
                 result.isValid = false;
-                result.error = QCoreApplication::translate("ModbusFrameParser", "Write request byte count exceeds payload");
+                result.error = QCoreApplication::translate(
+                                   "ModbusFrameParser",
+                                   "Write request byte count exceeds payload. Declared %1, available %2")
+                                   .arg(byteCount)
+                                   .arg(qMax(0, result.pduData.size() - 5));
                 break;
             }
             
             if (result.functionCode == FunctionCode::WriteMultipleRegisters) {
                 if ((byteCount % 2) != 0) {
                     result.isValid = false;
-                    result.error = QCoreApplication::translate("ModbusFrameParser", "Register byte count must be even");
+                    result.error = QCoreApplication::translate(
+                                       "ModbusFrameParser",
+                                       "Register byte count must be even, got %1")
+                                       .arg(byteCount);
                     break;
                 }
                 int count = byteCount / 2;
@@ -383,7 +444,10 @@ void ModbusFrameParser::parsePdu(ParseResult& result, const QByteArray& pdu, uin
         break;
     }
     default:
-        result.error = QCoreApplication::translate("ModbusFrameParser", "Unsupported Function Code for deep parsing");
+        result.error = QCoreApplication::translate(
+                           "ModbusFrameParser",
+                           "Unsupported function code 0x%1 for deep parsing")
+                           .arg(formatFunctionCodeHex(fcByte));
         break;
     }
 }

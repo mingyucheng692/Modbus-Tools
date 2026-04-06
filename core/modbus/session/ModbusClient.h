@@ -1,5 +1,6 @@
 #pragma once
 
+#include "AppConstants.h"
 #include "IModbusClient.h"
 #include "../transport/ITransport.h"
 #include "../../io/IChannel.h"
@@ -38,8 +39,8 @@ public:
 private:
     struct PendingRequest {
         int requestId = 0;
-        int slaveId = 1;
-        int timeoutMs = 1000;
+        int slaveId = app::constants::Constants::Modbus::kDefaultSlaveId;
+        int timeoutMs = app::constants::Constants::Modbus::kDefaultTimeoutMs;
         int retries = 0;
         base::FunctionCode functionCode = base::FunctionCode::ReadHoldingRegisters;
         std::chrono::steady_clock::time_point enqueueAt{};

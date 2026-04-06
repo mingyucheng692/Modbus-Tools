@@ -1,5 +1,6 @@
 #pragma once
 
+#include "AppConstants.h"
 #include "common/ISettingsService.h"
 #include <QMainWindow>
 #include <QTranslator>
@@ -104,10 +105,10 @@ private:
     common::UpdateChecker* updateChecker_ = nullptr;
     common::ISettingsService* settingsService_ = nullptr;
     QString currentLocale_ = "en_US";
-    int modbusTimeoutMs_ = 1000;
+    int modbusTimeoutMs_ = app::constants::Constants::Modbus::kDefaultTimeoutMs;
     int modbusRetries_ = 0;
-    int modbusRetryIntervalMs_ = 100;
-    bool modbusRetryEnabled_ = false;
+    int modbusRetryIntervalMs_ = app::constants::Constants::Modbus::kDefaultRetryIntervalMs;
+    bool modbusRetryEnabled_ = app::constants::Constants::Modbus::kDefaultRetryEnabled;
     QString updateCheckFrequency_ = "startup";
     bool updateAvailable_ = false;
     bool checkingUpdateManually_ = false;

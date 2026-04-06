@@ -109,14 +109,14 @@
         <translation>幀資料為空</translation>
     </message>
     <message>
-        <location filename="../../core/modbus/parser/ModbusFrameParser.cpp" line="56"/>
-        <source>Unable to identify protocol (neither valid TCP nor RTU)</source>
-        <translation>無法識別通訊協定（非有效 TCP 或 RTU）</translation>
+        <location filename="../../core/modbus/parser/ModbusFrameParser.cpp" line="73"/>
+        <source>Unable to identify protocol. Frame length: %1 bytes, data: %2</source>
+        <translation>無法識別通訊協定。幀長度：%1 位元組，資料：%2</translation>
     </message>
     <message>
-        <location filename="../../core/modbus/parser/ModbusFrameParser.cpp" line="111"/>
-        <source>Frame too short for Modbus TCP</source>
-        <translation>Modbus TCP 幀太短</translation>
+        <location filename="../../core/modbus/parser/ModbusFrameParser.cpp" line="132"/>
+        <source>Frame too short for Modbus TCP. Expected at least 8 bytes, got %1</source>
+        <translation>Modbus TCP 幀太短。預期至少 8 位元組，實際 %1 位元組</translation>
     </message>
     <message>
         <location filename="../../core/modbus/parser/ModbusFrameParser.cpp" line="127"/>
@@ -129,25 +129,55 @@
         <translation>CRC 檢查失敗。預期 %1，實際 %2</translation>
     </message>
     <message>
-        <location filename="../../core/modbus/parser/ModbusFrameParser.cpp" line="234"/>
-        <source>Response PDU too short</source>
-        <translation type="unfinished"></translation>
+        <location filename="../../core/modbus/parser/ModbusFrameParser.cpp" line="159"/>
+        <source>Invalid TCP PDU length. MBAP length field is %1, so PDU length is %2</source>
+        <translation>無效的 TCP PDU 長度。MBAP 長度欄位為 %1，因此 PDU 長度為 %2</translation>
     </message>
     <message>
-        <location filename="../../core/modbus/parser/ModbusFrameParser.cpp" line="242"/>
-        <source>Byte count does not match payload length</source>
-        <translation type="unfinished"></translation>
+        <location filename="../../core/modbus/parser/ModbusFrameParser.cpp" line="182"/>
+        <source>Frame too short for Modbus RTU. Expected at least 4 bytes, got %1</source>
+        <translation>Modbus RTU 幀太短。預期至少 4 位元組，實際 %1 位元組</translation>
     </message>
     <message>
-        <location filename="../../core/modbus/parser/ModbusFrameParser.cpp" line="251"/>
-        <location filename="../../core/modbus/parser/ModbusFrameParser.cpp" line="343"/>
-        <source>Register byte count must be even</source>
-        <translation type="unfinished"></translation>
+        <location filename="../../core/modbus/parser/ModbusFrameParser.cpp" line="217"/>
+        <source>Empty PDU. Function code is missing from the frame</source>
+        <translation>PDU 為空。幀中缺少功能碼</translation>
     </message>
     <message>
-        <location filename="../../core/modbus/parser/ModbusFrameParser.cpp" line="336"/>
-        <source>Write request byte count exceeds payload</source>
-        <translation type="unfinished"></translation>
+        <location filename="../../core/modbus/parser/ModbusFrameParser.cpp" line="231"/>
+        <source>Exception PDU too short for function 0x%1. Expected 2 bytes, got %2</source>
+        <translation>功能碼 0x%1 的例外 PDU 太短。預期 2 位元組，實際 %2 位元組</translation>
+    </message>
+    <message>
+        <location filename="../../core/modbus/parser/ModbusFrameParser.cpp" line="240"/>
+        <source>Modbus exception: %1 (code %2)</source>
+        <translation>Modbus 例外：%1（代碼 %2）</translation>
+    </message>
+    <message>
+        <location filename="../../core/modbus/parser/ModbusFrameParser.cpp" line="278"/>
+        <source>Response PDU too short for function 0x%1. Expected at least 2 bytes, got %2</source>
+        <translation>功能碼 0x%1 的回應 PDU 太短。預期至少 2 位元組，實際 %2 位元組</translation>
+    </message>
+    <message>
+        <location filename="../../core/modbus/parser/ModbusFrameParser.cpp" line="290"/>
+        <source>Byte count mismatch for function 0x%1. Declared %2, actual %3</source>
+        <translation>功能碼 0x%1 的位元組數不符。宣告 %2，實際 %3</translation>
+    </message>
+    <message>
+        <location filename="../../core/modbus/parser/ModbusFrameParser.cpp" line="304"/>
+        <location filename="../../core/modbus/parser/ModbusFrameParser.cpp" line="403"/>
+        <source>Register byte count must be even, got %1</source>
+        <translation>暫存器位元組數必須為偶數，實際 %1</translation>
+    </message>
+    <message>
+        <location filename="../../core/modbus/parser/ModbusFrameParser.cpp" line="392"/>
+        <source>Write request byte count exceeds payload. Declared %1, available %2</source>
+        <translation>寫入請求位元組數超出載荷範圍。宣告 %1，可用 %2</translation>
+    </message>
+    <message>
+        <location filename="../../core/modbus/parser/ModbusFrameParser.cpp" line="449"/>
+        <source>Unsupported function code 0x%1 for deep parsing</source>
+        <translation>不支援對功能碼 0x%1 進行深度解析</translation>
     </message>
     <message>
         <source>Request: Start Address %1, Quantity %2</source>
@@ -691,17 +721,17 @@ Choose update method:</source>
     <message>
         <location filename="../views/modbus_rtu/ModbusRtuView.cpp" line="136"/>
         <source>Failed to create Modbus stack</source>
-        <translation>更新設定</translation>
+        <translation>建立 Modbus 堆疊失敗</translation>
     </message>
     <message>
         <location filename="../views/modbus_rtu/ModbusRtuView.cpp" line="166"/>
         <source>Connected</source>
-        <translation type="unfinished">已連線</translation>
+        <translation>已連線</translation>
     </message>
     <message>
         <location filename="../views/modbus_rtu/ModbusRtuView.cpp" line="169"/>
         <source>Connection failed: %1</source>
-        <translation type="unfinished"></translation>
+        <translation>連線失敗：%1</translation>
     </message>
     <message>
         <location filename="../views/modbus_rtu/ModbusRtuView.cpp" line="188"/>
@@ -897,12 +927,12 @@ Choose update method:</source>
     <message>
         <location filename="../views/modbus_tcp/ModbusTcpView.cpp" line="146"/>
         <source>Failed to create Modbus stack</source>
-        <translation type="unfinished">更新設定</translation>
+        <translation>建立 Modbus 堆疊失敗</translation>
     </message>
     <message>
         <location filename="../views/modbus_tcp/ModbusTcpView.cpp" line="220"/>
         <source>Connection failed: %1</source>
-        <translation type="unfinished"></translation>
+        <translation>連線失敗：%1</translation>
     </message>
     <message>
         <location filename="../views/modbus_tcp/ModbusTcpView.cpp" line="240"/>
@@ -1062,12 +1092,12 @@ Choose update method:</source>
     <message>
         <location filename="../widgets/CollapsibleSection.cpp" line="89"/>
         <source>Collapse</source>
-        <translation type="unfinished"></translation>
+        <translation>收合</translation>
     </message>
     <message>
         <location filename="../widgets/CollapsibleSection.cpp" line="89"/>
         <source>Expand</source>
-        <translation type="unfinished"></translation>
+        <translation>展開</translation>
     </message>
 </context>
 <context>
@@ -1079,7 +1109,7 @@ Choose update method:</source>
     <message>
         <location filename="../widgets/ControlWidget.cpp" line="86"/>
         <source>TX: %1 | RX: %2 | FAIL: %3 | RTT: %4 ms</source>
-        <translation type="unfinished"></translation>
+        <translation>TX: %1 | RX: %2 | 失敗: %3 | RTT: %4 ms</translation>
     </message>
     <message>
         <location filename="../widgets/ControlWidget.cpp" line="197"/>
@@ -1419,6 +1449,11 @@ Choose update method:</source>
         <translation>解析失敗：%1</translation>
     </message>
     <message>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="790"/>
+        <source>Parse error</source>
+        <translation>解析錯誤</translation>
+    </message>
+    <message>
         <location filename="../widgets/FrameAnalyzerWidget.cpp" line="767"/>
         <source>Success (%1)</source>
         <translation>成功 (%1)</translation>
@@ -1476,6 +1511,16 @@ Choose update method:</source>
         <location filename="../widgets/FrameAnalyzerWidget.cpp" line="812"/>
         <source>Complete raw frame</source>
         <translation>完整原始幀</translation>
+    </message>
+    <message>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="795"/>
+        <source>Protocol detected before parse failed</source>
+        <translation>解析失敗前偵測到的通訊協定</translation>
+    </message>
+    <message>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="796"/>
+        <source>Detailed parse failure reason</source>
+        <translation>詳細解析失敗原因</translation>
     </message>
     <message>
         <location filename="../widgets/FrameAnalyzerWidget.cpp" line="815"/>
@@ -2055,7 +2100,7 @@ Choose update method:</source>
     <message>
         <location filename="../widgets/UpdateSettingsDialog.cpp" line="21"/>
         <source>Update Settings</source>
-        <translation type="unfinished">更新設定</translation>
+        <translation>更新設定</translation>
     </message>
     <message>
         <location filename="../widgets/UpdateSettingsDialog.cpp" line="26"/>

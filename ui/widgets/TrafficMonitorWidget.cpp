@@ -71,6 +71,7 @@ void TrafficMonitorWidget::setupUi() {
     logList_->setContextMenuPolicy(Qt::CustomContextMenu);
     logList_->setMinimumHeight(64);
     logList_->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
+    logList_->setUniformItemSizes(false);
     layout->addWidget(logList_);
 
     mainLayout->addWidget(section_);

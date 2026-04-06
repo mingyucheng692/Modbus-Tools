@@ -1,5 +1,6 @@
 #pragma once
 
+#include "AppConstants.h"
 #include <QByteArrayView>
 #include <QString>
 #include <QtGlobal>
@@ -19,8 +20,8 @@ struct ChannelStats {
 };
 
 struct Timeouts {
-    int readMs = 1000;
-    int writeMs = 1000;
+    int readMs = app::constants::Constants::Modbus::kDefaultTimeoutMs;
+    int writeMs = app::constants::Constants::Modbus::kDefaultTimeoutMs;
 };
 
 class IChannel {

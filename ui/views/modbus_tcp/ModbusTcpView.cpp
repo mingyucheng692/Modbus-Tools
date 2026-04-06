@@ -1,4 +1,5 @@
 #include "ModbusTcpView.h"
+#include "AppConstants.h"
 #include "../../common/ISettingsService.h"
 #include "../../widgets/TcpConnectionWidget.h"
 #include "../../widgets/FunctionWidget.h"
@@ -92,7 +93,7 @@ void ModbusTcpView::setupUi() {
     receiveToolbar->addWidget(clearReceiveButton_);
     receiveTextEdit_ = new QTextEdit(receiveGroup_);
     receiveTextEdit_->setReadOnly(true);
-    receiveTextEdit_->document()->setMaximumBlockCount(1000);
+    receiveTextEdit_->document()->setMaximumBlockCount(app::constants::Constants::Ui::kTrafficMonitorMaxBlockCount);
     receiveLayout->addLayout(receiveToolbar);
     receiveLayout->addWidget(receiveTextEdit_);
 
@@ -110,7 +111,7 @@ void ModbusTcpView::setupUi() {
     sendToolbar->addWidget(clearSendButton_);
     sendTextEdit_ = new QTextEdit(sendGroup_);
     sendTextEdit_->setReadOnly(true);
-    sendTextEdit_->document()->setMaximumBlockCount(1000);
+    sendTextEdit_->document()->setMaximumBlockCount(app::constants::Constants::Ui::kTrafficMonitorMaxBlockCount);
     sendLayout->addLayout(sendToolbar);
     sendLayout->addWidget(sendTextEdit_);
 

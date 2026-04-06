@@ -138,7 +138,6 @@ private:
     bool parseInProgress_ = false;
     bool isUpdatingDataTable_ = false;
     ui::common::ISettingsService* settingsService_ = nullptr;
-    static constexpr int kMaxHistoryCount = 20;
 };
 
 } // namespace ui::widgets

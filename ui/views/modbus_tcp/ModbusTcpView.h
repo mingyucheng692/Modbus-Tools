@@ -4,6 +4,7 @@
 #include <memory>
 #include <unordered_map>
 #include <chrono>
+#include "AppConstants.h"
 #include "modbus/base/ModbusConfig.h"
 
 class QVBoxLayout;
@@ -84,9 +85,9 @@ private:
     quint64 connectionGeneration_ = 0;
     bool tcpSessionConnected_ = false;
     bool suppressDisconnectAlert_ = false;
-    int timeoutMs_ = 1000;
+    int timeoutMs_ = app::constants::Constants::Modbus::kDefaultTimeoutMs;
     int retries_ = 0;
-    int retryIntervalMs_ = 100;
+    int retryIntervalMs_ = app::constants::Constants::Modbus::kDefaultRetryIntervalMs;
     modbus::base::ModbusConfig currentConfig_;
     ui::common::ISettingsService* settingsService_ = nullptr;
 };

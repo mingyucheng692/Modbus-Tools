@@ -1,4 +1,5 @@
 #pragma once
+#include "AppConstants.h"
 #include "ChannelBase.h"
 #include <QTcpSocket>
 #include <QHostAddress>
@@ -25,7 +26,7 @@ private:
 
     QTcpSocket socket_;
     QString ip_;
-    int port_ = 502;
+    int port_ = app::constants::Constants::Network::kDefaultModbusTcpPort;
 };
 
 }
