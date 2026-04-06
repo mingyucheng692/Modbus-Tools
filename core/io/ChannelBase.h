@@ -13,6 +13,7 @@ public:
     Timeouts timeouts() const override;
     void setReadHandler(std::function<void(QByteArrayView)> handler) override;
     void setErrorHandler(std::function<void(const QString&)> handler) override;
+    void setWriteDrainedHandler(std::function<void()> handler) override;
     void setStateHandler(std::function<void(ChannelState)> handler) override;
     void setMonitor(std::function<void(bool isTx, const QByteArray&)> monitor) override;
     ChannelStats stats() const override;
@@ -23,6 +24,7 @@ protected:
     void addRx(qsizetype bytes);
     void emitRead(QByteArrayView data);
     void emitError(const QString& error);
+    void emitWriteDrained();
     void emitMonitor(bool isTx, const QByteArray& data);
 
 private:
@@ -31,6 +33,7 @@ private:
     ChannelStats stats_{};
     std::function<void(QByteArrayView)> readHandler_;
     std::function<void(const QString&)> errorHandler_;
+    std::function<void()> writeDrainedHandler_;
     std::function<void(ChannelState)> stateHandler_;
     std::function<void(bool, const QByteArray&)> monitor_;
 };

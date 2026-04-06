@@ -64,6 +64,8 @@ private:
     bool waitForChannelState(io::ChannelState expectedState,
                              std::chrono::steady_clock::time_point deadline,
                              QString* errorOut);
+    bool waitForWriteDrain(std::chrono::steady_clock::time_point deadline,
+                           std::chrono::steady_clock::time_point* drainedAt);
     bool pumpEventsUntil(std::chrono::steady_clock::time_point deadline);
     bool waitForEventOrTimeout(std::chrono::steady_clock::time_point deadline);
     void transitionConnectionState(ConnectionState newState, const char* reason);
@@ -96,7 +98,9 @@ private:
     std::condition_variable cv_;
     QByteArray buffer_;
     bool responseReady_ = false;
+    bool writeDrained_ = true;
     QString lastError_;
+    std::chrono::steady_clock::time_point lastWriteDrainedAt_ {};
     
     // 保护 sendRequest 串行执行，避免请求路径发生重入
     std::recursive_mutex requestMutex_;

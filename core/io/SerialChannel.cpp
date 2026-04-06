@@ -6,6 +6,10 @@
 namespace io {
 
 SerialChannel::SerialChannel() {
+    writeTimeoutTimer_.setSingleShot(true);
+    QObject::connect(&writeTimeoutTimer_, &QTimer::timeout, [this]() {
+        onWriteTimeout();
+    });
     QObject::connect(&serial_, &QSerialPort::bytesWritten, [this](qint64 bytes) {
         onBytesWritten(bytes);
     });
@@ -60,6 +64,7 @@ bool SerialChannel::open() {
 
 void SerialChannel::moveToThread(QThread* thread) {
     serial_.moveToThread(thread);
+    writeTimeoutTimer_.moveToThread(thread);
 }
 
 void SerialChannel::close() {
@@ -78,6 +83,7 @@ void SerialChannel::close() {
     }
 
     resetWriteState();
+    disarmWriteTimeout();
     setState(ChannelState::Closing);
     closing_ = true;
     if (serial_.isOpen()) {
@@ -110,6 +116,7 @@ bool SerialChannel::write(QByteArrayView data) {
 
     pendingWrites_.push_back(dataBuffer);
     emitMonitor(true, dataBuffer);
+    armWriteTimeout();
     flushPendingWrites();
     return true;
 }
@@ -153,6 +160,9 @@ void SerialChannel::flushPendingWrites() {
     }
 
     if (!serial_.isOpen() || pendingWrites_.empty()) {
+        if (pendingWrites_.empty() && serial_.bytesToWrite() == 0) {
+            disarmWriteTimeout();
+        }
         return;
     }
 
@@ -163,6 +173,7 @@ void SerialChannel::flushPendingWrites() {
         const qint64 accepted = serial_.write(dataPtr, remaining);
         if (accepted < 0) {
             resetWriteState();
+            disarmWriteTimeout();
             setState(ChannelState::Error);
             emitError(serial_.errorString().isEmpty() ? QStringLiteral("Serial write failed") : serial_.errorString());
             return;
@@ -171,6 +182,7 @@ void SerialChannel::flushPendingWrites() {
             break;
         }
         currentWriteOffset_ += static_cast<qsizetype>(accepted);
+        armWriteTimeout();
     }
 }
 
@@ -186,12 +198,20 @@ void SerialChannel::onReadyRead() {
 
 void SerialChannel::onBytesWritten(qint64 bytes) {
     Q_UNUSED(bytes);
+    bool queueDrained = false;
     while (!pendingWrites_.empty() &&
            currentWriteOffset_ >= pendingWrites_.front().size() &&
            serial_.bytesToWrite() == 0) {
         addTx(pendingWrites_.front().size());
         pendingWrites_.pop_front();
         currentWriteOffset_ = 0;
+        queueDrained = pendingWrites_.empty();
+    }
+    if (queueDrained && serial_.bytesToWrite() == 0) {
+        disarmWriteTimeout();
+        emitWriteDrained();
+    } else if (!pendingWrites_.empty() || serial_.bytesToWrite() > 0) {
+        armWriteTimeout();
     }
     flushPendingWrites();
 }
@@ -202,8 +222,50 @@ void SerialChannel::onErrorOccurred(QSerialPort::SerialPortError error) {
             return;
         }
         resetWriteState();
+        disarmWriteTimeout();
         setState(ChannelState::Error);
         emitError(serial_.errorString().isEmpty() ? QStringLiteral("Serial port error") : serial_.errorString());
+    }
+}
+
+void SerialChannel::onWriteTimeout() {
+    if (QThread::currentThread() != serial_.thread()) {
+        QMetaObject::invokeMethod(&serial_, [this]() {
+            onWriteTimeout();
+        }, Qt::QueuedConnection);
+        return;
+    }
+
+    if (closing_ || !serial_.isOpen()) {
+        disarmWriteTimeout();
+        return;
+    }
+
+    if (pendingWrites_.empty() && serial_.bytesToWrite() == 0) {
+        disarmWriteTimeout();
+        return;
+    }
+
+    const bool draining = serial_.bytesToWrite() > 0;
+    resetWriteState();
+    disarmWriteTimeout();
+    setState(ChannelState::Error);
+    emitError(draining
+        ? QStringLiteral("Serial write drain timeout")
+        : QStringLiteral("Serial write timeout"));
+}
+
+void SerialChannel::armWriteTimeout() {
+    const int timeoutMs = timeouts().writeMs;
+    if (timeoutMs <= 0) {
+        return;
+    }
+    writeTimeoutTimer_.start(timeoutMs);
+}
+
+void SerialChannel::disarmWriteTimeout() {
+    if (writeTimeoutTimer_.isActive()) {
+        writeTimeoutTimer_.stop();
     }
 }
 

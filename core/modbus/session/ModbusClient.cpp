@@ -218,8 +218,10 @@ void ModbusClient::clearRuntimeState(bool clearPendingQueue) {
     std::lock_guard<std::mutex> lock(mutex_);
     buffer_.clear();
     responseReady_ = false;
+    writeDrained_ = true;
     lastError_.clear();
     lastRtuByteReceivedAt_ = std::chrono::steady_clock::time_point{};
+    lastWriteDrainedAt_ = std::chrono::steady_clock::time_point{};
     nextRtuSendAllowedAt_ = std::chrono::steady_clock::time_point{};
     if (clearPendingQueue) {
         std::lock_guard<std::mutex> pendingLock(pendingMutex_);
@@ -239,6 +241,13 @@ ModbusClient::ModbusClient(std::shared_ptr<io::IChannel> channel,
     channel_->setErrorHandler([this](const QString& error) {
         onError(error);
     });
+
+    channel_->setWriteDrainedHandler([this]() {
+        std::lock_guard<std::mutex> lock(mutex_);
+        writeDrained_ = true;
+        lastWriteDrainedAt_ = std::chrono::steady_clock::now();
+        cv_.notify_one();
+    });
 }
 
 ModbusClient::~ModbusClient() {
@@ -246,6 +255,7 @@ ModbusClient::~ModbusClient() {
     if (channel_) {
         channel_->setReadHandler({});
         channel_->setErrorHandler({});
+        channel_->setWriteDrainedHandler({});
     }
     clearRuntimeState(true);
 }
@@ -409,6 +419,59 @@ bool ModbusClient::waitForChannelState(io::ChannelState expectedState,
     return false;
 }
 
+bool ModbusClient::waitForWriteDrain(std::chrono::steady_clock::time_point deadline,
+                                     std::chrono::steady_clock::time_point* drainedAt) {
+    while (std::chrono::steady_clock::now() < deadline) {
+        if (aborted_.load()) {
+            return false;
+        }
+        {
+            std::lock_guard<std::mutex> lock(mutex_);
+            if (writeDrained_) {
+                if (drainedAt) {
+                    *drainedAt = (lastWriteDrainedAt_ == std::chrono::steady_clock::time_point{})
+                        ? std::chrono::steady_clock::now()
+                        : lastWriteDrainedAt_;
+                }
+                return true;
+            }
+            if (!lastError_.isEmpty()) {
+                return false;
+            }
+        }
+        if (channel_->state() == io::ChannelState::Error) {
+            return false;
+        }
+        if (!pumpEventsUntil(deadline)) {
+            break;
+        }
+
+        const auto now = std::chrono::steady_clock::now();
+        if (now >= deadline) {
+            break;
+        }
+
+        std::unique_lock<std::mutex> lock(mutex_);
+        const auto waitSlice = std::min(
+            std::chrono::duration_cast<std::chrono::milliseconds>(deadline - now),
+            std::chrono::milliseconds(5));
+        cv_.wait_for(lock, waitSlice, [this]() {
+            return aborted_.load() || writeDrained_ || !lastError_.isEmpty();
+        });
+    }
+
+    std::lock_guard<std::mutex> lock(mutex_);
+    if (writeDrained_) {
+        if (drainedAt) {
+            *drainedAt = (lastWriteDrainedAt_ == std::chrono::steady_clock::time_point{})
+                ? std::chrono::steady_clock::now()
+                : lastWriteDrainedAt_;
+        }
+        return true;
+    }
+    return false;
+}
+
 bool ModbusClient::pumpEventsUntil(std::chrono::steady_clock::time_point deadline) {
     if (aborted_.load()) {
         return false;
@@ -500,8 +563,18 @@ void ModbusClient::sendRaw(const QByteArray& data) {
     std::lock_guard<std::recursive_mutex> lock(requestMutex_);
     if (isConnected()) {
         waitForRtuInterFrameDelay();
+        {
+            std::lock_guard<std::mutex> stateLock(mutex_);
+            lastError_.clear();
+            writeDrained_ = config_.mode != base::ModbusMode::RTU;
+            lastWriteDrainedAt_ = std::chrono::steady_clock::time_point{};
+        }
         if (channel_->write(data)) {
             updateRtuSendWindow(data.size());
+            if (config_.mode == base::ModbusMode::RTU) {
+                const auto writeDeadline = std::chrono::steady_clock::now() + std::chrono::milliseconds(config_.timeoutMs);
+                waitForWriteDrain(writeDeadline, nullptr);
+            }
         }
     }
 }
@@ -528,7 +601,9 @@ ModbusResponse ModbusClient::sendRequestInternal(const base::Pdu& request, int s
         }
         buffer_.clear();
         responseReady_ = false;
+        writeDrained_ = config_.mode != base::ModbusMode::RTU;
         lastError_.clear();
+        lastWriteDrainedAt_ = std::chrono::steady_clock::time_point{};
     }
 
     // 2. 构建 ADU
@@ -550,6 +625,23 @@ ModbusResponse ModbusClient::sendRequestInternal(const base::Pdu& request, int s
     transitionTo(RequestState::Sending, "write-success");
     auto start = std::chrono::steady_clock::now();
 
+    if (config_.mode == base::ModbusMode::RTU) {
+        std::chrono::steady_clock::time_point drainedAt{};
+        const auto writeDeadline = start + std::chrono::milliseconds(config_.timeoutMs);
+        if (!waitForWriteDrain(writeDeadline, &drainedAt)) {
+            transitionTo(RequestState::Failed, "write-drain-timeout");
+            std::lock_guard<std::mutex> lock(mutex_);
+            const QString error = lastError_.isEmpty()
+                ? QStringLiteral("Write drain timeout")
+                : lastError_;
+            lastError_.clear();
+            return ModbusResponse::Error(error);
+        }
+        if (drainedAt != std::chrono::steady_clock::time_point{}) {
+            start = drainedAt;
+        }
+    }
+
     if (!shouldWaitForResponse(targetSlaveId, request.functionCode())) {
         transitionTo(RequestState::Completed, "broadcast-write-no-response");
         return ModbusResponse::NoResponseExpected(base::Pdu(request.functionCode(), request.data()));
@@ -558,6 +650,9 @@ ModbusResponse ModbusClient::sendRequestInternal(const base::Pdu& request, int s
     // 4. 等待响应
     // 使用绝对时间作为截止日期，避免循环中相对时间重置
     auto deadline = start + std::chrono::milliseconds(config_.timeoutMs);
+    if (config_.mode == base::ModbusMode::RTU) {
+        deadline += calculateRtuInterFrameDelay(config_);
+    }
     transitionTo(RequestState::Waiting, "wait-response");
     int droppedInvalidBytes = 0;
     spdlog::info("ModbusClient: Entering wait loop, deadline in {}ms", config_.timeoutMs);

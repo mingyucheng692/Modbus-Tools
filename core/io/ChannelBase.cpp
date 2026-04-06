@@ -37,6 +37,11 @@ void ChannelBase::setErrorHandler(std::function<void(const QString&)> handler)
     errorHandler_ = std::move(handler);
 }
 
+void ChannelBase::setWriteDrainedHandler(std::function<void()> handler)
+{
+    writeDrainedHandler_ = std::move(handler);
+}
+
 void ChannelBase::setStateHandler(std::function<void(ChannelState)> handler)
 {
     stateHandler_ = std::move(handler);
@@ -87,6 +92,13 @@ void ChannelBase::emitError(const QString& error)
 {
     if (errorHandler_) {
         errorHandler_(error);
+    }
+}
+
+void ChannelBase::emitWriteDrained()
+{
+    if (writeDrainedHandler_) {
+        writeDrainedHandler_();
     }
 }
 

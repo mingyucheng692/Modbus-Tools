@@ -6,6 +6,10 @@
 namespace io {
 
 TcpChannel::TcpChannel() {
+    writeTimeoutTimer_.setSingleShot(true);
+    QObject::connect(&writeTimeoutTimer_, &QTimer::timeout, [this]() {
+        onWriteTimeout();
+    });
     QObject::connect(&socket_, &QTcpSocket::connected, [this]() {
         onConnected();
     });
@@ -60,6 +64,7 @@ bool TcpChannel::open() {
 
 void TcpChannel::moveToThread(QThread* thread) {
     socket_.moveToThread(thread);
+    writeTimeoutTimer_.moveToThread(thread);
 }
 
 void TcpChannel::close() {
@@ -78,6 +83,7 @@ void TcpChannel::close() {
     }
 
     resetWriteState();
+    disarmWriteTimeout();
     setState(ChannelState::Closing);
     closing_ = true;
     if (socket_.state() == QAbstractSocket::UnconnectedState) {
@@ -120,6 +126,7 @@ bool TcpChannel::write(QByteArrayView data) {
 
     pendingWrites_.push_back(dataBuffer);
     emitMonitor(true, dataBuffer);
+    armWriteTimeout();
     flushPendingWrites();
     return true;
 }
@@ -138,6 +145,9 @@ void TcpChannel::flushPendingWrites() {
     }
 
     if (socket_.state() != QAbstractSocket::ConnectedState || pendingWrites_.empty()) {
+        if (pendingWrites_.empty() && socket_.bytesToWrite() == 0) {
+            disarmWriteTimeout();
+        }
         return;
     }
 
@@ -147,6 +157,8 @@ void TcpChannel::flushPendingWrites() {
         const qint64 remaining = static_cast<qint64>(frame.size() - currentWriteOffset_);
         const qint64 accepted = socket_.write(dataPtr, remaining);
         if (accepted < 0) {
+            resetWriteState();
+            disarmWriteTimeout();
             setState(ChannelState::Error);
             emitError(socket_.errorString().isEmpty() ? QStringLiteral("TCP write failed") : socket_.errorString());
             return;
@@ -155,6 +167,7 @@ void TcpChannel::flushPendingWrites() {
             break;
         }
         currentWriteOffset_ += static_cast<qsizetype>(accepted);
+        armWriteTimeout();
     }
 }
 
@@ -176,12 +189,20 @@ void TcpChannel::onConnected() {
 
 void TcpChannel::onBytesWritten(qint64 bytes) {
     Q_UNUSED(bytes);
+    bool queueDrained = false;
     while (!pendingWrites_.empty() &&
            currentWriteOffset_ >= pendingWrites_.front().size() &&
            socket_.bytesToWrite() == 0) {
         addTx(pendingWrites_.front().size());
         pendingWrites_.pop_front();
         currentWriteOffset_ = 0;
+        queueDrained = pendingWrites_.empty();
+    }
+    if (queueDrained && socket_.bytesToWrite() == 0) {
+        disarmWriteTimeout();
+        emitWriteDrained();
+    } else if (!pendingWrites_.empty() || socket_.bytesToWrite() > 0) {
+        armWriteTimeout();
     }
     flushPendingWrites();
 }
@@ -192,6 +213,7 @@ void TcpChannel::onSocketError(QAbstractSocket::SocketError error) {
         return;
     }
     resetWriteState();
+    disarmWriteTimeout();
     setState(ChannelState::Error);
     emitError(socket_.errorString().isEmpty() ? QStringLiteral("TCP socket error") : socket_.errorString());
 }
@@ -204,6 +226,7 @@ void TcpChannel::onStateChanged(QAbstractSocket::SocketState state) {
             break;
         case QAbstractSocket::UnconnectedState:
             resetWriteState();
+            disarmWriteTimeout();
             closing_ = false;
             setState(ChannelState::Closed);
             break;
@@ -215,6 +238,47 @@ void TcpChannel::onStateChanged(QAbstractSocket::SocketState state) {
             break;
         default:
             break;
+    }
+}
+
+void TcpChannel::onWriteTimeout() {
+    if (QThread::currentThread() != socket_.thread()) {
+        QMetaObject::invokeMethod(&socket_, [this]() {
+            onWriteTimeout();
+        }, Qt::QueuedConnection);
+        return;
+    }
+
+    if (closing_ || socket_.state() != QAbstractSocket::ConnectedState) {
+        disarmWriteTimeout();
+        return;
+    }
+
+    if (pendingWrites_.empty() && socket_.bytesToWrite() == 0) {
+        disarmWriteTimeout();
+        return;
+    }
+
+    const bool draining = socket_.bytesToWrite() > 0;
+    resetWriteState();
+    disarmWriteTimeout();
+    setState(ChannelState::Error);
+    emitError(draining
+        ? QStringLiteral("TCP write drain timeout")
+        : QStringLiteral("TCP write timeout"));
+}
+
+void TcpChannel::armWriteTimeout() {
+    const int timeoutMs = timeouts().writeMs;
+    if (timeoutMs <= 0) {
+        return;
+    }
+    writeTimeoutTimer_.start(timeoutMs);
+}
+
+void TcpChannel::disarmWriteTimeout() {
+    if (writeTimeoutTimer_.isActive()) {
+        writeTimeoutTimer_.stop();
     }
 }
 
