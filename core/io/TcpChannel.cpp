@@ -39,6 +39,8 @@ bool TcpChannel::open() {
 
     setState(ChannelState::Opening);
     socket_.connectToHost(ip_, port_);
+    socket_.setSocketOption(QAbstractSocket::LowDelayOption, 1);
+    socket_.setSocketOption(QAbstractSocket::KeepAliveOption, 1);
     
     if (socket_.waitForConnected(timeouts().readMs)) {
         setState(ChannelState::Open);
