@@ -70,6 +70,7 @@ void SettingsService::initializeDefaults() {
     using namespace settings_keys;
 
     defaults_.insert(kAppLanguage, QStringLiteral("system"));
+    defaults_.insert(kAppThemeMode, QStringLiteral("auto"));
     defaults_.insert(kAppNavigationCollapsed, false);
     defaults_.insert(kAppUpdateCheckFrequency, QStringLiteral("startup"));
     defaults_.insert(kAppUpdateLastCheckUtc, QString());

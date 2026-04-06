@@ -6,9 +6,9 @@
 #include "widgets/FrameAnalyzerWidget.h"
 #include "widgets/DisclaimerDialog.h"
 #include "widgets/UpdateSettingsDialog.h"
-#include "common/SettingsService.h"
 #include "common/SettingsKeys.h"
-#include "common/Theme.h"
+#include "common/ThemeController.h"
+#include "common/ThemeVisuals.h"
 #include "common/UpdateChecker.h"
 #include <QDesktopServices>
 #include <QStackedWidget>
@@ -197,9 +197,14 @@ protected:
 
 namespace ui {
 
-MainWindow::MainWindow(QWidget *parent)
+MainWindow::MainWindow(common::ISettingsService* settingsService,
+                       common::ThemeController* themeController,
+                       QWidget *parent)
     : QMainWindow(parent),
-      settingsService_(new common::SettingsService(this)) {
+      themeController_(themeController),
+      settingsService_(settingsService) {
+    Q_ASSERT(themeController_ != nullptr);
+    Q_ASSERT(settingsService_ != nullptr);
     setupUi();
 }
 
@@ -256,6 +261,7 @@ void MainWindow::setupUi() {
     setupLanguageMenu();
     setupSettingsMenu();
     setupAboutMenu();
+    setupThemeToggle();
     const QByteArray windowState = settingsService_->value(kAppMainWindowState).toByteArray();
     if (!windowState.isEmpty()) {
         restoreState(windowState);
@@ -269,6 +275,7 @@ void MainWindow::setupUi() {
     }
     navigationCollapsed_ = settingsService_->value(kAppNavigationCollapsed).toBool();
     setNavigationCollapsed(navigationCollapsed_);
+    updateThemeUi();
     cleanupUpdateArtifacts();
     loadModbusSettings();
     loadUpdateSettings();
@@ -308,7 +315,7 @@ void MainWindow::createNavigation() {
     navigationList_->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
     paneLayout->addWidget(navigationList_);
 
-    navigationList_->setStyleSheet(common::Theme::getNavigationStyle(false));
+    navigationList_->setStyleSheet(common::ThemeVisuals::navigationListStyle(qApp->palette()));
     connect(navigationToggleButton_, &QToolButton::clicked, this, [this]() {
         setNavigationCollapsed(!navigationCollapsed_);
         settingsService_->setValue(common::settings_keys::kAppNavigationCollapsed, navigationCollapsed_);
@@ -385,6 +392,58 @@ void MainWindow::setupAboutMenu() {
     aboutAction_ = aboutMenu_->addAction(tr("About"));
     connect(aboutAction_, &QAction::triggered, this, &MainWindow::openAboutDialog);
     refreshUpdateIndicators();
+}
+
+void MainWindow::setupThemeToggle() {
+    themeToggleButton_ = new QToolButton(menuBar());
+    themeToggleButton_->setAutoRaise(true);
+    themeToggleButton_->setToolButtonStyle(Qt::ToolButtonIconOnly);
+    themeToggleButton_->setCursor(Qt::PointingHandCursor);
+
+    const int textHeight = menuBar()->fontMetrics().height();
+    const int buttonExtent = qMax(textHeight + 6, style()->pixelMetric(QStyle::PM_SmallIconSize) + 2);
+    themeToggleButton_->setFixedSize(buttonExtent, buttonExtent);
+    menuBar()->setCornerWidget(themeToggleButton_, Qt::TopRightCorner);
+
+    connect(themeToggleButton_, &QToolButton::clicked, themeController_, &common::ThemeController::cycleMode);
+    connect(themeController_, &common::ThemeController::themeChanged, this, &MainWindow::updateThemeUi);
+    updateThemeToggleUi();
+}
+
+void MainWindow::updateThemeUi() {
+    if (navigationList_) {
+        navigationList_->setStyleSheet(common::ThemeVisuals::navigationListStyle(qApp->palette()));
+    }
+    updateThemeToggleUi();
+}
+
+void MainWindow::updateThemeToggleUi() {
+    if (!themeToggleButton_) {
+        return;
+    }
+
+    const int textHeight = menuBar()->fontMetrics().height();
+    const int iconExtent = qMax(textHeight, style()->pixelMetric(QStyle::PM_SmallIconSize));
+    const int buttonExtent = qMax(iconExtent + 6, style()->pixelMetric(QStyle::PM_SmallIconSize) + 2);
+    themeToggleButton_->setFixedSize(buttonExtent, buttonExtent);
+    themeToggleButton_->setIconSize(QSize(iconExtent, iconExtent));
+    themeToggleButton_->setIcon(common::ThemeVisuals::buildModeIcon(qApp->palette(),
+                                                                    themeController_->currentMode(),
+                                                                    iconExtent));
+
+    QString tooltip;
+    switch (themeController_->currentMode()) {
+    case common::Theme::Mode::Auto:
+        tooltip = tr("Theme: Auto");
+        break;
+    case common::Theme::Mode::Light:
+        tooltip = tr("Theme: Light");
+        break;
+    case common::Theme::Mode::Dark:
+        tooltip = tr("Theme: Dark");
+        break;
+    }
+    themeToggleButton_->setToolTip(tooltip);
 }
 
 void MainWindow::loadModbusSettings() {
@@ -1033,12 +1092,15 @@ void MainWindow::retranslateUi() {
         langZhTwAction_->setText(tr("繁體中文"));
         langZhTwAction_->setChecked(currentLocale_ == "zh_TW");
     }
+    updateThemeToggleUi();
     refreshUpdateIndicators();
 }
 
 void MainWindow::changeEvent(QEvent* event) {
     if (event->type() == QEvent::LanguageChange) {
         retranslateUi();
+    } else if (event->type() == QEvent::PaletteChange || event->type() == QEvent::ApplicationPaletteChange) {
+        updateThemeUi();
     }
     QMainWindow::changeEvent(event);
 }

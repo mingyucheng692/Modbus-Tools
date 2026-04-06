@@ -1,5 +1,6 @@
 #pragma once
 
+#include "common/ISettingsService.h"
 #include <QMainWindow>
 #include <QTranslator>
 
@@ -18,15 +19,17 @@ class QUrl;
 namespace ui {
 namespace views::modbus_tcp { class ModbusTcpView; }
 namespace views::modbus_rtu { class ModbusRtuView; }
+namespace common { class ThemeController; }
 namespace common { class UpdateChecker; }
-namespace common { class SettingsService; }
 namespace widgets { class UpdateSettingsDialog; }
 
 class MainWindow : public QMainWindow {
     Q_OBJECT
 
 public:
-    explicit MainWindow(QWidget *parent = nullptr);
+    explicit MainWindow(common::ISettingsService* settingsService,
+                        common::ThemeController* themeController,
+                        QWidget *parent = nullptr);
     ~MainWindow() override;
 
 private:
@@ -37,8 +40,11 @@ private:
     void setupSettingsMenu();
     void setupLanguageMenu();
     void setupAboutMenu();
+    void setupThemeToggle();
     void retranslateUi();
     void applyLanguage(const QString& locale);
+    void updateThemeUi();
+    void updateThemeToggleUi();
     void loadModbusSettings();
     void loadUpdateSettings();
     void applyModbusSettingsToViews();
@@ -91,10 +97,12 @@ private:
     QAction* langEnAction_ = nullptr;
     QAction* langZhCnAction_ = nullptr;
     QAction* langZhTwAction_ = nullptr;
+    QToolButton* themeToggleButton_ = nullptr;
     QTranslator qtTranslator_;
     QTranslator appTranslator_;
+    common::ThemeController* themeController_ = nullptr;
     common::UpdateChecker* updateChecker_ = nullptr;
-    common::SettingsService* settingsService_ = nullptr;
+    common::ISettingsService* settingsService_ = nullptr;
     QString currentLocale_ = "en_US";
     int modbusTimeoutMs_ = 1000;
     int modbusRetries_ = 0;

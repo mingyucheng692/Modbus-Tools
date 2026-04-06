@@ -18,7 +18,7 @@ if(MSVC)
 endif()
 
 # Find Qt6
-find_package(Qt6 REQUIRED COMPONENTS Core Network SerialPort Widgets Charts)
+find_package(Qt6 REQUIRED COMPONENTS Core Network SerialPort Widgets Charts LinguistTools)
 
 # Add spdlog
 # Check if spdlog exists, if not, we might need to rely on system installed or header only

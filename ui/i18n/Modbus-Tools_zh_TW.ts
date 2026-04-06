@@ -245,12 +245,12 @@
     <message>
         <location filename="../MainWindow.cpp" line="337"/>
         <source>Expand Navigation</source>
-        <translation type="unfinished"></translation>
+        <translation>展開導覽</translation>
     </message>
     <message>
         <location filename="../MainWindow.cpp" line="337"/>
         <source>Collapse Navigation</source>
-        <translation type="unfinished"></translation>
+        <translation>摺疊導覽</translation>
     </message>
     <message>
         <location filename="../MainWindow.cpp" line="342"/>
@@ -476,6 +476,21 @@ Choose update method:</source>
         <location filename="../MainWindow.cpp" line="1026"/>
         <source>About</source>
         <translation>關於</translation>
+    </message>
+    <message>
+        <location filename="../MainWindow.cpp" line="459"/>
+        <source>Theme: Auto</source>
+        <translation>主題：自動</translation>
+    </message>
+    <message>
+        <location filename="../MainWindow.cpp" line="462"/>
+        <source>Theme: Light</source>
+        <translation>主題：淺色</translation>
+    </message>
+    <message>
+        <location filename="../MainWindow.cpp" line="465"/>
+        <source>Theme: Dark</source>
+        <translation>主題：深色</translation>
     </message>
     <message>
         <source>Every Startup</source>

@@ -2,7 +2,8 @@
 #include <QIcon>
 #include <QResource>
 #include "MainWindow.h"
-#include "common/Theme.h"
+#include "common/SettingsService.h"
+#include "common/ThemeController.h"
 #include "logging/Logger.h"
 
 #ifndef MODBUS_TOOLS_APP_VERSION
@@ -14,17 +15,17 @@ int main(int argc, char *argv[])
     QApplication app(argc, argv);
     Q_INIT_RESOURCE(i18n);
     Q_INIT_RESOURCE(assets);
-    
-    // Apply Light Theme
-    ui::common::Theme::applyLight(app);
     app.setApplicationName("Modbus-Tools");
     app.setApplicationVersion(QStringLiteral(MODBUS_TOOLS_APP_VERSION));
+
+    ui::common::SettingsService settingsService;
+    ui::common::ThemeController themeController(app, settingsService);
 
     logging::Init(app.applicationDirPath() + "/logs");
 
     app.setWindowIcon(QIcon(":/assets/logo.svg"));
 
-    ui::MainWindow window;
+    ui::MainWindow window(&settingsService, &themeController);
     window.setWindowIcon(QIcon(":/assets/logo.svg"));
     window.show();
 

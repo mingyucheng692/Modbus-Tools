@@ -3,6 +3,7 @@
 namespace ui::common::settings_keys {
 
 inline constexpr char kAppLanguage[] = "app/language";
+inline constexpr char kAppThemeMode[] = "app/themeMode";
 inline constexpr char kAppNavigationCollapsed[] = "app/navigationCollapsed";
 inline constexpr char kAppUpdateCheckFrequency[] = "app/updateCheckFrequency";
 inline constexpr char kAppUpdateLastCheckUtc[] = "app/updateLastCheckUtc";

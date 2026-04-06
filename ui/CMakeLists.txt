@@ -10,10 +10,13 @@ target_sources(ui PRIVATE
     common/SettingsService.cpp
     common/SettingsService.h
     common/Theme.cpp
+    common/ThemeController.cpp
+    common/ThemeController.h
+    common/ThemeVisuals.cpp
+    common/ThemeVisuals.h
     common/UpdateChecker.cpp
     common/UpdateChecker.h
     assets.qrc
-    i18n/i18n.qrc
     MainWindow.cpp
     views/modbus_tcp/ModbusTcpView.cpp
     views/modbus_tcp/ModbusTcpView.h
@@ -38,6 +41,22 @@ target_sources(ui PRIVATE
     widgets/UpdateSettingsDialog.h
     widgets/FrameAnalyzerWidget.cpp
     widgets/FrameAnalyzerWidget.h
+)
+
+set(ui_translation_ts
+    ${CMAKE_CURRENT_SOURCE_DIR}/i18n/Modbus-Tools_zh_CN.ts
+    ${CMAKE_CURRENT_SOURCE_DIR}/i18n/Modbus-Tools_zh_TW.ts
+)
+
+qt_add_translations(ui
+    TS_FILES ${ui_translation_ts}
+    QM_FILES_OUTPUT_VARIABLE ui_translation_qm_files
+)
+
+qt_add_resources(ui i18n
+    PREFIX "/i18n"
+    BASE "${CMAKE_CURRENT_BINARY_DIR}"
+    FILES ${ui_translation_qm_files}
 )
 
 target_link_libraries(ui PUBLIC
