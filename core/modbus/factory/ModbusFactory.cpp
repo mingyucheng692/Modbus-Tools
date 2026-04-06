@@ -28,14 +28,12 @@ ModbusStack ModbusFactory::createStack(const base::ModbusConfig& config) {
     stack.thread = std::shared_ptr<QThread>(new QThread(), [](QThread* thread) {
         if (thread) {
             if (thread->isRunning()) {
+                QObject::connect(thread, &QThread::finished, thread, &QObject::deleteLater, Qt::UniqueConnection);
+                thread->requestInterruption();
                 thread->quit();
-                if (!thread->wait(2000)) {
-                    thread->requestInterruption();
-                    thread->quit();
-                    thread->wait(1000);
-                }
+                return;
             }
-            delete thread;
+            thread->deleteLater();
         }
     });
 

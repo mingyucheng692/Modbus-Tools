@@ -1,9 +1,11 @@
 #include "Logger.h"
 
+#include "AppConstants.h"
 #include <QDateTime>
 #include <QDir>
 #include <QtGlobal>
-#include <spdlog/sinks/basic_file_sink.h>
+#include <spdlog/async.h>
+#include <spdlog/sinks/rotating_file_sink.h>
 #include <spdlog/sinks/stdout_color_sinks.h>
 
 namespace logging {
@@ -50,13 +52,30 @@ void Init(const QString& logDir)
     const QString timestamp = QDateTime::currentDateTime().toString("yyyyMMdd-HHmmss");
     const QString fileName = QString("modbus-tools_%1.log").arg(timestamp);
     auto filePath = dir.filePath(fileName).toStdString();
-    auto fileSink = std::make_shared<spdlog::sinks::basic_file_sink_mt>(filePath, true);
+    auto fileSink = std::make_shared<spdlog::sinks::rotating_file_sink_mt>(
+        filePath,
+        app::constants::Constants::Logging::kMaxFileSizeBytes,
+        app::constants::Constants::Logging::kMaxRotatedFiles);
     std::vector<spdlog::sink_ptr> sinks{consoleSink, fileSink};
 
-    auto logger = std::make_shared<spdlog::logger>("default", sinks.begin(), sinks.end());
-    logger->set_pattern("%Y-%m-%d %H:%M:%S.%e [%t] [%^%l%$] %v");
+    if (!spdlog::thread_pool()) {
+        spdlog::init_thread_pool(
+            app::constants::Constants::Logging::kAsyncQueueSize,
+            app::constants::Constants::Logging::kAsyncWorkerThreads);
+    }
+
+    auto logger = std::make_shared<spdlog::async_logger>(
+        "default",
+        sinks.begin(),
+        sinks.end(),
+        spdlog::thread_pool(),
+        spdlog::async_overflow_policy::block);
+    logger->set_pattern("%Y-%m-%d %H:%M:%S.%e [%t] [%n] [%^%l%$] %v");
     logger->set_level(spdlog::level::info);
     logger->flush_on(spdlog::level::info);
+    spdlog::set_error_handler([](const std::string& message) {
+        qWarning("spdlog failure: %s", message.c_str());
+    });
 
     spdlog::set_default_logger(logger);
     spdlog::set_level(spdlog::level::info);

@@ -40,11 +40,11 @@ void ModbusRtuView::updateModbusSettings(int timeoutMs, int retries, int retryIn
     timeoutMs_ = timeoutMs;
     retries_ = retries;
     retryIntervalMs_ = retryIntervalMs;
-    if (client_) {
+    if (worker_) {
         currentConfig_.timeoutMs = timeoutMs_;
         currentConfig_.retries = retries_;
         currentConfig_.retryIntervalMs = retryIntervalMs_;
-        client_->setConfig(currentConfig_);
+        worker_->updateConfig(currentConfig_);
     }
 }
 
@@ -122,6 +122,7 @@ void ModbusRtuView::setupUi() {
             trafficMonitor_->appendInfo(tr("Opening %1...").arg(config.portName));
 
             releaseStack();
+            const quint64 generation = connectionGeneration_;
 
             modbus::base::ModbusConfig modbusConfig;
             modbusConfig.mode = modbus::base::ModbusMode::RTU;
@@ -149,10 +150,11 @@ void ModbusRtuView::setupUi() {
             workerThread_ = std::move(stack.thread);
 
             QPointer<ModbusRtuView> self(this);
-            channel_->setMonitor([self](bool isTx, const QByteArray& data) {
+            channel_->setMonitor([self, generation](bool isTx, const QByteArray& data) {
                 if (!self) return;
-                QMetaObject::invokeMethod(self, [self, isTx, data]() {
+                QMetaObject::invokeMethod(self, [self, generation, isTx, data]() {
                     if (!self) return;
+                    if (generation != self->connectionGeneration_) return;
                     if (isTx) {
                         self->trafficMonitor_->appendTx(data);
                         self->appendSendData(data);
@@ -162,10 +164,22 @@ void ModbusRtuView::setupUi() {
                     }
                 }, Qt::QueuedConnection);
             });
+            channel_->setStateHandler([self, generation](io::ChannelState state) {
+                if (!self) return;
+                QMetaObject::invokeMethod(self, [self, generation, state]() {
+                    if (!self) return;
+                    if (generation != self->connectionGeneration_) return;
+                    const bool connected = state == io::ChannelState::Open;
+                    self->rtuSessionConnected_ = connected;
+                    self->connectionWidget_->setConnected(connected);
+                }, Qt::QueuedConnection);
+            });
 
             connect(worker_.get(), &modbus::dispatch::ModbusWorker::connectFinished, this,
-                [this, self](bool ok, const QString& error) {
+                [this, self, generation](bool ok, const QString& error) {
                     if (!self) return;
+                    if (generation != connectionGeneration_) return;
+                    rtuSessionConnected_ = ok;
                     if (ok) {
                         connectionWidget_->setConnected(true);
                         trafficMonitor_->appendInfo(tr("Connected"));
@@ -176,8 +190,9 @@ void ModbusRtuView::setupUi() {
                 }, Qt::QueuedConnection);
 
             connect(worker_.get(), &modbus::dispatch::ModbusWorker::requestFinished, this,
-                [this, self](int requestId, const modbus::session::ModbusResponse& response) {
+                [this, self, generation](int requestId, const modbus::session::ModbusResponse& response) {
                     if (!self) return;
+                    if (generation != connectionGeneration_) return;
                     auto itStart = requestStart_.find(requestId);
                     auto itKind = requestKinds_.find(requestId);
                     if (itStart == requestStart_.end() || itKind == requestKinds_.end()) {
@@ -224,7 +239,7 @@ void ModbusRtuView::setupUi() {
     });
 
     auto ensureConnected = [this]() {
-        if (worker_ && client_ && client_->isConnected()) {
+        if (worker_ && rtuSessionConnected_) {
             return true;
         }
         ui::common::ConnectionAlert::showNotConnected(this);
@@ -518,8 +533,13 @@ QString ModbusRtuView::formatData(const QByteArray& data, bool hex) const {
 }
 
 void ModbusRtuView::releaseStack() {
+    ++connectionGeneration_;
+    rtuSessionConnected_ = false;
     if (worker_) {
         worker_->stop();
+    }
+    if (connectionWidget_) {
+        connectionWidget_->setConnected(false);
     }
     worker_.reset();
     client_.reset();

@@ -41,7 +41,13 @@ public:
         inline static constexpr int kDefaultTimeoutMs = 1000;
         inline static constexpr int kDefaultRetryCount = 3;
         inline static constexpr int kDefaultRetryIntervalMs = 100;
+        inline static constexpr int kDefaultMaxRetryIntervalMs = 5000;
+        inline static constexpr double kDefaultRetryBackoffFactor = 2.0;
+        inline static constexpr int kDefaultRetryJitterPercent = 15;
         inline static constexpr bool kDefaultRetryEnabled = false;
+        inline static constexpr bool kDefaultAutoReconnect = true;
+        inline static constexpr int kDefaultReconnectBaseMs = 250;
+        inline static constexpr int kDefaultReconnectMaxMs = 5000;
         inline static constexpr int kDefaultStandardStartAddress = 0;
         inline static constexpr int kDefaultStandardQuantity = 10;
         inline static constexpr int kDefaultStandardFormatIndex = 0;
@@ -60,6 +66,13 @@ public:
         inline static constexpr int kMaxDroppedInvalidBytes = 256;
         inline static constexpr int kMaxTcpMbapLength = 254;
         inline static constexpr int kMaxPduDataLength = 252;
+    };
+
+    struct Logging {
+        inline static constexpr int kAsyncQueueSize = 8192;
+        inline static constexpr int kAsyncWorkerThreads = 1;
+        inline static constexpr std::size_t kMaxFileSizeBytes = 10 * 1024 * 1024;
+        inline static constexpr std::size_t kMaxRotatedFiles = 5;
     };
 
     struct GenericIo {

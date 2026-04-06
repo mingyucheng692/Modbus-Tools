@@ -52,11 +52,11 @@ void ModbusTcpView::updateModbusSettings(int timeoutMs, int retries, int retryIn
     timeoutMs_ = timeoutMs;
     retries_ = retries;
     retryIntervalMs_ = retryIntervalMs;
-    if (client_) {
+    if (worker_) {
         currentConfig_.timeoutMs = timeoutMs_;
         currentConfig_.retries = retries_;
         currentConfig_.retryIntervalMs = retryIntervalMs_;
-        client_->setConfig(currentConfig_);
+        worker_->updateConfig(currentConfig_);
     }
 }
 
@@ -276,7 +276,7 @@ void ModbusTcpView::setupUi() {
     });
 
     auto ensureConnected = [this]() {
-        if (worker_ && client_ && client_->isConnected()) {
+        if (worker_ && tcpSessionConnected_) {
             return true;
         }
         ui::common::ConnectionAlert::showNotConnected(this);
@@ -578,6 +578,9 @@ void ModbusTcpView::releaseStack() {
     tcpSessionConnected_ = false;
     if (worker_) {
         worker_->stop();
+    }
+    if (connectionWidget_) {
+        connectionWidget_->setConnected(false);
     }
     worker_.reset();
     client_.reset();

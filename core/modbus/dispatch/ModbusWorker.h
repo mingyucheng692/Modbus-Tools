@@ -22,11 +22,13 @@ public:
     void sendRaw(const QByteArray& data);
     void requestConnect();
     void requestDisconnect();
+    void updateConfig(const base::ModbusConfig& config);
 
 signals:
     void requestFinished(int requestId, modbus::session::ModbusResponse response);
     void connectFinished(bool ok, const QString& error);
     void disconnectFinished();
+    void stopped();
 
 private:
     struct QueuedRequest {
@@ -41,6 +43,7 @@ private:
     void handleDisconnect();
     void handleRequestDisconnectInThread();
     void handleStopInThread();
+    void handleUpdateConfig(base::ModbusConfig config);
     void drainQueuedRequests(const QString& reason);
     void scheduleProcessQueue();
     void processQueue();

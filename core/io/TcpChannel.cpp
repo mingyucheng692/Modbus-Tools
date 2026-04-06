@@ -1,7 +1,9 @@
 #include "TcpChannel.h"
 #include <spdlog/spdlog.h>
+#include <QEventLoop>
 #include <QThread>
 #include <QMetaObject>
+#include <QTimer>
 
 namespace io {
 
@@ -38,18 +40,36 @@ bool TcpChannel::open() {
     if (isOpen()) return true;
 
     setState(ChannelState::Opening);
+    socket_.abort();
     socket_.connectToHost(ip_, port_);
     socket_.setSocketOption(QAbstractSocket::LowDelayOption, 1);
     socket_.setSocketOption(QAbstractSocket::KeepAliveOption, 1);
-    
-    if (socket_.waitForConnected(timeouts().readMs)) {
+
+    if (socket_.state() == QAbstractSocket::ConnectedState) {
         setState(ChannelState::Open);
         return true;
-    } else {
-        setState(ChannelState::Error);
-        emitError(socket_.errorString());
-        return false;
     }
+
+    QEventLoop loop;
+    QTimer timer;
+    timer.setSingleShot(true);
+
+    QObject::connect(&socket_, &QTcpSocket::connected, &loop, &QEventLoop::quit);
+    QObject::connect(&socket_, &QTcpSocket::errorOccurred, &loop, &QEventLoop::quit);
+    QObject::connect(&timer, &QTimer::timeout, &loop, &QEventLoop::quit);
+
+    timer.start(std::max(1, timeouts().readMs));
+    loop.exec();
+
+    if (socket_.state() == QAbstractSocket::ConnectedState) {
+        setState(ChannelState::Open);
+        return true;
+    }
+
+    socket_.abort();
+    setState(ChannelState::Error);
+    emitError(socket_.errorString().isEmpty() ? QStringLiteral("TCP connect timeout") : socket_.errorString());
+    return false;
 }
 
 void TcpChannel::moveToThread(QThread* thread) {
@@ -69,10 +89,11 @@ void TcpChannel::close() {
         return;
     }
 
-    socket_.disconnectFromHost();
-    if (socket_.state() != QAbstractSocket::UnconnectedState) {
-        socket_.waitForDisconnected(1000);
+    setState(ChannelState::Closing);
+    if (socket_.state() == QAbstractSocket::ConnectedState) {
+        socket_.disconnectFromHost();
     }
+    socket_.abort();
     socket_.close();
     setState(ChannelState::Closed);
 }
@@ -98,13 +119,7 @@ bool TcpChannel::write(QByteArrayView data) {
     if (written != dataBuffer.size()) {
         return false;
     }
-
-    // 确认字节已交给 OS 套接字发送队列，避免仅写入 Qt 缓冲区就判定成功。
-    const bool flushed = socket_.bytesToWrite() == 0 || socket_.waitForBytesWritten(timeouts().writeMs);
-    if (!flushed && socket_.bytesToWrite() > 0) {
-        emitError(QStringLiteral("TCP write timeout before all bytes were sent"));
-        return false;
-    }
+    socket_.flush();
 
     addTx(written);
     emitMonitor(true, dataBuffer);
@@ -127,6 +142,8 @@ void TcpChannel::onReadyRead() {
 }
 
 void TcpChannel::onSocketError(QAbstractSocket::SocketError error) {
+    Q_UNUSED(error);
+    setState(ChannelState::Error);
     emitError(socket_.errorString());
 }
 

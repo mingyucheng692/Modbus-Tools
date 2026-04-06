@@ -40,6 +40,24 @@ struct ModbusConfig {
     // 重试间隔 (毫秒)
     int retryIntervalMs = app::constants::Constants::Modbus::kDefaultRetryIntervalMs;
 
+    // 重试退避上限 (毫秒)
+    int maxRetryIntervalMs = app::constants::Constants::Modbus::kDefaultMaxRetryIntervalMs;
+
+    // 指数退避系数
+    double retryBackoffFactor = app::constants::Constants::Modbus::kDefaultRetryBackoffFactor;
+
+    // 退避抖动百分比
+    int retryJitterPercent = app::constants::Constants::Modbus::kDefaultRetryJitterPercent;
+
+    // 自动重连开关
+    bool autoReconnect = app::constants::Constants::Modbus::kDefaultAutoReconnect;
+
+    // 自动重连基础间隔 (毫秒)
+    int reconnectBaseMs = app::constants::Constants::Modbus::kDefaultReconnectBaseMs;
+
+    // 自动重连最大间隔 (毫秒)
+    int reconnectMaxMs = app::constants::Constants::Modbus::kDefaultReconnectMaxMs;
+
     // 帧间隔 (RTU only, micro-seconds or char times)
     // 通常由驱动层处理，但在某些应用层实现中可能需要
     int interFrameDelayUs = 0;

@@ -68,6 +68,7 @@ void SerialChannel::close() {
         return;
     }
 
+    setState(ChannelState::Closing);
     if (serial_.isOpen()) {
         serial_.close();
     }
@@ -95,13 +96,7 @@ bool SerialChannel::write(QByteArrayView data) {
     if (written != dataBuffer.size()) {
         return false;
     }
-
-    // 确认驱动层已接收完待发送字节，避免仅写入 Qt 缓冲区就判定成功。
-    const bool flushed = serial_.bytesToWrite() == 0 || serial_.waitForBytesWritten(timeouts().writeMs);
-    if (!flushed && serial_.bytesToWrite() > 0) {
-        emitError(QStringLiteral("Serial write timeout before all bytes were sent"));
-        return false;
-    }
+    serial_.flush();
 
     addTx(written);
     emitMonitor(true, dataBuffer);
@@ -150,6 +145,7 @@ void SerialChannel::onReadyRead() {
 
 void SerialChannel::onErrorOccurred(QSerialPort::SerialPortError error) {
     if (error != QSerialPort::NoError) {
+        setState(ChannelState::Error);
         emitError(serial_.errorString());
     }
 }

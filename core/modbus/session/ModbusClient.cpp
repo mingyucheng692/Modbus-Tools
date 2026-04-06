@@ -2,9 +2,9 @@
 #include "AppConstants.h"
 #include <spdlog/spdlog.h>
 #include <chrono>
-#include <thread>
 #include <algorithm>
 #include <cmath>
+#include <random>
 #include <QCoreApplication>
 #include <QtEndian>
 
@@ -94,6 +94,30 @@ bool isAddressRangeValid(uint16_t startAddress, uint16_t quantity)
     }
     const uint32_t endAddress = static_cast<uint32_t>(startAddress) + static_cast<uint32_t>(quantity) - 1U;
     return endAddress <= static_cast<uint32_t>(app::constants::Constants::Modbus::kMaxAddress);
+}
+
+int sanitizeDelayMs(int value)
+{
+    return std::max(0, value);
+}
+
+int calculateBackoffDelayMs(const base::ModbusConfig& config, int baseDelayMs, int maxDelayMs, int attempt)
+{
+    const double factor = std::max(1.0, config.retryBackoffFactor);
+    const int sanitizedBase = sanitizeDelayMs(baseDelayMs);
+    const int sanitizedMax = std::max(sanitizedBase, sanitizeDelayMs(maxDelayMs));
+    const double scaled = static_cast<double>(sanitizedBase) * std::pow(factor, static_cast<double>(attempt));
+    const int cappedDelay = std::min(sanitizedMax, static_cast<int>(std::llround(scaled)));
+
+    const int jitterPercent = std::clamp(config.retryJitterPercent, 0, 100);
+    if (jitterPercent == 0 || cappedDelay == 0) {
+        return cappedDelay;
+    }
+
+    thread_local std::mt19937 generator{std::random_device{}()};
+    const int jitterWindow = std::max(1, (cappedDelay * jitterPercent) / 100);
+    std::uniform_int_distribution<int> distribution(-jitterWindow, jitterWindow);
+    return std::max(0, cappedDelay + distribution(generator));
 }
 
 } // namespace
@@ -220,9 +244,6 @@ void ModbusClient::disconnect() {
     aborted_ = true;
     if (channel_) {
         channel_->close();
-        if (QCoreApplication::instance()) {
-            channel_->moveToThread(QCoreApplication::instance()->thread());
-        }
     }
     clearRuntimeState(true);
     aborted_ = false;
@@ -254,8 +275,9 @@ void ModbusClient::setConfig(const base::ModbusConfig& config) {
 ModbusResponse ModbusClient::sendRequest(const base::Pdu& request, int slaveId) {
     std::lock_guard<std::recursive_mutex> lock(requestMutex_);
     aborted_ = false;
-    
-    int retries = config_.retries;
+
+    const base::ModbusConfig activeConfig = config_;
+    const int retries = std::max(0, activeConfig.retries);
     ModbusResponse lastResponse = ModbusResponse::Error("Unknown error");
     const int requestId = enqueuePendingRequest(request, slaveId);
     transitionTo(RequestState::Idle, "request-start");
@@ -276,9 +298,20 @@ ModbusResponse ModbusClient::sendRequest(const base::Pdu& request, int slaveId) 
         
         if (i < retries && !aborted_) {
             transitionTo(RequestState::Failed, "request-retry");
+            const int retryDelayMs = calculateBackoffDelayMs(
+                activeConfig,
+                activeConfig.retryIntervalMs,
+                activeConfig.maxRetryIntervalMs,
+                i);
             spdlog::warn("Request failed, retrying... ({}/{}) Error: {}", 
-                         i + 1, retries, lastResponse.error.toStdString());
-            std::this_thread::sleep_for(std::chrono::milliseconds(config_.retryIntervalMs));
+                         i + 1,
+                         retries,
+                         lastResponse.error.toStdString());
+            if (!waitForAbortableDelay(std::chrono::milliseconds(retryDelayMs))) {
+                transitionTo(RequestState::Aborted, "request-aborted-during-backoff");
+                finishPendingRequest(requestId, false, "Aborted");
+                return ModbusResponse::Error("Aborted");
+            }
         }
     }
     if (aborted_) {
@@ -302,8 +335,24 @@ void ModbusClient::sendRaw(const QByteArray& data) {
 
 ModbusResponse ModbusClient::sendRequestInternal(const base::Pdu& request, int slaveId) {
     if (!isConnected()) {
-        transitionTo(RequestState::Failed, "not-connected");
-        return ModbusResponse::Error("Not connected");
+        if (config_.autoReconnect) {
+            const int reconnectDelayMs = calculateBackoffDelayMs(
+                config_,
+                config_.reconnectBaseMs,
+                config_.reconnectMaxMs,
+                0);
+            if (!waitForAbortableDelay(std::chrono::milliseconds(reconnectDelayMs))) {
+                transitionTo(RequestState::Aborted, "reconnect-aborted");
+                return ModbusResponse::Error("Aborted");
+            }
+            if (!connect()) {
+                transitionTo(RequestState::Failed, "reconnect-failed");
+                return ModbusResponse::Error("Reconnect failed");
+            }
+        } else {
+            transitionTo(RequestState::Failed, "not-connected");
+            return ModbusResponse::Error("Not connected");
+        }
     }
 
     const QString validationError = validateRequest(request, slaveId);
@@ -598,8 +647,19 @@ void ModbusClient::waitForRtuInterFrameDelay() {
 
     const auto now = std::chrono::steady_clock::now();
     if (nextRtuSendAllowedAt_ > now) {
-        std::this_thread::sleep_until(nextRtuSendAllowedAt_);
+        waitForAbortableDelay(nextRtuSendAllowedAt_ - now);
     }
+}
+
+bool ModbusClient::waitForAbortableDelay(std::chrono::steady_clock::duration delay) {
+    if (delay <= std::chrono::steady_clock::duration::zero()) {
+        return !aborted_.load();
+    }
+
+    std::unique_lock<std::mutex> lock(mutex_);
+    return !cv_.wait_for(lock, delay, [this]() {
+        return aborted_.load();
+    });
 }
 
 void ModbusClient::updateRtuSendWindow(qsizetype frameBytes) {
