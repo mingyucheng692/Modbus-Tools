@@ -1,5 +1,4 @@
 #include "ThemeVisuals.h"
-#include <QApplication>
 #include <QColor>
 #include <QImage>
 #include <QPainter>
@@ -105,15 +104,14 @@ QIcon ThemeVisuals::buildModeIcon(const QPalette& palette, Theme::Mode mode, int
     return icon;
 }
 
-QString ThemeVisuals::navigationListStyle(const QPalette& palette) {
+QString ThemeVisuals::navigationListStyle(const QPalette& palette, const QFontMetrics& fontMetrics) {
     QColor itemHover = palette.color(QPalette::Highlight);
     itemHover.setAlpha(24);
 
     QColor itemSelected = palette.color(QPalette::Highlight);
     itemSelected.setAlpha(40);
 
-    const int fontHeight = qApp ? qApp->fontMetrics().height() : 14;
-    const int itemPadding = qMax(8, fontHeight / 2);
+    const int fontHeight = fontMetrics.height();
     const int selectionBorderWidth = qMax(2, fontHeight / 5);
 
     return QString::fromLatin1(R"(
@@ -124,22 +122,20 @@ QString ThemeVisuals::navigationListStyle(const QPalette& palette) {
             border-right: 1px solid %3;
         }
         QListWidget::item {
-            padding: %4px;
-            border-left: %5px solid transparent;
+            border-left: %4px solid transparent;
         }
         QListWidget::item:hover {
-            background-color: %6;
+            background-color: %5;
         }
         QListWidget::item:selected {
-            background-color: %7;
-            color: %8;
-            border-left: %5px solid %9;
+            background-color: %6;
+            color: %7;
+            border-left: %4px solid %8;
         }
     )")
         .arg(toCssColor(palette.color(QPalette::Window)))
         .arg(toCssColor(palette.color(QPalette::WindowText)))
         .arg(toCssColor(palette.color(QPalette::Mid)))
-        .arg(itemPadding)
         .arg(selectionBorderWidth)
         .arg(toCssColor(itemHover))
         .arg(toCssColor(itemSelected))

@@ -2,9 +2,8 @@
 
 #include "ISettingsService.h"
 #include "Theme.h"
+#include "ThemeRuntime.h"
 #include <QObject>
-
-class QApplication;
 
 namespace ui::common {
 
@@ -15,7 +14,7 @@ class ThemeController : public QObject {
     Q_OBJECT
 
 public:
-    explicit ThemeController(QApplication& application,
+    explicit ThemeController(ThemeRuntime& themeRuntime,
                              ISettingsService& settingsService,
                              QObject* parent = nullptr);
 
@@ -31,7 +30,7 @@ signals:
 private:
     void applyMode(Theme::Mode mode, bool persist);
 
-    QApplication& application_;
+    ThemeRuntime& themeRuntime_;
     ISettingsService& settingsService_;
     Theme::Mode currentMode_ = Theme::Mode::Auto;
 };

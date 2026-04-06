@@ -120,7 +120,7 @@ private:
     QString pendingReleaseUrl_;
     QObject* parameterWheelBlocker_ = nullptr;
     bool navigationCollapsed_ = false;
-    int navigationExpandedWidth_ = 188;
+    int navigationExpandedWidth_ = 138;
     int navigationCollapsedWidth_ = 52;
 };
 

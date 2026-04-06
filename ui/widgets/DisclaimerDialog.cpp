@@ -5,14 +5,24 @@
 #include <QHBoxLayout>
 #include <QFrame>
 #include <QDesktopServices>
+#include <QLocale>
 #include <QUrl>
 
 namespace ui::widgets {
 
+namespace {
+QString systemDisclaimerLocale() {
+    const QString systemName = QLocale::system().name();
+    return systemName == QStringLiteral("zh_CN")
+        ? QStringLiteral("zh_CN")
+        : (systemName == QStringLiteral("zh_TW") ? QStringLiteral("zh_TW") : QStringLiteral("en_US"));
+}
+}
+
 DisclaimerDialog::DisclaimerDialog(QWidget* parent)
     : QDialog(parent) {
     setupUi();
-    applyLanguage("en_US");
+    applyLanguage(systemDisclaimerLocale());
 }
 
 void DisclaimerDialog::setupUi() {

@@ -193,6 +193,59 @@ protected:
         return QObject::eventFilter(watched, event);
     }
 };
+
+QPalette effectiveThemePalette(const QWidget* widget) {
+    return widget ? QApplication::palette(widget) : QApplication::palette();
+}
+
+QString normalizedAppLocale(QString locale) {
+    locale = locale.trimmed();
+    if (locale == QStringLiteral("en_US") ||
+        locale == QStringLiteral("zh_CN") ||
+        locale == QStringLiteral("zh_TW") ||
+        locale == QStringLiteral("system")) {
+        return locale;
+    }
+    return QStringLiteral("system");
+}
+
+QString effectiveAppLocale(const QString& locale) {
+    if (locale == QStringLiteral("zh_CN") || locale == QStringLiteral("zh_TW")) {
+        return locale;
+    }
+    if (locale == QStringLiteral("en_US")) {
+        return QStringLiteral("en_US");
+    }
+
+    const QString systemName = QLocale::system().name();
+    return systemName == QStringLiteral("zh_CN")
+        ? QStringLiteral("zh_CN")
+        : (systemName == QStringLiteral("zh_TW") ? QStringLiteral("zh_TW") : QStringLiteral("en_US"));
+}
+
+int calculateExpandedNavigationWidth(const QListWidget* navigationList) {
+    if (!navigationList) {
+        return 138;
+    }
+
+    const QFontMetrics metrics(navigationList->fontMetrics());
+    int maxTextWidth = 0;
+    for (int index = 0; index < navigationList->count(); ++index) {
+        const QListWidgetItem* item = navigationList->item(index);
+        if (!item) {
+            continue;
+        }
+        const QString title = item->toolTip().isEmpty() ? item->text() : item->toolTip();
+        maxTextWidth = qMax(maxTextWidth, metrics.horizontalAdvance(title));
+    }
+
+    const int iconWidth = qMax(24, navigationList->iconSize().width());
+    const int frameWidth = navigationList->frameWidth() * 2;
+    const int leftInset = 8;
+    const int textGap = 6;
+    const int rightInset = 9;
+    return qMax(138, frameWidth + leftInset + iconWidth + textGap + maxTextWidth + rightInset);
+}
 }
 
 namespace ui {
@@ -268,11 +321,7 @@ void MainWindow::setupUi() {
     }
     parameterWheelBlocker_ = new ParameterWheelBlocker(this);
     qApp->installEventFilter(parameterWheelBlocker_);
-    currentLocale_ = settingsService_->value(kAppLanguage).toString();
-    if (currentLocale_.isEmpty() || currentLocale_ == "system") {
-        const QString systemName = QLocale::system().name();
-        currentLocale_ = systemName == "zh_CN" ? "zh_CN" : (systemName == "zh_TW" ? "zh_TW" : "en_US");
-    }
+    currentLocale_ = normalizedAppLocale(settingsService_->value(kAppLanguage).toString());
     navigationCollapsed_ = settingsService_->value(kAppNavigationCollapsed).toBool();
     setNavigationCollapsed(navigationCollapsed_);
     updateThemeUi();
@@ -313,9 +362,17 @@ void MainWindow::createNavigation() {
     navigationList_->addItem(new QListWidgetItem(frameAnalyzerIcon.isNull() ? style()->standardIcon(QStyle::SP_FileDialogDetailedView) : frameAnalyzerIcon, tr("Frame Analyzer")));
     navigationList_->setIconSize(QSize(24, 24));
     navigationList_->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+    navigationExpandedWidth_ = calculateExpandedNavigationWidth(navigationList_);
     paneLayout->addWidget(navigationList_);
 
-    navigationList_->setStyleSheet(common::ThemeVisuals::navigationListStyle(qApp->palette()));
+    const QPalette palette = effectiveThemePalette(navigationList_);
+    navigationPane_->setAutoFillBackground(true);
+    navigationPane_->setPalette(palette);
+    navigationToggleButton_->setPalette(palette);
+    navigationList_->setPalette(palette);
+    navigationList_->viewport()->setPalette(palette);
+    navigationList_->setStyleSheet(common::ThemeVisuals::navigationListStyle(palette,
+                                                                             navigationList_->fontMetrics()));
     connect(navigationToggleButton_, &QToolButton::clicked, this, [this]() {
         setNavigationCollapsed(!navigationCollapsed_);
         settingsService_->setValue(common::settings_keys::kAppNavigationCollapsed, navigationCollapsed_);
@@ -324,6 +381,7 @@ void MainWindow::createNavigation() {
 
 void MainWindow::setNavigationCollapsed(bool collapsed) {
     navigationCollapsed_ = collapsed;
+    navigationExpandedWidth_ = calculateExpandedNavigationWidth(navigationList_);
     if (navigationPane_) {
         navigationPane_->setFixedWidth(navigationCollapsed_ ? navigationCollapsedWidth_ : navigationExpandedWidth_);
     }
@@ -411,8 +469,18 @@ void MainWindow::setupThemeToggle() {
 }
 
 void MainWindow::updateThemeUi() {
+    const QPalette palette = effectiveThemePalette(this);
+    if (navigationPane_) {
+        navigationPane_->setPalette(palette);
+    }
+    if (navigationToggleButton_) {
+        navigationToggleButton_->setPalette(palette);
+    }
     if (navigationList_) {
-        navigationList_->setStyleSheet(common::ThemeVisuals::navigationListStyle(qApp->palette()));
+        navigationList_->setPalette(palette);
+        navigationList_->viewport()->setPalette(palette);
+        navigationList_->setStyleSheet(common::ThemeVisuals::navigationListStyle(palette,
+                                                                                 navigationList_->fontMetrics()));
     }
     updateThemeToggleUi();
 }
@@ -427,7 +495,7 @@ void MainWindow::updateThemeToggleUi() {
     const int buttonExtent = qMax(iconExtent + 6, style()->pixelMetric(QStyle::PM_SmallIconSize) + 2);
     themeToggleButton_->setFixedSize(buttonExtent, buttonExtent);
     themeToggleButton_->setIconSize(QSize(iconExtent, iconExtent));
-    themeToggleButton_->setIcon(common::ThemeVisuals::buildModeIcon(qApp->palette(),
+    themeToggleButton_->setIcon(common::ThemeVisuals::buildModeIcon(effectiveThemePalette(themeToggleButton_),
                                                                     themeController_->currentMode(),
                                                                     iconExtent));
 
@@ -1003,11 +1071,7 @@ void MainWindow::applyLanguage(const QString& locale) {
     currentLocale_ = locale;
     settingsService_->setValue(common::settings_keys::kAppLanguage, currentLocale_);
 
-    QString effectiveLocale = locale;
-    if (effectiveLocale == "system") {
-        const QString systemName = QLocale::system().name();
-        effectiveLocale = systemName == "zh_CN" ? "zh_CN" : (systemName == "zh_TW" ? "zh_TW" : "en_US");
-    }
+    const QString effectiveLocale = effectiveAppLocale(locale);
 
     if (effectiveLocale == "zh_CN") {
         const bool qtLoaded = qtTranslator_.load("qtbase_zh_CN", QLibraryInfo::path(QLibraryInfo::TranslationsPath));
@@ -1082,15 +1146,15 @@ void MainWindow::retranslateUi() {
     }
     if (langEnAction_) {
         langEnAction_->setText(tr("English (US)"));
-        langEnAction_->setChecked(currentLocale_ == "en_US");
+        langEnAction_->setChecked(effectiveAppLocale(currentLocale_) == "en_US");
     }
     if (langZhCnAction_) {
         langZhCnAction_->setText(tr("简体中文"));
-        langZhCnAction_->setChecked(currentLocale_ == "zh_CN");
+        langZhCnAction_->setChecked(effectiveAppLocale(currentLocale_) == "zh_CN");
     }
     if (langZhTwAction_) {
         langZhTwAction_->setText(tr("繁體中文"));
-        langZhTwAction_->setChecked(currentLocale_ == "zh_TW");
+        langZhTwAction_->setChecked(effectiveAppLocale(currentLocale_) == "zh_TW");
     }
     updateThemeToggleUi();
     refreshUpdateIndicators();

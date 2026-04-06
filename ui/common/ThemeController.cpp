@@ -1,24 +1,21 @@
 #include "ThemeController.h"
 #include "SettingsKeys.h"
-#include <QApplication>
-#include <QStyleHints>
 
 namespace ui::common {
 
-ThemeController::ThemeController(QApplication& application,
+ThemeController::ThemeController(ThemeRuntime& themeRuntime,
                                  ISettingsService& settingsService,
                                  QObject* parent)
     : QObject(parent),
-      application_(application),
+      themeRuntime_(themeRuntime),
       settingsService_(settingsService),
       currentMode_(Theme::modeFromSetting(settingsService_.value(settings_keys::kAppThemeMode).toString())) {
-    Theme::apply(application_, currentMode_);
+    themeRuntime_.applyMode(currentMode_);
 
-    connect(application_.styleHints(),
-            &QStyleHints::colorSchemeChanged,
+    connect(&themeRuntime_,
+            &ThemeRuntime::systemThemeChanged,
             this,
-            [this](Qt::ColorScheme colorScheme) {
-                Q_UNUSED(colorScheme);
+            [this]() {
                 if (currentMode_ == Theme::Mode::Auto) {
                     emit themeChanged();
                 }
@@ -52,7 +49,7 @@ void ThemeController::setMode(Theme::Mode mode) {
 
 void ThemeController::applyMode(Theme::Mode mode, bool persist) {
     currentMode_ = mode;
-    Theme::apply(application_, currentMode_);
+    themeRuntime_.applyMode(currentMode_);
 
     if (persist) {
         settingsService_.setValue(settings_keys::kAppThemeMode, Theme::modeToSetting(currentMode_));

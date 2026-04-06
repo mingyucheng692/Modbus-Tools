@@ -2,6 +2,7 @@
 #include <QIcon>
 #include <QResource>
 #include "MainWindow.h"
+#include "common/QtThemeRuntime.h"
 #include "common/SettingsService.h"
 #include "common/ThemeController.h"
 #include "logging/Logger.h"
@@ -19,7 +20,8 @@ int main(int argc, char *argv[])
     app.setApplicationVersion(QStringLiteral(MODBUS_TOOLS_APP_VERSION));
 
     ui::common::SettingsService settingsService;
-    ui::common::ThemeController themeController(app, settingsService);
+    ui::common::QtThemeRuntime themeRuntime(app);
+    ui::common::ThemeController themeController(themeRuntime, settingsService);
 
     logging::Init(app.applicationDirPath() + "/logs");
 

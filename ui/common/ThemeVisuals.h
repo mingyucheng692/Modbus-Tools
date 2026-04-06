@@ -1,6 +1,7 @@
 #pragma once
 
 #include "Theme.h"
+#include <QFontMetrics>
 #include <QIcon>
 #include <QPalette>
 #include <QString>
@@ -13,7 +14,7 @@ namespace ui::common {
 class ThemeVisuals {
 public:
     [[nodiscard]] static QIcon buildModeIcon(const QPalette& palette, Theme::Mode mode, int baseSize);
-    [[nodiscard]] static QString navigationListStyle(const QPalette& palette);
+    [[nodiscard]] static QString navigationListStyle(const QPalette& palette, const QFontMetrics& fontMetrics);
 };
 
 } // namespace ui::common

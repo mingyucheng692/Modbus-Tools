@@ -1,6 +1,6 @@
 #pragma once
 
-#include <QApplication>
+#include <QtCore/Qt>
 
 namespace ui::common {
 
@@ -12,13 +12,9 @@ public:
         Dark
     };
 
-    static void apply(QApplication& app, Mode mode);
-    static void applyAuto(QApplication& app);
-    static void applyLight(QApplication& app);
-    static void applyDark(QApplication& app);
-
     static Mode modeFromSetting(const QString& value);
     static QString modeToSetting(Mode mode);
+    static Qt::ColorScheme colorSchemeForMode(Mode mode);
 };
 
 } // namespace ui::common

@@ -6,12 +6,15 @@ add_library(ui STATIC)
 
 target_sources(ui PRIVATE
     common/ISettingsService.h
+    common/QtThemeRuntime.cpp
+    common/QtThemeRuntime.h
     common/SettingsKeys.h
     common/SettingsService.cpp
     common/SettingsService.h
     common/Theme.cpp
     common/ThemeController.cpp
     common/ThemeController.h
+    common/ThemeRuntime.h
     common/ThemeVisuals.cpp
     common/ThemeVisuals.h
     common/UpdateChecker.cpp
