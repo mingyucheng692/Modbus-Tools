@@ -6,9 +6,10 @@
 #include "widgets/FrameAnalyzerWidget.h"
 #include "widgets/DisclaimerDialog.h"
 #include "widgets/UpdateSettingsDialog.h"
+#include "common/CompactMenuBarStyle.h"
 #include "common/SettingsKeys.h"
 #include "common/ThemeController.h"
-#include "common/ThemeVisuals.h"
+#include "common/ThemeUiHelpers.h"
 #include "common/UpdateChecker.h"
 #include <QDesktopServices>
 #include <QStackedWidget>
@@ -194,10 +195,6 @@ protected:
     }
 };
 
-QPalette effectiveThemePalette(const QWidget* widget) {
-    return widget ? QApplication::palette(widget) : QApplication::palette();
-}
-
 QString normalizedAppLocale(QString locale) {
     locale = locale.trimmed();
     if (locale == QStringLiteral("en_US") ||
@@ -268,6 +265,7 @@ MainWindow::~MainWindow() {
 void MainWindow::setupUi() {
     setWindowTitle(tr("Modbus Tools"));
     setMinimumSize(720, 480);
+    menuBar()->setStyle(new common::CompactMenuBarStyle(menuBar()->style()->name()));
     using namespace common::settings_keys;
     resize(1280, 800);
     const QByteArray geometry = settingsService_->value(kAppMainWindowGeometry).toByteArray();
@@ -365,14 +363,10 @@ void MainWindow::createNavigation() {
     navigationExpandedWidth_ = calculateExpandedNavigationWidth(navigationList_);
     paneLayout->addWidget(navigationList_);
 
-    const QPalette palette = effectiveThemePalette(navigationList_);
-    navigationPane_->setAutoFillBackground(true);
-    navigationPane_->setPalette(palette);
-    navigationToggleButton_->setPalette(palette);
-    navigationList_->setPalette(palette);
-    navigationList_->viewport()->setPalette(palette);
-    navigationList_->setStyleSheet(common::ThemeVisuals::navigationListStyle(palette,
-                                                                             navigationList_->fontMetrics()));
+    common::ThemeUiHelpers::applyNavigationTheme(navigationList_->palette(),
+                                                 navigationPane_,
+                                                 navigationToggleButton_,
+                                                 navigationList_);
     connect(navigationToggleButton_, &QToolButton::clicked, this, [this]() {
         setNavigationCollapsed(!navigationCollapsed_);
         settingsService_->setValue(common::settings_keys::kAppNavigationCollapsed, navigationCollapsed_);
@@ -469,19 +463,10 @@ void MainWindow::setupThemeToggle() {
 }
 
 void MainWindow::updateThemeUi() {
-    const QPalette palette = effectiveThemePalette(this);
-    if (navigationPane_) {
-        navigationPane_->setPalette(palette);
-    }
-    if (navigationToggleButton_) {
-        navigationToggleButton_->setPalette(palette);
-    }
-    if (navigationList_) {
-        navigationList_->setPalette(palette);
-        navigationList_->viewport()->setPalette(palette);
-        navigationList_->setStyleSheet(common::ThemeVisuals::navigationListStyle(palette,
-                                                                                 navigationList_->fontMetrics()));
-    }
+    common::ThemeUiHelpers::applyNavigationTheme(palette(),
+                                                 navigationPane_,
+                                                 navigationToggleButton_,
+                                                 navigationList_);
     updateThemeToggleUi();
 }
 
@@ -490,14 +475,11 @@ void MainWindow::updateThemeToggleUi() {
         return;
     }
 
-    const int textHeight = menuBar()->fontMetrics().height();
-    const int iconExtent = qMax(textHeight, style()->pixelMetric(QStyle::PM_SmallIconSize));
-    const int buttonExtent = qMax(iconExtent + 6, style()->pixelMetric(QStyle::PM_SmallIconSize) + 2);
-    themeToggleButton_->setFixedSize(buttonExtent, buttonExtent);
-    themeToggleButton_->setIconSize(QSize(iconExtent, iconExtent));
-    themeToggleButton_->setIcon(common::ThemeVisuals::buildModeIcon(effectiveThemePalette(themeToggleButton_),
-                                                                    themeController_->currentMode(),
-                                                                    iconExtent));
+    common::ThemeUiHelpers::applyThemeToggleAppearance(themeToggleButton_->palette(),
+                                                       menuBar(),
+                                                       style(),
+                                                       themeToggleButton_,
+                                                       themeController_->currentMode());
 
     QString tooltip;
     switch (themeController_->currentMode()) {

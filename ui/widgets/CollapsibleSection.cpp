@@ -3,9 +3,9 @@
 #include <QVBoxLayout>
 #include <QHBoxLayout>
 #include <QLabel>
-#include <QPushButton>
 #include <QGroupBox>
 #include <QEvent>
+#include <QToolButton>
 
 namespace ui::widgets {
 
@@ -24,7 +24,10 @@ CollapsibleSection::CollapsibleSection(ui::common::ISettingsService* settingsSer
     headerLayout->addWidget(titleLabel_);
     headerLayout->addStretch();
 
-    toggleButton_ = new QPushButton(headerWidget_);
+    toggleButton_ = new QToolButton(headerWidget_);
+    toggleButton_->setAutoRaise(true);
+    toggleButton_->setToolButtonStyle(Qt::ToolButtonTextOnly);
+    toggleButton_->setCursor(Qt::PointingHandCursor);
     toggleButton_->setFixedWidth(28);
     headerLayout->addWidget(toggleButton_);
 
@@ -38,7 +41,7 @@ CollapsibleSection::CollapsibleSection(ui::common::ISettingsService* settingsSer
     mainLayout->addWidget(headerWidget_);
     mainLayout->addWidget(bodyGroup_);
 
-    connect(toggleButton_, &QPushButton::clicked, this, [this]() {
+    connect(toggleButton_, &QToolButton::clicked, this, [this]() {
         setExpanded(!expanded_);
     });
     connect(this, &CollapsibleSection::expandedChanged, this, [this]() {

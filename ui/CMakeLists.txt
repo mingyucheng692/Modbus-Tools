@@ -5,6 +5,8 @@ set(CMAKE_AUTORCC ON)
 add_library(ui STATIC)
 
 target_sources(ui PRIVATE
+    common/CompactMenuBarStyle.cpp
+    common/CompactMenuBarStyle.h
     common/ISettingsService.h
     common/QtThemeRuntime.cpp
     common/QtThemeRuntime.h
@@ -15,6 +17,8 @@ target_sources(ui PRIVATE
     common/ThemeController.cpp
     common/ThemeController.h
     common/ThemeRuntime.h
+    common/ThemeUiHelpers.cpp
+    common/ThemeUiHelpers.h
     common/ThemeVisuals.cpp
     common/ThemeVisuals.h
     common/UpdateChecker.cpp

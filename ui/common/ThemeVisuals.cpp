@@ -7,10 +7,6 @@
 
 namespace {
 
-QString toCssColor(const QColor& color) {
-    return color.name(color.alpha() < 255 ? QColor::HexArgb : QColor::HexRgb);
-}
-
 void drawSun(QPainter& painter, const QRectF& rect, const QColor& color, qreal strokeWidth) {
     const QPointF center = rect.center();
     const qreal radius = rect.width() * 0.20;
@@ -102,45 +98,6 @@ QIcon ThemeVisuals::buildModeIcon(const QPalette& palette, Theme::Mode mode, int
     }
 
     return icon;
-}
-
-QString ThemeVisuals::navigationListStyle(const QPalette& palette, const QFontMetrics& fontMetrics) {
-    QColor itemHover = palette.color(QPalette::Highlight);
-    itemHover.setAlpha(24);
-
-    QColor itemSelected = palette.color(QPalette::Highlight);
-    itemSelected.setAlpha(40);
-
-    const int fontHeight = fontMetrics.height();
-    const int selectionBorderWidth = qMax(2, fontHeight / 5);
-
-    return QString::fromLatin1(R"(
-        QListWidget {
-            background-color: %1;
-            color: %2;
-            border: none;
-            border-right: 1px solid %3;
-        }
-        QListWidget::item {
-            border-left: %4px solid transparent;
-        }
-        QListWidget::item:hover {
-            background-color: %5;
-        }
-        QListWidget::item:selected {
-            background-color: %6;
-            color: %7;
-            border-left: %4px solid %8;
-        }
-    )")
-        .arg(toCssColor(palette.color(QPalette::Window)))
-        .arg(toCssColor(palette.color(QPalette::WindowText)))
-        .arg(toCssColor(palette.color(QPalette::Mid)))
-        .arg(selectionBorderWidth)
-        .arg(toCssColor(itemHover))
-        .arg(toCssColor(itemSelected))
-        .arg(toCssColor(palette.color(QPalette::HighlightedText)))
-        .arg(toCssColor(palette.color(QPalette::Highlight)));
 }
 
 } // namespace ui::common

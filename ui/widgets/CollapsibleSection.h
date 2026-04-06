@@ -3,7 +3,7 @@
 #include <QWidget>
 
 class QLabel;
-class QPushButton;
+class QToolButton;
 class QGroupBox;
 class QEvent;
 class QString;
@@ -37,7 +37,7 @@ private:
 
     QWidget* headerWidget_ = nullptr;
     QLabel* titleLabel_ = nullptr;
-    QPushButton* toggleButton_ = nullptr;
+    QToolButton* toggleButton_ = nullptr;
     QGroupBox* bodyGroup_ = nullptr;
     QWidget* contentContainer_ = nullptr;
     QString settingsKey_;
