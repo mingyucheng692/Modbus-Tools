@@ -93,14 +93,20 @@ bool TcpChannel::write(QByteArrayView data) {
     
     QByteArray dataBuffer(data.data(), data.size());
     qint64 written = socket_.write(dataBuffer);
-    if (written == dataBuffer.size()) {
-        addTx(written);
-        emitMonitor(true, dataBuffer);
-        // 关键：确保数据已发送出 OS 缓冲区，提高 RTT 测量和超时判断的准确性
-        socket_.waitForBytesWritten(timeouts().writeMs);
-        return true;
+    if (written != dataBuffer.size()) {
+        return false;
     }
-    return false;
+
+    // 确认字节已交给 OS 套接字发送队列，避免仅写入 Qt 缓冲区就判定成功。
+    const bool flushed = socket_.bytesToWrite() == 0 || socket_.waitForBytesWritten(timeouts().writeMs);
+    if (!flushed && socket_.bytesToWrite() > 0) {
+        emitError(QStringLiteral("TCP write timeout before all bytes were sent"));
+        return false;
+    }
+
+    addTx(written);
+    emitMonitor(true, dataBuffer);
+    return true;
 }
 
 void TcpChannel::setEndpoint(const QString& ip, int port) {

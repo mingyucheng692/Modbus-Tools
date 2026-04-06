@@ -92,14 +92,20 @@ bool SerialChannel::write(QByteArrayView data) {
     
     QByteArray dataBuffer(data.data(), data.size());
     qint64 written = serial_.write(dataBuffer);
-    if (written == dataBuffer.size()) {
-        addTx(written);
-        emitMonitor(true, dataBuffer);
-        // 关键：确保数据已发送出缓冲区，提高 RTT 测量和超时判断的准确性
-        serial_.waitForBytesWritten(timeouts().writeMs);
-        return true;
+    if (written != dataBuffer.size()) {
+        return false;
     }
-    return false;
+
+    // 确认驱动层已接收完待发送字节，避免仅写入 Qt 缓冲区就判定成功。
+    const bool flushed = serial_.bytesToWrite() == 0 || serial_.waitForBytesWritten(timeouts().writeMs);
+    if (!flushed && serial_.bytesToWrite() > 0) {
+        emitError(QStringLiteral("Serial write timeout before all bytes were sent"));
+        return false;
+    }
+
+    addTx(written);
+    emitMonitor(true, dataBuffer);
+    return true;
 }
 
 void SerialChannel::setConfig(const SerialConfig& config) {

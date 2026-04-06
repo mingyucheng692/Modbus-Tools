@@ -51,6 +51,13 @@ private:
     void onError(const QString& error);
     void transitionTo(RequestState newState, const char* reason);
     static const char* toString(RequestState state);
+    bool isRtuBroadcastRequest(int slaveId, base::FunctionCode functionCode) const;
+    bool shouldWaitForResponse(int slaveId, base::FunctionCode functionCode) const;
+    void waitForRtuInterFrameDelay();
+    void updateRtuSendWindow(qsizetype frameBytes);
+    QString validateRequest(const base::Pdu& request, int slaveId) const;
+    bool isRtuFrameReadyToParseLocked(std::chrono::steady_clock::time_point now) const;
+    std::chrono::steady_clock::time_point nextRtuFrameBoundaryLocked() const;
     int enqueuePendingRequest(const base::Pdu& request, int slaveId);
     void finishPendingRequest(int requestId, bool success, const QString& error);
     void clearRuntimeState(bool clearPendingQueue);
@@ -66,11 +73,13 @@ private:
     bool responseReady_ = false;
     QString lastError_;
     
-    // 保护 sendRequest 串行执行，使用递归锁防止 processEvents 导致重入死锁
+    // 保护 sendRequest 串行执行，避免请求路径发生重入
     std::recursive_mutex requestMutex_;
     std::atomic<bool> aborted_ {false};
     std::atomic<RequestState> requestState_ {RequestState::Idle};
     std::mutex pendingMutex_;
+    std::chrono::steady_clock::time_point lastRtuByteReceivedAt_ {};
+    std::chrono::steady_clock::time_point nextRtuSendAllowedAt_ {};
     int nextRequestId_ = 1;
     std::deque<PendingRequest> pendingRequests_;
 };

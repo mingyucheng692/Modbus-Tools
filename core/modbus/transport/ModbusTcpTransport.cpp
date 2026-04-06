@@ -1,4 +1,5 @@
 #include "ModbusTcpTransport.h"
+#include "AppConstants.h"
 #include <QtEndian>
 
 namespace modbus::transport {
@@ -36,7 +37,7 @@ ParseResponseResult ModbusTcpTransport::parseResponse(const QByteArray& adu) {
     if (protocolId != 0) {
         return {ParseResponseStatus::Invalid, std::nullopt};
     }
-    if (length < 2) {
+    if (length < 2 || length > app::constants::Constants::Modbus::kMaxTcpMbapLength) {
         return {ParseResponseStatus::Invalid, std::nullopt};
     }
     const int fullLength = 6 + static_cast<int>(length);
@@ -68,7 +69,7 @@ int ModbusTcpTransport::checkIntegrity(const QByteArray& data) {
         return -1;
     }
     const uint16_t length = qFromBigEndian<uint16_t>(reinterpret_cast<const uchar*>(data.constData() + 4));
-    if (length < 2 || length > 260) {
+    if (length < 2 || length > app::constants::Constants::Modbus::kMaxTcpMbapLength) {
         return -1;
     }
     const int fullLength = 6 + static_cast<int>(length);

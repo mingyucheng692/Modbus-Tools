@@ -29,12 +29,15 @@ public:
 
     struct Modbus {
         inline static constexpr int kDefaultSlaveId = 1;
-        inline static constexpr int kMinSlaveId = 1;
+        inline static constexpr int kMinSlaveId = 0;
         inline static constexpr int kMaxSlaveId = 247;
         inline static constexpr int kMinAddress = 0;
         inline static constexpr int kMaxAddress = 65535;
         inline static constexpr int kMinQuantity = 1;
         inline static constexpr int kMaxReadQuantity = 125;
+        inline static constexpr int kMaxReadBitsQuantity = 2000;
+        inline static constexpr int kMaxWriteRegistersQuantity = 123;
+        inline static constexpr int kMaxWriteCoilsQuantity = 1968;
         inline static constexpr int kDefaultTimeoutMs = 1000;
         inline static constexpr int kDefaultRetryCount = 3;
         inline static constexpr int kDefaultRetryIntervalMs = 100;
@@ -55,6 +58,8 @@ public:
         inline static constexpr int kMaxRetryIntervalMs = 10000;
         inline static constexpr int kRetryIntervalStepMs = 10;
         inline static constexpr int kMaxDroppedInvalidBytes = 256;
+        inline static constexpr int kMaxTcpMbapLength = 254;
+        inline static constexpr int kMaxPduDataLength = 252;
     };
 
     struct GenericIo {

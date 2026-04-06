@@ -49,6 +49,7 @@ struct ParseResult {
     modbus::base::FunctionCode functionCode = modbus::base::FunctionCode::ReadCoils;
     bool isException = false;
     modbus::base::ExceptionCode exceptionCode = modbus::base::ExceptionCode::None;
+    uint16_t expectedQuantity = 0;
 
     // TCP 特定字段
     uint16_t transactionId = 0;
@@ -79,18 +80,22 @@ public:
      * @param frame 原始帧数据
      * @param type 指定协议类型 (若为 Unknown 则自动检测)
      * @param startAddress 起始地址 (仅用于 Response 帧解析数据地址，Request 帧会自动从报文中提取)
+     * @param expectedQuantity 期望数量 (用于 Read Response 限定有效位/寄存器个数)
      */
-    static ParseResult parse(const QByteArray& frame, ProtocolType type = ProtocolType::Unknown, uint16_t startAddress = 0);
+    static ParseResult parse(const QByteArray& frame,
+                             ProtocolType type = ProtocolType::Unknown,
+                             uint16_t startAddress = 0,
+                             uint16_t expectedQuantity = 0);
 
 private:
     static bool detectTcp(const QByteArray& frame);
     static bool detectRtu(const QByteArray& frame);
     
-    static ParseResult parseTcp(const QByteArray& frame, uint16_t startAddress);
-    static ParseResult parseRtu(const QByteArray& frame, uint16_t startAddress);
+    static ParseResult parseTcp(const QByteArray& frame, uint16_t startAddress, uint16_t expectedQuantity);
+    static ParseResult parseRtu(const QByteArray& frame, uint16_t startAddress, uint16_t expectedQuantity);
     
     // PDU 解析通用逻辑
-    static void parsePdu(ParseResult& result, const QByteArray& pdu, uint16_t startAddress);
+    static void parsePdu(ParseResult& result, const QByteArray& pdu, uint16_t startAddress, uint16_t expectedQuantity);
     static bool hasAddressInPdu(modbus::base::FunctionCode functionCode, const QByteArray& pdu);
     static uint16_t extractAddressFromPdu(const QByteArray& pdu);
     static uint16_t determineEffectiveStartAddress(modbus::base::FunctionCode functionCode,

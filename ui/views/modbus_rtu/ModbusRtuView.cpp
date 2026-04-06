@@ -185,7 +185,9 @@ void ModbusRtuView::setupUi() {
                     }
 
                     // 分流设计：仅在成功时通过底层测量的精确 RTT 更新统计
-                    if (response.isSuccess) {
+                    if (response.isSuccess && response.noResponseExpected) {
+                        trafficMonitor_->appendInfo(tr("Success: Broadcast write sent, no response expected"));
+                    } else if (response.isSuccess) {
                         // 更新成功统计 (RX + 1, 更新 RTT)
                         controlWidget_->updateStats(false, response.rttMs);
 

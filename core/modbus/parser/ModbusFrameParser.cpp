@@ -1,4 +1,5 @@
 #include "ModbusFrameParser.h"
+#include "AppConstants.h"
 #include "../base/ModbusCrc.h"
 #include <QtEndian>
 #include <QDataStream>
@@ -37,6 +38,8 @@ QString ModbusFrameParser::getExceptionString(modbus::base::ExceptionCode code)
         return QCoreApplication::translate("ModbusFrameParser", "Acknowledge");
     case ExceptionCode::ServerDeviceBusy:
         return QCoreApplication::translate("ModbusFrameParser", "Server Device Busy");
+    case ExceptionCode::NegativeAcknowledge:
+        return QCoreApplication::translate("ModbusFrameParser", "Negative Acknowledge");
     case ExceptionCode::MemoryParityError:
         return QCoreApplication::translate("ModbusFrameParser", "Memory Parity Error");
     case ExceptionCode::GatewayPathUnavailable:
@@ -48,11 +51,15 @@ QString ModbusFrameParser::getExceptionString(modbus::base::ExceptionCode code)
     }
 }
 
-ParseResult ModbusFrameParser::parse(const QByteArray& frame, ProtocolType type, uint16_t startAddress)
+ParseResult ModbusFrameParser::parse(const QByteArray& frame,
+                                     ProtocolType type,
+                                     uint16_t startAddress,
+                                     uint16_t expectedQuantity)
 {
     ParseResult result;
     result.timestamp = QDateTime::currentDateTime();
     result.rawFrame = frame;
+    result.expectedQuantity = expectedQuantity;
 
     if (frame.isEmpty()) {
         result.isValid = false;
@@ -81,9 +88,9 @@ ParseResult ModbusFrameParser::parse(const QByteArray& frame, ProtocolType type,
 
     // 2. 根据协议解析头部
     if (type == ProtocolType::Tcp) {
-        return parseTcp(frame, startAddress);
+        return parseTcp(frame, startAddress, expectedQuantity);
     } else {
-        return parseRtu(frame, startAddress);
+        return parseRtu(frame, startAddress, expectedQuantity);
     }
 }
 
@@ -98,10 +105,10 @@ bool ModbusFrameParser::detectTcp(const QByteArray& frame)
 
     // 检查 Length (Bytes 4-5)
     uint16_t len = qFromBigEndian<uint16_t>(reinterpret_cast<const uchar*>(frame.constData() + 4));
-    if (len < 2 || len > 260) return false; // Length 包括 UnitId(1) + PDU
+    if (len < 2 || len > app::constants::Constants::Modbus::kMaxTcpMbapLength) return false; // Length 包括 UnitId(1) + PDU
 
     // 检查总长度是否匹配
-    if (frame.size() < (6 + len)) return false;
+    if (frame.size() != (6 + len)) return false;
 
     return true;
 }
@@ -118,12 +125,13 @@ bool ModbusFrameParser::detectRtu(const QByteArray& frame)
     return receivedCrc == calcCrc;
 }
 
-ParseResult ModbusFrameParser::parseTcp(const QByteArray& frame, uint16_t startAddress)
+ParseResult ModbusFrameParser::parseTcp(const QByteArray& frame, uint16_t startAddress, uint16_t expectedQuantity)
 {
     ParseResult result;
     result.timestamp = QDateTime::currentDateTime();
     result.protocol = ProtocolType::Tcp;
     result.rawFrame = frame;
+    result.expectedQuantity = expectedQuantity;
 
     if (frame.size() < 8) {
         result.isValid = false;
@@ -144,9 +152,14 @@ ParseResult ModbusFrameParser::parseTcp(const QByteArray& frame, uint16_t startA
     stream >> result.slaveId;
 
     // 完整性检查
-    if (frame.size() < (6 + result.length)) {
+    if (result.length < 2 || result.length > app::constants::Constants::Modbus::kMaxTcpMbapLength) {
         result.isValid = false;
-        result.error = QCoreApplication::translate("ModbusFrameParser", "Incomplete TCP frame. Expected %1 bytes, got %2").arg(6 + result.length).arg(frame.size());
+        result.error = QCoreApplication::translate("ModbusFrameParser", "Invalid TCP MBAP length %1").arg(result.length);
+        return result;
+    }
+    if (frame.size() != (6 + result.length)) {
+        result.isValid = false;
+        result.error = QCoreApplication::translate("ModbusFrameParser", "TCP frame length mismatch. Expected %1 bytes, got %2").arg(6 + result.length).arg(frame.size());
         return result;
     }
 
@@ -163,17 +176,18 @@ ParseResult ModbusFrameParser::parseTcp(const QByteArray& frame, uint16_t startA
     }
 
     QByteArray pdu = frame.mid(7, pduSize);
-    parsePdu(result, pdu, startAddress);
+    parsePdu(result, pdu, startAddress, expectedQuantity);
 
     return result;
 }
 
-ParseResult ModbusFrameParser::parseRtu(const QByteArray& frame, uint16_t startAddress)
+ParseResult ModbusFrameParser::parseRtu(const QByteArray& frame, uint16_t startAddress, uint16_t expectedQuantity)
 {
     ParseResult result;
     result.timestamp = QDateTime::currentDateTime();
     result.protocol = ProtocolType::Rtu;
     result.rawFrame = frame;
+    result.expectedQuantity = expectedQuantity;
 
     if (frame.size() < 4) {
         result.isValid = false;
@@ -203,12 +217,15 @@ ParseResult ModbusFrameParser::parseRtu(const QByteArray& frame, uint16_t startA
 
     // 提取 PDU (去除首部 SlaveId 和尾部 CRC)
     QByteArray pdu = frame.mid(1, frame.size() - 3);
-    parsePdu(result, pdu, startAddress);
+    parsePdu(result, pdu, startAddress, expectedQuantity);
 
     return result;
 }
 
-void ModbusFrameParser::parsePdu(ParseResult& result, const QByteArray& pdu, uint16_t startAddress)
+void ModbusFrameParser::parsePdu(ParseResult& result,
+                                 const QByteArray& pdu,
+                                 uint16_t startAddress,
+                                 uint16_t expectedQuantity)
 {
     if (pdu.isEmpty()) {
         result.isValid = false;
@@ -264,10 +281,10 @@ void ModbusFrameParser::parsePdu(ParseResult& result, const QByteArray& pdu, uin
             result.type = FrameType::Request;
             uint16_t start, quantity;
             stream >> start >> quantity;
-            Q_UNUSED(quantity);
             DataItem item;
             item.address = effectiveStartAddress;
             result.dataItems.append(item);
+            result.expectedQuantity = quantity;
         } else {
             // Response: [ByteCount(1)] [Data(N)]
             result.type = FrameType::Response;
@@ -297,6 +314,15 @@ void ModbusFrameParser::parsePdu(ParseResult& result, const QByteArray& pdu, uin
             // 解析数据
             if (result.functionCode == FunctionCode::ReadHoldingRegisters || 
                 result.functionCode == FunctionCode::ReadInputRegisters) {
+                if (expectedQuantity != 0 && static_cast<int>(byteCount) != static_cast<int>(expectedQuantity) * 2) {
+                    result.isValid = false;
+                    result.error = QCoreApplication::translate(
+                                       "ModbusFrameParser",
+                                       "Register response byte count does not match expected quantity. Declared %1, expected %2")
+                                       .arg(byteCount)
+                                       .arg(expectedQuantity * 2);
+                    break;
+                }
                 if ((byteCount % 2) != 0) {
                     result.isValid = false;
                     result.error = QCoreApplication::translate(
@@ -327,10 +353,26 @@ void ModbusFrameParser::parsePdu(ParseResult& result, const QByteArray& pdu, uin
                 // 线圈数据 (位操作) - 展开每一位
                 // Byte 0: Coils 0-7 (LSB is Coil 0)
                 // Byte 1: Coils 8-15
+                const int totalBits = byteCount * 8;
+                if (expectedQuantity != 0) {
+                    if (expectedQuantity > totalBits || expectedQuantity <= totalBits - 8) {
+                        result.isValid = false;
+                        result.error = QCoreApplication::translate(
+                                           "ModbusFrameParser",
+                                           "Coil response bit count does not match expected quantity. Byte count %1 cannot represent %2 bits")
+                                           .arg(byteCount)
+                                           .arg(expectedQuantity);
+                        break;
+                    }
+                }
+                const int bitsToParse = expectedQuantity == 0 ? totalBits : qMin<int>(expectedQuantity, totalBits);
                 int currentBitAddress = 0;
                 for (int i = 0; i < byteCount; ++i) {
                     uint8_t byteVal = static_cast<uint8_t>(result.pduData[1 + i]); // +1 to skip byteCount
                     for (int bit = 0; bit < 8; ++bit) {
+                        if (currentBitAddress >= bitsToParse) {
+                            break;
+                        }
                         bool isOn = (byteVal >> bit) & 0x01;
                         DataItem item;
                         item.address = effectiveStartAddress + currentBitAddress;
@@ -348,7 +390,16 @@ void ModbusFrameParser::parsePdu(ParseResult& result, const QByteArray& pdu, uin
     case FunctionCode::WriteSingleCoil:
     case FunctionCode::WriteSingleRegister: {
         // Request 和 Response 格式相同: [Addr(2)] [Value(2)]
-        result.type = FrameType::Request; // 默认为 Request (也可能是 Response)
+        if (result.pduData.size() != 4) {
+            result.isValid = false;
+            result.error = QCoreApplication::translate(
+                               "ModbusFrameParser",
+                               "Write single PDU length mismatch for function 0x%1. Expected 4 bytes, got %2")
+                               .arg(formatFunctionCodeHex(fcByte))
+                               .arg(result.pduData.size());
+            break;
+        }
+        result.type = FrameType::Unknown;
         uint16_t addr, val;
         stream >> addr >> val;
         
@@ -376,26 +427,36 @@ void ModbusFrameParser::parsePdu(ParseResult& result, const QByteArray& pdu, uin
             result.type = FrameType::Response;
             uint16_t start, quant;
             stream >> start >> quant;
-            Q_UNUSED(quant);
             DataItem item;
             item.address = start;
             result.dataItems.append(item);
+            result.expectedQuantity = quant;
         } else {
             result.type = FrameType::Request;
             uint16_t start, quant;
             uint8_t byteCount;
             stream >> start >> quant >> byteCount;
-            if (result.pduData.size() < 5 || byteCount > static_cast<uint8_t>(result.pduData.size() - 5)) {
+            const int payloadBytes = qMax(0, result.pduData.size() - 5);
+            if (result.pduData.size() < 5 || byteCount != payloadBytes) {
                 result.isValid = false;
                 result.error = QCoreApplication::translate(
                                    "ModbusFrameParser",
-                                   "Write request byte count exceeds payload. Declared %1, available %2")
+                                   "Write request byte count mismatch. Declared %1, actual %2")
                                    .arg(byteCount)
-                                   .arg(qMax(0, result.pduData.size() - 5));
+                                   .arg(payloadBytes);
                 break;
             }
             
             if (result.functionCode == FunctionCode::WriteMultipleRegisters) {
+                if (static_cast<int>(byteCount) != static_cast<int>(quant) * 2) {
+                    result.isValid = false;
+                    result.error = QCoreApplication::translate(
+                                       "ModbusFrameParser",
+                                       "Register write byte count does not match quantity. Declared %1, expected %2")
+                                       .arg(byteCount)
+                                       .arg(quant * 2);
+                    break;
+                }
                 if ((byteCount % 2) != 0) {
                     result.isValid = false;
                     result.error = QCoreApplication::translate(
@@ -420,6 +481,16 @@ void ModbusFrameParser::parsePdu(ParseResult& result, const QByteArray& pdu, uin
                     result.dataItems.append(item);
                 }
             } else {
+                 const int expectedCoilBytes = (quant + 7) / 8;
+                 if (byteCount != expectedCoilBytes) {
+                     result.isValid = false;
+                     result.error = QCoreApplication::translate(
+                                        "ModbusFrameParser",
+                                        "Coil write byte count does not match quantity. Declared %1, expected %2")
+                                        .arg(byteCount)
+                                        .arg(expectedCoilBytes);
+                     break;
+                 }
                  // Write Multiple Coils Request - Expand bits
                  int currentBitAddress = 0;
                  for (int i = 0; i < byteCount; ++i) {

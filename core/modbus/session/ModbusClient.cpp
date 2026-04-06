@@ -4,10 +4,99 @@
 #include <chrono>
 #include <thread>
 #include <algorithm>
+#include <cmath>
 #include <QCoreApplication>
-#include <QEventLoop>
+#include <QtEndian>
 
 namespace modbus::session {
+
+namespace {
+
+double stopBitsToCount(int stopBits)
+{
+    switch (stopBits) {
+    case 2:
+        return 2.0;
+    case 3:
+        return 1.5;
+    default:
+        return 1.0;
+    }
+}
+
+int parityBitCount(int parity)
+{
+    return parity == 0 ? 0 : 1;
+}
+
+int bitsPerCharacter(const base::ModbusConfig& config)
+{
+    return static_cast<int>(std::ceil(1.0 + static_cast<double>(config.dataBits) +
+                                      static_cast<double>(parityBitCount(config.parity)) +
+                                      stopBitsToCount(config.stopBits)));
+}
+
+std::chrono::microseconds calculateRtuInterFrameDelay(const base::ModbusConfig& config)
+{
+    if (config.interFrameDelayUs > 0) {
+        return std::chrono::microseconds(config.interFrameDelayUs);
+    }
+    if (config.baudRate <= 0) {
+        return std::chrono::microseconds(1750);
+    }
+    if (config.baudRate > 19200) {
+        return std::chrono::microseconds(1750);
+    }
+
+    const double charTimeUs =
+        (static_cast<double>(bitsPerCharacter(config)) * 1000000.0) / static_cast<double>(config.baudRate);
+    return std::chrono::microseconds(static_cast<long long>(std::ceil(3.5 * charTimeUs)));
+}
+
+std::chrono::microseconds calculateRtuFrameDuration(const base::ModbusConfig& config, qsizetype frameBytes)
+{
+    if (config.baudRate <= 0 || frameBytes <= 0) {
+        return std::chrono::microseconds::zero();
+    }
+
+    const double totalBits = static_cast<double>(bitsPerCharacter(config)) * static_cast<double>(frameBytes);
+    const double frameUs = (totalBits * 1000000.0) / static_cast<double>(config.baudRate);
+    return std::chrono::microseconds(static_cast<long long>(std::ceil(frameUs)));
+}
+
+bool isBroadcastWriteFunction(base::FunctionCode functionCode)
+{
+    using base::FunctionCode;
+    switch (functionCode) {
+    case FunctionCode::WriteSingleCoil:
+    case FunctionCode::WriteSingleRegister:
+    case FunctionCode::WriteMultipleCoils:
+    case FunctionCode::WriteMultipleRegisters:
+        return true;
+    default:
+        return false;
+    }
+}
+
+bool readBigEndianUInt16(const QByteArray& data, qsizetype offset, uint16_t& value)
+{
+    if (offset < 0 || offset + 2 > data.size()) {
+        return false;
+    }
+    value = qFromBigEndian<uint16_t>(reinterpret_cast<const uchar*>(data.constData() + offset));
+    return true;
+}
+
+bool isAddressRangeValid(uint16_t startAddress, uint16_t quantity)
+{
+    if (quantity == 0) {
+        return false;
+    }
+    const uint32_t endAddress = static_cast<uint32_t>(startAddress) + static_cast<uint32_t>(quantity) - 1U;
+    return endAddress <= static_cast<uint32_t>(app::constants::Constants::Modbus::kMaxAddress);
+}
+
+} // namespace
 
 const char* ModbusClient::toString(RequestState state) {
     switch (state) {
@@ -78,6 +167,8 @@ void ModbusClient::clearRuntimeState(bool clearPendingQueue) {
     buffer_.clear();
     responseReady_ = false;
     lastError_.clear();
+    lastRtuByteReceivedAt_ = std::chrono::steady_clock::time_point{};
+    nextRtuSendAllowedAt_ = std::chrono::steady_clock::time_point{};
     if (clearPendingQueue) {
         std::lock_guard<std::mutex> pendingLock(pendingMutex_);
         pendingRequests_.clear();
@@ -202,7 +293,10 @@ ModbusResponse ModbusClient::sendRequest(const base::Pdu& request, int slaveId) 
 void ModbusClient::sendRaw(const QByteArray& data) {
     std::lock_guard<std::recursive_mutex> lock(requestMutex_);
     if (isConnected()) {
-        channel_->write(data);
+        waitForRtuInterFrameDelay();
+        if (channel_->write(data)) {
+            updateRtuSendWindow(data.size());
+        }
     }
 }
 
@@ -210,6 +304,12 @@ ModbusResponse ModbusClient::sendRequestInternal(const base::Pdu& request, int s
     if (!isConnected()) {
         transitionTo(RequestState::Failed, "not-connected");
         return ModbusResponse::Error("Not connected");
+    }
+
+    const QString validationError = validateRequest(request, slaveId);
+    if (!validationError.isEmpty()) {
+        transitionTo(RequestState::Failed, "request-validation-failed");
+        return ModbusResponse::Error(validationError);
     }
 
     // 1. 清理旧缓冲区和状态
@@ -226,15 +326,27 @@ ModbusResponse ModbusClient::sendRequestInternal(const base::Pdu& request, int s
 
     // 2. 构建 ADU
     int targetSlaveId = (slaveId == -1) ? config_.slaveId : slaveId;
+    if (isRtuBroadcastRequest(targetSlaveId, request.functionCode()) &&
+        !isBroadcastWriteFunction(request.functionCode())) {
+        transitionTo(RequestState::Failed, "invalid-rtu-broadcast-function");
+        return ModbusResponse::Error("RTU broadcast only supports write function codes");
+    }
     QByteArray adu = transport_->buildRequest(request, targetSlaveId);
+    waitForRtuInterFrameDelay();
 
     // 3. 发送数据
     if (!channel_->write(adu)) {
         transitionTo(RequestState::Failed, "write-failed");
         return ModbusResponse::Error("Write failed");
     }
+    updateRtuSendWindow(adu.size());
     transitionTo(RequestState::Sending, "write-success");
     auto start = std::chrono::steady_clock::now();
+
+    if (!shouldWaitForResponse(targetSlaveId, request.functionCode())) {
+        transitionTo(RequestState::Completed, "broadcast-write-no-response");
+        return ModbusResponse::NoResponseExpected(base::Pdu(request.functionCode(), request.data()));
+    }
 
     // 4. 等待响应
     // 使用绝对时间作为截止日期，避免循环中相对时间重置
@@ -245,23 +357,30 @@ ModbusResponse ModbusClient::sendRequestInternal(const base::Pdu& request, int s
     
     while (true) {
         std::unique_lock<std::mutex> lock(mutex_);
-        if (!responseReady_ && lastError_.isEmpty() && !aborted_.load()) {
-            const auto now = std::chrono::steady_clock::now();
+        const auto now = std::chrono::steady_clock::now();
+        const bool rtuFrameReady = isRtuFrameReadyToParseLocked(now);
+        if (!rtuFrameReady && !responseReady_ && lastError_.isEmpty() && !aborted_.load()) {
             const auto waitSlice = std::min(deadline, now + std::chrono::milliseconds(10));
             const bool notified = cv_.wait_until(lock, waitSlice, [this]() {
                 return aborted_.load() || responseReady_ || !lastError_.isEmpty();
             });
-            if (!notified) {
-                if (std::chrono::steady_clock::now() >= deadline) {
-                    transitionTo(RequestState::Failed, "timeout");
-                    return ModbusResponse::Error("Timeout");
-                }
-                lock.unlock();
-                if (QCoreApplication::instance()) {
-                    QCoreApplication::processEvents(QEventLoop::AllEvents, 1);
-                }
-                continue;
+            if (!notified && std::chrono::steady_clock::now() >= deadline) {
+                transitionTo(RequestState::Failed, "timeout");
+                return ModbusResponse::Error("Timeout");
             }
+            continue;
+        }
+        if (!rtuFrameReady && config_.mode == base::ModbusMode::RTU && !buffer_.isEmpty() &&
+            lastRtuByteReceivedAt_ != std::chrono::steady_clock::time_point{}) {
+            responseReady_ = false;
+            const bool notified = cv_.wait_until(lock, std::min(deadline, nextRtuFrameBoundaryLocked()), [this]() {
+                return aborted_.load() || responseReady_ || !lastError_.isEmpty();
+            });
+            if (!notified && std::chrono::steady_clock::now() >= deadline) {
+                transitionTo(RequestState::Failed, "timeout");
+                return ModbusResponse::Error("Timeout");
+            }
+            continue;
         }
         if (aborted_) {
             spdlog::info("ModbusClient: Aborted during wait");
@@ -320,6 +439,11 @@ ModbusResponse ModbusClient::sendRequestInternal(const base::Pdu& request, int s
                 responseReady_ = !buffer_.isEmpty();
                 continue;
             }
+            if (config_.mode == base::ModbusMode::RTU && !buffer_.isEmpty() &&
+                isRtuFrameReadyToParseLocked(std::chrono::steady_clock::now())) {
+                transitionTo(RequestState::Failed, "incomplete-rtu-frame-after-gap");
+                return ModbusResponse::Error("Incomplete RTU frame after inter-frame silence");
+            }
             break;
         }
         
@@ -330,10 +454,187 @@ ModbusResponse ModbusClient::sendRequestInternal(const base::Pdu& request, int s
     }
 }
 
+bool ModbusClient::isRtuBroadcastRequest(int slaveId, base::FunctionCode functionCode) const {
+    Q_UNUSED(functionCode);
+    return config_.mode == base::ModbusMode::RTU && slaveId == 0;
+}
+
+bool ModbusClient::shouldWaitForResponse(int slaveId, base::FunctionCode functionCode) const {
+    if (!isRtuBroadcastRequest(slaveId, functionCode)) {
+        return true;
+    }
+    return false;
+}
+
+QString ModbusClient::validateRequest(const base::Pdu& request, int slaveId) const {
+    const int targetSlaveId = (slaveId == -1) ? config_.slaveId : slaveId;
+    if (config_.mode == base::ModbusMode::RTU &&
+        (targetSlaveId < app::constants::Constants::Modbus::kMinSlaveId ||
+         targetSlaveId > app::constants::Constants::Modbus::kMaxSlaveId)) {
+        return QString("Invalid RTU slave id: %1").arg(targetSlaveId);
+    }
+
+    const QByteArray data = request.data();
+    if (data.size() > app::constants::Constants::Modbus::kMaxPduDataLength) {
+        return QString("PDU data too long: %1 bytes").arg(data.size());
+    }
+
+    uint16_t quantity = 0;
+    uint16_t startAddress = 0;
+    uint16_t value = 0;
+    uint8_t declaredByteCount = 0;
+    switch (request.functionCode()) {
+    case base::FunctionCode::ReadCoils:
+    case base::FunctionCode::ReadDiscreteInputs:
+    case base::FunctionCode::ReadHoldingRegisters:
+    case base::FunctionCode::ReadInputRegisters:
+        if (data.size() != 4 ||
+            !readBigEndianUInt16(data, 0, startAddress) ||
+            !readBigEndianUInt16(data, 2, quantity)) {
+            return QString("Invalid read request payload length: %1").arg(data.size());
+        }
+        if (quantity < app::constants::Constants::Modbus::kMinQuantity) {
+            return QString("Read quantity must be at least %1").arg(app::constants::Constants::Modbus::kMinQuantity);
+        }
+        if (!isAddressRangeValid(startAddress, quantity)) {
+            return QString("Read address range exceeds limit: start=%1 quantity=%2")
+                .arg(startAddress)
+                .arg(quantity);
+        }
+        if ((request.functionCode() == base::FunctionCode::ReadCoils ||
+             request.functionCode() == base::FunctionCode::ReadDiscreteInputs) &&
+            quantity > app::constants::Constants::Modbus::kMaxReadBitsQuantity) {
+            return QString("Read bit quantity exceeds limit: %1").arg(quantity);
+        }
+        if ((request.functionCode() == base::FunctionCode::ReadHoldingRegisters ||
+             request.functionCode() == base::FunctionCode::ReadInputRegisters) &&
+            quantity > app::constants::Constants::Modbus::kMaxReadQuantity) {
+            return QString("Read register quantity exceeds limit: %1").arg(quantity);
+        }
+        break;
+    case base::FunctionCode::WriteSingleCoil:
+    case base::FunctionCode::WriteSingleRegister:
+        if (data.size() != 4 ||
+            !readBigEndianUInt16(data, 0, startAddress) ||
+            !readBigEndianUInt16(data, 2, value)) {
+            return QString("Invalid write-single request payload length: %1").arg(data.size());
+        }
+        if (!isAddressRangeValid(startAddress, 1)) {
+            return QString("Write address out of range: %1").arg(startAddress);
+        }
+        if (request.functionCode() == base::FunctionCode::WriteSingleCoil &&
+            value != 0x0000 && value != 0xFF00) {
+            return QString("Invalid single coil value: 0x%1")
+                .arg(value, 4, 16, QChar('0'))
+                .toUpper();
+        }
+        break;
+    case base::FunctionCode::WriteMultipleCoils:
+    case base::FunctionCode::WriteMultipleRegisters:
+        if (data.size() < 5 ||
+            !readBigEndianUInt16(data, 0, startAddress) ||
+            !readBigEndianUInt16(data, 2, quantity)) {
+            return QString("Invalid write-multiple request payload length: %1").arg(data.size());
+        }
+        declaredByteCount = static_cast<uint8_t>(data[4]);
+        if (quantity < app::constants::Constants::Modbus::kMinQuantity) {
+            return QString("Write quantity must be at least %1").arg(app::constants::Constants::Modbus::kMinQuantity);
+        }
+        if (!isAddressRangeValid(startAddress, quantity)) {
+            return QString("Write address range exceeds limit: start=%1 quantity=%2")
+                .arg(startAddress)
+                .arg(quantity);
+        }
+        if (static_cast<int>(declaredByteCount) != data.size() - 5) {
+            return QString("Write request byte count mismatch: declared %1, actual %2")
+                .arg(declaredByteCount)
+                .arg(data.size() - 5);
+        }
+        if (request.functionCode() == base::FunctionCode::WriteMultipleCoils) {
+            if (quantity > app::constants::Constants::Modbus::kMaxWriteCoilsQuantity) {
+                return QString("Write coil quantity exceeds limit: %1").arg(quantity);
+            }
+            const int expectedByteCount = (static_cast<int>(quantity) + 7) / 8;
+            if (declaredByteCount != expectedByteCount) {
+                return QString("Write coil byte count mismatch: declared %1, expected %2")
+                    .arg(declaredByteCount)
+                    .arg(expectedByteCount);
+            }
+        } else {
+            if (quantity > app::constants::Constants::Modbus::kMaxWriteRegistersQuantity) {
+                return QString("Write register quantity exceeds limit: %1").arg(quantity);
+            }
+            const int expectedByteCount = static_cast<int>(quantity) * 2;
+            if (declaredByteCount != expectedByteCount) {
+                return QString("Write register byte count mismatch: declared %1, expected %2")
+                    .arg(declaredByteCount)
+                    .arg(expectedByteCount);
+            }
+        }
+        break;
+    default:
+        return QString("Unsupported function code: 0x%1")
+            .arg(static_cast<int>(request.functionCode()), 2, 16, QChar('0'))
+            .toUpper();
+    }
+
+    const int tcpMbapLength = 2 + data.size();
+    if (tcpMbapLength > app::constants::Constants::Modbus::kMaxTcpMbapLength) {
+        return QString("TCP MBAP length exceeds limit: %1").arg(tcpMbapLength);
+    }
+
+    const int rtuAduLength = 4 + data.size();
+    if (rtuAduLength > 256) {
+        return QString("RTU ADU length exceeds limit: %1").arg(rtuAduLength);
+    }
+
+    return QString();
+}
+
+void ModbusClient::waitForRtuInterFrameDelay() {
+    if (config_.mode != base::ModbusMode::RTU) {
+        return;
+    }
+
+    const auto now = std::chrono::steady_clock::now();
+    if (nextRtuSendAllowedAt_ > now) {
+        std::this_thread::sleep_until(nextRtuSendAllowedAt_);
+    }
+}
+
+void ModbusClient::updateRtuSendWindow(qsizetype frameBytes) {
+    if (config_.mode != base::ModbusMode::RTU) {
+        return;
+    }
+
+    const auto now = std::chrono::steady_clock::now();
+    nextRtuSendAllowedAt_ = now + calculateRtuFrameDuration(config_, frameBytes) + calculateRtuInterFrameDelay(config_);
+}
+
+bool ModbusClient::isRtuFrameReadyToParseLocked(std::chrono::steady_clock::time_point now) const {
+    if (config_.mode != base::ModbusMode::RTU || buffer_.isEmpty()) {
+        return false;
+    }
+    if (lastRtuByteReceivedAt_ == std::chrono::steady_clock::time_point{}) {
+        return false;
+    }
+    return now >= nextRtuFrameBoundaryLocked();
+}
+
+std::chrono::steady_clock::time_point ModbusClient::nextRtuFrameBoundaryLocked() const {
+    if (lastRtuByteReceivedAt_ == std::chrono::steady_clock::time_point{}) {
+        return std::chrono::steady_clock::time_point{};
+    }
+    return lastRtuByteReceivedAt_ + calculateRtuInterFrameDelay(config_);
+}
+
 void ModbusClient::onDataReceived(QByteArrayView data) {
     std::lock_guard<std::mutex> lock(mutex_);
     spdlog::info("ModbusClient: Data received, size={}, notifying loop", data.size());
     buffer_.append(data);
+    if (config_.mode == base::ModbusMode::RTU) {
+        lastRtuByteReceivedAt_ = std::chrono::steady_clock::now();
+    }
     responseReady_ = true; // 即使不完整也唤醒，由工作线程检查完整性
     cv_.notify_one();
 }

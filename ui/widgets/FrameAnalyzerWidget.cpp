@@ -68,11 +68,16 @@ class FrameParseWorker : public QObject {
     Q_OBJECT
 
 public slots:
-    void enqueueParse(const QString& input, ProtocolType type, uint16_t startAddress, quint64 requestId)
+    void enqueueParse(const QString& input,
+                      ProtocolType type,
+                      uint16_t startAddress,
+                      uint16_t expectedQuantity,
+                      quint64 requestId)
     {
         pendingInput_ = input;
         pendingType_ = type;
         pendingStartAddress_ = startAddress;
+        pendingExpectedQuantity_ = expectedQuantity;
         pendingRequestId_ = requestId;
         hasPendingRequest_ = true;
 
@@ -94,17 +99,21 @@ private slots:
             const QString input = pendingInput_;
             const ProtocolType type = pendingType_;
             const uint16_t startAddress = pendingStartAddress_;
+            const uint16_t expectedQuantity = pendingExpectedQuantity_;
             const quint64 requestId = pendingRequestId_;
             hasPendingRequest_ = false;
 
-            emit parseFinished(buildResult(input, type, startAddress), requestId);
+            emit parseFinished(buildResult(input, type, startAddress, expectedQuantity), requestId);
         }
 
         processing_ = false;
     }
 
 private:
-    ParseResult buildResult(const QString& input, ProtocolType type, uint16_t startAddress) const
+    ParseResult buildResult(const QString& input,
+                            ProtocolType type,
+                            uint16_t startAddress,
+                            uint16_t expectedQuantity) const
     {
         QString hexStr = input;
         hexStr.remove(QRegularExpression("[^0-9A-Fa-f]"));
@@ -118,12 +127,13 @@ private:
         }
 
         const QByteArray frame = QByteArray::fromHex(hexStr.toLatin1());
-        return ModbusFrameParser::parse(frame, type, startAddress);
+        return ModbusFrameParser::parse(frame, type, startAddress, expectedQuantity);
     }
 
     QString pendingInput_;
     ProtocolType pendingType_ = ProtocolType::Unknown;
     uint16_t pendingStartAddress_ = 0;
+    uint16_t pendingExpectedQuantity_ = 0;
     quint64 pendingRequestId_ = 0;
     bool hasPendingRequest_ = false;
     bool processing_ = false;
@@ -367,6 +377,14 @@ void FrameAnalyzerWidget::createInputGroup()
     startAddressSpin_->setValue(app::constants::Constants::Modbus::kDefaultStandardStartAddress);
     controlsLayout->addWidget(startAddressSpin_);
 
+    controlsLayout->addSpacing(12);
+    quantityLabel_ = new QLabel(tr("Quantity (for Read Response):"), this);
+    controlsLayout->addWidget(quantityLabel_);
+    quantitySpin_ = new QSpinBox(this);
+    quantitySpin_->setRange(app::constants::Constants::Modbus::kMinQuantity, 2000);
+    quantitySpin_->setValue(app::constants::Constants::Modbus::kDefaultStandardQuantity);
+    controlsLayout->addWidget(quantitySpin_);
+
     controlsLayout->addStretch();
     
     formatBtn_ = new QPushButton(tr("Format Hex"), this);
@@ -391,6 +409,7 @@ void FrameAnalyzerWidget::createInputGroup()
     groupLayout->addWidget(inputEditor_);
 
     connect(startAddressSpin_, qOverload<int>(&QSpinBox::valueChanged), this, &FrameAnalyzerWidget::saveSettings);
+    connect(quantitySpin_, qOverload<int>(&QSpinBox::valueChanged), this, &FrameAnalyzerWidget::saveSettings);
     inputGroup_->setMinimumHeight(0);
     loadSettings();
 }
@@ -619,6 +638,7 @@ void FrameAnalyzerWidget::exportMetadataToJson(const QString& filePath)
     QJsonObject root;
     root.insert("version", 1);
     root.insert("startAddress", startAddressSpin_ ? startAddressSpin_->value() : 0);
+    root.insert("expectedQuantity", quantitySpin_ ? quantitySpin_->value() : 0);
     root.insert("displayMode", displayMode_ == NumberDisplayMode::Signed ? "signed" : "unsigned");
     QJsonArray items;
     for (auto it = metadataByAddress_.cbegin(); it != metadataByAddress_.cend(); ++it) {
@@ -655,6 +675,9 @@ void FrameAnalyzerWidget::importMetadataFromJson(const QString& filePath)
     const QJsonObject root = doc.object();
     if (root.contains("startAddress") && startAddressSpin_) {
         startAddressSpin_->setValue(root.value("startAddress").toInt(startAddressSpin_->value()));
+    }
+    if (root.contains("expectedQuantity") && quantitySpin_) {
+        quantitySpin_->setValue(root.value("expectedQuantity").toInt(quantitySpin_->value()));
     }
     if (root.contains("displayMode") && displayModeCombo_) {
         const QString mode = root.value("displayMode").toString().trimmed().toLower();
@@ -753,6 +776,7 @@ void FrameAnalyzerWidget::onParseClicked()
     
     ProtocolType type = protocolCombo_->currentData().value<ProtocolType>();
     uint16_t startAddr = static_cast<uint16_t>(startAddressSpin_->value());
+    uint16_t expectedQuantity = static_cast<uint16_t>(quantitySpin_->value());
     ++latestParseRequestId_;
     parseInProgress_ = true;
     statusLabel_->setText(tr("Parsing..."));
@@ -760,7 +784,7 @@ void FrameAnalyzerWidget::onParseClicked()
     if (parseBtn_) {
         parseBtn_->setEnabled(false);
     }
-    emit parseRequested(inputEditor_->toPlainText(), type, startAddr, latestParseRequestId_);
+    emit parseRequested(inputEditor_->toPlainText(), type, startAddr, expectedQuantity, latestParseRequestId_);
 }
 
 void FrameAnalyzerWidget::loadSettings()
@@ -768,9 +792,12 @@ void FrameAnalyzerWidget::loadSettings()
     if (!settingsService_) {
         return;
     }
-    QSignalBlocker blocker(startAddressSpin_);
-    const int value = settingsService_->value(common::settings_keys::kFrameAnalyzerStartAddr).toInt();
-    startAddressSpin_->setValue(value);
+    QSignalBlocker startAddrBlocker(startAddressSpin_);
+    QSignalBlocker quantityBlocker(quantitySpin_);
+    const int startAddress = settingsService_->value(common::settings_keys::kFrameAnalyzerStartAddr).toInt();
+    const int expectedQuantity = settingsService_->value(common::settings_keys::kFrameAnalyzerExpectedQuantity).toInt();
+    startAddressSpin_->setValue(startAddress);
+    quantitySpin_->setValue(expectedQuantity > 0 ? expectedQuantity : app::constants::Constants::Modbus::kDefaultStandardQuantity);
 }
 
 void FrameAnalyzerWidget::saveSettings()
@@ -779,6 +806,7 @@ void FrameAnalyzerWidget::saveSettings()
         return;
     }
     settingsService_->setValue(common::settings_keys::kFrameAnalyzerStartAddr, startAddressSpin_->value());
+    settingsService_->setValue(common::settings_keys::kFrameAnalyzerExpectedQuantity, quantitySpin_->value());
 }
 
 void FrameAnalyzerWidget::renderResult(const ParseResult& result)
@@ -1157,6 +1185,9 @@ void FrameAnalyzerWidget::retranslateUi()
     }
     if (startAddrLabel_) {
         startAddrLabel_->setText(tr("Start Address (for Response):"));
+    }
+    if (quantityLabel_) {
+        quantityLabel_->setText(tr("Quantity (for Read Response):"));
     }
     if (displayModeLabel_) {
         displayModeLabel_->setText(tr("Decode Mode:"));
