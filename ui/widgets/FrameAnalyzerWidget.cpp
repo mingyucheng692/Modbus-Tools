@@ -68,7 +68,43 @@ class FrameParseWorker : public QObject {
     Q_OBJECT
 
 public slots:
-    void parseFrame(const QString& input, ProtocolType type, uint16_t startAddress, quint64 requestId)
+    void enqueueParse(const QString& input, ProtocolType type, uint16_t startAddress, quint64 requestId)
+    {
+        pendingInput_ = input;
+        pendingType_ = type;
+        pendingStartAddress_ = startAddress;
+        pendingRequestId_ = requestId;
+        hasPendingRequest_ = true;
+
+        if (processing_) {
+            return;
+        }
+
+        processing_ = true;
+        QMetaObject::invokeMethod(this, &FrameParseWorker::processPending, Qt::QueuedConnection);
+    }
+
+signals:
+    void parseFinished(const modbus::core::parser::ParseResult& result, quint64 requestId);
+
+private slots:
+    void processPending()
+    {
+        while (hasPendingRequest_) {
+            const QString input = pendingInput_;
+            const ProtocolType type = pendingType_;
+            const uint16_t startAddress = pendingStartAddress_;
+            const quint64 requestId = pendingRequestId_;
+            hasPendingRequest_ = false;
+
+            emit parseFinished(buildResult(input, type, startAddress), requestId);
+        }
+
+        processing_ = false;
+    }
+
+private:
+    ParseResult buildResult(const QString& input, ProtocolType type, uint16_t startAddress) const
     {
         QString hexStr = input;
         hexStr.remove(QRegularExpression("[^0-9A-Fa-f]"));
@@ -78,16 +114,19 @@ public slots:
         if (hexStr.isEmpty()) {
             result.isValid = false;
             result.error = QCoreApplication::translate("FrameAnalyzerWidget", "Error: Empty input");
-        } else {
-            const QByteArray frame = QByteArray::fromHex(hexStr.toLatin1());
-            result = ModbusFrameParser::parse(frame, type, startAddress);
+            return result;
         }
 
-        emit parseFinished(result, requestId);
+        const QByteArray frame = QByteArray::fromHex(hexStr.toLatin1());
+        return ModbusFrameParser::parse(frame, type, startAddress);
     }
 
-signals:
-    void parseFinished(const modbus::core::parser::ParseResult& result, quint64 requestId);
+    QString pendingInput_;
+    ProtocolType pendingType_ = ProtocolType::Unknown;
+    uint16_t pendingStartAddress_ = 0;
+    quint64 pendingRequestId_ = 0;
+    bool hasPendingRequest_ = false;
+    bool processing_ = false;
 };
 }
 
@@ -99,14 +138,12 @@ FrameAnalyzerWidget::FrameAnalyzerWidget(ui::common::ISettingsService* settingsS
     qRegisterMetaType<ParseResult>("modbus::core::parser::ParseResult");
 
     parseThread_ = new QThread(this);
-    parseWorker_ = new FrameParseWorker();
-    parseWorker_->moveToThread(parseThread_);
-    connect(this, &FrameAnalyzerWidget::parseRequested, parseWorker_, [this](const QString& input, ProtocolType type, uint16_t startAddress, quint64 requestId) {
-        auto* worker = static_cast<FrameParseWorker*>(parseWorker_);
-        worker->parseFrame(input, type, startAddress, requestId);
-    }, Qt::QueuedConnection);
-    connect(parseWorker_, SIGNAL(parseFinished(modbus::core::parser::ParseResult,quint64)), this, SLOT(onParseFinished(modbus::core::parser::ParseResult,quint64)), Qt::QueuedConnection);
-    connect(parseThread_, &QThread::finished, parseWorker_, &QObject::deleteLater);
+    auto* parseWorker = new FrameParseWorker();
+    parseWorker_ = parseWorker;
+    parseWorker->moveToThread(parseThread_);
+    connect(this, &FrameAnalyzerWidget::parseRequested, parseWorker, &FrameParseWorker::enqueueParse, Qt::QueuedConnection);
+    connect(parseWorker, &FrameParseWorker::parseFinished, this, &FrameAnalyzerWidget::onParseFinished, Qt::QueuedConnection);
+    connect(parseThread_, &QThread::finished, parseWorker, &QObject::deleteLater);
     parseThread_->start();
 
     setupUi();
