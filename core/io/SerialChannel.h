@@ -2,6 +2,7 @@
 #include "AppConstants.h"
 #include "ChannelBase.h"
 #include <QSerialPort>
+#include <deque>
 
 namespace io {
 
@@ -31,11 +32,17 @@ public:
     void setRts(bool set);
 
 private:
+    void flushPendingWrites();
     void onReadyRead();
+    void onBytesWritten(qint64 bytes);
     void onErrorOccurred(QSerialPort::SerialPortError error);
+    void resetWriteState();
 
     QSerialPort serial_;
     SerialConfig config_;
+    std::deque<QByteArray> pendingWrites_;
+    qsizetype currentWriteOffset_ = 0;
+    bool closing_ = false;
 };
 
 }

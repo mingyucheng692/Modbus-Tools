@@ -3,6 +3,7 @@
 #include "ChannelBase.h"
 #include <QTcpSocket>
 #include <QHostAddress>
+#include <deque>
 
 namespace io {
 
@@ -20,13 +21,20 @@ public:
     void setEndpoint(const QString& ip, int port);
 
 private:
+    void flushPendingWrites();
     void onReadyRead();
+    void onConnected();
+    void onBytesWritten(qint64 bytes);
     void onSocketError(QAbstractSocket::SocketError error);
     void onStateChanged(QAbstractSocket::SocketState state);
+    void resetWriteState();
 
     QTcpSocket socket_;
     QString ip_;
     int port_ = app::constants::Constants::Network::kDefaultModbusTcpPort;
+    std::deque<QByteArray> pendingWrites_;
+    qsizetype currentWriteOffset_ = 0;
+    bool closing_ = false;
 };
 
 }

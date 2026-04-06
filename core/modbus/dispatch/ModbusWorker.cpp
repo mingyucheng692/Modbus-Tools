@@ -26,14 +26,22 @@ ModbusWorker::~ModbusWorker() {
 }
 
 void ModbusWorker::start() {
+    stopped_.store(false);
+    stopping_.store(false);
+    processing_.store(false);
     if (thread_ && !thread_->isRunning()) {
         thread_->start();
     }
 }
 
 void ModbusWorker::stop() {
-    if (stopping_ || stopped_) return;
-    stopping_ = true;
+    if (stopped_.load()) {
+        return;
+    }
+    bool expectedStopping = false;
+    if (!stopping_.compare_exchange_strong(expectedStopping, true)) {
+        return;
+    }
     spdlog::info("ModbusWorker: asynchronous stop requested");
 
     if (client_) {
@@ -42,36 +50,23 @@ void ModbusWorker::stop() {
 
     if (!thread_) {
         handleStopInThread();
-        stopped_ = true;
-        stopping_ = false;
-        emit stopped();
         return;
     }
 
     if (!thread_->isRunning()) {
         spdlog::info("ModbusWorker: stop requested with non-running thread");
-        drainQueuedRequests("Worker stopped");
-        stopped_ = true;
-        stopping_ = false;
-        emit stopped();
+        handleStopInThread();
         return;
     }
 
     if (QThread::currentThread() == thread_) {
         handleStopInThread();
-        thread_->quit();
         return;
     }
 
     QMetaObject::invokeMethod(this, [this]() {
         handleStopInThread();
-        if (thread_) {
-            thread_->quit();
-        }
     }, Qt::QueuedConnection);
-
-    thread_->requestInterruption();
-    thread_->quit();
 }
 
 void ModbusWorker::submit(const base::Pdu& request, int slaveId, int requestId) {
@@ -80,7 +75,7 @@ void ModbusWorker::submit(const base::Pdu& request, int slaveId, int requestId) 
         return;
     }
     QMetaObject::invokeMethod(this, [this, request, slaveId, requestId]() {
-        if (stopping_) {
+        if (stopping_.load()) {
             emit requestFinished(requestId, session::ModbusResponse::Error("Worker is stopping"));
             return;
         }
@@ -131,7 +126,7 @@ void ModbusWorker::updateConfig(const base::ModbusConfig& config) {
 }
 
 void ModbusWorker::handleSubmit(base::Pdu request, int slaveId, int requestId) {
-    if (stopping_) {
+    if (stopping_.load()) {
         emit requestFinished(requestId, session::ModbusResponse::Error("Worker is stopping"));
         return;
     }
@@ -158,7 +153,7 @@ void ModbusWorker::drainQueuedRequests(const QString& reason) {
 }
 
 void ModbusWorker::scheduleProcessQueue() {
-    if (processing_ || queuedRequests_.empty() || stopping_) {
+    if (processing_.load() || queuedRequests_.empty() || stopping_.load()) {
         return;
     }
     QMetaObject::invokeMethod(this, [this]() {
@@ -167,18 +162,22 @@ void ModbusWorker::scheduleProcessQueue() {
 }
 
 void ModbusWorker::processQueue() {
-    if (processing_ || stopping_) {
+    if (stopping_.load()) {
+        return;
+    }
+    bool expectedProcessing = false;
+    if (!processing_.compare_exchange_strong(expectedProcessing, true)) {
         return;
     }
     if (queuedRequests_.empty()) {
+        processing_.store(false);
         return;
     }
-    processing_ = true;
     auto item = queuedRequests_.front();
     queuedRequests_.pop_front();
     handleSubmit(item.request, item.slaveId, item.requestId);
-    processing_ = false;
-    if (!queuedRequests_.empty() && !stopping_) {
+    processing_.store(false);
+    if (!queuedRequests_.empty() && !stopping_.load()) {
         scheduleProcessQueue();
     }
 }
@@ -196,7 +195,7 @@ void ModbusWorker::handleSendRaw(QByteArray data) {
 }
 
 void ModbusWorker::handleConnect() {
-    if (stopping_) {
+    if (stopping_.load()) {
         emit connectFinished(false, "Worker is stopping");
         return;
     }
@@ -224,14 +223,21 @@ void ModbusWorker::handleRequestDisconnectInThread() {
 }
 
 void ModbusWorker::handleStopInThread() {
+    if (stopped_.exchange(true)) {
+        stopping_.store(false);
+        return;
+    }
     if (client_) {
         client_->abort();
     }
     drainQueuedRequests("Worker stopped");
     handleDisconnect();
-    stopped_ = true;
-    stopping_ = false;
+    processing_.store(false);
+    stopping_.store(false);
     emit stopped();
+    if (thread_ && QThread::currentThread() == thread_) {
+        thread_->quit();
+    }
 }
 
 void ModbusWorker::handleUpdateConfig(base::ModbusConfig config) {

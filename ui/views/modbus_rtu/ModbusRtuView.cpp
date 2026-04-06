@@ -535,18 +535,45 @@ QString ModbusRtuView::formatData(const QByteArray& data, bool hex) const {
 void ModbusRtuView::releaseStack() {
     ++connectionGeneration_;
     rtuSessionConnected_ = false;
-    if (worker_) {
-        worker_->stop();
-    }
     if (connectionWidget_) {
         connectionWidget_->setConnected(false);
     }
-    worker_.reset();
-    client_.reset();
-    channel_.reset();
-    workerThread_.reset();
     requestStart_.clear();
     requestKinds_.clear();
+
+    auto channel = std::move(channel_);
+    auto client = std::move(client_);
+    auto worker = std::move(worker_);
+    auto thread = std::move(workerThread_);
+    if (!worker && !client && !channel && !thread) {
+        return;
+    }
+
+    auto finalizeRelease = [channel = std::move(channel),
+                            client = std::move(client),
+                            worker = std::move(worker),
+                            thread = std::move(thread)]() mutable {
+        worker.reset();
+        client.reset();
+        channel.reset();
+        thread.reset();
+    };
+
+    if (thread && thread->isRunning()) {
+        QObject::connect(thread.get(), &QThread::finished, std::move(finalizeRelease));
+        if (worker) {
+            worker->stop();
+        } else {
+            thread->requestInterruption();
+            thread->quit();
+        }
+        return;
+    }
+
+    if (worker) {
+        worker->stop();
+    }
+    finalizeRelease();
 }
 
 int ModbusRtuView::nextRequestId() {

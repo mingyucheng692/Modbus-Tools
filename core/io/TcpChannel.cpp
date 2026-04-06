@@ -1,17 +1,20 @@
 #include "TcpChannel.h"
 #include <spdlog/spdlog.h>
-#include <QEventLoop>
 #include <QThread>
 #include <QMetaObject>
-#include <QTimer>
 
 namespace io {
 
 TcpChannel::TcpChannel() {
+    QObject::connect(&socket_, &QTcpSocket::connected, [this]() {
+        onConnected();
+    });
+    QObject::connect(&socket_, &QTcpSocket::bytesWritten, [this](qint64 bytes) {
+        onBytesWritten(bytes);
+    });
     QObject::connect(&socket_, &QTcpSocket::readyRead, [this]() {
         onReadyRead();
     });
-    // Qt6 signature change for error signal? Use errorOccurred if available or static cast
     QObject::connect(&socket_, &QTcpSocket::errorOccurred, [this](QAbstractSocket::SocketError error) {
         onSocketError(error);
     });
@@ -30,46 +33,29 @@ bool TcpChannel::open() {
         if (!ownerThread || !ownerThread->isRunning()) {
             return false;
         }
-        bool result = false;
-        QMetaObject::invokeMethod(&socket_, [this, &result]() {
-            result = this->open();
-        }, Qt::BlockingQueuedConnection);
-        return result;
+        return QMetaObject::invokeMethod(&socket_, [this]() {
+            open();
+        }, Qt::QueuedConnection);
     }
 
-    if (isOpen()) return true;
+    if (socket_.state() == QAbstractSocket::ConnectedState) {
+        setState(ChannelState::Open);
+        flushPendingWrites();
+        return true;
+    }
+    if (socket_.state() == QAbstractSocket::ConnectingState) {
+        setState(ChannelState::Opening);
+        return true;
+    }
 
+    closing_ = false;
+    resetWriteState();
     setState(ChannelState::Opening);
     socket_.abort();
-    socket_.connectToHost(ip_, port_);
     socket_.setSocketOption(QAbstractSocket::LowDelayOption, 1);
     socket_.setSocketOption(QAbstractSocket::KeepAliveOption, 1);
-
-    if (socket_.state() == QAbstractSocket::ConnectedState) {
-        setState(ChannelState::Open);
-        return true;
-    }
-
-    QEventLoop loop;
-    QTimer timer;
-    timer.setSingleShot(true);
-
-    QObject::connect(&socket_, &QTcpSocket::connected, &loop, &QEventLoop::quit);
-    QObject::connect(&socket_, &QTcpSocket::errorOccurred, &loop, &QEventLoop::quit);
-    QObject::connect(&timer, &QTimer::timeout, &loop, &QEventLoop::quit);
-
-    timer.start(std::max(1, timeouts().readMs));
-    loop.exec();
-
-    if (socket_.state() == QAbstractSocket::ConnectedState) {
-        setState(ChannelState::Open);
-        return true;
-    }
-
-    socket_.abort();
-    setState(ChannelState::Error);
-    emitError(socket_.errorString().isEmpty() ? QStringLiteral("TCP connect timeout") : socket_.errorString());
-    return false;
+    socket_.connectToHost(ip_, port_);
+    return true;
 }
 
 void TcpChannel::moveToThread(QThread* thread) {
@@ -80,22 +66,35 @@ void TcpChannel::close() {
     if (QThread::currentThread() != socket_.thread()) {
         QThread* ownerThread = socket_.thread();
         if (!ownerThread || !ownerThread->isRunning()) {
+            closing_ = false;
+            resetWriteState();
             setState(ChannelState::Closed);
             return;
         }
         QMetaObject::invokeMethod(&socket_, [this]() {
             this->close();
-        }, Qt::BlockingQueuedConnection);
+        }, Qt::QueuedConnection);
         return;
     }
 
+    resetWriteState();
     setState(ChannelState::Closing);
-    if (socket_.state() == QAbstractSocket::ConnectedState) {
+    closing_ = true;
+    if (socket_.state() == QAbstractSocket::UnconnectedState) {
+        socket_.close();
+        closing_ = false;
+        setState(ChannelState::Closed);
+        return;
+    }
+    if (socket_.state() == QAbstractSocket::ConnectedState ||
+        socket_.state() == QAbstractSocket::ConnectingState) {
         socket_.disconnectFromHost();
     }
-    socket_.abort();
-    socket_.close();
-    setState(ChannelState::Closed);
+    if (socket_.state() == QAbstractSocket::UnconnectedState) {
+        socket_.close();
+        closing_ = false;
+        setState(ChannelState::Closed);
+    }
 }
 
 bool TcpChannel::write(QByteArrayView data) {
@@ -104,31 +103,59 @@ bool TcpChannel::write(QByteArrayView data) {
         if (!ownerThread || !ownerThread->isRunning()) {
             return false;
         }
-        bool result = false;
         QByteArray dataCopy(data.data(), data.size());
-        QMetaObject::invokeMethod(&socket_, [this, dataCopy, &result]() {
-            result = this->write(dataCopy);
-        }, Qt::BlockingQueuedConnection);
-        return result;
+        return QMetaObject::invokeMethod(&socket_, [this, dataCopy]() {
+            write(dataCopy);
+        }, Qt::QueuedConnection);
     }
 
-    if (!isOpen()) return false;
-    
-    QByteArray dataBuffer(data.data(), data.size());
-    qint64 written = socket_.write(dataBuffer);
-    if (written != dataBuffer.size()) {
+    if (socket_.state() != QAbstractSocket::ConnectedState) {
         return false;
     }
-    socket_.flush();
 
-    addTx(written);
+    QByteArray dataBuffer(data.data(), data.size());
+    if (dataBuffer.isEmpty()) {
+        return true;
+    }
+
+    pendingWrites_.push_back(dataBuffer);
     emitMonitor(true, dataBuffer);
+    flushPendingWrites();
     return true;
 }
 
 void TcpChannel::setEndpoint(const QString& ip, int port) {
     ip_ = ip;
     port_ = port;
+}
+
+void TcpChannel::flushPendingWrites() {
+    if (QThread::currentThread() != socket_.thread()) {
+        QMetaObject::invokeMethod(&socket_, [this]() {
+            flushPendingWrites();
+        }, Qt::QueuedConnection);
+        return;
+    }
+
+    if (socket_.state() != QAbstractSocket::ConnectedState || pendingWrites_.empty()) {
+        return;
+    }
+
+    auto& frame = pendingWrites_.front();
+    while (currentWriteOffset_ < frame.size()) {
+        const char* dataPtr = frame.constData() + currentWriteOffset_;
+        const qint64 remaining = static_cast<qint64>(frame.size() - currentWriteOffset_);
+        const qint64 accepted = socket_.write(dataPtr, remaining);
+        if (accepted < 0) {
+            setState(ChannelState::Error);
+            emitError(socket_.errorString().isEmpty() ? QStringLiteral("TCP write failed") : socket_.errorString());
+            return;
+        }
+        if (accepted == 0) {
+            break;
+        }
+        currentWriteOffset_ += static_cast<qsizetype>(accepted);
+    }
 }
 
 void TcpChannel::onReadyRead() {
@@ -141,23 +168,59 @@ void TcpChannel::onReadyRead() {
     }
 }
 
+void TcpChannel::onConnected() {
+    closing_ = false;
+    setState(ChannelState::Open);
+    flushPendingWrites();
+}
+
+void TcpChannel::onBytesWritten(qint64 bytes) {
+    Q_UNUSED(bytes);
+    while (!pendingWrites_.empty() &&
+           currentWriteOffset_ >= pendingWrites_.front().size() &&
+           socket_.bytesToWrite() == 0) {
+        addTx(pendingWrites_.front().size());
+        pendingWrites_.pop_front();
+        currentWriteOffset_ = 0;
+    }
+    flushPendingWrites();
+}
+
 void TcpChannel::onSocketError(QAbstractSocket::SocketError error) {
     Q_UNUSED(error);
+    if (closing_) {
+        return;
+    }
+    resetWriteState();
     setState(ChannelState::Error);
-    emitError(socket_.errorString());
+    emitError(socket_.errorString().isEmpty() ? QStringLiteral("TCP socket error") : socket_.errorString());
 }
 
 void TcpChannel::onStateChanged(QAbstractSocket::SocketState state) {
     switch (state) {
         case QAbstractSocket::ConnectedState:
             setState(ChannelState::Open);
+            flushPendingWrites();
             break;
         case QAbstractSocket::UnconnectedState:
+            resetWriteState();
+            closing_ = false;
             setState(ChannelState::Closed);
+            break;
+        case QAbstractSocket::ConnectingState:
+            setState(ChannelState::Opening);
+            break;
+        case QAbstractSocket::ClosingState:
+            setState(ChannelState::Closing);
             break;
         default:
             break;
     }
+}
+
+void TcpChannel::resetWriteState() {
+    pendingWrites_.clear();
+    currentWriteOffset_ = 0;
 }
 
 }

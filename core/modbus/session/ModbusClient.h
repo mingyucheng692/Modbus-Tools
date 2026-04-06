@@ -9,11 +9,21 @@
 #include <atomic>
 #include <deque>
 #include <chrono>
+#include <optional>
 
 namespace modbus::session {
 
 class ModbusClient : public IModbusClient {
 public:
+    enum class ConnectionState {
+        Disconnected,
+        Connecting,
+        Connected,
+        Reconnecting,
+        Disconnecting,
+        Failed
+    };
+
     enum class RequestState {
         Idle,
         Sending,
@@ -34,6 +44,7 @@ public:
     bool isConnected() const override;
     void abort() override;
     void setConfig(const base::ModbusConfig& config) override;
+    ConnectionState connectionState() const;
     RequestState requestState() const;
 
 private:
@@ -49,6 +60,14 @@ private:
     ModbusResponse sendRequestInternal(const base::Pdu& request, int slaveId);
     void onDataReceived(QByteArrayView data);
     void onError(const QString& error);
+    bool ensureConnected(bool allowReconnect);
+    bool waitForChannelState(io::ChannelState expectedState,
+                             std::chrono::steady_clock::time_point deadline,
+                             QString* errorOut);
+    bool pumpEventsUntil(std::chrono::steady_clock::time_point deadline);
+    bool waitForEventOrTimeout(std::chrono::steady_clock::time_point deadline);
+    void transitionConnectionState(ConnectionState newState, const char* reason);
+    static const char* toString(ConnectionState state);
     void transitionTo(RequestState newState, const char* reason);
     static const char* toString(RequestState state);
     bool isRtuBroadcastRequest(int slaveId, base::FunctionCode functionCode) const;
@@ -59,6 +78,11 @@ private:
     QString validateRequest(const base::Pdu& request, int slaveId) const;
     bool isRtuFrameReadyToParseLocked(std::chrono::steady_clock::time_point now) const;
     std::chrono::steady_clock::time_point nextRtuFrameBoundaryLocked() const;
+    std::optional<int> expectedRtuResponseLength(const base::Pdu& request) const;
+    bool tryExtractRtuResponseFrameLocked(const base::Pdu& request,
+                                          int targetSlaveId,
+                                          QByteArray& frame,
+                                          int& droppedInvalidBytes);
     int enqueuePendingRequest(const base::Pdu& request, int slaveId);
     void finishPendingRequest(int requestId, bool success, const QString& error);
     void clearRuntimeState(bool clearPendingQueue);
@@ -77,6 +101,7 @@ private:
     // 保护 sendRequest 串行执行，避免请求路径发生重入
     std::recursive_mutex requestMutex_;
     std::atomic<bool> aborted_ {false};
+    std::atomic<ConnectionState> connectionState_ {ConnectionState::Disconnected};
     std::atomic<RequestState> requestState_ {RequestState::Idle};
     std::mutex pendingMutex_;
     std::chrono::steady_clock::time_point lastRtuByteReceivedAt_ {};

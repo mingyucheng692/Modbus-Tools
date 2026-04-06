@@ -6,6 +6,7 @@
 #include <cmath>
 #include <random>
 #include <QCoreApplication>
+#include <QEventLoop>
 #include <QtEndian>
 
 namespace modbus::session {
@@ -122,6 +123,18 @@ int calculateBackoffDelayMs(const base::ModbusConfig& config, int baseDelayMs, i
 
 } // namespace
 
+const char* ModbusClient::toString(ConnectionState state) {
+    switch (state) {
+    case ConnectionState::Disconnected: return "Disconnected";
+    case ConnectionState::Connecting: return "Connecting";
+    case ConnectionState::Connected: return "Connected";
+    case ConnectionState::Reconnecting: return "Reconnecting";
+    case ConnectionState::Disconnecting: return "Disconnecting";
+    case ConnectionState::Failed: return "Failed";
+    }
+    return "Unknown";
+}
+
 const char* ModbusClient::toString(RequestState state) {
     switch (state) {
     case RequestState::Idle: return "Idle";
@@ -134,6 +147,17 @@ const char* ModbusClient::toString(RequestState state) {
     return "Unknown";
 }
 
+void ModbusClient::transitionConnectionState(ConnectionState newState, const char* reason) {
+    ConnectionState oldState = connectionState_.exchange(newState);
+    if (oldState == newState) {
+        return;
+    }
+    spdlog::info("ModbusClient: connection {} -> {} ({})",
+                 toString(oldState),
+                 toString(newState),
+                 reason);
+}
+
 void ModbusClient::transitionTo(RequestState newState, const char* reason) {
     RequestState oldState = requestState_.exchange(newState);
     if (oldState == newState) {
@@ -143,6 +167,10 @@ void ModbusClient::transitionTo(RequestState newState, const char* reason) {
                  toString(oldState),
                  toString(newState),
                  reason);
+}
+
+ModbusClient::ConnectionState ModbusClient::connectionState() const {
+    return connectionState_.load();
 }
 
 ModbusClient::RequestState ModbusClient::requestState() const {
@@ -224,29 +252,25 @@ ModbusClient::~ModbusClient() {
 
 bool ModbusClient::connect() {
     if (!channel_) return false;
-    
-    // 应用超时配置
-    io::Timeouts timeouts;
-    timeouts.readMs = config_.timeoutMs;
-    timeouts.writeMs = config_.timeoutMs;
-    channel_->setTimeouts(timeouts);
-    
-    const bool opened = channel_->open();
-    if (opened) {
-        aborted_ = false;
+
+    aborted_ = false;
+    const bool connected = ensureConnected(config_.autoReconnect);
+    if (connected) {
         clearRuntimeState(false);
         transitionTo(RequestState::Idle, "connect");
     }
-    return opened;
+    return connected;
 }
 
 void ModbusClient::disconnect() {
     aborted_ = true;
+    transitionConnectionState(ConnectionState::Disconnecting, "disconnect");
     if (channel_) {
         channel_->close();
     }
     clearRuntimeState(true);
     aborted_ = false;
+    transitionConnectionState(ConnectionState::Disconnected, "disconnect-complete");
     transitionTo(RequestState::Idle, "disconnect");
 }
 
@@ -270,6 +294,155 @@ void ModbusClient::setConfig(const base::ModbusConfig& config) {
         timeouts.writeMs = config_.timeoutMs;
         channel_->setTimeouts(timeouts);
     }
+}
+
+bool ModbusClient::ensureConnected(bool allowReconnect) {
+    if (!channel_) {
+        std::lock_guard<std::mutex> lock(mutex_);
+        lastError_ = QStringLiteral("No channel attached");
+        transitionConnectionState(ConnectionState::Failed, "no-channel");
+        return false;
+    }
+
+    io::Timeouts timeouts;
+    timeouts.readMs = config_.timeoutMs;
+    timeouts.writeMs = config_.timeoutMs;
+    channel_->setTimeouts(timeouts);
+
+    if (channel_->isOpen()) {
+        transitionConnectionState(ConnectionState::Connected, "already-open");
+        return true;
+    }
+
+    const int attempts = allowReconnect ? std::max(1, config_.retries + 1) : 1;
+    QString connectError;
+    for (int attempt = 0; attempt < attempts; ++attempt) {
+        if (aborted_.load()) {
+            std::lock_guard<std::mutex> lock(mutex_);
+            lastError_ = QStringLiteral("Aborted");
+            transitionConnectionState(ConnectionState::Failed, "connect-aborted");
+            return false;
+        }
+
+        transitionConnectionState(attempt == 0 ? ConnectionState::Connecting : ConnectionState::Reconnecting,
+                                  attempt == 0 ? "connect-attempt" : "reconnect-attempt");
+        {
+            std::lock_guard<std::mutex> lock(mutex_);
+            lastError_.clear();
+            responseReady_ = false;
+        }
+
+        if (!channel_->open()) {
+            connectError = QStringLiteral("Failed to dispatch channel open");
+        } else {
+            const auto deadline = std::chrono::steady_clock::now() + std::chrono::milliseconds(config_.timeoutMs);
+            if (waitForChannelState(io::ChannelState::Open, deadline, &connectError)) {
+                transitionConnectionState(ConnectionState::Connected, "connect-success");
+                return true;
+            }
+        }
+
+        channel_->close();
+        transitionConnectionState(ConnectionState::Failed, "connect-failed");
+        if (attempt + 1 >= attempts) {
+            break;
+        }
+
+        const int reconnectDelayMs = calculateBackoffDelayMs(
+            config_,
+            config_.reconnectBaseMs,
+            config_.reconnectMaxMs,
+            attempt);
+        if (!waitForAbortableDelay(std::chrono::milliseconds(reconnectDelayMs))) {
+            std::lock_guard<std::mutex> lock(mutex_);
+            lastError_ = QStringLiteral("Aborted");
+            transitionConnectionState(ConnectionState::Failed, "reconnect-aborted");
+            return false;
+        }
+    }
+
+    std::lock_guard<std::mutex> lock(mutex_);
+    lastError_ = connectError.isEmpty() ? QStringLiteral("Connect timeout") : connectError;
+    return false;
+}
+
+bool ModbusClient::waitForChannelState(io::ChannelState expectedState,
+                                       std::chrono::steady_clock::time_point deadline,
+                                       QString* errorOut) {
+    while (std::chrono::steady_clock::now() < deadline) {
+        if (aborted_.load()) {
+            if (errorOut) {
+                *errorOut = QStringLiteral("Aborted");
+            }
+            return false;
+        }
+        if (channel_->state() == expectedState || (expectedState == io::ChannelState::Open && channel_->isOpen())) {
+            return true;
+        }
+        {
+            std::lock_guard<std::mutex> lock(mutex_);
+            if (!lastError_.isEmpty()) {
+                if (errorOut) {
+                    *errorOut = lastError_;
+                }
+                lastError_.clear();
+                return false;
+            }
+        }
+        if (channel_->state() == io::ChannelState::Error) {
+            if (errorOut && errorOut->isEmpty()) {
+                *errorOut = QStringLiteral("Channel entered error state");
+            }
+            return false;
+        }
+        if (!waitForEventOrTimeout(deadline)) {
+            break;
+        }
+    }
+
+    if (channel_->state() == expectedState || (expectedState == io::ChannelState::Open && channel_->isOpen())) {
+        return true;
+    }
+    if (errorOut && errorOut->isEmpty()) {
+        *errorOut = QStringLiteral("Connect timeout");
+    }
+    return false;
+}
+
+bool ModbusClient::pumpEventsUntil(std::chrono::steady_clock::time_point deadline) {
+    if (aborted_.load()) {
+        return false;
+    }
+    const auto now = std::chrono::steady_clock::now();
+    if (now >= deadline) {
+        QCoreApplication::processEvents(QEventLoop::AllEvents, 0);
+        return false;
+    }
+
+    const auto remaining = std::chrono::duration_cast<std::chrono::milliseconds>(deadline - now);
+    const int sliceMs = std::clamp<int>(static_cast<int>(remaining.count()), 1, 5);
+    QCoreApplication::processEvents(QEventLoop::AllEvents, sliceMs);
+    return !aborted_.load();
+}
+
+bool ModbusClient::waitForEventOrTimeout(std::chrono::steady_clock::time_point deadline) {
+    if (!pumpEventsUntil(deadline)) {
+        return std::chrono::steady_clock::now() < deadline;
+    }
+
+    const auto now = std::chrono::steady_clock::now();
+    if (now >= deadline) {
+        return false;
+    }
+
+    std::unique_lock<std::mutex> lock(mutex_);
+    const auto waitSlice = std::min(
+        std::chrono::duration_cast<std::chrono::milliseconds>(deadline - now),
+        std::chrono::milliseconds(5));
+    cv_.wait_for(lock, waitSlice, [this]() {
+        return aborted_.load() || responseReady_ || !lastError_.isEmpty();
+    });
+    return std::chrono::steady_clock::now() < deadline;
 }
 
 ModbusResponse ModbusClient::sendRequest(const base::Pdu& request, int slaveId) {
@@ -334,25 +507,10 @@ void ModbusClient::sendRaw(const QByteArray& data) {
 }
 
 ModbusResponse ModbusClient::sendRequestInternal(const base::Pdu& request, int slaveId) {
-    if (!isConnected()) {
-        if (config_.autoReconnect) {
-            const int reconnectDelayMs = calculateBackoffDelayMs(
-                config_,
-                config_.reconnectBaseMs,
-                config_.reconnectMaxMs,
-                0);
-            if (!waitForAbortableDelay(std::chrono::milliseconds(reconnectDelayMs))) {
-                transitionTo(RequestState::Aborted, "reconnect-aborted");
-                return ModbusResponse::Error("Aborted");
-            }
-            if (!connect()) {
-                transitionTo(RequestState::Failed, "reconnect-failed");
-                return ModbusResponse::Error("Reconnect failed");
-            }
-        } else {
-            transitionTo(RequestState::Failed, "not-connected");
-            return ModbusResponse::Error("Not connected");
-        }
+    if (!ensureConnected(config_.autoReconnect)) {
+        transitionTo(RequestState::Failed, "not-connected");
+        std::lock_guard<std::mutex> lock(mutex_);
+        return ModbusResponse::Error(lastError_.isEmpty() ? QStringLiteral("Not connected") : lastError_);
     }
 
     const QString validationError = validateRequest(request, slaveId);
@@ -409,11 +567,10 @@ ModbusResponse ModbusClient::sendRequestInternal(const base::Pdu& request, int s
         const auto now = std::chrono::steady_clock::now();
         const bool rtuFrameReady = isRtuFrameReadyToParseLocked(now);
         if (!rtuFrameReady && !responseReady_ && lastError_.isEmpty() && !aborted_.load()) {
-            const auto waitSlice = std::min(deadline, now + std::chrono::milliseconds(10));
-            const bool notified = cv_.wait_until(lock, waitSlice, [this]() {
-                return aborted_.load() || responseReady_ || !lastError_.isEmpty();
-            });
-            if (!notified && std::chrono::steady_clock::now() >= deadline) {
+            lock.unlock();
+            const bool stillWaiting = waitForEventOrTimeout(deadline);
+            lock.lock();
+            if (!stillWaiting && std::chrono::steady_clock::now() >= deadline) {
                 transitionTo(RequestState::Failed, "timeout");
                 return ModbusResponse::Error("Timeout");
             }
@@ -422,10 +579,11 @@ ModbusResponse ModbusClient::sendRequestInternal(const base::Pdu& request, int s
         if (!rtuFrameReady && config_.mode == base::ModbusMode::RTU && !buffer_.isEmpty() &&
             lastRtuByteReceivedAt_ != std::chrono::steady_clock::time_point{}) {
             responseReady_ = false;
-            const bool notified = cv_.wait_until(lock, std::min(deadline, nextRtuFrameBoundaryLocked()), [this]() {
-                return aborted_.load() || responseReady_ || !lastError_.isEmpty();
-            });
-            if (!notified && std::chrono::steady_clock::now() >= deadline) {
+            const auto frameDeadline = std::min(deadline, nextRtuFrameBoundaryLocked());
+            lock.unlock();
+            const bool stillWaiting = waitForEventOrTimeout(frameDeadline);
+            lock.lock();
+            if (!stillWaiting && std::chrono::steady_clock::now() >= deadline) {
                 transitionTo(RequestState::Failed, "timeout");
                 return ModbusResponse::Error("Timeout");
             }
@@ -446,6 +604,46 @@ ModbusResponse ModbusClient::sendRequestInternal(const base::Pdu& request, int s
         responseReady_ = false;
 
         while (true) {
+            if (config_.mode == base::ModbusMode::RTU) {
+                QByteArray frame;
+                if (tryExtractRtuResponseFrameLocked(request, targetSlaveId, frame, droppedInvalidBytes)) {
+                    lock.unlock();
+                    auto parseResult = transport_->parseResponse(frame);
+                    if (parseResult.status == transport::ParseResponseStatus::Ok && parseResult.pdu) {
+                        const auto& pdu = *parseResult.pdu;
+                        if (pdu.isException()) {
+                            transitionTo(RequestState::Failed, "modbus-exception");
+                            return ModbusResponse::Error(QString("Modbus Exception: %1").arg(static_cast<int>(pdu.exceptionCode())));
+                        }
+                        if (pdu.originalFunctionCode() != request.functionCode()) {
+                            lock.lock();
+                            continue;
+                        }
+                        auto rttMs = std::chrono::duration_cast<std::chrono::milliseconds>(
+                            std::chrono::steady_clock::now() - start).count();
+                        transitionTo(RequestState::Completed, "response-parsed");
+                        return ModbusResponse::Success(pdu, static_cast<int>(rttMs));
+                    }
+                    if (parseResult.status == transport::ParseResponseStatus::Unmatched) {
+                        lock.lock();
+                        continue;
+                    }
+                    transitionTo(RequestState::Failed, "response-parse-failed");
+                    return ModbusResponse::Error("Response parsing failed");
+                }
+                if (!buffer_.isEmpty() && isRtuFrameReadyToParseLocked(std::chrono::steady_clock::now())) {
+                    buffer_.remove(0, 1);
+                    ++droppedInvalidBytes;
+                    if (droppedInvalidBytes > app::constants::Constants::Modbus::kMaxDroppedInvalidBytes) {
+                        transitionTo(RequestState::Failed, "too-many-invalid-bytes");
+                        return ModbusResponse::Error("Too many invalid response bytes");
+                    }
+                    responseReady_ = !buffer_.isEmpty();
+                    continue;
+                }
+                break;
+            }
+
             int integrity = transport_->checkIntegrity(buffer_);
             if (integrity > 0) {
                 QByteArray frame = buffer_.left(integrity);
@@ -656,10 +854,27 @@ bool ModbusClient::waitForAbortableDelay(std::chrono::steady_clock::duration del
         return !aborted_.load();
     }
 
-    std::unique_lock<std::mutex> lock(mutex_);
-    return !cv_.wait_for(lock, delay, [this]() {
-        return aborted_.load();
-    });
+    const auto deadline = std::chrono::steady_clock::now() + delay;
+    while (std::chrono::steady_clock::now() < deadline) {
+        if (aborted_.load()) {
+            return false;
+        }
+        if (!pumpEventsUntil(deadline)) {
+            return !aborted_.load() && std::chrono::steady_clock::now() < deadline;
+        }
+        std::unique_lock<std::mutex> lock(mutex_);
+        const auto now = std::chrono::steady_clock::now();
+        if (now >= deadline) {
+            break;
+        }
+        const auto waitSlice = std::min(
+            std::chrono::duration_cast<std::chrono::milliseconds>(deadline - now),
+            std::chrono::milliseconds(5));
+        cv_.wait_for(lock, waitSlice, [this]() {
+            return aborted_.load();
+        });
+    }
+    return !aborted_.load();
 }
 
 void ModbusClient::updateRtuSendWindow(qsizetype frameBytes) {
@@ -686,6 +901,92 @@ std::chrono::steady_clock::time_point ModbusClient::nextRtuFrameBoundaryLocked()
         return std::chrono::steady_clock::time_point{};
     }
     return lastRtuByteReceivedAt_ + calculateRtuInterFrameDelay(config_);
+}
+
+std::optional<int> ModbusClient::expectedRtuResponseLength(const base::Pdu& request) const {
+    if (config_.mode != base::ModbusMode::RTU) {
+        return std::nullopt;
+    }
+
+    uint16_t quantity = 0;
+    switch (request.functionCode()) {
+    case base::FunctionCode::ReadCoils:
+    case base::FunctionCode::ReadDiscreteInputs:
+        if (!readBigEndianUInt16(request.data(), 2, quantity)) {
+            return std::nullopt;
+        }
+        return 1 + 1 + 1 + ((static_cast<int>(quantity) + 7) / 8) + 2;
+    case base::FunctionCode::ReadHoldingRegisters:
+    case base::FunctionCode::ReadInputRegisters:
+        if (!readBigEndianUInt16(request.data(), 2, quantity)) {
+            return std::nullopt;
+        }
+        return 1 + 1 + 1 + (static_cast<int>(quantity) * 2) + 2;
+    case base::FunctionCode::WriteSingleCoil:
+    case base::FunctionCode::WriteSingleRegister:
+    case base::FunctionCode::WriteMultipleCoils:
+    case base::FunctionCode::WriteMultipleRegisters:
+        return 8;
+    default:
+        return std::nullopt;
+    }
+}
+
+bool ModbusClient::tryExtractRtuResponseFrameLocked(const base::Pdu& request,
+                                                    int targetSlaveId,
+                                                    QByteArray& frame,
+                                                    int& droppedInvalidBytes) {
+    if (config_.mode != base::ModbusMode::RTU || buffer_.size() < 5) {
+        return false;
+    }
+
+    const auto expectedLength = expectedRtuResponseLength(request);
+    const uint8_t expectedSlaveId = static_cast<uint8_t>(targetSlaveId);
+    const uint8_t expectedFunction = static_cast<uint8_t>(request.functionCode());
+
+    auto candidateMatches = [this,
+                             expectedSlaveId,
+                             expectedFunction](const QByteArray& candidate, bool exceptionFrame) {
+        if (candidate.size() < 5 || static_cast<uint8_t>(candidate[0]) != expectedSlaveId) {
+            return false;
+        }
+        const uint8_t actualFunction = static_cast<uint8_t>(candidate[1]);
+        const uint8_t wantedFunction = exceptionFrame
+            ? static_cast<uint8_t>(expectedFunction | 0x80)
+            : expectedFunction;
+        return actualFunction == wantedFunction && transport_->checkIntegrity(candidate) == candidate.size();
+    };
+
+    for (int offset = 0; offset <= buffer_.size() - 5; ++offset) {
+        const int remaining = buffer_.size() - offset;
+        if (remaining < 5) {
+            break;
+        }
+
+        const QByteArray exceptionCandidate = buffer_.mid(offset, 5);
+        if (candidateMatches(exceptionCandidate, true)) {
+            if (offset > 0) {
+                droppedInvalidBytes += offset;
+            }
+            buffer_.remove(0, offset + exceptionCandidate.size());
+            frame = exceptionCandidate;
+            return true;
+        }
+
+        if (expectedLength && remaining >= *expectedLength) {
+            const QByteArray normalCandidate = buffer_.mid(offset, *expectedLength);
+            if (candidateMatches(normalCandidate, false)) {
+                if (offset > 0) {
+                    droppedInvalidBytes += offset;
+                }
+                buffer_.remove(0, offset + normalCandidate.size());
+                frame = normalCandidate;
+                return true;
+            }
+        }
+    }
+
+    return false;
 }
 
 void ModbusClient::onDataReceived(QByteArrayView data) {

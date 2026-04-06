@@ -3,6 +3,7 @@
 #include "../session/IModbusClient.h"
 #include <memory>
 #include <deque>
+#include <atomic>
 #include <QObject>
 #include <QPointer>
 #include <QThread>
@@ -50,9 +51,9 @@ private:
 
     std::shared_ptr<session::IModbusClient> client_;
     QPointer<QThread> thread_;
-    bool stopping_ = false;
-    bool stopped_ = false;
-    bool processing_ = false;
+    std::atomic_bool stopping_ {false};
+    std::atomic_bool stopped_ {false};
+    std::atomic_bool processing_ {false};
     std::deque<QueuedRequest> queuedRequests_;
 };
 
