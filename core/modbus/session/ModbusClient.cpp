@@ -5,8 +5,6 @@
 #include <algorithm>
 #include <cmath>
 #include <random>
-#include <QCoreApplication>
-#include <QEventLoop>
 #include <QtEndian>
 
 namespace modbus::session {
@@ -248,6 +246,10 @@ ModbusClient::ModbusClient(std::shared_ptr<io::IChannel> channel,
         lastWriteDrainedAt_ = std::chrono::steady_clock::now();
         cv_.notify_one();
     });
+    channel_->setStateHandler([this](io::ChannelState) {
+        std::lock_guard<std::mutex> lock(mutex_);
+        cv_.notify_all();
+    });
 }
 
 ModbusClient::~ModbusClient() {
@@ -256,6 +258,7 @@ ModbusClient::~ModbusClient() {
         channel_->setReadHandler({});
         channel_->setErrorHandler({});
         channel_->setWriteDrainedHandler({});
+        channel_->setStateHandler({});
     }
     clearRuntimeState(true);
 }
@@ -405,7 +408,15 @@ bool ModbusClient::waitForChannelState(io::ChannelState expectedState,
             }
             return false;
         }
-        if (!waitForEventOrTimeout(deadline)) {
+
+        std::unique_lock<std::mutex> lock(mutex_);
+        if (!cv_.wait_until(lock, deadline, [this, expectedState]() {
+                return aborted_.load() ||
+                    !lastError_.isEmpty() ||
+                    channel_->state() == io::ChannelState::Error ||
+                    channel_->state() == expectedState ||
+                    (expectedState == io::ChannelState::Open && channel_->isOpen());
+            })) {
             break;
         }
     }
@@ -442,22 +453,14 @@ bool ModbusClient::waitForWriteDrain(std::chrono::steady_clock::time_point deadl
         if (channel_->state() == io::ChannelState::Error) {
             return false;
         }
-        if (!pumpEventsUntil(deadline)) {
-            break;
-        }
-
-        const auto now = std::chrono::steady_clock::now();
-        if (now >= deadline) {
-            break;
-        }
 
         std::unique_lock<std::mutex> lock(mutex_);
-        const auto waitSlice = std::min(
-            std::chrono::duration_cast<std::chrono::milliseconds>(deadline - now),
-            std::chrono::milliseconds(5));
-        cv_.wait_for(lock, waitSlice, [this]() {
-            return aborted_.load() || writeDrained_ || !lastError_.isEmpty();
-        });
+        if (!cv_.wait_until(lock, deadline, [this]() {
+                return aborted_.load() || writeDrained_ || !lastError_.isEmpty() ||
+                    channel_->state() == io::ChannelState::Error;
+            })) {
+            break;
+        }
     }
 
     std::lock_guard<std::mutex> lock(mutex_);
@@ -472,40 +475,13 @@ bool ModbusClient::waitForWriteDrain(std::chrono::steady_clock::time_point deadl
     return false;
 }
 
-bool ModbusClient::pumpEventsUntil(std::chrono::steady_clock::time_point deadline) {
-    if (aborted_.load()) {
-        return false;
-    }
-    const auto now = std::chrono::steady_clock::now();
-    if (now >= deadline) {
-        QCoreApplication::processEvents(QEventLoop::AllEvents, 0);
-        return false;
-    }
-
-    const auto remaining = std::chrono::duration_cast<std::chrono::milliseconds>(deadline - now);
-    const int sliceMs = std::clamp<int>(static_cast<int>(remaining.count()), 1, 5);
-    QCoreApplication::processEvents(QEventLoop::AllEvents, sliceMs);
-    return !aborted_.load();
-}
-
 bool ModbusClient::waitForEventOrTimeout(std::chrono::steady_clock::time_point deadline) {
-    if (!pumpEventsUntil(deadline)) {
-        return std::chrono::steady_clock::now() < deadline;
-    }
-
-    const auto now = std::chrono::steady_clock::now();
-    if (now >= deadline) {
-        return false;
-    }
-
     std::unique_lock<std::mutex> lock(mutex_);
-    const auto waitSlice = std::min(
-        std::chrono::duration_cast<std::chrono::milliseconds>(deadline - now),
-        std::chrono::milliseconds(5));
-    cv_.wait_for(lock, waitSlice, [this]() {
-        return aborted_.load() || responseReady_ || !lastError_.isEmpty();
-    });
-    return std::chrono::steady_clock::now() < deadline;
+    const bool signaled = cv_.wait_until(lock, deadline, [this]() {
+            return aborted_.load() || responseReady_ || !lastError_.isEmpty() ||
+                channel_->state() == io::ChannelState::Error;
+        });
+    return signaled || std::chrono::steady_clock::now() < deadline;
 }
 
 ModbusResponse ModbusClient::sendRequest(const base::Pdu& request, int slaveId) {
@@ -950,25 +926,10 @@ bool ModbusClient::waitForAbortableDelay(std::chrono::steady_clock::duration del
     }
 
     const auto deadline = std::chrono::steady_clock::now() + delay;
-    while (std::chrono::steady_clock::now() < deadline) {
-        if (aborted_.load()) {
-            return false;
-        }
-        if (!pumpEventsUntil(deadline)) {
-            return !aborted_.load() && std::chrono::steady_clock::now() < deadline;
-        }
-        std::unique_lock<std::mutex> lock(mutex_);
-        const auto now = std::chrono::steady_clock::now();
-        if (now >= deadline) {
-            break;
-        }
-        const auto waitSlice = std::min(
-            std::chrono::duration_cast<std::chrono::milliseconds>(deadline - now),
-            std::chrono::milliseconds(5));
-        cv_.wait_for(lock, waitSlice, [this]() {
-            return aborted_.load();
-        });
-    }
+    std::unique_lock<std::mutex> lock(mutex_);
+    cv_.wait_until(lock, deadline, [this]() {
+        return aborted_.load();
+    });
     return !aborted_.load();
 }
 

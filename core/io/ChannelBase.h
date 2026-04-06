@@ -1,6 +1,7 @@
 #pragma once
 
 #include "IChannel.h"
+#include <atomic>
 
 namespace io {
 
@@ -28,7 +29,7 @@ protected:
     void emitMonitor(bool isTx, const QByteArray& data);
 
 private:
-    ChannelState state_{ChannelState::Closed};
+    std::atomic<ChannelState> state_{ChannelState::Closed};
     Timeouts timeouts_{};
     ChannelStats stats_{};
     std::function<void(QByteArrayView)> readHandler_;

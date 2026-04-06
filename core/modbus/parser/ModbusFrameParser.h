@@ -103,7 +103,6 @@ private:
                                                    uint16_t userStartAddress);
     
     // 辅助函数
-    static uint16_t calculateCrc(const QByteArray& data);
     static QString getExceptionString(modbus::base::ExceptionCode code);
 };
 

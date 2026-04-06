@@ -14,6 +14,8 @@ target_sources(core PRIVATE
     modbus/base/ModbusTypes.h
     modbus/base/ModbusFrame.h
     modbus/base/ModbusConfig.h
+    modbus/base/ModbusProtocolChecks.h
+    modbus/base/ModbusProtocolChecks.cpp
     # modbus transport
     modbus/transport/ITransport.h
     modbus/transport/ModbusRtuTransport.h

@@ -1,0 +1,28 @@
+#pragma once
+
+#include <QByteArrayView>
+#include <cstdint>
+
+namespace modbus::base {
+
+struct TcpAduFields {
+    uint16_t transactionId = 0;
+    uint16_t protocolId = 0;
+    uint16_t length = 0;
+    uint8_t unitId = 0;
+};
+
+struct RtuAduFields {
+    uint8_t slaveId = 0;
+    uint8_t functionCode = 0;
+    uint16_t receivedCrc = 0;
+    uint16_t calculatedCrc = 0;
+};
+
+// Returns 0 for incomplete, >0 for a complete frame length, and -1 for invalid data.
+int inspectTcpAdu(QByteArrayView adu, TcpAduFields* fields = nullptr);
+
+// Returns 0 for incomplete, >0 for a complete frame length, and -1 for invalid data.
+int inspectRtuAdu(QByteArrayView adu, RtuAduFields* fields = nullptr);
+
+} // namespace modbus::base

@@ -1,6 +1,6 @@
 #include "ModbusFrameParser.h"
 #include "AppConstants.h"
-#include "../base/ModbusCrc.h"
+#include "../base/ModbusProtocolChecks.h"
 #include <QtEndian>
 #include <QDataStream>
 #include <QCoreApplication>
@@ -96,33 +96,12 @@ ParseResult ModbusFrameParser::parse(const QByteArray& frame,
 
 bool ModbusFrameParser::detectTcp(const QByteArray& frame)
 {
-    // TCP 最小长度: MBAP(7) + FC(1) = 8 bytes
-    if (frame.size() < 8) return false;
-
-    // 检查 Protocol ID (Bytes 2-3) 必须为 0
-    uint16_t protoId = qFromBigEndian<uint16_t>(reinterpret_cast<const uchar*>(frame.constData() + 2));
-    if (protoId != 0) return false;
-
-    // 检查 Length (Bytes 4-5)
-    uint16_t len = qFromBigEndian<uint16_t>(reinterpret_cast<const uchar*>(frame.constData() + 4));
-    if (len < 2 || len > app::constants::Constants::Modbus::kMaxTcpMbapLength) return false; // Length 包括 UnitId(1) + PDU
-
-    // 检查总长度是否匹配
-    if (frame.size() != (6 + len)) return false;
-
-    return true;
+    return base::inspectTcpAdu(frame) == frame.size();
 }
 
 bool ModbusFrameParser::detectRtu(const QByteArray& frame)
 {
-    // RTU 最小长度: SlaveId(1) + FC(1) + CRC(2) = 4 bytes
-    if (frame.size() < 4) return false;
-
-    // 检查 CRC
-    uint16_t receivedCrc = qFromLittleEndian<uint16_t>(reinterpret_cast<const uchar*>(frame.constData() + frame.size() - 2));
-    uint16_t calcCrc = calculateCrc(frame.left(frame.size() - 2));
-
-    return receivedCrc == calcCrc;
+    return base::inspectRtuAdu(frame) == frame.size();
 }
 
 ParseResult ModbusFrameParser::parseTcp(const QByteArray& frame, uint16_t startAddress, uint16_t expectedQuantity)
@@ -133,35 +112,33 @@ ParseResult ModbusFrameParser::parseTcp(const QByteArray& frame, uint16_t startA
     result.rawFrame = frame;
     result.expectedQuantity = expectedQuantity;
 
-    if (frame.size() < 8) {
+    base::TcpAduFields fields;
+    const int integrity = base::inspectTcpAdu(frame, &fields);
+    if (integrity == 0) {
         result.isValid = false;
         result.error = QCoreApplication::translate(
                            "ModbusFrameParser",
-                           "Frame too short for Modbus TCP. Expected at least 8 bytes, got %1")
+                           "Frame too short for Modbus TCP. Expected a complete MBAP + PDU, got %1 bytes")
+                           .arg(frame.size());
+        return result;
+    }
+    if (integrity < 0) {
+        result.isValid = false;
+        result.error = QCoreApplication::translate("ModbusFrameParser", "Invalid TCP MBAP header or length");
+        return result;
+    }
+    if (integrity != frame.size()) {
+        result.isValid = false;
+        result.error = QCoreApplication::translate("ModbusFrameParser", "TCP frame contains trailing bytes. Expected %1 bytes, got %2")
+                           .arg(integrity)
                            .arg(frame.size());
         return result;
     }
 
-    QDataStream stream(frame);
-    stream.setByteOrder(QDataStream::BigEndian);
-
-    // 解析 MBAP Header
-    stream >> result.transactionId;
-    stream >> result.protocolId;
-    stream >> result.length;
-    stream >> result.slaveId;
-
-    // 完整性检查
-    if (result.length < 2 || result.length > app::constants::Constants::Modbus::kMaxTcpMbapLength) {
-        result.isValid = false;
-        result.error = QCoreApplication::translate("ModbusFrameParser", "Invalid TCP MBAP length %1").arg(result.length);
-        return result;
-    }
-    if (frame.size() != (6 + result.length)) {
-        result.isValid = false;
-        result.error = QCoreApplication::translate("ModbusFrameParser", "TCP frame length mismatch. Expected %1 bytes, got %2").arg(6 + result.length).arg(frame.size());
-        return result;
-    }
+    result.transactionId = fields.transactionId;
+    result.protocolId = fields.protocolId;
+    result.length = fields.length;
+    result.slaveId = fields.unitId;
 
     // 提取 PDU (从第 8 字节开始，长度 = Length - 1 (UnitId))
     int pduSize = result.length - 1;
@@ -189,7 +166,9 @@ ParseResult ModbusFrameParser::parseRtu(const QByteArray& frame, uint16_t startA
     result.rawFrame = frame;
     result.expectedQuantity = expectedQuantity;
 
-    if (frame.size() < 4) {
+    base::RtuAduFields fields;
+    const int integrity = base::inspectRtuAdu(frame, &fields);
+    if (integrity == 0) {
         result.isValid = false;
         result.error = QCoreApplication::translate(
                            "ModbusFrameParser",
@@ -199,19 +178,24 @@ ParseResult ModbusFrameParser::parseRtu(const QByteArray& frame, uint16_t startA
     }
 
     // 解析头部
-    result.slaveId = static_cast<uint8_t>(frame[0]);
-    
-    // CRC 校验
-    uint16_t receivedCrc = qFromLittleEndian<uint16_t>(reinterpret_cast<const uchar*>(frame.constData() + frame.size() - 2));
-    uint16_t calcCrc = calculateCrc(frame.left(frame.size() - 2));
+    result.slaveId = fields.slaveId;
+    result.checksum = fields.receivedCrc;
+    result.calculatedChecksum = fields.calculatedCrc;
+    result.checksumValid = (integrity > 0);
 
-    result.checksum = receivedCrc;
-    result.calculatedChecksum = calcCrc;
-    result.checksumValid = (receivedCrc == calcCrc);
-
-    if (!result.checksumValid) {
+    if (integrity < 0) {
         result.isValid = false;
-        result.error = QCoreApplication::translate("ModbusFrameParser", "CRC Mismatch. Expected %1, Got %2").arg(calcCrc, 4, 16, QChar('0')).arg(receivedCrc, 4, 16, QChar('0')).toUpper();
+        result.error = QCoreApplication::translate("ModbusFrameParser", "CRC Mismatch. Expected %1, Got %2")
+                           .arg(fields.calculatedCrc, 4, 16, QChar('0'))
+                           .arg(fields.receivedCrc, 4, 16, QChar('0'))
+                           .toUpper();
+        return result;
+    }
+    if (integrity != frame.size()) {
+        result.isValid = false;
+        result.error = QCoreApplication::translate("ModbusFrameParser", "RTU frame contains trailing bytes. Expected %1 bytes, got %2")
+                           .arg(integrity)
+                           .arg(frame.size());
         return result;
     }
 
@@ -521,11 +505,6 @@ void ModbusFrameParser::parsePdu(ParseResult& result,
                            .arg(formatFunctionCodeHex(fcByte));
         break;
     }
-}
-
-uint16_t ModbusFrameParser::calculateCrc(const QByteArray& data)
-{
-    return modbus::base::calculateModbusRtuCrc(data);
 }
 
 bool ModbusFrameParser::hasAddressInPdu(modbus::base::FunctionCode functionCode, const QByteArray& pdu)

@@ -4,7 +4,7 @@ namespace io {
 
 ChannelState ChannelBase::state() const
 {
-    return state_;
+    return state_.load();
 }
 
 void ChannelBase::moveToThread(QThread* thread)
@@ -14,7 +14,7 @@ void ChannelBase::moveToThread(QThread* thread)
 
 bool ChannelBase::isOpen() const
 {
-    return state_ == ChannelState::Open;
+    return state_.load() == ChannelState::Open;
 }
 
 void ChannelBase::setTimeouts(const Timeouts& timeouts)
@@ -59,11 +59,12 @@ ChannelStats ChannelBase::stats() const
 
 void ChannelBase::setState(ChannelState state)
 {
-    if (state_ != state) {
-        state_ = state;
-        if (stateHandler_) {
-            stateHandler_(state);
-        }
+    const ChannelState previous = state_.exchange(state);
+    if (previous == state) {
+        return;
+    }
+    if (stateHandler_) {
+        stateHandler_(state);
     }
 }
 

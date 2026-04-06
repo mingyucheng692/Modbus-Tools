@@ -66,7 +66,6 @@ private:
                              QString* errorOut);
     bool waitForWriteDrain(std::chrono::steady_clock::time_point deadline,
                            std::chrono::steady_clock::time_point* drainedAt);
-    bool pumpEventsUntil(std::chrono::steady_clock::time_point deadline);
     bool waitForEventOrTimeout(std::chrono::steady_clock::time_point deadline);
     void transitionConnectionState(ConnectionState newState, const char* reason);
     static const char* toString(ConnectionState state);
