@@ -17,6 +17,9 @@
 #include <QEvent>
 #include <QSignalBlocker>
 #include <QSizePolicy>
+#include <QFutureWatcher>
+#include <QtConcurrent/QtConcurrent>
+#include <memory>
 
 namespace ui::widgets {
 
@@ -194,13 +197,32 @@ void TrafficMonitorWidget::onSaveClicked() {
     QString fileName = QFileDialog::getSaveFileName(this, tr("Save Log"), "", tr("Text Files (*.txt);;All Files (*)"));
     if (fileName.isEmpty()) return;
 
-    QFile file(fileName);
-    if (!file.open(QIODevice::WriteOnly | QIODevice::Text)) return;
-
-    QTextStream out(&file);
+    QStringList lines;
+    lines.reserve(logList_->count());
     for (int i = 0; i < logList_->count(); ++i) {
-        out << logList_->item(i)->text() << "\n";
+        lines << logList_->item(i)->text();
     }
+
+    auto errorMessage = std::make_shared<QString>();
+    auto* watcher = new QFutureWatcher<void>(this);
+    connect(watcher, &QFutureWatcher<void>::finished, this, [this, errorMessage]() {
+        if (!errorMessage->isEmpty()) {
+            appendInfo(tr("Save failed: %1").arg(*errorMessage));
+        }
+    });
+    connect(watcher, &QFutureWatcher<void>::finished, watcher, &QObject::deleteLater);
+    watcher->setFuture(QtConcurrent::run([fileName, lines, errorMessage]() {
+        QFile file(fileName);
+        if (!file.open(QIODevice::WriteOnly | QIODevice::Text)) {
+            *errorMessage = QObject::tr("Cannot write file: %1").arg(fileName);
+            return;
+        }
+
+        QTextStream out(&file);
+        for (const QString& line : lines) {
+            out << line << "\n";
+        }
+    }));
 }
 
 void TrafficMonitorWidget::onCopyClicked() {

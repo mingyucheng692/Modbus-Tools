@@ -235,9 +235,6 @@ void ModbusWorker::handleStopInThread() {
     processing_.store(false);
     stopping_.store(false);
     emit stopped();
-    if (thread_ && QThread::currentThread() == thread_) {
-        thread_->quit();
-    }
 }
 
 void ModbusWorker::handleUpdateConfig(base::ModbusConfig config) {

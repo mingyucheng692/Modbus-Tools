@@ -16,6 +16,8 @@
 #include <QDebug>
 #include <QEvent>
 #include <QSignalBlocker>
+#include <QPointer>
+#include <QThreadPool>
 
 namespace ui::widgets {
 
@@ -210,18 +212,44 @@ void GenericInputWidget::onSendFileClicked() {
     QString path = QFileDialog::getOpenFileName(this, tr("Select File to Send"));
     if (path.isEmpty()) return;
 
-    QFile file(path);
-    if (!file.open(QIODevice::ReadOnly)) {
-        QMessageBox::warning(this, tr("Error"), tr("Cannot open file"));
-        return;
-    }
-    
-    QByteArray data = file.readAll();
-    file.close();
-    
-    if (!data.isEmpty()) {
-        emit sendRequested(data);
-    }
+    const QPointer<GenericInputWidget> safeThis(this);
+    QThreadPool::globalInstance()->start([safeThis, path]() {
+        QFile file(path);
+        if (!file.open(QIODevice::ReadOnly)) {
+            if (safeThis) {
+                QMetaObject::invokeMethod(safeThis.data(), [safeThis]() {
+                    if (safeThis) {
+                        QMessageBox::warning(safeThis.data(),
+                                             safeThis->tr("Error"),
+                                             safeThis->tr("Cannot open file"));
+                    }
+                }, Qt::QueuedConnection);
+            }
+            return;
+        }
+
+        while (safeThis && !file.atEnd()) {
+            const QByteArray chunk = file.read(app::constants::Constants::GenericIo::kFileSendChunkSizeBytes);
+            if (chunk.isEmpty() && file.error() != QFileDevice::NoError) {
+                QMetaObject::invokeMethod(safeThis.data(), [safeThis]() {
+                    if (safeThis) {
+                        QMessageBox::warning(safeThis.data(),
+                                             safeThis->tr("Error"),
+                                             safeThis->tr("Cannot open file"));
+                    }
+                }, Qt::QueuedConnection);
+                return;
+            }
+
+            if (!chunk.isEmpty()) {
+                QMetaObject::invokeMethod(safeThis.data(), [safeThis, chunk]() {
+                    if (safeThis) {
+                        emit safeThis->sendRequested(chunk);
+                    }
+                }, Qt::QueuedConnection);
+            }
+        }
+    });
 }
 
 void GenericInputWidget::appendData(const QByteArray& /*data*/) {

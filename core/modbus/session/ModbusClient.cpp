@@ -1034,16 +1034,18 @@ void ModbusClient::onDataReceived(QByteArrayView data) {
             }
         }
         buffer_.append(data);
-        if (buffer_.size() > 260) {
-            spdlog::warn("ModbusClient: RTU buffer exceeded 260 bytes limit, clearing");
+        if (buffer_.size() > app::constants::Constants::Modbus::kMaxRtuBufferedBytes) {
+            spdlog::warn("ModbusClient: RTU buffer exceeded {} bytes limit, clearing",
+                         app::constants::Constants::Modbus::kMaxRtuBufferedBytes);
             buffer_.clear();
         }
         lastRtuByteReceivedAt_ = now;
     } else {
         buffer_.append(data);
-        if (buffer_.size() > 1024) {
-            spdlog::warn("ModbusClient: TCP buffer exceeded 1024 bytes limit, dropping oldest bytes");
-            buffer_.remove(0, buffer_.size() - 1024);
+        if (buffer_.size() > app::constants::Constants::Modbus::kMaxTcpBufferedBytes) {
+            spdlog::warn("ModbusClient: TCP buffer exceeded {} bytes limit, dropping oldest bytes",
+                         app::constants::Constants::Modbus::kMaxTcpBufferedBytes);
+            buffer_.remove(0, buffer_.size() - app::constants::Constants::Modbus::kMaxTcpBufferedBytes);
         }
     }
     responseReady_ = true; // 即使不完整也唤醒，由工作线程检查完整性

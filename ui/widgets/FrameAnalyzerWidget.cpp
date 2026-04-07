@@ -27,9 +27,11 @@
 #include <QStringList>
 #include <QResizeEvent>
 #include <QTextStream>
-#include <QThread>
+#include <QFutureWatcher>
 #include <QObject>
 #include <QSplitter>
+#include <QtConcurrent/QtConcurrent>
+#include <memory>
 
 namespace ui::widgets {
 
@@ -147,13 +149,13 @@ FrameAnalyzerWidget::FrameAnalyzerWidget(ui::common::ISettingsService* settingsS
     qRegisterMetaType<ProtocolType>("modbus::core::parser::ProtocolType");
     qRegisterMetaType<ParseResult>("modbus::core::parser::ParseResult");
 
-    parseThread_ = new QThread(this);
+    parseThread_ = new QThread();
     auto* parseWorker = new FrameParseWorker();
     parseWorker_ = parseWorker;
     parseWorker->moveToThread(parseThread_);
     connect(this, &FrameAnalyzerWidget::parseRequested, parseWorker, &FrameParseWorker::enqueueParse, Qt::QueuedConnection);
     connect(parseWorker, &FrameParseWorker::parseFinished, this, &FrameAnalyzerWidget::onParseFinished, Qt::QueuedConnection);
-    connect(parseThread_, &QThread::finished, parseWorker, &QObject::deleteLater);
+    connect(parseThread_, &QThread::finished, parseThread_, &QObject::deleteLater);
     parseThread_->start();
 
     setupUi();
@@ -162,8 +164,20 @@ FrameAnalyzerWidget::FrameAnalyzerWidget(ui::common::ISettingsService* settingsS
 FrameAnalyzerWidget::~FrameAnalyzerWidget()
 {
     if (parseThread_) {
-        parseThread_->quit();
-        parseThread_->wait();
+        disconnect(this, nullptr, parseWorker_, nullptr);
+        QObject* worker = parseWorker_;
+        QThread* thread = parseThread_;
+        parseWorker_ = nullptr;
+        parseThread_ = nullptr;
+        if (thread->isRunning() && worker) {
+            QMetaObject::invokeMethod(worker, [worker, thread]() {
+                QObject::connect(worker, &QObject::destroyed, thread, &QThread::quit, Qt::UniqueConnection);
+                worker->deleteLater();
+            }, Qt::QueuedConnection);
+        } else {
+            delete worker;
+            delete thread;
+        }
     }
 }
 
@@ -649,64 +663,88 @@ void FrameAnalyzerWidget::exportMetadataToJson(const QString& filePath)
         items.append(item);
     }
     root.insert("items", items);
-
-    QFile file(filePath);
-    if (!file.open(QIODevice::WriteOnly | QIODevice::Truncate)) {
-        QMessageBox::warning(this, tr("Export Failed"), tr("Cannot write file: %1").arg(filePath));
-        return;
-    }
-    file.write(QJsonDocument(root).toJson(QJsonDocument::Indented));
-    file.close();
+    const QByteArray jsonBytes = QJsonDocument(root).toJson(QJsonDocument::Indented);
+    auto errorMessage = std::make_shared<QString>();
+    auto* watcher = new QFutureWatcher<void>(this);
+    connect(watcher, &QFutureWatcher<void>::finished, this, [this, errorMessage]() {
+        if (!errorMessage->isEmpty()) {
+            QMessageBox::warning(this, tr("Export Failed"), *errorMessage);
+        }
+    });
+    connect(watcher, &QFutureWatcher<void>::finished, watcher, &QObject::deleteLater);
+    watcher->setFuture(QtConcurrent::run([filePath, jsonBytes, errorMessage]() {
+        QFile file(filePath);
+        if (!file.open(QIODevice::WriteOnly | QIODevice::Truncate)) {
+            *errorMessage = QObject::tr("Cannot write file: %1").arg(filePath);
+            return;
+        }
+        if (file.write(jsonBytes) != jsonBytes.size()) {
+            *errorMessage = QObject::tr("Cannot write file: %1").arg(filePath);
+        }
+    }));
 }
 
 void FrameAnalyzerWidget::importMetadataFromJson(const QString& filePath)
 {
-    QFile file(filePath);
-    if (!file.open(QIODevice::ReadOnly)) {
-        QMessageBox::warning(this, tr("Import Failed"), tr("Cannot open file: %1").arg(filePath));
-        return;
-    }
-    const QJsonDocument doc = QJsonDocument::fromJson(file.readAll());
-    file.close();
-    if (!doc.isObject()) {
-        QMessageBox::warning(this, tr("Import Failed"), tr("Invalid JSON format."));
-        return;
-    }
-    const QJsonObject root = doc.object();
-    if (root.contains("startAddress") && startAddressSpin_) {
-        startAddressSpin_->setValue(root.value("startAddress").toInt(startAddressSpin_->value()));
-    }
-    if (root.contains("expectedQuantity") && quantitySpin_) {
-        quantitySpin_->setValue(root.value("expectedQuantity").toInt(quantitySpin_->value()));
-    }
-    if (root.contains("displayMode") && displayModeCombo_) {
-        const QString mode = root.value("displayMode").toString().trimmed().toLower();
-        const int index = mode == "signed" ? 1 : 0;
-        displayModeCombo_->setCurrentIndex(index);
-    }
+    auto parsedRoot = std::make_shared<QJsonObject>();
+    auto errorMessage = std::make_shared<QString>();
+    auto* watcher = new QFutureWatcher<void>(this);
+    connect(watcher, &QFutureWatcher<void>::finished, this, [this, parsedRoot, errorMessage]() {
+        if (!errorMessage->isEmpty()) {
+            QMessageBox::warning(this, tr("Import Failed"), *errorMessage);
+            return;
+        }
 
-    metadataByAddress_.clear();
-    const QJsonArray items = root.value("items").toArray();
-    for (const QJsonValue& value : items) {
-        if (!value.isObject()) {
-            continue;
+        const QJsonObject& root = *parsedRoot;
+        if (root.contains("startAddress") && startAddressSpin_) {
+            startAddressSpin_->setValue(root.value("startAddress").toInt(startAddressSpin_->value()));
         }
-        const QJsonObject item = value.toObject();
-        const int addressValue = item.value("address").toInt(-1);
-        if (addressValue < 0 || addressValue > 65535) {
-            continue;
+        if (root.contains("expectedQuantity") && quantitySpin_) {
+            quantitySpin_->setValue(root.value("expectedQuantity").toInt(quantitySpin_->value()));
         }
-        const uint16_t address = static_cast<uint16_t>(addressValue);
-        DataMetadata meta;
-        meta.description = item.value("description").toString();
-        meta.scale = item.value("scale").toDouble(1.0);
-        metadataByAddress_.insert(address, meta);
-    }
-    if (!inputEditor_->toPlainText().trimmed().isEmpty()) {
-        onParseClicked();
-    } else {
-        clearResult();
-    }
+        if (root.contains("displayMode") && displayModeCombo_) {
+            const QString mode = root.value("displayMode").toString().trimmed().toLower();
+            const int index = mode == "signed" ? 1 : 0;
+            displayModeCombo_->setCurrentIndex(index);
+        }
+
+        metadataByAddress_.clear();
+        const QJsonArray items = root.value("items").toArray();
+        for (const QJsonValue& value : items) {
+            if (!value.isObject()) {
+                continue;
+            }
+            const QJsonObject item = value.toObject();
+            const int addressValue = item.value("address").toInt(-1);
+            if (addressValue < 0 || addressValue > 65535) {
+                continue;
+            }
+            const uint16_t address = static_cast<uint16_t>(addressValue);
+            DataMetadata meta;
+            meta.description = item.value("description").toString();
+            meta.scale = item.value("scale").toDouble(1.0);
+            metadataByAddress_.insert(address, meta);
+        }
+        if (!inputEditor_->toPlainText().trimmed().isEmpty()) {
+            onParseClicked();
+        } else {
+            clearResult();
+        }
+    });
+    connect(watcher, &QFutureWatcher<void>::finished, watcher, &QObject::deleteLater);
+    watcher->setFuture(QtConcurrent::run([filePath, parsedRoot, errorMessage]() {
+        QFile file(filePath);
+        if (!file.open(QIODevice::ReadOnly)) {
+            *errorMessage = QObject::tr("Cannot open file: %1").arg(filePath);
+            return;
+        }
+        const QJsonDocument doc = QJsonDocument::fromJson(file.readAll());
+        if (!doc.isObject()) {
+            *errorMessage = QObject::tr("Invalid JSON format.");
+            return;
+        }
+        *parsedRoot = doc.object();
+    }));
 }
 
 void FrameAnalyzerWidget::clearResult()
@@ -1023,19 +1061,13 @@ void FrameAnalyzerWidget::onParseFinished(const ParseResult& result, quint64 req
 
 void FrameAnalyzerWidget::exportCurrentTableToCsv(const QString& filePath) const
 {
-    QFile file(filePath);
-    if (!file.open(QIODevice::WriteOnly | QIODevice::Truncate | QIODevice::Text)) {
-        QMessageBox::warning(const_cast<FrameAnalyzerWidget*>(this), tr("Export Failed"), tr("Cannot write file: %1").arg(filePath));
-        return;
-    }
-
-    QTextStream stream(&file);
+    QStringList lines;
     QStringList headerValues;
     for (int column = 0; column < dataTable_->columnCount(); ++column) {
         const QTableWidgetItem* headerItem = dataTable_->horizontalHeaderItem(column);
         headerValues << escapeCsvValue(headerItem ? headerItem->text() : QString());
     }
-    stream << headerValues.join(',') << '\n';
+    lines << headerValues.join(',');
 
     for (int row = 0; row < dataTable_->rowCount(); ++row) {
         QStringList rowValues;
@@ -1043,8 +1075,29 @@ void FrameAnalyzerWidget::exportCurrentTableToCsv(const QString& filePath) const
             const QTableWidgetItem* item = dataTable_->item(row, column);
             rowValues << escapeCsvValue(item ? item->text() : QString());
         }
-        stream << rowValues.join(',') << '\n';
+        lines << rowValues.join(',');
     }
+
+    auto errorMessage = std::make_shared<QString>();
+    auto* watcher = new QFutureWatcher<void>(const_cast<FrameAnalyzerWidget*>(this));
+    connect(watcher, &QFutureWatcher<void>::finished, const_cast<FrameAnalyzerWidget*>(this), [this, errorMessage]() {
+        if (!errorMessage->isEmpty()) {
+            QMessageBox::warning(const_cast<FrameAnalyzerWidget*>(this), tr("Export Failed"), *errorMessage);
+        }
+    });
+    connect(watcher, &QFutureWatcher<void>::finished, watcher, &QObject::deleteLater);
+    watcher->setFuture(QtConcurrent::run([filePath, lines, errorMessage]() {
+        QFile file(filePath);
+        if (!file.open(QIODevice::WriteOnly | QIODevice::Truncate | QIODevice::Text)) {
+            *errorMessage = QObject::tr("Cannot write file: %1").arg(filePath);
+            return;
+        }
+
+        QTextStream stream(&file);
+        for (const QString& line : lines) {
+            stream << line << '\n';
+        }
+    }));
 }
 
 QString FrameAnalyzerWidget::escapeCsvValue(const QString& value) const

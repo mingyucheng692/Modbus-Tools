@@ -69,6 +69,7 @@ qt_add_resources(ui i18n
 target_link_libraries(ui PUBLIC
     Qt6::Widgets
     Qt6::Charts
+    Qt6::Concurrent
     Qt6::Network
     core
 )

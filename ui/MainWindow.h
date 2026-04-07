@@ -59,7 +59,9 @@ private:
     void cleanupUpdateArtifacts();
     void promptUpdateAction(const QString& currentVersion);
     void startSilentUpdate();
-    void processDownloadedUpdate(const QString& updateFilePath, const QString& expectedSha);
+    void processDownloadedUpdate(const QString& updateFilePath,
+                                 const QString& expectedSha,
+                                 const QString& checksumsPath = QString());
     void saveWindowSettings();
     QString calculateFileSha256(const QString& filePath) const;
     QString resolveSha256FromChecksums(const QString& checksumsPath, const QString& targetFileName) const;

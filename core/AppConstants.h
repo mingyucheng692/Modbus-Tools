@@ -64,6 +64,8 @@ public:
         inline static constexpr int kMaxRetryIntervalMs = 10000;
         inline static constexpr int kRetryIntervalStepMs = 10;
         inline static constexpr int kMaxDroppedInvalidBytes = 256;
+        inline static constexpr int kMaxRtuBufferedBytes = 260;
+        inline static constexpr int kMaxTcpBufferedBytes = 1024;
         inline static constexpr int kMaxTcpMbapLength = 254;
         inline static constexpr int kMaxPduDataLength = 252;
     };
@@ -79,6 +81,7 @@ public:
         inline static constexpr int kDefaultInputIntervalMs = 1000;
         inline static constexpr int kMinInputIntervalMs = 10;
         inline static constexpr int kMaxInputIntervalMs = 3600000;
+        inline static constexpr int kFileSendChunkSizeBytes = 4096;
     };
 
     struct Polling {

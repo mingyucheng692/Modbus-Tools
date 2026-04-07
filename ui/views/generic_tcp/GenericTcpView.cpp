@@ -71,9 +71,10 @@ void GenericTcpView::setupUi() {
 }
 
 void GenericTcpView::startWorker() {
-    workerThread_ = new QThread(this);
+    workerThread_ = new QThread();
     auto* worker = new io::GenericIoWorker();
     worker->moveToThread(workerThread_);
+    connect(workerThread_, &QThread::finished, workerThread_, &QObject::deleteLater);
 
     connect(worker, &io::GenericIoWorker::stateChangedWithGeneration, this, &GenericTcpView::onWorkerStateChanged);
     connect(worker, &io::GenericIoWorker::errorOccurred, this, &GenericTcpView::onWorkerError);
@@ -84,29 +85,38 @@ void GenericTcpView::startWorker() {
 }
 
 void GenericTcpView::stopWorker() {
-    if (workerThread_) {
-        // Close connection first
-        if (worker_) {
-            suppressDisconnectAlert_ = true;
-            auto worker = worker_;
-            auto thread = workerThread_;
-            worker_ = nullptr;
-            workerThread_ = nullptr;
-            
-            worker->disconnect(this);
-            connect(thread, &QThread::finished, thread, &QObject::deleteLater);
-            
-            QMetaObject::invokeMethod(worker, [worker, thread]() {
-                worker->close();
-                worker->deleteLater();
-                thread->quit();
-            }, Qt::QueuedConnection);
-        } else {
-            workerThread_->quit();
-            connect(workerThread_, &QThread::finished, workerThread_, &QObject::deleteLater);
-            workerThread_ = nullptr;
-        }
+    auto* thread = workerThread_;
+    auto* worker = worker_;
+    workerThread_ = nullptr;
+    worker_ = nullptr;
+
+    if (!thread) {
+        return;
     }
+
+    if (!worker) {
+        if (thread->isRunning()) {
+            thread->quit();
+        } else {
+            delete thread;
+        }
+        return;
+    }
+
+    suppressDisconnectAlert_ = true;
+    worker->disconnect(this);
+
+    if (!thread->isRunning()) {
+        delete worker;
+        delete thread;
+        return;
+    }
+
+    QMetaObject::invokeMethod(worker, [worker, thread]() {
+        QObject::connect(worker, &QObject::destroyed, thread, &QThread::quit, Qt::UniqueConnection);
+        worker->close();
+        worker->deleteLater();
+    }, Qt::QueuedConnection);
 }
 
 void GenericTcpView::onConnectClicked(const QString& ip, int port) {

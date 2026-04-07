@@ -590,31 +590,16 @@ void ModbusTcpView::releaseStack() {
         return;
     }
 
-    auto finalizeRelease = [channel = std::move(channel),
-                            client = std::move(client),
-                            worker = std::move(worker),
-                            thread = std::move(thread)]() mutable {
-        worker.reset();
-        client.reset();
-        channel.reset();
-        thread.reset();
-    };
-
-    if (thread && thread->isRunning()) {
-        QObject::connect(thread.get(), &QThread::finished, std::move(finalizeRelease));
-        if (worker) {
-            worker->stop();
-        } else {
-            thread->requestInterruption();
-            thread->quit();
-        }
-        return;
-    }
-
     if (worker) {
         worker->stop();
+    } else if (thread && thread->isRunning()) {
+        thread->requestInterruption();
+        thread->quit();
     }
-    finalizeRelease();
+    worker.reset();
+    client.reset();
+    channel.reset();
+    thread.reset();
 }
 
 int ModbusTcpView::nextRequestId() {

@@ -10,6 +10,47 @@
 
 namespace modbus::factory {
 
+namespace {
+
+void disposeThread(QThread* thread)
+{
+    if (!thread) {
+        return;
+    }
+
+    if (thread->isRunning()) {
+        QObject::connect(thread, &QThread::finished, thread, &QObject::deleteLater, Qt::UniqueConnection);
+        return;
+    }
+
+    if (thread->thread() == QThread::currentThread()) {
+        delete thread;
+    } else {
+        thread->deleteLater();
+    }
+}
+
+void disposeWorker(dispatch::ModbusWorker* worker)
+{
+    if (!worker) {
+        return;
+    }
+
+    QThread* objectThread = worker->thread();
+    if (objectThread && objectThread->isRunning()) {
+        QMetaObject::invokeMethod(worker, [worker, objectThread]() {
+            QObject::connect(worker, &QObject::destroyed, objectThread, &QThread::quit, Qt::UniqueConnection);
+            worker->stop();
+            worker->deleteLater();
+        }, Qt::QueuedConnection);
+        return;
+    }
+
+    delete worker;
+}
+
+} // namespace
+
 ModbusStack ModbusFactory::createStack(const base::ModbusConfig& config) {
     ModbusStack stack;
     // 1. 创建底层通道 (IO)
@@ -26,22 +67,12 @@ ModbusStack ModbusFactory::createStack(const base::ModbusConfig& config) {
 
     // 4. 创建工作线程 (Dispatch)
     QThread* threadRaw = new QThread();
-    stack.thread = std::shared_ptr<QThread>(threadRaw, [](QThread* t) {
-        if (t) {
-            t->quit();
-            t->deleteLater(); // 异步回收线程对象
-        }
-    });
+    stack.thread = std::shared_ptr<QThread>(threadRaw, &disposeThread);
 
     stack.channel->moveToThread(stack.thread.get());
 
     auto workerRaw = new dispatch::ModbusWorker(stack.client, stack.thread.get(), nullptr);
-    stack.worker = std::shared_ptr<dispatch::ModbusWorker>(workerRaw, [](dispatch::ModbusWorker* worker) {
-        if (worker) {
-            worker->stop(); // 发起停止请求
-            worker->deleteLater(); // 安全地委托给事件循环释放
-        }
-    });
+    stack.worker = std::shared_ptr<dispatch::ModbusWorker>(workerRaw, &disposeWorker);
     return stack;
 }
 
