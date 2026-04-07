@@ -28,28 +28,35 @@ ModbusStack ModbusFactory::createStack(const base::ModbusConfig& config) {
     stack.thread = std::shared_ptr<QThread>(new QThread(), [](QThread* thread) {
         if (thread) {
             if (thread->isRunning()) {
-                QObject::connect(thread, &QThread::finished, thread, &QObject::deleteLater, Qt::UniqueConnection);
                 thread->requestInterruption();
                 thread->quit();
-                return;
+                thread->wait(); // 强制确定性等待线程结束，防止悬挂
             }
-            thread->deleteLater();
+            delete thread; // 纯 C++ RAII 释放
         }
     });
 
     stack.channel->moveToThread(stack.thread.get());
 
-    auto workerThread = stack.thread;
     auto workerRaw = new dispatch::ModbusWorker(stack.client, stack.thread.get(), nullptr);
-    stack.worker = std::shared_ptr<dispatch::ModbusWorker>(workerRaw, [workerThread](dispatch::ModbusWorker* worker) {
+    stack.worker = std::shared_ptr<dispatch::ModbusWorker>(workerRaw, [](dispatch::ModbusWorker* worker) {
         if (worker) {
-            worker->stop();
-            QThread* thread = workerThread.get();
-            if (thread && thread->isRunning()) {
-                QMetaObject::invokeMethod(worker, "deleteLater", Qt::QueuedConnection);
-            } else {
-                delete worker;
+            worker->stop(); // 发起停止请求
+            // 为了安全地 delete 一个生活在其他线程的 QObject，我们先把它 move 回当前执行析构的线程
+            // 这样直接 delete worker 就不会报 QObject 跨线程销毁的错误了。
+            // 如果所属的 QThread 正在运行，可以通过 invokeMethod 将其 move 出来
+            QThread* currentThread = QThread::currentThread();
+            QThread* objectThread = worker->thread();
+            if (objectThread && objectThread != currentThread && objectThread->isRunning()) {
+                // 阻塞调用 moveToThread
+                QMetaObject::invokeMethod(worker, [worker, currentThread]() {
+                    worker->moveToThread(currentThread);
+                }, Qt::BlockingQueuedConnection);
+            } else if (objectThread && objectThread != currentThread) {
+                // 线程已死，直接强制转移（极少发生）
+                worker->moveToThread(currentThread);
             }
+            delete worker; // 确定性 RAII 释放，不依赖事件循环的 deleteLater
         }
     });
     return stack;

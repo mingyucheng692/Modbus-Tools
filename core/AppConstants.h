@@ -72,7 +72,7 @@ public:
         inline static constexpr int kAsyncQueueSize = 8192;
         inline static constexpr int kAsyncWorkerThreads = 1;
         inline static constexpr std::size_t kMaxFileSizeBytes = 10 * 1024 * 1024;
-        inline static constexpr std::size_t kMaxRotatedFiles = 5;
+        inline static constexpr std::size_t kMaxRotatedFiles = 20;
     };
 
     struct GenericIo {
