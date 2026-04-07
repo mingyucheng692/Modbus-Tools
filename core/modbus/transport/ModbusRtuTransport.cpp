@@ -47,4 +47,9 @@ int ModbusRtuTransport::checkIntegrity(const QByteArray& data) {
     return base::inspectRtuAdu(data);
 }
 
+void ModbusRtuTransport::resetPendingState() {
+    hasPendingRequest_ = false;
+    expectedResponseSlaveId_ = 0;
+}
+
 } // namespace modbus::transport

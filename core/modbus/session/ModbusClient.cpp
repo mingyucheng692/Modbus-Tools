@@ -31,7 +31,16 @@ int parityBitCount(int parity)
 
 int bitsPerCharacter(const base::ModbusConfig& config)
 {
-    return static_cast<int>(std::ceil(1.0 + static_cast<double>(config.dataBits) +
+    // Modbus RTU specification (Modbus over Serial Line V1.02, section 2.5.1):
+    // "The format (11 bits) for each byte in RTU mode is: 1 start bit, 8 data bits,
+    // 1 parity bit, 1 stop bit. If No Parity is implemented, an additional stop bit 
+    // is transmitted to fill out the character frame to a full 11-bit asynchronous character."
+    // 
+    // However, in the real world, the vast majority of devices default to 8N1 (10 bits),
+    // which technically violates the 11-bit rule but is the de facto industry standard.
+    // We calculate timing based on the *actual* configured bits.
+    const int startBits = 1;
+    return static_cast<int>(std::ceil(static_cast<double>(startBits) + static_cast<double>(config.dataBits) +
                                       static_cast<double>(parityBitCount(config.parity)) +
                                       stopBitsToCount(config.stopBits)));
 }
@@ -51,6 +60,20 @@ std::chrono::microseconds calculateRtuInterFrameDelay(const base::ModbusConfig& 
     const double charTimeUs =
         (static_cast<double>(bitsPerCharacter(config)) * 1000000.0) / static_cast<double>(config.baudRate);
     return std::chrono::microseconds(static_cast<long long>(std::ceil(3.5 * charTimeUs)));
+}
+
+std::chrono::microseconds calculateRtuInterCharacterDelay(const base::ModbusConfig& config)
+{
+    if (config.baudRate <= 0) {
+        return std::chrono::microseconds(750);
+    }
+    if (config.baudRate > 19200) {
+        return std::chrono::microseconds(750);
+    }
+
+    const double charTimeUs =
+        (static_cast<double>(bitsPerCharacter(config)) * 1000000.0) / static_cast<double>(config.baudRate);
+    return std::chrono::microseconds(static_cast<long long>(std::ceil(1.5 * charTimeUs)));
 }
 
 std::chrono::microseconds calculateRtuFrameDuration(const base::ModbusConfig& config, qsizetype frameBytes)
@@ -216,6 +239,7 @@ void ModbusClient::finishPendingRequest(int requestId, bool success, const QStri
 void ModbusClient::clearRuntimeState(bool clearPendingQueue) {
     std::lock_guard<std::mutex> lock(mutex_);
     buffer_.clear();
+    completedRtuFrames_.clear();
     responseReady_ = false;
     writeDrained_ = true;
     lastError_.clear();
@@ -225,6 +249,9 @@ void ModbusClient::clearRuntimeState(bool clearPendingQueue) {
     if (clearPendingQueue) {
         std::lock_guard<std::mutex> pendingLock(pendingMutex_);
         pendingRequests_.clear();
+    }
+    if (transport_) {
+        transport_->resetPendingState();
     }
 }
 
@@ -577,11 +604,14 @@ ModbusResponse ModbusClient::sendRequestInternal(const base::Pdu& request, int s
             return ModbusResponse::Error("Aborted");
         }
         buffer_.clear();
+        completedRtuFrames_.clear();
         responseReady_ = false;
         writeDrained_ = config_.mode != base::ModbusMode::RTU;
         lastError_.clear();
+        lastRtuByteReceivedAt_ = std::chrono::steady_clock::time_point{};
         lastWriteDrainedAt_ = std::chrono::steady_clock::time_point{};
     }
+    transport_->resetPendingState();
 
     // 2. 构建 ADU
     int targetSlaveId = (slaveId == -1) ? config_.slaveId : slaveId;
@@ -676,9 +706,10 @@ ModbusResponse ModbusClient::sendRequestInternal(const base::Pdu& request, int s
         responseReady_ = false;
 
         while (true) {
+            // 对于 RTU，走基于静默时间的帧提取流程
             if (config_.mode == base::ModbusMode::RTU) {
                 QByteArray frame;
-                if (tryExtractRtuResponseFrameLocked(request, targetSlaveId, frame, droppedInvalidBytes)) {
+                if (tryPopRtuResponseFrameLocked(frame)) {
                     lock.unlock();
                     auto parseResult = transport_->parseResponse(frame);
                     if (parseResult.status == transport::ParseResponseStatus::Ok && parseResult.pdu) {
@@ -707,16 +738,6 @@ ModbusResponse ModbusClient::sendRequestInternal(const base::Pdu& request, int s
                     }
                     transitionTo(RequestState::Failed, "response-parse-failed");
                     return ModbusResponse::Error("Response parsing failed");
-                }
-                if (!buffer_.isEmpty() && isRtuFrameReadyToParseLocked(std::chrono::steady_clock::now())) {
-                    buffer_.remove(0, 1);
-                    ++droppedInvalidBytes;
-                    if (droppedInvalidBytes > app::constants::Constants::Modbus::kMaxDroppedInvalidBytes) {
-                        transitionTo(RequestState::Failed, "too-many-invalid-bytes");
-                        return ModbusResponse::Error("Too many invalid response bytes");
-                    }
-                    responseReady_ = !buffer_.isEmpty();
-                    continue;
                 }
                 break;
             }
@@ -954,7 +975,13 @@ void ModbusClient::updateRtuSendWindow(qsizetype frameBytes) {
 }
 
 bool ModbusClient::isRtuFrameReadyToParseLocked(std::chrono::steady_clock::time_point now) const {
-    if (config_.mode != base::ModbusMode::RTU || buffer_.isEmpty()) {
+    if (config_.mode != base::ModbusMode::RTU) {
+        return false;
+    }
+    if (!completedRtuFrames_.empty()) {
+        return true;
+    }
+    if (buffer_.isEmpty()) {
         return false;
     }
     if (lastRtuByteReceivedAt_ == std::chrono::steady_clock::time_point{}) {
@@ -970,98 +997,46 @@ std::chrono::steady_clock::time_point ModbusClient::nextRtuFrameBoundaryLocked()
     return lastRtuByteReceivedAt_ + calculateRtuInterFrameDelay(config_);
 }
 
-std::optional<int> ModbusClient::expectedRtuResponseLength(const base::Pdu& request) const {
+bool ModbusClient::tryPopRtuResponseFrameLocked(QByteArray& frame) {
     if (config_.mode != base::ModbusMode::RTU) {
-        return std::nullopt;
-    }
-
-    uint16_t quantity = 0;
-    switch (request.functionCode()) {
-    case base::FunctionCode::ReadCoils:
-    case base::FunctionCode::ReadDiscreteInputs:
-        if (!readBigEndianUInt16(request.data(), 2, quantity)) {
-            return std::nullopt;
-        }
-        return 1 + 1 + 1 + ((static_cast<int>(quantity) + 7) / 8) + 2;
-    case base::FunctionCode::ReadHoldingRegisters:
-    case base::FunctionCode::ReadInputRegisters:
-        if (!readBigEndianUInt16(request.data(), 2, quantity)) {
-            return std::nullopt;
-        }
-        return 1 + 1 + 1 + (static_cast<int>(quantity) * 2) + 2;
-    case base::FunctionCode::WriteSingleCoil:
-    case base::FunctionCode::WriteSingleRegister:
-    case base::FunctionCode::WriteMultipleCoils:
-    case base::FunctionCode::WriteMultipleRegisters:
-        return 8;
-    default:
-        return std::nullopt;
-    }
-}
-
-bool ModbusClient::tryExtractRtuResponseFrameLocked(const base::Pdu& request,
-                                                    int targetSlaveId,
-                                                    QByteArray& frame,
-                                                    int& droppedInvalidBytes) {
-    if (config_.mode != base::ModbusMode::RTU || buffer_.size() < 5) {
         return false;
     }
 
-    const auto expectedLength = expectedRtuResponseLength(request);
-    const uint8_t expectedSlaveId = static_cast<uint8_t>(targetSlaveId);
-    const uint8_t expectedFunction = static_cast<uint8_t>(request.functionCode());
-
-    auto candidateMatches = [this,
-                             expectedSlaveId,
-                             expectedFunction](const QByteArray& candidate, bool exceptionFrame) {
-        if (candidate.size() < 5 || static_cast<uint8_t>(candidate[0]) != expectedSlaveId) {
-            return false;
-        }
-        const uint8_t actualFunction = static_cast<uint8_t>(candidate[1]);
-        const uint8_t wantedFunction = exceptionFrame
-            ? static_cast<uint8_t>(expectedFunction | 0x80)
-            : expectedFunction;
-        return actualFunction == wantedFunction && transport_->checkIntegrity(candidate) == candidate.size();
-    };
-
-    for (int offset = 0; offset <= buffer_.size() - 5; ++offset) {
-        const int remaining = buffer_.size() - offset;
-        if (remaining < 5) {
-            break;
-        }
-
-        const QByteArray exceptionCandidate = buffer_.mid(offset, 5);
-        if (candidateMatches(exceptionCandidate, true)) {
-            if (offset > 0) {
-                droppedInvalidBytes += offset;
-            }
-            buffer_.remove(0, offset + exceptionCandidate.size());
-            frame = exceptionCandidate;
-            return true;
-        }
-
-        if (expectedLength && remaining >= *expectedLength) {
-            const QByteArray normalCandidate = buffer_.mid(offset, *expectedLength);
-            if (candidateMatches(normalCandidate, false)) {
-                if (offset > 0) {
-                    droppedInvalidBytes += offset;
-                }
-                buffer_.remove(0, offset + normalCandidate.size());
-                frame = normalCandidate;
-                return true;
-            }
-        }
+    if (!completedRtuFrames_.empty()) {
+        frame = completedRtuFrames_.front();
+        completedRtuFrames_.pop_front();
+        return true;
     }
 
-    return false;
+    if (buffer_.isEmpty() || buffer_.size() < 5 || !isRtuFrameReadyToParseLocked(std::chrono::steady_clock::now())) {
+        return false;
+    }
+
+    frame = std::move(buffer_);
+    buffer_.clear();
+    lastRtuByteReceivedAt_ = std::chrono::steady_clock::time_point{};
+    return true;
 }
 
 void ModbusClient::onDataReceived(QByteArrayView data) {
     std::lock_guard<std::mutex> lock(mutex_);
     spdlog::info("ModbusClient: Data received, size={}, notifying loop", data.size());
-    buffer_.append(data);
     if (config_.mode == base::ModbusMode::RTU) {
-        lastRtuByteReceivedAt_ = std::chrono::steady_clock::now();
+        const auto now = std::chrono::steady_clock::now();
+        if (!buffer_.isEmpty() && lastRtuByteReceivedAt_ != std::chrono::steady_clock::time_point{}) {
+            const auto silentInterval = now - lastRtuByteReceivedAt_;
+            if (silentInterval >= calculateRtuInterFrameDelay(config_)) {
+                completedRtuFrames_.push_back(buffer_);
+                buffer_.clear();
+            } else if (silentInterval > calculateRtuInterCharacterDelay(config_)) {
+                spdlog::warn("ModbusClient: discarding RTU fragment after inter-character gap violation");
+                buffer_.clear();
+            }
+        }
+        buffer_.append(data);
+        lastRtuByteReceivedAt_ = now;
+    } else {
+        buffer_.append(data);
     }
     responseReady_ = true; // 即使不完整也唤醒，由工作线程检查完整性
     cv_.notify_one();

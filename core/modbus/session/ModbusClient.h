@@ -79,11 +79,7 @@ private:
     QString validateRequest(const base::Pdu& request, int slaveId) const;
     bool isRtuFrameReadyToParseLocked(std::chrono::steady_clock::time_point now) const;
     std::chrono::steady_clock::time_point nextRtuFrameBoundaryLocked() const;
-    std::optional<int> expectedRtuResponseLength(const base::Pdu& request) const;
-    bool tryExtractRtuResponseFrameLocked(const base::Pdu& request,
-                                          int targetSlaveId,
-                                          QByteArray& frame,
-                                          int& droppedInvalidBytes);
+    bool tryPopRtuResponseFrameLocked(QByteArray& frame);
     int enqueuePendingRequest(const base::Pdu& request, int slaveId);
     void finishPendingRequest(int requestId, bool success, const QString& error);
     void clearRuntimeState(bool clearPendingQueue);
@@ -108,6 +104,7 @@ private:
     std::atomic<ConnectionState> connectionState_ {ConnectionState::Disconnected};
     std::atomic<RequestState> requestState_ {RequestState::Idle};
     std::mutex pendingMutex_;
+    std::deque<QByteArray> completedRtuFrames_;
     std::chrono::steady_clock::time_point lastRtuByteReceivedAt_ {};
     std::chrono::steady_clock::time_point nextRtuSendAllowedAt_ {};
     int nextRequestId_ = 1;

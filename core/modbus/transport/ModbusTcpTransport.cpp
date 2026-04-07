@@ -8,9 +8,11 @@ ModbusTcpTransport::ModbusTcpTransport() : transactionId_(0) {}
 QByteArray ModbusTcpTransport::buildRequest(const base::Pdu& pdu, uint8_t slaveId) {
     QByteArray adu;
     uint16_t transactionId = transactionId_++;
-    expectedResponseTransactionId_ = transactionId;
-    expectedResponseUnitId_ = slaveId;
-    hasPendingRequest_ = true;
+    
+    // 如果累积过多挂起事务，主动淘汰最老的，防止极端情况下 OOM 及 ID 碰撞
+    purgeStaleTransactions();
+    
+    pendingTransactions_[transactionId] = slaveId;
     uint16_t length = static_cast<uint16_t>(1 + 1 + pdu.data().size());
     adu.append(static_cast<char>((transactionId >> 8) & 0xFF));
     adu.append(static_cast<char>(transactionId & 0xFF));
@@ -31,14 +33,15 @@ ParseResponseResult ModbusTcpTransport::parseResponse(const QByteArray& adu) {
         return {ParseResponseStatus::Invalid, std::nullopt};
     }
 
-    if (hasPendingRequest_ && fields.transactionId != expectedResponseTransactionId_) {
+    const auto pendingIt = pendingTransactions_.find(fields.transactionId);
+    if (pendingIt == pendingTransactions_.end()) {
         return {ParseResponseStatus::Unmatched, std::nullopt};
     }
-    if (hasPendingRequest_ && fields.unitId != expectedResponseUnitId_) {
+    if (fields.unitId != pendingIt->second) {
         return {ParseResponseStatus::Unmatched, std::nullopt};
     }
 
-    hasPendingRequest_ = false;
+    pendingTransactions_.erase(pendingIt);
     const uint8_t fc = static_cast<uint8_t>(adu[7]);
     QByteArray payload = adu.mid(8, fields.length - 2);
 
@@ -47,6 +50,20 @@ ParseResponseResult ModbusTcpTransport::parseResponse(const QByteArray& adu) {
 
 int ModbusTcpTransport::checkIntegrity(const QByteArray& data) {
     return base::inspectTcpAdu(data);
+}
+
+void ModbusTcpTransport::resetPendingState() {
+    pendingTransactions_.clear();
+}
+
+void ModbusTcpTransport::purgeStaleTransactions(uint16_t thresholdCount) {
+    if (pendingTransactions_.size() > thresholdCount) {
+        // 保留最新的 (thresholdCount / 2) 个事务，清理过旧事务
+        size_t keepCount = thresholdCount / 2;
+        auto it = pendingTransactions_.end();
+        std::advance(it, -keepCount);
+        pendingTransactions_.erase(pendingTransactions_.begin(), it);
+    }
 }
 
 } // namespace modbus::transport

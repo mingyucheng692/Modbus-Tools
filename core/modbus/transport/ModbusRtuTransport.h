@@ -10,6 +10,7 @@ public:
     QByteArray buildRequest(const base::Pdu& pdu, uint8_t slaveId) override;
     ParseResponseResult parseResponse(const QByteArray& adu) override;
     int checkIntegrity(const QByteArray& data) override;
+    void resetPendingState() override;
 
 private:
     uint8_t expectedResponseSlaveId_ = 0;

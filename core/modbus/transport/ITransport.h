@@ -30,6 +30,9 @@ public:
     // RTU 的帧边界由 session 基于静默时间控制；transport 只负责结构/校验和判断。
     // 返回：0 表示不完整，>0 表示完整包的长度，-1 表示错误数据需丢弃
     virtual int checkIntegrity(const QByteArray& data) = 0;
+
+    // 清理与请求/响应关联的内部状态，避免超时或断连后旧事务污染后续请求。
+    virtual void resetPendingState() = 0;
 };
 
 } // namespace modbus::transport
