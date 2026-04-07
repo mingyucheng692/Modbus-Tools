@@ -462,7 +462,7 @@ QString effectiveAppLocale(const QString& locale) {
 
 int calculateExpandedNavigationWidth(const QListWidget* navigationList) {
     if (!navigationList) {
-        return 138;
+        return app::constants::Constants::Ui::kNavigationExpandedWidth;
     }
 
     const QFontMetrics metrics(navigationList->fontMetrics());
@@ -476,12 +476,14 @@ int calculateExpandedNavigationWidth(const QListWidget* navigationList) {
         maxTextWidth = qMax(maxTextWidth, metrics.horizontalAdvance(title));
     }
 
-    const int iconWidth = qMax(24, navigationList->iconSize().width());
+    const int iconWidth = qMax(app::constants::Constants::Ui::kNavigationMinIconWidth,
+                               navigationList->iconSize().width());
     const int frameWidth = navigationList->frameWidth() * 2;
-    const int leftInset = 8;
-    const int textGap = 6;
-    const int rightInset = 9;
-    return qMax(138, frameWidth + leftInset + iconWidth + textGap + maxTextWidth + rightInset);
+    const int leftInset = app::constants::Constants::Ui::kNavigationLeftInset;
+    const int textGap = app::constants::Constants::Ui::kNavigationTextGap;
+    const int rightInset = app::constants::Constants::Ui::kNavigationRightInset;
+    return qMax(app::constants::Constants::Ui::kNavigationExpandedWidth,
+                frameWidth + leftInset + iconWidth + textGap + maxTextWidth + rightInset);
 }
 }
 

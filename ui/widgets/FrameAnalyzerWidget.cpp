@@ -395,7 +395,8 @@ void FrameAnalyzerWidget::createInputGroup()
     quantityLabel_ = new QLabel(tr("Quantity (for Read Response):"), this);
     controlsLayout->addWidget(quantityLabel_);
     quantitySpin_ = new QSpinBox(this);
-    quantitySpin_->setRange(app::constants::Constants::Modbus::kMinQuantity, 2000);
+    quantitySpin_->setRange(app::constants::Constants::Modbus::kMinQuantity,
+                            app::constants::Constants::Modbus::kMaxReadBitsQuantity);
     quantitySpin_->setValue(app::constants::Constants::Modbus::kDefaultStandardQuantity);
     controlsLayout->addWidget(quantitySpin_);
 
@@ -1068,7 +1069,7 @@ void FrameAnalyzerWidget::exportCurrentTableToCsv(const QString& filePath) const
     };
     auto state = std::make_shared<SaveState>();
     const int totalRows = dataTable_->rowCount();
-    const int chunkSize = 128;
+    const int chunkSize = app::constants::Constants::Ui::kFrameAnalyzerCsvExportChunkRows;
     auto scheduleNextChunk = std::make_shared<std::function<void()>>();
 
     *scheduleNextChunk = [this, filePath, totalRows, chunkSize, state, errorMessage, scheduleNextChunk]() {

@@ -94,6 +94,14 @@ public:
     struct Ui {
         inline static constexpr int kFrameAnalyzerAdaptiveHistoryCollapseWidth = 1040;
         inline static constexpr int kFrameAnalyzerMaxHistoryItems = 20;
+        inline static constexpr int kFrameAnalyzerCsvExportChunkRows = 128;
+        inline static constexpr int kTrafficLogExportChunkRows = 256;
+        inline static constexpr int kNavigationExpandedWidth = 138;
+        inline static constexpr int kNavigationCollapsedWidth = 52;
+        inline static constexpr int kNavigationMinIconWidth = 24;
+        inline static constexpr int kNavigationLeftInset = 8;
+        inline static constexpr int kNavigationTextGap = 6;
+        inline static constexpr int kNavigationRightInset = 9;
         inline static constexpr int kTrafficMonitorMaxBlockCount = 1000;
     };
 };

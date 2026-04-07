@@ -1,4 +1,5 @@
 #include "TrafficMonitorWidget.h"
+#include "AppConstants.h"
 #include "CollapsibleSection.h"
 #include "../common/ISettingsService.h"
 #include <QVBoxLayout>
@@ -204,7 +205,7 @@ void TrafficMonitorWidget::onSaveClicked() {
     };
     auto state = std::make_shared<SaveState>();
     const int totalCount = logList_->count();
-    const int chunkSize = 256;
+    const int chunkSize = app::constants::Constants::Ui::kTrafficLogExportChunkRows;
     auto scheduleNextChunk = std::make_shared<std::function<void()>>();
 
     *scheduleNextChunk = [this, fileName, totalCount, chunkSize, state, errorMessage, scheduleNextChunk]() {

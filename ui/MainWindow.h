@@ -126,8 +126,8 @@ private:
     std::shared_ptr<std::atomic_bool> updatePreparationCancelToken_;
     QObject* parameterWheelBlocker_ = nullptr;
     bool navigationCollapsed_ = false;
-    int navigationExpandedWidth_ = 138;
-    int navigationCollapsedWidth_ = 52;
+    int navigationExpandedWidth_ = app::constants::Constants::Ui::kNavigationExpandedWidth;
+    int navigationCollapsedWidth_ = app::constants::Constants::Ui::kNavigationCollapsedWidth;
 };
 
 } // namespace ui
