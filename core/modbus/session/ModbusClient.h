@@ -42,6 +42,7 @@ public:
     bool connect() override;
     void disconnect() override;
     bool isConnected() const override;
+    QString lastError() override;
     void abort() override;
     void setConfig(const base::ModbusConfig& config) override;
     ConnectionState connectionState() const;

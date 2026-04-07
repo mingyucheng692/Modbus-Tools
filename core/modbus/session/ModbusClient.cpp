@@ -370,6 +370,11 @@ bool ModbusClient::isConnected() const {
     return channel_ && channel_->isOpen();
 }
 
+QString ModbusClient::lastError() {
+    std::lock_guard<std::mutex> lock(mutex_);
+    return lastError_;
+}
+
 void ModbusClient::setConfig(const base::ModbusConfig& config) {
     config_ = config;
     if (isConnected()) {
@@ -448,6 +453,11 @@ bool ModbusClient::ensureConnected(bool allowReconnect) {
 
     std::lock_guard<std::mutex> lock(mutex_);
     lastError_ = connectError.isEmpty() ? trClient("Connect timeout") : connectError;
+    spdlog::warn("ModbusClient: connect failed target={}:{} reason={} channelState={}",
+                 config_.ipAddress.toStdString(),
+                 config_.port,
+                 lastError_.toStdString(),
+                 static_cast<int>(channel_->state()));
     return false;
 }
 

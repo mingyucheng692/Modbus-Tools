@@ -136,7 +136,10 @@ void ModbusWorker::handleSubmit(base::Pdu request, int slaveId, int requestId) {
     }
     if (!client_->isConnected()) {
         if (!client_->connect()) {
-            emit requestFinished(requestId, session::ModbusResponse::Error("Failed to connect"));
+            const QString reason = client_->lastError().isEmpty()
+                ? QStringLiteral("Failed to connect")
+                : client_->lastError();
+            emit requestFinished(requestId, session::ModbusResponse::Error(reason));
             return;
         }
     }
@@ -188,6 +191,10 @@ void ModbusWorker::handleSendRaw(QByteArray data) {
     }
     if (!client_->isConnected()) {
         if (!client_->connect()) {
+            const QString reason = client_->lastError().isEmpty()
+                ? QStringLiteral("Failed to connect")
+                : client_->lastError();
+            spdlog::warn("ModbusWorker: sendRaw connect failed: {}", reason.toStdString());
             return;
         }
     }
@@ -203,8 +210,18 @@ void ModbusWorker::handleConnect() {
         emit connectFinished(false, "No client attached");
         return;
     }
-    bool ok = client_->connect();
-    emit connectFinished(ok, ok ? QString() : QString("Failed to connect"));
+    spdlog::info("ModbusWorker: connect requested");
+    const bool ok = client_->connect();
+    if (ok) {
+        spdlog::info("ModbusWorker: connect succeeded");
+        emit connectFinished(true, QString());
+        return;
+    }
+    const QString reason = client_->lastError().isEmpty()
+        ? QStringLiteral("Failed to connect")
+        : client_->lastError();
+    spdlog::warn("ModbusWorker: connect failed: {}", reason.toStdString());
+    emit connectFinished(false, reason);
 }
 
 void ModbusWorker::handleDisconnect() {

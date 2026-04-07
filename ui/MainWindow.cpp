@@ -740,10 +740,21 @@ void MainWindow::updateThemeToggleUi() {
 
 void MainWindow::loadModbusSettings() {
     using namespace common::settings_keys;
-    modbusTimeoutMs_ = settingsService_->value(kModbusTimeoutMs).toInt();
-    modbusRetries_ = settingsService_->value(kModbusRetryCount).toInt();
-    modbusRetryIntervalMs_ = settingsService_->value(kModbusRetryIntervalMs).toInt();
+    modbusTimeoutMs_ = qBound(app::constants::Constants::Modbus::kMinTimeoutMs,
+                              settingsService_->value(kModbusTimeoutMs).toInt(),
+                              app::constants::Constants::Modbus::kMaxTimeoutMs);
+    modbusRetries_ = qBound(app::constants::Constants::Modbus::kMinRetryCount,
+                            settingsService_->value(kModbusRetryCount).toInt(),
+                            app::constants::Constants::Modbus::kMaxRetryCount);
+    modbusRetryIntervalMs_ = qBound(app::constants::Constants::Modbus::kMinRetryIntervalMs,
+                                    settingsService_->value(kModbusRetryIntervalMs).toInt(),
+                                    app::constants::Constants::Modbus::kMaxRetryIntervalMs);
     modbusRetryEnabled_ = settingsService_->value(kModbusRetryEnabled).toBool();
+    spdlog::info("MainWindow: Modbus settings loaded timeoutMs={} retries={} retryIntervalMs={} retryEnabled={}",
+                 modbusTimeoutMs_,
+                 modbusRetries_,
+                 modbusRetryIntervalMs_,
+                 modbusRetryEnabled_);
 }
 
 void MainWindow::applyModbusSettingsToViews() {

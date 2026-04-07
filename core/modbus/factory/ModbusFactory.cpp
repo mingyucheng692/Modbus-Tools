@@ -69,8 +69,6 @@ ModbusStack ModbusFactory::createStack(const base::ModbusConfig& config) {
     QThread* threadRaw = new QThread();
     stack.thread = std::shared_ptr<QThread>(threadRaw, &disposeThread);
 
-    stack.channel->moveToThread(stack.thread.get());
-
     auto workerRaw = new dispatch::ModbusWorker(stack.client, stack.thread.get(), nullptr);
     stack.worker = std::shared_ptr<dispatch::ModbusWorker>(workerRaw, &disposeWorker);
     return stack;

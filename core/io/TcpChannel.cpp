@@ -208,14 +208,25 @@ void TcpChannel::onBytesWritten(qint64 bytes) {
 }
 
 void TcpChannel::onSocketError(QAbstractSocket::SocketError error) {
-    Q_UNUSED(error);
     if (closing_) {
         return;
     }
+    const QString endpoint = QStringLiteral("%1:%2")
+        .arg(socket_.peerAddress().toString())
+        .arg(socket_.peerPort());
+    const QString errorText = socket_.errorString().isEmpty()
+        ? QStringLiteral("TCP socket error")
+        : socket_.errorString();
+    spdlog::warn("TcpChannel: socket error code={} endpoint={} message={}",
+                 static_cast<int>(error),
+                 endpoint.toStdString(),
+                 errorText.toStdString());
     resetWriteState();
     disarmWriteTimeout();
     setState(ChannelState::Error);
-    emitError(socket_.errorString().isEmpty() ? QStringLiteral("TCP socket error") : socket_.errorString());
+    emitError(QStringLiteral("TCP socket error (%1): %2")
+                  .arg(static_cast<int>(error))
+                  .arg(errorText));
 }
 
 void TcpChannel::onStateChanged(QAbstractSocket::SocketState state) {

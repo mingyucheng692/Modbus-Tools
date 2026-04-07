@@ -46,6 +46,7 @@ public:
     virtual bool connect() = 0;
     virtual void disconnect() = 0;
     virtual bool isConnected() const = 0;
+    virtual QString lastError() = 0;
     
     // 中止当前正在进行的后台请求（用于关机/退出）
     virtual void abort() = 0;
