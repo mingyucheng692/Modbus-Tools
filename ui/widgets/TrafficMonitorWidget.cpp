@@ -197,32 +197,65 @@ void TrafficMonitorWidget::onSaveClicked() {
     QString fileName = QFileDialog::getSaveFileName(this, tr("Save Log"), "", tr("Text Files (*.txt);;All Files (*)"));
     if (fileName.isEmpty()) return;
 
-    QStringList lines;
-    lines.reserve(logList_->count());
-    for (int i = 0; i < logList_->count(); ++i) {
-        lines << logList_->item(i)->text();
-    }
-
     auto errorMessage = std::make_shared<QString>();
-    auto* watcher = new QFutureWatcher<void>(this);
-    connect(watcher, &QFutureWatcher<void>::finished, this, [this, errorMessage]() {
+    struct SaveState {
+        int nextIndex = 0;
+        bool firstChunk = true;
+    };
+    auto state = std::make_shared<SaveState>();
+    const int totalCount = logList_->count();
+    const int chunkSize = 256;
+    auto scheduleNextChunk = std::make_shared<std::function<void()>>();
+
+    *scheduleNextChunk = [this, fileName, totalCount, chunkSize, state, errorMessage, scheduleNextChunk]() {
         if (!errorMessage->isEmpty()) {
             appendInfo(tr("Save failed: %1").arg(*errorMessage));
+            return;
         }
-    });
-    connect(watcher, &QFutureWatcher<void>::finished, watcher, &QObject::deleteLater);
-    watcher->setFuture(QtConcurrent::run([fileName, lines, errorMessage]() {
-        QFile file(fileName);
-        if (!file.open(QIODevice::WriteOnly | QIODevice::Text)) {
-            *errorMessage = QObject::tr("Cannot write file: %1").arg(fileName);
+        if (state->nextIndex >= totalCount) {
             return;
         }
 
-        QTextStream out(&file);
-        for (const QString& line : lines) {
-            out << line << "\n";
+        const int begin = state->nextIndex;
+        const int end = qMin(begin + chunkSize, totalCount);
+        QStringList lines;
+        lines.reserve(end - begin);
+        for (int i = begin; i < end; ++i) {
+            lines << logList_->item(i)->text();
         }
-    }));
+        state->nextIndex = end;
+        const bool firstChunk = state->firstChunk;
+        state->firstChunk = false;
+
+        auto* watcher = new QFutureWatcher<void>(this);
+        connect(watcher, &QFutureWatcher<void>::finished, this, [this, errorMessage, scheduleNextChunk, watcher]() {
+            watcher->deleteLater();
+            if (!errorMessage->isEmpty()) {
+                appendInfo(tr("Save failed: %1").arg(*errorMessage));
+                return;
+            }
+            QMetaObject::invokeMethod(this, [scheduleNextChunk]() {
+                (*scheduleNextChunk)();
+            }, Qt::QueuedConnection);
+        });
+
+        watcher->setFuture(QtConcurrent::run([fileName, lines, firstChunk, errorMessage]() {
+            QFile file(fileName);
+            QIODevice::OpenMode mode = QIODevice::WriteOnly | QIODevice::Text;
+            mode |= firstChunk ? QIODevice::Truncate : QIODevice::Append;
+            if (!file.open(mode)) {
+                *errorMessage = QObject::tr("Cannot write file: %1").arg(fileName);
+                return;
+            }
+
+            QTextStream out(&file);
+            for (const QString& line : lines) {
+                out << line << "\n";
+            }
+        }));
+    };
+
+    (*scheduleNextChunk)();
 }
 
 void TrafficMonitorWidget::onCopyClicked() {

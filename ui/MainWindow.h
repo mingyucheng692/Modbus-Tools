@@ -4,6 +4,8 @@
 #include "common/ISettingsService.h"
 #include <QMainWindow>
 #include <QTranslator>
+#include <atomic>
+#include <memory>
 
 class QStackedWidget;
 class QListWidget;
@@ -121,6 +123,7 @@ private:
     QString pendingFullPackageUrl_;
     QString pendingDownloadUrl_;
     QString pendingReleaseUrl_;
+    std::shared_ptr<std::atomic_bool> updatePreparationCancelToken_;
     QObject* parameterWheelBlocker_ = nullptr;
     bool navigationCollapsed_ = false;
     int navigationExpandedWidth_ = 138;

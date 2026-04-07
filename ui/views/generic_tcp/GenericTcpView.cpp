@@ -66,6 +66,8 @@ void GenericTcpView::setupUi() {
     
     connect(inputWidget_, &widgets::GenericInputWidget::sendRequested, 
             this, &GenericTcpView::onSendRequested);
+    connect(inputWidget_, &widgets::GenericInputWidget::fileSendRequested,
+            this, &GenericTcpView::onFileSendRequested);
 
     retranslateUi();
 }
@@ -79,6 +81,30 @@ void GenericTcpView::startWorker() {
     connect(worker, &io::GenericIoWorker::stateChangedWithGeneration, this, &GenericTcpView::onWorkerStateChanged);
     connect(worker, &io::GenericIoWorker::errorOccurred, this, &GenericTcpView::onWorkerError);
     connect(worker, &io::GenericIoWorker::monitor, this, &GenericTcpView::onWorkerMonitor);
+    connect(worker, &io::GenericIoWorker::fileTransferStarted, this, [this](const QString& filePath, qint64 totalBytes) {
+        trafficMonitor_->appendInfo(tr("File transfer started: %1 (%2 bytes)").arg(filePath).arg(totalBytes));
+    });
+    connect(worker, &io::GenericIoWorker::fileTransferProgress, this, [this](const QString& filePath, qint64 sentBytes, qint64 totalBytes) {
+        if (totalBytes <= 0) {
+            return;
+        }
+        const int progress = static_cast<int>((sentBytes * 100) / totalBytes);
+        if (progress == 100 || sentBytes == 0) {
+            trafficMonitor_->appendInfo(tr("File transfer progress: %1 %2/%3")
+                                            .arg(filePath)
+                                            .arg(sentBytes)
+                                            .arg(totalBytes));
+        }
+    });
+    connect(worker, &io::GenericIoWorker::fileTransferFinished, this, [this](const QString& filePath) {
+        trafficMonitor_->appendInfo(tr("File transfer finished: %1").arg(filePath));
+    });
+    connect(worker, &io::GenericIoWorker::fileTransferFailed, this, [this](const QString& filePath, const QString& error) {
+        trafficMonitor_->appendInfo(tr("File transfer failed: %1 (%2)").arg(filePath, error));
+    });
+    connect(worker, &io::GenericIoWorker::fileTransferCanceled, this, [this](const QString& filePath) {
+        trafficMonitor_->appendInfo(tr("File transfer canceled: %1").arg(filePath));
+    });
 
     workerThread_->start();
     worker_ = worker;
@@ -152,6 +178,19 @@ void GenericTcpView::onSendRequested(const QByteArray& data) {
     QMetaObject::invokeMethod(worker_, "write", 
                               Qt::QueuedConnection, 
                               Q_ARG(QByteArray, data));
+}
+
+void GenericTcpView::onFileSendRequested(const QString& filePath) {
+    if (!worker_) return;
+    if (!isConnected_) {
+        ui::common::ConnectionAlert::showNotConnected(this);
+        return;
+    }
+
+    QMetaObject::invokeMethod(worker_, "sendFile",
+                              Qt::QueuedConnection,
+                              Q_ARG(QString, filePath),
+                              Q_ARG(int, app::constants::Constants::GenericIo::kFileSendChunkSizeBytes));
 }
 
 void GenericTcpView::onWorkerStateChanged(io::ChannelState state, quint64 generation) {

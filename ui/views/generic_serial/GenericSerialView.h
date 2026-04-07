@@ -41,6 +41,7 @@ private slots:
     void onConnectClicked(const io::SerialConfig& config);
     void onDisconnectClicked();
     void onSendRequested(const QByteArray& data);
+    void onFileSendRequested(const QString& filePath);
     void onWorkerStateChanged(io::ChannelState state);
     void onWorkerError(const QString& error);
     void onWorkerMonitor(bool isTx, const QByteArray& data);

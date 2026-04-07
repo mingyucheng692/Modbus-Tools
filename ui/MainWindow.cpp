@@ -60,8 +60,10 @@
 #include <QPointer>
 #include <QScrollArea>
 #include <QStandardPaths>
+#include <QFutureWatcher>
 #include <QThread>
 #include <QUrl>
+#include <QtConcurrent/QtConcurrent>
 #include <spdlog/spdlog.h>
 #include <functional>
 #include "modbus/base/ModbusConfig.h"
@@ -1041,45 +1043,13 @@ void MainWindow::processDownloadedUpdate(const QString& updateFilePath,
     const QString expectedVersion = pendingLatestVersion_;
 
     auto result = std::make_shared<UpdatePreparationResult>();
-    auto* prepareThread = QThread::create([result,
-                                           updateFilePath,
-                                           updateFileName,
-                                           normalizedExpectedSha,
-                                           normalizedChecksumsPath,
-                                           taskFilePath,
-                                           expectedVersion]() {
-        result->expectedSha = normalizedExpectedSha;
-        if (result->expectedSha.isEmpty() && !normalizedChecksumsPath.isEmpty()) {
-            result->expectedSha = resolveSha256FromChecksumsSync(normalizedChecksumsPath, updateFileName);
-        }
-        if (result->expectedSha.isEmpty()) {
-            result->errorMessage = ui::MainWindow::tr("Missing update checksum");
+    updatePreparationCancelToken_ = std::make_shared<std::atomic_bool>(false);
+    auto cancelToken = updatePreparationCancelToken_;
+    auto* watcher = new QFutureWatcher<void>(this);
+    connect(watcher, &QFutureWatcher<void>::finished, this, [this, result, cancelToken]() {
+        if (!cancelToken || cancelToken->load()) {
             return;
         }
-
-        result->actualSha = calculateFileSha256Sync(updateFilePath);
-        if (result->actualSha.isEmpty()) {
-            result->errorMessage = ui::MainWindow::tr("Failed to calculate update checksum");
-            return;
-        }
-        if (result->actualSha.compare(result->expectedSha, Qt::CaseInsensitive) != 0) {
-            result->errorMessage = ui::MainWindow::tr("Checksum mismatch. Expected: %1\nActual: %2")
-                                       .arg(result->expectedSha, result->actualSha);
-            return;
-        }
-
-        QString errorMessage;
-        if (!writeUpdateTaskFileSync(taskFilePath, updateFilePath, expectedVersion, result->expectedSha, errorMessage)) {
-            result->errorMessage = errorMessage;
-            return;
-        }
-
-        result->success = true;
-        result->taskFilePath = taskFilePath;
-    });
-
-    connect(prepareThread, &QThread::finished, prepareThread, &QObject::deleteLater);
-    connect(prepareThread, &QThread::finished, this, [this, prepareThread, result]() {
         if (!result->success) {
             if (checkingUpdateManually_) {
                 QMessageBox::warning(this, tr("Update Check Failed"), result->errorMessage);
@@ -1097,7 +1067,53 @@ void MainWindow::processDownloadedUpdate(const QString& updateFilePath,
 
         qApp->quit();
     });
-    prepareThread->start();
+    connect(watcher, &QFutureWatcher<void>::finished, watcher, &QObject::deleteLater);
+    watcher->setFuture(QtConcurrent::run([result,
+                                          updateFilePath,
+                                          updateFileName,
+                                          normalizedExpectedSha,
+                                          normalizedChecksumsPath,
+                                          taskFilePath,
+                                          expectedVersion,
+                                          cancelToken]() {
+        if (!cancelToken || cancelToken->load()) {
+            return;
+        }
+        result->expectedSha = normalizedExpectedSha;
+        if (result->expectedSha.isEmpty() && !normalizedChecksumsPath.isEmpty()) {
+            result->expectedSha = resolveSha256FromChecksumsSync(normalizedChecksumsPath, updateFileName);
+        }
+        if (!cancelToken || cancelToken->load()) {
+            return;
+        }
+        if (result->expectedSha.isEmpty()) {
+            result->errorMessage = ui::MainWindow::tr("Missing update checksum");
+            return;
+        }
+
+        result->actualSha = calculateFileSha256Sync(updateFilePath);
+        if (result->actualSha.isEmpty()) {
+            result->errorMessage = ui::MainWindow::tr("Failed to calculate update checksum");
+            return;
+        }
+        if (result->actualSha.compare(result->expectedSha, Qt::CaseInsensitive) != 0) {
+            result->errorMessage = ui::MainWindow::tr("Checksum mismatch. Expected: %1\nActual: %2")
+                                       .arg(result->expectedSha, result->actualSha);
+            return;
+        }
+        if (!cancelToken || cancelToken->load()) {
+            return;
+        }
+
+        QString errorMessage;
+        if (!writeUpdateTaskFileSync(taskFilePath, updateFilePath, expectedVersion, result->expectedSha, errorMessage)) {
+            result->errorMessage = errorMessage;
+            return;
+        }
+
+        result->success = true;
+        result->taskFilePath = taskFilePath;
+    }));
 }
 
 void MainWindow::promptUpdateAction(const QString& currentVersion) {
@@ -1316,6 +1332,9 @@ void MainWindow::changeEvent(QEvent* event) {
 }
 
 void MainWindow::closeEvent(QCloseEvent* event) {
+    if (updatePreparationCancelToken_) {
+        updatePreparationCancelToken_->store(true);
+    }
     saveWindowSettings();
     QMainWindow::closeEvent(event);
 }

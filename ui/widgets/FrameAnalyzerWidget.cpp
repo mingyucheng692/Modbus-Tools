@@ -1061,43 +1061,78 @@ void FrameAnalyzerWidget::onParseFinished(const ParseResult& result, quint64 req
 
 void FrameAnalyzerWidget::exportCurrentTableToCsv(const QString& filePath) const
 {
-    QStringList lines;
-    QStringList headerValues;
-    for (int column = 0; column < dataTable_->columnCount(); ++column) {
-        const QTableWidgetItem* headerItem = dataTable_->horizontalHeaderItem(column);
-        headerValues << escapeCsvValue(headerItem ? headerItem->text() : QString());
-    }
-    lines << headerValues.join(',');
-
-    for (int row = 0; row < dataTable_->rowCount(); ++row) {
-        QStringList rowValues;
-        for (int column = 0; column < dataTable_->columnCount(); ++column) {
-            const QTableWidgetItem* item = dataTable_->item(row, column);
-            rowValues << escapeCsvValue(item ? item->text() : QString());
-        }
-        lines << rowValues.join(',');
-    }
-
     auto errorMessage = std::make_shared<QString>();
-    auto* watcher = new QFutureWatcher<void>(const_cast<FrameAnalyzerWidget*>(this));
-    connect(watcher, &QFutureWatcher<void>::finished, const_cast<FrameAnalyzerWidget*>(this), [this, errorMessage]() {
+    struct SaveState {
+        int nextRow = -1; // -1 means header row is pending
+        bool firstChunk = true;
+    };
+    auto state = std::make_shared<SaveState>();
+    const int totalRows = dataTable_->rowCount();
+    const int chunkSize = 128;
+    auto scheduleNextChunk = std::make_shared<std::function<void()>>();
+
+    *scheduleNextChunk = [this, filePath, totalRows, chunkSize, state, errorMessage, scheduleNextChunk]() {
         if (!errorMessage->isEmpty()) {
             QMessageBox::warning(const_cast<FrameAnalyzerWidget*>(this), tr("Export Failed"), *errorMessage);
+            return;
         }
-    });
-    connect(watcher, &QFutureWatcher<void>::finished, watcher, &QObject::deleteLater);
-    watcher->setFuture(QtConcurrent::run([filePath, lines, errorMessage]() {
-        QFile file(filePath);
-        if (!file.open(QIODevice::WriteOnly | QIODevice::Truncate | QIODevice::Text)) {
-            *errorMessage = QObject::tr("Cannot write file: %1").arg(filePath);
+        if (state->nextRow >= totalRows) {
             return;
         }
 
-        QTextStream stream(&file);
-        for (const QString& line : lines) {
-            stream << line << '\n';
+        QStringList lines;
+        if (state->nextRow < 0) {
+            QStringList headerValues;
+            for (int column = 0; column < dataTable_->columnCount(); ++column) {
+                const QTableWidgetItem* headerItem = dataTable_->horizontalHeaderItem(column);
+                headerValues << escapeCsvValue(headerItem ? headerItem->text() : QString());
+            }
+            lines << headerValues.join(',');
+            state->nextRow = 0;
         }
-    }));
+
+        const int begin = state->nextRow;
+        const int end = qMin(begin + chunkSize, totalRows);
+        for (int row = begin; row < end; ++row) {
+            QStringList rowValues;
+            for (int column = 0; column < dataTable_->columnCount(); ++column) {
+                const QTableWidgetItem* item = dataTable_->item(row, column);
+                rowValues << escapeCsvValue(item ? item->text() : QString());
+            }
+            lines << rowValues.join(',');
+        }
+        state->nextRow = end;
+        const bool firstChunk = state->firstChunk;
+        state->firstChunk = false;
+
+        auto* watcher = new QFutureWatcher<void>(const_cast<FrameAnalyzerWidget*>(this));
+        connect(watcher, &QFutureWatcher<void>::finished, const_cast<FrameAnalyzerWidget*>(this), [this, errorMessage, scheduleNextChunk, watcher]() {
+            watcher->deleteLater();
+            if (!errorMessage->isEmpty()) {
+                QMessageBox::warning(const_cast<FrameAnalyzerWidget*>(this), tr("Export Failed"), *errorMessage);
+                return;
+            }
+            QMetaObject::invokeMethod(const_cast<FrameAnalyzerWidget*>(this), [scheduleNextChunk]() {
+                (*scheduleNextChunk)();
+            }, Qt::QueuedConnection);
+        });
+        watcher->setFuture(QtConcurrent::run([filePath, lines, firstChunk, errorMessage]() {
+            QFile file(filePath);
+            QIODevice::OpenMode mode = QIODevice::WriteOnly | QIODevice::Text;
+            mode |= firstChunk ? QIODevice::Truncate : QIODevice::Append;
+            if (!file.open(mode)) {
+                *errorMessage = QObject::tr("Cannot write file: %1").arg(filePath);
+                return;
+            }
+
+            QTextStream stream(&file);
+            for (const QString& line : lines) {
+                stream << line << '\n';
+            }
+        }));
+    };
+
+    (*scheduleNextChunk)();
 }
 
 QString FrameAnalyzerWidget::escapeCsvValue(const QString& value) const
