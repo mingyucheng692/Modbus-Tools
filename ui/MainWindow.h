@@ -58,9 +58,9 @@ private:
     void refreshUpdateIndicators();
     void cleanupUpdateArtifacts();
     void promptUpdateAction(const QString& currentVersion);
-    bool tryStartSilentUpdate();
+    void startSilentUpdate();
+    void processDownloadedUpdate(const QString& updateFilePath, const QString& expectedSha);
     void saveWindowSettings();
-    bool downloadUpdateAsset(const QUrl& url, const QString& filePath, QString& errorMessage) const;
     QString calculateFileSha256(const QString& filePath) const;
     QString resolveSha256FromChecksums(const QString& checksumsPath, const QString& targetFileName) const;
     bool writeUpdateTaskFile(const QString& taskFilePath,

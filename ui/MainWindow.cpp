@@ -687,80 +687,7 @@ void MainWindow::cleanupUpdateArtifacts() {
     QDir(QStringLiteral("%1/ModbusToolsUpdate").arg(tempRoot)).removeRecursively();
 }
 
-bool MainWindow::downloadUpdateAsset(const QUrl& url, const QString& filePath, QString& errorMessage) const {
-    if (!url.isValid()) {
-        errorMessage = tr("Invalid update URL");
-        return false;
-    }
 
-    QFileInfo fileInfo(filePath);
-    QDir dir = fileInfo.dir();
-    if (!dir.exists() && !dir.mkpath(".")) {
-        errorMessage = tr("Failed to create update directory");
-        return false;
-    }
-
-    QFile outputFile(filePath);
-    if (!outputFile.open(QIODevice::WriteOnly | QIODevice::Truncate)) {
-        errorMessage = tr("Failed to write update file");
-        return false;
-    }
-
-    QNetworkAccessManager manager;
-    QNetworkRequest request(url);
-    request.setHeader(QNetworkRequest::UserAgentHeader,
-                      QStringLiteral("Modbus-Tools/%1").arg(common::UpdateChecker::currentVersion()));
-    QNetworkReply* reply = manager.get(request);
-
-    const QString assetName = QFileInfo(filePath).fileName();
-    QProgressDialog progressDialog(tr("Downloading %1").arg(assetName),
-                                   tr("Cancel"),
-                                   0,
-                                   100,
-                                   const_cast<MainWindow*>(this));
-    progressDialog.setWindowTitle(tr("Downloading Update"));
-    progressDialog.setWindowModality(Qt::WindowModal);
-    progressDialog.setMinimumDuration(0);
-    progressDialog.setValue(0);
-
-    connect(&progressDialog, &QProgressDialog::canceled, reply, &QNetworkReply::abort);
-    connect(reply, &QNetworkReply::readyRead, [&outputFile, reply]() {
-        outputFile.write(reply->readAll());
-    });
-    connect(reply, &QNetworkReply::downloadProgress, &progressDialog, [&progressDialog](qint64 received, qint64 total) {
-        if (total > 0) {
-            const int progress = static_cast<int>((received * 100) / total);
-            progressDialog.setValue(qBound(0, progress, 100));
-        } else {
-            progressDialog.setValue(0);
-        }
-    });
-
-    QEventLoop loop;
-    connect(reply, &QNetworkReply::finished, &loop, &QEventLoop::quit);
-    loop.exec();
-
-    progressDialog.setValue(100);
-    outputFile.write(reply->readAll());
-    outputFile.close();
-
-    if (reply->error() != QNetworkReply::NoError) {
-        errorMessage = reply->error() == QNetworkReply::OperationCanceledError
-                           ? tr("Download canceled")
-                           : reply->errorString();
-        reply->deleteLater();
-        QFile::remove(filePath);
-        return false;
-    }
-
-    reply->deleteLater();
-    if (QFileInfo(filePath).size() <= 0) {
-        errorMessage = tr("Downloaded file is empty");
-        QFile::remove(filePath);
-        return false;
-    }
-    return true;
-}
 
 QString MainWindow::calculateFileSha256(const QString& filePath) const {
     QFile file(filePath);
@@ -860,14 +787,16 @@ bool MainWindow::launchUpdater(const QString& taskFilePath, QString& errorMessag
 #endif
 }
 
-bool MainWindow::tryStartSilentUpdate() {
+void MainWindow::startSilentUpdate() {
     if (pendingUpdateOnlyUrl_.isEmpty()) {
-        return false;
+        if (checkingUpdateManually_) QMessageBox::warning(this, tr("Update Check Failed"), tr("Main program update failed"));
+        return;
     }
 
     const QString tempRoot = QStandardPaths::writableLocation(QStandardPaths::TempLocation);
     if (tempRoot.isEmpty()) {
-        return false;
+        if (checkingUpdateManually_) QMessageBox::warning(this, tr("Update Check Failed"), tr("Main program update failed"));
+        return;
     }
     const QDir workingDir(QStringLiteral("%1/ModbusToolsUpdate").arg(tempRoot));
     QDir().mkpath(workingDir.path());
@@ -875,67 +804,120 @@ bool MainWindow::tryStartSilentUpdate() {
     const QUrl updateUrl(pendingUpdateOnlyUrl_);
     const QString updateFileName = QFileInfo(updateUrl.path()).fileName();
     if (updateFileName.isEmpty()) {
-        return false;
+        if (checkingUpdateManually_) QMessageBox::warning(this, tr("Update Check Failed"), tr("Main program update failed"));
+        return;
     }
     const QString updateFilePath = workingDir.filePath(updateFileName);
 
-    QString errorMessage;
-    if (!downloadUpdateAsset(updateUrl, updateFilePath, errorMessage)) {
-        if (checkingUpdateManually_) {
-            QMessageBox::warning(this, tr("Update Check Failed"), errorMessage);
-        }
-        return false;
+    QFile* outputFile = new QFile(updateFilePath, this);
+    if (!outputFile->open(QIODevice::WriteOnly | QIODevice::Truncate)) {
+        if (checkingUpdateManually_) QMessageBox::warning(this, tr("Update Check Failed"), tr("Failed to write update file"));
+        outputFile->deleteLater();
+        return;
     }
 
-    QString expectedSha = pendingUpdateOnlySha256_.trimmed().toLower();
-    if (expectedSha.isEmpty()) {
-        if (pendingChecksumsUrl_.isEmpty()) {
-            if (checkingUpdateManually_) {
-                QMessageBox::warning(this, tr("Update Check Failed"), tr("Missing update checksum"));
-            }
-            return false;
+    QNetworkAccessManager* manager = new QNetworkAccessManager(this);
+    QNetworkRequest request(updateUrl);
+    request.setHeader(QNetworkRequest::UserAgentHeader,
+                      QStringLiteral("Modbus-Tools/%1").arg(common::UpdateChecker::currentVersion()));
+    QNetworkReply* reply = manager->get(request);
+
+    const QString assetName = QFileInfo(updateFilePath).fileName();
+    QProgressDialog* progressDialog = new QProgressDialog(tr("Downloading %1").arg(assetName),
+                                                          tr("Cancel"), 0, 100, this);
+    progressDialog->setWindowTitle(tr("Downloading Update"));
+    progressDialog->setWindowModality(Qt::WindowModal);
+    progressDialog->setMinimumDuration(0);
+    progressDialog->setValue(0);
+    progressDialog->setAttribute(Qt::WA_DeleteOnClose);
+
+    connect(progressDialog, &QProgressDialog::canceled, reply, &QNetworkReply::abort);
+    connect(reply, &QNetworkReply::readyRead, this, [outputFile, reply]() {
+        outputFile->write(reply->readAll());
+    });
+    connect(reply, &QNetworkReply::downloadProgress, this, [progressDialog](qint64 received, qint64 total) {
+        if (total > 0) {
+            const int progress = static_cast<int>((received * 100) / total);
+            progressDialog->setValue(qBound(0, progress, 100));
+        } else {
+            progressDialog->setValue(0);
         }
-        const QString checksumsPath = workingDir.filePath("sha256sums.txt");
-        if (!downloadUpdateAsset(QUrl(pendingChecksumsUrl_), checksumsPath, errorMessage)) {
+    });
+
+    connect(reply, &QNetworkReply::finished, this, [this, manager, reply, outputFile, progressDialog, updateFilePath]() {
+        outputFile->write(reply->readAll());
+        outputFile->close();
+        progressDialog->setValue(100);
+
+        bool success = true;
+        QString errorMessage;
+
+        if (reply->error() != QNetworkReply::NoError) {
+            success = false;
+            errorMessage = reply->error() == QNetworkReply::OperationCanceledError
+                               ? tr("Download canceled")
+                               : reply->errorString();
+            QFile::remove(updateFilePath);
+        } else if (QFileInfo(updateFilePath).size() <= 0) {
+            success = false;
+            errorMessage = tr("Downloaded file is empty");
+            QFile::remove(updateFilePath);
+        }
+
+        reply->deleteLater();
+        manager->deleteLater();
+        outputFile->deleteLater();
+        progressDialog->close();
+
+        if (!success) {
             if (checkingUpdateManually_) {
                 QMessageBox::warning(this, tr("Update Check Failed"), errorMessage);
             }
-            return false;
+            return;
         }
-        expectedSha = resolveSha256FromChecksums(checksumsPath, updateFileName);
-        if (expectedSha.isEmpty()) {
-            if (checkingUpdateManually_) {
-                QMessageBox::warning(this, tr("Update Check Failed"), tr("Unable to resolve update checksum"));
-            }
-            return false;
-        }
-    }
 
-    const QString actualSha = calculateFileSha256(updateFilePath);
-    if (actualSha.isEmpty() || actualSha.compare(expectedSha, Qt::CaseInsensitive) != 0) {
+        processDownloadedUpdate(updateFilePath, pendingUpdateOnlySha256_);
+    });
+
+    progressDialog->show();
+}
+
+void MainWindow::processDownloadedUpdate(const QString& updateFilePath, const QString& expectedSha) {
+    QString actualSha = calculateFileSha256(updateFilePath);
+
+    QString errorMessage;
+    if (expectedSha.isEmpty() && !pendingChecksumsUrl_.isEmpty()) {
         if (checkingUpdateManually_) {
-            QMessageBox::warning(this, tr("Update Check Failed"), tr("Update file verification failed"));
+            QMessageBox::warning(this, tr("Update Check Failed"), tr("Missing update checksum"));
         }
-        return false;
+        return;
     }
 
+    if (!expectedSha.isEmpty() && actualSha != expectedSha) {
+        if (checkingUpdateManually_) {
+            QMessageBox::warning(this, tr("Update Check Failed"),
+                                 tr("Checksum mismatch. Expected: %1\nActual: %2").arg(expectedSha, actualSha));
+        }
+        return;
+    }
+
+    const QDir workingDir = QFileInfo(updateFilePath).dir();
     const QString taskFilePath = workingDir.filePath("update_task.json");
     if (!writeUpdateTaskFile(taskFilePath, updateFilePath, expectedSha, errorMessage)) {
         if (checkingUpdateManually_) {
             QMessageBox::warning(this, tr("Update Check Failed"), errorMessage);
         }
-        return false;
+        return;
     }
 
     if (!launchUpdater(taskFilePath, errorMessage)) {
         if (checkingUpdateManually_) {
             QMessageBox::warning(this, tr("Update Check Failed"), errorMessage);
         }
-        return false;
+        return;
     }
 
     qApp->quit();
-    return true;
 }
 
 void MainWindow::promptUpdateAction(const QString& currentVersion) {
@@ -966,9 +948,7 @@ void MainWindow::promptUpdateAction(const QString& currentVersion) {
     messageBox.exec();
 
     if (messageBox.clickedButton() == updateNowButton) {
-        if (!tryStartSilentUpdate()) {
-            QMessageBox::warning(this, tr("Update Check Failed"), tr("Main program update failed"));
-        }
+        startSilentUpdate();
         return;
     }
     if (downloadFullButton && messageBox.clickedButton() == downloadFullButton) {

@@ -88,15 +88,24 @@ void GenericTcpView::stopWorker() {
         // Close connection first
         if (worker_) {
             suppressDisconnectAlert_ = true;
-            QMetaObject::invokeMethod(worker_, "close", Qt::BlockingQueuedConnection);
-            QMetaObject::invokeMethod(worker_, "deleteLater", Qt::QueuedConnection);
+            auto worker = worker_;
+            auto thread = workerThread_;
             worker_ = nullptr;
+            workerThread_ = nullptr;
+            
+            worker->disconnect(this);
+            connect(thread, &QThread::finished, thread, &QObject::deleteLater);
+            
+            QMetaObject::invokeMethod(worker, [worker, thread]() {
+                worker->close();
+                worker->deleteLater();
+                thread->quit();
+            }, Qt::QueuedConnection);
+        } else {
+            workerThread_->quit();
+            connect(workerThread_, &QThread::finished, workerThread_, &QObject::deleteLater);
+            workerThread_ = nullptr;
         }
-        
-        workerThread_->quit();
-        workerThread_->wait();
-        delete workerThread_;
-        workerThread_ = nullptr;
     }
 }
 

@@ -25,14 +25,11 @@ ModbusStack ModbusFactory::createStack(const base::ModbusConfig& config) {
     stack.client->setConfig(config);
 
     // 4. 创建工作线程 (Dispatch)
-    stack.thread = std::shared_ptr<QThread>(new QThread(), [](QThread* thread) {
-        if (thread) {
-            if (thread->isRunning()) {
-                thread->requestInterruption();
-                thread->quit();
-                thread->wait(); // 强制确定性等待线程结束，防止悬挂
-            }
-            delete thread; // 纯 C++ RAII 释放
+    QThread* threadRaw = new QThread();
+    stack.thread = std::shared_ptr<QThread>(threadRaw, [](QThread* t) {
+        if (t) {
+            t->quit();
+            t->deleteLater(); // 异步回收线程对象
         }
     });
 
@@ -42,21 +39,7 @@ ModbusStack ModbusFactory::createStack(const base::ModbusConfig& config) {
     stack.worker = std::shared_ptr<dispatch::ModbusWorker>(workerRaw, [](dispatch::ModbusWorker* worker) {
         if (worker) {
             worker->stop(); // 发起停止请求
-            // 为了安全地 delete 一个生活在其他线程的 QObject，我们先把它 move 回当前执行析构的线程
-            // 这样直接 delete worker 就不会报 QObject 跨线程销毁的错误了。
-            // 如果所属的 QThread 正在运行，可以通过 invokeMethod 将其 move 出来
-            QThread* currentThread = QThread::currentThread();
-            QThread* objectThread = worker->thread();
-            if (objectThread && objectThread != currentThread && objectThread->isRunning()) {
-                // 阻塞调用 moveToThread
-                QMetaObject::invokeMethod(worker, [worker, currentThread]() {
-                    worker->moveToThread(currentThread);
-                }, Qt::BlockingQueuedConnection);
-            } else if (objectThread && objectThread != currentThread) {
-                // 线程已死，直接强制转移（极少发生）
-                worker->moveToThread(currentThread);
-            }
-            delete worker; // 确定性 RAII 释放，不依赖事件循环的 deleteLater
+            worker->deleteLater(); // 安全地委托给事件循环释放
         }
     });
     return stack;

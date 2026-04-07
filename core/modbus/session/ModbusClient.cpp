@@ -1034,9 +1034,17 @@ void ModbusClient::onDataReceived(QByteArrayView data) {
             }
         }
         buffer_.append(data);
+        if (buffer_.size() > 260) {
+            spdlog::warn("ModbusClient: RTU buffer exceeded 260 bytes limit, clearing");
+            buffer_.clear();
+        }
         lastRtuByteReceivedAt_ = now;
     } else {
         buffer_.append(data);
+        if (buffer_.size() > 1024) {
+            spdlog::warn("ModbusClient: TCP buffer exceeded 1024 bytes limit, dropping oldest bytes");
+            buffer_.remove(0, buffer_.size() - 1024);
+        }
     }
     responseReady_ = true; // 即使不完整也唤醒，由工作线程检查完整性
     cv_.notify_one();
