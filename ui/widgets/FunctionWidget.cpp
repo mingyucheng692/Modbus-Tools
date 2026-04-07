@@ -89,7 +89,8 @@ void FunctionWidget::setupStandardUi(QWidget* parent) {
     writeDataLabel_ = new QLabel(parent);
     writeLayout->addWidget(writeDataLabel_);
     writeDataEdit_ = new QLineEdit(parent);
-    writeDataEdit_->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);
+    const int compactWriteWidth = 60 + 68 + 64 + 100;
+    writeDataEdit_->setFixedWidth(compactWriteWidth);
     writeLayout->addWidget(writeDataEdit_);
     
     formatLabel_ = new QLabel(parent);
@@ -97,8 +98,9 @@ void FunctionWidget::setupStandardUi(QWidget* parent) {
     dataFormatBox_ = new QComboBox(parent);
     dataFormatBox_->addItem("", "Hex");
     dataFormatBox_->addItem("", "Decimal");
-    dataFormatBox_->setFixedWidth(76);
+    dataFormatBox_->setFixedWidth(88);
     writeLayout->addWidget(dataFormatBox_);
+    writeLayout->addStretch();
     
     layout->addLayout(writeLayout);
 

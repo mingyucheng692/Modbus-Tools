@@ -85,11 +85,11 @@ void ControlWidget::onTimer() {
 }
 
 void ControlWidget::updateStatsLabel() {
-    statsLabel_->setText(tr("TX: %1 | RX: %2 | FAIL: %3 | RTT: %4 ms")
-                        .arg(txCount_)
-                        .arg(rxCount_)
-                        .arg(errorCount_)
-                        .arg(lastRtt_));
+    statsLabel_->setText(QStringLiteral("TX: %1 | RX: %2 | FAIL: %3 | RTT: %4 ms")
+                             .arg(txCount_)
+                             .arg(rxCount_)
+                             .arg(errorCount_)
+                             .arg(lastRtt_));
 }
 
 void ControlWidget::setSettingsGroup(const QString& group) {

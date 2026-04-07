@@ -270,8 +270,8 @@ void TrafficMonitorWidget::onCopyClicked() {
 void TrafficMonitorWidget::retranslateUi() {
     if (section_) section_->setTitle(tr("Traffic Monitor"));
     if (autoScrollCheck_) autoScrollCheck_->setText(tr("Auto Scroll"));
-    if (showTxCheck_) showTxCheck_->setText(tr("TX"));
-    if (showRxCheck_) showRxCheck_->setText(tr("RX"));
+    if (showTxCheck_) showTxCheck_->setText(QStringLiteral("TX"));
+    if (showRxCheck_) showRxCheck_->setText(QStringLiteral("RX"));
     if (clearBtn_) clearBtn_->setText(tr("Clear"));
     if (saveBtn_) saveBtn_->setText(tr("Save"));
 }

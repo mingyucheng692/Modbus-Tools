@@ -41,7 +41,6 @@ signals:
     void parseRequested(const QString& input,
                         modbus::core::parser::ProtocolType type,
                         uint16_t startAddress,
-                        uint16_t expectedQuantity,
                         quint64 requestId);
 
 private slots:
@@ -105,13 +104,11 @@ private:
     QSplitter* mainSplitter_ = nullptr;
     QLabel* protocolLabel_ = nullptr;
     QLabel* startAddrLabel_ = nullptr;
-    QLabel* quantityLabel_ = nullptr;
     QLabel* displayModeLabel_ = nullptr;
     QPlainTextEdit* inputEditor_ = nullptr;
     QComboBox* protocolCombo_ = nullptr;
     QComboBox* displayModeCombo_ = nullptr;
     QSpinBox* startAddressSpin_ = nullptr;
-    QSpinBox* quantitySpin_ = nullptr;
     QPushButton* parseBtn_ = nullptr;
     QPushButton* formatBtn_ = nullptr;
     QPushButton* importJsonBtn_ = nullptr;

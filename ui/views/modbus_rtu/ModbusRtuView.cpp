@@ -585,7 +585,9 @@ void ModbusRtuView::refreshReceiveDisplay() {
         return;
     }
     bool hex = receiveHexCheck_ ? receiveHexCheck_->isChecked() : true;
-    receiveTextEdit_->setPlainText(tr("[%1] %2").arg(tr("RX")).arg(formatData(lastReceiveFrame_, hex)));
+    receiveTextEdit_->setPlainText(QStringLiteral("[%1] %2")
+                                       .arg(QStringLiteral("RX"))
+                                       .arg(formatData(lastReceiveFrame_, hex)));
 }
 
 void ModbusRtuView::refreshSendDisplay() {
@@ -595,7 +597,9 @@ void ModbusRtuView::refreshSendDisplay() {
         return;
     }
     bool hex = sendHexCheck_ ? sendHexCheck_->isChecked() : true;
-    sendTextEdit_->setPlainText(tr("[%1] %2").arg(tr("TX")).arg(formatData(lastSendFrame_, hex)));
+    sendTextEdit_->setPlainText(QStringLiteral("[%1] %2")
+                                    .arg(QStringLiteral("TX"))
+                                    .arg(formatData(lastSendFrame_, hex)));
 }
 
 void ModbusRtuView::retranslateUi() {
