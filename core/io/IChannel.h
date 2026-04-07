@@ -26,6 +26,8 @@ struct Timeouts {
 
 class IChannel {
 public:
+    using HandlerId = quint64;
+
     virtual ~IChannel() = default;
     virtual ChannelKind kind() const = 0;
     virtual ChannelState state() const = 0;
@@ -39,7 +41,10 @@ public:
     virtual void setReadHandler(std::function<void(QByteArrayView)> handler) = 0;
     virtual void setErrorHandler(std::function<void(const QString&)> handler) = 0;
     virtual void setWriteDrainedHandler(std::function<void()> handler) = 0;
+    // Compatibility-only API: replaces all current state subscribers.
     virtual void setStateHandler(std::function<void(ChannelState)> handler) = 0;
+    virtual HandlerId addStateHandler(std::function<void(ChannelState)> handler) = 0;
+    virtual void removeStateHandler(HandlerId handlerId) = 0;
     // isTx: true=TX, false=RX
     virtual void setMonitor(std::function<void(bool isTx, const QByteArray&)> monitor) = 0;
     virtual ChannelStats stats() const = 0;

@@ -32,7 +32,7 @@ void GenericIoWorker::openTcp(const QString& ip, int port, quint64 generation)
     if (!channel_->open()) {
         // If open failed synchronously
         emit errorOccurred("Failed to open TCP connection");
-        // stateChanged will be handled by setStateHandler if it was set
+        // State changes are still forwarded through the subscribed channel handler.
     }
 }
 
@@ -97,7 +97,7 @@ void GenericIoWorker::setupChannel()
         emit monitor(isTx, data);
     });
 
-    channel_->setStateHandler([this](ChannelState state) {
+    stateHandlerId_ = channel_->addStateHandler([this](ChannelState state) {
         emit stateChanged(state);
         emit stateChangedWithGeneration(state, channelGeneration_);
     });
@@ -110,7 +110,8 @@ void GenericIoWorker::cleanupChannel()
         channel_->setReadHandler(nullptr);
         channel_->setErrorHandler(nullptr);
         channel_->setMonitor(nullptr);
-        channel_->setStateHandler(nullptr);
+        channel_->removeStateHandler(stateHandlerId_);
+        stateHandlerId_ = 0;
         channel_.reset();
     }
 }

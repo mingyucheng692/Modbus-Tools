@@ -2,6 +2,8 @@
 
 #include "IChannel.h"
 #include <atomic>
+#include <mutex>
+#include <vector>
 
 namespace io {
 
@@ -16,6 +18,8 @@ public:
     void setErrorHandler(std::function<void(const QString&)> handler) override;
     void setWriteDrainedHandler(std::function<void()> handler) override;
     void setStateHandler(std::function<void(ChannelState)> handler) override;
+    HandlerId addStateHandler(std::function<void(ChannelState)> handler) override;
+    void removeStateHandler(HandlerId handlerId) override;
     void setMonitor(std::function<void(bool isTx, const QByteArray&)> monitor) override;
     ChannelStats stats() const override;
 
@@ -35,8 +39,10 @@ private:
     std::function<void(QByteArrayView)> readHandler_;
     std::function<void(const QString&)> errorHandler_;
     std::function<void()> writeDrainedHandler_;
-    std::function<void(ChannelState)> stateHandler_;
     std::function<void(bool, const QByteArray&)> monitor_;
+    std::mutex stateHandlersMutex_;
+    HandlerId nextStateHandlerId_ = 1;
+    std::vector<std::pair<HandlerId, std::function<void(ChannelState)>>> stateHandlers_;
 };
 
 }

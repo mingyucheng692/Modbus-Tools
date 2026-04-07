@@ -1,5 +1,6 @@
 #include "ModbusClient.h"
 #include "AppConstants.h"
+#include "../base/ModbusProtocolChecks.h"
 #include <spdlog/spdlog.h>
 #include <chrono>
 #include <algorithm>
@@ -246,7 +247,7 @@ ModbusClient::ModbusClient(std::shared_ptr<io::IChannel> channel,
         lastWriteDrainedAt_ = std::chrono::steady_clock::now();
         cv_.notify_one();
     });
-    channel_->setStateHandler([this](io::ChannelState) {
+    stateHandlerId_ = channel_->addStateHandler([this](io::ChannelState) {
         std::lock_guard<std::mutex> lock(mutex_);
         cv_.notify_all();
     });
@@ -258,7 +259,7 @@ ModbusClient::~ModbusClient() {
         channel_->setReadHandler({});
         channel_->setErrorHandler({});
         channel_->setWriteDrainedHandler({});
-        channel_->setStateHandler({});
+        channel_->removeStateHandler(stateHandlerId_);
     }
     clearRuntimeState(true);
 }
@@ -690,6 +691,11 @@ ModbusResponse ModbusClient::sendRequestInternal(const base::Pdu& request, int s
                             lock.lock();
                             continue;
                         }
+                        const QString responseValidationError = base::validateResponsePdu(request, pdu);
+                        if (!responseValidationError.isEmpty()) {
+                            transitionTo(RequestState::Failed, "response-validation-failed");
+                            return ModbusResponse::Error(responseValidationError);
+                        }
                         auto rttMs = std::chrono::duration_cast<std::chrono::milliseconds>(
                             std::chrono::steady_clock::now() - start).count();
                         transitionTo(RequestState::Completed, "response-parsed");
@@ -730,6 +736,11 @@ ModbusResponse ModbusClient::sendRequestInternal(const base::Pdu& request, int s
                     if (pdu.originalFunctionCode() != request.functionCode()) {
                         lock.lock();
                         continue;
+                    }
+                    const QString responseValidationError = base::validateResponsePdu(request, pdu);
+                    if (!responseValidationError.isEmpty()) {
+                        transitionTo(RequestState::Failed, "response-validation-failed");
+                        return ModbusResponse::Error(responseValidationError);
                     }
                     auto rttMs = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - start).count();
                     transitionTo(RequestState::Completed, "response-parsed");

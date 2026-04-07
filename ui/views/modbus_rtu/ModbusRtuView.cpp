@@ -164,7 +164,7 @@ void ModbusRtuView::setupUi() {
                     }
                 }, Qt::QueuedConnection);
             });
-            channel_->setStateHandler([self, generation](io::ChannelState state) {
+            channel_->addStateHandler([self, generation](io::ChannelState state) {
                 if (!self) return;
                 QMetaObject::invokeMethod(self, [self, generation, state]() {
                     if (!self) return;

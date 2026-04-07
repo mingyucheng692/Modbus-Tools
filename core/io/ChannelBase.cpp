@@ -1,4 +1,5 @@
 #include "ChannelBase.h"
+#include <algorithm>
 
 namespace io {
 
@@ -44,7 +45,41 @@ void ChannelBase::setWriteDrainedHandler(std::function<void()> handler)
 
 void ChannelBase::setStateHandler(std::function<void(ChannelState)> handler)
 {
-    stateHandler_ = std::move(handler);
+    // Keep legacy behavior for older callers, but prefer add/removeStateHandler
+    // so independent subscribers do not accidentally clear each other.
+    std::lock_guard<std::mutex> lock(stateHandlersMutex_);
+    stateHandlers_.clear();
+    if (handler) {
+        stateHandlers_.emplace_back(nextStateHandlerId_++, std::move(handler));
+    }
+}
+
+IChannel::HandlerId ChannelBase::addStateHandler(std::function<void(ChannelState)> handler)
+{
+    if (!handler) {
+        return 0;
+    }
+
+    std::lock_guard<std::mutex> lock(stateHandlersMutex_);
+    const HandlerId id = nextStateHandlerId_++;
+    stateHandlers_.emplace_back(id, std::move(handler));
+    return id;
+}
+
+void ChannelBase::removeStateHandler(HandlerId handlerId)
+{
+    if (handlerId == 0) {
+        return;
+    }
+
+    std::lock_guard<std::mutex> lock(stateHandlersMutex_);
+    stateHandlers_.erase(
+        std::remove_if(stateHandlers_.begin(),
+                       stateHandlers_.end(),
+                       [handlerId](const auto& entry) {
+                           return entry.first == handlerId;
+                       }),
+        stateHandlers_.end());
 }
 
 void ChannelBase::setMonitor(std::function<void(bool, const QByteArray&)> monitor)
@@ -63,8 +98,20 @@ void ChannelBase::setState(ChannelState state)
     if (previous == state) {
         return;
     }
-    if (stateHandler_) {
-        stateHandler_(state);
+
+    std::vector<std::function<void(ChannelState)>> handlers;
+    {
+        std::lock_guard<std::mutex> lock(stateHandlersMutex_);
+        handlers.reserve(stateHandlers_.size());
+        for (const auto& entry : stateHandlers_) {
+            if (entry.second) {
+                handlers.push_back(entry.second);
+            }
+        }
+    }
+
+    for (const auto& handler : handlers) {
+        handler(state);
     }
 }
 

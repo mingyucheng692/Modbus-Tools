@@ -172,7 +172,7 @@ ParseResult ModbusFrameParser::parseRtu(const QByteArray& frame, uint16_t startA
         result.isValid = false;
         result.error = QCoreApplication::translate(
                            "ModbusFrameParser",
-                           "Frame too short for Modbus RTU. Expected at least 4 bytes, got %1")
+                           "Frame too short for Modbus RTU. Expected at least 5 bytes, got %1")
                            .arg(frame.size());
         return result;
     }

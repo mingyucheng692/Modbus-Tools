@@ -100,6 +100,7 @@ private:
     bool writeDrained_ = true;
     QString lastError_;
     std::chrono::steady_clock::time_point lastWriteDrainedAt_ {};
+    io::IChannel::HandlerId stateHandlerId_ = 0;
     
     // 保护 sendRequest 串行执行，避免请求路径发生重入
     std::recursive_mutex requestMutex_;

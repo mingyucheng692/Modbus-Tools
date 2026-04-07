@@ -39,6 +39,7 @@ private:
 
     std::shared_ptr<IChannel> channel_;
     quint64 channelGeneration_ = 0;
+    IChannel::HandlerId stateHandlerId_ = 0;
 };
 
 } // namespace io
