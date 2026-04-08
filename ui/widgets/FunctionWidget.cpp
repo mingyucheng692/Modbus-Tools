@@ -306,25 +306,25 @@ void FunctionWidget::retranslateUi() {
         readBtn01_->setText(tr("Read Coils (0x01)"));
     }
     if (readBtn02_) {
-        readBtn02_->setText(tr("Read Discrete (0x02)"));
+        readBtn02_->setText(tr("Read Disc.In (0x02)"));
     }
     if (readBtn03_) {
         readBtn03_->setText(tr("Read Holding (0x03)"));
     }
     if (readBtn04_) {
-        readBtn04_->setText(tr("Read Input (0x04)"));
+        readBtn04_->setText(tr("Read Input Reg (0x04)"));
     }
     if (writeBtn05_) {
         writeBtn05_->setText(tr("Write Coil (0x05)"));
     }
     if (writeBtn06_) {
-        writeBtn06_->setText(tr("Write Reg (0x06)"));
+        writeBtn06_->setText(tr("Write Single Reg (0x06)"));
     }
     if (writeBtn0F_) {
         writeBtn0F_->setText(tr("Write Multi Coils (0x0F)"));
     }
     if (writeBtn10_) {
-        writeBtn10_->setText(tr("Write Multi Regs (0x10)"));
+        writeBtn10_->setText(tr("Write Multi Reg (0x10)"));
     }
     if (rawDataLabel_) {
         rawDataLabel_->setText(tr("Raw Hex Data (e.g., 01 03 00 00 00 01 84 0A):"));
