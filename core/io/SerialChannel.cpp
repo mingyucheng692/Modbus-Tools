@@ -58,8 +58,11 @@ bool SerialChannel::open() {
         setState(ChannelState::Open);
         return true;
     } else {
+        const QString err = serial_.errorString();
+        spdlog::warn("SerialChannel: open failed port={} baud={} error={}",
+                     config_.portName.toStdString(), config_.baudRate, err.toStdString());
         setState(ChannelState::Error);
-        emitError(serial_.errorString());
+        emitError(err);
         return false;
     }
 }
@@ -174,10 +177,13 @@ void SerialChannel::flushPendingWrites() {
         const qint64 remaining = static_cast<qint64>(frame.size() - currentWriteOffset_);
         const qint64 accepted = serial_.write(dataPtr, remaining);
         if (accepted < 0) {
+            const QString err = serial_.errorString().isEmpty() ? QStringLiteral("Serial write failed") : serial_.errorString();
+            spdlog::warn("SerialChannel: write failed port={} error={}",
+                         config_.portName.toStdString(), err.toStdString());
             resetWriteState();
             disarmWriteTimeout();
             setState(ChannelState::Error);
-            emitError(serial_.errorString().isEmpty() ? QStringLiteral("Serial write failed") : serial_.errorString());
+            emitError(err);
             return;
         }
         if (accepted == 0) {
@@ -260,6 +266,8 @@ void SerialChannel::onWriteTimeout() {
     }
 
     const bool draining = serial_.bytesToWrite() > 0;
+    spdlog::warn("SerialChannel: write timeout port={} draining={} pendingWrites={}",
+                 config_.portName.toStdString(), draining, pendingWrites_.size());
     resetWriteState();
     disarmWriteTimeout();
     setState(ChannelState::Error);

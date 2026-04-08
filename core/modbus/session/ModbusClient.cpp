@@ -728,6 +728,8 @@ ModbusResponse ModbusClient::sendRequestInternal(const base::Pdu& request, int s
             lock.lock();
             if (!stillWaiting && std::chrono::steady_clock::now() >= deadline) {
                 transitionTo(RequestState::Failed, "timeout");
+                spdlog::warn("ModbusClient: request timeout slave={} fc={} timeoutMs={}",
+                             slaveId, static_cast<int>(request.functionCode()), config_.timeoutMs);
                 return ModbusResponse::Error(trClient("Timeout"));
             }
             continue;
@@ -741,6 +743,8 @@ ModbusResponse ModbusClient::sendRequestInternal(const base::Pdu& request, int s
             lock.lock();
             if (!stillWaiting && std::chrono::steady_clock::now() >= deadline) {
                 transitionTo(RequestState::Failed, "timeout");
+                spdlog::warn("ModbusClient: RTU frame wait timeout slave={} fc={} timeoutMs={}",
+                             slaveId, static_cast<int>(request.functionCode()), config_.timeoutMs);
                 return ModbusResponse::Error(trClient("Timeout"));
             }
             continue;
@@ -868,6 +872,8 @@ ModbusResponse ModbusClient::sendRequestInternal(const base::Pdu& request, int s
         
         if (std::chrono::steady_clock::now() >= deadline) {
             transitionTo(RequestState::Failed, "timeout-full-packet");
+            spdlog::warn("ModbusClient: full packet wait timeout slave={} fc={} timeoutMs={}",
+                         slaveId, static_cast<int>(request.functionCode()), config_.timeoutMs);
             return ModbusResponse::Error(trClient("Timeout while waiting for full packet"));
         }
     }
