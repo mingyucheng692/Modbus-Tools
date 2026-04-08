@@ -3,22 +3,7 @@
 <TS version="2.1" language="zh_CN">
 <context>
     <name>CommandEditDialog</name>
-    <message>
-        <source>Command Editor</source>
-        <translation type="vanished">命令编辑器</translation>
-    </message>
-    <message>
-        <source>Name:</source>
-        <translation type="vanished">名称：</translation>
-    </message>
-    <message>
-        <source>Data:</source>
-        <translation type="vanished">数据：</translation>
-    </message>
-    <message>
-        <source>Hex Mode</source>
-        <translation type="vanished">十六进制模式</translation>
-    </message>
+
 </context>
 <context>
     <name>ConnectionAlert</name>
@@ -41,6 +26,11 @@
         <location filename="../common/ConnectionAlert.h" line="18"/>
         <source>TCP connection was closed.</source>
         <translation>TCP 连接已关闭。</translation>
+    </message>
+    <message>
+        <location filename="../common/ConnectionAlert.h" line="18"/>
+        <source>Connection was closed.</source>
+        <translation>连接已关闭。</translation>
     </message>
 </context>
 <context>
@@ -179,38 +169,7 @@
         <source>Unsupported function code 0x%1 for deep parsing</source>
         <translation>不支持对功能码 0x%1 进行深度解析</translation>
     </message>
-    <message>
-        <source>Request: Start Address %1, Quantity %2</source>
-        <translation type="vanished">请求：起始地址 %1，数量 %2</translation>
-    </message>
-    <message>
-        <source>Register %1</source>
-        <translation type="vanished">寄存器 %1</translation>
-    </message>
-    <message>
-        <source>Coil %1: %2</source>
-        <translation type="vanished">线圈 %1: %2</translation>
-    </message>
-    <message>
-        <source>Write Coil ON</source>
-        <translation type="vanished">写线圈 ON</translation>
-    </message>
-    <message>
-        <source>Write Coil OFF</source>
-        <translation type="vanished">写线圈 OFF</translation>
-    </message>
-    <message>
-        <source>Write Register %1</source>
-        <translation type="vanished">写寄存器 %1</translation>
-    </message>
-    <message>
-        <source>Response: Written %1 items starting at %2</source>
-        <translation type="vanished">响应：从 %2 开始写入 %1 项</translation>
-    </message>
-    <message>
-        <source>Write Coil %1: %2</source>
-        <translation type="vanished">写线圈 %1: %2</translation>
-    </message>
+
     <message>
         <location filename="../../core/modbus/parser/ModbusFrameParser.cpp" line="386"/>
         <source>Unsupported Function Code for deep parsing</source>
@@ -340,16 +299,7 @@
         <source>Retry Interval (ms):</source>
         <translation>重试间隔(ms)：</translation>
     </message>
-    <message>
-        <source>Current version: v%1
-Latest version: v%2
-
-Open download page now?</source>
-        <translation type="vanished">当前版本：v%1
-最新版本：v%2
-
-立即打开下载页面吗？</translation>
-    </message>
+    
     <message>
         <location filename="../MainWindow.cpp" line="849"/>
         <location filename="../MainWindow.cpp" line="858"/>
@@ -522,26 +472,7 @@ Choose update method:</source>
         <source>Theme: Dark</source>
         <translation>主题：深色</translation>
     </message>
-    <message>
-        <source>Every Startup</source>
-        <translation type="vanished">每次启动</translation>
-    </message>
-    <message>
-        <source>Weekly</source>
-        <translation type="vanished">每周</translation>
-    </message>
-    <message>
-        <source>Monthly</source>
-        <translation type="vanished">每月</translation>
-    </message>
-    <message>
-        <source>Disable Update Check</source>
-        <translation type="vanished">关闭更新检测</translation>
-    </message>
-    <message>
-        <source>Update Check Frequency:</source>
-        <translation type="vanished">更新检测频率：</translation>
-    </message>
+
     <message>
         <location filename="../MainWindow.cpp" line="500"/>
         <source>Welcome to Modbus-Tools&lt;br&gt;Version: v%1&lt;br&gt;&lt;br&gt;An open-source Modbus communication debugging assistant.&lt;br&gt;Developer: mingyucheng692&lt;br&gt;License: MIT License&lt;br&gt;&lt;br&gt;This project is developed in spare time, completely free and open-source.&lt;br&gt;Feel free to star on GitHub or submit issues.&lt;br&gt;Your feedback keeps the project improving!&lt;br&gt;&lt;br&gt;&lt;a href=&quot;https://github.com/mingyucheng692/Modbus-Tools&quot;&gt;🌐 Visit GitHub Repository&lt;/a&gt;&amp;nbsp;&amp;nbsp;&amp;nbsp;&lt;a href=&quot;https://github.com/mingyucheng692/Modbus-Tools/issues&quot;&gt;🐛 Issue Tracker&lt;/a&gt;&lt;br&gt;&lt;br&gt;--------------------------&lt;br&gt;This software is provided &amp;quot;as is&amp;quot; without warranty of any kind.</source>
@@ -550,10 +481,7 @@ Choose update method:</source>
 </context>
 <context>
     <name>ui::common::UpdateChecker</name>
-    <message>
-        <source>Invalid release response</source>
-        <translation type="vanished">发布信息响应无效</translation>
-    </message>
+    
     <message>
         <location filename="../common/updatechecker.cpp" line="94"/>
         <source>Release tag is missing</source>
@@ -612,10 +540,7 @@ Choose update method:</source>
         <source>Control</source>
         <translation>控制</translation>
     </message>
-    <message>
-        <source>Quick Commands</source>
-        <translation type="vanished">快捷指令</translation>
-    </message>
+    
     <message>
         <location filename="../views/generic_serial/GenericSerialView.cpp" line="191"/>
         <source>Send Data</source>
@@ -679,10 +604,7 @@ Choose update method:</source>
         <source>Error: %1</source>
         <translation>错误：%1</translation>
     </message>
-    <message>
-        <source>Quick Commands</source>
-        <translation type="vanished">快捷指令</translation>
-    </message>
+    
     <message>
         <location filename="../views/generic_tcp/GenericTcpView.cpp" line="183"/>
         <source>Send Data</source>
@@ -696,18 +618,7 @@ Choose update method:</source>
         <source>Opening %1...</source>
         <translation>正在打开 %1...</translation>
     </message>
-    <message>
-        <source>Port Opened</source>
-        <translation type="vanished">串口已打开</translation>
-    </message>
-    <message>
-        <source>Failed to open port</source>
-        <translation type="vanished">打开串口失败</translation>
-    </message>
-    <message>
-        <source>Closed</source>
-        <translation type="vanished">已关闭</translation>
-    </message>
+
     <message>
         <location filename="../views/modbus_rtu/ModbusRtuView.cpp" line="241"/>
         <source>Sending Read Request FC:%1 Addr:%2 Qty:%3 Slave:%4</source>
@@ -904,10 +815,7 @@ Choose update method:</source>
         <source>Connected</source>
         <translation>已连接</translation>
     </message>
-    <message>
-        <source>Connection failed</source>
-        <translation type="vanished">连接失败</translation>
-    </message>
+    
     <message>
         <location filename="../views/modbus_tcp/ModbusTcpView.cpp" line="35"/>
         <location filename="../views/modbus_tcp/ModbusTcpView.cpp" line="269"/>
@@ -1102,10 +1010,7 @@ Choose update method:</source>
 </context>
 <context>
     <name>ui::widgets::ControlWidget</name>
-    <message>
-        <source>TX: %1 | RX: %2 | Avg RTT: %3 ms</source>
-        <translation type="vanished">TX:%1 | RX:%2 | 平均RTT:%3 ms</translation>
-    </message>
+    
     <message>
         <location filename="../widgets/ControlWidget.cpp" line="86"/>
         <source>TX: %1 | RX: %2 | FAIL: %3 | RTT: %4 ms</source>
@@ -1270,14 +1175,7 @@ Choose update method:</source>
         <source>Signed</source>
         <translation>有符号</translation>
     </message>
-    <message>
-        <source>Import JSON</source>
-        <translation type="vanished">导入 JSON</translation>
-    </message>
-    <message>
-        <source>Export JSON</source>
-        <translation type="vanished">导出 JSON</translation>
-    </message>
+
     <message>
         <location filename="../widgets/FrameAnalyzerWidget.cpp" line="382"/>
         <location filename="../widgets/FrameAnalyzerWidget.cpp" line="1161"/>
@@ -1715,10 +1613,7 @@ Choose update method:</source>
         <source>Exception</source>
         <translation>异常</translation>
     </message>
-    <message>
-        <source>Normal</source>
-        <translation type="vanished">正常</translation>
-    </message>
+    
 </context>
 <context>
     <name>ui::widgets::FunctionWidget</name>
@@ -1779,37 +1674,37 @@ Choose update method:</source>
     </message>
     <message>
         <location filename="../widgets/FunctionWidget.cpp" line="301"/>
-        <source>Read Discrete (0x02)</source>
+        <source>Read Discrete Inputs (0x02)</source>
         <translation>读离散输入 (0x02)</translation>
     </message>
     <message>
         <location filename="../widgets/FunctionWidget.cpp" line="304"/>
-        <source>Read Holding (0x03)</source>
+        <source>Read Holding Registers (0x03)</source>
         <translation>读保持寄存器 (0x03)</translation>
     </message>
     <message>
         <location filename="../widgets/FunctionWidget.cpp" line="307"/>
-        <source>Read Input (0x04)</source>
+        <source>Read Input Registers (0x04)</source>
         <translation>读输入寄存器 (0x04)</translation>
     </message>
     <message>
         <location filename="../widgets/FunctionWidget.cpp" line="310"/>
-        <source>Write Coil (0x05)</source>
+        <source>Write Single Coil (0x05)</source>
         <translation>写单线圈 (0x05)</translation>
     </message>
     <message>
         <location filename="../widgets/FunctionWidget.cpp" line="313"/>
-        <source>Write Reg (0x06)</source>
+        <source>Write Single Register (0x06)</source>
         <translation>写单寄存器 (0x06)</translation>
     </message>
     <message>
         <location filename="../widgets/FunctionWidget.cpp" line="316"/>
-        <source>Write Multi Coils (0x0F)</source>
+        <source>Write Multiple Coils (0x0F)</source>
         <translation>写多线圈 (0x0F)</translation>
     </message>
     <message>
         <location filename="../widgets/FunctionWidget.cpp" line="319"/>
-        <source>Write Multi Regs (0x10)</source>
+        <source>Write Multiple Registers (0x10)</source>
         <translation>写多寄存器 (0x10)</translation>
     </message>
     <message>
@@ -1878,62 +1773,7 @@ Choose update method:</source>
 </context>
 <context>
     <name>ui::widgets::QuickCommandWidget</name>
-    <message>
-        <source>HEX</source>
-        <translation type="vanished">HEX</translation>
-    </message>
-    <message>
-        <source>ASCII</source>
-        <translation type="vanished">ASCII</translation>
-    </message>
-    <message>
-        <source>Export Commands</source>
-        <translation type="vanished">导出指令</translation>
-    </message>
-    <message>
-        <source>JSON Files (*.json)</source>
-        <translation type="vanished">JSON 文件 (*.json)</translation>
-    </message>
-    <message>
-        <source>Import Commands</source>
-        <translation type="vanished">导入指令</translation>
-    </message>
-    <message>
-        <source>Add</source>
-        <translation type="vanished">添加</translation>
-    </message>
-    <message>
-        <source>Edit</source>
-        <translation type="vanished">编辑</translation>
-    </message>
-    <message>
-        <source>Remove</source>
-        <translation type="vanished">删除</translation>
-    </message>
-    <message>
-        <source>Send</source>
-        <translation type="vanished">发送</translation>
-    </message>
-    <message>
-        <source>Export</source>
-        <translation type="vanished">导出</translation>
-    </message>
-    <message>
-        <source>Import</source>
-        <translation type="vanished">导入</translation>
-    </message>
-    <message>
-        <source>Name</source>
-        <translation type="vanished">名称</translation>
-    </message>
-    <message>
-        <source>Data</source>
-        <translation type="vanished">数据</translation>
-    </message>
-    <message>
-        <source>Format</source>
-        <translation type="vanished">格式</translation>
-    </message>
+
 </context>
 <context>
     <name>ui::widgets::SerialConnectionWidget</name>
