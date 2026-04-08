@@ -227,10 +227,17 @@ void SerialChannel::onErrorOccurred(QSerialPort::SerialPortError error) {
         if (closing_) {
             return;
         }
+        const QString errorText = serial_.errorString().isEmpty()
+            ? QStringLiteral("Serial port error")
+            : serial_.errorString();
+        spdlog::warn("SerialChannel: error code={} port={} message={}",
+                     static_cast<int>(error),
+                     config_.portName.toStdString(),
+                     errorText.toStdString());
         resetWriteState();
         disarmWriteTimeout();
         setState(ChannelState::Error);
-        emitError(serial_.errorString().isEmpty() ? QStringLiteral("Serial port error") : serial_.errorString());
+        emitError(errorText);
     }
 }
 

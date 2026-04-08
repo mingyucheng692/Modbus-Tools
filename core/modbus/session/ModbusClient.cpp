@@ -843,10 +843,15 @@ ModbusResponse ModbusClient::sendRequestInternal(const base::Pdu& request, int s
                 continue;
             } else if (integrity == -1) {
                 if (!buffer_.isEmpty()) {
+                    spdlog::warn("ModbusClient: RTU CRC mismatch, dropping first byte [{}] of buffer={} totalDropped={}",
+                                 static_cast<int>(buffer_.at(0)),
+                                 QString(buffer_.toHex(' ').toUpper()).toStdString(),
+                                 droppedInvalidBytes + 1);
                     buffer_.remove(0, 1);
                     ++droppedInvalidBytes;
                 }
                 if (droppedInvalidBytes > app::constants::Constants::Modbus::kMaxDroppedInvalidBytes) {
+                    spdlog::error("ModbusClient: RTU CRC mismatch limit exceeded ({}), aborting request", droppedInvalidBytes);
                     transitionTo(RequestState::Failed, "too-many-invalid-bytes");
                     return ModbusResponse::Error(trClient("Too many invalid response bytes"));
                 }
@@ -1117,8 +1122,14 @@ void ModbusClient::onDataReceived(QByteArrayView data) {
 }
 
 void ModbusClient::onError(const QString& error) {
-    std::lock_guard<std::mutex> lock(mutex_);
-    lastError_ = error;
+    {
+        std::lock_guard<std::mutex> lock(mutex_);
+        lastError_ = error;
+    }
+    spdlog::warn("ModbusClient: channel error forwarded: '{}' state={} connState={}",
+                 error.toStdString(),
+                 toString(requestState_.load()),
+                 toString(connectionState_.load()));
     cv_.notify_one();
 }
 
