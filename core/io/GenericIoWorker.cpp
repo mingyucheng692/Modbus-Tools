@@ -33,7 +33,7 @@ void GenericIoWorker::openTcp(const QString& ip, int port, quint64 generation)
 
     if (!channel_->open()) {
         // If open failed synchronously
-        emit errorOccurred("Failed to open TCP connection");
+        emit channelErrorOccurred("Failed to open TCP connection");
         // State changes are still forwarded through the subscribed channel handler.
     }
 }
@@ -49,7 +49,7 @@ void GenericIoWorker::openSerial(const SerialConfig& config)
     setupChannel();
 
     if (!channel_->open()) {
-        emit errorOccurred("Failed to open serial port");
+        emit channelErrorOccurred("Failed to open serial port");
     }
 }
 
@@ -64,17 +64,17 @@ void GenericIoWorker::close()
 void GenericIoWorker::write(const QByteArray& data)
 {
     if (transferInProgress_) {
-        emit errorOccurred("File transfer in progress");
+        emit channelErrorOccurred("File transfer in progress");
         return;
     }
     if (channel_ && channel_->isOpen()) {
         if (channel_->write(data)) {
             emit bytesQueued(data.size());
         } else {
-            emit errorOccurred("Write failed");
+            emit channelErrorOccurred("Write failed");
         }
     } else {
-        emit errorOccurred("Channel not open");
+        emit channelErrorOccurred("Channel not open");
     }
 }
 
@@ -133,7 +133,7 @@ void GenericIoWorker::setupChannel()
             failFileTransfer(err.isEmpty() ? QStringLiteral("Channel error") : err);
             return;
         }
-        emit errorOccurred(err);
+        emit channelErrorOccurred(err);
     });
 
     channel_->setMonitor([this](bool isTx, const QByteArray& data) {
@@ -222,7 +222,7 @@ void GenericIoWorker::finishFileTransferSuccess()
 void GenericIoWorker::failFileTransfer(const QString& error)
 {
     if (!error.isEmpty()) {
-        emit errorOccurred(error);
+        emit channelErrorOccurred(error);
     }
     if (transferInProgress_ || !transferFilePath_.isEmpty()) {
         emit fileTransferFailed(transferFilePath_, error);

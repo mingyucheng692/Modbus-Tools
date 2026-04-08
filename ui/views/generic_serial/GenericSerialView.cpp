@@ -105,7 +105,7 @@ void GenericSerialView::startWorker() {
     connect(workerThread_, &QThread::finished, workerThread_, &QObject::deleteLater);
 
     connect(worker, &io::GenericIoWorker::stateChanged, this, &GenericSerialView::onWorkerStateChanged);
-    connect(worker, &io::GenericIoWorker::errorOccurred, this, &GenericSerialView::onWorkerError);
+    connect(worker, &io::GenericIoWorker::channelErrorOccurred, this, &GenericSerialView::onWorkerError);
     connect(worker, &io::GenericIoWorker::monitor, this, &GenericSerialView::onWorkerMonitor);
     connect(worker, &io::GenericIoWorker::fileTransferStarted, this, [this](const QString& filePath, qint64 totalBytes) {
         trafficMonitor_->appendInfo(tr("File transfer started: %1 (%2 bytes)").arg(filePath).arg(totalBytes));

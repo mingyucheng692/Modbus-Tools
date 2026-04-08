@@ -42,7 +42,7 @@ public:
     bool connect() override;
     void disconnect() override;
     bool isConnected() const override;
-    QString lastError() override;
+    QString lastChannelError() override;
     void abort() override;
     void setConfig(const base::ModbusConfig& config) override;
     ConnectionState connectionState() const;
@@ -60,7 +60,7 @@ private:
 
     ModbusResponse sendRequestInternal(const base::Pdu& request, int slaveId);
     void onDataReceived(QByteArrayView data);
-    void onError(const QString& error);
+    void onChannelError(const QString& error);
     bool ensureConnected(bool allowReconnect);
     bool waitForChannelState(io::ChannelState expectedState,
                              std::chrono::steady_clock::time_point deadline,
@@ -95,7 +95,7 @@ private:
     QByteArray buffer_;
     bool responseReady_ = false;
     bool writeDrained_ = true;
-    QString lastError_;
+    QString lastChannelError_;
     std::chrono::steady_clock::time_point lastWriteDrainedAt_ {};
     io::IChannel::HandlerId stateHandlerId_ = 0;
     

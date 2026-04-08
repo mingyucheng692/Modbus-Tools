@@ -79,7 +79,7 @@ void GenericTcpView::startWorker() {
     connect(workerThread_, &QThread::finished, workerThread_, &QObject::deleteLater);
 
     connect(worker, &io::GenericIoWorker::stateChangedWithGeneration, this, &GenericTcpView::onWorkerStateChanged);
-    connect(worker, &io::GenericIoWorker::errorOccurred, this, &GenericTcpView::onWorkerError);
+    connect(worker, &io::GenericIoWorker::channelErrorOccurred, this, &GenericTcpView::onWorkerError);
     connect(worker, &io::GenericIoWorker::monitor, this, &GenericTcpView::onWorkerMonitor);
     connect(worker, &io::GenericIoWorker::fileTransferStarted, this, [this](const QString& filePath, qint64 totalBytes) {
         trafficMonitor_->appendInfo(tr("File transfer started: %1 (%2 bytes)").arg(filePath).arg(totalBytes));

@@ -286,7 +286,7 @@ void ModbusClient::clearRuntimeState(bool clearPendingQueue) {
     completedRtuFrames_.clear();
     responseReady_ = false;
     writeDrained_ = true;
-    lastError_.clear();
+    lastChannelError_.clear();
     lastRtuByteReceivedAt_ = std::chrono::steady_clock::time_point{};
     lastWriteDrainedAt_ = std::chrono::steady_clock::time_point{};
     nextRtuSendAllowedAt_ = std::chrono::steady_clock::time_point{};
@@ -309,7 +309,7 @@ ModbusClient::ModbusClient(std::shared_ptr<io::IChannel> channel,
     });
     
     channel_->setErrorHandler([this](const QString& error) {
-        onError(error);
+        onChannelError(error);
     });
 
     channel_->setWriteDrainedHandler([this]() {
@@ -370,9 +370,9 @@ bool ModbusClient::isConnected() const {
     return channel_ && channel_->isOpen();
 }
 
-QString ModbusClient::lastError() {
+QString ModbusClient::lastChannelError() {
     std::lock_guard<std::mutex> lock(mutex_);
-    return lastError_;
+    return lastChannelError_;
 }
 
 void ModbusClient::setConfig(const base::ModbusConfig& config) {
@@ -389,7 +389,7 @@ void ModbusClient::setConfig(const base::ModbusConfig& config) {
 bool ModbusClient::ensureConnected(bool allowReconnect) {
     if (!channel_) {
         std::lock_guard<std::mutex> lock(mutex_);
-        lastError_ = trClient("No channel attached");
+        lastChannelError_ = trClient("No channel attached");
         transitionConnectionState(ConnectionState::Failed, "no-channel");
         return false;
     }
@@ -409,7 +409,7 @@ bool ModbusClient::ensureConnected(bool allowReconnect) {
     for (int attempt = 0; attempt < attempts; ++attempt) {
         if (aborted_.load()) {
             std::lock_guard<std::mutex> lock(mutex_);
-            lastError_ = trClient("Aborted");
+            lastChannelError_ = trClient("Aborted");
             transitionConnectionState(ConnectionState::Failed, "connect-aborted");
             return false;
         }
@@ -418,7 +418,7 @@ bool ModbusClient::ensureConnected(bool allowReconnect) {
                                   attempt == 0 ? "connect-attempt" : "reconnect-attempt");
         {
             std::lock_guard<std::mutex> lock(mutex_);
-            lastError_.clear();
+            lastChannelError_.clear();
             responseReady_ = false;
         }
 
@@ -445,18 +445,18 @@ bool ModbusClient::ensureConnected(bool allowReconnect) {
             attempt);
         if (!waitForAbortableDelay(std::chrono::milliseconds(reconnectDelayMs))) {
             std::lock_guard<std::mutex> lock(mutex_);
-            lastError_ = trClient("Aborted");
+            lastChannelError_ = trClient("Aborted");
             transitionConnectionState(ConnectionState::Failed, "reconnect-aborted");
             return false;
         }
     }
 
     std::lock_guard<std::mutex> lock(mutex_);
-    lastError_ = connectError.isEmpty() ? trClient("Connect timeout") : connectError;
+    lastChannelError_ = connectError.isEmpty() ? trClient("Connect timeout") : connectError;
     spdlog::warn("ModbusClient: connect failed target={}:{} reason={} channelState={}",
                  config_.ipAddress.toStdString(),
                  config_.port,
-                 lastError_.toStdString(),
+                 lastChannelError_.toStdString(),
                  static_cast<int>(channel_->state()));
     return false;
 }
@@ -476,11 +476,11 @@ bool ModbusClient::waitForChannelState(io::ChannelState expectedState,
         }
         {
             std::lock_guard<std::mutex> lock(mutex_);
-            if (!lastError_.isEmpty()) {
+            if (!lastChannelError_.isEmpty()) {
                 if (errorOut) {
-                    *errorOut = lastError_;
+                    *errorOut = lastChannelError_;
                 }
-                lastError_.clear();
+                lastChannelError_.clear();
                 return false;
             }
         }
@@ -494,7 +494,7 @@ bool ModbusClient::waitForChannelState(io::ChannelState expectedState,
         std::unique_lock<std::mutex> lock(mutex_);
         if (!cv_.wait_until(lock, deadline, [this, expectedState]() {
                 return aborted_.load() ||
-                    !lastError_.isEmpty() ||
+                    !lastChannelError_.isEmpty() ||
                     channel_->state() == io::ChannelState::Error ||
                     channel_->state() == expectedState ||
                     (expectedState == io::ChannelState::Open && channel_->isOpen());
@@ -528,7 +528,7 @@ bool ModbusClient::waitForWriteDrain(std::chrono::steady_clock::time_point deadl
                 }
                 return true;
             }
-            if (!lastError_.isEmpty()) {
+            if (!lastChannelError_.isEmpty()) {
                 return false;
             }
         }
@@ -538,7 +538,7 @@ bool ModbusClient::waitForWriteDrain(std::chrono::steady_clock::time_point deadl
 
         std::unique_lock<std::mutex> lock(mutex_);
         if (!cv_.wait_until(lock, deadline, [this]() {
-                return aborted_.load() || writeDrained_ || !lastError_.isEmpty() ||
+                return aborted_.load() || writeDrained_ || !lastChannelError_.isEmpty() ||
                     channel_->state() == io::ChannelState::Error;
             })) {
             break;
@@ -560,7 +560,7 @@ bool ModbusClient::waitForWriteDrain(std::chrono::steady_clock::time_point deadl
 bool ModbusClient::waitForEventOrTimeout(std::chrono::steady_clock::time_point deadline) {
     std::unique_lock<std::mutex> lock(mutex_);
     const bool signaled = cv_.wait_until(lock, deadline, [this]() {
-            return aborted_.load() || responseReady_ || !lastError_.isEmpty() ||
+            return aborted_.load() || responseReady_ || !lastChannelError_.isEmpty() ||
                 channel_->state() == io::ChannelState::Error;
         });
     return signaled || std::chrono::steady_clock::now() < deadline;
@@ -623,7 +623,7 @@ void ModbusClient::sendRaw(const QByteArray& data) {
         waitForRtuInterFrameDelay();
         {
             std::lock_guard<std::mutex> stateLock(mutex_);
-            lastError_.clear();
+            lastChannelError_.clear();
             writeDrained_ = config_.mode != base::ModbusMode::RTU;
             lastWriteDrainedAt_ = std::chrono::steady_clock::time_point{};
         }
@@ -641,7 +641,7 @@ ModbusResponse ModbusClient::sendRequestInternal(const base::Pdu& request, int s
     if (!ensureConnected(config_.autoReconnect)) {
         transitionTo(RequestState::Failed, "not-connected");
         std::lock_guard<std::mutex> lock(mutex_);
-        return ModbusResponse::Error(lastError_.isEmpty() ? trClient("Not connected") : lastError_);
+        return ModbusResponse::Error(lastChannelError_.isEmpty() ? trClient("Not connected") : lastChannelError_);
     }
 
     const QString validationError = validateRequest(request, slaveId);
@@ -661,7 +661,7 @@ ModbusResponse ModbusClient::sendRequestInternal(const base::Pdu& request, int s
         completedRtuFrames_.clear();
         responseReady_ = false;
         writeDrained_ = config_.mode != base::ModbusMode::RTU;
-        lastError_.clear();
+        lastChannelError_.clear();
         lastRtuByteReceivedAt_ = std::chrono::steady_clock::time_point{};
         lastWriteDrainedAt_ = std::chrono::steady_clock::time_point{};
     }
@@ -692,10 +692,10 @@ ModbusResponse ModbusClient::sendRequestInternal(const base::Pdu& request, int s
         if (!waitForWriteDrain(writeDeadline, &drainedAt)) {
             transitionTo(RequestState::Failed, "write-drain-timeout");
             std::lock_guard<std::mutex> lock(mutex_);
-            const QString error = lastError_.isEmpty()
+            const QString error = lastChannelError_.isEmpty()
                 ? trClient("Write drain timeout")
-                : lastError_;
-            lastError_.clear();
+                : lastChannelError_;
+            lastChannelError_.clear();
             return ModbusResponse::Error(error);
         }
         if (drainedAt != std::chrono::steady_clock::time_point{}) {
@@ -722,7 +722,7 @@ ModbusResponse ModbusClient::sendRequestInternal(const base::Pdu& request, int s
         std::unique_lock<std::mutex> lock(mutex_);
         const auto now = std::chrono::steady_clock::now();
         const bool rtuFrameReady = isRtuFrameReadyToParseLocked(now);
-        if (!rtuFrameReady && !responseReady_ && lastError_.isEmpty() && !aborted_.load()) {
+        if (!rtuFrameReady && !responseReady_ && lastChannelError_.isEmpty() && !aborted_.load()) {
             lock.unlock();
             const bool stillWaiting = waitForEventOrTimeout(deadline);
             lock.lock();
@@ -750,9 +750,9 @@ ModbusResponse ModbusClient::sendRequestInternal(const base::Pdu& request, int s
             transitionTo(RequestState::Aborted, "aborted-during-wait");
             return ModbusResponse::Error(trClient("Aborted"));
         }
-        if (!lastError_.isEmpty()) {
-            QString err = lastError_;
-            lastError_.clear();
+        if (!lastChannelError_.isEmpty()) {
+            QString err = lastChannelError_;
+            lastChannelError_.clear();
             transitionTo(RequestState::Failed, "channel-error");
             return ModbusResponse::Error(err);
         }
@@ -1121,10 +1121,10 @@ void ModbusClient::onDataReceived(QByteArrayView data) {
     cv_.notify_one();
 }
 
-void ModbusClient::onError(const QString& error) {
+void ModbusClient::onChannelError(const QString& error) {
     {
         std::lock_guard<std::mutex> lock(mutex_);
-        lastError_ = error;
+        lastChannelError_ = error;
     }
     spdlog::warn("ModbusClient: channel error forwarded: '{}' state={} connState={}",
                  error.toStdString(),

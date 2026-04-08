@@ -31,7 +31,7 @@ public slots:
 signals:
     void stateChanged(ChannelState state);
     void stateChangedWithGeneration(ChannelState state, quint64 generation);
-    void errorOccurred(const QString& error);
+    void channelErrorOccurred(const QString& error);
     void monitor(bool isTx, const QByteArray& data);
     void bytesQueued(qint64 bytes);
     void bytesDrained(qint64 bytes);
