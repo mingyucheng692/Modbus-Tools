@@ -15,7 +15,7 @@ public:
     }
 
     static void showDisconnected(QWidget* parent) {
-        QMessageBox::warning(parent, tr("Connection Lost"), tr("TCP connection was closed."));
+        QMessageBox::warning(parent, tr("Connection Lost"), tr("Connection was closed."));
     }
 };
 
