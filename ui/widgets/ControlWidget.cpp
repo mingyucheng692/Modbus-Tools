@@ -89,7 +89,7 @@ void ControlWidget::onTimer() {
 }
 
 void ControlWidget::updateStatsLabel() {
-    statsLabel_->setText(QStringLiteral("TX: %1 | RX: %2 | FAIL: %3 | RTT: %4 ms")
+    statsLabel_->setText(QStringLiteral("TX: %1 | RX: %2 | Err: %3 | RTT: %4 ms")
                              .arg(txCount_)
                              .arg(rxCount_)
                              .arg(errorCount_)
