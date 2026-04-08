@@ -56,9 +56,9 @@ void GenericInputWidget::setupUi() {
     controlLayout->addWidget(autoSendCheck_);
     
     intervalSpin_ = new QSpinBox(this);
-    intervalSpin_->setRange(app::constants::Constants::GenericIo::kMinInputIntervalMs,
-                            app::constants::Constants::GenericIo::kMaxInputIntervalMs);
-    intervalSpin_->setValue(app::constants::Constants::GenericIo::kDefaultInputIntervalMs);
+    intervalSpin_->setRange(app::constants::Values::GenericIo::kMinInputIntervalMs,
+                            app::constants::Values::GenericIo::kMaxInputIntervalMs);
+    intervalSpin_->setValue(app::constants::Values::GenericIo::kDefaultInputIntervalMs);
     intervalSpin_->setSuffix(" ms");
     intervalSpin_->setEnabled(false); // Enabled when checked
     controlLayout->addWidget(intervalSpin_);

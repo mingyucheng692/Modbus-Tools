@@ -206,7 +206,7 @@ void GenericSerialView::onFileSendRequested(const QString& filePath) {
     QMetaObject::invokeMethod(worker_, "sendFile",
                               Qt::QueuedConnection,
                               Q_ARG(QString, filePath),
-                              Q_ARG(int, app::constants::Constants::GenericIo::kFileSendChunkSizeBytes));
+                              Q_ARG(int, app::constants::Values::GenericIo::kFileSendChunkSizeBytes));
 }
 
 void GenericSerialView::onWorkerStateChanged(io::ChannelState state) {

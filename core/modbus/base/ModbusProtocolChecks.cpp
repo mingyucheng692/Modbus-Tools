@@ -41,7 +41,7 @@ int inspectTcpAdu(QByteArrayView adu, TcpAduFields* fields) {
     if (protocolId != 0) {
         return -1;
     }
-    if (length < 2 || length > app::constants::Constants::Modbus::kMaxTcpMbapLength) {
+    if (length < 2 || length > app::constants::Values::Modbus::kMaxTcpMbapLength) {
         return -1;
     }
 

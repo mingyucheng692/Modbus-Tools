@@ -109,10 +109,10 @@ private:
     common::UpdateChecker* updateChecker_ = nullptr;
     common::ISettingsService* settingsService_ = nullptr;
     QString currentLocale_ = "en_US";
-    int modbusTimeoutMs_ = app::constants::Constants::Modbus::kDefaultTimeoutMs;
+    int modbusTimeoutMs_ = app::constants::Values::Modbus::kDefaultTimeoutMs;
     int modbusRetries_ = 0;
-    int modbusRetryIntervalMs_ = app::constants::Constants::Modbus::kDefaultRetryIntervalMs;
-    bool modbusRetryEnabled_ = app::constants::Constants::Modbus::kDefaultRetryEnabled;
+    int modbusRetryIntervalMs_ = app::constants::Values::Modbus::kDefaultRetryIntervalMs;
+    bool modbusRetryEnabled_ = app::constants::Values::Modbus::kDefaultRetryEnabled;
     QString updateCheckFrequency_ = "startup";
     bool updateAvailable_ = false;
     bool checkingUpdateManually_ = false;
@@ -126,8 +126,8 @@ private:
     std::shared_ptr<std::atomic_bool> updatePreparationCancelToken_;
     QObject* parameterWheelBlocker_ = nullptr;
     bool navigationCollapsed_ = false;
-    int navigationExpandedWidth_ = app::constants::Constants::Ui::kNavigationExpandedWidth;
-    int navigationCollapsedWidth_ = app::constants::Constants::Ui::kNavigationCollapsedWidth;
+    int navigationExpandedWidth_ = app::constants::Values::Ui::kNavigationExpandedWidth;
+    int navigationCollapsedWidth_ = app::constants::Values::Ui::kNavigationCollapsedWidth;
 };
 
 } // namespace ui

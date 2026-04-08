@@ -462,7 +462,7 @@ QString effectiveAppLocale(const QString& locale) {
 
 int calculateExpandedNavigationWidth(const QListWidget* navigationList) {
     if (!navigationList) {
-        return app::constants::Constants::Ui::kNavigationExpandedWidth;
+        return app::constants::Values::Ui::kNavigationExpandedWidth;
     }
 
     const QFontMetrics metrics(navigationList->fontMetrics());
@@ -476,13 +476,13 @@ int calculateExpandedNavigationWidth(const QListWidget* navigationList) {
         maxTextWidth = qMax(maxTextWidth, metrics.horizontalAdvance(title));
     }
 
-    const int iconWidth = qMax(app::constants::Constants::Ui::kNavigationMinIconWidth,
+    const int iconWidth = qMax(app::constants::Values::Ui::kNavigationMinIconWidth,
                                navigationList->iconSize().width());
     const int frameWidth = navigationList->frameWidth() * 2;
-    const int leftInset = app::constants::Constants::Ui::kNavigationLeftInset;
-    const int textGap = app::constants::Constants::Ui::kNavigationTextGap;
-    const int rightInset = app::constants::Constants::Ui::kNavigationRightInset;
-    return qMax(app::constants::Constants::Ui::kNavigationExpandedWidth,
+    const int leftInset = app::constants::Values::Ui::kNavigationLeftInset;
+    const int textGap = app::constants::Values::Ui::kNavigationTextGap;
+    const int rightInset = app::constants::Values::Ui::kNavigationRightInset;
+    return qMax(app::constants::Values::Ui::kNavigationExpandedWidth,
                 frameWidth + leftInset + iconWidth + textGap + maxTextWidth + rightInset);
 }
 }
@@ -740,15 +740,15 @@ void MainWindow::updateThemeToggleUi() {
 
 void MainWindow::loadModbusSettings() {
     using namespace common::settings_keys;
-    modbusTimeoutMs_ = qBound(app::constants::Constants::Modbus::kMinTimeoutMs,
+    modbusTimeoutMs_ = qBound(app::constants::Values::Modbus::kMinTimeoutMs,
                               settingsService_->value(kModbusTimeoutMs).toInt(),
-                              app::constants::Constants::Modbus::kMaxTimeoutMs);
-    modbusRetries_ = qBound(app::constants::Constants::Modbus::kMinRetryCount,
+                              app::constants::Values::Modbus::kMaxTimeoutMs);
+    modbusRetries_ = qBound(app::constants::Values::Modbus::kMinRetryCount,
                             settingsService_->value(kModbusRetryCount).toInt(),
-                            app::constants::Constants::Modbus::kMaxRetryCount);
-    modbusRetryIntervalMs_ = qBound(app::constants::Constants::Modbus::kMinRetryIntervalMs,
+                            app::constants::Values::Modbus::kMaxRetryCount);
+    modbusRetryIntervalMs_ = qBound(app::constants::Values::Modbus::kMinRetryIntervalMs,
                                     settingsService_->value(kModbusRetryIntervalMs).toInt(),
-                                    app::constants::Constants::Modbus::kMaxRetryIntervalMs);
+                                    app::constants::Values::Modbus::kMaxRetryIntervalMs);
     modbusRetryEnabled_ = settingsService_->value(kModbusRetryEnabled).toBool();
     spdlog::info("MainWindow: Modbus settings loaded timeoutMs={} retries={} retryIntervalMs={} retryEnabled={}",
                  modbusTimeoutMs_,
@@ -780,9 +780,9 @@ void MainWindow::openModbusSettingsDialog() {
     auto layout = new QVBoxLayout(&dialog);
     auto formLayout = new QFormLayout();
     auto timeoutSpin = new QSpinBox(&dialog);
-    timeoutSpin->setRange(app::constants::Constants::Modbus::kMinTimeoutMs,
-                          app::constants::Constants::Modbus::kMaxTimeoutMs);
-    timeoutSpin->setSingleStep(app::constants::Constants::Modbus::kTimeoutStepMs);
+    timeoutSpin->setRange(app::constants::Values::Modbus::kMinTimeoutMs,
+                          app::constants::Values::Modbus::kMaxTimeoutMs);
+    timeoutSpin->setSingleStep(app::constants::Values::Modbus::kTimeoutStepMs);
     timeoutSpin->setValue(modbusTimeoutMs_);
     formLayout->addRow(tr("Request Timeout (ms):"), timeoutSpin);
 
@@ -791,15 +791,15 @@ void MainWindow::openModbusSettingsDialog() {
     formLayout->addRow(tr("Enable Retry:"), retryEnableCheck);
 
     auto retrySpin = new QSpinBox(&dialog);
-    retrySpin->setRange(app::constants::Constants::Modbus::kMinRetryCount,
-                        app::constants::Constants::Modbus::kMaxRetryCount);
+    retrySpin->setRange(app::constants::Values::Modbus::kMinRetryCount,
+                        app::constants::Values::Modbus::kMaxRetryCount);
     retrySpin->setValue(modbusRetries_);
     formLayout->addRow(tr("Retry Count:"), retrySpin);
 
     auto retryIntervalSpin = new QSpinBox(&dialog);
-    retryIntervalSpin->setRange(app::constants::Constants::Modbus::kMinRetryIntervalMs,
-                                app::constants::Constants::Modbus::kMaxRetryIntervalMs);
-    retryIntervalSpin->setSingleStep(app::constants::Constants::Modbus::kRetryIntervalStepMs);
+    retryIntervalSpin->setRange(app::constants::Values::Modbus::kMinRetryIntervalMs,
+                                app::constants::Values::Modbus::kMaxRetryIntervalMs);
+    retryIntervalSpin->setSingleStep(app::constants::Values::Modbus::kRetryIntervalStepMs);
     retryIntervalSpin->setValue(modbusRetryIntervalMs_);
     formLayout->addRow(tr("Retry Interval (ms):"), retryIntervalSpin);
 

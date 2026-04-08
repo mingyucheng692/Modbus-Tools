@@ -43,9 +43,9 @@ void TcpConnectionWidget::setupUi() {
     portLabel_ = new QLabel(this);
     layout->addWidget(portLabel_);
     portEdit_ = new QSpinBox(this);
-    portEdit_->setRange(app::constants::Constants::Network::kMinTcpPort,
-                        app::constants::Constants::Network::kMaxTcpPort);
-    portEdit_->setValue(app::constants::Constants::Network::kDefaultModbusTcpPort);
+    portEdit_->setRange(app::constants::Values::Network::kMinTcpPort,
+                        app::constants::Values::Network::kMaxTcpPort);
+    portEdit_->setValue(app::constants::Values::Network::kDefaultModbusTcpPort);
     portEdit_->setFixedWidth(76);
     layout->addWidget(portEdit_);
 

@@ -51,8 +51,8 @@ public:
 private:
     struct PendingRequest {
         int requestId = 0;
-        int slaveId = app::constants::Constants::Modbus::kDefaultSlaveId;
-        int timeoutMs = app::constants::Constants::Modbus::kDefaultTimeoutMs;
+        int slaveId = app::constants::Values::Modbus::kDefaultSlaveId;
+        int timeoutMs = app::constants::Values::Modbus::kDefaultTimeoutMs;
         int retries = 0;
         base::FunctionCode functionCode = base::FunctionCode::ReadHoldingRegisters;
         std::chrono::steady_clock::time_point enqueueAt{};

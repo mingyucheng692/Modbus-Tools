@@ -49,7 +49,7 @@ void Init(const QString& logDir)
     }
 
     // 1. 全局防爆盘：扫描历史带有时间戳的日志文件，主动淘汰过旧的文件
-    const int maxAllowedFiles = app::constants::Constants::Logging::kMaxRotatedFiles;
+    const int maxAllowedFiles = app::constants::Values::Logging::kMaxRotatedFiles;
     dir.setNameFilters(QStringList() << QStringLiteral("modbus-tools_*.log*"));
     dir.setFilter(QDir::Files | QDir::NoSymLinks);
     dir.setSorting(QDir::Time | QDir::Reversed); // 最旧的文件在前面
@@ -72,14 +72,14 @@ void Init(const QString& logDir)
     // rotating_file_sink 负责单次长时运行期间的日志切分防爆盘
     auto fileSink = std::make_shared<spdlog::sinks::rotating_file_sink_mt>(
         filePath,
-        app::constants::Constants::Logging::kMaxFileSizeBytes,
+        app::constants::Values::Logging::kMaxFileSizeBytes,
         maxAllowedFiles);
     std::vector<spdlog::sink_ptr> sinks{consoleSink, fileSink};
 
     if (!spdlog::thread_pool()) {
         spdlog::init_thread_pool(
-            app::constants::Constants::Logging::kAsyncQueueSize,
-            app::constants::Constants::Logging::kAsyncWorkerThreads);
+            app::constants::Values::Logging::kAsyncQueueSize,
+            app::constants::Values::Logging::kAsyncWorkerThreads);
     }
 
     auto logger = std::make_shared<spdlog::async_logger>(

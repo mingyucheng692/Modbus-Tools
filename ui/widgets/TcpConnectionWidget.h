@@ -54,7 +54,7 @@ private:
     bool isConnected_ = false;
     QString settingsGroup_ = "modbus/tcp";
     ui::common::ISettingsService* settingsService_ = nullptr;
-    int defaultPort_ = app::constants::Constants::Network::kDefaultModbusTcpPort;
+    int defaultPort_ = app::constants::Values::Network::kDefaultModbusTcpPort;
 };
 
 } // namespace ui::widgets

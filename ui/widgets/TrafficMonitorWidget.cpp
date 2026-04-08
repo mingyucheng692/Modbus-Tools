@@ -205,7 +205,7 @@ void TrafficMonitorWidget::onSaveClicked() {
     };
     auto state = std::make_shared<SaveState>();
     const int totalCount = logList_->count();
-    const int chunkSize = app::constants::Constants::Ui::kTrafficLogExportChunkRows;
+    const int chunkSize = app::constants::Values::Ui::kTrafficLogExportChunkRows;
     auto scheduleNextChunk = std::make_shared<std::function<void()>>();
 
     *scheduleNextChunk = [this, fileName, totalCount, chunkSize, state, errorMessage, scheduleNextChunk]() {

@@ -2,7 +2,7 @@
 
 namespace app::constants {
 
-class Constants final {
+class Values final {
 public:
     struct Settings {
         inline static constexpr int kSyncDebounceMs = 250;

@@ -44,8 +44,8 @@ struct ChannelStats {
 };
 
 struct Timeouts {
-    int readMs = app::constants::Constants::Modbus::kDefaultTimeoutMs;
-    int writeMs = app::constants::Constants::Modbus::kDefaultTimeoutMs;
+    int readMs = app::constants::Values::Modbus::kDefaultTimeoutMs;
+    int writeMs = app::constants::Values::Modbus::kDefaultTimeoutMs;
 };
 
 class IChannel {

@@ -160,7 +160,7 @@ bool isAddressRangeValid(uint16_t startAddress, uint16_t quantity)
         return false;
     }
     const uint32_t endAddress = static_cast<uint32_t>(startAddress) + static_cast<uint32_t>(quantity) - 1U;
-    return endAddress <= static_cast<uint32_t>(app::constants::Constants::Modbus::kMaxAddress);
+    return endAddress <= static_cast<uint32_t>(app::constants::Values::Modbus::kMaxAddress);
 }
 
 int sanitizeDelayMs(int value)
@@ -854,7 +854,7 @@ ModbusResponse ModbusClient::sendRequestInternal(const base::Pdu& request, int s
                     buffer_.remove(0, 1);
                     ++droppedInvalidBytes;
                 }
-                if (droppedInvalidBytes > app::constants::Constants::Modbus::kMaxDroppedInvalidBytes) {
+                if (droppedInvalidBytes > app::constants::Values::Modbus::kMaxDroppedInvalidBytes) {
                     spdlog::error("ModbusClient: RTU CRC mismatch limit exceeded ({}), aborting request", droppedInvalidBytes);
                     transitionTo(RequestState::Failed, "too-many-invalid-bytes");
                     return ModbusResponse::Error(trClient("Too many invalid response bytes"));
@@ -894,13 +894,13 @@ bool ModbusClient::shouldWaitForResponse(int slaveId, base::FunctionCode functio
 QString ModbusClient::validateRequest(const base::Pdu& request, int slaveId) const {
     const int targetSlaveId = (slaveId == -1) ? config_.slaveId : slaveId;
     if (config_.mode == base::ModbusMode::RTU &&
-        (targetSlaveId < app::constants::Constants::Modbus::kMinSlaveId ||
-         targetSlaveId > app::constants::Constants::Modbus::kMaxSlaveId)) {
+        (targetSlaveId < app::constants::Values::Modbus::kMinSlaveId ||
+         targetSlaveId > app::constants::Values::Modbus::kMaxSlaveId)) {
         return QString("Invalid RTU slave id: %1").arg(targetSlaveId);
     }
 
     const QByteArray data = request.data();
-    if (data.size() > app::constants::Constants::Modbus::kMaxPduDataLength) {
+    if (data.size() > app::constants::Values::Modbus::kMaxPduDataLength) {
         return QString("PDU data too long: %1 bytes").arg(data.size());
     }
 
@@ -918,8 +918,8 @@ QString ModbusClient::validateRequest(const base::Pdu& request, int slaveId) con
             !readBigEndianUInt16(data, 2, quantity)) {
             return QString("Invalid read request payload length: %1").arg(data.size());
         }
-        if (quantity < app::constants::Constants::Modbus::kMinQuantity) {
-            return QString("Read quantity must be at least %1").arg(app::constants::Constants::Modbus::kMinQuantity);
+        if (quantity < app::constants::Values::Modbus::kMinQuantity) {
+            return QString("Read quantity must be at least %1").arg(app::constants::Values::Modbus::kMinQuantity);
         }
         if (!isAddressRangeValid(startAddress, quantity)) {
             return QString("Read address range exceeds limit: start=%1 quantity=%2")
@@ -928,12 +928,12 @@ QString ModbusClient::validateRequest(const base::Pdu& request, int slaveId) con
         }
         if ((request.functionCode() == base::FunctionCode::ReadCoils ||
              request.functionCode() == base::FunctionCode::ReadDiscreteInputs) &&
-            quantity > app::constants::Constants::Modbus::kMaxReadBitsQuantity) {
+            quantity > app::constants::Values::Modbus::kMaxReadBitsQuantity) {
             return QString("Read bit quantity exceeds limit: %1").arg(quantity);
         }
         if ((request.functionCode() == base::FunctionCode::ReadHoldingRegisters ||
              request.functionCode() == base::FunctionCode::ReadInputRegisters) &&
-            quantity > app::constants::Constants::Modbus::kMaxReadQuantity) {
+            quantity > app::constants::Values::Modbus::kMaxReadQuantity) {
             return QString("Read register quantity exceeds limit: %1").arg(quantity);
         }
         break;
@@ -962,8 +962,8 @@ QString ModbusClient::validateRequest(const base::Pdu& request, int slaveId) con
             return QString("Invalid write-multiple request payload length: %1").arg(data.size());
         }
         declaredByteCount = static_cast<uint8_t>(data[4]);
-        if (quantity < app::constants::Constants::Modbus::kMinQuantity) {
-            return QString("Write quantity must be at least %1").arg(app::constants::Constants::Modbus::kMinQuantity);
+        if (quantity < app::constants::Values::Modbus::kMinQuantity) {
+            return QString("Write quantity must be at least %1").arg(app::constants::Values::Modbus::kMinQuantity);
         }
         if (!isAddressRangeValid(startAddress, quantity)) {
             return QString("Write address range exceeds limit: start=%1 quantity=%2")
@@ -976,7 +976,7 @@ QString ModbusClient::validateRequest(const base::Pdu& request, int slaveId) con
                 .arg(data.size() - 5);
         }
         if (request.functionCode() == base::FunctionCode::WriteMultipleCoils) {
-            if (quantity > app::constants::Constants::Modbus::kMaxWriteCoilsQuantity) {
+            if (quantity > app::constants::Values::Modbus::kMaxWriteCoilsQuantity) {
                 return QString("Write coil quantity exceeds limit: %1").arg(quantity);
             }
             const int expectedByteCount = (static_cast<int>(quantity) + 7) / 8;
@@ -986,7 +986,7 @@ QString ModbusClient::validateRequest(const base::Pdu& request, int slaveId) con
                     .arg(expectedByteCount);
             }
         } else {
-            if (quantity > app::constants::Constants::Modbus::kMaxWriteRegistersQuantity) {
+            if (quantity > app::constants::Values::Modbus::kMaxWriteRegistersQuantity) {
                 return QString("Write register quantity exceeds limit: %1").arg(quantity);
             }
             const int expectedByteCount = static_cast<int>(quantity) * 2;
@@ -1004,7 +1004,7 @@ QString ModbusClient::validateRequest(const base::Pdu& request, int slaveId) con
     }
 
     const int tcpMbapLength = 2 + data.size();
-    if (tcpMbapLength > app::constants::Constants::Modbus::kMaxTcpMbapLength) {
+    if (tcpMbapLength > app::constants::Values::Modbus::kMaxTcpMbapLength) {
         return QString("TCP MBAP length exceeds limit: %1").arg(tcpMbapLength);
     }
 
@@ -1109,18 +1109,18 @@ void ModbusClient::onDataReceived(QByteArrayView data) {
             }
         }
         buffer_.append(data);
-        if (buffer_.size() > app::constants::Constants::Modbus::kMaxRtuBufferedBytes) {
+        if (buffer_.size() > app::constants::Values::Modbus::kMaxRtuBufferedBytes) {
             spdlog::warn("ModbusClient: RTU buffer exceeded {} bytes limit, clearing",
-                         app::constants::Constants::Modbus::kMaxRtuBufferedBytes);
+                         app::constants::Values::Modbus::kMaxRtuBufferedBytes);
             buffer_.clear();
         }
         lastRtuByteReceivedAt_ = now;
     } else {
         buffer_.append(data);
-        if (buffer_.size() > app::constants::Constants::Modbus::kMaxTcpBufferedBytes) {
+        if (buffer_.size() > app::constants::Values::Modbus::kMaxTcpBufferedBytes) {
             spdlog::warn("ModbusClient: TCP buffer exceeded {} bytes limit, dropping oldest bytes",
-                         app::constants::Constants::Modbus::kMaxTcpBufferedBytes);
-            buffer_.remove(0, buffer_.size() - app::constants::Constants::Modbus::kMaxTcpBufferedBytes);
+                         app::constants::Values::Modbus::kMaxTcpBufferedBytes);
+            buffer_.remove(0, buffer_.size() - app::constants::Values::Modbus::kMaxTcpBufferedBytes);
         }
     }
     responseReady_ = true; // 即使不完整也唤醒，由工作线程检查完整性

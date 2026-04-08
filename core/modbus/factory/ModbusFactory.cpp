@@ -12,7 +12,7 @@ namespace modbus::factory {
 
 namespace {
 
-void disposeThread(QThread* thread)
+void cleanupThread(QThread* thread)
 {
     if (!thread) {
         return;
@@ -30,7 +30,7 @@ void disposeThread(QThread* thread)
     }
 }
 
-void disposeWorker(dispatch::ModbusWorker* worker)
+void cleanupWorker(dispatch::ModbusWorker* worker)
 {
     if (!worker) {
         return;
@@ -67,10 +67,10 @@ ModbusStack ModbusFactory::createStack(const base::ModbusConfig& config) {
 
     // 4. 创建工作线程 (Dispatch)
     QThread* threadRaw = new QThread();
-    stack.thread = std::shared_ptr<QThread>(threadRaw, &disposeThread);
+    stack.thread = std::shared_ptr<QThread>(threadRaw, &cleanupThread);
 
     auto workerRaw = new dispatch::ModbusWorker(stack.client, stack.thread.get(), nullptr);
-    stack.worker = std::shared_ptr<dispatch::ModbusWorker>(workerRaw, &disposeWorker);
+    stack.worker = std::shared_ptr<dispatch::ModbusWorker>(workerRaw, &cleanupWorker);
     return stack;
 }
 

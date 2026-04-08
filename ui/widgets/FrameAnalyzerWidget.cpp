@@ -434,9 +434,9 @@ void FrameAnalyzerWidget::createInputGroup()
     startAddrLabel_ = new QLabel(tr("Start Address (for Response):"), this);
     controlsLayout->addWidget(startAddrLabel_);
     startAddressSpin_ = new QSpinBox(this);
-    startAddressSpin_->setRange(app::constants::Constants::Modbus::kMinAddress,
-                                app::constants::Constants::Modbus::kMaxAddress);
-    startAddressSpin_->setValue(app::constants::Constants::Modbus::kDefaultStandardStartAddress);
+    startAddressSpin_->setRange(app::constants::Values::Modbus::kMinAddress,
+                                app::constants::Values::Modbus::kMaxAddress);
+    startAddressSpin_->setValue(app::constants::Values::Modbus::kDefaultStandardStartAddress);
     controlsLayout->addWidget(startAddressSpin_);
 
     controlsLayout->addStretch();
@@ -1104,7 +1104,7 @@ void FrameAnalyzerWidget::exportCurrentTableToCsv(const QString& filePath) const
     };
     auto state = std::make_shared<SaveState>();
     const int totalRows = dataTable_->rowCount();
-    const int chunkSize = app::constants::Constants::Ui::kFrameAnalyzerCsvExportChunkRows;
+    const int chunkSize = app::constants::Values::Ui::kFrameAnalyzerCsvExportChunkRows;
     auto scheduleNextChunk = std::make_shared<std::function<void()>>();
 
     *scheduleNextChunk = [this, filePath, totalRows, chunkSize, state, errorMessage, scheduleNextChunk]() {
@@ -1181,7 +1181,7 @@ QString FrameAnalyzerWidget::escapeCsvValue(const QString& value) const
 void FrameAnalyzerWidget::addToHistory(const ParseResult& result)
 {
     historyResults_.prepend(result);
-    while (historyResults_.size() > app::constants::Constants::Ui::kFrameAnalyzerMaxHistoryItems) {
+    while (historyResults_.size() > app::constants::Values::Ui::kFrameAnalyzerMaxHistoryItems) {
         historyResults_.removeLast();
     }
     refreshHistoryList();
@@ -1255,7 +1255,7 @@ void FrameAnalyzerWidget::updateAdaptiveLayout()
         return;
     }
 
-    const bool shouldAutoCollapse = width() < app::constants::Constants::Ui::kFrameAnalyzerAdaptiveHistoryCollapseWidth;
+    const bool shouldAutoCollapse = width() < app::constants::Values::Ui::kFrameAnalyzerAdaptiveHistoryCollapseWidth;
     if (shouldAutoCollapse) {
         if (!historyCollapsed_) {
             historyAutoCollapsed_ = true;

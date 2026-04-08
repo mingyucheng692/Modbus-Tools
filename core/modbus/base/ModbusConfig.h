@@ -16,47 +16,47 @@ struct ModbusConfig {
     ModbusMode mode = ModbusMode::RTU;
     
     // 从站 ID (Unit ID)
-    uint8_t slaveId = app::constants::Constants::Modbus::kDefaultSlaveId;
+    uint8_t slaveId = app::constants::Values::Modbus::kDefaultSlaveId;
 
     // --- 连接参数 ---
     // Serial (RTU)
     QString portName;
-    int baudRate = app::constants::Constants::Serial::kDefaultBaudRate;
-    int dataBits = app::constants::Constants::Serial::kDefaultDataBits;
-    int stopBits = app::constants::Constants::Serial::kDefaultStopBits;
-    int parity = app::constants::Constants::Serial::kDefaultParityValue; // 0:No, 2:Even, 3:Odd (QSerialPort::Parity)
+    int baudRate = app::constants::Values::Serial::kDefaultBaudRate;
+    int dataBits = app::constants::Values::Serial::kDefaultDataBits;
+    int stopBits = app::constants::Values::Serial::kDefaultStopBits;
+    int parity = app::constants::Values::Serial::kDefaultParityValue; // 0:No, 2:Even, 3:Odd (QSerialPort::Parity)
 
     // TCP
-    QString ipAddress = QString::fromLatin1(app::constants::Constants::Network::kLoopbackAddress);
-    int port = app::constants::Constants::Network::kDefaultModbusTcpPort;
+    QString ipAddress = QString::fromLatin1(app::constants::Values::Network::kLoopbackAddress);
+    int port = app::constants::Values::Network::kDefaultModbusTcpPort;
     // ----------------
 
     // 超时时间 (毫秒)
-    int timeoutMs = app::constants::Constants::Modbus::kDefaultTimeoutMs;
+    int timeoutMs = app::constants::Values::Modbus::kDefaultTimeoutMs;
 
     // 重试次数
     int retries = 0;
 
     // 重试间隔 (毫秒)
-    int retryIntervalMs = app::constants::Constants::Modbus::kDefaultRetryIntervalMs;
+    int retryIntervalMs = app::constants::Values::Modbus::kDefaultRetryIntervalMs;
 
     // 重试退避上限 (毫秒)
-    int maxRetryIntervalMs = app::constants::Constants::Modbus::kDefaultMaxRetryIntervalMs;
+    int maxRetryIntervalMs = app::constants::Values::Modbus::kDefaultMaxRetryIntervalMs;
 
     // 指数退避系数
-    double retryBackoffFactor = app::constants::Constants::Modbus::kDefaultRetryBackoffFactor;
+    double retryBackoffFactor = app::constants::Values::Modbus::kDefaultRetryBackoffFactor;
 
     // 退避抖动百分比
-    int retryJitterPercent = app::constants::Constants::Modbus::kDefaultRetryJitterPercent;
+    int retryJitterPercent = app::constants::Values::Modbus::kDefaultRetryJitterPercent;
 
     // 自动重连开关
-    bool autoReconnect = app::constants::Constants::Modbus::kDefaultAutoReconnect;
+    bool autoReconnect = app::constants::Values::Modbus::kDefaultAutoReconnect;
 
     // 自动重连基础间隔 (毫秒)
-    int reconnectBaseMs = app::constants::Constants::Modbus::kDefaultReconnectBaseMs;
+    int reconnectBaseMs = app::constants::Values::Modbus::kDefaultReconnectBaseMs;
 
     // 自动重连最大间隔 (毫秒)
-    int reconnectMaxMs = app::constants::Constants::Modbus::kDefaultReconnectMaxMs;
+    int reconnectMaxMs = app::constants::Values::Modbus::kDefaultReconnectMaxMs;
 
     // 帧间隔 (RTU only, micro-seconds or char times)
     // 通常由驱动层处理，但在某些应用层实现中可能需要

@@ -85,9 +85,9 @@ private:
     quint64 connectionGeneration_ = 0;
     bool tcpSessionConnected_ = false;
     bool suppressDisconnectAlert_ = false;
-    int timeoutMs_ = app::constants::Constants::Modbus::kDefaultTimeoutMs;
+    int timeoutMs_ = app::constants::Values::Modbus::kDefaultTimeoutMs;
     int retries_ = 0;
-    int retryIntervalMs_ = app::constants::Constants::Modbus::kDefaultRetryIntervalMs;
+    int retryIntervalMs_ = app::constants::Values::Modbus::kDefaultRetryIntervalMs;
     modbus::base::ModbusConfig currentConfig_;
     ui::common::ISettingsService* settingsService_ = nullptr;
 };

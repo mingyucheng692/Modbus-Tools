@@ -81,7 +81,7 @@ void ModbusRtuView::setupUi() {
     receiveToolbar->addWidget(clearReceiveButton_);
     receiveTextEdit_ = new QTextEdit(receiveGroup_);
     receiveTextEdit_->setReadOnly(true);
-    receiveTextEdit_->document()->setMaximumBlockCount(app::constants::Constants::Ui::kTrafficMonitorMaxBlockCount);
+    receiveTextEdit_->document()->setMaximumBlockCount(app::constants::Values::Ui::kTrafficMonitorMaxBlockCount);
     receiveLayout->addLayout(receiveToolbar);
     receiveLayout->addWidget(receiveTextEdit_);
 
@@ -99,7 +99,7 @@ void ModbusRtuView::setupUi() {
     sendToolbar->addWidget(clearSendButton_);
     sendTextEdit_ = new QTextEdit(sendGroup_);
     sendTextEdit_->setReadOnly(true);
-    sendTextEdit_->document()->setMaximumBlockCount(app::constants::Constants::Ui::kTrafficMonitorMaxBlockCount);
+    sendTextEdit_->document()->setMaximumBlockCount(app::constants::Values::Ui::kTrafficMonitorMaxBlockCount);
     sendLayout->addLayout(sendToolbar);
     sendLayout->addWidget(sendTextEdit_);
 

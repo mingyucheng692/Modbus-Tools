@@ -156,10 +156,10 @@ void ControlWidget::setupUi() {
     intervalLabel_ = new QLabel(this);
     layout->addWidget(intervalLabel_);
     intervalSpin_ = new QSpinBox(this);
-    intervalSpin_->setRange(app::constants::Constants::Polling::kMinIntervalMs,
-                            app::constants::Constants::Polling::kMaxIntervalMs);
-    intervalSpin_->setValue(app::constants::Constants::Polling::kDefaultIntervalMs);
-    intervalSpin_->setSingleStep(app::constants::Constants::Polling::kIntervalStepMs);
+    intervalSpin_->setRange(app::constants::Values::Polling::kMinIntervalMs,
+                            app::constants::Values::Polling::kMaxIntervalMs);
+    intervalSpin_->setValue(app::constants::Values::Polling::kDefaultIntervalMs);
+    intervalSpin_->setSingleStep(app::constants::Values::Polling::kIntervalStepMs);
     intervalSpin_->setFixedWidth(78);
     layout->addWidget(intervalSpin_);
     
@@ -168,7 +168,7 @@ void ControlWidget::setupUi() {
     layout->addWidget(fcLabel_);
     fcCombo_ = new QComboBox(this);
     fcCombo_->addItems({"", "", "", ""});
-    fcCombo_->setCurrentIndex(app::constants::Constants::Modbus::kDefaultControlFunctionIndex);
+    fcCombo_->setCurrentIndex(app::constants::Values::Modbus::kDefaultControlFunctionIndex);
     fcCombo_->setMinimumContentsLength(11);
     fcCombo_->setSizeAdjustPolicy(QComboBox::AdjustToMinimumContentsLengthWithIcon);
     layout->addWidget(fcCombo_);
@@ -177,9 +177,9 @@ void ControlWidget::setupUi() {
     addrLabel_ = new QLabel(this);
     layout->addWidget(addrLabel_);
     addrSpin_ = new QSpinBox(this);
-    addrSpin_->setRange(app::constants::Constants::Modbus::kMinAddress,
-                        app::constants::Constants::Modbus::kMaxAddress);
-    addrSpin_->setValue(app::constants::Constants::Modbus::kDefaultControlAddress);
+    addrSpin_->setRange(app::constants::Values::Modbus::kMinAddress,
+                        app::constants::Values::Modbus::kMaxAddress);
+    addrSpin_->setValue(app::constants::Values::Modbus::kDefaultControlAddress);
     addrSpin_->setFixedWidth(68);
     layout->addWidget(addrSpin_);
     
@@ -187,9 +187,9 @@ void ControlWidget::setupUi() {
     qtyLabel_ = new QLabel(this);
     layout->addWidget(qtyLabel_);
     qtySpin_ = new QSpinBox(this);
-    qtySpin_->setRange(app::constants::Constants::Modbus::kMinQuantity,
-                       app::constants::Constants::Modbus::kMaxReadQuantity);
-    qtySpin_->setValue(app::constants::Constants::Modbus::kDefaultControlQuantity);
+    qtySpin_->setRange(app::constants::Values::Modbus::kMinQuantity,
+                       app::constants::Values::Modbus::kMaxReadQuantity);
+    qtySpin_->setValue(app::constants::Values::Modbus::kDefaultControlQuantity);
     qtySpin_->setFixedWidth(60);
     layout->addWidget(qtySpin_);
     

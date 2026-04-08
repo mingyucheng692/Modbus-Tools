@@ -37,7 +37,7 @@ void GenericTcpView::setupUi() {
     // 1. Connection Section (Top)
     connectionWidget_ = new widgets::TcpConnectionWidget(settingsService_, this);
     connectionWidget_->setSettingsGroup("tcp_client");
-    connectionWidget_->setDefaultPort(app::constants::Constants::Network::kDefaultGenericTcpPort);
+    connectionWidget_->setDefaultPort(app::constants::Values::Network::kDefaultGenericTcpPort);
     mainLayout->addWidget(connectionWidget_);
 
     // 2. Central Area (Traffic Monitor)
@@ -190,7 +190,7 @@ void GenericTcpView::onFileSendRequested(const QString& filePath) {
     QMetaObject::invokeMethod(worker_, "sendFile",
                               Qt::QueuedConnection,
                               Q_ARG(QString, filePath),
-                              Q_ARG(int, app::constants::Constants::GenericIo::kFileSendChunkSizeBytes));
+                              Q_ARG(int, app::constants::Values::GenericIo::kFileSendChunkSizeBytes));
 }
 
 void GenericTcpView::onWorkerStateChanged(io::ChannelState state, quint64 generation) {

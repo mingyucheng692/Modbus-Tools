@@ -9,9 +9,9 @@ namespace io {
 
 struct SerialConfig {
     QString portName;
-    qint32 baudRate = app::constants::Constants::Serial::kDefaultBaudRate;
-    int dataBits = app::constants::Constants::Serial::kDefaultDataBits;
-    int stopBits = app::constants::Constants::Serial::kDefaultStopBits;
+    qint32 baudRate = app::constants::Values::Serial::kDefaultBaudRate;
+    int dataBits = app::constants::Values::Serial::kDefaultDataBits;
+    int stopBits = app::constants::Values::Serial::kDefaultStopBits;
     QSerialPort::Parity parity = QSerialPort::NoParity;
 };
 

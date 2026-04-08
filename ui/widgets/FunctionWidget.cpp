@@ -55,27 +55,27 @@ void FunctionWidget::setupStandardUi(QWidget* parent) {
     slaveIdLabel_ = new QLabel(parent);
     paramLayout->addWidget(slaveIdLabel_);
     slaveIdEdit_ = new QSpinBox(parent);
-    slaveIdEdit_->setRange(app::constants::Constants::Modbus::kMinSlaveId,
-                           app::constants::Constants::Modbus::kMaxSlaveId);
-    slaveIdEdit_->setValue(app::constants::Constants::Modbus::kDefaultSlaveId);
+    slaveIdEdit_->setRange(app::constants::Values::Modbus::kMinSlaveId,
+                           app::constants::Values::Modbus::kMaxSlaveId);
+    slaveIdEdit_->setValue(app::constants::Values::Modbus::kDefaultSlaveId);
     slaveIdEdit_->setFixedWidth(60);
     paramLayout->addWidget(slaveIdEdit_);
 
     addressLabel_ = new QLabel(parent);
     paramLayout->addWidget(addressLabel_);
     addressEdit_ = new QSpinBox(parent);
-    addressEdit_->setRange(app::constants::Constants::Modbus::kMinAddress,
-                           app::constants::Constants::Modbus::kMaxAddress);
-    addressEdit_->setValue(app::constants::Constants::Modbus::kDefaultStandardStartAddress);
+    addressEdit_->setRange(app::constants::Values::Modbus::kMinAddress,
+                           app::constants::Values::Modbus::kMaxAddress);
+    addressEdit_->setValue(app::constants::Values::Modbus::kDefaultStandardStartAddress);
     addressEdit_->setFixedWidth(68);
     paramLayout->addWidget(addressEdit_);
 
     quantityLabel_ = new QLabel(parent);
     paramLayout->addWidget(quantityLabel_);
     quantityEdit_ = new QSpinBox(parent);
-    quantityEdit_->setRange(app::constants::Constants::Modbus::kMinQuantity,
-                            app::constants::Constants::Modbus::kMaxReadQuantity);
-    quantityEdit_->setValue(app::constants::Constants::Modbus::kDefaultStandardQuantity);
+    quantityEdit_->setRange(app::constants::Values::Modbus::kMinQuantity,
+                            app::constants::Values::Modbus::kMaxReadQuantity);
+    quantityEdit_->setValue(app::constants::Values::Modbus::kDefaultStandardQuantity);
     quantityEdit_->setFixedWidth(64);
     paramLayout->addWidget(quantityEdit_);
     
