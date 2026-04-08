@@ -6,7 +6,7 @@
 #include "../../../core/io/IChannel.h"
 
 namespace io {
-class GenericIoWorker;
+class ChannelOperationWorker;
 }
 
 namespace ui::widgets {
@@ -57,7 +57,7 @@ private:
     widgets::CollapsibleSection* inputSection_ = nullptr;
 
     // Backend
-    io::GenericIoWorker* worker_ = nullptr;
+    io::ChannelOperationWorker* worker_ = nullptr;
     QThread* workerThread_ = nullptr;
     bool isConnected_ = false;
     bool suppressDisconnectAlert_ = false;

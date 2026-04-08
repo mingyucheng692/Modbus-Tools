@@ -10,12 +10,12 @@
 
 namespace io {
 
-class GenericIoWorker : public QObject {
+class ChannelOperationWorker : public QObject {
     Q_OBJECT
 
 public:
-    explicit GenericIoWorker(QObject* parent = nullptr);
-    ~GenericIoWorker() override;
+    explicit ChannelOperationWorker(QObject* parent = nullptr);
+    ~ChannelOperationWorker() override;
 
 public slots:
     void openTcp(const QString& ip, int port, quint64 generation);

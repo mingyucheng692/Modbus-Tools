@@ -23,7 +23,9 @@ public:
     explicit ControlWidget(ui::common::ISettingsService* settingsService, QWidget *parent = nullptr);
     ~ControlWidget() override;
 
-    void updateStats(bool isTx, int rttMs, bool isError = false);
+    void recordTx();
+    void recordRx(int rttMs);
+    void recordError();
     void resetStats();
     void setSettingsGroup(const QString& group);
 

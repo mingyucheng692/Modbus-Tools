@@ -8,8 +8,8 @@ target_sources(core PRIVATE
     io/SerialChannel.cpp
     io/TcpChannel.h
     io/TcpChannel.cpp
-    io/GenericIoWorker.h
-    io/GenericIoWorker.cpp
+    io/ChannelOperationWorker.h
+    io/ChannelOperationWorker.cpp
     # modbus base
     modbus/base/ModbusTypes.h
     modbus/base/ModbusFrame.h

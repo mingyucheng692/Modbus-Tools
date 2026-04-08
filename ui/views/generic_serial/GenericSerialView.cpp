@@ -6,7 +6,7 @@
 #include "../../widgets/GenericInputWidget.h"
 #include "../../widgets/CollapsibleSection.h"
 #include "../../common/ConnectionAlert.h"
-#include "../../../core/io/GenericIoWorker.h"
+#include "../../../core/io/ChannelOperationWorker.h"
 #include <QVBoxLayout>
 #include <QHBoxLayout>
 #include <QGroupBox>
@@ -100,17 +100,17 @@ void GenericSerialView::setupUi() {
 
 void GenericSerialView::startWorker() {
     workerThread_ = new QThread();
-    auto* worker = new io::GenericIoWorker();
+    auto* worker = new io::ChannelOperationWorker();
     worker->moveToThread(workerThread_);
     connect(workerThread_, &QThread::finished, workerThread_, &QObject::deleteLater);
 
-    connect(worker, &io::GenericIoWorker::stateChanged, this, &GenericSerialView::onWorkerStateChanged);
-    connect(worker, &io::GenericIoWorker::channelErrorOccurred, this, &GenericSerialView::onWorkerError);
-    connect(worker, &io::GenericIoWorker::monitor, this, &GenericSerialView::onWorkerMonitor);
-    connect(worker, &io::GenericIoWorker::fileTransferStarted, this, [this](const QString& filePath, qint64 totalBytes) {
+    connect(worker, &io::ChannelOperationWorker::stateChanged, this, &GenericSerialView::onWorkerStateChanged);
+    connect(worker, &io::ChannelOperationWorker::channelErrorOccurred, this, &GenericSerialView::onWorkerError);
+    connect(worker, &io::ChannelOperationWorker::monitor, this, &GenericSerialView::onWorkerMonitor);
+    connect(worker, &io::ChannelOperationWorker::fileTransferStarted, this, [this](const QString& filePath, qint64 totalBytes) {
         trafficMonitor_->appendInfo(tr("File transfer started: %1 (%2 bytes)").arg(filePath).arg(totalBytes));
     });
-    connect(worker, &io::GenericIoWorker::fileTransferProgress, this, [this](const QString& filePath, qint64 sentBytes, qint64 totalBytes) {
+    connect(worker, &io::ChannelOperationWorker::fileTransferProgress, this, [this](const QString& filePath, qint64 sentBytes, qint64 totalBytes) {
         if (totalBytes <= 0) {
             return;
         }
@@ -122,13 +122,13 @@ void GenericSerialView::startWorker() {
                                             .arg(totalBytes));
         }
     });
-    connect(worker, &io::GenericIoWorker::fileTransferFinished, this, [this](const QString& filePath) {
+    connect(worker, &io::ChannelOperationWorker::fileTransferFinished, this, [this](const QString& filePath) {
         trafficMonitor_->appendInfo(tr("File transfer finished: %1").arg(filePath));
     });
-    connect(worker, &io::GenericIoWorker::fileTransferFailed, this, [this](const QString& filePath, const QString& error) {
+    connect(worker, &io::ChannelOperationWorker::fileTransferFailed, this, [this](const QString& filePath, const QString& error) {
         trafficMonitor_->appendInfo(tr("File transfer failed: %1 (%2)").arg(filePath, error));
     });
-    connect(worker, &io::GenericIoWorker::fileTransferCanceled, this, [this](const QString& filePath) {
+    connect(worker, &io::ChannelOperationWorker::fileTransferCanceled, this, [this](const QString& filePath) {
         trafficMonitor_->appendInfo(tr("File transfer canceled: %1").arg(filePath));
     });
     

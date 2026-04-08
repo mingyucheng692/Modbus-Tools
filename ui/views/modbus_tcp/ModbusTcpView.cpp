@@ -239,7 +239,7 @@ void ModbusTcpView::setupUi() {
                     // 分流设计：仅在成功时通过底层测量的精确 RTT 更新统计
                     if (response.isSuccess) {
                         // 更新成功统计 (RX + 1, 更新 RTT)
-                        controlWidget_->updateStats(false, response.rttMs);
+                        controlWidget_->recordRx(response.rttMs);
 
                         if (itKind->second == RequestKind::Read) {
                             trafficMonitor_->appendInfo(tr("Success: Response received"));
@@ -248,7 +248,7 @@ void ModbusTcpView::setupUi() {
                         }
                     } else {
                         // 失败路径：仅更新 Error 计数，跳过 RTT 统计防止均值偏移
-                        controlWidget_->updateStats(false, -1, true);
+                        controlWidget_->recordError();
 
                         if (itKind->second == RequestKind::Poll) {
                             trafficMonitor_->appendInfo(tr("Poll Error: %1").arg(response.error));
@@ -305,7 +305,7 @@ void ModbusTcpView::setupUi() {
             requestKinds_[requestId] = RequestKind::Read;
             
             // 提交时立即更新 TX 统计，符合视觉直觉
-            controlWidget_->updateStats(true, -1);
+            controlWidget_->recordTx();
             worker_->submit(request, slaveId, requestId);
     });
 
@@ -492,7 +492,7 @@ void ModbusTcpView::setupUi() {
             requestKinds_[requestId] = RequestKind::Write;
             
             // 提交时立即更新 TX 统计
-            controlWidget_->updateStats(true, -1);
+            controlWidget_->recordTx();
             worker_->submit(request, slaveId, requestId);
     });
     
@@ -505,7 +505,7 @@ void ModbusTcpView::setupUi() {
             
             worker_->sendRaw(data);
             
-            controlWidget_->updateStats(true, -1);
+            controlWidget_->recordTx();
     });
 
     connect(controlWidget_, &widgets::ControlWidget::pollRequested,
@@ -529,7 +529,7 @@ void ModbusTcpView::setupUi() {
             requestKinds_[requestId] = RequestKind::Poll;
             
             // 轮询提交时更新 TX 统计
-            controlWidget_->updateStats(true, -1);
+            controlWidget_->recordTx();
             worker_->submit(request, slaveId, requestId);
     });
 

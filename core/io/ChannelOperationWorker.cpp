@@ -1,4 +1,4 @@
-#include "GenericIoWorker.h"
+#include "ChannelOperationWorker.h"
 #include "AppConstants.h"
 #include "TcpChannel.h"
 #include "SerialChannel.h"
@@ -9,18 +9,18 @@
 
 namespace io {
 
-GenericIoWorker::GenericIoWorker(QObject* parent)
+ChannelOperationWorker::ChannelOperationWorker(QObject* parent)
     : QObject(parent)
 {
     qRegisterMetaType<io::ChannelState>("io::ChannelState");
 }
 
-GenericIoWorker::~GenericIoWorker()
+ChannelOperationWorker::~ChannelOperationWorker()
 {
     cleanupChannel();
 }
 
-void GenericIoWorker::openTcp(const QString& ip, int port, quint64 generation)
+void ChannelOperationWorker::openTcp(const QString& ip, int port, quint64 generation)
 {
     cleanupChannel();
     channelGeneration_ = generation;
@@ -38,7 +38,7 @@ void GenericIoWorker::openTcp(const QString& ip, int port, quint64 generation)
     }
 }
 
-void GenericIoWorker::openSerial(const SerialConfig& config)
+void ChannelOperationWorker::openSerial(const SerialConfig& config)
 {
     cleanupChannel();
 
@@ -53,7 +53,7 @@ void GenericIoWorker::openSerial(const SerialConfig& config)
     }
 }
 
-void GenericIoWorker::close()
+void ChannelOperationWorker::close()
 {
     cancelFileTransfer();
     if (channel_) {
@@ -61,7 +61,7 @@ void GenericIoWorker::close()
     }
 }
 
-void GenericIoWorker::write(const QByteArray& data)
+void ChannelOperationWorker::write(const QByteArray& data)
 {
     if (transferInProgress_) {
         emit channelErrorOccurred("File transfer in progress");
@@ -78,7 +78,7 @@ void GenericIoWorker::write(const QByteArray& data)
     }
 }
 
-void GenericIoWorker::sendFile(const QString& filePath, int chunkSizeBytes)
+void ChannelOperationWorker::sendFile(const QString& filePath, int chunkSizeBytes)
 {
     if (transferInProgress_) {
         failFileTransfer("File transfer already in progress");
@@ -110,21 +110,21 @@ void GenericIoWorker::sendFile(const QString& filePath, int chunkSizeBytes)
     }, Qt::QueuedConnection);
 }
 
-void GenericIoWorker::setDtr(bool set)
+void ChannelOperationWorker::setDtr(bool set)
 {
     if (auto serial = std::dynamic_pointer_cast<SerialChannel>(channel_)) {
         serial->setDtr(set);
     }
 }
 
-void GenericIoWorker::setRts(bool set)
+void ChannelOperationWorker::setRts(bool set)
 {
     if (auto serial = std::dynamic_pointer_cast<SerialChannel>(channel_)) {
         serial->setRts(set);
     }
 }
 
-void GenericIoWorker::setupChannel()
+void ChannelOperationWorker::setupChannel()
 {
     if (!channel_) return;
 
@@ -163,7 +163,7 @@ void GenericIoWorker::setupChannel()
     });
 }
 
-void GenericIoWorker::cleanupChannel()
+void ChannelOperationWorker::cleanupChannel()
 {
     cancelFileTransfer();
     if (channel_) {
@@ -178,7 +178,7 @@ void GenericIoWorker::cleanupChannel()
     }
 }
 
-void GenericIoWorker::sendNextFileChunk()
+void ChannelOperationWorker::sendNextFileChunk()
 {
     if (!transferInProgress_ || transferAwaitingDrain_) {
         return;
@@ -209,7 +209,7 @@ void GenericIoWorker::sendNextFileChunk()
     emit bytesQueued(chunk.size());
 }
 
-void GenericIoWorker::finishFileTransferSuccess()
+void ChannelOperationWorker::finishFileTransferSuccess()
 {
     if (!transferInProgress_) {
         return;
@@ -219,7 +219,7 @@ void GenericIoWorker::finishFileTransferSuccess()
     resetFileTransferState();
 }
 
-void GenericIoWorker::failFileTransfer(const QString& error)
+void ChannelOperationWorker::failFileTransfer(const QString& error)
 {
     if (!error.isEmpty()) {
         emit channelErrorOccurred(error);
@@ -230,7 +230,7 @@ void GenericIoWorker::failFileTransfer(const QString& error)
     resetFileTransferState();
 }
 
-void GenericIoWorker::cancelFileTransfer()
+void ChannelOperationWorker::cancelFileTransfer()
 {
     if (transferInProgress_) {
         emit fileTransferCanceled(transferFilePath_);
@@ -238,7 +238,7 @@ void GenericIoWorker::cancelFileTransfer()
     resetFileTransferState();
 }
 
-void GenericIoWorker::resetFileTransferState()
+void ChannelOperationWorker::resetFileTransferState()
 {
     transferInProgress_ = false;
     transferAwaitingDrain_ = false;

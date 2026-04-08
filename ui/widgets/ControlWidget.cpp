@@ -46,17 +46,21 @@ ControlWidget::ControlWidget(ui::common::ISettingsService* settingsService, QWid
 
 ControlWidget::~ControlWidget() = default;
 
-void ControlWidget::updateStats(bool isTx, int rttMs, bool isError) {
-    if (isError) {
-        errorCount_++;
-    } else if (isTx) {
-        txCount_++;
-    } else {
-        rxCount_++;
-        if (rttMs >= 0) {
-            lastRtt_ = rttMs;
-        }
+void ControlWidget::recordTx() {
+    txCount_++;
+    updateStatsLabel();
+}
+
+void ControlWidget::recordRx(int rttMs) {
+    rxCount_++;
+    if (rttMs >= 0) {
+        lastRtt_ = rttMs;
     }
+    updateStatsLabel();
+}
+
+void ControlWidget::recordError() {
+    errorCount_++;
     updateStatsLabel();
 }
 
