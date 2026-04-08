@@ -228,9 +228,10 @@ void GenericSerialView::onWorkerStateChanged(io::ChannelState state) {
     trafficMonitor_->appendInfo(tr("State changed: %1").arg(stateStr));
 }
 
-void GenericSerialView::onWorkerError(const QString& error) {
+void GenericSerialView::onWorkerError(const QString& deviceHint, const QString& error) {
+    const QString hint = deviceHint.isEmpty() ? QStringLiteral("Serial") : deviceHint;
     trafficMonitor_->appendInfo(tr("Error: %1").arg(error));
-    spdlog::error("GenericSerial Error: {}", error.toStdString());
+    spdlog::error("{} Error: {}", hint.toStdString(), error.toStdString());
 }
 
 void GenericSerialView::onWorkerMonitor(bool isTx, const QByteArray& data) {

@@ -43,7 +43,7 @@ private slots:
     void onSendRequested(const QByteArray& data);
     void onFileSendRequested(const QString& filePath);
     void onWorkerStateChanged(io::ChannelState state);
-    void onWorkerError(const QString& error);
+    void onWorkerError(const QString& deviceHint, const QString& error);
     void onWorkerMonitor(bool isTx, const QByteArray& data);
     
     // Serial Control

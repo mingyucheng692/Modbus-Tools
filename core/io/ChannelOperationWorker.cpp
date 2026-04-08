@@ -13,6 +13,7 @@ ChannelOperationWorker::ChannelOperationWorker(QObject* parent)
     : QObject(parent)
 {
     qRegisterMetaType<io::ChannelState>("io::ChannelState");
+    qRegisterMetaType<io::ChannelErrorCode>("io::ChannelErrorCode");
 }
 
 ChannelOperationWorker::~ChannelOperationWorker()
@@ -24,6 +25,7 @@ void ChannelOperationWorker::openTcp(const QString& ip, int port, quint64 genera
 {
     cleanupChannel();
     channelGeneration_ = generation;
+    deviceHint_ = QString("%1:%2").arg(ip).arg(port);
 
     auto tcp = std::make_shared<TcpChannel>();
     tcp->setEndpoint(ip, port);
@@ -32,15 +34,14 @@ void ChannelOperationWorker::openTcp(const QString& ip, int port, quint64 genera
     setupChannel();
 
     if (!channel_->open()) {
-        // If open failed synchronously
-        emit channelErrorOccurred("Failed to open TCP connection");
-        // State changes are still forwarded through the subscribed channel handler.
+        emitError("Failed to open TCP connection");
     }
 }
 
 void ChannelOperationWorker::openSerial(const SerialConfig& config)
 {
     cleanupChannel();
+    deviceHint_ = config.portName;
 
     auto serial = std::make_shared<SerialChannel>();
     serial->setConfig(config);
@@ -49,7 +50,7 @@ void ChannelOperationWorker::openSerial(const SerialConfig& config)
     setupChannel();
 
     if (!channel_->open()) {
-        emit channelErrorOccurred("Failed to open serial port");
+        emitError("Failed to open serial port");
     }
 }
 
@@ -64,17 +65,17 @@ void ChannelOperationWorker::close()
 void ChannelOperationWorker::write(const QByteArray& data)
 {
     if (transferInProgress_) {
-        emit channelErrorOccurred("File transfer in progress");
+        emitError("File transfer in progress");
         return;
     }
     if (channel_ && channel_->isOpen()) {
         if (channel_->write(data)) {
             emit bytesQueued(data.size());
         } else {
-            emit channelErrorOccurred("Write failed");
+            emitError("Write failed");
         }
     } else {
-        emit channelErrorOccurred("Channel not open");
+        emitError("Channel not open");
     }
 }
 
@@ -133,7 +134,7 @@ void ChannelOperationWorker::setupChannel()
             failFileTransfer(err.isEmpty() ? QStringLiteral("Channel error") : err);
             return;
         }
-        emit channelErrorOccurred(err);
+        emitError(err);
     });
 
     channel_->setMonitor([this](bool isTx, const QByteArray& data) {
@@ -176,6 +177,7 @@ void ChannelOperationWorker::cleanupChannel()
         stateHandlerId_ = 0;
         channel_.reset();
     }
+    deviceHint_.clear();
 }
 
 void ChannelOperationWorker::sendNextFileChunk()
@@ -222,7 +224,7 @@ void ChannelOperationWorker::finishFileTransferSuccess()
 void ChannelOperationWorker::failFileTransfer(const QString& error)
 {
     if (!error.isEmpty()) {
-        emit channelErrorOccurred(error);
+        emitError(error);
     }
     if (transferInProgress_ || !transferFilePath_.isEmpty()) {
         emit fileTransferFailed(transferFilePath_, error);
@@ -251,6 +253,11 @@ void ChannelOperationWorker::resetFileTransferState()
     }
     transferFile_.setFileName(QString());
     transferFilePath_.clear();
+}
+
+void ChannelOperationWorker::emitError(const QString& error)
+{
+    emit channelErrorOccurred(deviceHint_, error);
 }
 
 } // namespace io

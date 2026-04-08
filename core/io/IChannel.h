@@ -14,6 +14,30 @@ namespace io {
 enum class ChannelKind { Tcp, Serial };
 enum class ChannelState { Closed, Opening, Open, Closing, Error };
 
+enum class ChannelErrorCode {
+    None = 0,
+    ConnectionFailed,
+    Timeout,
+    WriteFailed,
+    ReadFailed,
+    PortNotFound,
+    PermissionDenied,
+    ConnectionReset,
+    Unknown
+};
+
+struct ChannelError {
+    ChannelErrorCode code = ChannelErrorCode::None;
+    QString message;
+    QString deviceHint;
+
+    ChannelError() = default;
+    ChannelError(ChannelErrorCode c, QString msg, QString hint = {})
+        : code(c), message(std::move(msg)), deviceHint(std::move(hint)) {}
+
+    explicit operator bool() const { return code != ChannelErrorCode::None; }
+};
+
 struct ChannelStats {
     quint64 bytesTx = 0;
     quint64 bytesRx = 0;
@@ -53,3 +77,4 @@ public:
 }
 
 Q_DECLARE_METATYPE(io::ChannelState)
+Q_DECLARE_METATYPE(io::ChannelErrorCode)

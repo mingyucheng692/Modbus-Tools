@@ -31,7 +31,7 @@ public slots:
 signals:
     void stateChanged(ChannelState state);
     void stateChangedWithGeneration(ChannelState state, quint64 generation);
-    void channelErrorOccurred(const QString& error);
+    void channelErrorOccurred(const QString& deviceHint, const QString& error);
     void monitor(bool isTx, const QByteArray& data);
     void bytesQueued(qint64 bytes);
     void bytesDrained(qint64 bytes);
@@ -50,10 +50,12 @@ private:
     void failFileTransfer(const QString& error);
     void cancelFileTransfer();
     void resetFileTransferState();
+    void emitError(const QString& error);
 
     std::shared_ptr<IChannel> channel_;
     quint64 channelGeneration_ = 0;
     IChannel::HandlerId stateHandlerId_ = 0;
+    QString deviceHint_;
     QFile transferFile_;
     QString transferFilePath_;
     qint64 transferTotalBytes_ = 0;

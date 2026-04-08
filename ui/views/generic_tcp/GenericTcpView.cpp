@@ -227,9 +227,10 @@ void GenericTcpView::onWorkerStateChanged(io::ChannelState state, quint64 genera
     
 }
 
-void GenericTcpView::onWorkerError(const QString& error) {
+void GenericTcpView::onWorkerError(const QString& deviceHint, const QString& error) {
+    const QString hint = deviceHint.isEmpty() ? QStringLiteral("TCP") : deviceHint;
     trafficMonitor_->appendInfo(tr("Error: %1").arg(error));
-    spdlog::error("GenericTcp Error: {}", error.toStdString());
+    spdlog::error("{} Error: {}", hint.toStdString(), error.toStdString());
 }
 
 void GenericTcpView::onWorkerMonitor(bool isTx, const QByteArray& data) {
