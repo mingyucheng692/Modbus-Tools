@@ -4,6 +4,16 @@ namespace app::constants {
 
 class Values final {
 public:
+    struct App {
+        inline static constexpr char kLocaleEn[] = "en_US";
+        inline static constexpr char kLocaleZhCn[] = "zh_CN";
+        inline static constexpr char kLocaleZhTw[] = "zh_TW";
+        inline static constexpr char kUpdateCheckStartup[] = "startup";
+        inline static constexpr char kUpdateCheckWeekly[] = "weekly";
+        inline static constexpr char kUpdateCheckMonthly[] = "monthly";
+        inline static constexpr char kUpdateCheckNever[] = "never";
+    };
+
     struct Settings {
         inline static constexpr int kSyncDebounceMs = 250;
     };
@@ -92,6 +102,11 @@ public:
     };
 
     struct Ui {
+        inline static constexpr int kMainWindowMinWidth = 720;
+        inline static constexpr int kMainWindowMinHeight = 480;
+        inline static constexpr int kMainWindowDefaultWidth = 1280;
+        inline static constexpr int kMainWindowDefaultHeight = 800;
+        inline static constexpr int kAboutDialogMinWidth = 420;
         inline static constexpr int kFrameAnalyzerAdaptiveHistoryCollapseWidth = 1040;
         inline static constexpr int kFrameAnalyzerMaxHistoryItems = 20;
         inline static constexpr int kFrameAnalyzerCsvExportChunkRows = 128;

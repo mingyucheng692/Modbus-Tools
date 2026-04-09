@@ -437,9 +437,9 @@ protected:
 
 QString normalizedAppLocale(QString locale) {
     locale = locale.trimmed();
-    if (locale == QStringLiteral("en_US") ||
-        locale == QStringLiteral("zh_CN") ||
-        locale == QStringLiteral("zh_TW") ||
+    if (locale == QLatin1String(app::constants::Values::App::kLocaleEn) ||
+        locale == QLatin1String(app::constants::Values::App::kLocaleZhCn) ||
+        locale == QLatin1String(app::constants::Values::App::kLocaleZhTw) ||
         locale == QStringLiteral("system")) {
         return locale;
     }
@@ -447,17 +447,17 @@ QString normalizedAppLocale(QString locale) {
 }
 
 QString effectiveAppLocale(const QString& locale) {
-    if (locale == QStringLiteral("zh_CN") || locale == QStringLiteral("zh_TW")) {
+    if (locale == QLatin1String(app::constants::Values::App::kLocaleZhCn) || locale == QLatin1String(app::constants::Values::App::kLocaleZhTw)) {
         return locale;
     }
-    if (locale == QStringLiteral("en_US")) {
-        return QStringLiteral("en_US");
+    if (locale == QLatin1String(app::constants::Values::App::kLocaleEn)) {
+        return QLatin1String(app::constants::Values::App::kLocaleEn);
     }
 
     const QString systemName = QLocale::system().name();
-    return systemName == QStringLiteral("zh_CN")
-        ? QStringLiteral("zh_CN")
-        : (systemName == QStringLiteral("zh_TW") ? QStringLiteral("zh_TW") : QStringLiteral("en_US"));
+    return systemName == QLatin1String(app::constants::Values::App::kLocaleZhCn)
+        ? QLatin1String(app::constants::Values::App::kLocaleZhCn)
+        : (systemName == QLatin1String(app::constants::Values::App::kLocaleZhTw) ? QLatin1String(app::constants::Values::App::kLocaleZhTw) : QLatin1String(app::constants::Values::App::kLocaleEn));
 }
 
 int calculateExpandedNavigationWidth(const QListWidget* navigationList) {
@@ -506,10 +506,12 @@ MainWindow::~MainWindow() {
 
 void MainWindow::setupUi() {
     setWindowTitle(tr("Modbus Tools"));
-    setMinimumSize(720, 480);
+    setMinimumSize(app::constants::Values::Ui::kMainWindowMinWidth, 
+                   app::constants::Values::Ui::kMainWindowMinHeight);
     menuBar()->setStyle(new common::CompactMenuBarStyle(menuBar()->style()->name()));
     using namespace common::settings_keys;
-    resize(1280, 800);
+    resize(app::constants::Values::Ui::kMainWindowDefaultWidth, 
+           app::constants::Values::Ui::kMainWindowDefaultHeight);
     const QByteArray geometry = settingsService_->value(kAppMainWindowGeometry).toByteArray();
     if (!geometry.isEmpty()) {
         restoreGeometry(geometry);
@@ -660,17 +662,17 @@ void MainWindow::setupLanguageMenu() {
 
     langEnAction_ = languageMenu_->addAction(tr("English (US)"));
     langEnAction_->setCheckable(true);
-    langEnAction_->setData("en_US");
+    langEnAction_->setData(QLatin1String(app::constants::Values::App::kLocaleEn));
     languageActionGroup_->addAction(langEnAction_);
 
     langZhCnAction_ = languageMenu_->addAction(tr("简体中文"));
     langZhCnAction_->setCheckable(true);
-    langZhCnAction_->setData("zh_CN");
+    langZhCnAction_->setData(QLatin1String(app::constants::Values::App::kLocaleZhCn));
     languageActionGroup_->addAction(langZhCnAction_);
 
     langZhTwAction_ = languageMenu_->addAction(tr("繁體中文"));
     langZhTwAction_->setCheckable(true);
-    langZhTwAction_->setData("zh_TW");
+    langZhTwAction_->setData(QLatin1String(app::constants::Values::App::kLocaleZhTw));
     languageActionGroup_->addAction(langZhTwAction_);
 
     connect(languageActionGroup_, &QActionGroup::triggered, this, [this](QAction* action) {
@@ -770,7 +772,7 @@ void MainWindow::applyModbusSettingsToViews() {
 void MainWindow::loadUpdateSettings() {
     updateCheckFrequency_ = settingsService_->value(common::settings_keys::kAppUpdateCheckFrequency).toString();
     if (updateCheckFrequency_.isEmpty()) {
-        updateCheckFrequency_ = QStringLiteral("startup");
+        updateCheckFrequency_ = QLatin1String(app::constants::Values::App::kUpdateCheckStartup);
     }
 }
 
@@ -843,7 +845,7 @@ void MainWindow::openUpdateSettingsDialog() {
 void MainWindow::openAboutDialog() {
     QDialog dialog(this);
     dialog.setWindowTitle(tr("About"));
-    dialog.setMinimumWidth(420);
+    dialog.setMinimumWidth(app::constants::Values::Ui::kAboutDialogMinWidth);
 
     auto layout = new QVBoxLayout(&dialog);
     auto aboutLabel = new QLabel(&dialog);
@@ -893,10 +895,10 @@ void MainWindow::performUpdateCheck(bool manual) {
 }
 
 bool MainWindow::shouldAutoCheckUpdates() const {
-    if (updateCheckFrequency_ == "off") {
+    if (updateCheckFrequency_ == QLatin1String(app::constants::Values::App::kUpdateCheckNever)) {
         return false;
     }
-    if (updateCheckFrequency_ == "startup") {
+    if (updateCheckFrequency_ == QLatin1String(app::constants::Values::App::kUpdateCheckStartup)) {
         return true;
     }
     const QString lastCheckUtc = settingsService_->value(common::settings_keys::kAppUpdateLastCheckUtc).toString();
@@ -908,10 +910,10 @@ bool MainWindow::shouldAutoCheckUpdates() const {
         return true;
     }
     const qint64 elapsedDays = lastCheck.daysTo(QDateTime::currentDateTimeUtc());
-    if (updateCheckFrequency_ == "weekly") {
+    if (updateCheckFrequency_ == QLatin1String(app::constants::Values::App::kUpdateCheckWeekly)) {
         return elapsedDays >= 7;
     }
-    if (updateCheckFrequency_ == "monthly") {
+    if (updateCheckFrequency_ == QLatin1String(app::constants::Values::App::kUpdateCheckMonthly)) {
         return elapsedDays >= 30;
     }
     return true;
@@ -1248,7 +1250,7 @@ void MainWindow::applyLanguage(const QString& locale) {
 
     const QString effectiveLocale = effectiveAppLocale(locale);
 
-    if (effectiveLocale == "zh_CN") {
+    if (effectiveLocale == QLatin1String(app::constants::Values::App::kLocaleZhCn)) {
         const bool qtLoaded = qtTranslator_.load("qtbase_zh_CN", QLibraryInfo::path(QLibraryInfo::TranslationsPath));
         const bool appLoaded = appTranslator_.load(":/i18n/Modbus-Tools_zh_CN.qm");
         if (qtLoaded) {
@@ -1257,7 +1259,7 @@ void MainWindow::applyLanguage(const QString& locale) {
         if (appLoaded) {
             qApp->installTranslator(&appTranslator_);
         }
-    } else if (effectiveLocale == "zh_TW") {
+    } else if (effectiveLocale == QLatin1String(app::constants::Values::App::kLocaleZhTw)) {
         const bool qtLoaded = qtTranslator_.load("qtbase_zh_TW", QLibraryInfo::path(QLibraryInfo::TranslationsPath));
         const bool appLoaded = appTranslator_.load(":/i18n/Modbus-Tools_zh_TW.qm");
         if (qtLoaded) {
@@ -1321,15 +1323,15 @@ void MainWindow::retranslateUi() {
     }
     if (langEnAction_) {
         langEnAction_->setText(tr("English (US)"));
-        langEnAction_->setChecked(effectiveAppLocale(currentLocale_) == "en_US");
+        langEnAction_->setChecked(effectiveAppLocale(currentLocale_) == QLatin1String(app::constants::Values::App::kLocaleEn));
     }
     if (langZhCnAction_) {
         langZhCnAction_->setText(tr("简体中文"));
-        langZhCnAction_->setChecked(effectiveAppLocale(currentLocale_) == "zh_CN");
+        langZhCnAction_->setChecked(effectiveAppLocale(currentLocale_) == QLatin1String(app::constants::Values::App::kLocaleZhCn));
     }
     if (langZhTwAction_) {
         langZhTwAction_->setText(tr("繁體中文"));
-        langZhTwAction_->setChecked(effectiveAppLocale(currentLocale_) == "zh_TW");
+        langZhTwAction_->setChecked(effectiveAppLocale(currentLocale_) == QLatin1String(app::constants::Values::App::kLocaleZhTw));
     }
     updateThemeToggleUi();
     refreshUpdateIndicators();
