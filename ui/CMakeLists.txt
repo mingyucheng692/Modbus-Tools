@@ -46,6 +46,10 @@ target_sources(ui PRIVATE
     widgets/DisclaimerDialog.h
     widgets/UpdateSettingsDialog.cpp
     widgets/UpdateSettingsDialog.h
+    widgets/ModbusSettingsDialog.cpp
+    widgets/ModbusSettingsDialog.h
+    widgets/AboutDialog.cpp
+    widgets/AboutDialog.h
     widgets/FrameAnalyzerWidget.cpp
     widgets/FrameAnalyzerWidget.h
 )

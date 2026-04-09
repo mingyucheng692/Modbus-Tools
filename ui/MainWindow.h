@@ -1,10 +1,8 @@
 #pragma once
 
 #include "AppConstants.h"
-#include "common/ISettingsService.h"
 #include <QMainWindow>
 #include <QTranslator>
-#include <atomic>
 #include <memory>
 
 class QStackedWidget;
@@ -17,14 +15,15 @@ class QCloseEvent;
 class QObject;
 class QWidget;
 class QToolButton;
-class QUrl;
 
+namespace core::update { class UpdateManager; }
+namespace core::common { class SettingsController; }
 namespace ui {
 namespace views::modbus_tcp { class ModbusTcpView; }
 namespace views::modbus_rtu { class ModbusRtuView; }
 namespace common { class ThemeController; }
 namespace common { class UpdateChecker; }
-namespace widgets { class UpdateSettingsDialog; }
+namespace common { class ISettingsService; }
 
 class MainWindow : public QMainWindow {
     Q_OBJECT
@@ -36,6 +35,7 @@ public:
     ~MainWindow() override;
 
 private:
+    // UI Setup
     void setupUi();
     void createNavigation();
     void setNavigationCollapsed(bool collapsed);
@@ -48,8 +48,8 @@ private:
     void applyLanguage(const QString& locale);
     void updateThemeUi();
     void updateThemeToggleUi();
-    void loadModbusSettings();
-    void loadUpdateSettings();
+
+    // Logic Bridge / Delegation
     void applyModbusSettingsToViews();
     void openModbusSettingsDialog();
     void openUpdateSettingsDialog();
@@ -58,20 +58,7 @@ private:
     void performUpdateCheck(bool manual);
     bool shouldAutoCheckUpdates() const;
     void refreshUpdateIndicators();
-    void cleanupUpdateArtifacts();
     void promptUpdateAction(const QString& currentVersion);
-    void startSilentUpdate();
-    void processDownloadedUpdate(const QString& updateFilePath,
-                                 const QString& expectedSha,
-                                 const QString& checksumsPath = QString());
-    void saveWindowSettings();
-    QString calculateFileSha256(const QString& filePath) const;
-    QString resolveSha256FromChecksums(const QString& checksumsPath, const QString& targetFileName) const;
-    bool writeUpdateTaskFile(const QString& taskFilePath,
-                             const QString& newExePath,
-                             const QString& expectedSha256,
-                             QString& errorMessage) const;
-    bool launchUpdater(const QString& taskFilePath, QString& errorMessage) const;
     void handleUpdateAvailable(const QString& currentVersion,
                                const QString& latestVersion,
                                const QString& updateOnlyUrl,
@@ -79,12 +66,13 @@ private:
                                const QString& checksumsUrl,
                                const QString& fullPackageUrl,
                                const QString& releaseUrl);
-    void handleNoUpdateAvailable(const QString& currentVersion);
-    void handleUpdateCheckFailed(const QString& reason);
+    
+    void startSilentUpdate();
     void showDisclaimerIfNeeded();
     void changeEvent(QEvent* event) override;
     void closeEvent(QCloseEvent* event) override;
 
+    // UI Components
     QListWidget* navigationList_ = nullptr;
     QWidget* navigationPane_ = nullptr;
     QToolButton* navigationToggleButton_ = nullptr;
@@ -103,27 +91,30 @@ private:
     QAction* langZhCnAction_ = nullptr;
     QAction* langZhTwAction_ = nullptr;
     QToolButton* themeToggleButton_ = nullptr;
+    
+    // Services and Controllers
     QTranslator qtTranslator_;
     QTranslator appTranslator_;
     common::ThemeController* themeController_ = nullptr;
     common::UpdateChecker* updateChecker_ = nullptr;
-    common::ISettingsService* settingsService_ = nullptr;
+    core::update::UpdateManager* updateManager_ = nullptr;
+    core::common::SettingsController* settingsController_ = nullptr;
+    
+    // Local State
     QString currentLocale_ = "en_US";
-    int modbusTimeoutMs_ = app::constants::Values::Modbus::kDefaultTimeoutMs;
-    int modbusRetries_ = 0;
-    int modbusRetryIntervalMs_ = app::constants::Values::Modbus::kDefaultRetryIntervalMs;
-    bool modbusRetryEnabled_ = app::constants::Values::Modbus::kDefaultRetryEnabled;
-    QString updateCheckFrequency_ = "startup";
     bool updateAvailable_ = false;
     bool checkingUpdateManually_ = false;
-    QString pendingLatestVersion_;
-    QString pendingUpdateOnlyUrl_;
-    QString pendingUpdateOnlySha256_;
-    QString pendingChecksumsUrl_;
-    QString pendingFullPackageUrl_;
-    QString pendingDownloadUrl_;
-    QString pendingReleaseUrl_;
-    std::shared_ptr<std::atomic_bool> updatePreparationCancelToken_;
+    
+    // Cached Update Info (for prompt)
+    struct {
+        QString latestVersion;
+        QString updateOnlyUrl;
+        QString updateOnlySha256;
+        QString checksumsUrl;
+        QString fullPackageUrl;
+        QString releaseUrl;
+    } pendingUpdateInfo_;
+
     QObject* parameterWheelBlocker_ = nullptr;
     bool navigationCollapsed_ = false;
     int navigationExpandedWidth_ = app::constants::Values::Ui::kNavigationExpandedWidth;

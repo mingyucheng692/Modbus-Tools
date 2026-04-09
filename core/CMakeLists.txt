@@ -36,6 +36,10 @@ target_sources(core PRIVATE
     # modbus parser
     modbus/parser/ModbusFrameParser.h
     modbus/parser/ModbusFrameParser.cpp
+    update/UpdateManager.h
+    update/UpdateManager.cpp
+    common/SettingsController.h
+    common/SettingsController.cpp
 )
 
 target_link_libraries(core PUBLIC

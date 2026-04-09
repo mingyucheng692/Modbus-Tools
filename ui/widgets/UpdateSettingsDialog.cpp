@@ -18,16 +18,16 @@ QString UpdateSettingsDialog::selectedFrequency() const {
 }
 
 void UpdateSettingsDialog::setupUi() {
-    setWindowTitle(tr("Update Settings"));
+    setWindowTitle(QCoreApplication::translate("ui::MainWindow", "Update Settings"));
     auto layout = new QVBoxLayout(this);
     auto formLayout = new QFormLayout();
 
     frequencyCombo_ = new QComboBox(this);
-    frequencyCombo_->addItem(tr("Every Startup"), "startup");
-    frequencyCombo_->addItem(tr("Weekly"), "weekly");
-    frequencyCombo_->addItem(tr("Monthly"), "monthly");
-    frequencyCombo_->addItem(tr("Disable Update Check"), "off");
-    formLayout->addRow(tr("Update Check Frequency:"), frequencyCombo_);
+    frequencyCombo_->addItem(QCoreApplication::translate("ui::MainWindow", "Every Startup"), "startup");
+    frequencyCombo_->addItem(QCoreApplication::translate("ui::MainWindow", "Weekly"), "weekly");
+    frequencyCombo_->addItem(QCoreApplication::translate("ui::MainWindow", "Monthly"), "monthly");
+    frequencyCombo_->addItem(QCoreApplication::translate("ui::MainWindow", "Disable Update Check"), "off");
+    formLayout->addRow(QCoreApplication::translate("ui::MainWindow", "Update Check Frequency:"), frequencyCombo_);
 
     layout->addLayout(formLayout);
     auto buttonBox = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel, this);

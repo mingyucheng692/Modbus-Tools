@@ -12,10 +12,17 @@ namespace ui::widgets {
 
 namespace {
 QString systemDisclaimerLocale() {
-    const QString systemName = QLocale::system().name();
-    return systemName == QStringLiteral("zh_CN")
-        ? QStringLiteral("zh_CN")
-        : (systemName == QStringLiteral("zh_TW") ? QStringLiteral("zh_TW") : QStringLiteral("en_US"));
+    QLocale locale = QLocale::system();
+    if (locale.language() == QLocale::Chinese) {
+        if (locale.script() == QLocale::TraditionalChineseScript || 
+            locale.country() == QLocale::Taiwan || 
+            locale.country() == QLocale::HongKong || 
+            locale.country() == QLocale::Macau) {
+            return QStringLiteral("zh_TW");
+        }
+        return QStringLiteral("zh_CN");
+    }
+    return QStringLiteral("en_US");
 }
 }
 
