@@ -178,7 +178,8 @@ private:
         }
 
         const QByteArray frame = QByteArray::fromHex(hexStr.toLatin1());
-        return ModbusFrameParser::parse(frame, type, startAddress, 0);
+        const bool force = (type != ProtocolType::Unknown);
+        return ModbusFrameParser::parse(frame, type, startAddress, 0, force);
     }
 
     QString pendingInput_;
@@ -920,7 +921,11 @@ void FrameAnalyzerWidget::renderResult(const ParseResult& result)
         tr("Unknown");
 
     if (!result.isValid) {
-        statusLabel_->setText(tr("Parse Failed: %1").arg(result.error));
+        QString errorMsg = tr("Parse Failed: %1").arg(result.error);
+        if (result.protocol == ProtocolType::Unknown) {
+            errorMsg += "\n" + tr("Tip: Try selecting RTU or TCP for forced parsing.");
+        }
+        statusLabel_->setText(errorMsg);
         statusLabel_->setStyleSheet("color: red; font-weight: bold;");
 
         QTreeWidgetItem* root = new QTreeWidgetItem(overviewTree_);
@@ -943,8 +948,15 @@ void FrameAnalyzerWidget::renderResult(const ParseResult& result)
         return;
     }
 
-    statusLabel_->setText(tr("Success (%1)").arg(result.protocol == ProtocolType::Tcp ? tr("TCP") : tr("RTU")));
-    statusLabel_->setStyleSheet("color: green; font-weight: bold;");
+    QString statusText = tr("Success (%1)").arg(result.protocol == ProtocolType::Tcp ? tr("TCP") : tr("RTU"));
+    if (result.isForced) {
+        statusText += " [" + tr("Forced Parsing") + "]";
+    }
+    if (!result.warnings.isEmpty()) {
+        statusText += " (" + tr("Warnings") + ")";
+    }
+    statusLabel_->setText(statusText);
+    statusLabel_->setStyleSheet(result.warnings.isEmpty() ? "color: green; font-weight: bold;" : "color: #CC7A00; font-weight: bold;");
 
     const QString functionCodeHex = QString("0x%1")
                                         .arg(static_cast<int>(result.functionCode), 2, 16, QChar('0'))
@@ -954,6 +966,19 @@ void FrameAnalyzerWidget::renderResult(const ParseResult& result)
     root->setText(0, tr("Frame"));
     root->setText(1, tr("%1 bytes").arg(result.rawFrame.size()));
     root->setText(2, buildDescription({protocolText, typeText}));
+
+    if (!result.warnings.isEmpty()) {
+        QTreeWidgetItem* warnRoot = new QTreeWidgetItem(overviewTree_);
+        warnRoot->setText(0, tr("Warnings"));
+        warnRoot->setText(2, tr("Issues ignored during forced parsing"));
+        warnRoot->setForeground(0, QColor(200, 100, 0));
+        warnRoot->setIcon(0, style()->standardIcon(QStyle::SP_MessageBoxWarning));
+        for (const QString& warn : result.warnings) {
+            auto* item = addItem(warnRoot, tr("Issue"), warn);
+            item->setForeground(1, QColor(200, 100, 0));
+        }
+        warnRoot->setExpanded(true);
+    }
 
     addItem(root, tr("Frame Bytes"), byteHex(result.rawFrame), tr("Complete raw frame"));
 

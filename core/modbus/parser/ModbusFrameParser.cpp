@@ -54,12 +54,14 @@ QString ModbusFrameParser::getExceptionString(modbus::base::ExceptionCode code)
 ParseResult ModbusFrameParser::parse(const QByteArray& frame,
                                      ProtocolType type,
                                      uint16_t startAddress,
-                                     uint16_t expectedQuantity)
+                                     uint16_t expectedQuantity,
+                                     bool force)
 {
     ParseResult result;
     result.timestamp = QDateTime::currentDateTime();
     result.rawFrame = frame;
     result.expectedQuantity = expectedQuantity;
+    result.isForced = force;
 
     if (frame.isEmpty()) {
         result.isValid = false;
@@ -88,9 +90,9 @@ ParseResult ModbusFrameParser::parse(const QByteArray& frame,
 
     // 2. 根据协议解析头部
     if (type == ProtocolType::Tcp) {
-        return parseTcp(frame, startAddress, expectedQuantity);
+        return parseTcp(frame, startAddress, expectedQuantity, force);
     } else {
-        return parseRtu(frame, startAddress, expectedQuantity);
+        return parseRtu(frame, startAddress, expectedQuantity, force);
     }
 }
 
@@ -104,35 +106,50 @@ bool ModbusFrameParser::detectRtu(const QByteArray& frame)
     return base::inspectRtuAdu(frame) == frame.size();
 }
 
-ParseResult ModbusFrameParser::parseTcp(const QByteArray& frame, uint16_t startAddress, uint16_t expectedQuantity)
+ParseResult ModbusFrameParser::parseTcp(const QByteArray& frame, uint16_t startAddress, uint16_t expectedQuantity, bool force)
 {
     ParseResult result;
     result.timestamp = QDateTime::currentDateTime();
     result.protocol = ProtocolType::Tcp;
     result.rawFrame = frame;
     result.expectedQuantity = expectedQuantity;
+    result.isForced = force;
 
     base::TcpAduFields fields;
     const int integrity = base::inspectTcpAdu(frame, &fields);
-    if (integrity == 0) {
-        result.isValid = false;
-        result.error = QCoreApplication::translate(
-                           "ModbusFrameParser",
-                           "Frame too short for Modbus TCP. Expected a complete MBAP + PDU, got %1 bytes")
-                           .arg(frame.size());
-        return result;
-    }
-    if (integrity < 0) {
-        result.isValid = false;
-        result.error = QCoreApplication::translate("ModbusFrameParser", "Invalid TCP MBAP header or length");
-        return result;
-    }
-    if (integrity != frame.size()) {
-        result.isValid = false;
-        result.error = QCoreApplication::translate("ModbusFrameParser", "TCP frame contains trailing bytes. Expected %1 bytes, got %2")
-                           .arg(integrity)
-                           .arg(frame.size());
-        return result;
+    if (!force) {
+        if (integrity == 0) {
+            result.isValid = false;
+            result.error = QCoreApplication::translate(
+                               "ModbusFrameParser",
+                               "Frame too short for Modbus TCP. Expected a complete MBAP + PDU, got %1 bytes")
+                               .arg(frame.size());
+            return result;
+        }
+        if (integrity < 0) {
+            result.isValid = false;
+            result.error = QCoreApplication::translate("ModbusFrameParser", "Invalid TCP MBAP header or length");
+            return result;
+        }
+        if (integrity != frame.size()) {
+            result.isValid = false;
+            result.error = QCoreApplication::translate("ModbusFrameParser", "TCP frame contains trailing bytes. Expected %1 bytes, got %2")
+                               .arg(integrity)
+                               .arg(frame.size());
+            return result;
+        }
+    } else {
+        if (frame.size() < 7) {
+            result.isValid = false;
+            result.error = QCoreApplication::translate("ModbusFrameParser", "Frame too short for TCP MBAP");
+            return result;
+        }
+        if (integrity < 0) {
+            result.warnings << QCoreApplication::translate("ModbusFrameParser", "Warning: Invalid TCP MBAP header or length (Forced)");
+        }
+        if (integrity > 0 && integrity != frame.size()) {
+             result.warnings << QCoreApplication::translate("ModbusFrameParser", "Warning: TCP frame contains trailing bytes (Forced)");
+        }
     }
 
     result.transactionId = fields.transactionId;
@@ -141,7 +158,7 @@ ParseResult ModbusFrameParser::parseTcp(const QByteArray& frame, uint16_t startA
     result.slaveId = fields.unitId;
 
     // 提取 PDU (从第 8 字节开始，长度 = Length - 1 (UnitId))
-    int pduSize = result.length - 1;
+    int pduSize = force ? (frame.size() - 7) : (result.length - 1);
     if (pduSize <= 0) {
         result.isValid = false;
         result.error = QCoreApplication::translate(
@@ -158,17 +175,18 @@ ParseResult ModbusFrameParser::parseTcp(const QByteArray& frame, uint16_t startA
     return result;
 }
 
-ParseResult ModbusFrameParser::parseRtu(const QByteArray& frame, uint16_t startAddress, uint16_t expectedQuantity)
+ParseResult ModbusFrameParser::parseRtu(const QByteArray& frame, uint16_t startAddress, uint16_t expectedQuantity, bool force)
 {
     ParseResult result;
     result.timestamp = QDateTime::currentDateTime();
     result.protocol = ProtocolType::Rtu;
     result.rawFrame = frame;
     result.expectedQuantity = expectedQuantity;
+    result.isForced = force;
 
     base::RtuAduFields fields;
     const int integrity = base::inspectRtuAdu(frame, &fields);
-    if (integrity == 0) {
+    if (!force && integrity == 0) {
         result.isValid = false;
         result.error = QCoreApplication::translate(
                            "ModbusFrameParser",
@@ -183,24 +201,42 @@ ParseResult ModbusFrameParser::parseRtu(const QByteArray& frame, uint16_t startA
     result.calculatedChecksum = fields.calculatedCrc;
     result.checksumValid = (integrity > 0);
 
-    if (integrity < 0) {
-        result.isValid = false;
-        result.error = QCoreApplication::translate("ModbusFrameParser", "CRC Mismatch. Expected %1, Got %2")
-                           .arg(fields.calculatedCrc, 4, 16, QChar('0'))
-                           .arg(fields.receivedCrc, 4, 16, QChar('0'))
-                           .toUpper();
-        return result;
-    }
-    if (integrity != frame.size()) {
-        result.isValid = false;
-        result.error = QCoreApplication::translate("ModbusFrameParser", "RTU frame contains trailing bytes. Expected %1 bytes, got %2")
-                           .arg(integrity)
-                           .arg(frame.size());
-        return result;
+    if (!force) {
+        if (integrity < 0) {
+            result.isValid = false;
+            result.error = QCoreApplication::translate("ModbusFrameParser", "CRC Mismatch. Expected %1, Got %2")
+                               .arg(fields.calculatedCrc, 4, 16, QChar('0'))
+                               .arg(fields.receivedCrc, 4, 16, QChar('0'))
+                               .toUpper();
+            return result;
+        }
+        if (integrity != frame.size()) {
+            result.isValid = false;
+            result.error = QCoreApplication::translate("ModbusFrameParser", "RTU frame contains trailing bytes. Expected %1 bytes, got %2")
+                               .arg(integrity)
+                               .arg(frame.size());
+            return result;
+        }
+    } else {
+        if (frame.size() < 3) {
+            result.isValid = false;
+            result.error = QCoreApplication::translate("ModbusFrameParser", "Frame too short for RTU");
+            return result;
+        }
+        if (integrity < 0) {
+            result.warnings << QCoreApplication::translate("ModbusFrameParser", "Warning: CRC Mismatch. Expected %1, Got %2 (Forced)")
+                               .arg(fields.calculatedCrc, 4, 16, QChar('0'))
+                               .arg(fields.receivedCrc, 4, 16, QChar('0'))
+                               .toUpper();
+        }
+        if (integrity > 0 && integrity != frame.size()) {
+            result.warnings << QCoreApplication::translate("ModbusFrameParser", "Warning: RTU frame contains trailing bytes (Forced)");
+        }
     }
 
     // 提取 PDU (去除首部 SlaveId 和尾部 CRC)
-    QByteArray pdu = frame.mid(1, frame.size() - 3);
+    int pduLen = qMax(0, frame.size() - 3);
+    QByteArray pdu = frame.mid(1, pduLen);
     parsePdu(result, pdu, startAddress, expectedQuantity);
 
     return result;

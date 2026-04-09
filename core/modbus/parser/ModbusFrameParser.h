@@ -7,6 +7,7 @@
 #include <QDateTime>
 #include <QMetaType>
 #include <optional>
+#include <QStringList>
 #include <modbus/base/ModbusTypes.h>
 
 namespace modbus::core::parser {
@@ -39,9 +40,11 @@ struct DataItem {
 // 完整解析结果
 struct ParseResult {
     bool isValid = false;
+    bool isForced = false;
     ProtocolType protocol = ProtocolType::Unknown;
     FrameType type = FrameType::Unknown;
     QString error;
+    QStringList warnings;
     QDateTime timestamp;
 
     // 基础字段
@@ -85,14 +88,15 @@ public:
     static ParseResult parse(const QByteArray& frame,
                              ProtocolType type = ProtocolType::Unknown,
                              uint16_t startAddress = 0,
-                             uint16_t expectedQuantity = 0);
+                             uint16_t expectedQuantity = 0,
+                             bool force = false);
 
 private:
     static bool detectTcp(const QByteArray& frame);
     static bool detectRtu(const QByteArray& frame);
     
-    static ParseResult parseTcp(const QByteArray& frame, uint16_t startAddress, uint16_t expectedQuantity);
-    static ParseResult parseRtu(const QByteArray& frame, uint16_t startAddress, uint16_t expectedQuantity);
+    static ParseResult parseTcp(const QByteArray& frame, uint16_t startAddress, uint16_t expectedQuantity, bool force);
+    static ParseResult parseRtu(const QByteArray& frame, uint16_t startAddress, uint16_t expectedQuantity, bool force);
     
     // PDU 解析通用逻辑
     static void parsePdu(ParseResult& result, const QByteArray& pdu, uint16_t startAddress, uint16_t expectedQuantity);
