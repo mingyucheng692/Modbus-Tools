@@ -19,7 +19,7 @@ public:
     };
 
     struct Network {
-        inline static constexpr char kLoopbackAddress[] = "127.0.0.1";
+        inline static constexpr char kLoopbackAddress[] = "192.168.10.1";
         inline static constexpr int kDefaultModbusTcpPort = 502;
         inline static constexpr int kDefaultGenericTcpPort = 8080;
         inline static constexpr int kMinTcpPort = 1;
@@ -61,7 +61,7 @@ public:
         inline static constexpr int kDefaultStandardStartAddress = 0;
         inline static constexpr int kDefaultStandardQuantity = 10;
         inline static constexpr int kDefaultStandardFormatIndex = 0;
-        inline static constexpr int kDefaultControlFunctionIndex = 0;
+        inline static constexpr int kDefaultControlFunctionIndex = 2;
         inline static constexpr int kDefaultControlAddress = 0;
         inline static constexpr int kDefaultControlQuantity = 10;
         inline static constexpr int kDefaultControlIntervalMs = 1000;
