@@ -310,21 +310,39 @@ void launchTarget(const std::wstring& targetPath) {
     }
 }
 
-std::wstring getTaskPathFromArgs() {
+enum class Language {
+    English,
+    ZhCn,
+    ZhTw
+};
+
+Language g_lang = Language::English;
+
+const wchar_t* getString(const wchar_t* en, const wchar_t* zhCn, const wchar_t* zhTw) {
+    switch (g_lang) {
+    case Language::ZhCn: return zhCn;
+    case Language::ZhTw: return zhTw;
+    default: return en;
+    }
+}
+
+void showError(const wchar_t* message) {
+    MessageBoxW(nullptr, message, getString(L"Update Error", L"更新错误", L"更新錯誤"), MB_OK | MB_ICONERROR);
+}
+
+std::wstring getTaskPathAndLang(Language& lang) {
     int argc = 0;
     LPWSTR* argv = CommandLineToArgvW(GetCommandLineW(), &argc);
-    if (!argv || argc < 3) {
-        if (argv) {
-            LocalFree(argv);
-        }
-        return {};
-    }
+    if (!argv) return {};
 
     std::wstring taskPath;
-    for (int i = 1; i < argc - 1; ++i) {
-        if (std::wstring(argv[i]) == L"--task") {
+    for (int i = 1; i < argc; ++i) {
+        if (std::wstring(argv[i]) == L"--task" && i + 1 < argc) {
             taskPath = argv[i + 1];
-            break;
+        } else if (std::wstring(argv[i]) == L"--lang" && i + 1 < argc) {
+            std::wstring code = toLower(argv[i + 1]);
+            if (code == L"zh_cn") lang = Language::ZhCn;
+            else if (code == L"zh_tw") lang = Language::ZhTw;
         }
     }
     LocalFree(argv);
@@ -334,22 +352,31 @@ std::wstring getTaskPathFromArgs() {
 } // namespace
 
 int WINAPI wWinMain(HINSTANCE, HINSTANCE, PWSTR, int) {
-    const std::wstring taskPath = getTaskPathFromArgs();
+    std::wstring taskPath = getTaskPathAndLang(g_lang);
     if (taskPath.empty()) {
         return 1;
     }
 
     TaskConfig task;
     if (!parseTaskConfig(taskPath, task)) {
+        showError(getString(L"Failed to parse update task configuration.", 
+                            L"解析更新任务配置失败。", 
+                            L"解析更新任務配置失敗。"));
         return 1;
     }
 
     if (!waitForLauncherExit(task.launcherPid)) {
+        showError(getString(L"Timed out waiting for the main program to exit.", 
+                            L"等待主程序退出超时。", 
+                            L"等待主程式退出逾時。"));
         return 2;
     }
 
     std::wstring actualSha256;
     if (!computeSha256(task.newExePath, actualSha256) || toLower(actualSha256) != task.expectedSha256) {
+        showError(getString(L"The downloaded update file is corrupted (checksum mismatch).", 
+                            L"下载的更新文件已损坏（校验码验证失败）。", 
+                            L"下載的更新檔案已損毀（校驗碼驗證失敗）。"));
         return 3;
     }
 
@@ -357,6 +384,9 @@ int WINAPI wWinMain(HINSTANCE, HINSTANCE, PWSTR, int) {
     if (hasOldTarget) {
         DeleteFileW(task.backupExePath.c_str());
         if (!moveFileAtomic(task.targetExePath, task.backupExePath)) {
+            showError(getString(L"Failed to backup the old version. Please ensure the program is not being used by another process.", 
+                                L"备份旧版本失败。请确保程序未被其他进程占用。", 
+                                L"備份舊版本失敗。請確保程式未被其他進程佔用。"));
             return 4;
         }
     }
@@ -367,10 +397,15 @@ int WINAPI wWinMain(HINSTANCE, HINSTANCE, PWSTR, int) {
                 if (task.restartAfterUpdate) {
                     launchTarget(task.targetExePath);
                 }
+                showError(getString(L"Failed to install the new version. The application has been restored to the old version.", 
+                                    L"安装新版本失败。应用程序已还原至旧版本。", 
+                                    L"安裝新版本失敗。應用程式已還原至舊版本。"));
                 return 5;
             }
-            return 6;
         }
+        showError(getString(L"Failed to install the new version and restoration failed. Please reinstall the application.", 
+                            L"安装新版本失败且无法还原。请重新安装应用程序。", 
+                            L"安裝新版本失敗且無法還原。請重新安裝應用程式。"));
         return 5;
     }
 

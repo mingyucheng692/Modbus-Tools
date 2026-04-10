@@ -218,8 +218,15 @@ void MainWindow::setupUi() {
     });
 
     // UpdateManager connections
-    connect(updateManager_, &core::update::UpdateManager::updateReadyToInstall, this, [this]() {
-         qApp->quit();
+    connect(updateManager_, &core::update::UpdateManager::updateReadyToInstall, this, [this](const QString& taskFile) {
+        QString error;
+        if (core::update::UpdateManager::launchUpdater(taskFile, currentLocale_, error)) {
+            spdlog::info("MainWindow: Updater launched successfully, terminating application to apply update.");
+            qApp->quit();
+        } else {
+            spdlog::error("MainWindow: Failed to launch updater: {}", error.toStdString());
+            QMessageBox::critical(this, tr("Update Failed"), error);
+        }
     });
     connect(updateManager_, &core::update::UpdateManager::updateFailed, this, [this](const QString& err) {
         if (checkingUpdateManually_) QMessageBox::warning(this, tr("Update Failed"), err);

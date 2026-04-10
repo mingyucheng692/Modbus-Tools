@@ -142,6 +142,7 @@ void UpdateManager::startUpdate(const QUrl& updateUrl,
             return;
         }
 
+        spdlog::info("UpdateManager: Download finished, starting verification...");
         processDownloadedUpdate(updateFilePath, expectedSha, QString());
     });
 }
@@ -215,10 +216,13 @@ void UpdateManager::processDownloadedUpdate(const QString& updateFilePath, const
 
     connect(worker, &ChecksumWorker::finished, this, [this, updateFilePath, thread](bool success, const QString& error, const QString& expected, const QString& actual) {
         if (!success) {
+            spdlog::error("UpdateManager: Update verification failed: {}", error.toStdString());
             emit updateFailed(error);
             thread->quit();
             return;
         }
+
+        spdlog::info("UpdateManager: Verification successful. Expected: {}, Actual: {}", expected.toStdString(), actual.toStdString());
 
         // Write task file
         const QString taskFilePath = QFileInfo(updateFilePath).dir().filePath("update_task.json");
@@ -241,7 +245,8 @@ void UpdateManager::processDownloadedUpdate(const QString& updateFilePath, const
         } else {
             taskFile.write(QJsonDocument(root).toJson());
             taskFile.close();
-            emit updateReadyToInstall();
+            spdlog::info("UpdateManager: Update task file created at {}", taskFilePath.toStdString());
+            emit updateReadyToInstall(taskFilePath);
         }
         
         thread->quit();
@@ -254,7 +259,7 @@ void UpdateManager::processDownloadedUpdate(const QString& updateFilePath, const
     }, Qt::QueuedConnection);
 }
 
-bool UpdateManager::launchUpdater(const QString& taskFilePath, QString& errorMessage) {
+bool UpdateManager::launchUpdater(const QString& taskFilePath, const QString& langCode, QString& errorMessage) {
     const QString updaterPath = QDir(QCoreApplication::applicationDirPath()).filePath("updater.exe");
     if (!QFileInfo::exists(updaterPath)) {
         errorMessage = tr("Updater not found");
@@ -262,7 +267,7 @@ bool UpdateManager::launchUpdater(const QString& taskFilePath, QString& errorMes
     }
 
 #ifdef Q_OS_WIN
-    const QString parameters = QStringLiteral("--task \"%1\"").arg(QDir::toNativeSeparators(taskFilePath));
+    const QString parameters = QStringLiteral("--task \"%1\" --lang %2").arg(QDir::toNativeSeparators(taskFilePath), langCode);
     SHELLEXECUTEINFOW shellExecInfo{};
     shellExecInfo.cbSize = sizeof(SHELLEXECUTEINFOW);
     shellExecInfo.fMask = SEE_MASK_NOCLOSEPROCESS;
@@ -277,21 +282,26 @@ bool UpdateManager::launchUpdater(const QString& taskFilePath, QString& errorMes
     shellExecInfo.nShow = SW_SHOWNORMAL;
     
     if (!ShellExecuteExW(&shellExecInfo)) {
+        const DWORD lastErr = GetLastError();
+        spdlog::error("UpdateManager: Failed to launch updater. ShellExecuteExW error: {}", lastErr);
         errorMessage = tr("Failed to launch updater (Access Denied or System Error)");
         return false;
     }
     if (shellExecInfo.hProcess) {
+        spdlog::info("UpdateManager: Updater launched successfully. Path: {}", updaterPath.toStdString());
         CloseHandle(shellExecInfo.hProcess);
     }
     return true;
 #else
     Q_UNUSED(taskFilePath);
+    spdlog::warn("UpdateManager: Automatic update is not supported on this platform");
     errorMessage = tr("Automatic update is only supported on Windows");
     return false;
 #endif
 }
 
 void UpdateManager::cleanupUpdateArtifacts() {
+    spdlog::info("UpdateManager: Cleaning up update artifacts...");
     const QDir appDir(QCoreApplication::applicationDirPath());
     QFile::remove(appDir.filePath("modbus-tools.exe.bak"));
     QFile::remove(appDir.filePath("updater.old.exe"));

@@ -281,17 +281,17 @@
     <message>
         <location filename="../../core/update/UpdateManager.cpp" line="56"/>
         <source>Missing or invalid expected checksum</source>
-        <translation type="unfinished"></translation>
+        <translation>缺少或无效的预期校验值</translation>
     </message>
     <message>
         <location filename="../../core/update/UpdateManager.cpp" line="70"/>
         <source>Failed to calculate file checksum</source>
-        <translation type="unfinished"></translation>
+        <translation>计算文件校验值失败</translation>
     </message>
     <message>
         <location filename="../../core/update/UpdateManager.cpp" line="75"/>
         <source>Checksum mismatch. Expected: %1, Actual: %2</source>
-        <translation type="unfinished"></translation>
+        <translation>校验值不匹配。预期：%1，实际：%2</translation>
     </message>
 </context>
 <context>
@@ -299,42 +299,42 @@
     <message>
         <location filename="../../core/update/UpdateManager.cpp" line="105"/>
         <source>Failed to access system temporary directory</source>
-        <translation type="unfinished"></translation>
+        <translation>无法访问系统临时目录</translation>
     </message>
     <message>
         <location filename="../../core/update/UpdateManager.cpp" line="111"/>
         <source>Failed to create update directory</source>
-        <translation type="unfinished">创建更新目录失败</translation>
+        <translation>创建更新目录失败</translation>
     </message>
     <message>
         <location filename="../../core/update/UpdateManager.cpp" line="117"/>
         <source>Invalid update URL</source>
-        <translation type="unfinished">更新链接无效</translation>
+        <translation>更新链接无效</translation>
     </message>
     <message>
         <location filename="../../core/update/UpdateManager.cpp" line="163"/>
         <source>Failed to open local file for writing</source>
-        <translation type="unfinished"></translation>
+        <translation>无法打开本地文件进行写入</translation>
     </message>
     <message>
         <location filename="../../core/update/UpdateManager.cpp" line="240"/>
         <source>Failed to create update task file</source>
-        <translation type="unfinished">创建更新任务文件失败</translation>
+        <translation>创建更新任务文件失败</translation>
     </message>
     <message>
         <location filename="../../core/update/UpdateManager.cpp" line="260"/>
         <source>Updater not found</source>
-        <translation type="unfinished">未找到更新器</translation>
+        <translation>未找到更新器</translation>
     </message>
     <message>
         <location filename="../../core/update/UpdateManager.cpp" line="280"/>
         <source>Failed to launch updater (Access Denied or System Error)</source>
-        <translation type="unfinished"></translation>
+        <translation>启动更新器失败（拒绝访问或系统错误）</translation>
     </message>
     <message>
         <location filename="../../core/update/UpdateManager.cpp" line="289"/>
         <source>Automatic update is only supported on Windows</source>
-        <translation type="unfinished"></translation>
+        <translation>自动更新仅支持 Windows 系统</translation>
     </message>
 </context>
 <context>
@@ -390,12 +390,12 @@
     <message>
         <location filename="../MainWindow.cpp" line="213"/>
         <source>You are using the latest version: v%1</source>
-        <translation type="unfinished"></translation>
+        <translation>您正在使用最新版本：v%1</translation>
     </message>
     <message>
         <location filename="../MainWindow.cpp" line="225"/>
         <source>Update Failed</source>
-        <translation type="unfinished"></translation>
+        <translation>更新失败</translation>
     </message>
     <message>
         <location filename="../MainWindow.cpp" line="305"/>
@@ -449,18 +449,19 @@
     <message>
         <location filename="../MainWindow.cpp" line="445"/>
         <source>New version v%1 available. Open download page?</source>
-        <translation type="unfinished"></translation>
+        <translation>发现新版本 v%1。是否打开下载页面？</translation>
     </message>
     <message>
         <location filename="../MainWindow.cpp" line="453"/>
         <source>Current: v%1, Latest: v%2
 Choose update method:</source>
-        <translation type="unfinished"></translation>
+        <translation>当前版本：v%1，最新版本：v%2
+请选择更新方式：</translation>
     </message>
     <message>
         <location filename="../MainWindow.cpp" line="469"/>
         <source>Downloading Update...</source>
-        <translation type="unfinished"></translation>
+        <translation>正在下载更新...</translation>
     </message>
     <message>
         <location filename="../widgets/ModbusSettingsDialog.cpp" line="27"/>

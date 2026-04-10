@@ -59,7 +59,7 @@ public:
      * @param errorMessage Output parameter for error messages.
      * @return true if launched successfully.
      */
-    static bool launchUpdater(const QString& taskFilePath, QString& errorMessage);
+    static bool launchUpdater(const QString& taskFilePath, const QString& langCode, QString& errorMessage);
 
     /**
      * @brief Cleans up temporary update artifacts.
@@ -75,8 +75,9 @@ signals:
 
     /**
      * @brief Emitted when the update package is ready to be applied.
+     * @param taskFilePath Path to the JSON task file.
      */
-    void updateReadyToInstall();
+    void updateReadyToInstall(const QString& taskFilePath);
 
     /**
      * @brief Emitted when the update process fails.

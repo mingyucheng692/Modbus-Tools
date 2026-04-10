@@ -17,6 +17,11 @@ if(MSVC)
     endif()
 endif()
 
+# Global output directory
+set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/app)
+set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/app)
+set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
+
 # Find Qt6
 find_package(Qt6 REQUIRED COMPONENTS Core Concurrent Network SerialPort Widgets Charts LinguistTools)
 
@@ -67,3 +72,6 @@ target_compile_definitions(Modbus-Tools PRIVATE
     MODBUS_TOOLS_PLATFORM="${MODBUS_TOOLS_PLATFORM}"
     MODBUS_TOOLS_INCLUDE_PRERELEASE=${MODBUS_TOOLS_INCLUDE_PRERELEASE_VALUE}
 )
+
+# Ensure updater is built along with the main application
+add_dependencies(Modbus-Tools updater)
