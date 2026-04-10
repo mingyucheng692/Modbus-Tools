@@ -38,7 +38,7 @@ jobs:
         shell: bash
         run: |
           cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
-          cmake --build build --config Release
+          cmake --build build --config Release -j
 
       - name: Prepare Release Artifacts
         shell: pwsh
@@ -83,10 +83,21 @@ jobs:
           Set-Content -Path "$ZIP_NAME.sha256" -Value "$ZipHash  $ZIP_NAME"
           Set-Content -Path "$SINGLE_EXE_NAME.sha256" -Value "$ExeHash  $SINGLE_EXE_NAME"
 
+      - name: Get Tag Message
+        id: tag_message
+        shell: bash
+        run: |
+          git fetch --tags --force
+          BODY=$(git tag -l --format='%(contents)' ${{ github.ref_name }})
+          echo "body<<EOF" >> $GITHUB_OUTPUT
+          echo "$BODY" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
       - name: Release to GitHub
         uses: softprops/action-gh-release@v2
         with:
-          draft: true
+          body: ${{ steps.tag_message.outputs.body }}
+          draft: false
           files: |
             Modbus-Tools-*-windows-x86_64.zip
             Modbus-Tools-*-windows-x86_64-UpdateOnly.exe
