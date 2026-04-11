@@ -45,6 +45,7 @@ public:
     ~ModbusRtuView() override;
     void updateModbusSettings(int timeoutMs, int retries, int retryIntervalMs);
     void setLinked(bool linked);
+    bool isLinked() const;
 
 signals:
     void pollRequested(uint8_t fc, int addr, int qty);
@@ -94,6 +95,7 @@ private:
     int requestId_ = 0;
     quint64 connectionGeneration_ = 0;
     bool rtuSessionConnected_ = false;
+    bool linked_ = false;
     int timeoutMs_ = app::constants::Values::Modbus::kDefaultTimeoutMs;
     int retries_ = 0;
     int retryIntervalMs_ = app::constants::Values::Modbus::kDefaultRetryIntervalMs;

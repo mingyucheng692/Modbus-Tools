@@ -51,9 +51,14 @@ void ModbusRtuView::updateModbusSettings(int timeoutMs, int retries, int retryIn
 }
 
 void ModbusRtuView::setLinked(bool linked) {
+    linked_ = linked;
     if (controlWidget_) {
         controlWidget_->setLinked(linked);
     }
+}
+
+bool ModbusRtuView::isLinked() const {
+    return linked_;
 }
 
 void ModbusRtuView::setupUi() {
@@ -126,7 +131,10 @@ void ModbusRtuView::setupUi() {
     mainLayout_->addWidget(controlWidget_);
     
     connect(controlWidget_, &widgets::ControlWidget::pollRequested, this, &ModbusRtuView::pollRequested, Qt::QueuedConnection);
-    connect(controlWidget_, &widgets::ControlWidget::linkToggled, this, &ModbusRtuView::linkageToggled);
+    connect(controlWidget_, &widgets::ControlWidget::linkToggled, this, [this](bool active){
+        linked_ = active;
+        emit linkageToggled(active);
+    });
 
     connect(connectionWidget_, &widgets::SerialConnectionWidget::connectClicked, 
         [this](const io::SerialConfig& config) {
@@ -225,8 +233,10 @@ void ModbusRtuView::setupUi() {
                             trafficMonitor_->appendInfo(tr("Success: Write confirmed"));
                         }
 
-                        // Emit linkage signal for Frame Analyzer
-                        emit linkageDataReceived(response.pdu, modbus::core::parser::ProtocolType::Rtu, itAddr->second);
+                        // Emit linkage signal for Frame Analyzer if linked
+                        if (linked_) {
+                            emit linkageDataReceived(response.pdu, modbus::core::parser::ProtocolType::Rtu, itAddr->second);
+                        }
                     } else {
                         // 失败路径：仅更新 Error 计数，跳过 RTT 统计防止均值偏移
                         controlWidget_->recordError();

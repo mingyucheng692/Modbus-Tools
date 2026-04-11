@@ -63,9 +63,14 @@ void ModbusTcpView::updateModbusSettings(int timeoutMs, int retries, int retryIn
 }
 
 void ModbusTcpView::setLinked(bool linked) {
+    linked_ = linked;
     if (controlWidget_) {
         controlWidget_->setLinked(linked);
     }
+}
+
+bool ModbusTcpView::isLinked() const {
+    return linked_;
 }
 
 void ModbusTcpView::setupUi() {
@@ -138,7 +143,10 @@ void ModbusTcpView::setupUi() {
     mainLayout_->addWidget(controlWidget_);
     
     connect(controlWidget_, &widgets::ControlWidget::pollRequested, this, &ModbusTcpView::pollRequested, Qt::QueuedConnection);
-    connect(controlWidget_, &widgets::ControlWidget::linkToggled, this, &ModbusTcpView::linkageToggled);
+    connect(controlWidget_, &widgets::ControlWidget::linkToggled, this, [this](bool active){
+        linked_ = active;
+        emit linkageToggled(active);
+    });
     
     connect(connectionWidget_, &widgets::TcpConnectionWidget::connectClicked, 
         [this](const QString& ip, int port) {
@@ -260,8 +268,10 @@ void ModbusTcpView::setupUi() {
                             trafficMonitor_->appendInfo(tr("Success: Write confirmed"));
                         }
                         
-                        // Emit linkage signal for Frame Analyzer
-                        emit linkageDataReceived(response.pdu, modbus::core::parser::ProtocolType::Tcp, itAddr->second);
+                        // Emit linkage signal for Frame Analyzer if linked
+                        if (linked_) {
+                            emit linkageDataReceived(response.pdu, modbus::core::parser::ProtocolType::Tcp, itAddr->second);
+                        }
                     } else {
                         // 失败路径：仅更新 Error 计数，跳过 RTT 统计防止均值偏移
                         controlWidget_->recordError();
