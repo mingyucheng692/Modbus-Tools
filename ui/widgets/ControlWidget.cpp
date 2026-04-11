@@ -122,11 +122,16 @@ void ControlWidget::loadSettings() {
     const QString addrKey = settingsGroup_ + "/addr";
     const QString qtyKey = settingsGroup_ + "/qty";
 
-    const bool enablePoll = settingsService_->value(settingsGroup_ + "/enablePoll").toBool();
-    const int interval = settingsService_->value(intervalKey).toInt();
-    const int fcIndex = settingsService_->value(fcKey).toInt();
-    const int addr = settingsService_->value(addrKey).toInt();
-    const int qty = settingsService_->value(qtyKey).toInt();
+    auto getVal = [this](const QString& key, const QVariant& defaultVal) {
+        QVariant v = settingsService_->value(key);
+        return v.isValid() ? v : defaultVal;
+    };
+
+    const bool enablePoll = getVal(settingsGroup_ + "/enablePoll", false).toBool();
+    const int interval = getVal(intervalKey, app::constants::Values::Polling::kDefaultIntervalMs).toInt();
+    const int fcIndex = getVal(fcKey, app::constants::Values::Modbus::kDefaultControlFunctionIndex).toInt();
+    const int addr = getVal(addrKey, app::constants::Values::Modbus::kDefaultControlAddress).toInt();
+    const int qty = getVal(qtyKey, app::constants::Values::Modbus::kDefaultControlQuantity).toInt();
 
     enablePollCheck_->setChecked(enablePoll);
     intervalSpin_->setValue(interval);
@@ -193,7 +198,7 @@ void ControlWidget::setupUi() {
     addrSpin_->setRange(app::constants::Values::Modbus::kMinAddress,
                         app::constants::Values::Modbus::kMaxAddress);
     addrSpin_->setValue(app::constants::Values::Modbus::kDefaultControlAddress);
-    addrSpin_->setFixedWidth(68);
+    addrSpin_->setFixedWidth(80);
     layout->addWidget(addrSpin_);
     
     // Quantity
