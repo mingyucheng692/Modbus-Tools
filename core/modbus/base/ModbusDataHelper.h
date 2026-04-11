@@ -38,7 +38,7 @@ public:
      * @brief Parses a string of bits ('0' and '1') into a QByteArray.
      * 
      * Packed using LSB-first within each byte (Modbus standard for coils).
-     * @param input The bit string (e.g., "1101").
+     * @param input The bit string (e.g., "1 1 0 1").
      * @return Packed byte array.
      */
     static QByteArray parseBinary(const QString& input);

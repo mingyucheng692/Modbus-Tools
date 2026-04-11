@@ -67,7 +67,7 @@ void FunctionWidget::setupStandardUi(QWidget* parent) {
     addressEdit_->setRange(app::constants::Values::Modbus::kMinAddress,
                            app::constants::Values::Modbus::kMaxAddress);
     addressEdit_->setValue(app::constants::Values::Modbus::kDefaultStandardStartAddress);
-    addressEdit_->setFixedWidth(68);
+    addressEdit_->setFixedWidth(80);
     paramLayout->addWidget(addressEdit_);
 
     quantityLabel_ = new QLabel(parent);
@@ -76,7 +76,7 @@ void FunctionWidget::setupStandardUi(QWidget* parent) {
     quantityEdit_->setRange(app::constants::Values::Modbus::kMinQuantity,
                             app::constants::Values::Modbus::kMaxReadQuantity);
     quantityEdit_->setValue(app::constants::Values::Modbus::kDefaultStandardQuantity);
-    quantityEdit_->setFixedWidth(64);
+    quantityEdit_->setFixedWidth(72);
     paramLayout->addWidget(quantityEdit_);
     
     paramLayout->addStretch();
@@ -89,7 +89,7 @@ void FunctionWidget::setupStandardUi(QWidget* parent) {
     writeDataLabel_ = new QLabel(parent);
     writeLayout->addWidget(writeDataLabel_);
     writeDataEdit_ = new QLineEdit(parent);
-    const int compactWriteWidth = 60 + 68 + 64 + 100;
+    const int compactWriteWidth = 60 + 80 + 72 + 100;
     writeDataEdit_->setFixedWidth(compactWriteWidth);
     writeLayout->addWidget(writeDataEdit_);
     
@@ -279,10 +279,20 @@ void FunctionWidget::onRawSendClicked() {
 }
 
 void FunctionWidget::onFormatChanged() {
-    if (!dataFormatBox_) return;
+    if (!dataFormatBox_ || !writeDataEdit_) return;
     
     // index 0: Hex, index 1: Decimal, index 2: Binary
-    const bool isBinary = (dataFormatBox_->currentIndex() == 2);
+    const int formatIndex = dataFormatBox_->currentIndex();
+    const bool isBinary = (formatIndex == 2);
+    
+    // Update placeholder based on format
+    if (formatIndex == 0) {
+        writeDataEdit_->setPlaceholderText(tr("Space separated hex (e.g., 01 02)"));
+    } else if (formatIndex == 1) {
+        writeDataEdit_->setPlaceholderText(tr("Space separated decimal (e.g., 100 200)"));
+    } else if (formatIndex == 2) {
+        writeDataEdit_->setPlaceholderText(tr("Bit string (e.g., 1 1 0 1)"));
+    }
     
     const QList<QPushButton*> others = {
         readBtn01_, readBtn02_, readBtn03_, readBtn04_,
@@ -314,15 +324,12 @@ void FunctionWidget::retranslateUi() {
     if (quantityLabel_) {
         quantityLabel_->setText(tr("Quantity:"));
     }
-    if (writeDataLabel_) {
-        writeDataLabel_->setText(tr("Write Data:"));
-    }
-    if (writeDataEdit_) {
-        writeDataEdit_->setPlaceholderText(tr("Space separated hex (e.g., 01 02) or values"));
-    }
-    if (formatLabel_) {
-        formatLabel_->setText(tr("Format:"));
-    }
+    if (writeDataLabel_) writeDataLabel_->setText(tr("Write Data:"));
+    if (formatLabel_) formatLabel_->setText(tr("Format:"));
+    
+    // Refresh placeholders and button states based on selected format
+    onFormatChanged();
+
     if (dataFormatBox_) {
         dataFormatBox_->setItemText(0, tr("Hex"));
         dataFormatBox_->setItemText(1, tr("Decimal"));

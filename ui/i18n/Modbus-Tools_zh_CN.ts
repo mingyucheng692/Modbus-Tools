@@ -923,6 +923,21 @@ Choose update method:</source>
         <translation>错误：0x0F 十六进制值无效</translation>
     </message>
     <message>
+        <location filename="../views/modbus_rtu/ModbusRtuView.cpp" line="385"/>
+        <source>Error: Binary bit count (%1) does not match Quantity (%2)</source>
+        <translation>错误：二进制位数 (%1) 与数量 (%2) 不匹配</translation>
+    </message>
+    <message>
+        <location filename="../views/modbus_rtu/ModbusRtuView.cpp" line="371"/>
+        <source>Error: Binary format not supported for registers (0x06)</source>
+        <translation>错误：寄存器操作 (0x06) 不支持二进制格式</translation>
+    </message>
+     <message>
+        <location filename="../views/modbus_rtu/ModbusRtuView.cpp" line="338"/>
+        <source>Error: Invalid binary value for 0x05 (expected 0 or 1)</source>
+        <translation>错误：0x05 二进制值无效（预期为 0 或 1）</translation>
+    </message>
+    <message>
         <location filename="../views/modbus_rtu/ModbusRtuView.cpp" line="390"/>
         <source>Error: Invalid quantity for 0x0F</source>
         <translation>错误：0x0F 数量无效</translation>
@@ -1111,7 +1126,22 @@ Choose update method:</source>
         <translation>错误：0x0F 十六进制值无效</translation>
     </message>
     <message>
+        <location filename="../views/modbus_tcp/ModbusTcpView.cpp" line="414"/>
+        <source>Error: Binary format not supported for registers (0x06)</source>
+        <translation>错误：寄存器操作 (0x06) 不支持二进制格式</translation>
+    </message>
+    <message>
         <location filename="../views/modbus_tcp/ModbusTcpView.cpp" line="428"/>
+        <source>Error: Binary bit count (%1) does not match Quantity (%2)</source>
+        <translation>错误：二进制位数 (%1) 与数量 (%2) 不匹配</translation>
+    </message>
+    <message>
+        <location filename="../views/modbus_tcp/ModbusTcpView.cpp" line="381"/>
+        <source>Error: Invalid binary value for 0x05 (expected 0 or 1)</source>
+        <translation>错误：0x05 二进制值无效（预期为 0 或 1）</translation>
+    </message>
+    <message>
+        <location filename="../views/modbus_tcp/ModbusTcpView.cpp" line="423"/>
         <source>Error: Invalid quantity for 0x0F</source>
         <translation>错误：0x0F 数量无效</translation>
     </message>
@@ -1912,6 +1942,26 @@ Choose update method:</source>
         <location filename="../widgets/FunctionWidget.cpp" line="302"/>
         <source>Hex</source>
         <translation>十六进制</translation>
+    </message>
+    <message>
+        <location filename="../widgets/FunctionWidget.cpp" line="334"/>
+        <source>Binary</source>
+        <translation>二进制</translation>
+    </message>
+    <message>
+        <location filename="../widgets/FunctionWidget.cpp" line="281"/>
+        <source>Space separated hex (e.g., 01 02)</source>
+        <translation>空格分隔的十六进制 (如 01 02)</translation>
+    </message>
+    <message>
+        <location filename="../widgets/FunctionWidget.cpp" line="283"/>
+        <source>Space separated decimal (e.g., 100 200)</source>
+        <translation>空格分隔的十进制 (如 100 200)</translation>
+    </message>
+    <message>
+        <location filename="../widgets/FunctionWidget.cpp" line="285"/>
+        <source>Bit string (e.g., 1 1 0 1)</source>
+        <translation>二进制位字符串 (如 1 1 0 1)</translation>
     </message>
     <message>
         <location filename="../widgets/FunctionWidget.cpp" line="303"/>
