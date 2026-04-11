@@ -61,6 +61,7 @@ void ModbusRtuView::setupUi() {
     
     functionWidget_ = new widgets::FunctionWidget(settingsService_, this);
     functionWidget_->setSettingsGroup("modbus/rtu/standard");
+    functionWidget_->setTcpMode(false);
     mainLayout_->addWidget(functionWidget_);
     
     dataGroup_ = new widgets::CollapsibleSection(settingsService_, this);

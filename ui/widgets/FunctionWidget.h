@@ -31,6 +31,7 @@ public:
     int getQuantity() const;
     int getFormatIndex() const;
     void setSettingsGroup(const QString& group);
+    void setTcpMode(bool tcp);
 
 signals:
     // Read: Function Code, Address, Quantity
@@ -55,6 +56,8 @@ private:
     void onWriteClicked(uint8_t functionCode);
     void onRawSendClicked();
     void onFormatChanged();
+    void onAppendCrcClicked();
+    void onAddMbapClicked();
 
     // Standard UI
     CollapsibleSection* standardSection_ = nullptr;
@@ -82,9 +85,12 @@ private:
     QLabel* rawDataLabel_ = nullptr;
     QTextEdit* rawDataEdit_ = nullptr;
     QPushButton* rawSendBtn_ = nullptr;
+    QPushButton* appendCrcBtn_ = nullptr;
+    QPushButton* addMbapBtn_ = nullptr;
 
     QString settingsGroup_;
     ui::common::ISettingsService* settingsService_ = nullptr;
+    bool isTcp_ = false;
 };
 
 } // namespace ui::widgets

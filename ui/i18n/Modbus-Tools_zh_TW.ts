@@ -1846,9 +1846,17 @@ Choose update method:</source>
         <translation>原始十六進位資料(如 01 03 00 00 00 01 84 0A)：</translation>
     </message>
     <message>
-        <location filename="../widgets/FunctionWidget.cpp" line="333"/>
+        <location filename="../widgets/FunctionWidget.cpp" line="384"/>
         <source>Send Raw</source>
         <translation>發送原始資料</translation>
+    </message>
+    <message>
+        <source>Append CRC</source>
+        <translation>計算并追加 CRC</translation>
+    </message>
+    <message>
+        <source>Add MBAP</source>
+        <translation>添加 MBAP 頭</translation>
     </message>
 </context>
 <context>

@@ -1,6 +1,8 @@
 #include "FunctionWidget.h"
 #include "AppConstants.h"
 #include "CollapsibleSection.h"
+#include "modbus/base/ModbusDataHelper.h"
+#include "modbus/base/ModbusCrc.h"
 #include "../common/ISettingsService.h"
 #include <QVBoxLayout>
 #include <QHBoxLayout>
@@ -190,9 +192,20 @@ void FunctionWidget::setupRawUi(QWidget* parent) {
     layout->addWidget(rawDataEdit_);
 
     auto btnLayout = new QHBoxLayout();
+    
+    appendCrcBtn_ = new QPushButton(parent);
+    appendCrcBtn_->setVisible(!isTcp_);
+    connect(appendCrcBtn_, &QPushButton::clicked, this, &FunctionWidget::onAppendCrcClicked);
+    
+    addMbapBtn_ = new QPushButton(parent);
+    addMbapBtn_->setVisible(isTcp_);
+    connect(addMbapBtn_, &QPushButton::clicked, this, &FunctionWidget::onAddMbapClicked);
+
     rawSendBtn_ = new QPushButton(parent);
     connect(rawSendBtn_, &QPushButton::clicked, this, &FunctionWidget::onRawSendClicked);
     
+    btnLayout->addWidget(appendCrcBtn_);
+    btnLayout->addWidget(addMbapBtn_);
     btnLayout->addStretch();
     btnLayout->addWidget(rawSendBtn_);
     
@@ -224,6 +237,12 @@ void FunctionWidget::setSettingsGroup(const QString& group) {
         rawSection_->setSettingsKey(settingsGroup_ + "/ui/rawCollapsed");
     }
     loadSettings();
+}
+
+void FunctionWidget::setTcpMode(bool tcp) {
+    isTcp_ = tcp;
+    if (appendCrcBtn_) appendCrcBtn_->setVisible(!isTcp_);
+    if (addMbapBtn_) addMbapBtn_->setVisible(isTcp_);
 }
 
 void FunctionWidget::loadSettings() {
@@ -365,6 +384,12 @@ void FunctionWidget::retranslateUi() {
     if (rawSendBtn_) {
         rawSendBtn_->setText(tr("Send Raw"));
     }
+    if (appendCrcBtn_) {
+        appendCrcBtn_->setText(tr("Append CRC"));
+    }
+    if (addMbapBtn_) {
+        addMbapBtn_->setText(tr("Add MBAP"));
+    }
 }
 
 void FunctionWidget::changeEvent(QEvent* event) {
@@ -372,6 +397,40 @@ void FunctionWidget::changeEvent(QEvent* event) {
         retranslateUi();
     }
     QWidget::changeEvent(event);
+}
+
+void FunctionWidget::onAppendCrcClicked() {
+    if (!rawDataEdit_) return;
+    QString input = rawDataEdit_->toPlainText();
+    QByteArray data = modbus::base::ModbusDataHelper::parseHex(input);
+    if (data.isEmpty()) return;
+    
+    uint16_t crc = modbus::base::calculateModbusRtuCrc(data);
+    data.append(static_cast<char>(crc & 0xFF));        // Low byte first
+    data.append(static_cast<char>((crc >> 8) & 0xFF)); // High byte second
+    
+    rawDataEdit_->setPlainText(data.toHex(' ').toUpper());
+}
+
+void FunctionWidget::onAddMbapClicked() {
+    if (!rawDataEdit_) return;
+    QString input = rawDataEdit_->toPlainText();
+    QByteArray data = modbus::base::ModbusDataHelper::parseHex(input);
+    if (data.isEmpty()) return;
+    
+    QByteArray mbap;
+    mbap.resize(7);
+    mbap[0] = 0; // Trans ID High
+    mbap[1] = 0; // Trans ID Low
+    mbap[2] = 0; // Proto ID High
+    mbap[3] = 0; // Proto ID Low
+    uint16_t len = static_cast<uint16_t>(data.size() + 1);
+    mbap[4] = static_cast<char>((len >> 8) & 0xFF);
+    mbap[5] = static_cast<char>(len & 0xFF);
+    mbap[6] = static_cast<char>(getSlaveId());
+    
+    data.prepend(mbap);
+    rawDataEdit_->setPlainText(data.toHex(' ').toUpper());
 }
 
 } // namespace ui::widgets
