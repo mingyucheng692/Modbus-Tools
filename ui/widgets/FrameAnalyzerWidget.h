@@ -151,6 +151,7 @@ private:
     
     // Live Link Controls
     QLabel* liveLabel_ = nullptr;
+    QLabel* linkageTipLabel_ = nullptr;
     QPushButton* linkagePauseBtn_ = nullptr;
     QPushButton* linkageStopBtn_ = nullptr;
 };

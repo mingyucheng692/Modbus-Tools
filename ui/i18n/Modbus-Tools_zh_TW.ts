@@ -27,7 +27,7 @@
 <context>
     <name>FrameAnalyzerWidget</name>
     <message>
-        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="176"/>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="177"/>
         <source>Error: Empty input</source>
         <translation>錯誤：輸入為空</translation>
     </message>
@@ -322,20 +322,20 @@
 <context>
     <name>QObject</name>
     <message>
-        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="758"/>
-        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="762"/>
-        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="1308"/>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="778"/>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="782"/>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="1335"/>
         <location filename="../widgets/TrafficMonitorWidget.cpp" line="248"/>
         <source>Cannot write file: %1</source>
         <translation type="unfinished">無法寫入檔案：%1</translation>
     </message>
     <message>
-        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="815"/>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="835"/>
         <source>Cannot open file: %1</source>
         <translation type="unfinished">無法開啟檔案：%1</translation>
     </message>
     <message>
-        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="820"/>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="840"/>
         <source>Invalid JSON format.</source>
         <translation type="unfinished">無效的 JSON 格式。</translation>
     </message>
@@ -1283,362 +1283,368 @@ Choose update method:</source>
 <context>
     <name>ui::widgets::FrameAnalyzerWidget</name>
     <message>
-        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="291"/>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="292"/>
         <source>Description: %1</source>
         <translation>描述：%1</translation>
     </message>
     <message>
-        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="297"/>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="298"/>
         <source>Raw: %1</source>
         <translation>原始值：%1</translation>
     </message>
     <message>
-        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="298"/>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="299"/>
         <source>Scale: %1</source>
         <translation>倍率：%1</translation>
     </message>
     <message>
-        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="299"/>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="300"/>
         <source>Scaled: %1</source>
         <translation>換算值：%1</translation>
     </message>
     <message>
-        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="420"/>
-        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="1453"/>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="421"/>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="1480"/>
         <source>Frame Input</source>
         <translation>報文輸入</translation>
     </message>
     <message>
-        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="426"/>
-        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="1456"/>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="427"/>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="1483"/>
         <source>Protocol:</source>
         <translation>通訊協定：</translation>
     </message>
     <message>
-        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="429"/>
-        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="1459"/>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="430"/>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="1486"/>
         <source>Auto Detect</source>
         <translation>自動偵測</translation>
     </message>
     <message>
-        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="430"/>
-        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="1460"/>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="431"/>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="1487"/>
         <source>Modbus TCP</source>
         <translation>Modbus TCP</translation>
     </message>
     <message>
-        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="431"/>
-        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="1461"/>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="432"/>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="1488"/>
         <source>Modbus RTU</source>
         <translation>Modbus RTU</translation>
     </message>
     <message>
-        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="435"/>
-        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="1464"/>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="436"/>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="1491"/>
         <source>Start Address (for Response):</source>
         <translation>起始位址（用於回應）：</translation>
     </message>
     <message>
-        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="449"/>
-        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="1475"/>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="450"/>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="1502"/>
         <source>Format Hex</source>
         <translation>格式化 Hex</translation>
     </message>
     <message>
-        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="454"/>
-        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="1494"/>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="455"/>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="1524"/>
         <source>Parse</source>
         <translation>解析</translation>
     </message>
     <message>
-        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="459"/>
-        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="1498"/>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="460"/>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="1528"/>
         <source>Clear</source>
         <translation>清除</translation>
     </message>
     <message>
-        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="470"/>
-        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="1501"/>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="471"/>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="1531"/>
         <source>Enter Hex string (e.g., 01 03 00 00 00 01 84 0A)</source>
         <translation>輸入十六進位字串（如 01 03 00 00 00 01 84 0A）</translation>
     </message>
     <message>
-        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="482"/>
-        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="1505"/>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="483"/>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="1535"/>
         <source>Analysis Result</source>
         <translation>分析結果</translation>
     </message>
     <message>
-        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="488"/>
-        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="829"/>
-        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="1543"/>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="494"/>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="849"/>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="1573"/>
         <source>Ready</source>
         <translation>就緒</translation>
     </message>
     <message>
-        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="503"/>
-        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="508"/>
-        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="841"/>
-        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="1432"/>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="500"/>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="1521"/>
+        <source>Tip: &quot;Pause&quot; to edit description</source>
+        <translation>提示："暫停"以編輯描述</translation>
+    </message>
+    <message>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="517"/>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="523"/>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="864"/>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="1459"/>
         <source>Pause Refresh</source>
         <translation>暫停重新整理</translation>
     </message>
     <message>
-        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="508"/>
-        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="1432"/>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="523"/>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="1459"/>
         <source>Resume Refresh</source>
         <translation>恢復重新整理</translation>
     </message>
     <message>
-        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="513"/>
-        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="1429"/>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="532"/>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="1456"/>
         <source>Stop Link</source>
         <translation>停止連動</translation>
     </message>
     <message>
-        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="526"/>
-        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="1467"/>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="546"/>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="1494"/>
         <source>Decode Mode:</source>
         <translation>解碼模式：</translation>
     </message>
     <message>
-        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="529"/>
-        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="1470"/>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="549"/>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="1497"/>
         <source>Unsigned</source>
         <translation>無符號</translation>
     </message>
     <message>
-        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="530"/>
-        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="1471"/>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="550"/>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="1498"/>
         <source>Signed</source>
         <translation>有符號</translation>
     </message>
     <message>
-        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="536"/>
-        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="1478"/>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="556"/>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="1505"/>
         <source>Import Config</source>
         <translation>匯入設定</translation>
     </message>
     <message>
-        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="537"/>
-        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="1482"/>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="557"/>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="1509"/>
         <source>Export Config</source>
         <translation>匯出設定</translation>
     </message>
     <message>
-        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="538"/>
-        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="721"/>
-        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="1486"/>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="558"/>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="741"/>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="1513"/>
         <source>Export CSV</source>
         <translation>匯出 CSV</translation>
     </message>
     <message>
-        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="564"/>
-        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="1520"/>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="584"/>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="1550"/>
         <source>Field</source>
         <translation>欄位</translation>
     </message>
     <message>
-        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="564"/>
-        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="575"/>
-        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="1521"/>
-        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="1525"/>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="584"/>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="595"/>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="1551"/>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="1555"/>
         <source>Value</source>
         <translation>值</translation>
     </message>
     <message>
-        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="564"/>
-        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="575"/>
-        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="1522"/>
-        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="1525"/>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="584"/>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="595"/>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="1552"/>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="1555"/>
         <source>Description</source>
         <translation>描述</translation>
     </message>
     <message>
-        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="570"/>
-        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="850"/>
-        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="985"/>
-        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="1514"/>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="590"/>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="873"/>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="1012"/>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="1544"/>
         <source>Structure</source>
         <translation>結構</translation>
     </message>
     <message>
-        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="575"/>
-        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="1525"/>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="595"/>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="1555"/>
         <source>Address</source>
         <translation>位址</translation>
     </message>
     <message>
-        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="575"/>
-        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="1525"/>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="595"/>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="1555"/>
         <source>Hex</source>
         <translation>十六進位</translation>
     </message>
     <message>
-        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="575"/>
-        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="1525"/>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="595"/>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="1555"/>
         <source>Decimal</source>
         <translation>十進位</translation>
     </message>
     <message>
-        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="575"/>
-        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="1525"/>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="595"/>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="1555"/>
         <source>Binary</source>
         <translation>二進位</translation>
     </message>
     <message>
-        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="575"/>
-        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="1525"/>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="595"/>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="1555"/>
         <source>Scale</source>
         <translation>倍率</translation>
     </message>
     <message>
-        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="588"/>
-        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="1516"/>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="608"/>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="1546"/>
         <source>Data Details</source>
         <translation>資料詳情</translation>
     </message>
     <message>
-        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="607"/>
-        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="1508"/>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="627"/>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="1538"/>
         <source>History</source>
         <translation>歷史記錄</translation>
     </message>
     <message>
-        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="617"/>
-        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="1528"/>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="637"/>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="1558"/>
         <source>Clear History</source>
         <translation>清除歷史</translation>
     </message>
     <message>
-        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="696"/>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="716"/>
         <source>Export Frame Metadata</source>
         <translation>匯出幀中繼資料</translation>
     </message>
     <message>
-        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="696"/>
-        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="705"/>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="716"/>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="725"/>
         <source>JSON Files (*.json)</source>
         <translation>JSON 檔案 (*.json)</translation>
     </message>
     <message>
-        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="705"/>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="725"/>
         <source>Import Frame Metadata</source>
         <translation>匯入幀中繼資料</translation>
     </message>
     <message>
-        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="715"/>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="735"/>
         <source>No Data</source>
         <translation>無資料</translation>
     </message>
     <message>
-        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="715"/>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="735"/>
         <source>There is no parsed data to export.</source>
         <translation>沒有可匯出的解析資料。</translation>
     </message>
     <message>
-        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="723"/>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="743"/>
         <source>CSV Files (*.csv)</source>
         <translation>CSV 檔案 (*.csv)</translation>
     </message>
     <message>
-        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="751"/>
-        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="1260"/>
-        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="1296"/>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="771"/>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="1287"/>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="1323"/>
         <source>Export Failed</source>
         <translation>匯出失敗</translation>
     </message>
     <message>
-        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="774"/>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="794"/>
         <source>Import Failed</source>
         <translation>匯入失敗</translation>
     </message>
     <message>
-        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="857"/>
-        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="1512"/>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="880"/>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="1542"/>
         <source>Structure (Unavailable in Live Mode)</source>
         <translation>結構 (連動模式下不可用)</translation>
     </message>
     <message>
-        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="878"/>
-        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="1537"/>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="901"/>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="1567"/>
         <source>LIVE: %1</source>
         <translation>連動中: %1</translation>
     </message>
     <message>
-        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="885"/>
-        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="1540"/>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="908"/>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="1570"/>
         <source>Live Data Received at %1</source>
         <translation>即時資料接收於 %1</translation>
     </message>
     <message>
-        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="945"/>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="972"/>
         <source>Error: Empty input</source>
         <translation>錯誤：輸入為空</translation>
     </message>
     <message>
-        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="954"/>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="981"/>
         <source>Parsing...</source>
         <translation>解析中...</translation>
     </message>
     <message>
-        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="985"/>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="1012"/>
         <source>(Unavailable in Live Mode)</source>
         <translation>(連動模式不可用)</translation>
     </message>
     <message>
-        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="985"/>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="1012"/>
         <source>Logical parsing is disabled for high-frequency linkage</source>
         <translation>高頻連動模式下已禁用邏輯解析</translation>
     </message>
     <message>
-        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="1029"/>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="1056"/>
         <source>Parse Failed: %1</source>
         <translation>解析失敗：%1</translation>
     </message>
     <message>
-        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="1035"/>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="1062"/>
         <source>Parse error</source>
         <translation>解析錯誤</translation>
     </message>
     <message>
-        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="1052"/>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="1079"/>
         <source>Success (%1)</source>
         <translation>解析成功 (%1)</translation>
     </message>
     <message>
-        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="1021"/>
-        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="1052"/>
-        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="1356"/>
-        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="1535"/>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="1048"/>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="1079"/>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="1383"/>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="1565"/>
         <source>TCP</source>
         <translation>TCP</translation>
     </message>
     <message>
-        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="1021"/>
-        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="1052"/>
-        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="1356"/>
-        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="1535"/>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="1048"/>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="1079"/>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="1383"/>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="1565"/>
         <source>RTU</source>
         <translation>RTU</translation>
     </message>
     <message>
-        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="1023"/>
-        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="1361"/>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="1050"/>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="1388"/>
         <source>Request</source>
         <translation>請求</translation>
     </message>
     <message>
-        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="1024"/>
-        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="1362"/>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="1051"/>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="1389"/>
         <source>Response</source>
         <translation>回應</translation>
     </message>
     <message>
-        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="1026"/>
-        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="1034"/>
-        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="1040"/>
-        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="1364"/>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="1053"/>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="1061"/>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="1067"/>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="1391"/>
         <source>Unknown</source>
         <translation>未知</translation>
     </message>
@@ -1647,243 +1653,243 @@ Choose update method:</source>
         <translation type="vanished">提示：若自動識別失敗，可手動選擇 RTU 或 TCP 以嘗試強制解析。</translation>
     </message>
     <message>
-        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="1033"/>
-        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="1067"/>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="1060"/>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="1094"/>
         <source>Frame</source>
         <translation>幀</translation>
     </message>
     <message>
-        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="1034"/>
-        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="1068"/>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="1061"/>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="1095"/>
         <source>%1 bytes</source>
         <translation>%1 位元組</translation>
     </message>
     <message>
-        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="1038"/>
-        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="1084"/>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="1065"/>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="1111"/>
         <source>Frame Bytes</source>
         <translation>幀位元組</translation>
     </message>
     <message>
-        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="1038"/>
-        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="1084"/>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="1065"/>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="1111"/>
         <source>Complete raw frame</source>
         <translation>完整原始幀</translation>
     </message>
     <message>
-        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="1040"/>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="1067"/>
         <source>Protocol detected before parse failed</source>
         <translation>解析失敗前偵測到的通訊協定</translation>
     </message>
     <message>
-        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="1040"/>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="1067"/>
         <source>Protocol</source>
         <translation>通訊協定</translation>
     </message>
     <message>
-        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="1041"/>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="1068"/>
         <source>Detailed parse failure reason</source>
         <translation>詳細解析失敗原因</translation>
     </message>
     <message>
-        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="1041"/>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="1068"/>
         <source>Error</source>
         <translation>錯誤</translation>
     </message>
     <message>
-        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="1054"/>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="1081"/>
         <source>Forced Parsing</source>
         <translation>強制解析</translation>
     </message>
     <message>
-        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="1057"/>
-        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="1073"/>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="1084"/>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="1100"/>
         <source>Warnings</source>
         <translation>警告</translation>
     </message>
     <message>
-        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="1074"/>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="1101"/>
         <source>Issues ignored during forced parsing</source>
         <translation>強制解析過程中忽略的問題</translation>
     </message>
     <message>
-        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="1078"/>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="1105"/>
         <source>Issue</source>
         <translation>問題</translation>
     </message>
     <message>
-        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="1087"/>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="1114"/>
         <source>MBAP Header</source>
         <translation>MBAP 標頭</translation>
     </message>
     <message>
-        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="1087"/>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="1114"/>
         <source>Transaction + Protocol + Length + Unit ID</source>
         <translation>交易識別碼 + 協定識別碼 + 長度 + 單元識別碼</translation>
     </message>
     <message>
-        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="1089"/>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="1116"/>
         <source>Transaction ID</source>
         <translation>交易識別碼</translation>
     </message>
     <message>
-        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="1091"/>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="1118"/>
         <source>Request/response correlation ID</source>
         <translation>請求/回應關聯識別碼</translation>
     </message>
     <message>
-        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="1093"/>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="1120"/>
         <source>Protocol ID</source>
         <translation>協定識別碼</translation>
     </message>
     <message>
-        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="1095"/>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="1122"/>
         <source>Modbus TCP protocol identifier</source>
         <translation>Modbus TCP 協定識別碼</translation>
     </message>
     <message>
-        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="1097"/>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="1124"/>
         <source>Length</source>
         <translation>長度</translation>
     </message>
     <message>
-        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="1099"/>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="1126"/>
         <source>Remaining bytes after this field</source>
         <translation>此欄位之後的剩餘位元組數</translation>
     </message>
     <message>
-        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="1101"/>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="1128"/>
         <source>Unit ID</source>
         <translation>單元識別碼</translation>
     </message>
     <message>
-        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="1103"/>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="1130"/>
         <source>Target slave / unit address</source>
         <translation>目標從站 / 單元位址</translation>
     </message>
     <message>
-        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="1106"/>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="1133"/>
         <source>Slave ID</source>
         <translation>從站識別碼</translation>
     </message>
     <message>
-        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="1108"/>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="1135"/>
         <source>Target slave address</source>
         <translation>目標從站位址</translation>
     </message>
     <message>
-        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="1114"/>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="1141"/>
         <source>PDU</source>
         <translation>PDU</translation>
     </message>
     <message>
-        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="1114"/>
-        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="1123"/>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="1141"/>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="1150"/>
         <source>(empty)</source>
         <translation>（空）</translation>
     </message>
     <message>
-        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="1114"/>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="1141"/>
         <source>Function code + payload</source>
         <translation>功能碼 + 載荷</translation>
     </message>
     <message>
-        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="1116"/>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="1143"/>
         <source>Function Code</source>
         <translation>功能碼</translation>
     </message>
     <message>
-        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="1118"/>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="1145"/>
         <source>Exception response</source>
         <translation>例外回應</translation>
     </message>
     <message>
-        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="1118"/>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="1145"/>
         <source>Normal response</source>
         <translation>正常回應</translation>
     </message>
     <message>
-        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="1122"/>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="1149"/>
         <source>Payload</source>
         <translation>載荷</translation>
     </message>
     <message>
-        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="1124"/>
-        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="1130"/>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="1151"/>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="1157"/>
         <source>Exception detail payload</source>
         <translation>例外詳細載荷</translation>
     </message>
     <message>
-        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="1124"/>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="1151"/>
         <source>Application data payload</source>
         <translation>應用資料載荷</translation>
     </message>
     <message>
-        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="1128"/>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="1155"/>
         <source>Exception Code</source>
         <translation>例外碼</translation>
     </message>
     <message>
-        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="1046"/>
-        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="1135"/>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="1073"/>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="1162"/>
         <source>CRC valid</source>
         <translation>CRC 有效</translation>
     </message>
     <message>
-        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="1046"/>
-        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="1135"/>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="1073"/>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="1162"/>
         <source>CRC invalid</source>
         <translation>CRC 無效</translation>
     </message>
     <message>
-        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="1139"/>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="1166"/>
         <source>Calculated: 0x%1</source>
         <translation>計算值：0x%1</translation>
     </message>
     <message>
-        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="1044"/>
-        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="1143"/>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="1071"/>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="1170"/>
         <source>CRC16</source>
         <translation>CRC16</translation>
     </message>
     <message>
-        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="1426"/>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="1453"/>
         <source>Show History</source>
         <translation>顯示歷史</translation>
     </message>
     <message>
-        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="1426"/>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="1453"/>
         <source>Hide History</source>
         <translation>隱藏歷史</translation>
     </message>
     <message>
-        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="1472"/>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="1499"/>
         <source>Choose how parsed numeric values are displayed.</source>
         <translation>選擇解析後數值的顯示方式。</translation>
     </message>
     <message>
-        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="1479"/>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="1506"/>
         <source>Import saved field scale and description settings from a JSON file.</source>
         <translation>從 JSON 檔匯入已儲存的欄位縮放與描述設定。</translation>
     </message>
     <message>
-        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="1483"/>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="1510"/>
         <source>Export current field scale and description settings to a JSON file.</source>
         <translation>將目前欄位縮放與描述設定匯出到 JSON 檔。</translation>
     </message>
     <message>
-        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="1487"/>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="1514"/>
         <source>Export the parsed register data in the current table as a CSV file.</source>
         <translation>將目前表格中的解析寄存器資料匯出為 CSV 檔。</translation>
     </message>
     <message>
-        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="1490"/>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="1517"/>
         <source>Show or hide the parse history panel.</source>
         <translation>顯示或隱藏解析歷史面板。</translation>
     </message>
     <message>
-        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="1025"/>
-        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="1363"/>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="1052"/>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="1390"/>
         <source>Exception</source>
         <translation>異常</translation>
     </message>

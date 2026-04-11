@@ -16,6 +16,7 @@
 #include <QHeaderView>
 #include <QTabWidget>
 #include <QMessageBox>
+#include <QApplication>
 #include <QEvent>
 #include <QSignalBlocker>
 #include <QFileDialog>
@@ -485,9 +486,22 @@ void FrameAnalyzerWidget::createResultGroup()
     auto resultToolbarLayout = new QHBoxLayout();
     resultToolbarLayout->setContentsMargins(0, 0, 0, 0);
     resultToolbarLayout->setSpacing(6);
+    auto* statusContainer = new QWidget(this);
+    auto* statusAreaLayout = new QVBoxLayout(statusContainer);
+    statusAreaLayout->setContentsMargins(0, 0, 0, 0);
+    statusAreaLayout->setSpacing(2);
+    
     statusLabel_ = new QLabel(tr("Ready"), this);
     statusLabel_->setStyleSheet("font-weight: bold; color: gray;");
-    resultToolbarLayout->addWidget(statusLabel_);
+    statusAreaLayout->addWidget(statusLabel_);
+    
+    linkageTipLabel_ = new QLabel(this);
+    linkageTipLabel_->setStyleSheet("color: #10B981; font-size: 11px; font-weight: normal;");
+    linkageTipLabel_->setText(tr("Tip: \"Pause\" to edit description"));
+    linkageTipLabel_->setVisible(false);
+    statusAreaLayout->addWidget(linkageTipLabel_);
+    
+    resultToolbarLayout->addWidget(statusContainer);
     
     // Live Indicators Container
     auto* liveContainer = new QWidget(this);
@@ -501,17 +515,23 @@ void FrameAnalyzerWidget::createResultGroup()
     liveLayout->addWidget(liveLabel_);
 
     linkagePauseBtn_ = new QPushButton(tr("Pause Refresh"), this);
+    linkagePauseBtn_->setObjectName("linkagePauseBtn");
     linkagePauseBtn_->setMinimumHeight(28);
     linkagePauseBtn_->setVisible(false);
     connect(linkagePauseBtn_, &QPushButton::clicked, this, [this]() {
         isLivePaused_ = !isLivePaused_;
         linkagePauseBtn_->setText(isLivePaused_ ? tr("Resume Refresh") : tr("Pause Refresh"));
-        linkagePauseBtn_->setStyleSheet(isLivePaused_ ? "background-color: #F59E0B; color: white;" : "");
+        if (isLivePaused_) {
+            linkagePauseBtn_->setStyleSheet("background-color: #F59E0B; color: white; border: 1px solid #D97706; font-weight: bold; border-radius: 4px;");
+        } else {
+            linkagePauseBtn_->setStyleSheet("");
+        }
     });
     liveLayout->addWidget(linkagePauseBtn_);
 
     linkageStopBtn_ = new QPushButton(tr("Stop Link"), this);
-    linkageStopBtn_->setStyleSheet("background-color: #EF4444; color: white; border: none; font-weight: bold; padding: 0 10px;");
+    linkageStopBtn_->setObjectName("linkageStopBtn");
+    linkageStopBtn_->setStyleSheet("color: #EF4444; border: 1px solid #EF4444; background-color: white; font-weight: bold; padding: 0 10px; border-radius: 4px;");
     linkageStopBtn_->setMinimumHeight(28);
     linkageStopBtn_->setVisible(false);
     connect(linkageStopBtn_, &QPushButton::clicked, this, [this]() {
@@ -836,6 +856,9 @@ void FrameAnalyzerWidget::clearResult()
 
     liveLabel_->setVisible(false);
     linkageStopBtn_->setVisible(false);
+    if (linkageTipLabel_) {
+        linkageTipLabel_->setVisible(false);
+    }
     if (linkagePauseBtn_) {
         linkagePauseBtn_->setVisible(false);
         linkagePauseBtn_->setText(tr("Pause Refresh"));
@@ -884,6 +907,10 @@ void FrameAnalyzerWidget::processLivePdu(const modbus::base::Pdu& pdu, modbus::c
     
     statusLabel_->setText(tr("Live Data Received at %1").arg(result.timestamp.toString("HH:mm:ss.zzz")));
     statusLabel_->setStyleSheet("color: #10B981; font-weight: bold;");
+    
+    if (linkageTipLabel_) {
+        linkageTipLabel_->setVisible(!isLivePaused_);
+    }
     
     lastLiveResult_ = result;
     if (!isLivePaused_) {
@@ -1168,14 +1195,14 @@ void FrameAnalyzerWidget::renderResult(const ParseResult& result)
         } else {
             // Safety check: Don't overwrite if the item is being edited
             bool isBeingEdited = false;
-            QWidget* fw = dataTable_->focusWidget();
-            if (fw && fw != dataTable_ && fw->parentWidget() == dataTable_->viewport()) {
+            QWidget* fw = QApplication::focusWidget();
+            if (fw && dataTable_->viewport() && dataTable_->viewport()->isAncestorOf(fw)) {
                 QModelIndex idx = dataTable_->currentIndex();
                 if (idx.isValid() && idx.row() == r && idx.column() == c) {
                     isBeingEdited = true;
                 }
             }
-
+            
             if (!isBeingEdited && it->text() != text) {
                 it->setText(text);
             }
@@ -1490,6 +1517,9 @@ void FrameAnalyzerWidget::retranslateUi()
         toggleHistoryBtn_->setToolTip(tr("Show or hide the parse history panel."));
     }
     updateHistoryToggleText();
+    if (linkageTipLabel_) {
+        linkageTipLabel_->setText(tr("Tip: \"Pause\" to edit description"));
+    }
     if (parseBtn_) {
         parseBtn_->setText(tr("Parse"));
         parseBtn_->setEnabled(!parseInProgress_);
