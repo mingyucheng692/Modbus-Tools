@@ -1099,51 +1099,62 @@ void FrameAnalyzerWidget::renderResult(const ParseResult& result)
     overviewTree_->expandAll();
 
     isUpdatingDataTable_ = true;
-    dataTable_->setRowCount(result.dataItems.size());
+    const int newCount = result.dataItems.size();
+    if (dataTable_->rowCount() != newCount) {
+        dataTable_->setRowCount(newCount);
+    }
+
+    auto updateItem = [this](int r, int c, const QString& text, bool editable) {
+        QTableWidgetItem* it = dataTable_->item(r, c);
+        if (!it) {
+            it = new QTableWidgetItem(text);
+            if (!editable) {
+                it->setFlags(it->flags() & ~Qt::ItemIsEditable);
+            }
+            dataTable_->setItem(r, c, it);
+        } else {
+            if (it->text() != text) {
+                it->setText(text);
+            }
+        }
+        return it;
+    };
+
     for (int i = 0; i < result.dataItems.size(); ++i) {
         const auto& item = result.dataItems[i];
         DataMetadata meta = metadataByAddress_.value(item.address);
         
-        auto* addressItem = new QTableWidgetItem(QString::number(item.address));
-        addressItem->setFlags(addressItem->flags() & ~Qt::ItemIsEditable);
-        dataTable_->setItem(i, 0, addressItem);
+        // 0: Address
+        updateItem(i, 0, QString::number(item.address), false);
 
-        auto* hexItem = new QTableWidgetItem(formatHexValue(item.rawBytes, item.hexString));
-        hexItem->setFlags(hexItem->flags() & ~Qt::ItemIsEditable);
-        dataTable_->setItem(i, 1, hexItem);
+        // 1: Hex
+        updateItem(i, 1, formatHexValue(item.rawBytes, item.hexString), false);
         
-        // Decimal (Smart display)
+        // 2: Decimal
         QString decStr = "-";
         QColor textColor = Qt::black;
-        
         if (item.value.isValid()) {
             if (item.value.typeId() == QMetaType::Bool) {
-                const bool val = item.value.toBool();
-                textColor = val ? Qt::darkGreen : Qt::darkRed;
+                textColor = item.value.toBool() ? Qt::darkGreen : Qt::darkRed;
             } else if (item.value.typeId() == QMetaType::Short || item.value.typeId() == QMetaType::Int) {
-                const int numeric = item.value.toInt();
-                textColor = numeric < 0 ? QColor(180, 30, 30) : Qt::black;
+                textColor = (item.value.toInt() < 0) ? QColor(180, 30, 30) : Qt::black;
             }
             decStr = formatDecimalValue(item.value);
         }
-        auto decItem = new QTableWidgetItem(decStr);
+        auto* decItem = updateItem(i, 2, decStr, false);
         decItem->setForeground(textColor);
-        decItem->setFlags(decItem->flags() & ~Qt::ItemIsEditable);
-        dataTable_->setItem(i, 2, decItem);
 
-        auto* binaryItem = new QTableWidgetItem(formatBinaryValue(item.rawBytes, item.binaryString));
-        binaryItem->setFlags(binaryItem->flags() & ~Qt::ItemIsEditable);
-        dataTable_->setItem(i, 3, binaryItem);
+        // 3: Binary
+        updateItem(i, 3, formatBinaryValue(item.rawBytes, item.binaryString), false);
 
-        auto* scaleItem = new QTableWidgetItem(QString::number(meta.scale, 'g', 12));
-        dataTable_->setItem(i, 4, scaleItem);
+        // 4: Scale
+        updateItem(i, 4, QString::number(meta.scale, 'g', 12), true);
 
-        auto* valueItem = new QTableWidgetItem(formatScaledValue(item.value, meta));
-        valueItem->setFlags(valueItem->flags() & ~Qt::ItemIsEditable);
-        dataTable_->setItem(i, 5, valueItem);
+        // 5: Value
+        updateItem(i, 5, formatScaledValue(item.value, meta), false);
 
-        auto* descItem = new QTableWidgetItem(meta.description);
-        dataTable_->setItem(i, 6, descItem);
+        // 6: Description
+        updateItem(i, 6, meta.description, true);
 
         metadataByAddress_.insert(item.address, meta);
         applyMetadataToRow(i, item.value, meta);
