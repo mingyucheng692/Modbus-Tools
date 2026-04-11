@@ -931,6 +931,10 @@ void FrameAnalyzerWidget::saveSettings()
 
 void FrameAnalyzerWidget::renderResult(const ParseResult& result)
 {
+    if (overviewTree_) {
+        overviewTree_->clear();
+    }
+    
     auto addItem = [](QTreeWidgetItem* parent, const QString& field, const QString& value, const QString& description = QString()) {
         return new QTreeWidgetItem(parent, {field, value, description});
     };
