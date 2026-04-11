@@ -1166,9 +1166,14 @@ Choose update method:</source>
         <translation>位址：</translation>
     </message>
     <message>
-        <location filename="../widgets/ControlWidget.cpp" line="226"/>
+        <location filename="../widgets/ControlWidget.cpp" line="224"/>
         <source>Qty:</source>
         <translation>數量：</translation>
+    </message>
+    <message>
+        <location filename="../widgets/ControlWidget.cpp" line="224"/>
+        <source>Link to Analyzer</source>
+        <translation>聯動分析儀</translation>
     </message>
 </context>
 <context>

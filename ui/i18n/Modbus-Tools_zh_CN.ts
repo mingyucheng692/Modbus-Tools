@@ -1158,6 +1158,11 @@ Choose update method:</source>
         <source>Qty:</source>
         <translation>数量：</translation>
     </message>
+    <message>
+        <location filename="../widgets/ControlWidget.cpp" line="224"/>
+        <source>Link to Analyzer</source>
+        <translation>联动分析仪</translation>
+    </message>
 </context>
 <context>
     <name>ui::widgets::FrameAnalyzerWidget</name>
