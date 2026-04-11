@@ -50,6 +50,12 @@ void ModbusRtuView::updateModbusSettings(int timeoutMs, int retries, int retryIn
     }
 }
 
+void ModbusRtuView::setLinked(bool linked) {
+    if (controlWidget_) {
+        controlWidget_->setLinked(linked);
+    }
+}
+
 void ModbusRtuView::setupUi() {
     mainLayout_ = new QVBoxLayout(this);
     mainLayout_->setContentsMargins(2, 2, 2, 2);
@@ -198,7 +204,8 @@ void ModbusRtuView::setupUi() {
                     if (generation != connectionGeneration_) return;
                     auto itStart = requestStart_.find(requestId);
                     auto itKind = requestKinds_.find(requestId);
-                    if (itStart == requestStart_.end() || itKind == requestKinds_.end()) {
+                    auto itAddr = requestAddrs_.find(requestId);
+                    if (itStart == requestStart_.end() || itKind == requestKinds_.end() || itAddr == requestAddrs_.end()) {
                         return;
                     }
 
@@ -214,6 +221,9 @@ void ModbusRtuView::setupUi() {
                         } else if (itKind->second == RequestKind::Write) {
                             trafficMonitor_->appendInfo(tr("Success: Write confirmed"));
                         }
+
+                        // Emit linkage signal for Frame Analyzer
+                        emit linkageDataReceived(response.pdu, modbus::core::parser::ProtocolType::Rtu, itAddr->second);
                     } else {
                         // 失败路径：仅更新 Error 计数，跳过 RTT 统计防止均值偏移
                         controlWidget_->recordError();
@@ -227,6 +237,7 @@ void ModbusRtuView::setupUi() {
 
                     requestStart_.erase(itStart);
                     requestKinds_.erase(itKind);
+                    requestAddrs_.erase(itAddr);
                 }, Qt::QueuedConnection);
 
             worker_->start();
@@ -415,6 +426,7 @@ void ModbusRtuView::setupUi() {
             int requestId = nextRequestId();
             requestStart_[requestId] = std::chrono::steady_clock::now();
             requestKinds_[requestId] = RequestKind::Write;
+            requestAddrs_[requestId] = static_cast<uint16_t>(addr);
 
             controlWidget_->recordTx(); // 提交时增加 TX 计数
             worker_->submit(request, slaveId, requestId);
@@ -449,6 +461,7 @@ void ModbusRtuView::setupUi() {
             int requestId = nextRequestId();
             requestStart_[requestId] = std::chrono::steady_clock::now();
             requestKinds_[requestId] = RequestKind::Poll;
+            requestAddrs_[requestId] = static_cast<uint16_t>(addr);
 
             controlWidget_->recordTx(); // 轮询提交时增加 TX 计数
             worker_->submit(request, slaveId, requestId);
@@ -501,7 +514,11 @@ void ModbusRtuView::releaseStack() {
     }
     requestStart_.clear();
     requestKinds_.clear();
-
+    requestAddrs_.clear();
+    if (controlWidget_) {
+        controlWidget_->setLinked(false);
+    }
+    
     auto channel = std::move(channel_);
     auto client = std::move(client_);
     auto worker = std::move(worker_);

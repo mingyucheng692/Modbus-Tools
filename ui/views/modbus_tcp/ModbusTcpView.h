@@ -4,8 +4,11 @@
 #include <memory>
 #include <unordered_map>
 #include <chrono>
+#include <cstdint>
 #include "AppConstants.h"
 #include "modbus/base/ModbusConfig.h"
+#include "modbus/base/ModbusFrame.h"
+#include "modbus/parser/ModbusFrameParser.h"
 
 class QVBoxLayout;
 class QLabel;
@@ -41,6 +44,10 @@ public:
     explicit ModbusTcpView(ui::common::ISettingsService* settingsService, QWidget *parent = nullptr);
     ~ModbusTcpView() override;
     void updateModbusSettings(int timeoutMs, int retries, int retryIntervalMs);
+    void setLinked(bool linked);
+
+signals:
+    void linkageDataReceived(const modbus::base::Pdu& pdu, modbus::core::parser::ProtocolType protocol, uint16_t addr);
 
 private:
     void setupUi();
@@ -81,6 +88,7 @@ private:
     std::shared_ptr<QThread> workerThread_;
     std::unordered_map<int, std::chrono::steady_clock::time_point> requestStart_;
     std::unordered_map<int, RequestKind> requestKinds_;
+    std::unordered_map<int, uint16_t> requestAddrs_;
     int requestId_ = 0;
     quint64 connectionGeneration_ = 0;
     bool tcpSessionConnected_ = false;
