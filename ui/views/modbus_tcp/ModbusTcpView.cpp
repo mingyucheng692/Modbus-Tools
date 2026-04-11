@@ -9,6 +9,7 @@
 #include "../../common/ConnectionAlert.h"
 #include "../../common/TcpConnectionStateCoordinator.h"
 #include "modbus/factory/ModbusFactory.h"
+#include "modbus/base/ModbusDataHelper.h"
 #include <QVBoxLayout>
 #include <QLabel>
 #include <QRegularExpression>
@@ -321,32 +322,7 @@ void ModbusTcpView::setupUi() {
             data.append((char)(addr & 0xFF));
 
             QString trimmed = dataStr.trimmed();
-            auto parseHexBytes = [](const QString& input) {
-                QString cleaned = input;
-                cleaned.remove(QRegularExpression("[^0-9A-Fa-f]"));
-                if (cleaned.isEmpty()) return QByteArray();
-                if (cleaned.size() % 2 == 1) cleaned.prepend("0");
-                return QByteArray::fromHex(cleaned.toLatin1());
-            };
-            auto parseDecimalList = [](const QString& input, bool& okOut) {
-                okOut = true;
-                QList<quint16> values;
-                QStringList parts = input.split(QRegularExpression("[\\s,;]+"), Qt::SkipEmptyParts);
-                if (parts.isEmpty()) {
-                    okOut = false;
-                    return values;
-                }
-                for (const auto& part : parts) {
-                    bool ok = false;
-                    uint value = part.toUInt(&ok, 10);
-                    if (!ok || value > 65535) {
-                        okOut = false;
-                        return QList<quint16>();
-                    }
-                    values.append(static_cast<quint16>(value));
-                }
-                return values;
-            };
+            using modbus::base::ModbusDataHelper;
 
             if (fc == 0x05) {
                 bool coilOn = false;
@@ -358,8 +334,16 @@ void ModbusTcpView::setupUi() {
                         return;
                     }
                     coilOn = (value != 0);
+                } else if (fmt == "Binary") {
+                    QString cleaned = trimmed;
+                    cleaned.remove(QRegularExpression("[^0-1]"));
+                    if (cleaned.isEmpty() || cleaned.size() > 1) {
+                         trafficMonitor_->appendInfo(tr("Error: Invalid binary value for 0x05 (expected 0 or 1)"));
+                         return;
+                    }
+                    coilOn = (cleaned == "1");
                 } else {
-                    QByteArray bytes = parseHexBytes(trimmed);
+                    QByteArray bytes = ModbusDataHelper::parseHex(trimmed);
                     if (bytes.isEmpty()) {
                         trafficMonitor_->appendInfo(tr("Error: Invalid hex value for 0x05"));
                         return;
@@ -396,8 +380,11 @@ void ModbusTcpView::setupUi() {
                     }
                     data.append(static_cast<char>((value >> 8) & 0xFF));
                     data.append(static_cast<char>(value & 0xFF));
+                } else if (fmt == "Binary") {
+                    trafficMonitor_->appendInfo(tr("Error: Binary format not supported for registers (0x06)"));
+                    return;
                 } else {
-                    QByteArray bytes = parseHexBytes(trimmed);
+                    QByteArray bytes = ModbusDataHelper::parseHex(trimmed);
                     if (bytes.isEmpty()) {
                         trafficMonitor_->appendInfo(tr("Error: Invalid hex value for 0x06"));
                         return;
@@ -414,23 +401,37 @@ void ModbusTcpView::setupUi() {
                     }
                 }
             } else if (fc == 0x0F) {
-                if (fmt != "Hex") {
-                    trafficMonitor_->appendInfo(tr("Error: 0x0F requires Hex data"));
-                    return;
-                }
-                QByteArray bytes = parseHexBytes(trimmed);
-                if (bytes.isEmpty()) {
-                    trafficMonitor_->appendInfo(tr("Error: Invalid hex value for 0x0F"));
-                    return;
-                }
+                QByteArray bytes;
                 int quantity = functionWidget_->getQuantity();
                 if (quantity <= 0) {
                     trafficMonitor_->appendInfo(tr("Error: Invalid quantity for 0x0F"));
                     return;
                 }
+
+                if (fmt == "Binary") {
+                    QString bits = trimmed;
+                    bits.remove(QRegularExpression("[^0-1]"));
+                    if (bits.size() != quantity) {
+                        trafficMonitor_->appendInfo(tr("Error: Binary bit count (%1) does not match Quantity (%2)")
+                            .arg(bits.size()).arg(quantity));
+                        return;
+                    }
+                    bytes = ModbusDataHelper::parseBinary(bits);
+                } else if (fmt == "Hex") {
+                    bytes = ModbusDataHelper::parseHex(trimmed);
+                } else {
+                    trafficMonitor_->appendInfo(tr("Error: 0x0F requires Hex or Binary data"));
+                    return;
+                }
+
+                if (bytes.isEmpty()) {
+                    trafficMonitor_->appendInfo(tr("Error: Invalid data for 0x0F"));
+                    return;
+                }
+
                 int byteCount = (quantity + 7) / 8;
                 if (bytes.size() != byteCount) {
-                    trafficMonitor_->appendInfo(tr("Error: Coil data length mismatch for 0x0F"));
+                    trafficMonitor_->appendInfo(tr("Error: Coil data length mismatch for 0x0F (expected %1 bytes)").arg(byteCount));
                     return;
                 }
                 data.append(static_cast<char>((quantity >> 8) & 0xFF));
@@ -451,18 +452,14 @@ void ModbusTcpView::setupUi() {
                 int registerCount = 0;
                 if (fmt == "Decimal") {
                     bool okList = false;
-                    auto values = parseDecimalList(trimmed, okList);
+                    payload = ModbusDataHelper::parseDecimalList(trimmed, okList);
                     if (!okList) {
                         trafficMonitor_->appendInfo(tr("Error: Invalid decimal list for 0x10"));
                         return;
                     }
-                    registerCount = values.size();
-                    for (quint16 value : values) {
-                        payload.append(static_cast<char>((value >> 8) & 0xFF));
-                        payload.append(static_cast<char>(value & 0xFF));
-                    }
+                    registerCount = payload.size() / 2;
                 } else {
-                    payload = parseHexBytes(trimmed);
+                    payload = ModbusDataHelper::parseHex(trimmed);
                     if (payload.isEmpty() || (payload.size() % 2 != 0)) {
                         trafficMonitor_->appendInfo(tr("Error: Invalid hex value for 0x10"));
                         return;

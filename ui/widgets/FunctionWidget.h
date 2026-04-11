@@ -54,6 +54,7 @@ private:
     void onReadClicked(uint8_t functionCode);
     void onWriteClicked(uint8_t functionCode);
     void onRawSendClicked();
+    void onFormatChanged();
 
     // Standard UI
     CollapsibleSection* standardSection_ = nullptr;

@@ -98,6 +98,7 @@ void FunctionWidget::setupStandardUi(QWidget* parent) {
     dataFormatBox_ = new QComboBox(parent);
     dataFormatBox_->addItem("", "Hex");
     dataFormatBox_->addItem("", "Decimal");
+    dataFormatBox_->addItem("", "Binary");
     dataFormatBox_->setFixedWidth(88);
     writeLayout->addWidget(dataFormatBox_);
     writeLayout->addStretch();
@@ -172,6 +173,9 @@ void FunctionWidget::setupStandardUi(QWidget* parent) {
     connect(addressEdit_, qOverload<int>(&QSpinBox::valueChanged), this, &FunctionWidget::saveSettings);
     connect(quantityEdit_, qOverload<int>(&QSpinBox::valueChanged), this, &FunctionWidget::saveSettings);
     connect(dataFormatBox_, qOverload<int>(&QComboBox::currentIndexChanged), this, &FunctionWidget::saveSettings);
+    connect(dataFormatBox_, qOverload<int>(&QComboBox::currentIndexChanged), this, &FunctionWidget::onFormatChanged);
+    
+    onFormatChanged();
 }
 
 void FunctionWidget::setupRawUi(QWidget* parent) {
@@ -245,6 +249,7 @@ void FunctionWidget::loadSettings() {
     if (formatIndex >= 0 && formatIndex < dataFormatBox_->count()) {
         dataFormatBox_->setCurrentIndex(formatIndex);
     }
+    onFormatChanged();
 }
 
 void FunctionWidget::saveSettings() {
@@ -271,6 +276,26 @@ void FunctionWidget::onRawSendClicked() {
     
     QByteArray data = QByteArray::fromHex(text.toLatin1());
     emit rawSendRequested(data);
+}
+
+void FunctionWidget::onFormatChanged() {
+    if (!dataFormatBox_) return;
+    
+    // index 0: Hex, index 1: Decimal, index 2: Binary
+    const bool isBinary = (dataFormatBox_->currentIndex() == 2);
+    
+    const QList<QPushButton*> others = {
+        readBtn01_, readBtn02_, readBtn03_, readBtn04_,
+        writeBtn06_, writeBtn10_
+    };
+    
+    for (auto* btn : others) {
+        if (btn) btn->setEnabled(!isBinary);
+    }
+    
+    // Always enable 0x05 / 0x0F since they are coil-relative
+    if (writeBtn05_) writeBtn05_->setEnabled(true);
+    if (writeBtn0F_) writeBtn0F_->setEnabled(true);
 }
 
 void FunctionWidget::retranslateUi() {
@@ -301,6 +326,7 @@ void FunctionWidget::retranslateUi() {
     if (dataFormatBox_) {
         dataFormatBox_->setItemText(0, tr("Hex"));
         dataFormatBox_->setItemText(1, tr("Decimal"));
+        dataFormatBox_->setItemText(2, tr("Binary"));
     }
     if (readBtn01_) {
         readBtn01_->setText(tr("Read Coils (0x01)"));
