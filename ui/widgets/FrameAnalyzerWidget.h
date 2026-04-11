@@ -4,6 +4,8 @@
 #include <QScopedPointer>
 #include <QMap>
 #include <QList>
+#include <cstdint>
+#include "modbus/base/ModbusFrame.h"
 #include "modbus/parser/ModbusFrameParser.h"
 
 class QPlainTextEdit;
@@ -36,8 +38,10 @@ class FrameAnalyzerWidget : public QWidget {
 public:
     explicit FrameAnalyzerWidget(ui::common::ISettingsService* settingsService, QWidget* parent = nullptr);
     ~FrameAnalyzerWidget() override;
+    void processLivePdu(const modbus::base::Pdu& pdu, modbus::core::parser::ProtocolType protocol, uint16_t addr);
 
 signals:
+    void linkageStopRequested();
     void parseRequested(const QString& input,
                         modbus::core::parser::ProtocolType type,
                         uint16_t startAddress,
@@ -141,6 +145,10 @@ private:
     bool parseInProgress_ = false;
     bool isUpdatingDataTable_ = false;
     ui::common::ISettingsService* settingsService_ = nullptr;
+    
+    // Live Link Controls
+    QLabel* liveLabel_ = nullptr;
+    QPushButton* linkageStopBtn_ = nullptr;
 };
 
 } // namespace ui::widgets

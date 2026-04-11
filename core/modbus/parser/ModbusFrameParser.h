@@ -91,15 +91,18 @@ public:
                              uint16_t expectedQuantity = 0,
                              bool force = false);
 
+    /**
+     * @brief 解析 PDU 数据段
+     */
+    static void parsePdu(ParseResult& result, const QByteArray& pdu, uint16_t startAddress, uint16_t expectedQuantity);
+
 private:
     static bool detectTcp(const QByteArray& frame);
     static bool detectRtu(const QByteArray& frame);
     
     static ParseResult parseTcp(const QByteArray& frame, uint16_t startAddress, uint16_t expectedQuantity, bool force);
     static ParseResult parseRtu(const QByteArray& frame, uint16_t startAddress, uint16_t expectedQuantity, bool force);
-    
-    // PDU 解析通用逻辑
-    static void parsePdu(ParseResult& result, const QByteArray& pdu, uint16_t startAddress, uint16_t expectedQuantity);
+
     static bool hasAddressInPdu(modbus::base::FunctionCode functionCode, const QByteArray& pdu);
     static uint16_t extractAddressFromPdu(const QByteArray& pdu);
     static uint16_t determineEffectiveStartAddress(modbus::base::FunctionCode functionCode,

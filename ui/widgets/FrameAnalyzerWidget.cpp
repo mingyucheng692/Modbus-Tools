@@ -488,6 +488,19 @@ void FrameAnalyzerWidget::createResultGroup()
     statusLabel_ = new QLabel(tr("Ready"), this);
     statusLabel_->setStyleSheet("font-weight: bold; color: gray;");
     resultToolbarLayout->addWidget(statusLabel_);
+    
+    liveLabel_ = new QLabel(this);
+    liveLabel_->setStyleSheet("color: #10B981; font-weight: bold; padding: 2px 6px; border: 1px solid #10B981; border-radius: 4px;");
+    liveLabel_->setVisible(false);
+    resultToolbarLayout->addWidget(liveLabel_);
+
+    linkageStopBtn_ = new QPushButton(tr("Stop Link"), this);
+    linkageStopBtn_->setStyleSheet("background-color: #EF4444; color: white; border: none; font-weight: bold;");
+    linkageStopBtn_->setMinimumHeight(28);
+    linkageStopBtn_->setVisible(false);
+    connect(linkageStopBtn_, &QPushButton::clicked, this, &FrameAnalyzerWidget::linkageStopRequested);
+    resultToolbarLayout->addWidget(linkageStopBtn_);
+
     resultToolbarLayout->addStretch();
     displayModeLabel_ = new QLabel(tr("Decode Mode:"), this);
     resultToolbarLayout->addWidget(displayModeLabel_);
@@ -794,8 +807,40 @@ void FrameAnalyzerWidget::clearResult()
 {
     statusLabel_->setText(tr("Ready"));
     statusLabel_->setStyleSheet("color: gray;");
+    liveLabel_->setVisible(false);
+    linkageStopBtn_->setVisible(false);
     overviewTree_->clear();
     dataTable_->setRowCount(0);
+}
+
+void FrameAnalyzerWidget::processLivePdu(const modbus::base::Pdu& pdu, modbus::core::parser::ProtocolType protocol, uint16_t addr) {
+    if (parseInProgress_) return; // Avoid collision if manual parse is running
+    
+    ParseResult result;
+    result.isValid = true;
+    result.protocol = protocol;
+    result.timestamp = QDateTime::currentDateTime();
+    result.functionCode = pdu.functionCode();
+    result.isException = pdu.isException();
+    result.exceptionCode = pdu.exceptionCode();
+    result.pduData = pdu.toByteArray();
+    
+    // We assume response for live linkage
+    result.type = result.isException ? FrameType::Exception : FrameType::Response;
+    
+    // Parse the PDU details
+    ModbusFrameParser::parsePdu(result, result.pduData, addr, 0);
+    
+    // Update UI without adding to history
+    QString protocolStr = (protocol == ProtocolType::Tcp) ? QStringLiteral("TCP") : QStringLiteral("RTU");
+    liveLabel_->setText(tr("LIVE: %1").arg(protocolStr));
+    liveLabel_->setVisible(true);
+    linkageStopBtn_->setVisible(true);
+    
+    statusLabel_->setText(tr("Live Data Received at %1").arg(result.timestamp.toString("HH:mm:ss.zzz")));
+    statusLabel_->setStyleSheet("color: #10B981; font-weight: bold;");
+    
+    renderResult(result);
 }
 
 uint16_t FrameAnalyzerWidget::rowAddress(int row) const
@@ -1299,10 +1344,12 @@ void FrameAnalyzerWidget::updateAdaptiveLayout()
 
 void FrameAnalyzerWidget::updateHistoryToggleText()
 {
-    if (!toggleHistoryBtn_) {
-        return;
+    if (toggleHistoryBtn_) {
+        toggleHistoryBtn_->setText(historyCollapsed_ ? tr("Show History") : tr("Hide History"));
     }
-    toggleHistoryBtn_->setText(historyCollapsed_ ? tr("Show History") : tr("Hide History"));
+    if (linkageStopBtn_) {
+        linkageStopBtn_->setText(tr("Stop Link"));
+    }
 }
 
 void FrameAnalyzerWidget::changeEvent(QEvent* event)

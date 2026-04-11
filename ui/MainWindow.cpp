@@ -210,6 +210,11 @@ void MainWindow::setupUi() {
     connect(modbusRtuView_, &views::modbus_rtu::ModbusRtuView::linkageToggled, this, &MainWindow::handleRtuLinkageToggled);
     connect(modbusTcpView_, &views::modbus_tcp::ModbusTcpView::linkageDataReceived, this, &MainWindow::handleLinkageData);
     connect(modbusRtuView_, &views::modbus_rtu::ModbusRtuView::linkageDataReceived, this, &MainWindow::handleLinkageData);
+    
+    connect(frameAnalyzer_, &widgets::FrameAnalyzerWidget::linkageStopRequested, [this]() {
+        modbusTcpView_->setLinked(false);
+        modbusRtuView_->setLinked(false);
+    });
 
     connect(navigationList_, &QListWidget::currentRowChanged, stackedWidget_, &QStackedWidget::setCurrentIndex);
     navigationList_->setCurrentRow(0);
@@ -578,7 +583,7 @@ void MainWindow::handleRtuLinkageToggled(bool active) {
 
 void MainWindow::handleLinkageData(const modbus::base::Pdu& pdu, modbus::core::parser::ProtocolType protocol, uint16_t addr) {
     if (this->frameAnalyzer_) {
-        // this->frameAnalyzer_->processLivePdu(pdu, protocol, addr); // Phase 5
+        this->frameAnalyzer_->processLivePdu(pdu, protocol, addr);
     }
 }
 
