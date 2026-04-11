@@ -96,7 +96,7 @@ public:
 
     struct Polling {
         inline static constexpr int kDefaultIntervalMs = 1000;
-        inline static constexpr int kMinIntervalMs = 10;
+        inline static constexpr int kMinIntervalMs = 100;
         inline static constexpr int kMaxIntervalMs = 60000;
         inline static constexpr int kIntervalStepMs = 100;
     };
