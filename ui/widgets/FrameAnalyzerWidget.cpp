@@ -489,17 +489,38 @@ void FrameAnalyzerWidget::createResultGroup()
     statusLabel_->setStyleSheet("font-weight: bold; color: gray;");
     resultToolbarLayout->addWidget(statusLabel_);
     
+    // Live Indicators Container
+    auto* liveContainer = new QWidget(this);
+    auto* liveLayout = new QHBoxLayout(liveContainer);
+    liveLayout->setContentsMargins(0, 0, 0, 0);
+    liveLayout->setSpacing(4);
+    
     liveLabel_ = new QLabel(this);
     liveLabel_->setStyleSheet("color: #10B981; font-weight: bold; padding: 2px 6px; border: 1px solid #10B981; border-radius: 4px;");
     liveLabel_->setVisible(false);
-    resultToolbarLayout->addWidget(liveLabel_);
+    liveLayout->addWidget(liveLabel_);
+
+    linkagePauseBtn_ = new QPushButton(tr("Pause Refresh"), this);
+    linkagePauseBtn_->setMinimumHeight(28);
+    linkagePauseBtn_->setVisible(false);
+    connect(linkagePauseBtn_, &QPushButton::clicked, this, [this]() {
+        isLivePaused_ = !isLivePaused_;
+        linkagePauseBtn_->setText(isLivePaused_ ? tr("Resume Refresh") : tr("Pause Refresh"));
+        linkagePauseBtn_->setStyleSheet(isLivePaused_ ? "background-color: #F59E0B; color: white;" : "");
+    });
+    liveLayout->addWidget(linkagePauseBtn_);
 
     linkageStopBtn_ = new QPushButton(tr("Stop Link"), this);
-    linkageStopBtn_->setStyleSheet("background-color: #EF4444; color: white; border: none; font-weight: bold;");
+    linkageStopBtn_->setStyleSheet("background-color: #EF4444; color: white; border: none; font-weight: bold; padding: 0 10px;");
     linkageStopBtn_->setMinimumHeight(28);
     linkageStopBtn_->setVisible(false);
-    connect(linkageStopBtn_, &QPushButton::clicked, this, &FrameAnalyzerWidget::linkageStopRequested);
-    resultToolbarLayout->addWidget(linkageStopBtn_);
+    connect(linkageStopBtn_, &QPushButton::clicked, this, [this]() {
+        emit linkageStopRequested();
+        clearResult(); // Locally reset UI immediately
+    });
+    liveLayout->addWidget(linkageStopBtn_);
+
+    resultToolbarLayout->addWidget(liveContainer);
 
     resultToolbarLayout->addStretch();
     displayModeLabel_ = new QLabel(tr("Decode Mode:"), this);
@@ -807,9 +828,24 @@ void FrameAnalyzerWidget::clearResult()
 {
     statusLabel_->setText(tr("Ready"));
     statusLabel_->setStyleSheet("color: gray;");
+    
+    // When stopping live mode, restore the structure parsing for the last received frame
+    const bool wasLive = isLiveMode_;
+    isLiveMode_ = false;
+    isLivePaused_ = false;
+
     liveLabel_->setVisible(false);
     linkageStopBtn_->setVisible(false);
-    isLiveMode_ = false;
+    if (linkagePauseBtn_) {
+        linkagePauseBtn_->setVisible(false);
+        linkagePauseBtn_->setText(tr("Pause Refresh"));
+        linkagePauseBtn_->setStyleSheet("");
+    }
+
+    if (wasLive && lastLiveResult_.isValid) {
+        renderResult(lastLiveResult_);
+    }
+
     if (resultTabs_) {
         resultTabs_->setTabText(0, tr("Structure"));
     }
@@ -842,11 +878,17 @@ void FrameAnalyzerWidget::processLivePdu(const modbus::base::Pdu& pdu, modbus::c
     liveLabel_->setText(tr("LIVE: %1").arg(protocolStr));
     liveLabel_->setVisible(true);
     linkageStopBtn_->setVisible(true);
+    if (linkagePauseBtn_) {
+        linkagePauseBtn_->setVisible(true);
+    }
     
     statusLabel_->setText(tr("Live Data Received at %1").arg(result.timestamp.toString("HH:mm:ss.zzz")));
     statusLabel_->setStyleSheet("color: #10B981; font-weight: bold;");
     
-    renderResult(result);
+    lastLiveResult_ = result;
+    if (!isLivePaused_) {
+        renderResult(result);
+    }
 }
 
 uint16_t FrameAnalyzerWidget::rowAddress(int row) const
@@ -1385,6 +1427,9 @@ void FrameAnalyzerWidget::updateHistoryToggleText()
     }
     if (linkageStopBtn_) {
         linkageStopBtn_->setText(tr("Stop Link"));
+    }
+    if (linkagePauseBtn_) {
+        linkagePauseBtn_->setText(isLivePaused_ ? tr("Resume Refresh") : tr("Pause Refresh"));
     }
 }
 

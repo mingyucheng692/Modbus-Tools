@@ -145,10 +145,13 @@ private:
     bool parseInProgress_ = false;
     bool isUpdatingDataTable_ = false;
     bool isLiveMode_ = false;
+    bool isLivePaused_ = false;
+    modbus::core::parser::ParseResult lastLiveResult_;
     ui::common::ISettingsService* settingsService_ = nullptr;
     
     // Live Link Controls
     QLabel* liveLabel_ = nullptr;
+    QPushButton* linkagePauseBtn_ = nullptr;
     QPushButton* linkageStopBtn_ = nullptr;
 };
 
