@@ -257,10 +257,15 @@ void FunctionWidget::loadSettings() {
     const QString qtyKey = settingsGroup_ + "/quantity";
     const QString formatKey = settingsGroup_ + "/formatIndex";
 
-    const int slaveId = settingsService_->value(slaveKey).toInt();
-    const int startAddr = settingsService_->value(addrKey).toInt();
-    const int quantity = settingsService_->value(qtyKey).toInt();
-    const int formatIndex = settingsService_->value(formatKey).toInt();
+    auto getVal = [this](const QString& key, const QVariant& defaultVal) {
+        QVariant v = settingsService_->value(key);
+        return v.isValid() ? v : defaultVal;
+    };
+
+    const int slaveId = getVal(slaveKey, app::constants::Values::Modbus::kDefaultSlaveId).toInt();
+    const int startAddr = getVal(addrKey, app::constants::Values::Modbus::kDefaultStandardStartAddress).toInt();
+    const int quantity = getVal(qtyKey, app::constants::Values::Modbus::kDefaultStandardQuantity).toInt();
+    const int formatIndex = getVal(formatKey, app::constants::Values::Modbus::kDefaultStandardFormatIndex).toInt();
 
     slaveIdEdit_->setValue(slaveId);
     addressEdit_->setValue(startAddr);

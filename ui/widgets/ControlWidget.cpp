@@ -22,8 +22,17 @@ ControlWidget::ControlWidget(ui::common::ISettingsService* settingsService, QWid
     connect(pollTimer_, &QTimer::timeout, this, &ControlWidget::onTimer);
     
     // Connect Enable Checkbox
-    connect(enablePollCheck_, &QCheckBox::toggled, [this](bool checked) {
+    connect(enablePollCheck_, &QCheckBox::clicked, [this](bool checked) {
         if (checked) {
+            bool ok = true;
+            if (connectionValidator_) {
+                ok = connectionValidator_();
+            }
+            if (!ok) {
+                QSignalBlocker blocker(enablePollCheck_);
+                enablePollCheck_->setChecked(false);
+                return;
+            }
             pollTimer_->start(intervalSpin_->value());
         } else {
             pollTimer_->stop();
@@ -110,12 +119,30 @@ void ControlWidget::setLinked(bool active) {
     }
 }
 
+void ControlWidget::setPollingEnabled(bool enabled) {
+    if (enablePollCheck_) {
+        QSignalBlocker blocker(enablePollCheck_);
+        enablePollCheck_->setChecked(enabled);
+    }
+    if (enabled) {
+        pollTimer_->start(intervalSpin_->value());
+    } else {
+        pollTimer_->stop();
+    }
+}
+
+void ControlWidget::setConnectionValidator(const std::function<bool()>& validator) {
+    connectionValidator_ = validator;
+}
+
 void ControlWidget::loadSettings() {
     if (settingsGroup_.isEmpty() || !settingsService_) return;
     QSignalBlocker b1(intervalSpin_);
     QSignalBlocker b2(fcCombo_);
     QSignalBlocker b3(addrSpin_);
     QSignalBlocker b4(qtySpin_);
+    QSignalBlocker b5(enablePollCheck_);
+    QSignalBlocker b6(linkCheck_);
 
     const QString intervalKey = settingsGroup_ + "/intervalMs";
     const QString fcKey = settingsGroup_ + "/fcIndex";
@@ -127,13 +154,13 @@ void ControlWidget::loadSettings() {
         return v.isValid() ? v : defaultVal;
     };
 
-    const bool enablePoll = getVal(settingsGroup_ + "/enablePoll", false).toBool();
     const int interval = getVal(intervalKey, app::constants::Values::Polling::kDefaultIntervalMs).toInt();
     const int fcIndex = getVal(fcKey, app::constants::Values::Modbus::kDefaultControlFunctionIndex).toInt();
     const int addr = getVal(addrKey, app::constants::Values::Modbus::kDefaultControlAddress).toInt();
     const int qty = getVal(qtyKey, app::constants::Values::Modbus::kDefaultControlQuantity).toInt();
 
-    enablePollCheck_->setChecked(enablePoll);
+    enablePollCheck_->setChecked(false); // Always OFF on startup
+    linkCheck_->setChecked(false);       // Always OFF on startup
     intervalSpin_->setValue(interval);
     if (fcIndex >= 0 && fcIndex < fcCombo_->count()) {
         fcCombo_->setCurrentIndex(fcIndex);
@@ -141,16 +168,11 @@ void ControlWidget::loadSettings() {
     addrSpin_->setValue(addr);
     qtySpin_->setValue(qty);
 
-    if (enablePollCheck_->isChecked()) {
-        pollTimer_->start(intervalSpin_->value());
-    } else {
-        pollTimer_->stop();
-    }
+    pollTimer_->stop();
 }
 
 void ControlWidget::saveSettings() {
     if (settingsGroup_.isEmpty() || !settingsService_) return;
-    settingsService_->setValue(settingsGroup_ + "/enablePoll", enablePollCheck_->isChecked());
     settingsService_->setValue(settingsGroup_ + "/intervalMs", intervalSpin_->value());
     settingsService_->setValue(settingsGroup_ + "/fcIndex", fcCombo_->currentIndex());
     settingsService_->setValue(settingsGroup_ + "/addr", addrSpin_->value());

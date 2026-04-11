@@ -1,6 +1,7 @@
 #pragma once
 
 #include <QWidget>
+#include <functional>
 
 class QCheckBox;
 class QSpinBox;
@@ -29,6 +30,8 @@ public:
     void resetStats();
     void setSettingsGroup(const QString& group);
     void setLinked(bool active);
+    void setPollingEnabled(bool enabled);
+    void setConnectionValidator(const std::function<bool()>& validator);
 
 signals:
     // Poll Requested: Function Code, Address, Quantity
@@ -67,6 +70,7 @@ private:
 
     QString settingsGroup_;
     ui::common::ISettingsService* settingsService_ = nullptr;
+    std::function<bool()> connectionValidator_;
 };
 
 } // namespace ui::widgets

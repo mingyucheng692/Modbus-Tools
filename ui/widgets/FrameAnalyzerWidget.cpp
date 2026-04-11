@@ -1463,7 +1463,11 @@ void FrameAnalyzerWidget::retranslateUi()
         historyGroup_->setTitle(tr("History"));
     }
     if (resultTabs_) {
-        resultTabs_->setTabText(0, tr("Structure"));
+        if (isLiveMode_) {
+            resultTabs_->setTabText(0, tr("Structure (Unavailable in Live Mode)"));
+        } else {
+            resultTabs_->setTabText(0, tr("Structure"));
+        }
         resultTabs_->setTabText(1, tr("Data Details"));
     }
     if (overviewTree_) {
@@ -1482,7 +1486,15 @@ void FrameAnalyzerWidget::retranslateUi()
         refreshHistoryList();
     }
 
-    if (statusLabel_ && statusLabel_->styleSheet().contains("color: gray", Qt::CaseInsensitive)) {
+    if (isLiveMode_) {
+        QString protocolStr = (currentResult_.protocol == ProtocolType::Tcp) ? tr("TCP") : tr("RTU");
+        if (liveLabel_) {
+            liveLabel_->setText(tr("LIVE: %1").arg(protocolStr));
+        }
+        if (statusLabel_) {
+            statusLabel_->setText(tr("Live Data Received at %1").arg(currentResult_.timestamp.toString("HH:mm:ss.zzz")));
+        }
+    } else if (statusLabel_ && statusLabel_->styleSheet().contains("color: gray", Qt::CaseInsensitive)) {
         statusLabel_->setText(tr("Ready"));
     }
 }

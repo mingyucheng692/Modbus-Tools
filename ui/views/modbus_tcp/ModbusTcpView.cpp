@@ -139,7 +139,7 @@ void ModbusTcpView::setupUi() {
     mainLayout_->addWidget(trafficMonitor_);
 
     controlWidget_ = new widgets::ControlWidget(settingsService_, this);
-    controlWidget_->setSettingsGroup("modbus/tcp/poll");
+    controlWidget_->setSettingsGroup("modbus/tcp/control");
     mainLayout_->addWidget(controlWidget_);
     
     connect(controlWidget_, &widgets::ControlWidget::pollRequested, this, &ModbusTcpView::pollRequested, Qt::QueuedConnection);
@@ -220,6 +220,7 @@ void ModbusTcpView::setupUi() {
                     if (transition.setDisconnected) {
                         self->tcpSessionConnected_ = false;
                         self->connectionWidget_->setConnected(false);
+                        self->controlWidget_->setPollingEnabled(false);
                         self->trafficMonitor_->appendInfo(disconnectedText());
                         if (transition.showDisconnectAlert) {
                             ui::common::ConnectionAlert::showDisconnected(self);
@@ -309,6 +310,8 @@ void ModbusTcpView::setupUi() {
         ui::common::ConnectionAlert::showNotConnected(this);
         return false;
     };
+
+    controlWidget_->setConnectionValidator(ensureConnected);
 
     connect(functionWidget_, &widgets::FunctionWidget::readRequested,
         [this, ensureConnected](uint8_t fc, int addr, int qty, int slaveId) {
@@ -574,6 +577,7 @@ void ModbusTcpView::releaseStack() {
     requestAddrs_.clear();
     if (controlWidget_) {
         controlWidget_->setLinked(false);
+        controlWidget_->setPollingEnabled(false);
     }
     
     auto channel = std::move(channel_);

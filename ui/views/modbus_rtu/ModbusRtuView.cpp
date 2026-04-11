@@ -127,7 +127,7 @@ void ModbusRtuView::setupUi() {
     mainLayout_->addWidget(trafficMonitor_);
     
     controlWidget_ = new widgets::ControlWidget(settingsService_, this);
-    controlWidget_->setSettingsGroup("modbus/rtu/poll");
+    controlWidget_->setSettingsGroup("modbus/rtu/control");
     mainLayout_->addWidget(controlWidget_);
     
     connect(controlWidget_, &widgets::ControlWidget::pollRequested, this, &ModbusRtuView::pollRequested, Qt::QueuedConnection);
@@ -192,6 +192,9 @@ void ModbusRtuView::setupUi() {
                     const bool connected = state == io::ChannelState::Open;
                     self->rtuSessionConnected_ = connected;
                     self->connectionWidget_->setConnected(connected);
+                    if (!connected) {
+                        self->controlWidget_->setPollingEnabled(false);
+                    }
                 }, Qt::QueuedConnection);
             });
 
@@ -272,6 +275,8 @@ void ModbusRtuView::setupUi() {
         ui::common::ConnectionAlert::showNotConnected(this);
         return false;
     };
+
+    controlWidget_->setConnectionValidator(ensureConnected);
 
     connect(functionWidget_, &widgets::FunctionWidget::readRequested,
         [this, ensureConnected](uint8_t fc, int addr, int qty, int slaveId) {
@@ -530,6 +535,7 @@ void ModbusRtuView::releaseStack() {
     requestAddrs_.clear();
     if (controlWidget_) {
         controlWidget_->setLinked(false);
+        controlWidget_->setPollingEnabled(false);
     }
     
     auto channel = std::move(channel_);
