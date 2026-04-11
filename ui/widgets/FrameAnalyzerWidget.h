@@ -144,6 +144,7 @@ private:
     quint64 latestParseRequestId_ = 0;
     bool parseInProgress_ = false;
     bool isUpdatingDataTable_ = false;
+    bool isLiveMode_ = false;
     ui::common::ISettingsService* settingsService_ = nullptr;
     
     // Live Link Controls

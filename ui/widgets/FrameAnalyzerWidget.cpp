@@ -809,11 +809,17 @@ void FrameAnalyzerWidget::clearResult()
     statusLabel_->setStyleSheet("color: gray;");
     liveLabel_->setVisible(false);
     linkageStopBtn_->setVisible(false);
-    overviewTree_->clear();
-    dataTable_->setRowCount(0);
+    isLiveMode_ = false;
+    if (resultTabs_) {
+        resultTabs_->setTabText(0, tr("Structure"));
+    }
 }
 
 void FrameAnalyzerWidget::processLivePdu(const modbus::base::Pdu& pdu, modbus::core::parser::ProtocolType protocol, uint16_t addr) {
+    isLiveMode_ = true;
+    if (resultTabs_) {
+        resultTabs_->setTabText(0, tr("Structure (Unavailable in Live Mode)"));
+    }
     if (parseInProgress_) return; // Avoid collision if manual parse is running
     
     ParseResult result;
@@ -933,7 +939,13 @@ void FrameAnalyzerWidget::renderResult(const ParseResult& result)
 {
     if (overviewTree_) {
         overviewTree_->clear();
+        if (isLiveMode_) {
+             auto root = new QTreeWidgetItem(overviewTree_, {tr("Structure"), tr("(Unavailable in Live Mode)"), tr("Logical parsing is disabled for high-frequency linkage")});
+             root->setExpanded(true);
+             // Skip detailed structure parsing
+        }
     }
+    
     
     auto addItem = [](QTreeWidgetItem* parent, const QString& field, const QString& value, const QString& description = QString()) {
         return new QTreeWidgetItem(parent, {field, value, description});
@@ -962,20 +974,18 @@ void FrameAnalyzerWidget::renderResult(const ParseResult& result)
         }
         return uniqueParts.join(" | ");
     };
-    auto protocolText = result.protocol == ProtocolType::Tcp ? tr("TCP") : tr("RTU");
-    auto typeText =
-        result.type == FrameType::Request ? tr("Request") :
-        result.type == FrameType::Response ? tr("Response") :
-        result.type == FrameType::Exception ? tr("Exception") :
-        tr("Unknown");
 
-    if (!result.isValid) {
-        QString errorMsg = tr("Parse Failed: %1").arg(result.error);
-        if (result.protocol == ProtocolType::Unknown) {
-            errorMsg += "\n" + tr("Tip: Try selecting RTU or TCP for forced parsing.");
-        }
-        statusLabel_->setText(errorMsg);
-        statusLabel_->setStyleSheet("color: red; font-weight: bold;");
+    if (!isLiveMode_) {
+        auto protocolText = result.protocol == ProtocolType::Tcp ? tr("TCP") : tr("RTU");
+        auto typeText =
+            result.type == FrameType::Request ? tr("Request") :
+            result.type == FrameType::Response ? tr("Response") :
+            result.type == FrameType::Exception ? tr("Exception") :
+            tr("Unknown");
+
+        if (!result.isValid) {
+            statusLabel_->setText(tr("Parse Failed: %1").arg(result.error));
+            statusLabel_->setStyleSheet("color: red; font-weight: bold;");
 
         QTreeWidgetItem* root = new QTreeWidgetItem(overviewTree_);
         root->setText(0, tr("Frame"));
@@ -1096,7 +1106,8 @@ void FrameAnalyzerWidget::renderResult(const ParseResult& result)
         }
     }
 
-    overviewTree_->expandAll();
+        overviewTree_->expandAll();
+    }
 
     isUpdatingDataTable_ = true;
     const int newCount = result.dataItems.size();
@@ -1113,7 +1124,17 @@ void FrameAnalyzerWidget::renderResult(const ParseResult& result)
             }
             dataTable_->setItem(r, c, it);
         } else {
-            if (it->text() != text) {
+            // Safety check: Don't overwrite if the item is being edited
+            bool isBeingEdited = false;
+            QWidget* fw = dataTable_->focusWidget();
+            if (fw && fw != dataTable_ && fw->parentWidget() == dataTable_->viewport()) {
+                QModelIndex idx = dataTable_->currentIndex();
+                if (idx.isValid() && idx.row() == r && idx.column() == c) {
+                    isBeingEdited = true;
+                }
+            }
+
+            if (!isBeingEdited && it->text() != text) {
                 it->setText(text);
             }
         }
