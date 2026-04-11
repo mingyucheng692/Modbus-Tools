@@ -19,10 +19,6 @@
         <translation>連線中斷</translation>
     </message>
     <message>
-        <source>TCP connection was closed.</source>
-        <translation type="vanished">TCP 連線已關閉。</translation>
-    </message>
-    <message>
         <location filename="../common/ConnectionAlert.h" line="18"/>
         <source>Connection was closed.</source>
         <translation>連線已關閉。</translation>
@@ -184,14 +180,6 @@
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <source>Frame too short for Modbus TCP. Expected at least 8 bytes, got %1</source>
-        <translation type="vanished">Modbus TCP 幀太短。預期至少 8 位元組，實際 %1 位元組</translation>
-    </message>
-    <message>
-        <source>Incomplete TCP frame. Expected %1 bytes, got %2</source>
-        <translation type="vanished">TCP 幀不完整。預期 %1 位元組，實際 %2</translation>
-    </message>
-    <message>
         <location filename="../../core/modbus/parser/ModbusFrameParser.cpp" line="207"/>
         <source>CRC Mismatch. Expected %1, Got %2</source>
         <translation>CRC 檢查失敗。預期 %1，實際 %2</translation>
@@ -200,10 +188,6 @@
         <location filename="../../core/modbus/parser/ModbusFrameParser.cpp" line="164"/>
         <source>Invalid TCP PDU length. MBAP length field is %1, so PDU length is %2</source>
         <translation>無效的 TCP PDU 長度。MBAP 長度欄位為 %1，因此 PDU 長度為 %2</translation>
-    </message>
-    <message>
-        <source>Frame too short for Modbus RTU. Expected at least 4 bytes, got %1</source>
-        <translation type="vanished">Modbus RTU 幀太短。預期至少 4 位元組，實際 %1 位元組</translation>
     </message>
     <message>
         <location filename="../../core/modbus/parser/ModbusFrameParser.cpp" line="252"/>
@@ -242,17 +226,9 @@
         <translation>暫存器位元組數必須為偶數，實際 %1</translation>
     </message>
     <message>
-        <source>Write request byte count exceeds payload. Declared %1, available %2</source>
-        <translation type="vanished">寫入請求位元組數超出載荷範圍。宣告 %1，可用 %2</translation>
-    </message>
-    <message>
         <location filename="../../core/modbus/parser/ModbusFrameParser.cpp" line="538"/>
         <source>Unsupported function code 0x%1 for deep parsing</source>
         <translation>不支援對功能碼 0x%1 進行深度解析</translation>
-    </message>
-    <message>
-        <source>Unsupported Function Code for deep parsing</source>
-        <translation type="vanished">不支援深度解析的功能碼</translation>
     </message>
 </context>
 <context>
@@ -495,98 +471,14 @@ Choose update method:</source>
         <translation>沒有可用更新</translation>
     </message>
     <message>
-        <source>You are already using the latest version: v%1</source>
-        <translation type="vanished">目前已是最新版本：v%1</translation>
-    </message>
-    <message>
         <location filename="../MainWindow.cpp" line="217"/>
         <source>Update Check Failed</source>
         <translation>更新檢查失敗</translation>
     </message>
     <message>
-        <source>Invalid update URL</source>
-        <translation type="vanished">更新連結無效</translation>
-    </message>
-    <message>
-        <source>Failed to create update directory</source>
-        <translation type="vanished">建立更新目錄失敗</translation>
-    </message>
-    <message>
-        <source>Failed to write update file</source>
-        <translation type="vanished">寫入更新檔案失敗</translation>
-    </message>
-    <message>
-        <source>Downloading %1</source>
-        <translation type="vanished">正在下載 %1</translation>
-    </message>
-    <message>
         <location filename="../MainWindow.cpp" line="469"/>
         <source>Cancel</source>
         <translation>取消</translation>
-    </message>
-    <message>
-        <source>Downloading Update</source>
-        <translation type="vanished">正在下載更新</translation>
-    </message>
-    <message>
-        <source>Download canceled</source>
-        <translation type="vanished">下載已取消</translation>
-    </message>
-    <message>
-        <source>Downloaded file is empty</source>
-        <translation type="vanished">下載檔案為空</translation>
-    </message>
-    <message>
-        <source>Failed to create update task file</source>
-        <translation type="vanished">建立更新任務檔案失敗</translation>
-    </message>
-    <message>
-        <source>Failed to write update task file</source>
-        <translation type="vanished">寫入更新任務檔案失敗</translation>
-    </message>
-    <message>
-        <source>Updater not found</source>
-        <translation type="vanished">找不到更新器</translation>
-    </message>
-    <message>
-        <source>Failed to launch updater</source>
-        <translation type="vanished">啟動更新器失敗</translation>
-    </message>
-    <message>
-        <source>Missing update checksum</source>
-        <translation type="vanished">缺少更新校驗值</translation>
-    </message>
-    <message>
-        <source>Unable to resolve update checksum</source>
-        <translation type="vanished">無法解析更新校驗值</translation>
-    </message>
-    <message>
-        <source>Update file verification failed</source>
-        <translation type="vanished">更新檔案校驗失敗</translation>
-    </message>
-    <message>
-        <source>Current version: v%1
-Latest version: v%2</source>
-        <translation type="vanished">目前版本：v%1
-最新版本：v%2</translation>
-    </message>
-    <message>
-        <source>
-
-UpdateOnly package is unavailable for this release.
-Open download page now?</source>
-        <translation type="vanished">
-
-此版本未提供 UpdateOnly 增量包。
-是否立即開啟下載頁面？</translation>
-    </message>
-    <message>
-        <source>
-
-Choose update method:</source>
-        <translation type="vanished">
-
-請選擇更新方式：</translation>
     </message>
     <message>
         <location filename="../MainWindow.cpp" line="454"/>
@@ -597,10 +489,6 @@ Choose update method:</source>
         <location filename="../MainWindow.cpp" line="455"/>
         <source>Download Full Package</source>
         <translation>下載完整安裝包</translation>
-    </message>
-    <message>
-        <source>Main program update failed</source>
-        <translation type="vanished">主程式更新失敗</translation>
     </message>
     <message>
         <location filename="../MainWindow.cpp" line="339"/>
@@ -998,18 +886,6 @@ Choose update method:</source>
         <translation>輪詢錯誤：%1</translation>
     </message>
     <message>
-        <source>[%1] %2</source>
-        <translation type="vanished">[%1] %2</translation>
-    </message>
-    <message>
-        <source>RX</source>
-        <translation type="vanished">接收</translation>
-    </message>
-    <message>
-        <source>TX</source>
-        <translation type="vanished">送出</translation>
-    </message>
-    <message>
         <location filename="../views/modbus_rtu/ModbusRtuView.cpp" line="606"/>
         <source>Data Monitor</source>
         <translation>資料監視</translation>
@@ -1201,18 +1077,6 @@ Choose update method:</source>
         <translation>輪詢錯誤：%1</translation>
     </message>
     <message>
-        <source>[%1] %2</source>
-        <translation type="vanished">[%1] %2</translation>
-    </message>
-    <message>
-        <source>RX</source>
-        <translation type="vanished">接收</translation>
-    </message>
-    <message>
-        <source>TX</source>
-        <translation type="vanished">送出</translation>
-    </message>
-    <message>
         <location filename="../views/modbus_tcp/ModbusTcpView.cpp" line="647"/>
         <source>Data Monitor</source>
         <translation>資料監視</translation>
@@ -1261,10 +1125,6 @@ Choose update method:</source>
 </context>
 <context>
     <name>ui::widgets::ControlWidget</name>
-    <message>
-        <source>TX: %1 | RX: %2 | FAIL: %3 | RTT: %4 ms</source>
-        <translation type="vanished">TX: %1 | RX: %2 | 失敗: %3 | RTT: %4 ms</translation>
-    </message>
     <message>
         <location filename="../widgets/ControlWidget.cpp" line="208"/>
         <source>Enable Polling</source>
@@ -1558,21 +1418,9 @@ Choose update method:</source>
         <translation>匯出失敗</translation>
     </message>
     <message>
-        <source>Cannot write file: %1</source>
-        <translation type="vanished">無法寫入檔案：%1</translation>
-    </message>
-    <message>
         <location filename="../widgets/FrameAnalyzerWidget.cpp" line="740"/>
         <source>Import Failed</source>
         <translation>匯入失敗</translation>
-    </message>
-    <message>
-        <source>Cannot open file: %1</source>
-        <translation type="vanished">無法開啟檔案：%1</translation>
-    </message>
-    <message>
-        <source>Invalid JSON format.</source>
-        <translation type="vanished">無效的 JSON 格式。</translation>
     </message>
     <message>
         <location filename="../widgets/FrameAnalyzerWidget.cpp" line="852"/>
@@ -1839,22 +1687,6 @@ Choose update method:</source>
         <translation>CRC16</translation>
     </message>
     <message>
-        <source>Protocol:	%1</source>
-        <translation type="vanished">協定：	%1</translation>
-    </message>
-    <message>
-        <source>Function Code:	%1</source>
-        <translation type="vanished">功能碼：	%1</translation>
-    </message>
-    <message>
-        <source>Timestamp:	%1</source>
-        <translation type="vanished">時間戳記：	%1</translation>
-    </message>
-    <message>
-        <source>Rows:	%1</source>
-        <translation type="vanished">列數：	%1</translation>
-    </message>
-    <message>
         <location filename="../widgets/FrameAnalyzerWidget.cpp" line="1305"/>
         <source>Show History</source>
         <translation>顯示歷史</translation>
@@ -2025,14 +1857,6 @@ Choose update method:</source>
         <location filename="../widgets/GenericInputWidget.cpp" line="208"/>
         <source>Select File to Send</source>
         <translation>選擇要發送的檔案</translation>
-    </message>
-    <message>
-        <source>Error</source>
-        <translation type="vanished">錯誤</translation>
-    </message>
-    <message>
-        <source>Cannot open file</source>
-        <translation type="vanished">無法開啟檔案</translation>
     </message>
     <message>
         <location filename="../widgets/GenericInputWidget.cpp" line="219"/>
@@ -2216,14 +2040,6 @@ Choose update method:</source>
         <translation>自動捲動</translation>
     </message>
     <message>
-        <source>TX</source>
-        <translation type="vanished">送出</translation>
-    </message>
-    <message>
-        <source>RX</source>
-        <translation type="vanished">接收</translation>
-    </message>
-    <message>
         <location filename="../widgets/TrafficMonitorWidget.cpp" line="275"/>
         <source>Clear</source>
         <translation>清除</translation>
@@ -2236,29 +2052,83 @@ Choose update method:</source>
 </context>
 <context>
     <name>ui::widgets::UpdateSettingsDialog</name>
+</context>
+<context>
+    <name>ModbusPduBuilder</name>
     <message>
-        <source>Update Settings</source>
-        <translation type="vanished">更新設定</translation>
+        <source>Invalid start address</source>
+        <translation>無效的起始地址</translation>
     </message>
     <message>
-        <source>Every Startup</source>
-        <translation type="vanished">每次啟動</translation>
+        <source>Invalid quantity</source>
+        <translation>無效的數量</translation>
     </message>
     <message>
-        <source>Weekly</source>
-        <translation type="vanished">每週</translation>
+        <source>Invalid quantity for 0x0F</source>
+        <translation>0x0F 數量無效</translation>
     </message>
     <message>
-        <source>Monthly</source>
-        <translation type="vanished">每月</translation>
+        <source>Data length mismatch for 0x0F</source>
+        <translation>0x0F 資料長度不匹配</translation>
     </message>
     <message>
-        <source>Disable Update Check</source>
-        <translation type="vanished">關閉更新檢查</translation>
+        <source>Invalid quantity for 0x10</source>
+        <translation>0x10 數量無效</translation>
     </message>
     <message>
-        <source>Update Check Frequency:</source>
-        <translation type="vanished">更新檢查頻率：</translation>
+        <source>Data length mismatch for 0x10</source>
+        <translation>0x10 資料長度不匹配</translation>
+    </message>
+</context>
+<context>
+    <name>ModbusClient</name>
+    <message>
+        <source>Modbus exception response. Slave=%1 FC=0x%2 Exception=0x%3 (%4)</source>
+        <translation>Modbus 異常響應。站號=%1 功能碼=0x%2 異常碼=0x%3 (%4)</translation>
+    </message>
+    <message>
+        <source>Illegal Function</source>
+        <translation>非法功能碼</translation>
+    </message>
+    <message>
+        <source>Illegal Data Address</source>
+        <translation>非法數據地址</translation>
+    </message>
+    <message>
+        <source>Illegal Data Value</source>
+        <translation>非法數據值</translation>
+    </message>
+    <message>
+        <source>Server Device Failure</source>
+        <translation>從站設備故障</translation>
+    </message>
+    <message>
+        <source>Acknowledge</source>
+        <translation>確認</translation>
+    </message>
+    <message>
+        <source>Server Device Busy</source>
+        <translation>從站設備忙</translation>
+    </message>
+    <message>
+        <source>Negative Acknowledge</source>
+        <translation>否定確認</translation>
+    </message>
+    <message>
+        <source>Memory Parity Error</source>
+        <translation>寄存器校驗錯誤</translation>
+    </message>
+    <message>
+        <source>Gateway Path Unavailable</source>
+        <translation>網關路徑不可用</translation>
+    </message>
+    <message>
+        <source>Gateway Target Device Failed To Respond</source>
+        <translation>網關目標設備響應失敗</translation>
+    </message>
+    <message>
+        <source>Unknown Exception</source>
+        <translation>未知異常</translation>
     </message>
 </context>
 </TS>

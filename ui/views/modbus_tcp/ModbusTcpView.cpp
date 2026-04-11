@@ -10,6 +10,7 @@
 #include "../../common/TcpConnectionStateCoordinator.h"
 #include "modbus/factory/ModbusFactory.h"
 #include "modbus/base/ModbusDataHelper.h"
+#include "modbus/base/ModbusPduBuilder.h"
 #include <QVBoxLayout>
 #include <QLabel>
 #include <QRegularExpression>
@@ -289,14 +290,12 @@ void ModbusTcpView::setupUi() {
             if (!ensureConnected()) return;
             
             using namespace modbus::base;
-            QByteArray data;
-            data.resize(4);
-            data[0] = (addr >> 8) & 0xFF;
-            data[1] = addr & 0xFF;
-            data[2] = (qty >> 8) & 0xFF;
-            data[3] = qty & 0xFF;
-            
-            Pdu request(static_cast<FunctionCode>(fc), data);
+            auto result = ModbusPduBuilder::buildReadRequest(static_cast<FunctionCode>(fc), addr, qty);
+            if (!result.isOk()) {
+                trafficMonitor_->appendInfo(tr("Error: %1").arg(result.error));
+                return;
+            }
+            Pdu request = *result.pdu;
 
             trafficMonitor_->appendInfo(tr("Sending Read Request FC:%1 Addr:%2 Qty:%3 Slave:%4")
                 .arg(fc).arg(addr).arg(qty).arg(slaveId));
@@ -316,11 +315,7 @@ void ModbusTcpView::setupUi() {
 
             using namespace modbus::base;
             
-            QByteArray data;
-            
-            data.append((char)((addr >> 8) & 0xFF));
-            data.append((char)(addr & 0xFF));
-
+            PduBuildResult result = PduBuildResult::fail(tr("Unsupported function code"));
             QString trimmed = dataStr.trimmed();
             using modbus::base::ModbusDataHelper;
 
@@ -364,8 +359,7 @@ void ModbusTcpView::setupUi() {
                         coilOn = raw == 0xFF00;
                     }
                 }
-                data.append(static_cast<char>(coilOn ? 0xFF : 0x00));
-                data.append(static_cast<char>(0x00));
+                result = ModbusPduBuilder::buildWriteSingleCoil(addr, coilOn);
             } else if (fc == 0x06) {
                 if (trimmed.isEmpty()) {
                     trafficMonitor_->appendInfo(tr("Error: Empty value for 0x06"));
@@ -378,27 +372,20 @@ void ModbusTcpView::setupUi() {
                         trafficMonitor_->appendInfo(tr("Error: Invalid decimal value for 0x06"));
                         return;
                     }
-                    data.append(static_cast<char>((value >> 8) & 0xFF));
-                    data.append(static_cast<char>(value & 0xFF));
+                    result = ModbusPduBuilder::buildWriteSingleRegister(addr, static_cast<uint16_t>(value));
                 } else if (fmt == "Binary") {
                     trafficMonitor_->appendInfo(tr("Error: Binary format not supported for registers (0x06)"));
                     return;
                 } else {
                     QByteArray bytes = ModbusDataHelper::parseHex(trimmed);
-                    if (bytes.isEmpty()) {
+                    if (bytes.isEmpty() || bytes.size() > 2) {
                         trafficMonitor_->appendInfo(tr("Error: Invalid hex value for 0x06"));
                         return;
                     }
-                    if (bytes.size() == 1) {
-                        data.append(static_cast<char>(0x00));
-                        data.append(bytes[0]);
-                    } else if (bytes.size() == 2) {
-                        data.append(bytes[0]);
-                        data.append(bytes[1]);
-                    } else {
-                        trafficMonitor_->appendInfo(tr("Error: Invalid hex value for 0x06"));
-                        return;
-                    }
+                    uint16_t val = 0;
+                    if (bytes.size() == 1) val = static_cast<uint8_t>(bytes[0]);
+                    else val = (static_cast<uint8_t>(bytes[0]) << 8) | static_cast<uint8_t>(bytes[1]);
+                    result = ModbusPduBuilder::buildWriteSingleRegister(addr, val);
                 }
             } else if (fc == 0x0F) {
                 QByteArray bytes;
@@ -423,21 +410,7 @@ void ModbusTcpView::setupUi() {
                     trafficMonitor_->appendInfo(tr("Error: 0x0F requires Hex or Binary data"));
                     return;
                 }
-
-                if (bytes.isEmpty()) {
-                    trafficMonitor_->appendInfo(tr("Error: Invalid data for 0x0F"));
-                    return;
-                }
-
-                int byteCount = (quantity + 7) / 8;
-                if (bytes.size() != byteCount) {
-                    trafficMonitor_->appendInfo(tr("Error: Coil data length mismatch for 0x0F (expected %1 bytes)").arg(byteCount));
-                    return;
-                }
-                data.append(static_cast<char>((quantity >> 8) & 0xFF));
-                data.append(static_cast<char>(quantity & 0xFF));
-                data.append(static_cast<char>(byteCount));
-                data.append(bytes);
+                result = ModbusPduBuilder::buildWriteMultipleCoils(addr, quantity, bytes);
             } else if (fc == 0x10) {
                 if (trimmed.isEmpty()) {
                     trafficMonitor_->appendInfo(tr("Error: Empty value for 0x10"));
@@ -449,7 +422,6 @@ void ModbusTcpView::setupUi() {
                     return;
                 }
                 QByteArray payload;
-                int registerCount = 0;
                 if (fmt == "Decimal") {
                     bool okList = false;
                     payload = ModbusDataHelper::parseDecimalList(trimmed, okList);
@@ -457,29 +429,22 @@ void ModbusTcpView::setupUi() {
                         trafficMonitor_->appendInfo(tr("Error: Invalid decimal list for 0x10"));
                         return;
                     }
-                    registerCount = payload.size() / 2;
                 } else {
                     payload = ModbusDataHelper::parseHex(trimmed);
                     if (payload.isEmpty() || (payload.size() % 2 != 0)) {
                         trafficMonitor_->appendInfo(tr("Error: Invalid hex value for 0x10"));
                         return;
                     }
-                    registerCount = payload.size() / 2;
                 }
-                if (registerCount != quantity) {
-                    trafficMonitor_->appendInfo(tr("Error: Quantity does not match data length for 0x10"));
-                    return;
-                }
-                data.append(static_cast<char>((quantity >> 8) & 0xFF));
-                data.append(static_cast<char>(quantity & 0xFF));
-                data.append(static_cast<char>(registerCount * 2));
-                data.append(payload);
-            } else {
-                trafficMonitor_->appendInfo(tr("Error: Unsupported write function code"));
+                result = ModbusPduBuilder::buildWriteMultipleRegisters(addr, quantity, payload);
+            }
+
+            if (!result.isOk()) {
+                trafficMonitor_->appendInfo(tr("Error: %1").arg(result.error));
                 return;
             }
             
-            Pdu request(static_cast<FunctionCode>(fc), data);
+            Pdu request = *result.pdu;
 
             trafficMonitor_->appendInfo(tr("Sending Write Request FC:%1 Addr:%2 Data:%3 Slave:%4")
                 .arg(fc).arg(addr).arg(dataStr).arg(slaveId));
@@ -512,15 +477,16 @@ void ModbusTcpView::setupUi() {
             int slaveId = functionWidget_->getSlaveId();
             
             using namespace modbus::base;
-            QByteArray data;
-            data.resize(4);
-            data[0] = (addr >> 8) & 0xFF;
-            data[1] = addr & 0xFF;
-            data[2] = (qty >> 8) & 0xFF;
-            data[3] = qty & 0xFF;
+            auto result = ModbusPduBuilder::buildReadRequest(static_cast<FunctionCode>(fc), addr, qty);
+            if (!result.isOk()) {
+                trafficMonitor_->appendInfo(tr("Error: %1").arg(result.error));
+                return;
+            }
+            Pdu request = *result.pdu;
             
-            Pdu request(static_cast<FunctionCode>(fc), data);
-            
+            trafficMonitor_->appendInfo(tr("Sending Read Request FC:%1 Addr:%2 Qty:%3 Slave:%4")
+                .arg(fc).arg(addr).arg(qty).arg(slaveId));
+
             int requestId = nextRequestId();
             requestStart_[requestId] = std::chrono::steady_clock::now();
             requestKinds_[requestId] = RequestKind::Poll;
