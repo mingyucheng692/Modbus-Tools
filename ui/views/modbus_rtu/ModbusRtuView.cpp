@@ -122,8 +122,11 @@ void ModbusRtuView::setupUi() {
     mainLayout_->addWidget(trafficMonitor_);
     
     controlWidget_ = new widgets::ControlWidget(settingsService_, this);
-    controlWidget_->setSettingsGroup("modbus/rtu/control");
+    controlWidget_->setSettingsGroup("modbus/rtu/poll");
     mainLayout_->addWidget(controlWidget_);
+    
+    connect(controlWidget_, &widgets::ControlWidget::pollRequested, this, &ModbusRtuView::pollRequested, Qt::QueuedConnection);
+    connect(controlWidget_, &widgets::ControlWidget::linkToggled, this, &ModbusRtuView::linkageToggled);
 
     connect(connectionWidget_, &widgets::SerialConnectionWidget::connectClicked, 
         [this](const io::SerialConfig& config) {

@@ -134,8 +134,11 @@ void ModbusTcpView::setupUi() {
     mainLayout_->addWidget(trafficMonitor_);
 
     controlWidget_ = new widgets::ControlWidget(settingsService_, this);
-    controlWidget_->setSettingsGroup("modbus/tcp/control");
+    controlWidget_->setSettingsGroup("modbus/tcp/poll");
     mainLayout_->addWidget(controlWidget_);
+    
+    connect(controlWidget_, &widgets::ControlWidget::pollRequested, this, &ModbusTcpView::pollRequested, Qt::QueuedConnection);
+    connect(controlWidget_, &widgets::ControlWidget::linkToggled, this, &ModbusTcpView::linkageToggled);
     
     connect(connectionWidget_, &widgets::TcpConnectionWidget::connectClicked, 
         [this](const QString& ip, int port) {

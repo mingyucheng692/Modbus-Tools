@@ -4,6 +4,9 @@
 #include <QMainWindow>
 #include <QTranslator>
 #include <memory>
+#include <cstdint>
+#include "modbus/base/ModbusFrame.h"
+#include "modbus/parser/ModbusFrameParser.h"
 
 class QStackedWidget;
 class QListWidget;
@@ -21,6 +24,7 @@ namespace core::common { class SettingsController; }
 namespace ui {
 namespace views::modbus_tcp { class ModbusTcpView; }
 namespace views::modbus_rtu { class ModbusRtuView; }
+namespace widgets { class FrameAnalyzerWidget; }
 namespace common { class ThemeController; }
 namespace common { class UpdateChecker; }
 namespace common { class ISettingsService; }
@@ -71,6 +75,11 @@ private:
     void showDisclaimerIfNeeded();
     void changeEvent(QEvent* event) override;
     void closeEvent(QCloseEvent* event) override;
+    
+    // Linkage handling
+    void handleTcpLinkageToggled(bool active);
+    void handleRtuLinkageToggled(bool active);
+    void handleLinkageData(const modbus::base::Pdu& pdu, modbus::core::parser::ProtocolType protocol, uint16_t addr);
 
     // UI Components
     QListWidget* navigationList_ = nullptr;
@@ -79,6 +88,7 @@ private:
     QStackedWidget* stackedWidget_ = nullptr;
     views::modbus_tcp::ModbusTcpView* modbusTcpView_ = nullptr;
     views::modbus_rtu::ModbusRtuView* modbusRtuView_ = nullptr;
+    widgets::FrameAnalyzerWidget* frameAnalyzer_ = nullptr;
     QMenu* settingsMenu_ = nullptr;
     QAction* modbusSettingsAction_ = nullptr;
     QAction* updateSettingsAction_ = nullptr;

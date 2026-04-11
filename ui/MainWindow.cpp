@@ -201,7 +201,15 @@ void MainWindow::setupUi() {
     stackedWidget_->addWidget(createScrollablePage(modbusRtuView_, stackedWidget_));
     stackedWidget_->addWidget(createScrollablePage(new views::generic_tcp::GenericTcpView(settingsController_->settingsService(), this), stackedWidget_));
     stackedWidget_->addWidget(createScrollablePage(new views::generic_serial::GenericSerialView(settingsController_->settingsService(), this), stackedWidget_));
-    stackedWidget_->addWidget(createScrollablePage(new widgets::FrameAnalyzerWidget(settingsController_->settingsService(), this), stackedWidget_));
+    
+    frameAnalyzer_ = new widgets::FrameAnalyzerWidget(settingsController_->settingsService(), this);
+    stackedWidget_->addWidget(createScrollablePage(frameAnalyzer_, stackedWidget_));
+    
+    // Connect Linkage signals
+    connect(modbusTcpView_, &views::modbus_tcp::ModbusTcpView::linkageToggled, this, &MainWindow::handleTcpLinkageToggled);
+    connect(modbusRtuView_, &views::modbus_rtu::ModbusRtuView::linkageToggled, this, &MainWindow::handleRtuLinkageToggled);
+    connect(modbusTcpView_, &views::modbus_tcp::ModbusTcpView::linkageDataReceived, this, &MainWindow::handleLinkageData);
+    connect(modbusRtuView_, &views::modbus_rtu::ModbusRtuView::linkageDataReceived, this, &MainWindow::handleLinkageData);
 
     connect(navigationList_, &QListWidget::currentRowChanged, stackedWidget_, &QStackedWidget::setCurrentIndex);
     navigationList_->setCurrentRow(0);
@@ -554,6 +562,24 @@ void MainWindow::closeEvent(QCloseEvent* event) {
     settingsController_->setMainWindowState(saveState());
     settingsController_->sync();
     QMainWindow::closeEvent(event);
+}
+
+void MainWindow::handleTcpLinkageToggled(bool active) {
+    if (active && this->modbusRtuView_) {
+        this->modbusRtuView_->setLinked(false);
+    }
+}
+
+void MainWindow::handleRtuLinkageToggled(bool active) {
+    if (active && this->modbusTcpView_) {
+        this->modbusTcpView_->setLinked(false);
+    }
+}
+
+void MainWindow::handleLinkageData(const modbus::base::Pdu& pdu, modbus::core::parser::ProtocolType protocol, uint16_t addr) {
+    if (this->frameAnalyzer_) {
+        // this->frameAnalyzer_->processLivePdu(pdu, protocol, addr); // Phase 5
+    }
 }
 
 } // namespace ui
