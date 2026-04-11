@@ -42,6 +42,8 @@ ControlWidget::ControlWidget(ui::common::ISettingsService* settingsService, QWid
     connect(addrSpin_, qOverload<int>(&QSpinBox::valueChanged), this, &ControlWidget::saveSettings);
     connect(qtySpin_, qOverload<int>(&QSpinBox::valueChanged), this, &ControlWidget::saveSettings);
     connect(enablePollCheck_, &QCheckBox::toggled, this, &ControlWidget::saveSettings);
+    
+    connect(linkCheck_, &QCheckBox::toggled, this, &ControlWidget::linkToggled);
 }
 
 ControlWidget::~ControlWidget() = default;
@@ -101,6 +103,13 @@ void ControlWidget::setSettingsGroup(const QString& group) {
     loadSettings();
 }
 
+void ControlWidget::setLinked(bool active) {
+    if (linkCheck_) {
+        QSignalBlocker blocker(linkCheck_);
+        linkCheck_->setChecked(active);
+    }
+}
+
 void ControlWidget::loadSettings() {
     if (settingsGroup_.isEmpty() || !settingsService_) return;
     QSignalBlocker b1(intervalSpin_);
@@ -151,6 +160,10 @@ void ControlWidget::setupUi() {
     // Poll Enable
     enablePollCheck_ = new QCheckBox(this);
     layout->addWidget(enablePollCheck_);
+    
+    // Link to Analyzer
+    linkCheck_ = new QCheckBox(this);
+    layout->addWidget(linkCheck_);
     
     // Interval
     intervalLabel_ = new QLabel(this);
@@ -206,6 +219,9 @@ void ControlWidget::setupUi() {
 void ControlWidget::retranslateUi() {
     if (enablePollCheck_) {
         enablePollCheck_->setText(tr("Enable Polling"));
+    }
+    if (linkCheck_) {
+        linkCheck_->setText(tr("Link to Analyzer"));
     }
     if (intervalLabel_) {
         intervalLabel_->setText(tr("Interval(ms):"));

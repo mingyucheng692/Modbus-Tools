@@ -28,10 +28,12 @@ public:
     void recordError();
     void resetStats();
     void setSettingsGroup(const QString& group);
+    void setLinked(bool active);
 
 signals:
     // Poll Requested: Function Code, Address, Quantity
     void pollRequested(uint8_t functionCode, int address, int quantity);
+    void linkToggled(bool active);
 
 private:
     void setupUi();
@@ -51,6 +53,7 @@ private:
     QComboBox* fcCombo_ = nullptr;
     QSpinBox* addrSpin_ = nullptr;
     QSpinBox* qtySpin_ = nullptr;
+    QCheckBox* linkCheck_ = nullptr;
     
     QLabel* statsLabel_ = nullptr;
     
