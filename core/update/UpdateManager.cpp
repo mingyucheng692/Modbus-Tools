@@ -301,10 +301,10 @@ bool UpdateManager::launchUpdater(const QString& taskFilePath, const QString& la
 }
 
 void UpdateManager::cleanupUpdateArtifacts() {
-    spdlog::info("UpdateManager: Cleaning up update artifacts...");
+    spdlog::info("UpdateManager: Cleaning up temporary update artifacts...");
+    
     const QDir appDir(QCoreApplication::applicationDirPath());
-    QFile::remove(appDir.filePath("modbus-tools.exe.bak"));
-    QFile::remove(appDir.filePath("updater.old.exe"));
+
 
     const QString tempRoot = QStandardPaths::writableLocation(QStandardPaths::TempLocation);
     if (!tempRoot.isEmpty()) {
