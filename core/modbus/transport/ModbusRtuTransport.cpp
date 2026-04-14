@@ -1,3 +1,12 @@
+/**
+ * @file ModbusRtuTransport.cpp
+ * @brief Implementation of ModbusRtuTransport.
+ * 
+ * Copyright (c) 2025 - present mingyucheng692
+ * 
+ * Licensed under the MIT License. See LICENSE file in the project root for full license information.
+ */
+
 #include "ModbusRtuTransport.h"
 #include "../base/ModbusCrc.h"
 #include "../base/ModbusProtocolChecks.h"

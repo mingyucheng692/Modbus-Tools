@@ -1,3 +1,12 @@
+/**
+ * @file ControlWidget.cpp
+ * @brief Implementation of ControlWidget.
+ * 
+ * Copyright (c) 2025 - present mingyucheng692
+ * 
+ * Licensed under the MIT License. See LICENSE file in the project root for full license information.
+ */
+
 #include "ControlWidget.h"
 #include "AppConstants.h"
 #include "../common/ISettingsService.h"

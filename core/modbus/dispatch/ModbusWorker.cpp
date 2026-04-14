@@ -1,3 +1,12 @@
+/**
+ * @file ModbusWorker.cpp
+ * @brief Implementation of ModbusWorker.
+ * 
+ * Copyright (c) 2025 - present mingyucheng692
+ * 
+ * Licensed under the MIT License. See LICENSE file in the project root for full license information.
+ */
+
 #include "ModbusWorker.h"
 #include <spdlog/spdlog.h>
 #include <QMetaObject>

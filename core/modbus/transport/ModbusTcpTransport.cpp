@@ -1,3 +1,12 @@
+/**
+ * @file ModbusTcpTransport.cpp
+ * @brief Implementation of ModbusTcpTransport.
+ * 
+ * Copyright (c) 2025 - present mingyucheng692
+ * 
+ * Licensed under the MIT License. See LICENSE file in the project root for full license information.
+ */
+
 #include "ModbusTcpTransport.h"
 #include "../base/ModbusProtocolChecks.h"
 

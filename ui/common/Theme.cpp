@@ -1,3 +1,12 @@
+/**
+ * @file Theme.cpp
+ * @brief Implementation of Theme.
+ * 
+ * Copyright (c) 2025 - present mingyucheng692
+ * 
+ * Licensed under the MIT License. See LICENSE file in the project root for full license information.
+ */
+
 #include "Theme.h"
 namespace ui::common {
 

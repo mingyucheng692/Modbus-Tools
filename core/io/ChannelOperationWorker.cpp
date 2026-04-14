@@ -1,3 +1,12 @@
+/**
+ * @file ChannelOperationWorker.cpp
+ * @brief Implementation of ChannelOperationWorker.
+ * 
+ * Copyright (c) 2025 - present mingyucheng692
+ * 
+ * Licensed under the MIT License. See LICENSE file in the project root for full license information.
+ */
+
 #include "ChannelOperationWorker.h"
 #include "AppConstants.h"
 #include "TcpChannel.h"

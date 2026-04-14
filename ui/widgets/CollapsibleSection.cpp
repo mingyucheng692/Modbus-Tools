@@ -1,3 +1,12 @@
+/**
+ * @file CollapsibleSection.cpp
+ * @brief Implementation of CollapsibleSection.
+ * 
+ * Copyright (c) 2025 - present mingyucheng692
+ * 
+ * Licensed under the MIT License. See LICENSE file in the project root for full license information.
+ */
+
 #include "CollapsibleSection.h"
 #include "../common/ISettingsService.h"
 #include <QVBoxLayout>

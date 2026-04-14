@@ -1,3 +1,12 @@
+/**
+ * @file UpdateManager.cpp
+ * @brief Implementation of UpdateManager.
+ * 
+ * Copyright (c) 2025 - present mingyucheng692
+ * 
+ * Licensed under the MIT License. See LICENSE file in the project root for full license information.
+ */
+
 #include "UpdateManager.h"
 #include "../AppConstants.h"
 #include <QNetworkAccessManager>

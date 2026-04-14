@@ -1,3 +1,12 @@
+/**
+ * @file main.cpp
+ * @brief Implementation of main.
+ * 
+ * Copyright (c) 2025 - present mingyucheng692
+ * 
+ * Licensed under the MIT License. See LICENSE file in the project root for full license information.
+ */
+
 #include <QApplication>
 #include <QIcon>
 #include <QResource>

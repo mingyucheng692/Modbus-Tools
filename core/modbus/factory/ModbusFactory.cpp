@@ -1,3 +1,12 @@
+/**
+ * @file ModbusFactory.cpp
+ * @brief Implementation of ModbusFactory.
+ * 
+ * Copyright (c) 2025 - present mingyucheng692
+ * 
+ * Licensed under the MIT License. See LICENSE file in the project root for full license information.
+ */
+
 #include "ModbusFactory.h"
 #include "../transport/ModbusRtuTransport.h"
 #include "../transport/ModbusTcpTransport.h"
