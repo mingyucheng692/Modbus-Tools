@@ -1,6 +1,6 @@
 MIT License
 
-Copyright (c) 2026 mingyucheng692
+Copyright (c) 2025 - present mingyucheng692
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -19,3 +19,21 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
+
+---
+
+### Third-Party Dependencies
+
+This project incorporates the following third-party components, each subject to its own license terms:
+
+- **Qt Framework**: Licensed under **LGPLv3** / **GPLv3**. 
+  - Source: [https://www.qt.io](https://www.qt.io)
+  - Compliance: This application links against Qt libraries dynamically.
+
+- **spdlog**: Licensed under the **MIT License**.
+  - Source: [https://github.com/gabime/spdlog](https://github.com/gabime/spdlog)
+  - Copyright (c) 2016 - present, Gabi Melman and spdlog contributors.
+
+- **fmt (fmtlib)**: Bundled within spdlog, licensed under the **MIT/BSD-style license**.
+  - Source: [https://github.com/fmtlib/fmt](https://github.com/fmtlib/fmt)
+  - Copyright (c) 2012 - present, Victor Zverovich.
