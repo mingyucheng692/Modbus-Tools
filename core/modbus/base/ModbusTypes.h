@@ -60,4 +60,15 @@ struct ModbusAddress {
     }
 };
 
+/**
+ * @brief Register byte/word ordering for 16-bit registers.
+ * Used primarily for diagnostic analysis of firmware byte order issues.
+ */
+enum class RegisterOrder {
+    ABCD, ///< Standard Big-Endian: R1(High/Low), R2(High/Low)
+    BADC, ///< Byte Swapped: R1(Low/High), R2(Low/High)
+    CDAB, ///< Word Swapped: R2(High/Low), R1(High/Low)
+    DCBA  ///< Total Swapped: R2(Low/High), R1(Low/High)
+};
+
 } // namespace modbus::base
