@@ -52,6 +52,9 @@ signals:
     // Raw Send: Data
     void rawSendRequested(const QByteArray& data);
 
+    // Logging: Message, isError
+    void logMessageRequested(const QString& message, bool isError = false);
+
 private:
     void setupUi();
     void setupStandardUi(QWidget* parent);
@@ -72,9 +75,9 @@ private:
     CollapsibleSection* standardSection_ = nullptr;
     CollapsibleSection* rawSection_ = nullptr;
     QLabel* slaveIdLabel_ = nullptr;
-    QSpinBox* slaveIdEdit_ = nullptr;
+    QLineEdit* slaveIdEdit_ = nullptr;
     QLabel* addressLabel_ = nullptr;
-    QSpinBox* addressEdit_ = nullptr;
+    QLineEdit* addressEdit_ = nullptr;
     QLabel* quantityLabel_ = nullptr;
     QSpinBox* quantityEdit_ = nullptr;
     QLabel* writeDataLabel_ = nullptr;

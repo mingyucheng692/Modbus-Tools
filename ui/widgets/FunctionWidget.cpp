@@ -26,6 +26,7 @@
 #include <QFont>
 #include <QSignalBlocker>
 #include <QSizePolicy>
+#include <QRegularExpressionValidator>
 
 namespace ui::widgets {
 
@@ -65,20 +66,14 @@ void FunctionWidget::setupStandardUi(QWidget* parent) {
     
     slaveIdLabel_ = new QLabel(parent);
     paramLayout->addWidget(slaveIdLabel_);
-    slaveIdEdit_ = new QSpinBox(parent);
-    slaveIdEdit_->setRange(app::constants::Values::Modbus::kMinSlaveId,
-                           app::constants::Values::Modbus::kMaxSlaveId);
-    slaveIdEdit_->setValue(app::constants::Values::Modbus::kDefaultSlaveId);
-    slaveIdEdit_->setFixedWidth(60);
+    slaveIdEdit_ = new QLineEdit(parent);
+    slaveIdEdit_->setFixedWidth(48); // Slightly narrower for 0-255
     paramLayout->addWidget(slaveIdEdit_);
 
     addressLabel_ = new QLabel(parent);
     paramLayout->addWidget(addressLabel_);
-    addressEdit_ = new QSpinBox(parent);
-    addressEdit_->setRange(app::constants::Values::Modbus::kMinAddress,
-                           app::constants::Values::Modbus::kMaxAddress);
-    addressEdit_->setValue(app::constants::Values::Modbus::kDefaultStandardStartAddress);
-    addressEdit_->setFixedWidth(80);
+    addressEdit_ = new QLineEdit(parent);
+    addressEdit_->setFixedWidth(88); // Wide enough for 0xFFFF/65535
     paramLayout->addWidget(addressEdit_);
 
     quantityLabel_ = new QLabel(parent);
@@ -180,8 +175,12 @@ void FunctionWidget::setupStandardUi(QWidget* parent) {
 
     layout->addLayout(btnLayout);
 
-    connect(slaveIdEdit_, qOverload<int>(&QSpinBox::valueChanged), this, &FunctionWidget::saveSettings);
-    connect(addressEdit_, qOverload<int>(&QSpinBox::valueChanged), this, &FunctionWidget::saveSettings);
+    auto hexValidator = new QRegularExpressionValidator(QRegularExpression("[0-9a-fA-FxXHh]*"), this);
+    slaveIdEdit_->setValidator(hexValidator);
+    addressEdit_->setValidator(hexValidator);
+
+    connect(slaveIdEdit_, &QLineEdit::textChanged, this, &FunctionWidget::saveSettings);
+    connect(addressEdit_, &QLineEdit::textChanged, this, &FunctionWidget::saveSettings);
     connect(quantityEdit_, qOverload<int>(&QSpinBox::valueChanged), this, &FunctionWidget::saveSettings);
     connect(dataFormatBox_, qOverload<int>(&QComboBox::currentIndexChanged), this, &FunctionWidget::saveSettings);
     connect(dataFormatBox_, qOverload<int>(&QComboBox::currentIndexChanged), this, &FunctionWidget::onFormatChanged);
@@ -222,11 +221,17 @@ void FunctionWidget::setupRawUi(QWidget* parent) {
 }
 
 int FunctionWidget::getSlaveId() const {
-    return slaveIdEdit_ ? slaveIdEdit_->value() : 1;
+    if (!slaveIdEdit_) return 1;
+    bool ok;
+    int val = modbus::base::ModbusDataHelper::parseSmartInt(slaveIdEdit_->text(), &ok);
+    return ok ? val : 1;
 }
 
 int FunctionWidget::getStartAddress() const {
-    return addressEdit_ ? addressEdit_->value() : 0;
+    if (!addressEdit_) return 0;
+    bool ok;
+    int val = modbus::base::ModbusDataHelper::parseSmartInt(addressEdit_->text(), &ok);
+    return ok ? val : 0;
 }
 
 int FunctionWidget::getQuantity() const {
@@ -261,8 +266,8 @@ void FunctionWidget::loadSettings() {
     QSignalBlocker b3(quantityEdit_);
     QSignalBlocker b4(dataFormatBox_);
 
-    const QString slaveKey = settingsGroup_ + "/slaveId";
-    const QString addrKey = settingsGroup_ + "/startAddr";
+    const QString slaveKey = settingsGroup_ + "/slaveIdStr";
+    const QString addrKey = settingsGroup_ + "/startAddrStr";
     const QString qtyKey = settingsGroup_ + "/quantity";
     const QString formatKey = settingsGroup_ + "/formatIndex";
 
@@ -271,13 +276,22 @@ void FunctionWidget::loadSettings() {
         return v.isValid() ? v : defaultVal;
     };
 
-    const int slaveId = getVal(slaveKey, app::constants::Values::Modbus::kDefaultSlaveId).toInt();
-    const int startAddr = getVal(addrKey, app::constants::Values::Modbus::kDefaultStandardStartAddress).toInt();
+    // Try new string keys first, fallback to old int keys
+    QString slaveIdStr = getVal(slaveKey, QString()).toString();
+    if (slaveIdStr.isEmpty()) {
+        slaveIdStr = QString::number(getVal(settingsGroup_ + "/slaveId", app::constants::Values::Modbus::kDefaultSlaveId).toInt());
+    }
+
+    QString startAddrStr = getVal(addrKey, QString()).toString();
+    if (startAddrStr.isEmpty()) {
+        startAddrStr = QString::number(getVal(settingsGroup_ + "/startAddr", app::constants::Values::Modbus::kDefaultStandardStartAddress).toInt());
+    }
+
     const int quantity = getVal(qtyKey, app::constants::Values::Modbus::kDefaultStandardQuantity).toInt();
     const int formatIndex = getVal(formatKey, app::constants::Values::Modbus::kDefaultStandardFormatIndex).toInt();
 
-    slaveIdEdit_->setValue(slaveId);
-    addressEdit_->setValue(startAddr);
+    slaveIdEdit_->setText(slaveIdStr);
+    addressEdit_->setText(startAddrStr);
     quantityEdit_->setValue(quantity);
     if (formatIndex >= 0 && formatIndex < dataFormatBox_->count()) {
         dataFormatBox_->setCurrentIndex(formatIndex);
@@ -287,18 +301,44 @@ void FunctionWidget::loadSettings() {
 
 void FunctionWidget::saveSettings() {
     if (settingsGroup_.isEmpty() || !settingsService_) return;
-    settingsService_->setValue(settingsGroup_ + "/slaveId", slaveIdEdit_->value());
-    settingsService_->setValue(settingsGroup_ + "/startAddr", addressEdit_->value());
+    settingsService_->setValue(settingsGroup_ + "/slaveIdStr", slaveIdEdit_->text());
+    settingsService_->setValue(settingsGroup_ + "/startAddrStr", addressEdit_->text());
     settingsService_->setValue(settingsGroup_ + "/quantity", quantityEdit_->value());
     settingsService_->setValue(settingsGroup_ + "/formatIndex", dataFormatBox_->currentIndex());
 }
 
 void FunctionWidget::onReadClicked(uint8_t functionCode) {
-    emit readRequested(functionCode, addressEdit_->value(), quantityEdit_->value(), slaveIdEdit_->value());
+    bool slaveOk, addrOk;
+    int slaveId = modbus::base::ModbusDataHelper::parseSmartInt(slaveIdEdit_->text(), &slaveOk);
+    int address = modbus::base::ModbusDataHelper::parseSmartInt(addressEdit_->text(), &addrOk);
+
+    if (!slaveOk || slaveId < app::constants::Values::Modbus::kMinSlaveId || slaveId > 255) {
+        emit logMessageRequested(tr("Invalid Slave ID format or range (0-255): %1").arg(slaveIdEdit_->text()), true);
+        return;
+    }
+    if (!addrOk || address < app::constants::Values::Modbus::kMinAddress || address > app::constants::Values::Modbus::kMaxAddress) {
+        emit logMessageRequested(tr("Invalid Address format or range (0-65535): %1").arg(addressEdit_->text()), true);
+        return;
+    }
+
+    emit readRequested(functionCode, address, quantityEdit_->value(), slaveId);
 }
 
 void FunctionWidget::onWriteClicked(uint8_t functionCode) {
-    emit writeRequested(functionCode, addressEdit_->value(), writeDataEdit_->text(), dataFormatBox_->currentData().toString(), slaveIdEdit_->value());
+    bool slaveOk, addrOk;
+    int slaveId = modbus::base::ModbusDataHelper::parseSmartInt(slaveIdEdit_->text(), &slaveOk);
+    int address = modbus::base::ModbusDataHelper::parseSmartInt(addressEdit_->text(), &addrOk);
+
+    if (!slaveOk || slaveId < app::constants::Values::Modbus::kMinSlaveId || slaveId > 255) {
+        emit logMessageRequested(tr("Invalid Slave ID format or range (0-255): %1").arg(slaveIdEdit_->text()), true);
+        return;
+    }
+    if (!addrOk || address < app::constants::Values::Modbus::kMinAddress || address > app::constants::Values::Modbus::kMaxAddress) {
+        emit logMessageRequested(tr("Invalid Address format or range (0-65535): %1").arg(addressEdit_->text()), true);
+        return;
+    }
+
+    emit writeRequested(functionCode, address, writeDataEdit_->text(), dataFormatBox_->currentData().toString(), slaveId);
 }
 
 void FunctionWidget::onRawSendClicked() {
@@ -353,6 +393,12 @@ void FunctionWidget::retranslateUi() {
     }
     if (addressLabel_) {
         addressLabel_->setText(tr("Start Addr:"));
+    }
+    if (slaveIdEdit_) {
+        slaveIdEdit_->setToolTip(tr("Slave ID (0-255). Supports HEX (0x10 or 10H) and DEC (16)."));
+    }
+    if (addressEdit_) {
+        addressEdit_->setToolTip(tr("Start Address (0-65535). Supports HEX (0x10 or 10H) and DEC (16)."));
     }
     if (quantityLabel_) {
         quantityLabel_->setText(tr("Quantity:"));
