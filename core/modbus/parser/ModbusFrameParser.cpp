@@ -64,7 +64,8 @@ ParseResult ModbusFrameParser::parse(const QByteArray& frame,
                                      ProtocolType type,
                                      uint16_t startAddress,
                                      uint16_t expectedQuantity,
-                                     bool force)
+                                     bool force,
+                                     modbus::base::RegisterOrder order)
 {
     ParseResult result;
     result.timestamp = QDateTime::currentDateTime();
@@ -99,10 +100,17 @@ ParseResult ModbusFrameParser::parse(const QByteArray& frame,
 
     // 2. 根据协议解析头部
     if (type == ProtocolType::Tcp) {
-        return parseTcp(frame, startAddress, expectedQuantity, force);
+        result = parseTcp(frame, startAddress, expectedQuantity, force, order);
     } else {
-        return parseRtu(frame, startAddress, expectedQuantity, force);
+        result = parseRtu(frame, startAddress, expectedQuantity, force, order);
     }
+
+    // 3. 应用诊断字节序变换
+    if (result.isValid) {
+        applyRegisterOrder(result, order);
+    }
+
+    return result;
 }
 
 bool ModbusFrameParser::detectTcp(const QByteArray& frame)
@@ -115,7 +123,7 @@ bool ModbusFrameParser::detectRtu(const QByteArray& frame)
     return base::inspectRtuAdu(frame) == frame.size();
 }
 
-ParseResult ModbusFrameParser::parseTcp(const QByteArray& frame, uint16_t startAddress, uint16_t expectedQuantity, bool force)
+ParseResult ModbusFrameParser::parseTcp(const QByteArray& frame, uint16_t startAddress, uint16_t expectedQuantity, bool force, modbus::base::RegisterOrder order)
 {
     ParseResult result;
     result.timestamp = QDateTime::currentDateTime();
@@ -179,12 +187,12 @@ ParseResult ModbusFrameParser::parseTcp(const QByteArray& frame, uint16_t startA
     }
 
     QByteArray pdu = frame.mid(7, pduSize);
-    parsePdu(result, pdu, startAddress, expectedQuantity);
+    parsePdu(result, pdu, startAddress, expectedQuantity, order);
 
     return result;
 }
 
-ParseResult ModbusFrameParser::parseRtu(const QByteArray& frame, uint16_t startAddress, uint16_t expectedQuantity, bool force)
+ParseResult ModbusFrameParser::parseRtu(const QByteArray& frame, uint16_t startAddress, uint16_t expectedQuantity, bool force, modbus::base::RegisterOrder order)
 {
     ParseResult result;
     result.timestamp = QDateTime::currentDateTime();
@@ -246,7 +254,7 @@ ParseResult ModbusFrameParser::parseRtu(const QByteArray& frame, uint16_t startA
     // 提取 PDU (去除首部 SlaveId 和尾部 CRC)
     int pduLen = qMax(0, frame.size() - 3);
     QByteArray pdu = frame.mid(1, pduLen);
-    parsePdu(result, pdu, startAddress, expectedQuantity);
+    parsePdu(result, pdu, startAddress, expectedQuantity, order);
 
     return result;
 }
@@ -254,8 +262,10 @@ ParseResult ModbusFrameParser::parseRtu(const QByteArray& frame, uint16_t startA
 void ModbusFrameParser::parsePdu(ParseResult& result,
                                  const QByteArray& pdu,
                                  uint16_t startAddress,
-                                 uint16_t expectedQuantity)
+                                 uint16_t expectedQuantity,
+                                 modbus::base::RegisterOrder order)
 {
+    Q_UNUSED(order);
     if (pdu.isEmpty()) {
         result.isValid = false;
         result.error = QCoreApplication::translate(
@@ -595,6 +605,98 @@ uint16_t ModbusFrameParser::determineEffectiveStartAddress(modbus::base::Functio
         return userStartAddress;
     }
     return 0;
+}
+
+void ModbusFrameParser::applyRegisterOrder(ParseResult& result, modbus::base::RegisterOrder order)
+{
+    using namespace modbus::base;
+    if (order == RegisterOrder::ABCD || result.dataItems.isEmpty()) {
+        return;
+    }
+
+    // Identify if the data items are registers (not coils/bits)
+    // For ReadHolding/InputRegisters, values are uint16_t
+    const bool isRegister = (result.functionCode == FunctionCode::ReadHoldingRegisters ||
+                             result.functionCode == FunctionCode::ReadInputRegisters ||
+                             result.functionCode == FunctionCode::WriteSingleRegister ||
+                             result.functionCode == FunctionCode::WriteMultipleRegisters);
+
+    if (!isRegister) {
+        return;
+    }
+
+    auto swapRegisterBytes = [](DataItem& item) {
+        if (item.value.typeId() == QMetaType::Char) return; // Should not happen for registers
+        uint16_t val = item.value.toUInt();
+        uint16_t swapped = static_cast<uint16_t>((val << 8) | (val >> 8));
+        item.value = swapped;
+        item.hexString = QString("%1").arg(swapped, 4, 16, QChar('0')).toUpper();
+        
+        QString binStr = QString::number(swapped, 2).rightJustified(16, '0');
+        for (int k = 12; k > 0; k -= 4) binStr.insert(k, ' ');
+        item.binaryString = binStr;
+    };
+
+    int count = result.dataItems.size();
+    for (int i = 0; i < count; i += 2) {
+        if (i + 1 < count) {
+            // Processing pair [i, i+1]
+            DataItem& item1 = result.dataItems[i];
+            DataItem& item2 = result.dataItems[i + 1];
+
+            switch (order) {
+            case RegisterOrder::BADC:
+                swapRegisterBytes(item1);
+                swapRegisterBytes(item2);
+                break;
+            case RegisterOrder::CDAB: {
+                // Swap the RAW values between items, but keep addresses fixed
+                QVariant val1 = item1.value;
+                QString hex1 = item1.hexString;
+                QString bin1 = item1.binaryString;
+                QByteArray raw1 = item1.rawBytes;
+
+                item1.value = item2.value;
+                item1.hexString = item2.hexString;
+                item1.binaryString = item2.binaryString;
+                item1.rawBytes = item2.rawBytes;
+
+                item2.value = val1;
+                item2.hexString = hex1;
+                item2.binaryString = bin1;
+                item2.rawBytes = raw1;
+                break;
+            }
+            case RegisterOrder::DCBA: {
+                // Swap and Swap Bytes
+                QVariant val1 = item1.value;
+                QString hex1 = item1.hexString;
+                QString bin1 = item1.binaryString;
+                QByteArray raw1 = item1.rawBytes;
+
+                item1.value = item2.value;
+                item1.hexString = item2.hexString;
+                item1.binaryString = item2.binaryString;
+                item1.rawBytes = item2.rawBytes;
+                swapRegisterBytes(item1);
+
+                item2.value = val1;
+                item2.hexString = hex1;
+                item2.binaryString = bin1;
+                item2.rawBytes = raw1;
+                swapRegisterBytes(item2);
+                break;
+            }
+            default:
+                break;
+            }
+        } else {
+            // Handling the last single register in an odd-sized sequence
+            if (order == RegisterOrder::BADC || order == RegisterOrder::DCBA) {
+                swapRegisterBytes(result.dataItems[i]);
+            }
+        }
+    }
 }
 
 } // namespace modbus::core::parser

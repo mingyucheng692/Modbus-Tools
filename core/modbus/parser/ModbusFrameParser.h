@@ -98,19 +98,31 @@ public:
                              ProtocolType type = ProtocolType::Unknown,
                              uint16_t startAddress = 0,
                              uint16_t expectedQuantity = 0,
-                             bool force = false);
+                             bool force = false,
+                             modbus::base::RegisterOrder order = modbus::base::RegisterOrder::ABCD);
+
+    /**
+     * @brief Apply register byte/word order transformation to the parse result.
+     * @param result The parse result to modify.
+     * @param order The target register order.
+     */
+    static void applyRegisterOrder(ParseResult& result, modbus::base::RegisterOrder order);
 
     /**
      * @brief 解析 PDU 数据段
      */
-    static void parsePdu(ParseResult& result, const QByteArray& pdu, uint16_t startAddress, uint16_t expectedQuantity);
+    static void parsePdu(ParseResult& result,
+                         const QByteArray& pdu,
+                         uint16_t startAddress,
+                         uint16_t expectedQuantity,
+                         modbus::base::RegisterOrder order = modbus::base::RegisterOrder::ABCD);
 
 private:
     static bool detectTcp(const QByteArray& frame);
     static bool detectRtu(const QByteArray& frame);
     
-    static ParseResult parseTcp(const QByteArray& frame, uint16_t startAddress, uint16_t expectedQuantity, bool force);
-    static ParseResult parseRtu(const QByteArray& frame, uint16_t startAddress, uint16_t expectedQuantity, bool force);
+    static ParseResult parseTcp(const QByteArray& frame, uint16_t startAddress, uint16_t expectedQuantity, bool force, modbus::base::RegisterOrder order);
+    static ParseResult parseRtu(const QByteArray& frame, uint16_t startAddress, uint16_t expectedQuantity, bool force, modbus::base::RegisterOrder order);
 
     static bool hasAddressInPdu(modbus::base::FunctionCode functionCode, const QByteArray& pdu);
     static uint16_t extractAddressFromPdu(const QByteArray& pdu);
