@@ -51,6 +51,22 @@ public:
      * @return Packed byte array.
      */
     static QByteArray parseBinary(const QString& input);
+
+    /**
+     * @brief Parses a string into an integer with smart format detection.
+     * 
+     * Supports:
+     * - HEX: 0x or 0X prefix (e.g., "0x12")
+     * - HEX: H or h suffix (e.g., "12H")
+     * - DEC: Standard decimal string (e.g., "18")
+     * 
+     * @note 0x prefix and H suffix are mutually exclusive.
+     * 
+     * @param input The input string.
+     * @param ok Set to true if parsing succeeded and format is valid, false otherwise.
+     * @return The parsed integer value, or 0 if parsing failed.
+     */
+    static int parseSmartInt(const QString& input, bool* ok = nullptr);
 };
 
 } // namespace modbus::base

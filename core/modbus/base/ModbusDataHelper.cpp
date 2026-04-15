@@ -62,4 +62,32 @@ QByteArray ModbusDataHelper::parseBinary(const QString& input) {
     return result;
 }
 
+int ModbusDataHelper::parseSmartInt(const QString& input, bool* ok) {
+    if (ok) *ok = false;
+    QString s = input.trimmed();
+    if (s.isEmpty()) return 0;
+
+    const bool has0x = s.startsWith(QLatin1String("0x"), Qt::CaseInsensitive);
+    const bool hasH = s.endsWith(QLatin1Char('h'), Qt::CaseInsensitive) || 
+                      s.endsWith(QLatin1Char('H'), Qt::CaseInsensitive);
+
+    if (has0x && hasH) {
+        // Ambiguous format (mutually exclusive)
+        return 0;
+    }
+
+    bool parseOk = false;
+    int val = 0;
+    if (has0x) {
+        val = s.mid(2).toInt(&parseOk, 16);
+    } else if (hasH) {
+        val = s.left(s.length() - 1).toInt(&parseOk, 16);
+    } else {
+        val = s.toInt(&parseOk, 10);
+    }
+
+    if (ok) *ok = parseOk;
+    return val;
+}
+
 } // namespace modbus::base
