@@ -139,6 +139,17 @@ void ModbusRtuView::setupUi() {
     controlWidget_->setSettingsGroup("modbus/rtu/control");
     mainLayout_->addWidget(controlWidget_);
     
+    if (functionWidget_ && trafficMonitor_) {
+        connect(functionWidget_, &widgets::FunctionWidget::logMessageRequested,
+            this, [this](const QString& message, bool isError) {
+                if (isError) {
+                    trafficMonitor_->appendWarning(message);
+                } else {
+                    trafficMonitor_->appendInfo(message);
+                }
+            });
+    }
+    
     connect(controlWidget_, &widgets::ControlWidget::pollRequested, this, &ModbusRtuView::pollRequested, Qt::QueuedConnection);
     connect(controlWidget_, &widgets::ControlWidget::linkToggled, this, [this](bool active){
         linked_ = active;

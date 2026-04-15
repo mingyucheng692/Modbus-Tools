@@ -152,6 +152,19 @@ void TrafficMonitorWidget::appendInfo(const QString& message) {
     }
 }
 
+void TrafficMonitorWidget::appendWarning(const QString& message) {
+    QString timeStr = QDateTime::currentDateTime().toString("HH:mm:ss.zzz");
+    QString itemText = tr("[%1] [WARN] %2").arg(timeStr, message);
+    
+    auto item = new QListWidgetItem(itemText);
+    item->setForeground(QColor(255, 140, 0)); // Dark Orange for warnings
+    logList_->addItem(item);
+
+    if (autoScrollCheck_->isChecked()) {
+        logList_->scrollToBottom();
+    }
+}
+
 void TrafficMonitorWidget::clear() {
     logList_->clear();
 }

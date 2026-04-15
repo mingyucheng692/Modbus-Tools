@@ -35,6 +35,7 @@ public:
     void appendTx(const QByteArray& data);
     void appendRx(const QByteArray& data);
     void appendInfo(const QString& message);
+    void appendWarning(const QString& message);
     void clear();
     void setSettingsGroup(const QString& group);
 
