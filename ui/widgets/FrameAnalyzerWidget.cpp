@@ -137,11 +137,13 @@ public slots:
     void enqueueParse(const QString& input,
                       ProtocolType type,
                       uint16_t startAddress,
+                      modbus::base::RegisterOrder order,
                       quint64 requestId)
     {
         pendingInput_ = input;
         pendingType_ = type;
         pendingStartAddress_ = startAddress;
+        pendingOrder_ = order;
         pendingRequestId_ = requestId;
         hasPendingRequest_ = true;
 
@@ -166,7 +168,8 @@ private slots:
             const quint64 requestId = pendingRequestId_;
             hasPendingRequest_ = false;
 
-            emit parseFinished(buildResult(input, type, startAddress), requestId);
+            const modbus::base::RegisterOrder order = pendingOrder_;
+            emit parseFinished(buildResult(input, type, startAddress, order), requestId);
         }
 
         processing_ = false;
@@ -175,7 +178,8 @@ private slots:
 private:
     ParseResult buildResult(const QString& input,
                             ProtocolType type,
-                            uint16_t startAddress) const
+                            uint16_t startAddress,
+                            modbus::base::RegisterOrder order) const
     {
         const QString hexStr = normalizeHexInput(input);
 
@@ -189,12 +193,13 @@ private:
 
         const QByteArray frame = QByteArray::fromHex(hexStr.toLatin1());
         const bool force = (type != ProtocolType::Unknown);
-        return ModbusFrameParser::parse(frame, type, startAddress, 0, force);
+        return ModbusFrameParser::parse(frame, type, startAddress, 0, force, order);
     }
 
     QString pendingInput_;
     ProtocolType pendingType_ = ProtocolType::Unknown;
     uint16_t pendingStartAddress_ = 0;
+    modbus::base::RegisterOrder pendingOrder_ = modbus::base::RegisterOrder::ABCD;
     quint64 pendingRequestId_ = 0;
     bool hasPendingRequest_ = false;
     bool processing_ = false;
@@ -207,6 +212,7 @@ FrameAnalyzerWidget::FrameAnalyzerWidget(ui::common::ISettingsService* settingsS
 {
     qRegisterMetaType<ProtocolType>("modbus::core::parser::ProtocolType");
     qRegisterMetaType<ParseResult>("modbus::core::parser::ParseResult");
+    qRegisterMetaType<modbus::base::RegisterOrder>("modbus::base::RegisterOrder");
 
     parseThread_ = new QThread();
     auto* parseWorker = new FrameParseWorker();
@@ -548,20 +554,46 @@ void FrameAnalyzerWidget::createResultGroup()
         clearResult(); // Locally reset UI immediately
     });
     liveLayout->addWidget(linkageStopBtn_);
-
     resultToolbarLayout->addWidget(liveContainer);
-
     resultToolbarLayout->addStretch();
+    
     displayModeLabel_ = new QLabel(tr("Decode Mode:"), this);
-    resultToolbarLayout->addWidget(displayModeLabel_);
     displayModeCombo_ = new QComboBox(this);
     displayModeCombo_->addItem(tr("Unsigned"), static_cast<int>(NumberDisplayMode::Unsigned));
     displayModeCombo_->addItem(tr("Signed"), static_cast<int>(NumberDisplayMode::Signed));
     displayModeCombo_->setCurrentIndex(0);
     displayModeCombo_->setMinimumContentsLength(8);
     displayModeCombo_->setSizeAdjustPolicy(QComboBox::AdjustToMinimumContentsLengthWithIcon);
+    connect(displayModeCombo_, qOverload<int>(&QComboBox::currentIndexChanged), this, [this]() {
+        if (!isLiveMode_ && !inputEditor_->toPlainText().trimmed().isEmpty()) {
+            onParseClicked();
+        } else if (isLiveMode_ && lastLiveResult_.isValid) {
+            renderResult(lastLiveResult_);
+        }
+    });
+
+    registerOrderLabel_ = new QLabel(tr("Byte Order:"), this);
+    registerOrderCombo_ = new QComboBox(this);
+    registerOrderCombo_->addItem("ABCD(default)", static_cast<int>(modbus::base::RegisterOrder::ABCD));
+    registerOrderCombo_->addItem("BADC", static_cast<int>(modbus::base::RegisterOrder::BADC));
+    registerOrderCombo_->addItem("CDAB", static_cast<int>(modbus::base::RegisterOrder::CDAB));
+    registerOrderCombo_->addItem("DCBA", static_cast<int>(modbus::base::RegisterOrder::DCBA));
+    registerOrderCombo_->setCurrentIndex(0);
+    registerOrderCombo_->setMinimumWidth(80);
+    connect(registerOrderCombo_, qOverload<int>(&QComboBox::currentIndexChanged), [this](int index) {
+        registerOrder_ = static_cast<modbus::base::RegisterOrder>(registerOrderCombo_->itemData(index).toInt());
+        if (!isLiveMode_ && !inputEditor_->toPlainText().trimmed().isEmpty()) {
+            onParseClicked();
+        }
+    });
+
+    resultToolbarLayout->addWidget(displayModeLabel_);
     resultToolbarLayout->addWidget(displayModeCombo_);
-    resultToolbarLayout->addSpacing(6);
+    resultToolbarLayout->addSpacing(16);
+    resultToolbarLayout->addWidget(registerOrderLabel_);
+    resultToolbarLayout->addWidget(registerOrderCombo_);
+    resultToolbarLayout->addSpacing(16);
+    
     importJsonBtn_ = new QPushButton(tr("Import Config"), this);
     exportJsonBtn_ = new QPushButton(tr("Export Config"), this);
     exportCsvBtn_ = new QPushButton(tr("Export CSV"), this);
@@ -873,6 +905,11 @@ void FrameAnalyzerWidget::clearResult()
         linkagePauseBtn_->setText(tr("Pause Refresh"));
         linkagePauseBtn_->setStyleSheet("");
     }
+    
+    if (registerOrderCombo_) {
+        registerOrderCombo_->setEnabled(true);
+        registerOrderCombo_->setToolTip(tr("Select the register byte/word order for diagnostic analysis."));
+    }
 
     if (wasLive && lastLiveResult_.isValid) {
         renderResult(lastLiveResult_);
@@ -912,6 +949,11 @@ void FrameAnalyzerWidget::processLivePdu(const modbus::base::Pdu& pdu, modbus::c
     linkageStopBtn_->setVisible(true);
     if (linkagePauseBtn_) {
         linkagePauseBtn_->setVisible(true);
+    }
+
+    if (registerOrderCombo_) {
+        registerOrderCombo_->setEnabled(false);
+        registerOrderCombo_->setToolTip(tr("Register order analysis is not available in live linkage mode."));
     }
     
     statusLabel_->setText(tr("Live Data Received at %1").arg(result.timestamp.toString("HH:mm:ss.zzz")));
@@ -992,7 +1034,7 @@ void FrameAnalyzerWidget::onParseClicked()
     if (parseBtn_) {
         parseBtn_->setEnabled(false);
     }
-    emit parseRequested(hexStr, type, startAddr, latestParseRequestId_);
+    emit parseRequested(hexStr, type, startAddr, registerOrder_, latestParseRequestId_);
 }
 
 void FrameAnalyzerWidget::loadSettings()
@@ -1506,6 +1548,12 @@ void FrameAnalyzerWidget::retranslateUi()
         displayModeCombo_->setItemText(0, tr("Unsigned"));
         displayModeCombo_->setItemText(1, tr("Signed"));
         displayModeCombo_->setToolTip(tr("Choose how parsed numeric values are displayed."));
+    }
+    if (registerOrderLabel_) {
+        registerOrderLabel_->setText(tr("Byte Order:"));
+    }
+    if (registerOrderCombo_) {
+        registerOrderCombo_->setToolTip(tr("Select the register byte/word order for diagnostic analysis."));
     }
     if (formatBtn_) {
         formatBtn_->setText(tr("Format Hex"));

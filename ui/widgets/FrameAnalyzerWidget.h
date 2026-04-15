@@ -54,6 +54,7 @@ signals:
     void parseRequested(const QString& input,
                         modbus::core::parser::ProtocolType type,
                         uint16_t startAddress,
+                        modbus::base::RegisterOrder order,
                         quint64 requestId);
 
 private slots:
@@ -121,6 +122,7 @@ private:
     QPlainTextEdit* inputEditor_ = nullptr;
     QComboBox* protocolCombo_ = nullptr;
     QComboBox* displayModeCombo_ = nullptr;
+    QComboBox* registerOrderCombo_ = nullptr;
     QSpinBox* startAddressSpin_ = nullptr;
     QPushButton* parseBtn_ = nullptr;
     QPushButton* formatBtn_ = nullptr;
@@ -129,6 +131,7 @@ private:
     QPushButton* exportCsvBtn_ = nullptr;
     QPushButton* toggleHistoryBtn_ = nullptr;
     QPushButton* clearBtn_ = nullptr;
+    QLabel* registerOrderLabel_ = nullptr;
 
     // Result Controls
     QGroupBox* resultGroup_ = nullptr;
@@ -163,6 +166,7 @@ private:
     QLabel* linkageTipLabel_ = nullptr;
     QPushButton* linkagePauseBtn_ = nullptr;
     QPushButton* linkageStopBtn_ = nullptr;
+    modbus::base::RegisterOrder registerOrder_ = modbus::base::RegisterOrder::ABCD;
 };
 
 } // namespace ui::widgets
