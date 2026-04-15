@@ -1893,6 +1893,61 @@ Choose update method:</source>
         <source>Exception</source>
         <translation>異常</translation>
     </message>
+    <message>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="1519"/>
+        <source>Show History</source>
+        <translation>顯示歷史</translation>
+    </message>
+    <message>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="1519"/>
+        <source>Hide History</source>
+        <translation>隱藏歷史</translation>
+    </message>
+    <message>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="1560"/>
+        <source>Byte Order:</source>
+        <translation>位元組順序：</translation>
+    </message>
+    <message>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="1562"/>
+        <source>ABCD(default)</source>
+        <translation>ABCD(預設)</translation>
+    </message>
+    <message>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="1565"/>
+        <source>Choose how parsed numeric values are displayed.</source>
+        <translation>選擇解析出的數值顯示方式。</translation>
+    </message>
+    <message>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="1571"/>
+        <source>Register order analysis is not available in live linkage mode.</source>
+        <translation>連動模式下不可使用位元組順序分析。</translation>
+    </message>
+    <message>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="1573"/>
+        <source>Select the register byte/word order for diagnostic analysis.</source>
+        <translation>選擇用於診斷分析的暫存器位元組/字組順序。</translation>
+    </message>
+    <message>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="1578"/>
+        <source>Import saved field scale and description settings from a JSON file.</source>
+        <translation>從 JSON 檔案匯入儲存的欄位倍率與描述設定。</translation>
+    </message>
+    <message>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="1582"/>
+        <source>Export current field scale and description settings to a JSON file.</source>
+        <translation>將目前欄位倍率與描述設定匯出為 JSON 檔案。</translation>
+    </message>
+    <message>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="1586"/>
+        <source>Export the parsed register data in the current table as a CSV file.</source>
+        <translation>將目前表格中解析出的暫存器資料匯出為 CSV 檔案。</translation>
+    </message>
+    <message>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="1589"/>
+        <source>Show or hide the parse history panel.</source>
+        <translation>顯示或隱藏解析歷史面板。</translation>
+    </message>
 </context>
 <context>
     <name>ui::widgets::FunctionWidget</name>

@@ -574,7 +574,7 @@ void FrameAnalyzerWidget::createResultGroup()
 
     registerOrderLabel_ = new QLabel(tr("Byte Order:"), this);
     registerOrderCombo_ = new QComboBox(this);
-    registerOrderCombo_->addItem("ABCD(default)", static_cast<int>(modbus::base::RegisterOrder::ABCD));
+    registerOrderCombo_->addItem(tr("ABCD(default)"), static_cast<int>(modbus::base::RegisterOrder::ABCD));
     registerOrderCombo_->addItem("BADC", static_cast<int>(modbus::base::RegisterOrder::BADC));
     registerOrderCombo_->addItem("CDAB", static_cast<int>(modbus::base::RegisterOrder::CDAB));
     registerOrderCombo_->addItem("DCBA", static_cast<int>(modbus::base::RegisterOrder::DCBA));
@@ -1553,7 +1553,15 @@ void FrameAnalyzerWidget::retranslateUi()
         registerOrderLabel_->setText(tr("Byte Order:"));
     }
     if (registerOrderCombo_) {
-        registerOrderCombo_->setToolTip(tr("Select the register byte/word order for diagnostic analysis."));
+        registerOrderCombo_->setItemText(0, tr("ABCD(default)"));
+        registerOrderCombo_->setItemText(1, "BADC");
+        registerOrderCombo_->setItemText(2, "CDAB");
+        registerOrderCombo_->setItemText(3, "DCBA");
+        if (isLiveMode_) {
+            registerOrderCombo_->setToolTip(tr("Register order analysis is not available in live linkage mode."));
+        } else {
+            registerOrderCombo_->setToolTip(tr("Select the register byte/word order for diagnostic analysis."));
+        }
     }
     if (formatBtn_) {
         formatBtn_->setText(tr("Format Hex"));
