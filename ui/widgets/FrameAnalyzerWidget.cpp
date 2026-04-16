@@ -795,9 +795,12 @@ void FrameAnalyzerWidget::exportMetadataToJson(const QString& filePath)
 {
     QJsonObject root;
     root.insert("version", 1);
-    bool ok = false;
-    int addr = modbus::base::ModbusDataHelper::parseSmartInt(startAddrEdit_->text(), &ok);
-    root.insert("startAddress", ok ? addr : 0);
+    // 规则：输入什么保存什么，如果为空则默认保存为 "0"
+    QString startAddrStr = startAddrEdit_->text().trimmed();
+    if (startAddrStr.isEmpty()) {
+        startAddrStr = "0";
+    }
+    root.insert("startAddress", startAddrStr);
     root.insert("displayMode", displayMode_ == NumberDisplayMode::Signed ? "signed" : "unsigned");
     QJsonArray items;
     for (auto it = metadataByAddress_.cbegin(); it != metadataByAddress_.cend(); ++it) {
@@ -842,7 +845,13 @@ void FrameAnalyzerWidget::importMetadataFromJson(const QString& filePath)
 
         const QJsonObject& root = *parsedRoot;
         if (root.contains("startAddress") && startAddrEdit_) {
-            startAddrEdit_->setText(QString::number(root.value("startAddress").toInt(0)));
+            const QJsonValue addrVal = root.value("startAddress");
+            if (addrVal.isString()) {
+                startAddrEdit_->setText(addrVal.toString());
+            } else if (addrVal.isDouble()) {
+                // 兼容旧版数字格式
+                startAddrEdit_->setText(QString::number(addrVal.toInt()));
+            }
         }
         if (root.contains("displayMode") && displayModeCombo_) {
             const QString mode = root.value("displayMode").toString().trimmed().toLower();

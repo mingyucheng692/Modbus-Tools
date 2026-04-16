@@ -140,6 +140,12 @@ void SettingsService::initializeDefaults() {
     defaults_.insert(kModbusRtuControlQty, app::constants::Values::Modbus::kDefaultControlQuantity);
     defaults_.insert(kModbusRtuDataMonitorCollapsed, false);
 
+    // New string-based keys for smart hex/dec input support
+    defaults_.insert(QString(kModbusTcpStandardSlaveId) + "Str", QString::number(app::constants::Values::Modbus::kDefaultSlaveId));
+    defaults_.insert(QString(kModbusTcpStandardStartAddr) + "Str", QString::number(app::constants::Values::Modbus::kDefaultStandardStartAddress));
+    defaults_.insert(QString(kModbusRtuStandardSlaveId) + "Str", QString::number(app::constants::Values::Modbus::kDefaultSlaveId));
+    defaults_.insert(QString(kModbusRtuStandardStartAddr) + "Str", QString::number(app::constants::Values::Modbus::kDefaultStandardStartAddress));
+
     defaults_.insert(kTcpClientIp, QString::fromLatin1(app::constants::Values::Network::kLoopbackAddress));
     defaults_.insert(kTcpClientPort, app::constants::Values::Network::kDefaultGenericTcpPort);
     defaults_.insert(kTcpClientConnectionCollapsed, false);
@@ -172,14 +178,19 @@ void SettingsService::initializeDefaults() {
 
 void SettingsService::load() {
     QSettings settings(configFilePath(), QSettings::IniFormat);
+    
+    // Load explicitly defined defaults first (ensures baseline exists)
     for (auto it = defaults_.cbegin(); it != defaults_.cend(); ++it) {
-        if (settings.contains(it.key())) {
-            loadedKeys_.insert(it.key());
-            values_.insert(it.key(), settings.value(it.key(), it.value()));
-        } else {
-            values_.insert(it.key(), it.value());
-            dirtyKeys_.insert(it.key());
+        values_.insert(it.key(), settings.value(it.key(), it.value()));
+    }
+
+    // Now load everything else found in the file to handle dynamic/prefixed keys
+    const QStringList allKeys = settings.allKeys();
+    for (const QString& key : allKeys) {
+        if (!values_.contains(key)) {
+            values_.insert(key, settings.value(key));
         }
+        loadedKeys_.insert(key);
     }
 
     using namespace settings_keys;
