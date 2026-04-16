@@ -316,6 +316,7 @@ void ModbusRtuView::setupUi() {
             int requestId = nextRequestId();
             requestStart_[requestId] = std::chrono::steady_clock::now();
             requestKinds_[requestId] = RequestKind::Read;
+            requestAddrs_[requestId] = static_cast<uint16_t>(addr);
             
             controlWidget_->recordTx(); // 提交时增加 TX 计数
             worker_->submit(request, slaveId, requestId);

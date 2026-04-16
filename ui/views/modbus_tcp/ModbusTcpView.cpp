@@ -351,6 +351,7 @@ void ModbusTcpView::setupUi() {
             int requestId = nextRequestId();
             requestStart_[requestId] = std::chrono::steady_clock::now();
             requestKinds_[requestId] = RequestKind::Read;
+            requestAddrs_[requestId] = static_cast<uint16_t>(addr);
             
             // 提交时立即更新 TX 统计，符合视觉直觉
             controlWidget_->recordTx();
