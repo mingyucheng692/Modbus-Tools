@@ -8,6 +8,8 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 option(MODBUS_TOOLS_ENABLE_PARALLEL_COMPILE "Enable parallel compile for MSVC" ON)
 option(MODBUS_TOOLS_ENABLE_PCH "Enable precompiled headers" ON)
 option(MODBUS_TOOLS_INCLUDE_PRERELEASE "Include pre-release when checking updates" OFF)
+option(MODBUS_TOOLS_BUILD_TESTS "Build unit tests" OFF)
+
 
 if(MSVC)
     if(MODBUS_TOOLS_ENABLE_PARALLEL_COMPILE)
@@ -23,7 +25,7 @@ set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/app)
 set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
 
 # Find Qt6
-find_package(Qt6 REQUIRED COMPONENTS Core Concurrent Network SerialPort Widgets Charts LinguistTools)
+find_package(Qt6 REQUIRED COMPONENTS Core Concurrent Network SerialPort Widgets Charts LinguistTools Test)
 
 # Add spdlog
 # Check if spdlog exists, if not, we might need to rely on system installed or header only
@@ -33,11 +35,38 @@ else()
     message(WARNING "spdlog submodule not found at third_party/spdlog")
 endif()
 
+if(MODBUS_TOOLS_BUILD_TESTS)
+    enable_testing()
+    include(FetchContent)
+    
+    # GTest CRT compatibility for MSVC
+    set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)
+
+    # Check for local source fallback
+    if(DEFINED ENV{GTEST_SOURCE_DIR})
+        set(GTEST_SOURCE_DIR $ENV{GTEST_SOURCE_DIR})
+        message(STATUS "Using local GTest source: ${GTEST_SOURCE_DIR}")
+        add_subdirectory(${GTEST_SOURCE_DIR} ${CMAKE_BINARY_DIR}/googletest)
+    else()
+        FetchContent_Declare(
+          googletest
+          URL https://github.com/google/googletest/archive/refs/tags/v1.14.0.zip
+        )
+        set(FETCHCONTENT_QUIET OFF)
+        FetchContent_MakeAvailable(googletest)
+    endif()
+endif()
+
 # Add subdirectories
 add_subdirectory(core)
 add_subdirectory(ui)
 add_subdirectory(app)
 add_subdirectory(updater)
+
+if(MODBUS_TOOLS_BUILD_TESTS)
+    add_subdirectory(tests)
+endif()
+
 
 if(MODBUS_TOOLS_INCLUDE_PRERELEASE)
     set(MODBUS_TOOLS_RELEASES_API_URL "https://api.github.com/repos/mingyucheng692/Modbus-Tools/releases")
