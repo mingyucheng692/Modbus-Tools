@@ -12,13 +12,15 @@
 #include "../common/ISettingsService.h"
 #include "../common/SettingsKeys.h"
 #include "modbus/parser/ModbusFrameParser.h"
+#include "modbus/base/ModbusDataHelper.h"
 #include <QVBoxLayout>
 #include <QHBoxLayout>
 #include <QGroupBox>
 #include <QLabel>
 #include <QPlainTextEdit>
 #include <QComboBox>
-#include <QSpinBox>
+#include <QLineEdit>
+#include <QRegularExpressionValidator>
 #include <QPushButton>
 #include <QTreeWidget>
 #include <QTableWidget>
@@ -450,11 +452,11 @@ void FrameAnalyzerWidget::createInputGroup()
     controlsLayout->addSpacing(20);
     startAddrLabel_ = new QLabel(tr("Start Address (for Response):"), this);
     controlsLayout->addWidget(startAddrLabel_);
-    startAddressSpin_ = new QSpinBox(this);
-    startAddressSpin_->setRange(app::constants::Values::Modbus::kMinAddress,
-                                app::constants::Values::Modbus::kMaxAddress);
-    startAddressSpin_->setValue(app::constants::Values::Modbus::kDefaultStandardStartAddress);
-    controlsLayout->addWidget(startAddressSpin_);
+    startAddrEdit_ = new QLineEdit(this);
+    startAddrEdit_->setFixedWidth(88); // Wide enough for 0xFFFF/65535
+    auto* hexValidator = new QRegularExpressionValidator(QRegularExpression("[0-9a-fA-FxXHh]*"), this);
+    startAddrEdit_->setValidator(hexValidator);
+    controlsLayout->addWidget(startAddrEdit_);
 
     controlsLayout->addStretch();
     auto* actionsContainer = new QWidget(this);
@@ -488,7 +490,7 @@ void FrameAnalyzerWidget::createInputGroup()
     inputEditor_->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
     groupLayout->addWidget(inputEditor_);
 
-    connect(startAddressSpin_, qOverload<int>(&QSpinBox::valueChanged), this, &FrameAnalyzerWidget::saveSettings);
+    connect(startAddrEdit_, &QLineEdit::textChanged, this, &FrameAnalyzerWidget::saveSettings);
     inputGroup_->setMinimumHeight(0);
     loadSettings();
 }
@@ -638,7 +640,7 @@ void FrameAnalyzerWidget::createResultGroup()
     dataTable_->horizontalHeader()->setMinimumSectionSize(40);
     dataTable_->horizontalHeader()->setStretchLastSection(true);
     dataTable_->setMinimumSize(0, 0);
-    dataTable_->setColumnWidth(0, 72);
+    dataTable_->setColumnWidth(0, 110);
     dataTable_->setColumnWidth(1, 120);
     dataTable_->setColumnWidth(2, 88);
     dataTable_->setColumnWidth(3, 150);
@@ -793,7 +795,9 @@ void FrameAnalyzerWidget::exportMetadataToJson(const QString& filePath)
 {
     QJsonObject root;
     root.insert("version", 1);
-    root.insert("startAddress", startAddressSpin_ ? startAddressSpin_->value() : 0);
+    bool ok = false;
+    int addr = modbus::base::ModbusDataHelper::parseSmartInt(startAddrEdit_->text(), &ok);
+    root.insert("startAddress", ok ? addr : 0);
     root.insert("displayMode", displayMode_ == NumberDisplayMode::Signed ? "signed" : "unsigned");
     QJsonArray items;
     for (auto it = metadataByAddress_.cbegin(); it != metadataByAddress_.cend(); ++it) {
@@ -837,8 +841,8 @@ void FrameAnalyzerWidget::importMetadataFromJson(const QString& filePath)
         }
 
         const QJsonObject& root = *parsedRoot;
-        if (root.contains("startAddress") && startAddressSpin_) {
-            startAddressSpin_->setValue(root.value("startAddress").toInt(startAddressSpin_->value()));
+        if (root.contains("startAddress") && startAddrEdit_) {
+            startAddrEdit_->setText(QString::number(root.value("startAddress").toInt(0)));
         }
         if (root.contains("displayMode") && displayModeCombo_) {
             const QString mode = root.value("displayMode").toString().trimmed().toLower();
@@ -978,9 +982,8 @@ uint16_t FrameAnalyzerWidget::rowAddress(int row) const
     if (!addrItem) {
         return 0;
     }
-    bool ok = false;
-    const uint16_t address = static_cast<uint16_t>(addrItem->text().toUInt(&ok));
-    return ok ? address : 0;
+    const QVariant data = addrItem->data(Qt::UserRole);
+    return data.isValid() ? static_cast<uint16_t>(data.toUInt()) : 0;
 }
 
 void FrameAnalyzerWidget::onDataTableItemChanged(QTableWidgetItem* item)
@@ -1026,7 +1029,15 @@ void FrameAnalyzerWidget::onParseClicked()
     }
     
     ProtocolType type = protocolCombo_->currentData().value<ProtocolType>();
-    uint16_t startAddr = static_cast<uint16_t>(startAddressSpin_->value());
+    bool addrOk = false;
+    int addrVal = modbus::base::ModbusDataHelper::parseSmartInt(startAddrEdit_->text(), &addrOk);
+    if (!addrOk || addrVal < 0 || addrVal > 65535) {
+        statusLabel_->setText(tr("Invalid Address format or range (0-65535): %1").arg(startAddrEdit_->text()));
+        statusLabel_->setStyleSheet("color: red;");
+        return;
+    }
+    uint16_t startAddr = static_cast<uint16_t>(addrVal);
+
     ++latestParseRequestId_;
     parseInProgress_ = true;
     statusLabel_->setText(tr("Parsing..."));
@@ -1042,9 +1053,20 @@ void FrameAnalyzerWidget::loadSettings()
     if (!settingsService_) {
         return;
     }
-    QSignalBlocker startAddrBlocker(startAddressSpin_);
-    const int startAddress = settingsService_->value(common::settings_keys::kFrameAnalyzerStartAddr).toInt();
-    startAddressSpin_->setValue(startAddress);
+    if (startAddrEdit_) {
+        QSignalBlocker startAddrBlocker(startAddrEdit_);
+        QString startAddr = settingsService_->value(common::settings_keys::kFrameAnalyzerStartAddr).toString();
+        // Fallback for old int-based settings if string is empty
+        if (startAddr.isEmpty()) {
+            QVariant v = settingsService_->value(common::settings_keys::kFrameAnalyzerStartAddr);
+            if (v.isValid()) {
+                startAddr = QString::number(v.toInt());
+            } else {
+                startAddr = QString::number(app::constants::Values::Modbus::kDefaultStandardStartAddress);
+            }
+        }
+        startAddrEdit_->setText(startAddr);
+    }
 }
 
 void FrameAnalyzerWidget::saveSettings()
@@ -1052,7 +1074,7 @@ void FrameAnalyzerWidget::saveSettings()
     if (!settingsService_) {
         return;
     }
-    settingsService_->setValue(common::settings_keys::kFrameAnalyzerStartAddr, startAddressSpin_->value());
+    settingsService_->setValue(common::settings_keys::kFrameAnalyzerStartAddr, startAddrEdit_->text());
 }
 
 void FrameAnalyzerWidget::renderResult(const ParseResult& result)
@@ -1265,8 +1287,12 @@ void FrameAnalyzerWidget::renderResult(const ParseResult& result)
         const auto& item = result.dataItems[i];
         DataMetadata meta = metadataByAddress_.value(item.address);
         
-        // 0: Address
-        updateItem(i, 0, QString::number(item.address), false);
+        // 0: Address - Display as "DEC (0xHEX)" but store numeric value in UserRole
+        const QString addrText = QString("%1 (0x%2)")
+                                     .arg(item.address)
+                                     .arg(QString::number(item.address, 16).toUpper().rightJustified(4, '0'));
+        auto* addrItem = updateItem(i, 0, addrText, false);
+        addrItem->setData(Qt::UserRole, item.address);
 
         // 1: Hex
         updateItem(i, 1, formatHexValue(item.rawBytes, item.hexString), false);
@@ -1540,6 +1566,9 @@ void FrameAnalyzerWidget::retranslateUi()
     }
     if (startAddrLabel_) {
         startAddrLabel_->setText(tr("Start Address (for Response):"));
+    }
+    if (startAddrEdit_) {
+        startAddrEdit_->setToolTip(tr("Start Address (0-65535). Supports HEX (0x10 or 10H) and DEC (16)."));
     }
     if (displayModeLabel_) {
         displayModeLabel_->setText(tr("Decode Mode:"));

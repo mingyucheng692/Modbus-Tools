@@ -123,7 +123,6 @@ private:
     QComboBox* protocolCombo_ = nullptr;
     QComboBox* displayModeCombo_ = nullptr;
     QComboBox* registerOrderCombo_ = nullptr;
-    QSpinBox* startAddressSpin_ = nullptr;
     QPushButton* parseBtn_ = nullptr;
     QPushButton* formatBtn_ = nullptr;
     QPushButton* importJsonBtn_ = nullptr;
@@ -132,6 +131,7 @@ private:
     QPushButton* toggleHistoryBtn_ = nullptr;
     QPushButton* clearBtn_ = nullptr;
     QLabel* registerOrderLabel_ = nullptr;
+    QLineEdit* startAddrEdit_ = nullptr;
 
     // Result Controls
     QGroupBox* resultGroup_ = nullptr;
