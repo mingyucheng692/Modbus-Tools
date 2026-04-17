@@ -1,164 +1,285 @@
+<div align="center">
+
+<img src="assets/logo.svg" alt="Modbus-Tools Logo" width="120">
+
 # Modbus-Tools
+### 专业的 Modbus TCP Client 与 Modbus RTU Master 调试及协议分析工具
 
-![Modbus-Tools Logo](assets/logo.svg)
+**可视化帧构建 · 实时报文解析 · 可靠的连接策略**
 
-语言: [English](README.md) | [简体中文](README_zh-CN.md) | [繁體中文](README_zh-TW.md)
+[![GitHub Release](https://img.shields.io/github/v/release/mingyucheng692/Modbus-Tools?style=flat-square)](https://github.com/mingyucheng692/Modbus-Tools/releases) [![Release Status](https://github.com/mingyucheng692/Modbus-Tools/actions/workflows/release.yml/badge.svg?style=flat-square)](https://github.com/mingyucheng692/Modbus-Tools/actions/workflows/release.yml) [![License](https://img.shields.io/badge/License-MIT-blue.svg?style=flat-square)](LICENSE)[![Stars](https://img.shields.io/github/stars/mingyucheng692/Modbus-Tools?style=flat-square&logo=github)](https://github.com/mingyucheng692/Modbus-Tools/stargazers) [![Forks](https://img.shields.io/github/forks/mingyucheng692/Modbus-Tools?style=flat-square&logo=github)](https://github.com/mingyucheng692/Modbus-Tools/network/members) [![C++20](https://img.shields.io/badge/C%2B%2B-20-orange.svg?style=flat-square)](https://isocpp.org/std/the-standard) [![Qt6](https://img.shields.io/badge/Qt-6.x-41CD52.svg?style=flat-square)](https://www.qt.io)[![CMake](https://img.shields.io/badge/CMake-3.16+-064F8C?style=flat-square&logo=cmake&logoColor=white)](https://cmake.org/)[![Google Test](https://img.shields.io/badge/Google_Test-1.12+-4285F4?style=flat-square&logo=google&logoColor=white)](https://github.com/google/googletest)
 
-一个业余时间开发的 Modbus/通用通讯调试助手，聚焦在“快速连接、快速收发、快速分析”。
+[English](README.md) | **简体中文** | [繁體中文](README_zh-TW.md)
 
-- 默认界面语言：`en_US`
-- 可在界面中快速切换：`简体中文 (zh_CN)`、`繁體中文 (zh_TW)`
+</div>
 
-## 💡 设计初衷与核心功能
+---
 
-开发这个工具的目标旨在简化测试阶段的 **“发帧、看日志、解帧”** 流程。
-它不追求大而全，而是专注于提升基础通讯协议调试时的可用性与效率。
+## 🔍 项目概述 (About)
 
-> **⚠️ 注意：本工具仅供开发、测试与学习使用，不对通讯的可靠性与稳定性作任何保障，请勿用于任何生产环境或关键任务系统。详见底部免责声明。**
+**Modbus-Tools** 是一款专为 **工业物联网 (IIoT) 调试**、**嵌入式系统开发**及**现场总线分析**设计的现代化开源辅助工具。作为功能丰富的 **Modbus 调试助手**，它支持作为 **Modbus TCP Client** 与 **Modbus RTU Master** 主动发起通信，有效支持了工业现场中常见的 **寄存器读取与写入** 验证需求。
 
-### 🔌 1. 快速连接与报文构建
-- **直观的配置界面**：Modbus TCP / RTU 连接参数位于左侧面板，便于快速设置。
-- **快捷指令发送**：填写 `Slave ID`、`起始地址` 和 `数据` 后，点击对应功能码按钮即可发送。程序会自动组帧并计算校验和（CRC/LRC）。
-- **灵活的数据格式**：支持在 `Hex` 和 `Decimal` 格式之间切换，以适应不同的数据输入需求。
-- **Raw 模式**：提供 Raw 模式用于发送自定义 Hex 报文，适合非标准协议或异常流程的验证测试。
+本项目核心亮点在于其内置的 **报文解析器 (Frame Analyzer)**，能够识别二进制字节流并进行结构化拆解。配合特色的 **Link to Analyzer (实时联动分析)** 模式，开发者可以在串口通信测试或网络调试过程中，同步观察协议帧的原始数据及其物理意义。无论是验证从站设备、定位通信故障，还是分析复杂的采样数据，Modbus-Tools 都能提供稳健、可靠且高效的工程化支持。
 
-![Modbus-TCP快速构建帧](docs/images/modbus-tcp-frame-builder.png)
+---
 
-### 🕵️‍♂️ 2. 日志监控与记录 (Traffic Monitor)
-- **收发分离显示**：发送（TX）和接收（RX）采用不同颜色标识，并附带毫秒级时间戳。
-- **数据流过滤**：支持通过勾选框单独查看 TX 或 RX 数据，便于在持续轮询时观察特定方向的报文。
-- **复制与留痕**：支持快捷复制单条报文内容，也可将当前完整的通讯日志导出保存，辅助测试记录。
+## ✨ 核心特性 (Features)
 
-### 🧩 3. 帧解析器 (Frame Analyzer)
-该模块用于辅助分析 Hex 报文，解析后会以表格形式展示帧结构与数据。
-- **解码模式切换**：支持在 `Unsigned` 和 `Signed` 之间切换，同步更新对应的十进制、Hex、二进制和数值。
-- **倍率换算 (Scale)**：支持为特定寄存器设置换算倍率（如 `0.1`），在表格中直观查看转换后的工程值。
-- **寄存器功能注释 (Description)**：支持为寄存器地址添加自定义描述（如“电压”、“转速”），方便对照查看。
-- **配置持久化与 JSON 模板**：设置的倍率和注释会自动保存。支持将配置导出为 JSON 模板，以便在测试同类设备时复用。
-- **辅助功能**：提供 Hex 格式化清洗功能、响应帧起始地址设置，以及基础的协议自动识别（TCP/RTU）。
+### 🏗 可视化帧构建与原始发送
+提供了直观的工业协议组包交互，简化了调试流程：
+- **参数表单化**：支持 Slave ID、起始地址、寄存器数量等核心参数的图形化输入。Slave ID 与地址（含轮询地址）全面支持 **HEX (0x10, 10H)** 与 **DEC (16)** 智能识别与合法性校验。
+- **功能码覆盖**：支持常用的 0x01-0x06, 0x0F, 0x10 等标准 Modbus 功能码。
+- **Raw 辅助工具**：内置“一键计算并追加 CRC16 (RTU)”及“一键封装主站报头 MBAP (TCP)”功能，极大简化非标报文测试。
+- **实时预览**：在输入参数及 Hex 数据时，同步展示对应的十六进制原始字节流，确保发出的每一帧都符合预期。
+  
+> [!TIP]
+> **配置提示**：轮询栏的 `Addr` 支持独立跨段配置，而 `Slave ID` 与功能面板实时联动。
 
-![帧解析助手主页面](docs/images/frame-analyzer-overview.png)
-![帧解析地址倍率注释](docs/images/frame-analyzer-address-scale-description.png)
+### 🔘 线圈 (Coils) 二进制下发交互
+专为位操作设计的交互逻辑，实现对输出状态的直观控制：
+- **Binary 输入模式**：支持直接输入比特串（如 `1 0 1 1`），系统自动将其编码并配合 0x05 (单写) 或 0x0F (多写) 功能码下发。
+- **位级感知**：配合 0x01/0x02 读取指令，实现对远程设备线圈与离散输入状态的高效验证。
 
-### 🛠️ 4. 辅助工具与配置
-除 Modbus 核心功能外，提供部分基础的通用测试工具：
-- **通用 TCP Client**：用于基础的自定义网络报文收发测试。
-- **通用串口工具**：用于基础的串口收发测试（支持 ASCII/Hex）。
-- **请求统计面板**：提供基础的 TX / RX / FAIL / RTT 统计数据。
-- **重试策略配置**：开放 Modbus 请求超时时间、重试次数和重试间隔的自定义配置。
+### 📊 特色帧解析器 (Frame Analyzer)
+将枯燥的十六进制报文转化为结构化的业务数据，支持深度分析：
+- **协议拆解**：即时将 Hex 流拆解为 SlaveID、功能码、起始地址、数据长度及校验值等关键字段。
+- **工程量转换**：内置 **缩放因子 (Scale Factor)**，支持将寄存器原始值自动转换为浮点物理量（如温度、压力、频率）。
+- **多维字节序分析**：支持 **ABCD (Big Endian)**、**CDAB (Little Endian Byte Swap)**、**BADC (Big Endian Byte Swap)**、**DCBA (Little Endian)** 四种字节/字序模式，适配各类 PLC 数据排列。
+- **语义标注**：支持为寄存器自定义描述，解析结果反映真实的业务指标，并支持历史记录批量导出。
 
-## 技术栈
+### 🔗 Link to Analyzer (实时联动分析) — **特色功能**
+打破流量监控与解析器之间的壁垒，实现自动化的解析流：
+- **实时穿透**：捕获的 **RX 响应报文** 可自动推送至解析器解码，消除频繁拷贝 Hex 数据的繁琐操作。
+- **暂停编辑**：支持 **“暂停刷新”** 功能，方便在高速通信场景下驻留特定帧，进而编辑其缩放因子或寄存器描述。
+- **异步解析**：解析动作在后台异步完成，不干扰前端流量列表的实时滚动观测。
 
-- C++20
-- Qt6（Core / Network / SerialPort / Widgets / Charts）
-- CMake (>= 3.16)
-- spdlog（通过子模块引入）
+---
 
-## 工程结构
+## 📋 技术规格与支持特性
+
+### 📡 标准协议支持
+| 维度 | 支持能力 | 技术细节 |
+| :--- | :--- | :--- |
+| **通信模式** | **Modbus TCP Client** & **Modbus RTU Master** | 适配网口 (RJ45) 与串口 (RS232/RS485) 物理链路 |
+| **功能码集** | FC01 ~ FC04 (读) / FC05 ~ FC06 (单写) / FC15 ~ FC16 (多写) | 涵盖工业现场主流的 Modbus 应用场景 |
+| **校验机制** | 自动 CRC16 (RTU) / MBAP 头部封装 (TCP) | 生成并验证报文的合规性与完整性 |
+
+### 🛠 通用调试工具
+除了深度的 Modbus 协议支持，项目同时集成了高性能的通用调试能力：
+- **通用 TCP 客户端**：支持文本/Hex 双模式发送，适配各类非标网络协议验证。
+- **串口通信助手**：支持自定义波特率、校验位及数据位，集成文件传输等实用功能。
+
+---
+
+## 📸 界面预览 (Screenshots)
+
+<table>
+  <tr>
+    <td align="center"><b>Modbus TCP 帧构建</b></td>
+    <td align="center"><b>Modbus TCP 写入操作</b></td>
+  </tr>
+  <tr>
+    <td><img src="docs/images/modbus-tcp-frame-builder.png" alt="Modbus TCP 模式" width="400"></td>
+    <td><img src="docs/images/modbus-tcp-write-decimal.png" alt="Modbus 写入" width="400"></td>
+  </tr>
+  <tr>
+    <td align="center"><b>报文分析器 - 地址,缩放因子与描述</b></td>
+    <td align="center"><b>报文分析器 - 结构树</b></td>
+  </tr>
+  <tr>
+    <td><img src="docs/images/frame-analyzer-address-scale-description.png" alt="地址,缩放因子,描述" width="400"></td>
+    <td><img src="docs/images/frame-analyzer-overview.png" alt="结构树解析" width="400"></td>
+  </tr>
+</table>
+
+### 📺 动态演示 (Demo)
+![Linkage & Smart Input Demo](docs/images/demo.gif)
+
+---
+
+
+---
+
+## 🚀 快速开始 (Getting Started)
+
+### 下载与运行 (Windows)
+1. 前往 [Releases](https://github.com/mingyucheng692/Modbus-Tools/releases) 页面。
+2. 下载最新的 Modbus-Tools-win64.zip。
+3. 解压并运行 Modbus-Tools.exe 即可，**无需安装，绿色运行**。
+
+### 源码构建 (Build from Source)
+项目基于 **Qt 6.x** 与 **CMake** 构建，支持 MSVC 编译器：
+```bash
+# 克隆项目及其所有子模块
+git clone --recursive https://github.com/mingyucheng692/Modbus-Tools.git  --progress
+cd Modbus-Tools
+
+# 使用 CMake 配置并生成工程
+cmake -S . -B build
+
+# 执行编译（以 Release 为例）
+cmake --build build --config Release -j
+```
+
+## 🧪 开发与测试
+
+本项目集成 Google Test 单元测试框架，核心协议解析逻辑已实现高比例覆盖。
+
+- **自动化测试**：
+  - **覆盖范围**：涵盖会话层 (Session)、物理通道 (Transport) 及关键报文解析引擎 (Frame Analyzer) 的边界情况与核心逻辑。
+  - **触发机制**：系统依托 GitHub Actions，在 **Git Tag (版本发布)** 时自动执行全量集成验证、单元测试及分发流程，确保发布版本的稳定性。
+
+- **本地运行测试**：
+  ```powershell
+  cmake -B build -DMODBUS_TOOLS_BUILD_TESTS=ON
+  cmake --build build --target modbus_test
+  ctest --test-dir build -C Debug --output-on-failure
+  ```
+
+- **测试覆盖**：已实现对会话层 (Session)、传输层 (Transport) 及核心解析引擎 (Frame Analyzer) 的核心逻辑验证，确保复杂连接环境下的稳定性。
+- **持续集成**：项目维护了 GitHub Action 流水线，针对正式发布的版本进行自动化的回归测试与二进制产物分发。
+
+---
+
+## ⚙️ 高级配置与工程化能力
+
+为了适配复杂的工业现场环境，Modbus-Tools 提供了丰富的通信控制策略：
+- **重试机制**：支持自定义失败后的重试策略。
+- **多语言环境**：完整支持英文、简体中文及繁体中文 UI。
+- **OTA 自动更新**：集成 GitHub API，支持检测并升级至最新稳定版。
+
+---
+
+## 🏗 项目架构
+
+### 技术栈
+
+| 组件 | 技术 | 说明 |
+| :--- | :--- | :--- |
+| 编程语言 | **C++20** | 现代 C++：constexpr, enum class, 智能指针, std::optional |
+| GUI 框架 | **Qt 6** | Widgets, Charts, Network, SerialPort, Concurrent |
+| 日志系统 | **spdlog** | 异步日志 + 文件轮转（10MB × 20 文件） |
+| 构建系统 | **CMake 3.16+** | 跨平台构建支持，集成 MSVC 并行编译优化 |
+| 单元测试 | **Google Test** | 广泛覆盖核心协议逻辑，确保产品级稳定性 |
+| CI/CD | **GitHub Actions** | 自动化流水线：构建、测试及 Release 解析包分发 |
+
+### 分层架构
 
 ```text
-Modbus-Tools/
-├─ app/           # 程序入口（main.cpp）
-├─ core/          # 通讯与 Modbus 核心逻辑
-├─ ui/            # Qt 界面、视图、控件、多语言资源
-├─ third_party/   # 第三方依赖（当前包含 spdlog 子模块）
-└─ CMakeLists.txt # 顶层构建配置
+┌─────────────────────────────────────────────────────────────┐
+│                       UI 层 (ui/)                           │
+│   MainWindow │ Views │ Widgets │ Theme │ i18n │ Settings    │
+├─────────────────────────────────────────────────────────────┤
+│                     业务逻辑层 (core/)                        │
+│   ┌──────────┐   ┌────────────┐   ┌─────────────────────┐   │
+│   │  Modbus  │   │   I/O 通道  │   │      通用服务        │   │
+│   │  协议栈   │   │  (Channel) │   │  Logger/Settings等  │   │
+│   └──────────┘   └────────────┘   └─────────────────────┘   │
+├─────────────────────────────────────────────────────────────┤
+│                      基础设施层                               │
+│         Qt6 Framework │ spdlog │ C++ Standard Library       │
+└─────────────────────────────────────────────────────────────┘
 ```
 
-## 构建说明（Windows / MSVC）
+---
 
-### 1) 拉取代码（包含子模块）
+## 🎯 适用场景
 
-```bash
-git clone https://github.com/mingyucheng692/Modbus-Tools.git
-cd Modbus-Tools
+| 场景 | 描述 |
+| :--- | :--- |
+| **设备联调** | 快速验证 Modbus 从站的寄存器读写是否正常 |
+| **协议分析** | 抓取并解析 Modbus 帧，定位通信故障 |
+| **批量测试** | 轮询模式下持续读取寄存器，监测数据变化 |
+| **非标协议调试** | Raw 模式发送自定义 Hex 帧 |
+| **教学演示** | 直观展示 Modbus 帧结构与通信过程 |
+
+### 目标用户
+
+- 🏭 **工业自动化工程师**：PLC / DCS / SCADA / HMI / 仪器仪表 / BMS / PCS / EMS 系统调试
+- 🔧 **嵌入式开发者**：Modbus 从站设备开发验证
+- 🔗 **系统集成商**：现场总线通信问题排查
+- 📚 **学习者**：Modbus 协议学习与研究
+
+---
+
+## 🤝 参与贡献
+
+欢迎提交 Issue 和 Pull Request，我们非常重视来自社区的贡献（Bug 修正、新功能、文档优化等）！
+
+1. **Fork** 本仓库
+2. **创建特性分支**：`git checkout -b feature/amazing-feature`
+3. **提交更改**：`git commit -m 'Add amazing feature'`
+4. **推送到远程分支**：`git push origin feature/amazing-feature`
+5. **提交 Pull Request** (PR)
+
+您的每一个 ⭐ Star 都是支持我们持续迭代的最大动力。
+
+### 贡献者许可协议 (DCO)
+
+本项目采用 **开发者原创证书 (DCO)** 确保贡献的知识产权清晰。提交 Pull Request 时，请确保您的每个 commit 包含如下签名行：
+
+```
+Signed-off-by: 您的名字 <您的邮箱>
 ```
 
-如果已克隆但未拉子模块：
+使用 `git commit -s` 可自动添加此行。通过签署 DCO，您确认：
+- 该贡献是由您创作和/或您有权提交；
+- 您同意该贡献按本项目的 MIT 许可证授权；
+- 您理解该贡献可能会被修改或重新分发。
 
-```bash
-git submodule update --init --recursive --progress
-```
+---
 
-### 2) 配置工程
+## 📄 开源许可
 
-```bash
-cmake -S . -B build
-```
+本项目基于 [MIT License](LICENSE) 开源。
 
-### 3) 编译
+Copyright © 2025 - present mingyucheng692
 
-```bash
-cmake --build build --config Release
-```
+### 🔄 二次分发要求
+- 任何对本项目的修改、衍生作品或二次分发行为，**必须完整保留原始版权声明及本许可文件**。
+- 分发时不得删除、篡改或隐藏本项目源码、文档及构建产物中的任何版权标识、作者署名与许可声明。
 
-### 4) 运行
+### ⚖️ 第三方依赖许可证摘要
 
-```bash
-.\build\app\Release\Modbus-Tools.exe
-```
+本项目主要使用以下第三方库。用户在二次开发或分发时，应遵守其原有的开源许可协议。
 
-## 语言切换
+| 依赖项 | 许可证 | 说明 |
+| :--- | :--- | :--- |
+| **Qt 6** | LGPLv3 | 以动态链接方式使用，支持用户自由替换库文件，未修改源码。 |
+| **spdlog** / **fmt** | MIT | 广泛应用于日志记录与格式化，需保留原始版权声明。 |
+| **Google Test** | BSD-3-Clause | 仅用于开发环境测试。 |
 
-程序启动后：
 
-- 默认使用 `en_US`
-- 在菜单栏点击 `Language`
-- 可切换到 `简体中文 (zh_CN)` 或 `繁體中文 (zh_TW)`
+---
 
-## 依赖要求
+## ⚖️ 免责声明
 
-- 已安装 Qt6，并能被 CMake 找到（`find_package(Qt6 ...)`）
-- Visual Studio 2022（或兼容的 MSVC 工具链）
-- CMake 3.16 及以上
+### 1. 用途限制
+本项目仅适用于开发调试、设备检测及教学演示。在此类关键或生产环境中使用，需用户自行承担全部风险。
 
-## ⚠️ 免责声明
+### 2. 无担保声明
+本软件按 "原样" (AS IS) 提供。不保证软件满足特定需求，不对 Modbus 帧构建或解析结果的准确性提供绝对担保。
 
-### 1. 软件性质
-本软件按 **"原样"（AS IS）** 提供，不提供任何形式的明示或暗示保证，包括但不限于适销性、特定用途适用性和非侵权保证。本软件为 **个人业余时间开发的免费开源工具**。
+### 3. 责任限制
+在任何情况下，作者或版权持有人均不承担因使用本软件导致的直接或间接损害责任。
 
-### 2. 用途说明
-本工具仅设计用于 **测试、调试和学习目的**。支持多种通讯协议，包括 Modbus、TCP 和串口。不适用于关键任务系统、生产环境或任何故障可能导致重大损失的场景。
+### 4. 合规性说明
+本软件未通过任何工业安全认证（如 SIL, IEC 61508），校验算法仅供调试参考。用户需确保其使用符合当地法律。
 
-### 3. 风险警示
-不当使用本软件可能导致：
-- **设备故障或损坏** – 向设备发送错误指令或数据可能更改参数或导致硬件故障
-- **数据丢失或损坏** – 设备配置或存储数据可能被覆盖或丢失
-- **生产中断** – 错误操作可能导致工业流程或网络服务停机
-- **网络安全风险** – 不当的 TCP/串口操作可能暴露漏洞或中断通讯
-- **财产损失或人身伤害** – 在危险环境中，错误操作可能引发安全事故
+### 5. 数据与隐私
 
-### 4. 责任限制
-开发者（mingyucheng692）**不承担任何**以下责任：
-- 任何直接、间接、偶然、特殊或后果性损害
-- 利润、数据或商业机会损失
-- 设备维修或更换费用
-- 生产停机及相关损失
-- 网络中断或通讯故障
-- 因使用本软件引发的法律纠纷
+本软件尊重用户隐私，遵循最小数据原则：
 
-### 5. 用户责任
-使用本软件即表示您同意：
-- ✅ 充分理解通讯协议（Modbus、TCP、串口等）及您的设备规格
-- ✅ 在工业部署前于 **安全、隔离的环境** 中充分测试
-- ✅ 任何操作前确认目标设备地址、端口、参数和数据
-- ✅ 修改设备配置前备份原有数据
-- ✅ 确保操作符合网络和工业安全政策
-- ✅ 自行承担使用本软件的所有风险
-- ✅ 遵守所有适用的法律法规
+- **本地数据**：通信配置、解析模板及用户偏好均存储于本地。
+- **自动更新**：更新检查功能通过 HTTPS 访问 GitHub API，仅发送应用版本号及平台标识。
+- **网络通信**：Modbus TCP 连接由用户主动发起，仅连接指定的地址。
+- **不收集**：本软件不收集、存储或传输用户个人及敏感信息。
 
-### 6. 非专业建议
-本软件不构成专业工程建议。工业部署请咨询合格工程师并遵循您组织的安全规程。
+---
 
-### 7. 协议确认
-**下载、安装或使用本软件，即表示您已阅读、理解并同意受本免责声明约束。如不同意，请勿使用本软件。**
+### 🙏 致谢
 
-## 🙏 致谢
-
-本项目使用了以下开源库，感谢作者的杰出贡献：
-
-- **[spdlog](https://github.com/gabime/spdlog)** (MIT License): 高性能 C++ 日志库，为本项目提供可靠的日志记录支持。
-
-## 当前状态
-
-这是一个持续迭代的个人调试工具项目，欢迎使用。
+感谢以下开源项目使 Modbus-Tools 成为可能：
+- [Qt](https://www.qt.io) — 跨平台应用框架
+- [spdlog](https://github.com/gabime/spdlog) — 高性能 C++ 日志库
+- [fmt](https://github.com/fmtlib/fmt) — 现代 C++ 格式化库

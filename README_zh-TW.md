@@ -1,164 +1,281 @@
+<div align="center">
+
+<img src="assets/logo.svg" alt="Modbus-Tools Logo" width="120">
+
 # Modbus-Tools
+### 專業的 Modbus TCP Client 與 Modbus RTU Master 調試及協定分析工具
 
-![Modbus-Tools Logo](assets/logo.svg)
+**可視化幀構建 · 即時報文解析 · 可靠的連接策略**
 
-語言: [English](README.md) | [簡體中文](README_zh-CN.md) | [繁體中文](README_zh-TW.md)
+[![GitHub Release](https://img.shields.io/github/v/release/mingyucheng692/Modbus-Tools?style=flat-square)](https://github.com/mingyucheng692/Modbus-Tools/releases) [![Release Status](https://github.com/mingyucheng692/Modbus-Tools/actions/workflows/release.yml/badge.svg?style=flat-square)](https://github.com/mingyucheng692/Modbus-Tools/actions/workflows/release.yml) [![License](https://img.shields.io/badge/License-MIT-blue.svg?style=flat-square)](LICENSE)[![Stars](https://img.shields.io/github/stars/mingyucheng692/Modbus-Tools?style=flat-square&logo=github)](https://github.com/mingyucheng692/Modbus-Tools/stargazers) [![Forks](https://img.shields.io/github/forks/mingyucheng692/Modbus-Tools?style=flat-square&logo=github)](https://github.com/mingyucheng692/Modbus-Tools/network/members) [![C++20](https://img.shields.io/badge/C%2B%2B-20-orange.svg?style=flat-square)](https://isocpp.org/std/the-standard) [![Qt6](https://img.shields.io/badge/Qt-6.x-41CD52.svg?style=flat-square)](https://www.qt.io)[![CMake](https://img.shields.io/badge/CMake-3.16+-064F8C?style=flat-square&logo=cmake&logoColor=white)](https://cmake.org/)[![Google Test](https://img.shields.io/badge/Google_Test-1.12+-4285F4?style=flat-square&logo=google&logoColor=white)](https://github.com/google/googletest)
 
-這是一個利用業餘時間開發的 Modbus／通用通訊除錯助手，聚焦於快速連線、快速收發與快速分析。
+[English](README.md) | [简体中文](README_zh-CN.md) | **繁體中文**
 
-- 預設介面語言：`en_US`
-- 可在介面中快速切換：`簡體中文 (zh_CN)`、`繁體中文 (zh_TW)`
+</div>
 
-## 💡 設計初衷與核心功能
+---
 
-開發這個工具的目標旨在簡化測試階段的 **「發幀、看日誌、解幀」** 流程。
-它不追求大而全，而是專注於提升基礎通訊協定除錯時的可用性與效率。
+## 🔍 專案概述 (About)
 
-> **⚠️ 注意：本工具僅供開發、測試與學習使用，不對通訊的可靠性與穩定性作任何保障，請勿用於任何生產環境或關鍵任務系統。詳見底部免責聲明。**
+**Modbus-Tools** 是一款專為 **工業物聯網 (IIoT) 調試**、**嵌入式系統開發**及**現場總線分析**設計的現代化開源輔助工具。作為功能豐富的 **Modbus 調試助手**，它支援作為 **Modbus TCP Client** 與 **Modbus RTU Master** 主動發起通訊，有效支援了工業現場中常見的 **暫存器讀取與寫入** 驗證需求。
 
-### 🔌 1. 快速連線與報文建構
-- **直觀的設定介面**：Modbus TCP / RTU 連線參數位於左側面板，便於快速設定。
-- **快捷指令發送**：填寫 `Slave ID`、`起始位址` 和 `資料` 後，點擊對應功能碼按鈕即可發送。程式會自動組幀並計算校驗和（CRC/LRC）。
-- **靈活的資料格式**：支援在 `Hex` 和 `Decimal` 格式之間切換，以適應不同的資料輸入需求。
-- **Raw 模式**：提供 Raw 模式用於發送自訂 Hex 報文，適合非標準協定或異常流程的驗證測試。
+本專案核心亮點在於其內建的 **報文分析器 (Frame Analyzer)**，能夠識別二進位位元組流並進行結構化拆解。配合特色的 **Link to Analyzer (即時聯動分析)** 模式，開發者可以在序列埠通訊測試或網路調試過程中，同步觀察協定幀的原始資料及其物理意義。無論是驗證從站設備、定位通訊故障，還是分析複雜的採樣資料，Modbus-Tools 都能提供穩健、可靠且高效的工程化支援。
 
-![Modbus-TCP快速建構幀](docs/images/modbus-tcp-frame-builder.png)
+---
 
-### 🕵️‍♂️ 2. 日誌監控與記錄 (Traffic Monitor)
-- **收發分離顯示**：發送（TX）和接收（RX）採用不同顏色標識，並附帶毫秒級時間戳記。
-- **資料流過濾**：支援透過核取方塊單獨查看 TX 或 RX 資料，便於在持續輪詢時觀察特定方向的報文。
-- **複製與留痕**：支援快捷複製單條報文內容，也可將目前完整的通訊日誌匯出保存，輔助測試記錄。
+## ✨ 核心特性 (Features)
 
-### 🧩 3. 幀分析器 (Frame Analyzer)
-該模組用於輔助分析 Hex 報文，解析後會以表格形式展示幀結構與資料。
-- **解碼模式切換**：支援在 `Unsigned` 和 `Signed` 之間切換，同步更新對應的十進位、Hex、二進位和數值。
-- **倍率換算 (Scale)**：支援為特定暫存器設定換算倍率（如 `0.1`），在表格中直觀查看轉換後的工程值。
-- **暫存器功能註釋 (Description)**：支援為暫存器位址添加自訂描述（如「電壓」、「轉速」），方便對照查看。
-- **設定持久化與 JSON 模板**：設定的倍率和註釋會自動保存。支援將設定匯出為 JSON 模板，以便在測試同類設備時重複使用。
-- **輔助功能**：提供 Hex 格式化清洗功能、回應幀起始位址設定，以及基礎的協定自動識別（TCP/RTU）。
+### 🏗 可視化幀構建與原始發送
+提供了直覺的工業協定組包互動，簡化了調試流程：
+- **表單化參數輸入**：支援 Slave ID、起始地址、暫存器數量等核心參數的圖形化輸入。Slave ID 與地址（含輪詢地址）全面支援 **HEX (0x10, 10H)** 與 **DEC (16)** 智慧識別與合法性校驗。
+- **功能碼覆蓋**：支援常用的 0x01-0x06, 0x0F, 0x10 等標準 Modbus 功能碼。
+- **Raw 輔助工具**：內建「一鍵計算並追加 CRC16 (RTU)」及「一鍵封裝主站報頭 MBAP (TCP)」功能，極大簡化非標報文測試。
+- **即時預覽**：在輸入參數及 Hex 資料時，同步展示對應的十六進位原始位元組流，確保發出的每一幀都符合預期。
+  
+> [!TIP]
+> **配置提示**：輪詢欄的 `Addr` 支援獨立跨段配置，而 `Slave ID` 與功能面板即時聯動。如需同時監控多個不同從站，建議開啟多個視窗實例（僅限 TCP 模式）。
 
-![幀解析助手主頁面](docs/images/frame-analyzer-overview.png)
-![幀解析位址倍率註釋](docs/images/frame-analyzer-address-scale-description.png)
+### 🔘 線圈 (Coils) 二進位下發互動
+專為位元操作設計的互動邏輯，實現對輸出狀態的直覺控制：
+- **Binary 輸入模式**：支援直接輸入位元字串（如 `1 0 1 1`），系統自動將其編碼並配合 0x05 (單寫) 或 0x0F (多寫) 功能碼下發。
+- **位元級感知**：配合 0x01/0x02 讀取指令，實現對遠端設備線圈與離散輸入狀態的高效驗證。
 
-### 🛠️ 4. 輔助工具與設定
-除 Modbus 核心功能外，提供部分基礎的通用測試工具：
-- **通用 TCP Client**：用於基礎的自訂網路報文收發測試。
-- **通用序列埠工具**：用於基礎的序列埠收發測試（支援 ASCII/Hex）。
-- **請求統計面板**：提供基礎的 TX / RX / FAIL / RTT 統計資料。
-- **重試策略設定**：開放 Modbus 請求逾時時間、重試次數和重試間隔的自訂設定。
+### 📊 特色幀分析器 (Frame Analyzer)
+將枯燥的十六進位報文轉化為結構化的業務資料，支援深度分析：
+- **協定拆解**：即時將 Hex 流拆解為 SlaveID、功能碼、起始地址、資料長度及校驗值等關鍵欄位。
+- **工程量轉換**：內建 **縮放因子 (Scale Factor)**，支援將暫存器原始值自動轉換為浮點物理量（如溫度、壓力、頻率）。
+- **多維位元組序分析**：支援 **ABCD (Big Endian)**、**CDAB (Little Endian Byte Swap)**、**BADC (Big Endian Byte Swap)**、**DCBA (Little Endian)** 四種位元組/字序模式，適配各類 PLC 資料排列。
+- **語義標註**：支援為暫存器自定義描述，解析結果反映真實的業務指標，並支援歷史記錄批量匯出。
 
-## 技術棧
+### 🔗 Link to Analyzer (即時聯動分析) — **特色功能**
+打破流量監控與分析器之間的壁壘，實現自動化的解析流：
+- **即時穿透**：擷取的 **RX 回應報文** 可自動推送至分析器解碼，消除頻繁複製 Hex 資料的繁瑣操作。
+- **暫停編輯**：支援 **「暫停重新整理」** 功能，方便在高速通訊場景下駐留特定幀，進而編輯其縮放因子或暫存器描述。
+- **非同步解析**：解析動作在後台非同步完成，不干擾前端流量列表的即時滾動觀測。
 
-- C++20
-- Qt6（Core / Network / SerialPort / Widgets / Charts）
-- CMake (>= 3.16)
-- spdlog（以子模組方式引入）
+---
 
-## 工程結構
+## 📋 技術規格與支援特性
+
+### 📡 標準協定支援
+| 維度 | 支援能力 | 技術細節 |
+| :--- | :--- | :--- |
+| **通訊模式** | **Modbus TCP Client** & **Modbus RTU Master** | 適配網口 (RJ45) 與序列埠 (RS232/RS485) 物理鏈路 |
+| **功能碼集** | FC01 ~ FC04 (讀) / FC05 ~ FC06 (單寫) / FC15 ~ FC16 (多寫) | 涵蓋工業現場主流的 Modbus 應用場景 |
+| **校驗機制** | 自動 CRC16 (RTU) / MBAP 標頭封裝 (TCP) | 生成並驗證報文的合規性與完整性 |
+
+### 🛠 通用調試工具
+除了深度的 Modbus 協定支援，專案同時整合了高效能的通用調試能力：
+- **通用 TCP 用戶端**：支援文字/Hex 雙模式發送，適配各類非標網路協定驗證。
+- **序列埠通訊助手**：支援自定義鮑率、校驗位及資料位元，整合檔案傳輸等實用功能。
+
+---
+
+## 📸 介面預覽 (Screenshots)
+
+<table>
+  <tr>
+    <td align="center"><b>Modbus TCP 幀構建</b></td>
+    <td align="center"><b>Modbus TCP 寫入操作</b></td>
+  </tr>
+  <tr>
+    <td><img src="docs/images/modbus-tcp-frame-builder.png" alt="Modbus TCP 模式" width="400"></td>
+    <td><img src="docs/images/modbus-tcp-write-decimal.png" alt="Modbus 寫入" width="400"></td>
+  </tr>
+  <tr>
+    <td align="center"><b>報文分析器 - 地址,縮放因子與描述</b></td>
+    <td align="center"><b>報文分析器 - 結構樹</b></td>
+  </tr>
+  <tr>
+    <td><img src="docs/images/frame-analyzer-address-scale-description.png" alt="地址,縮放因子,描述" width="400"></td>
+    <td><img src="docs/images/frame-analyzer-overview.png" alt="結構樹解析" width="400"></td>
+  </tr>
+</table>
+
+### 📺 動態演示 (Demo)
+![Linkage & Smart Input Demo](docs/images/demo.gif)
+
+---
+
+---
+
+## 🚀 快速開始 (Getting Started)
+
+### 下載與執行 (Windows)
+1. 前往 [Releases](https://github.com/mingyucheng692/Modbus-Tools/releases) 頁面。
+2. 下載最新的 Modbus-Tools-win64.zip。
+3. 解壓並執行 Modbus-Tools.exe 即可，**無需安裝，綠色執行**。
+
+### 源碼構建 (Build from Source)
+專案基於 **Qt 6.x** 與 **CMake** 構建，支援 MSVC 編譯器：
+```bash
+# 複製專案及其所有子模組
+git clone --recursive https://github.com/mingyucheng692/Modbus-Tools.git  --progress
+cd Modbus-Tools
+
+# 使用 CMake 配置並生成工程
+cmake -S . -B build
+
+# 執行編譯（以 Release 為例）
+cmake --build build --config Release -j
+```
+
+## 🧪 開發與測試
+
+本專案整合 Google Test 單元測試框架，核心協定解析邏輯已實現高比例覆蓋。
+
+- **自動化測試**：
+  - **覆蓋範圍**：涵蓋工作階段層 (Session)、物理通道 (Transport) 及关键報文解析引擎 (Frame Analyzer) 的邊界情況與核心邏輯。
+  - **觸發機制**：系統依託 GitHub Actions，在 **Git Tag (版本發佈)** 時自動執行全量整合驗證、單元測試及分發流程，確保發佈版本的穩定性。
+
+- **在地執行測試**：
+  ```powershell
+  cmake -B build -DMODBUS_TOOLS_BUILD_TESTS=ON
+  cmake --build build --target modbus_test
+  ctest --test-dir build -C Debug --output-on-failure
+  ```
+
+- **測試覆蓋**：已實現對會話層 (Session)、傳輸層 (Transport) 及核心解析引擎 (Frame Analyzer) 的核心邏輯驗證，確保複雜連接環境下的穩定性。
+- **持續整合**：專案維護了 GitHub Action 流水線，針對正式發佈的版本進行自動化的回歸測試與二進位產物分發。
+
+---
+
+## ⚙️ 高級配置與工程化能力
+為了適配複雜的工業現場環境，Modbus-Tools 提供了豐富的通訊控制策略：
+- **重試機制**：支援自定義失敗後的重試策略。
+- **多語言環境**：完整支援英文、簡體中文及繁體中文 UI。
+- **OTA 自動更新**：整合 GitHub API，支援檢測並升級至最新穩定版。
+
+---
+
+## 🏗 專案架構
+
+### 技術棧
+
+| 元件 | 技術 | 說明 |
+| :--- | :--- | :--- |
+| **程式語言** | **C++20** | 現代 C++：constexpr, enum class, 智慧指標, std::optional |
+| **GUI 框架** | **Qt 6** | Widgets, Charts, Network, SerialPort, Concurrent |
+| **日誌系統** | **spdlog** | 非同步日誌 + 檔案輪替（10MB × 20 檔案） |
+| **構建系統** | **CMake 3.16+** | 跨平台構建支援，整合 MSVC 並行編譯優化 |
+| 單元測試 | **Google Test** | 廣泛覆蓋核心協定邏輯，確保產品級穩定性 |
+| **CI/CD** | **GitHub Actions** | 自動化流水線：構建、測試及 Release 發行包分發 |
+
+### 分層架構
 
 ```text
-Modbus-Tools/
-├─ app/           # 程式入口（main.cpp）
-├─ core/          # 通訊與 Modbus 核心邏輯
-├─ ui/            # Qt 介面、檢視、元件、多語系資源
-├─ third_party/   # 第三方相依（目前包含 spdlog 子模組）
-└─ CMakeLists.txt # 頂層建置設定
+┌─────────────────────────────────────────────────────────────┐
+│                       UI 層 (ui/)                           │
+│   MainWindow │ Views │ Widgets │ Theme │ i18n │ Settings    │
+├─────────────────────────────────────────────────────────────┤
+│                     業務邏輯層 (core/)                        │
+│   ┌──────────┐   ┌────────────┐   ┌─────────────────────┐   │
+│   │  Modbus  │   │  I/O 通道   │   │      通用服務        │   │
+│   │  協定棧   │   │  (Channel) │   │  Logger/Settings等  │   │
+│   └──────────┘   └────────────┘   └─────────────────────┘   │
+├─────────────────────────────────────────────────────────────┤
+│                      基礎設施層                               │
+│         Qt6 Framework │ spdlog │ C++ Standard Library       │
+└─────────────────────────────────────────────────────────────┘
 ```
 
-## 建置說明（Windows / MSVC）
+---
 
-### 1) 取得程式碼（含子模組）
+## 🎯 適用場景
 
-```bash
-git clone https://github.com/mingyucheng692/Modbus-Tools.git
-cd Modbus-Tools
+| 場景 | 描述 |
+| :--- | :--- |
+| **設備聯調** | 快速驗證 Modbus 從站的暫存器讀寫是否正常 |
+| **協定分析** | 擷取並解析 Modbus 幀，定位通訊故障 |
+| **批次測試** | 輪詢模式下持續讀取暫存器，監測資料變化 |
+| **非標協定調試** | Raw 模式發送自定義 Hex 幀 |
+| **教學演示** | 直觀展示 Modbus 幀結構與通訊過程 |
+
+### 目標用戶
+
+- 🏭 **工業自動化工程師**：PLC / DCS / SCADA / HMI / 儀器儀表 / BMS / PCS / EMS 系統調試
+- 🔧 **嵌入式開發者**：Modbus 從站設備開發驗證
+- 🔗 **系統整合商**：現場總線通訊問題排查
+- 📚 **學習者**：Modbus 協定學習與研究
+
+---
+
+## 🤝 參與貢獻
+
+歡迎提交 Issue 和 Pull Request，我們非常重視來自社群的貢獻（Bug 修正、新功能、文檔優化等）！
+
+1. **Fork** 本倉庫
+2. **建立特性分支**：`git checkout -b feature/amazing-feature`
+3. **提交更改**：`git commit -m 'Add amazing feature'`
+4. **推送到遠端分支**：`git push origin feature/amazing-feature`
+5. **提交 Pull Request** (PR)
+
+您的每一個 ⭐ Star 都是支持我們持續迭代的最大動力。
+
+### 開發者憑證 (DCO)
+
+本專案採用 **開發者原創證書 (DCO)** 確保貢獻的知識產權清晰。提交 Pull Request 時，請確保您的每個 commit 包含如下簽名行：
+
+```text
+Signed-off-by: 您的名字 <您的電子郵件>
 ```
 
-若已克隆但未拉子模組：
+使用 `git commit -s` 可自動添加此行。透過簽署 DCO，您確認：
+- 該貢獻是由您創作和/或您有權提交；
+- 您同意該貢獻按本專案的 MIT 許可證授權；
+- 您理解該貢獻可能會被修改或重新分發。
 
-```bash
-git submodule update --init --recursive --progress
-```
+---
 
-### 2) 設定工程
+## 📄 開源許可
 
-```bash
-cmake -S . -B build
-```
+本專案基於 [MIT License](LICENSE) 開源。
 
-### 3) 編譯
+Copyright © 2025 - present mingyucheng692
 
-```bash
-cmake --build build --config Release
-```
+### 🔄 二次分發要求
+- 任何對本專案的修改、衍生作品或二次分發行為，**必須完整保留原始版權聲明及本許可文件**。
+- 分發時不得刪除、篡改或隱藏本專案源碼、文檔及構建產物中的任何版權標識、作者署名與許可聲明。
 
-### 4) 執行
+### ⚖️ 第三方依賴許可證摘要
 
-```bash
-.\build\app\Release\Modbus-Tools.exe
-```
+本專案主要使用以下第三方庫。用戶在二次開發或分發時，應遵守其原有的開源許可協議。
 
-## 語言切換
+| 依賴項 | 許可證 | 說明 |
+| :--- | :--- | :--- |
+| **Qt 6** | LGPLv3 | 以動態連結方式使用，支持用戶自由替換庫文件，未修改源碼。 |
+| **spdlog** / **fmt** | MIT | 廣泛應用於日誌記錄與格式化，需保留原始版權聲明。 |
+| **Google Test** | BSD-3-Clause | 僅用於開發環境測試。 |
 
-程式啟動後：
 
-- 預設使用 `en_US`
-- 在選單列點擊 `Language`
-- 可切換到 `簡體中文 (zh_CN)` 或 `繁體中文 (zh_TW)`
+---
 
-## 相依需求
+## ⚖️ 免責聲明
 
-- 已安裝 Qt6，且可被 CMake 找到（`find_package(Qt6 ...)`）
-- Visual Studio 2022（或相容的 MSVC 工具鏈）
-- CMake 3.16 以上
+### 1. 用途限制
+本專案僅適用於開發調試、設備檢測及教學演示。在此類關鍵或生產環境中使用，需用戶自行承擔全部風險。
 
-## ⚠️ 免責聲明
+### 2. 無擔保聲明
+本軟體按 "原樣" (AS IS) 提供。不保證軟體滿足特定需求，不對 Modbus 幀構建或解析結果的準確性提供絕對擔保。
 
-### 1. 軟體性質
-本軟體按 **「原樣」（AS IS）** 提供，不提供任何形式的明示或暗示保證，包括但不限於適銷性、特定用途適用性及非侵權保證。本軟體為 **個人業餘時間開發的免費開源工具**。
+### 3. 責任限制
+在任何情況下，作者或版權持有人均不承擔因使用本軟體導致的直接或間接損害責任。
 
-### 2. 用途說明
-本工具僅設計用於 **測試、除錯與學習目的**。支援多種通訊協定，包括 Modbus、TCP 與序列埠。不適用於關鍵任務系統、生產環境或任何故障可能導致重大損失的場景。
+### 4. 合規性說明
+本軟體未通過任何工業安全認證（如 SIL, IEC 61508），校驗演算法僅供調試參考。用戶需確保其使用符合在地法律。
 
-### 3. 風險警示
-不當使用本軟體可能導致：
-- **設備故障或損壞** – 對設備送出錯誤指令或資料可能變更參數或造成硬體故障
-- **資料遺失或損毀** – 設備設定或儲存資料可能被覆寫或遺失
-- **生產中斷** – 錯誤操作可能導致工業流程或網路服務停機
-- **網路安全風險** – 不當的 TCP/序列埠操作可能暴露漏洞或中斷通訊
-- **財產損失或人身傷害** – 在危險環境中，錯誤操作可能引發安全事故
+### 5. 資料與隱私
+本軟體尊重用戶隱私，遵循最小資料原則：
+- **在地資料**：通訊配置、解析範本及用戶偏好均存儲於在地。
+- **自動更新**：更新檢查功能透過 HTTPS 訪問 GitHub API，僅發送應用版本號及平台標識。
+- **網路通訊**：Modbus TCP 連接由用戶主動發起，僅連接指定的地址。
+- **不收集**：本軟體不收集、存儲或傳輸用戶個人及敏感資訊。
 
-### 4. 責任限制
-開發者（mingyucheng692）**不承擔任何**以下責任：
-- 任何直接、間接、偶然、特殊或後果性損害
-- 利潤、資料或商業機會損失
-- 設備維修或更換費用
-- 生產停機及相關損失
-- 網路中斷或通訊故障
-- 因使用本軟體引發的法律糾紛
+---
 
-### 5. 使用者責任
-使用本軟體即表示您同意：
-- ✅ 充分理解通訊協定（Modbus、TCP、序列埠等）及您的設備規格
-- ✅ 在工業部署前於 **安全、隔離的環境** 中充分測試
-- ✅ 任何操作前確認目標設備位址、連接埠、參數與資料
-- ✅ 修改設備設定前備份原有資料
-- ✅ 確保操作符合網路與工業安全政策
-- ✅ 自行承擔使用本軟體的所有風險
-- ✅ 遵守所有適用的法律法規
+### 🙏 致謝
 
-### 6. 非專業建議
-本軟體不構成專業工程建議。工業部署請諮詢合格工程師並遵循您組織的安全規程。
-
-### 7. 協議確認
-**下載、安裝或使用本軟體，即表示您已閱讀、理解並同意受本免責聲明約束。如不同意，請勿使用本軟體。**
-
-## 🙏 致謝
-
-本專案使用了以下開源函式庫，感謝作者的傑出貢獻：
-
-- **[spdlog](https://github.com/gabime/spdlog)** (MIT License): 高效能 C++ 日誌函式庫，為本專案提供可靠的日誌記錄支援。
-
-## 目前狀態
-
-這是一個持續迭代的個人除錯工具專案，歡迎使用與擴充。
+感謝以下開源專案使 Modbus-Tools 成為可能：
+- [Qt](https://www.qt.io) — 跨平台應用框架
+- [spdlog](https://github.com/gabime/spdlog) — 高效能 C++ 日誌庫
+- [fmt](https://github.com/fmtlib/fmt) — 現代 C++ 格式化庫
