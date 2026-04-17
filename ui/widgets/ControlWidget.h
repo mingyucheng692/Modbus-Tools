@@ -14,6 +14,7 @@
 
 class QCheckBox;
 class QSpinBox;
+class QLineEdit;
 class QComboBox;
 class QLabel;
 class QTimer;
@@ -46,6 +47,13 @@ signals:
     // Poll Requested: Function Code, Address, Quantity
     void pollRequested(uint8_t functionCode, int address, int quantity);
     void linkToggled(bool active);
+    
+    /**
+     * @brief Request to log a message in the parent view.
+     * @param message The message text.
+     * @param isError True if it is an error message.
+     */
+    void logMessageRequested(const QString& message, bool isError);
 
 private:
     void setupUi();
@@ -63,7 +71,7 @@ private:
     QCheckBox* enablePollCheck_ = nullptr;
     QSpinBox* intervalSpin_ = nullptr;
     QComboBox* fcCombo_ = nullptr;
-    QSpinBox* addrSpin_ = nullptr;
+    QLineEdit* addrEdit_ = nullptr;
     QSpinBox* qtySpin_ = nullptr;
     QCheckBox* linkCheck_ = nullptr;
     
@@ -80,6 +88,8 @@ private:
     QString settingsGroup_;
     ui::common::ISettingsService* settingsService_ = nullptr;
     std::function<bool()> connectionValidator_;
+
+    bool skipAddrZeroWarning_ = false;
 };
 
 } // namespace ui::widgets

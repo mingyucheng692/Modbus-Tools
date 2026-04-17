@@ -149,6 +149,17 @@ void ModbusRtuView::setupUi() {
                 }
             });
     }
+
+    if (controlWidget_ && trafficMonitor_) {
+        connect(controlWidget_, &widgets::ControlWidget::logMessageRequested,
+            this, [this](const QString& message, bool isError) {
+                if (isError) {
+                    trafficMonitor_->appendWarning(message);
+                } else {
+                    trafficMonitor_->appendInfo(message);
+                }
+            });
+    }
     
     connect(controlWidget_, &widgets::ControlWidget::pollRequested, this, &ModbusRtuView::pollRequested, Qt::QueuedConnection);
     connect(controlWidget_, &widgets::ControlWidget::linkToggled, this, [this](bool active){

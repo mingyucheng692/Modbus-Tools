@@ -14,11 +14,15 @@
 #include <QLabel>
 #include <QCheckBox>
 #include <QSpinBox>
+#include <QLineEdit>
 #include <QComboBox>
 #include <QTimer>
 #include <QEvent>
 #include <QSignalBlocker>
 #include <QSizePolicy>
+#include <QRegularExpressionValidator>
+#include <QMessageBox>
+#include "modbus/base/ModbusDataHelper.h"
 
 namespace ui::widgets {
 
@@ -57,7 +61,7 @@ ControlWidget::ControlWidget(ui::common::ISettingsService* settingsService, QWid
 
     connect(intervalSpin_, qOverload<int>(&QSpinBox::valueChanged), this, &ControlWidget::saveSettings);
     connect(fcCombo_, qOverload<int>(&QComboBox::currentIndexChanged), this, &ControlWidget::saveSettings);
-    connect(addrSpin_, qOverload<int>(&QSpinBox::valueChanged), this, &ControlWidget::saveSettings);
+    connect(addrEdit_, &QLineEdit::textChanged, this, &ControlWidget::saveSettings);
     connect(qtySpin_, qOverload<int>(&QSpinBox::valueChanged), this, &ControlWidget::saveSettings);
     connect(enablePollCheck_, &QCheckBox::toggled, this, &ControlWidget::saveSettings);
     
@@ -105,7 +109,50 @@ void ControlWidget::onTimer() {
         default: fc = 0x03; break;
     }
     
-    emit pollRequested(fc, addrSpin_->value(), qtySpin_->value());
+    bool ok = false;
+    int addr = modbus::base::ModbusDataHelper::parseSmartInt(addrEdit_->text(), &ok);
+    
+    if (!ok || addr < app::constants::Values::Modbus::kMinAddress || addr > app::constants::Values::Modbus::kMaxAddress) {
+        emit logMessageRequested(tr("Invalid Address format or range (0-65535): %1").arg(addrEdit_->text()), true);
+        return;
+    }
+
+    // Address 0 Confirmation Logic
+    if (addr == 0 && !skipAddrZeroWarning_) {
+        // Pause timer to avoid multiple dialogs
+        bool wasActive = pollTimer_->isActive();
+        if (wasActive) pollTimer_->stop();
+
+        QMessageBox msgBox(this);
+        msgBox.setIcon(QMessageBox::Question);
+        msgBox.setWindowTitle(tr("Confirm Address"));
+        msgBox.setText(tr("The polling address is set to 0. Are you sure you want to continue?"));
+        msgBox.setStandardButtons(QMessageBox::Yes | QMessageBox::No);
+        msgBox.setDefaultButton(QMessageBox::No);
+
+        QCheckBox* cb = new QCheckBox(tr("Do not show this again"), &msgBox);
+        msgBox.setCheckBox(cb);
+
+        int res = msgBox.exec();
+        if (cb->isChecked()) {
+            skipAddrZeroWarning_ = true;
+            saveSettings();
+        }
+
+        if (res != QMessageBox::Yes) {
+            // User cancelled, keep polling disabled or just skip this one
+            if (enablePollCheck_) {
+                QSignalBlocker blocker(enablePollCheck_);
+                enablePollCheck_->setChecked(false);
+            }
+            return;
+        }
+
+        // Resume if it was active
+        if (wasActive) pollTimer_->start();
+    }
+    
+    emit pollRequested(fc, addr, qtySpin_->value());
 }
 
 void ControlWidget::updateStatsLabel() {
@@ -148,7 +195,7 @@ void ControlWidget::loadSettings() {
     if (settingsGroup_.isEmpty() || !settingsService_) return;
     QSignalBlocker b1(intervalSpin_);
     QSignalBlocker b2(fcCombo_);
-    QSignalBlocker b3(addrSpin_);
+    QSignalBlocker b3(addrEdit_);
     QSignalBlocker b4(qtySpin_);
     QSignalBlocker b5(enablePollCheck_);
     QSignalBlocker b6(linkCheck_);
@@ -156,7 +203,9 @@ void ControlWidget::loadSettings() {
     const QString intervalKey = settingsGroup_ + "/intervalMs";
     const QString fcKey = settingsGroup_ + "/fcIndex";
     const QString addrKey = settingsGroup_ + "/addr";
+    const QString addrStrKey = settingsGroup_ + "/pollAddrStr";
     const QString qtyKey = settingsGroup_ + "/qty";
+    const QString skipKey = settingsGroup_ + "/skipAddrZeroPollWarning";
 
     auto getVal = [this](const QString& key, const QVariant& defaultVal) {
         QVariant v = settingsService_->value(key);
@@ -165,8 +214,16 @@ void ControlWidget::loadSettings() {
 
     const int interval = getVal(intervalKey, app::constants::Values::Polling::kDefaultIntervalMs).toInt();
     const int fcIndex = getVal(fcKey, app::constants::Values::Modbus::kDefaultControlFunctionIndex).toInt();
-    const int addr = getVal(addrKey, app::constants::Values::Modbus::kDefaultControlAddress).toInt();
     const int qty = getVal(qtyKey, app::constants::Values::Modbus::kDefaultControlQuantity).toInt();
+    
+    // Load Address: Priority to pollAddrStr, fallback to addr (int)
+    QString addrStr = getVal(addrStrKey, QString()).toString();
+    if (addrStr.isEmpty()) {
+        int oldAddr = getVal(addrKey, app::constants::Values::Modbus::kDefaultControlAddress).toInt();
+        addrStr = QString::number(oldAddr);
+    }
+
+    skipAddrZeroWarning_ = getVal(skipKey, false).toBool();
 
     enablePollCheck_->setChecked(false); // Always OFF on startup
     linkCheck_->setChecked(false);       // Always OFF on startup
@@ -174,7 +231,7 @@ void ControlWidget::loadSettings() {
     if (fcIndex >= 0 && fcIndex < fcCombo_->count()) {
         fcCombo_->setCurrentIndex(fcIndex);
     }
-    addrSpin_->setValue(addr);
+    addrEdit_->setText(addrStr);
     qtySpin_->setValue(qty);
 
     pollTimer_->stop();
@@ -184,8 +241,18 @@ void ControlWidget::saveSettings() {
     if (settingsGroup_.isEmpty() || !settingsService_) return;
     settingsService_->setValue(settingsGroup_ + "/intervalMs", intervalSpin_->value());
     settingsService_->setValue(settingsGroup_ + "/fcIndex", fcCombo_->currentIndex());
-    settingsService_->setValue(settingsGroup_ + "/addr", addrSpin_->value());
+    
+    QString addrStr = addrEdit_->text();
+    settingsService_->setValue(settingsGroup_ + "/pollAddrStr", addrStr);
+    
+    bool ok = false;
+    int addr = modbus::base::ModbusDataHelper::parseSmartInt(addrStr, &ok);
+    if (ok) {
+        settingsService_->setValue(settingsGroup_ + "/addr", addr);
+    }
+    
     settingsService_->setValue(settingsGroup_ + "/qty", qtySpin_->value());
+    settingsService_->setValue(settingsGroup_ + "/skipAddrZeroPollWarning", skipAddrZeroWarning_);
 }
 
 void ControlWidget::setupUi() {
@@ -225,12 +292,13 @@ void ControlWidget::setupUi() {
     // Address
     addrLabel_ = new QLabel(this);
     layout->addWidget(addrLabel_);
-    addrSpin_ = new QSpinBox(this);
-    addrSpin_->setRange(app::constants::Values::Modbus::kMinAddress,
-                        app::constants::Values::Modbus::kMaxAddress);
-    addrSpin_->setValue(app::constants::Values::Modbus::kDefaultControlAddress);
-    addrSpin_->setFixedWidth(80);
-    layout->addWidget(addrSpin_);
+    addrEdit_ = new QLineEdit(this);
+    addrEdit_->setFixedWidth(80);
+    
+    auto hexValidator = new QRegularExpressionValidator(QRegularExpression("[0-9a-fA-FxXHh]*"), this);
+    addrEdit_->setValidator(hexValidator);
+    
+    layout->addWidget(addrEdit_);
     
     // Quantity
     qtyLabel_ = new QLabel(this);
@@ -273,6 +341,9 @@ void ControlWidget::retranslateUi() {
     }
     if (addrLabel_) {
         addrLabel_->setText(tr("Addr:"));
+    }
+    if (addrEdit_) {
+        addrEdit_->setToolTip(tr("Address (0-65535). Supports HEX (0x10 or 10H) and DEC (16)."));
     }
     if (qtyLabel_) {
         qtyLabel_->setText(tr("Qty:"));
