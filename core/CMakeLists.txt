@@ -40,6 +40,10 @@ target_sources(core PRIVATE
     # modbus parser
     modbus/parser/ModbusFrameParser.h
     modbus/parser/ModbusFrameParser.cpp
+    modbus/parser/FrameParseWorker.h
+    modbus/parser/FrameParseWorker.cpp
+    # analyzer common
+    analyzer/AnalyzerCommon.h
     update/UpdateManager.h
     update/UpdateManager.cpp
     common/SettingsController.h
