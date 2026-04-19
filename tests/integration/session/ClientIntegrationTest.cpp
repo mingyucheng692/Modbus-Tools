@@ -34,11 +34,10 @@ protected:
         ON_CALL(*mockTransport_, parseResponse(_)).WillByDefault(Return(ParseResponseResult{ParseResponseStatus::Ok, Pdu(FunctionCode::ReadHoldingRegisters, QByteArray::fromHex("007B"))}));
 
         // Trigger successful connection setup by default
-        std::function<void(ChannelState)> stateHandler;
-        EXPECT_CALL(*mockChannel_, addStateHandler(_)).WillRepeatedly(DoAll(SaveArg<0>(&stateHandler), Return(1)));
-        EXPECT_CALL(*mockChannel_, open()).WillRepeatedly(Invoke([&, this](){
+        EXPECT_CALL(*mockChannel_, addStateHandler(_)).WillRepeatedly(DoAll(SaveArg<0>(&stateHandler_), Return(1)));
+        EXPECT_CALL(*mockChannel_, open()).WillRepeatedly(Invoke([this](){
             currentChannelState_ = ChannelState::Open;
-            if (stateHandler) stateHandler(ChannelState::Open);
+            if (stateHandler_) stateHandler_(ChannelState::Open);
             return true;
         }));
         
@@ -64,13 +63,14 @@ protected:
     std::shared_ptr<NiceMock<MockTransport>> mockTransport_;
     std::unique_ptr<ModbusClient> client_;
     std::vector<std::jthread> simulationThreads_;
+    std::function<void(ChannelState)> stateHandler_;
+    std::function<void(QByteArrayView)> readHandler_;
 };
 
 TEST_F(ClientIntegrationTest, SuccessfulRequestAsync) {
     client_->connect(); 
     
-    std::function<void(QByteArrayView)> readHandler;
-    EXPECT_CALL(*mockChannel_, setReadHandler(_)).WillRepeatedly(SaveArg<0>(&readHandler));
+    EXPECT_CALL(*mockChannel_, setReadHandler(_)).WillRepeatedly(SaveArg<0>(&readHandler_));
     
     // Re-trigger connect logic to ensure handlers are captured
     client_->connect(); 
@@ -78,12 +78,12 @@ TEST_F(ClientIntegrationTest, SuccessfulRequestAsync) {
     // ASYNC SIMULATION: 
     // Trigger the mock response with a small delay to simulate real hardware latency.
     // This allows the client state machine to reach its wait loop properly.
-    EXPECT_CALL(*mockChannel_, write(_)).WillOnce(Invoke([&](QByteArrayView){
-        simulationThreads_.emplace_back([readHandler]() {
+    EXPECT_CALL(*mockChannel_, write(_)).WillOnce(Invoke([this](QByteArrayView){
+        simulationThreads_.emplace_back([this]() {
             std::this_thread::sleep_for(std::chrono::milliseconds(20));
-            if (readHandler) {
+            if (this->readHandler_) {
                 QByteArray data = QByteArray::fromHex("010302007B");
-                readHandler(data);
+                this->readHandler_(data);
             }
         });
         return true;
@@ -110,20 +110,19 @@ TEST_F(ClientIntegrationTest, TimeoutHandlingAsync) {
 
 TEST_F(ClientIntegrationTest, RetryLogicAsync) {
     client_->connect(); 
-    std::function<void(QByteArrayView)> readHandler;
-    EXPECT_CALL(*mockChannel_, setReadHandler(_)).WillRepeatedly(SaveArg<0>(&readHandler));
+    EXPECT_CALL(*mockChannel_, setReadHandler(_)).WillRepeatedly(SaveArg<0>(&readHandler_));
     client_->connect();
 
     // Call 1: Timeout (no async callback)
     // Call 2: Success
     EXPECT_CALL(*mockChannel_, write(_)).Times(2)
         .WillOnce(Return(true)) 
-        .WillOnce(Invoke([&](QByteArrayView){
-            simulationThreads_.emplace_back([readHandler]() {
+        .WillOnce(Invoke([this](QByteArrayView){
+            simulationThreads_.emplace_back([this]() {
                 std::this_thread::sleep_for(std::chrono::milliseconds(20));
-                if (readHandler) {
+                if (this->readHandler_) {
                     QByteArray data = QByteArray::fromHex("010302007B");
-                    readHandler(data);
+                    this->readHandler_(data);
                 }
             });
             return true;
