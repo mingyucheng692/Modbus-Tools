@@ -43,17 +43,20 @@ jobs:
           modules: "qtserialport qtcharts"
           cache: 'true'
 
-      - name: Build Project
+      - name: Build & Run Tests (QA Check - ASan Enabled)
         shell: bash
         run: |
-          cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DMODBUS_TOOLS_BUILD_TESTS=ON -DMODBUS_TOOLS_ENABLE_ASAN=ON
-          cmake --build build --config Release -j
+          cmake -S . -B build_qa -DCMAKE_BUILD_TYPE=RelWithDebInfo -DMODBUS_TOOLS_BUILD_TESTS=ON -DMODBUS_TOOLS_ENABLE_ASAN=ON
+          cmake --build build_qa --config RelWithDebInfo -j
+          cd build_qa
+          ctest -C RelWithDebInfo --output-on-failure
 
-      - name: Run Tests
+      - name: Build Production Artifacts (Delivery - Clean Release)
         shell: bash
         run: |
-          cd build
-          ctest -C Release --output-on-failure
+          # Use a separate directory to ensure zero contamination
+          cmake -S . -B build_release -DCMAKE_BUILD_TYPE=Release -DMODBUS_TOOLS_BUILD_TESTS=OFF -DMODBUS_TOOLS_ENABLE_ASAN=OFF
+          cmake --build build_release --config Release -j
 
       - name: Prepare Release Artifacts
         shell: pwsh
@@ -62,14 +65,14 @@ jobs:
           $TAG_NAME = "${{ github.ref_name }}"
           
           # Paths
-          $BUILD_DIR = "build/app/Release"
+          $BUILD_DIR = "build_release/app/Release"
           $RELEASE_DIR = "release_pkg"
           $ZIP_NAME = "Modbus-Tools-$TAG_NAME-windows-x86_64.zip"
           $SINGLE_EXE_NAME = "Modbus-Tools-$TAG_NAME-windows-x86_64-UpdateOnly.exe"
           
           # Create Release Directory via CMake Install
           # This ensures ONLY 'Production' component artifacts are included
-          cmake --install build --prefix $RELEASE_DIR --component Production --config Release
+          cmake --install build_release --prefix $RELEASE_DIR --component Production --config Release
           
           # Artifact A: Full Package (ZIP)
           # (Executables are already in $RELEASE_DIR via install)

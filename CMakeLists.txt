@@ -20,8 +20,9 @@ if(MSVC)
 
     if(MODBUS_TOOLS_ENABLE_ASAN)
         message(STATUS "AddressSanitizer (ASan) enabled for MSVC")
-        add_compile_options(/fsanitize=address)
-        add_link_options(/fsanitize=address)
+        # ASan requires debug info and non-incremental linking
+        add_compile_options(/fsanitize=address /Zi)
+        add_link_options(/fsanitize=address /DEBUG /INCREMENTAL:NO)
     endif()
 endif()
 
