@@ -16,6 +16,7 @@
 #include "modbus/parser/FrameParseWorker.h"
 #include "analyzer/AnalyzerCommon.h"
 #include "analyzer/AnalyzerExporter.h"
+#include "analyzer/ValueFormatter.h"
 #include <QVBoxLayout>
 #include <QHBoxLayout>
 #include <QGroupBox>
@@ -53,13 +54,7 @@ public:
     {}
 
     // --- Helpers ---
-    [[nodiscard]] QString formatDecimalValue(const QVariant& value) const;
-    [[nodiscard]] QString formatHexValue(const QByteArray& rawBytes, const QString& fallbackHex) const;
-    [[nodiscard]] QString formatBinaryValue(const QByteArray& rawBytes, const QString& fallbackBinary) const;
     [[nodiscard]] uint16_t rowAddress(int row) const;
-    [[nodiscard]] double numericValueForDisplay(const QVariant& value, bool* ok) const;
-    [[nodiscard]] QString formatScaledValue(const QVariant& value, const DataMetadata& meta) const;
-    [[nodiscard]] QString buildDescriptionTooltip(const QVariant& value, const DataMetadata& meta) const;
     [[nodiscard]] QString historyItemText(const modbus::core::parser::ParseResult& result) const;
     
     void applyMetadataToRow(int row, const QVariant& value, const DataMetadata& meta);
@@ -145,66 +140,7 @@ public:
 
 // --- FrameAnalyzerWidget Implementation ---
 
-// --- FrameAnalyzerWidgetPrivate Implementations ---
-
-QString FrameAnalyzerWidget::FrameAnalyzerWidgetPrivate::formatDecimalValue(const QVariant& value) const
-{
-    if (!value.isValid()) return QStringLiteral("-");
-    if (value.typeId() == QMetaType::Bool) return value.toBool() ? QStringLiteral("1") : QStringLiteral("0");
-    
-    if (value.typeId() == QMetaType::UShort || value.typeId() == QMetaType::UInt || value.typeId() == QMetaType::Int) {
-        const uint16_t uVal = static_cast<uint16_t>(value.toUInt());
-        if (displayMode == NumberDisplayMode::Signed) {
-            return QString::number(static_cast<int16_t>(uVal));
-        }
-        return QString::number(uVal);
-    }
-    return value.toString();
-}
-
-double FrameAnalyzerWidget::FrameAnalyzerWidgetPrivate::numericValueForDisplay(const QVariant& value, bool* ok) const
-{
-    if (ok) *ok = false;
-    if (!value.isValid() || value.typeId() == QMetaType::Bool) return 0.0;
-
-    if (value.typeId() == QMetaType::UShort || value.typeId() == QMetaType::UInt || value.typeId() == QMetaType::Int) {
-        const uint16_t uVal = static_cast<uint16_t>(value.toUInt());
-        if (ok) *ok = true;
-        if (displayMode == NumberDisplayMode::Signed) {
-            return static_cast<double>(static_cast<int16_t>(uVal));
-        }
-        return static_cast<double>(uVal);
-    }
-    bool localOk = false;
-    const double parsed = value.toDouble(&localOk);
-    if (ok) *ok = localOk;
-    return localOk ? parsed : 0.0;
-}
-
-QString FrameAnalyzerWidget::FrameAnalyzerWidgetPrivate::formatScaledValue(const QVariant& value, const DataMetadata& meta) const
-{
-    bool ok = false;
-    const double raw = numericValueForDisplay(value, &ok);
-    if (!ok) return QStringLiteral("-");
-    return QString::number(raw * meta.scale, 'g', 12);
-}
-
-QString FrameAnalyzerWidget::FrameAnalyzerWidgetPrivate::buildDescriptionTooltip(const QVariant& value, const DataMetadata& meta) const
-{
-    QStringList lines;
-    if (!meta.description.trimmed().isEmpty()) {
-        lines << tr("Description: %1").arg(meta.description.trimmed());
-    }
-    bool ok = false;
-    const double raw = numericValueForDisplay(value, &ok);
-    if (ok) {
-        const double scaled = raw * meta.scale;
-        lines << tr("Raw: %1").arg(QString::number(raw, 'g', 12));
-        lines << tr("Scale: %1").arg(QString::number(meta.scale, 'g', 12));
-        lines << tr("Scaled: %1").arg(QString::number(scaled, 'g', 12));
-    }
-    return lines.join('\n');
-}
+/// --- FrameAnalyzerWidgetPrivate Implementations ---
 
 void FrameAnalyzerWidget::FrameAnalyzerWidgetPrivate::applyMetadataToRow(int row, const QVariant& value, const DataMetadata& meta)
 {
@@ -212,75 +148,18 @@ void FrameAnalyzerWidget::FrameAnalyzerWidgetPrivate::applyMetadataToRow(int row
 
     QTableWidgetItem* descItem = dataTable->item(row, 6);
     if (descItem) {
-        descItem->setToolTip(buildDescriptionTooltip(value, meta));
+        descItem->setToolTip(ValueFormatter::buildDescriptionTooltip(value, meta, displayMode));
     }
     
     QTableWidgetItem* scaledItem = dataTable->item(row, 5);
     if (scaledItem) {
-        scaledItem->setText(formatScaledValue(value, meta));
+        scaledItem->setText(ValueFormatter::formatScaledValue(value, meta, displayMode));
     }
     
     QTableWidgetItem* scaleItem = dataTable->item(row, 4);
     if (scaleItem && scaleItem->text().trimmed().isEmpty()) {
         scaleItem->setText(QString::number(meta.scale, 'g', 12));
     }
-}
-
-QString FrameAnalyzerWidget::FrameAnalyzerWidgetPrivate::formatHexValue(const QByteArray& rawBytes, const QString& fallbackHex) const
-{
-    QString normalized = QString(rawBytes.toHex()).toUpper();
-    if (normalized.isEmpty()) normalized = fallbackHex;
-    normalized.remove(QRegularExpression(QStringLiteral("[^0-9A-Fa-f]")));
-    if (normalized.isEmpty()) return fallbackHex;
-
-    const int digits = normalized.size();
-    bool ok = false;
-    const uint32_t rawValue = normalized.toUInt(&ok, 16);
-    if (!ok) return fallbackHex;
-
-    uint32_t mask = 0xFFFFFFFFu;
-    int bitWidth = qMax(1, digits * 4);
-    if (bitWidth < 32) mask = (1u << bitWidth) - 1u;
-
-    const uint32_t masked = rawValue & mask;
-    const QString rawHex = QString("%1").arg(masked, digits, 16, QChar('0')).toUpper();
-    return QStringLiteral("0x%1").arg(rawHex);
-}
-
-QString FrameAnalyzerWidget::FrameAnalyzerWidgetPrivate::formatBinaryValue(const QByteArray& rawBytes, const QString& fallbackBinary) const
-{
-    bool ok = false;
-    uint32_t rawValue = 0;
-    int bitWidth = 0;
-    if (!rawBytes.isEmpty()) {
-        QString normalized = QString(rawBytes.toHex()).toUpper();
-        normalized.remove(QRegularExpression(QStringLiteral("[^0-9A-Fa-f]")));
-        if (normalized.isEmpty()) return fallbackBinary;
-        rawValue = normalized.toUInt(&ok, 16);
-        bitWidth = normalized.size() * 4;
-    }
-
-    if (!ok) {
-        QString bin = fallbackBinary;
-        bin.remove(QRegularExpression(QStringLiteral("[^0-1]")));
-        if (bin.isEmpty()) return fallbackBinary;
-        rawValue = bin.toUInt(&ok, 2);
-        bitWidth = bin.size();
-    }
-
-    if (!ok) return fallbackBinary;
-
-    uint32_t mask = 0xFFFFFFFFu;
-    if (bitWidth < 32) mask = (1u << bitWidth) - 1u;
-    
-    const uint32_t masked = rawValue & mask;
-    auto groupBits = [](const QString& bits) {
-        QString grouped = bits;
-        for (int k = grouped.size() - 4; k > 0; k -= 4) grouped.insert(k, ' ');
-        return grouped;
-    };
-
-    return groupBits(QString("%1").arg(masked, bitWidth, 2, QChar('0')));
 }
 
 uint16_t FrameAnalyzerWidget::FrameAnalyzerWidgetPrivate::rowAddress(int row) const
@@ -544,7 +423,10 @@ void FrameAnalyzerWidget::FrameAnalyzerWidgetPrivate::createResultGroup()
     linkageStopBtn->setStyleSheet("color: #EF4444; border: 1px solid #EF4444; background-color: white; font-weight: bold; padding: 0 10px; border-radius: 4px;");
     linkageStopBtn->setMinimumHeight(28);
     linkageStopBtn->setVisible(false);
-    connect(linkageStopBtn, &QPushButton::clicked, q_ptr, &FrameAnalyzerWidget::linkageStopRequested);
+    connect(linkageStopBtn, &QPushButton::clicked, q_ptr, [this]() {
+        q_ptr->clearResult(); // Clear UI state immediately
+        emit q_ptr->linkageStopRequested();
+    });
     liveLayout->addWidget(linkageStopBtn);
     
     resultToolbarLayout->addWidget(liveContainer);
@@ -870,37 +752,40 @@ void FrameAnalyzerWidget::renderResult(const ParseResult& result)
     };
 
     if (d->overviewTree) {
-        auto* root = new QTreeWidgetItem(d->overviewTree);
-        root->setText(0, tr("Frame"));
-        root->setText(1, tr("%1 bytes").arg(result.rawFrame.size()));
-        root->setText(2, result.protocol == ProtocolType::Tcp ? tr("Modbus TCP") : tr("Modbus RTU"));
+        d->overviewTree->clear();
+        if (!d->isLiveMode) {
+            auto* root = new QTreeWidgetItem(d->overviewTree);
+            root->setText(0, tr("Frame"));
+            root->setText(1, tr("%1 bytes").arg(result.rawFrame.size()));
+            root->setText(2, result.protocol == ProtocolType::Tcp ? tr("Modbus TCP") : tr("Modbus RTU"));
 
-        addTreeItem(root, tr("Raw Hex"), QStringLiteral("0x") + result.rawFrame.toHex().toUpper());
-        
-        if (result.protocol == ProtocolType::Tcp) {
-            auto* mbap = addTreeItem(root, tr("MBAP Header"), QStringLiteral("-"));
-            addTreeItem(mbap, tr("Transaction ID"), QString::number(result.transactionId));
-            addTreeItem(mbap, tr("Protocol ID"), QString::number(result.protocolId));
-            addTreeItem(mbap, tr("Length"), QString::number(result.length));
-            addTreeItem(mbap, tr("Unit ID"), QString::number(result.slaveId));
-        } else {
-            addTreeItem(root, tr("Slave ID"), QString::number(result.slaveId));
-        }
+            addTreeItem(root, tr("Raw Hex"), QStringLiteral("0x") + result.rawFrame.toHex().toUpper());
+            
+            if (result.protocol == ProtocolType::Tcp) {
+                auto* mbap = addTreeItem(root, tr("MBAP Header"), QStringLiteral("-"));
+                addTreeItem(mbap, tr("Transaction ID"), QString::number(result.transactionId));
+                addTreeItem(mbap, tr("Protocol ID"), QString::number(result.protocolId));
+                addTreeItem(mbap, tr("Length"), QString::number(result.length));
+                addTreeItem(mbap, tr("Unit ID"), QString::number(result.slaveId));
+            } else {
+                addTreeItem(root, tr("Slave ID"), QString::number(result.slaveId));
+            }
 
-        auto* pdu = addTreeItem(root, tr("PDU"), QStringLiteral("-"));
-        const QString fcHex = QStringLiteral("0x%1").arg(static_cast<int>(result.functionCode), 2, 16, QChar('0')).toUpper();
-        addTreeItem(pdu, tr("Function Code"), fcHex);
-        
-        if (result.isException) {
-            addTreeItem(pdu, tr("Exception Code"), QStringLiteral("0x%1").arg(static_cast<int>(result.exceptionCode), 2, 16, QChar('0')).toUpper());
-        }
+            auto* pdu = addTreeItem(root, tr("PDU"), QStringLiteral("-"));
+            const QString fcHex = QStringLiteral("0x%1").arg(static_cast<int>(result.functionCode), 2, 16, QChar('0')).toUpper();
+            addTreeItem(pdu, tr("Function Code"), fcHex);
+            
+            if (result.isException) {
+                addTreeItem(pdu, tr("Exception Code"), QStringLiteral("0x%1").arg(static_cast<int>(result.exceptionCode), 2, 16, QChar('0')).toUpper());
+            }
 
-        if (result.protocol == ProtocolType::Rtu) {
-            QString crcStatus = result.checksumValid ? tr("Valid") : tr("Invalid (Expected 0x%1)").arg(QString::number(result.calculatedChecksum, 16).toUpper());
-            addTreeItem(root, tr("CRC16"), QStringLiteral("0x%1").arg(result.checksum, 4, 16, QChar('0')).toUpper(), crcStatus);
+            if (result.protocol == ProtocolType::Rtu) {
+                QString crcStatus = result.checksumValid ? tr("Valid") : tr("Invalid (Expected 0x%1)").arg(QString::number(result.calculatedChecksum, 16).toUpper());
+                addTreeItem(root, tr("CRC16"), QStringLiteral("0x%1").arg(result.checksum, 4, 16, QChar('0')).toUpper(), crcStatus);
+            }
+            
+            d->overviewTree->expandAll();
         }
-        
-        d->overviewTree->expandAll();
     }
 
     if (d->dataTable) {
@@ -916,21 +801,21 @@ void FrameAnalyzerWidget::renderResult(const ParseResult& result)
             addrItem->setFlags(addrItem->flags() & ~Qt::ItemIsEditable);
             d->dataTable->setItem(i, 0, addrItem);
 
-            auto* hexItem = new QTableWidgetItem(d->formatHexValue(item.rawBytes, item.hexString));
+            auto* hexItem = new QTableWidgetItem(ValueFormatter::formatHexValue(item.rawBytes, item.hexString));
             hexItem->setFlags(addrItem->flags());
             d->dataTable->setItem(i, 1, hexItem);
 
-            auto* decItem = new QTableWidgetItem(d->formatDecimalValue(item.value));
+            auto* decItem = new QTableWidgetItem(ValueFormatter::formatDecimalValue(item.value, d->displayMode));
             decItem->setFlags(addrItem->flags());
             d->dataTable->setItem(i, 2, decItem);
 
-            auto* binItem = new QTableWidgetItem(d->formatBinaryValue(item.rawBytes, item.binaryString));
+            auto* binItem = new QTableWidgetItem(ValueFormatter::formatBinaryValue(item.rawBytes, item.binaryString));
             binItem->setFlags(addrItem->flags());
             d->dataTable->setItem(i, 3, binItem);
 
             d->dataTable->setItem(i, 4, new QTableWidgetItem(QString::number(meta.scale, 'g', 12)));
             
-            auto* scaledItem = new QTableWidgetItem(d->formatScaledValue(item.value, meta));
+            auto* scaledItem = new QTableWidgetItem(ValueFormatter::formatScaledValue(item.value, meta, d->displayMode));
             scaledItem->setFlags(addrItem->flags());
             d->dataTable->setItem(i, 5, scaledItem);
 

@@ -46,6 +46,7 @@ target_sources(core PRIVATE
     analyzer/AnalyzerCommon.h
     analyzer/AnalyzerExporter.h
     analyzer/AnalyzerExporter.cpp
+    analyzer/ValueFormatter.cpp
     update/UpdateManager.h
     update/UpdateManager.cpp
     common/SettingsController.h
