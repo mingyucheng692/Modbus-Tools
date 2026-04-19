@@ -359,17 +359,6 @@ QString FrameAnalyzerWidget::formatHexValue(const QByteArray& rawBytes, const QS
     const int bitWidth = qMax(1, digits * 4);
     const uint32_t masked = rawValue & maskForBits(bitWidth);
     const QString rawHex = QString("%1").arg(masked, digits, 16, QChar('0')).toUpper();
-    if (displayMode_ == NumberDisplayMode::Unsigned) {
-        return QString("0x%1").arg(rawHex);
-    }
-    if (bitWidth == 16) {
-        const int16_t signedValue = static_cast<int16_t>(masked);
-        return QString("0x%1 (%2)").arg(rawHex).arg(signedValue);
-    }
-    if (bitWidth == 8) {
-        const int8_t signedValue = static_cast<int8_t>(masked);
-        return QString("0x%1 (%2)").arg(rawHex).arg(signedValue);
-    }
     return QString("0x%1").arg(rawHex);
 }
 
@@ -400,17 +389,6 @@ QString FrameAnalyzerWidget::formatBinaryValue(const QByteArray& rawBytes, const
     }
     const uint32_t masked = rawValue & maskForBits(bitWidth);
     const QString bits = groupBits(QString::number(masked, 2).rightJustified(bitWidth, '0'));
-    if (displayMode_ == NumberDisplayMode::Unsigned) {
-        return bits;
-    }
-    if (bitWidth == 16) {
-        const int16_t signedValue = static_cast<int16_t>(masked);
-        return QString("%1 (%2)").arg(bits).arg(signedValue);
-    }
-    if (bitWidth == 8) {
-        const int8_t signedValue = static_cast<int8_t>(masked);
-        return QString("%1 (%2)").arg(bits).arg(signedValue);
-    }
     return bits;
 }
 
@@ -1423,6 +1401,9 @@ void FrameAnalyzerWidget::exportCurrentTableToCsv(const QString& filePath) const
             }
 
             QTextStream stream(&file);
+            if (firstChunk) {
+                stream.setGenerateByteOrderMark(true);
+            }
             for (const QString& line : lines) {
                 stream << line << '\n';
             }
