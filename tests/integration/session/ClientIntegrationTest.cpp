@@ -48,6 +48,9 @@ protected:
     }
 
     void TearDown() override {
+        // Joining all simulation threads before destroying objects
+        simulationThreads_.clear();
+        
         if (client_) {
             client_->abort(); // Secure shutdown for industrial standard
             client_.reset();
@@ -60,6 +63,7 @@ protected:
     std::shared_ptr<NiceMock<MockChannel>> mockChannel_;
     std::shared_ptr<NiceMock<MockTransport>> mockTransport_;
     std::unique_ptr<ModbusClient> client_;
+    std::vector<std::jthread> simulationThreads_;
 };
 
 TEST_F(ClientIntegrationTest, SuccessfulRequestAsync) {
@@ -75,13 +79,13 @@ TEST_F(ClientIntegrationTest, SuccessfulRequestAsync) {
     // Trigger the mock response with a small delay to simulate real hardware latency.
     // This allows the client state machine to reach its wait loop properly.
     EXPECT_CALL(*mockChannel_, write(_)).WillOnce(Invoke([&](QByteArrayView){
-        std::thread([readHandler]() {
+        simulationThreads_.emplace_back([readHandler]() {
             std::this_thread::sleep_for(std::chrono::milliseconds(20));
             if (readHandler) {
                 QByteArray data = QByteArray::fromHex("010302007B");
                 readHandler(data);
             }
-        }).detach();
+        });
         return true;
     }));
     
@@ -115,13 +119,13 @@ TEST_F(ClientIntegrationTest, RetryLogicAsync) {
     EXPECT_CALL(*mockChannel_, write(_)).Times(2)
         .WillOnce(Return(true)) 
         .WillOnce(Invoke([&](QByteArrayView){
-            std::thread([readHandler]() {
+            simulationThreads_.emplace_back([readHandler]() {
                 std::this_thread::sleep_for(std::chrono::milliseconds(20));
                 if (readHandler) {
                     QByteArray data = QByteArray::fromHex("010302007B");
                     readHandler(data);
                 }
-            }).detach();
+            });
             return true;
         }));
     

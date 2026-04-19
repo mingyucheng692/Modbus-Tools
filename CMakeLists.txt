@@ -21,8 +21,9 @@ if(MSVC)
     if(MODBUS_TOOLS_ENABLE_ASAN)
         message(STATUS "AddressSanitizer (ASan) enabled for MSVC")
         # ASan requires debug info and non-incremental linking
+        # Use LINKER: prefix to ensure CMake handles MSVC flag propagation correctly
         add_compile_options(/fsanitize=address /Zi)
-        add_link_options(/fsanitize=address /DEBUG /INCREMENTAL:NO)
+        add_link_options("LINKER:/fsanitize=address" /DEBUG /INCREMENTAL:NO)
     endif()
 endif()
 
