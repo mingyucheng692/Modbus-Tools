@@ -23,3 +23,8 @@ if(MODBUS_TOOLS_ENABLE_PCH AND COMMAND target_precompile_headers)
         <memory>
     )
 endif()
+
+install(TARGETS Modbus-Tools 
+    RUNTIME DESTINATION . 
+    COMPONENT Production
+)

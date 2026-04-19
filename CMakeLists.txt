@@ -9,13 +9,19 @@ option(MODBUS_TOOLS_ENABLE_PARALLEL_COMPILE "Enable parallel compile for MSVC" O
 option(MODBUS_TOOLS_ENABLE_PCH "Enable precompiled headers" ON)
 option(MODBUS_TOOLS_INCLUDE_PRERELEASE "Include pre-release when checking updates" OFF)
 option(MODBUS_TOOLS_BUILD_TESTS "Build unit tests" OFF)
-
+option(MODBUS_TOOLS_ENABLE_ASAN "Enable AddressSanitizer (ASan) for memory safety" OFF)
 
 if(MSVC)
     if(MODBUS_TOOLS_ENABLE_PARALLEL_COMPILE)
         add_compile_options(/utf-8 /MP)
     else()
         add_compile_options(/utf-8)
+    endif()
+
+    if(MODBUS_TOOLS_ENABLE_ASAN)
+        message(STATUS "AddressSanitizer (ASan) enabled for MSVC")
+        add_compile_options(/fsanitize=address)
+        add_link_options(/fsanitize=address)
     endif()
 endif()
 

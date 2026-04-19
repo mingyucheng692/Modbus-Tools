@@ -20,3 +20,8 @@ if(MSVC)
         "/MANIFESTUAC:level='requireAdministrator' uiAccess='false'"
     )
 endif()
+
+install(TARGETS updater 
+    RUNTIME DESTINATION . 
+    COMPONENT Production
+)
