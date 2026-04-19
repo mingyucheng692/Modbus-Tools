@@ -71,16 +71,14 @@ QString ValueFormatter::buildDescriptionTooltip(const QVariant& value, const Dat
 
 QString ValueFormatter::formatHexValue(const QByteArray& rawBytes, const QString& fallbackHex)
 {
-    QString normalized = QString(rawBytes.toHex()).toUpper();
-    if (normalized.isEmpty()) normalized = fallbackHex;
-    normalized.remove(QRegularExpression(QStringLiteral("[^0-9A-Fa-f]")));
-    if (normalized.isEmpty()) return fallbackHex;
-
-    const int digits = normalized.size();
+    if (rawBytes.isEmpty()) return fallbackHex;
+    
     bool ok = false;
-    const uint32_t rawValue = normalized.toUInt(&ok, 16);
+    const QString hexString = QString(rawBytes.toHex()).toUpper();
+    const uint32_t rawValue = hexString.toUInt(&ok, 16);
     if (!ok) return fallbackHex;
 
+    const int digits = hexString.size();
     uint32_t mask = 0xFFFFFFFFu;
     int bitWidth = qMax(1, digits * 4);
     if (bitWidth < 32) mask = (1u << bitWidth) - 1u;
@@ -92,27 +90,14 @@ QString ValueFormatter::formatHexValue(const QByteArray& rawBytes, const QString
 
 QString ValueFormatter::formatBinaryValue(const QByteArray& rawBytes, const QString& fallbackBinary)
 {
+    if (rawBytes.isEmpty()) return fallbackBinary;
+
     bool ok = false;
-    uint32_t rawValue = 0;
-    int bitWidth = 0;
-    if (!rawBytes.isEmpty()) {
-        QString normalized = QString(rawBytes.toHex()).toUpper();
-        normalized.remove(QRegularExpression(QStringLiteral("[^0-9A-Fa-f]")));
-        if (normalized.isEmpty()) return fallbackBinary;
-        rawValue = normalized.toUInt(&ok, 16);
-        bitWidth = normalized.size() * 4;
-    }
-
-    if (!ok) {
-        QString bin = fallbackBinary;
-        bin.remove(QRegularExpression(QStringLiteral("[^0-1]")));
-        if (bin.isEmpty()) return fallbackBinary;
-        rawValue = bin.toUInt(&ok, 2);
-        bitWidth = bin.size();
-    }
-
+    const QString hexString = QString(rawBytes.toHex()).toUpper();
+    const uint32_t rawValue = hexString.toUInt(&ok, 16);
     if (!ok) return fallbackBinary;
 
+    int bitWidth = hexString.size() * 4;
     uint32_t mask = 0xFFFFFFFFu;
     if (bitWidth < 32) mask = (1u << bitWidth) - 1u;
     
