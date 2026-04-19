@@ -24,6 +24,15 @@ jobs:
         with:
           arch: x64
 
+      - name: Install MSVC ASan Component
+        shell: pwsh
+        run: |
+          $vsPath = & "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe" -latest -property installationPath
+          Start-Process -FilePath "$vsPath\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\bin\cmake.exe" -ArgumentList "-E", "sleep", "5" -Wait # Just a dummy to ensure installer is ready
+          # Note: On GitHub Actions, we typically use the pre-installed components. 
+          # If ASan is missing, we use the VS Installer CLI:
+          # Start-Process -Wait -FilePath "C:\Program Files (x86)\Microsoft Visual Studio\Installer\setup.exe" -ArgumentList "modify", "--installPath", "`"$vsPath`"", "--add", "Microsoft.VisualStudio.Component.VC.ASAN", "--passive", "--norestart"
+
       - name: Install Qt
         uses: jurplel/install-qt-action@v3
         with:
@@ -37,7 +46,7 @@ jobs:
       - name: Build Project
         shell: bash
         run: |
-          cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DMODBUS_TOOLS_BUILD_TESTS=ON
+          cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DMODBUS_TOOLS_BUILD_TESTS=ON -DMODBUS_TOOLS_ENABLE_ASAN=ON
           cmake --build build --config Release -j
 
       - name: Run Tests
@@ -58,12 +67,12 @@ jobs:
           $ZIP_NAME = "Modbus-Tools-$TAG_NAME-windows-x86_64.zip"
           $SINGLE_EXE_NAME = "Modbus-Tools-$TAG_NAME-windows-x86_64-UpdateOnly.exe"
           
-          # Create Release Directory
-          New-Item -ItemType Directory -Force -Path $RELEASE_DIR
+          # Create Release Directory via CMake Install
+          # This ensures ONLY 'Production' component artifacts are included
+          cmake --install build --prefix $RELEASE_DIR --component Production --config Release
           
           # Artifact A: Full Package (ZIP)
-          Copy-Item -Path "$BUILD_DIR/Modbus-Tools.exe" -Destination $RELEASE_DIR
-          Copy-Item -Path "$BUILD_DIR/updater.exe" -Destination $RELEASE_DIR -ErrorAction SilentlyContinue
+          # (Executables are already in $RELEASE_DIR via install)
           
           # Run windeployqt
           windeployqt --release "$RELEASE_DIR/Modbus-Tools.exe"
