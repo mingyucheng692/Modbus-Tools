@@ -1,4 +1,5 @@
 #include <gtest/gtest.h>
+#include <gmock/gmock.h>
 #include <QtCore/QCoreApplication>
 #include <QtCore/QStandardPaths>
 #include <QtCore/QLoggingCategory>
@@ -17,7 +18,8 @@ int main(int argc, char** argv) {
     // Assuming core uses spdlog, set it to warn level for tests
     logging::SetLevel(spdlog::level::warn);
 
-    // 4. Initialize Google Test
+    // 4. Initialize Google Test & Mock
+    testing::InitGoogleMock(&argc, argv);
     testing::InitGoogleTest(&argc, argv);
     
     // 5. Run tests

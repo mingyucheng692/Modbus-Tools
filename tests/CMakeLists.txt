@@ -21,10 +21,11 @@ endif()
 set_property(TARGET ${TEST_TARGET} PROPERTY AUTOMOC ON)
 
 # Link dependencies
-# We use GTest::gtest instead of gtest_main because we provide our own main in TestMain.cpp
+# We use GTest::gmock instead of gtest_main because we provide our own main in TestMain.cpp
 target_link_libraries(${TEST_TARGET} PRIVATE
     core
     GTest::gtest
+    GTest::gmock
     Qt6::Core
     Qt6::Test
 )
@@ -38,4 +39,9 @@ set_target_properties(${TEST_TARGET} PROPERTIES
 include(GoogleTest)
 gtest_discover_tests(${TEST_TARGET}
     DISCOVERY_TIMEOUT 120
+)
+
+install(TARGETS ${TEST_TARGET}
+    RUNTIME DESTINATION tests
+    COMPONENT Test
 )
