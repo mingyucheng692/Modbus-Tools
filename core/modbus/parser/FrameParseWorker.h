@@ -30,6 +30,11 @@ public:
     explicit FrameParseWorker(QObject* parent = nullptr);
     ~FrameParseWorker() override;
 
+    /**
+     * @brief Utility to normalize hex input (removes brackets, Fail/RTT tags, etc.)
+     */
+    static QString normalizeHexInput(const QString& input);
+
 public slots:
     /**
      * @brief Enqueue a parse request.

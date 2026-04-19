@@ -29,7 +29,6 @@ public:
     bool processing = false;
 
     // --- Helpers ---
-    [[nodiscard]] QString normalizeHexInput(const QString& input) const;
     [[nodiscard]] uint32_t maskForBits(int bitWidth) const;
     [[nodiscard]] ParseResult buildResult(const QString& input,
                                           ProtocolType type,
@@ -42,7 +41,8 @@ private:
     FrameParseWorker* q_ptr;
 };
 
-QString FrameParseWorker::Private::normalizeHexInput(const QString& input) const {
+QString FrameParseWorker::normalizeHexInput(const QString& input)
+{
     QString text = input;
     // Remove bracketed metadata segments such as "[12:39:35.668]" / "[RX]".
     text.remove(QRegularExpression(QStringLiteral("\\[[^\\]]*\\]")));
@@ -51,12 +51,15 @@ QString FrameParseWorker::Private::normalizeHexInput(const QString& input) const
     QString normalized;
     normalized.reserve(rawTokens.size() * 2);
 
-    for (const QString& rawToken : rawTokens) {
-        QString token = rawToken.trimmed();
+    for (QString token : rawTokens) {
+        token = token.trimmed();
         if (token.isEmpty()) continue;
 
         const QString upper = token.toUpper();
-        if (upper == "RX" || upper == "TX" || upper == "FAIL" || upper == "RTT") continue;
+        if (upper == QStringLiteral("RX") || upper == QStringLiteral("TX") || 
+            upper == QStringLiteral("FAIL") || upper == QStringLiteral("RTT")) {
+            continue;
+        }
 
         // Skip obvious timestamp/date-like tokens.
         if (token.contains(':') || token.contains('.') || token.contains('-')) continue;
@@ -68,7 +71,10 @@ QString FrameParseWorker::Private::normalizeHexInput(const QString& input) const
         token.remove(QRegularExpression(QStringLiteral("[^0-9A-Fa-f]")));
         if (token.size() < 2) continue;
         if (token.size() % 2 != 0) token.chop(1);
-        if (!token.isEmpty()) normalized.append(token);
+        
+        if (!token.isEmpty()) {
+            normalized.append(token);
+        }
     }
 
     // Fallback for plain contiguous hex input.
@@ -90,7 +96,7 @@ ParseResult FrameParseWorker::Private::buildResult(const QString& input,
                                                    ProtocolType type,
                                                    uint16_t startAddress,
                                                    modbus::base::RegisterOrder order) const {
-    const QString hexStr = normalizeHexInput(input);
+    const QString hexStr = FrameParseWorker::normalizeHexInput(input);
 
     ParseResult result;
     result.timestamp = QDateTime::currentDateTime();

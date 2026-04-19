@@ -116,6 +116,10 @@ public:
         inline static constexpr int kMainWindowDefaultWidth = 1280;
         inline static constexpr int kMainWindowDefaultHeight = 800;
         inline static constexpr int kAboutDialogMinWidth = 420;
+        inline static constexpr int kFrameAnalyzerDefaultHistoryWidth = 180;
+        inline static constexpr int kFrameAnalyzerMinHistoryWidth = 120;
+        inline static constexpr int kFrameAnalyzerDefaultInputHeight = 140;
+        inline static constexpr int kFrameAnalyzerDefaultResultsHeight = 520;
         inline static constexpr int kFrameAnalyzerAdaptiveHistoryCollapseWidth = 1040;
         inline static constexpr int kFrameAnalyzerMaxHistoryItems = 20;
         inline static constexpr int kFrameAnalyzerCsvExportChunkRows = 128;
