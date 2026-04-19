@@ -257,17 +257,17 @@
         <location filename="../widgets/FrameAnalyzerWidget.cpp" line="1386"/>
         <location filename="../widgets/TrafficMonitorWidget.cpp" line="270"/>
         <source>Cannot write file: %1</source>
-        <translation type="unfinished">无法写入文件：%1</translation>
+        <translation>无法写入文件：%1</translation>
     </message>
     <message>
         <location filename="../widgets/FrameAnalyzerWidget.cpp" line="876"/>
         <source>Cannot open file: %1</source>
-        <translation type="unfinished">无法打开文件：%1</translation>
+        <translation>无法打开文件：%1</translation>
     </message>
     <message>
         <location filename="../widgets/FrameAnalyzerWidget.cpp" line="881"/>
         <source>Invalid JSON format.</source>
-        <translation type="unfinished">无效的 JSON 格式。</translation>
+        <translation>无效的 JSON 格式。</translation>
     </message>
 </context>
 <context>
@@ -531,27 +531,27 @@ Choose update method:</source>
     <message>
         <location filename="../widgets/UpdateSettingsDialog.cpp" line="35"/>
         <source>Every Startup</source>
-        <translation type="unfinished">每次启动</translation>
+        <translation>每次启动</translation>
     </message>
     <message>
         <location filename="../widgets/UpdateSettingsDialog.cpp" line="36"/>
         <source>Weekly</source>
-        <translation type="unfinished">每周</translation>
+        <translation>每周</translation>
     </message>
     <message>
         <location filename="../widgets/UpdateSettingsDialog.cpp" line="37"/>
         <source>Monthly</source>
-        <translation type="unfinished">每月</translation>
+        <translation>每月</translation>
     </message>
     <message>
         <location filename="../widgets/UpdateSettingsDialog.cpp" line="38"/>
         <source>Disable Update Check</source>
-        <translation type="unfinished">关闭更新检测</translation>
+        <translation>关闭更新检测</translation>
     </message>
     <message>
         <location filename="../widgets/UpdateSettingsDialog.cpp" line="39"/>
         <source>Update Check Frequency:</source>
-        <translation type="unfinished">更新检测频率：</translation>
+        <translation>更新检测频率：</translation>
     </message>
 </context>
 <context>
@@ -567,27 +567,27 @@ Choose update method:</source>
     <message>
         <location filename="../views/generic_serial/GenericSerialView.cpp" line="120"/>
         <source>File transfer started: %1 (%2 bytes)</source>
-        <translation type="unfinished"></translation>
+        <translation>文件传输已开始：%1 (%2 字节)</translation>
     </message>
     <message>
         <location filename="../views/generic_serial/GenericSerialView.cpp" line="128"/>
         <source>File transfer progress: %1 %2/%3</source>
-        <translation type="unfinished"></translation>
+        <translation>文件传输进度：%1 %2/%3</translation>
     </message>
     <message>
         <location filename="../views/generic_serial/GenericSerialView.cpp" line="135"/>
         <source>File transfer finished: %1</source>
-        <translation type="unfinished"></translation>
+        <translation>文件传输完成：%1</translation>
     </message>
     <message>
         <location filename="../views/generic_serial/GenericSerialView.cpp" line="138"/>
         <source>File transfer failed: %1 (%2)</source>
-        <translation type="unfinished"></translation>
+        <translation>文件传输失败：%1 (%2)</translation>
     </message>
     <message>
         <location filename="../views/generic_serial/GenericSerialView.cpp" line="141"/>
         <source>File transfer canceled: %1</source>
-        <translation type="unfinished"></translation>
+        <translation>文件传输已取消：%1</translation>
     </message>
     <message>
         <location filename="../views/generic_serial/GenericSerialView.cpp" line="186"/>
@@ -660,27 +660,27 @@ Choose update method:</source>
     <message>
         <location filename="../views/generic_tcp/GenericTcpView.cpp" line="94"/>
         <source>File transfer started: %1 (%2 bytes)</source>
-        <translation type="unfinished"></translation>
+        <translation>文件传输已开始：%1 (%2 字节)</translation>
     </message>
     <message>
         <location filename="../views/generic_tcp/GenericTcpView.cpp" line="102"/>
         <source>File transfer progress: %1 %2/%3</source>
-        <translation type="unfinished"></translation>
+        <translation>文件传输进度：%1 %2/%3</translation>
     </message>
     <message>
         <location filename="../views/generic_tcp/GenericTcpView.cpp" line="109"/>
         <source>File transfer finished: %1</source>
-        <translation type="unfinished"></translation>
+        <translation>文件传输完成：%1</translation>
     </message>
     <message>
         <location filename="../views/generic_tcp/GenericTcpView.cpp" line="112"/>
         <source>File transfer failed: %1 (%2)</source>
-        <translation type="unfinished"></translation>
+        <translation>文件传输失败：%1 (%2)</translation>
     </message>
     <message>
         <location filename="../views/generic_tcp/GenericTcpView.cpp" line="115"/>
         <source>File transfer canceled: %1</source>
-        <translation type="unfinished"></translation>
+        <translation>文件传输已取消：%1</translation>
     </message>
     <message>
         <location filename="../views/generic_tcp/GenericTcpView.cpp" line="163"/>
@@ -780,8 +780,7 @@ Choose update method:</source>
     </message>
     <message>
         <location filename="../views/modbus_rtu/ModbusRtuView.cpp" line="286"/>
-        <source>Disconnected</source>
-        <translation type="unfinished">已断开</translation>
+        <translation>已断开</translation>
     </message>
     <message>
         <location filename="../views/modbus_rtu/ModbusRtuView.cpp" line="330"/>
@@ -990,14 +989,14 @@ Choose update method:</source>
     <message>
         <location filename="../views/modbus_tcp/ModbusTcpView.cpp" line="376"/>
         <source>Error: Invalid decimal value for 0x05</source>
-        <translation type="unfinished">错误：0x05 十进制值无效</translation>
+        <translation>错误：0x05 十进制值无效</translation>
     </message>
     <message>
         <location filename="../views/modbus_tcp/ModbusTcpView.cpp" line="391"/>
         <location filename="../views/modbus_tcp/ModbusTcpView.cpp" line="397"/>
         <location filename="../views/modbus_tcp/ModbusTcpView.cpp" line="404"/>
         <source>Error: Invalid hex value for 0x05</source>
-        <translation type="unfinished">错误：0x05 十六进制值无效</translation>
+        <translation>错误：0x05 十六进制值无效</translation>
     </message>
     <message>
         <location filename="../views/modbus_tcp/ModbusTcpView.cpp" line="413"/>
@@ -1482,19 +1481,19 @@ Choose update method:</source>
         <location filename="../widgets/FrameAnalyzerWidget.cpp" line="926"/>
         <location filename="../widgets/FrameAnalyzerWidget.cpp" line="1607"/>
         <source>Structure (Unavailable in Live Mode)</source>
-        <translation type="unfinished">结构 (联动模式下不可用)</translation>
+        <translation>结构 (联动模式下不可用)</translation>
     </message>
     <message>
         <location filename="../widgets/FrameAnalyzerWidget.cpp" line="947"/>
         <location filename="../widgets/FrameAnalyzerWidget.cpp" line="1632"/>
         <source>LIVE: %1</source>
-        <translation type="unfinished">联动中: %1</translation>
+        <translation>联动中: %1</translation>
     </message>
     <message>
         <location filename="../widgets/FrameAnalyzerWidget.cpp" line="959"/>
         <location filename="../widgets/FrameAnalyzerWidget.cpp" line="1635"/>
         <source>Live Data Received at %1</source>
-        <translation type="unfinished">实时数据接收于 %1</translation>
+        <translation>实时数据接收于 %1</translation>
     </message>
     <message>
         <location filename="../widgets/FrameAnalyzerWidget.cpp" line="1023"/>

@@ -1022,5 +1022,3 @@ void FrameAnalyzerWidget::retranslateUi()
 }
 
 } // namespace ui::widgets
-
-#include "FrameAnalyzerWidget.moc"

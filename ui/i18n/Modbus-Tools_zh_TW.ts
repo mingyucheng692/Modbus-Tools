@@ -257,17 +257,17 @@
         <location filename="../widgets/FrameAnalyzerWidget.cpp" line="1386"/>
         <location filename="../widgets/TrafficMonitorWidget.cpp" line="270"/>
         <source>Cannot write file: %1</source>
-        <translation type="unfinished">無法寫入檔案：%1</translation>
+        <translation>無法寫入檔案：%1</translation>
     </message>
     <message>
         <location filename="../widgets/FrameAnalyzerWidget.cpp" line="876"/>
         <source>Cannot open file: %1</source>
-        <translation type="unfinished">無法開啟檔案：%1</translation>
+        <translation>無法開啟檔案：%1</translation>
     </message>
     <message>
         <location filename="../widgets/FrameAnalyzerWidget.cpp" line="881"/>
         <source>Invalid JSON format.</source>
-        <translation type="unfinished">無效的 JSON 格式。</translation>
+        <translation>無效的 JSON 格式。</translation>
     </message>
 </context>
 <context>
@@ -531,27 +531,27 @@ Choose update method:</source>
     <message>
         <location filename="../widgets/UpdateSettingsDialog.cpp" line="35"/>
         <source>Every Startup</source>
-        <translation type="unfinished">每次啟動</translation>
+        <translation>每次啟動</translation>
     </message>
     <message>
         <location filename="../widgets/UpdateSettingsDialog.cpp" line="36"/>
         <source>Weekly</source>
-        <translation type="unfinished">每週</translation>
+        <translation>每週</translation>
     </message>
     <message>
         <location filename="../widgets/UpdateSettingsDialog.cpp" line="37"/>
         <source>Monthly</source>
-        <translation type="unfinished">每月</translation>
+        <translation>每月</translation>
     </message>
     <message>
         <location filename="../widgets/UpdateSettingsDialog.cpp" line="38"/>
         <source>Disable Update Check</source>
-        <translation type="unfinished">關閉更新檢查</translation>
+        <translation>關閉更新檢查</translation>
     </message>
     <message>
         <location filename="../widgets/UpdateSettingsDialog.cpp" line="39"/>
         <source>Update Check Frequency:</source>
-        <translation type="unfinished">更新檢查頻率：</translation>
+        <translation>更新檢查頻率：</translation>
     </message>
 </context>
 <context>
@@ -567,27 +567,27 @@ Choose update method:</source>
     <message>
         <location filename="../views/generic_serial/GenericSerialView.cpp" line="120"/>
         <source>File transfer started: %1 (%2 bytes)</source>
-        <translation type="unfinished"></translation>
+        <translation>檔案傳輸已開始：%1 (%2 位元組)</translation>
     </message>
     <message>
         <location filename="../views/generic_serial/GenericSerialView.cpp" line="128"/>
         <source>File transfer progress: %1 %2/%3</source>
-        <translation type="unfinished"></translation>
+        <translation>檔案傳輸進度：%1 %2/%3</translation>
     </message>
     <message>
         <location filename="../views/generic_serial/GenericSerialView.cpp" line="135"/>
         <source>File transfer finished: %1</source>
-        <translation type="unfinished"></translation>
+        <translation>檔案傳輸完成：%1</translation>
     </message>
     <message>
         <location filename="../views/generic_serial/GenericSerialView.cpp" line="138"/>
         <source>File transfer failed: %1 (%2)</source>
-        <translation type="unfinished"></translation>
+        <translation>檔案傳輸失敗：%1 (%2)</translation>
     </message>
     <message>
         <location filename="../views/generic_serial/GenericSerialView.cpp" line="141"/>
         <source>File transfer canceled: %1</source>
-        <translation type="unfinished"></translation>
+        <translation>檔案傳輸已取消：%1</translation>
     </message>
     <message>
         <location filename="../views/generic_serial/GenericSerialView.cpp" line="186"/>
@@ -660,27 +660,27 @@ Choose update method:</source>
     <message>
         <location filename="../views/generic_tcp/GenericTcpView.cpp" line="94"/>
         <source>File transfer started: %1 (%2 bytes)</source>
-        <translation type="unfinished"></translation>
+        <translation>檔案傳輸已開始：%1 (%2 位元組)</translation>
     </message>
     <message>
         <location filename="../views/generic_tcp/GenericTcpView.cpp" line="102"/>
         <source>File transfer progress: %1 %2/%3</source>
-        <translation type="unfinished"></translation>
+        <translation>檔案傳輸進度：%1 %2/%3</translation>
     </message>
     <message>
         <location filename="../views/generic_tcp/GenericTcpView.cpp" line="109"/>
         <source>File transfer finished: %1</source>
-        <translation type="unfinished"></translation>
+        <translation>檔案傳輸完成：%1</translation>
     </message>
     <message>
         <location filename="../views/generic_tcp/GenericTcpView.cpp" line="112"/>
         <source>File transfer failed: %1 (%2)</source>
-        <translation type="unfinished"></translation>
+        <translation>檔案傳輸失敗：%1 (%2)</translation>
     </message>
     <message>
         <location filename="../views/generic_tcp/GenericTcpView.cpp" line="115"/>
         <source>File transfer canceled: %1</source>
-        <translation type="unfinished"></translation>
+        <translation>檔案傳輸已取消：%1</translation>
     </message>
     <message>
         <location filename="../views/generic_tcp/GenericTcpView.cpp" line="163"/>
@@ -781,7 +781,7 @@ Choose update method:</source>
     <message>
         <location filename="../views/modbus_rtu/ModbusRtuView.cpp" line="286"/>
         <source>Disconnected</source>
-        <translation type="unfinished">已斷線</translation>
+        <translation>已斷線</translation>
     </message>
     <message>
         <location filename="../views/modbus_rtu/ModbusRtuView.cpp" line="330"/>
@@ -898,7 +898,7 @@ Choose update method:</source>
     <message>
         <location filename="../views/modbus_rtu/ModbusRtuView.cpp" line="422"/>
         <source>Error: 0x0F requires Hex or Binary data</source>
-        <translation type="unfinished">錯誤：0x0F 需要十六進位或二進位資料</translation>
+        <translation>錯誤：0x0F 需要十六進位或二進位資料</translation>
     </message>
     <message>
         <location filename="../views/modbus_rtu/ModbusRtuView.cpp" line="623"/>
