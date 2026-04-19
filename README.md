@@ -7,7 +7,7 @@
 
 **Visual Frame Builder · Real-time Parsing · Robust Connection Strategies**
 
-[![GitHub Release](https://img.shields.io/github/v/release/mingyucheng692/Modbus-Tools?style=flat-square)](https://github.com/mingyucheng692/Modbus-Tools/releases) [![Release Status](https://github.com/mingyucheng692/Modbus-Tools/actions/workflows/release.yml/badge.svg?style=flat-square)](https://github.com/mingyucheng692/Modbus-Tools/actions/workflows/release.yml) [![License](https://img.shields.io/badge/License-MIT-blue.svg?style=flat-square)](LICENSE)[![Stars](https://img.shields.io/github/stars/mingyucheng692/Modbus-Tools?style=flat-square&logo=github)](https://github.com/mingyucheng692/Modbus-Tools/stargazers) [![Forks](https://img.shields.io/github/forks/mingyucheng692/Modbus-Tools?style=flat-square&logo=github)](https://github.com/mingyucheng692/Modbus-Tools/network/members) [![C++20](https://img.shields.io/badge/C%2B%2B-20-orange.svg?style=flat-square)](https://isocpp.org/std/the-standard) [![Qt6](https://img.shields.io/badge/Qt-6.x-41CD52.svg?style=flat-square)](https://www.qt.io)[![CMake](https://img.shields.io/badge/CMake-3.16+-064F8C?style=flat-square&logo=cmake&logoColor=white)](https://cmake.org/)[![Google Test](https://img.shields.io/badge/Google_Test-1.12+-4285F4?style=flat-square&logo=google&logoColor=white)](https://github.com/google/googletest)
+[![GitHub Release](https://img.shields.io/github/v/release/mingyucheng692/Modbus-Tools?style=flat-square)](https://github.com/mingyucheng692/Modbus-Tools/releases) [![Release Status](https://github.com/mingyucheng692/Modbus-Tools/actions/workflows/release.yml/badge.svg?style=flat-square)](https://github.com/mingyucheng692/Modbus-Tools/actions/workflows/release.yml) [![License](https://img.shields.io/badge/License-MIT-blue.svg?style=flat-square)](LICENSE) [![Stars](https://img.shields.io/github/stars/mingyucheng692/Modbus-Tools?style=flat-square&logo=github)](https://github.com/mingyucheng692/Modbus-Tools/stargazers) [![Forks](https://img.shields.io/github/forks/mingyucheng692/Modbus-Tools?style=flat-square&logo=github)](https://github.com/mingyucheng692/Modbus-Tools/network/members) [![C++20](https://img.shields.io/badge/C%2B%2B-20-orange.svg?style=flat-square)](https://isocpp.org/std/the-standard) [![Qt6](https://img.shields.io/badge/Qt-6.x-41CD52.svg?style=flat-square)](https://www.qt.io) [![CMake](https://img.shields.io/badge/CMake-3.16+-064F8C?style=flat-square&logo=cmake&logoColor=white)](https://cmake.org/) [![Google Test](https://img.shields.io/badge/Google_Test-1.12+-4285F4?style=flat-square&logo=google&logoColor=white)](https://github.com/google/googletest)
 
 **English** | [简体中文](README_zh-CN.md) | [繁體中文](README_zh-TW.md)
 
@@ -118,23 +118,27 @@ cmake -S . -B build
 cmake --build build --config Release -j
 ```
 
-## 🧪 Development & Testing
+## 🧪 Quality & Testing
 
-The project integrates the Google Test framework, with high coverage for core protocol logic.
+This project utilizes the Google Test (GTest) and Google Mock (GMock) frameworks for automated quality assurance. As an open-source collaborative project, the test coverage is primarily intended to optimize logical consistency and reduce defect rates. **It does not provide any form of reliability level guarantee or functional safety certification.**
 
-- **Automated Testing**:
-  - **Scope**: Covers edge cases and core logic for the Session, Transport, and key Frame Analyzer layers.
-  - **Mechanism**: Powered by GitHub Actions, the system automatically performs integration validation, unit testing, and distribution on **Git Tags (releases)**, ensuring the stability of published versions.
+### Test Coverage
+- **Session Management**: Validates connect/disconnect logic, request timeout retries, and error state recovery.
+- **Protocol Transport**: Covers TCP/RTU frame encapsulation, decapsulation, checksum calculation, and integrity validation.
+- **Parsing Logic**: Robustness verification against various valid commands and malformed packets to prevent parsing exceptions.
+- **Data Processing**: Ensures accuracy of endianness conversion, scale factors, and formatting algorithms.
 
-- **Local Testing**:
-  ```powershell
-  cmake -B build -DMODBUS_TOOLS_BUILD_TESTS=ON
-  cmake --build build --target modbus_test
-  ctest --test-dir build -C Debug --output-on-failure
-  ```
+### Automation & Status
+- **Test Pass Rate**: 100% (Current version has passed all automated test cases).
+- **Memory Safety**: Integrated AddressSanitizer (ASan) dynamic monitoring to reduce memory safety risks in core links.
+- **Continuous Integration**: Powered by GitHub Actions, full regression testing is performed during releases to ensure the baseline quality of build artifacts.
 
-- **Test Coverage**: Extensive logic validation for the Session, Transport, and core Frame Analyzer layers, ensuring stability in complex connectivity scenarios.
-- **Continuous Integration**: The project maintains a GitHub Actions pipeline that performs automated regression testing and binary distribution for official releases.
+### Running Local Tests
+```powershell
+cmake -B build -DMODBUS_TOOLS_BUILD_TESTS=ON
+cmake --build build --target modbus_test
+ctest --test-dir build -C Debug --output-on-failure
+```
 
 ---
 
@@ -156,7 +160,7 @@ Designed for complex industrial environments, Modbus-Tools provides extensive co
 | **GUI Framework** | **Qt 6** | Widgets, Charts, Network, SerialPort, Concurrent |
 | **Logger** | **spdlog** | Asynchronous logging with file rotation (10MB × 20 files) |
 | **Build System** | **CMake 3.16+** | Cross-platform build support with MSVC parallel compilation |
-| **Unit Testing** | **Google Test** | High logic coverage ensuring product-grade stability |
+| **Unit Testing** | **Google Test** | High logic coverage intended to optimize logical consistency |
 | **CI/CD** | **GitHub Actions** | Automated pipelines: build, test, and release package distribution |
 
 ### Layers

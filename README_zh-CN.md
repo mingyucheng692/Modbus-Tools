@@ -7,7 +7,7 @@
 
 **可视化帧构建 · 实时报文解析 · 可靠的连接策略**
 
-[![GitHub Release](https://img.shields.io/github/v/release/mingyucheng692/Modbus-Tools?style=flat-square)](https://github.com/mingyucheng692/Modbus-Tools/releases) [![Release Status](https://github.com/mingyucheng692/Modbus-Tools/actions/workflows/release.yml/badge.svg?style=flat-square)](https://github.com/mingyucheng692/Modbus-Tools/actions/workflows/release.yml) [![License](https://img.shields.io/badge/License-MIT-blue.svg?style=flat-square)](LICENSE)[![Stars](https://img.shields.io/github/stars/mingyucheng692/Modbus-Tools?style=flat-square&logo=github)](https://github.com/mingyucheng692/Modbus-Tools/stargazers) [![Forks](https://img.shields.io/github/forks/mingyucheng692/Modbus-Tools?style=flat-square&logo=github)](https://github.com/mingyucheng692/Modbus-Tools/network/members) [![C++20](https://img.shields.io/badge/C%2B%2B-20-orange.svg?style=flat-square)](https://isocpp.org/std/the-standard) [![Qt6](https://img.shields.io/badge/Qt-6.x-41CD52.svg?style=flat-square)](https://www.qt.io)[![CMake](https://img.shields.io/badge/CMake-3.16+-064F8C?style=flat-square&logo=cmake&logoColor=white)](https://cmake.org/)[![Google Test](https://img.shields.io/badge/Google_Test-1.12+-4285F4?style=flat-square&logo=google&logoColor=white)](https://github.com/google/googletest)
+[![GitHub Release](https://img.shields.io/github/v/release/mingyucheng692/Modbus-Tools?style=flat-square)](https://github.com/mingyucheng692/Modbus-Tools/releases) [![Release Status](https://github.com/mingyucheng692/Modbus-Tools/actions/workflows/release.yml/badge.svg?style=flat-square)](https://github.com/mingyucheng692/Modbus-Tools/actions/workflows/release.yml) [![License](https://img.shields.io/badge/License-MIT-blue.svg?style=flat-square)](LICENSE) [![Stars](https://img.shields.io/github/stars/mingyucheng692/Modbus-Tools?style=flat-square&logo=github)](https://github.com/mingyucheng692/Modbus-Tools/stargazers) [![Forks](https://img.shields.io/github/forks/mingyucheng692/Modbus-Tools?style=flat-square&logo=github)](https://github.com/mingyucheng692/Modbus-Tools/network/members) [![C++20](https://img.shields.io/badge/C%2B%2B-20-orange.svg?style=flat-square)](https://isocpp.org/std/the-standard) [![Qt6](https://img.shields.io/badge/Qt-6.x-41CD52.svg?style=flat-square)](https://www.qt.io) [![CMake](https://img.shields.io/badge/CMake-3.16+-064F8C?style=flat-square&logo=cmake&logoColor=white)](https://cmake.org/) [![Google Test](https://img.shields.io/badge/Google_Test-1.12+-4285F4?style=flat-square&logo=google&logoColor=white)](https://github.com/google/googletest)
 
 [English](README.md) | **简体中文** | [繁體中文](README_zh-TW.md)
 
@@ -121,23 +121,27 @@ cmake -S . -B build
 cmake --build build --config Release -j
 ```
 
-## 🧪 开发与测试
+## 🧪 质量与测试 (Testing)
 
-本项目集成 Google Test 单元测试框架，核心协议解析逻辑已实现高比例覆盖。
+本项目使用 Google Test (GTest) 与 Google Mock (GMock) 框架进行自动化质量检测。作为开源协作项目，测试覆盖主要旨在优化逻辑一致性并降低缺陷率，**不提供任何形式的可靠性级别保障或功能安全认证**。
 
-- **自动化测试**：
-  - **覆盖范围**：涵盖会话层 (Session)、物理通道 (Transport) 及关键报文解析引擎 (Frame Analyzer) 的边界情况与核心逻辑。
-  - **触发机制**：系统依托 GitHub Actions，在 **Git Tag (版本发布)** 时自动执行全量集成验证、单元测试及分发流程，确保发布版本的稳定性。
+### 测试覆盖范围
+- **会话管理**：验证连接/断开逻辑、请求超时重试及异常状态恢复。
+- **协议传输**：涵盖 TCP/RTU 报文封装、解包、校验和计算及完整性验证。
+- **解析逻辑**：针对多种有效指令及畸形报文进行鲁棒性验证，防止解析异常。
+- **数据处理**：确保字节序转换、工程量缩放及格式化算法的计算准确性。
 
-- **本地运行测试**：
-  ```powershell
-  cmake -B build -DMODBUS_TOOLS_BUILD_TESTS=ON
-  cmake --build build --target modbus_test
-  ctest --test-dir build -C Debug --output-on-failure
-  ```
+### 自动化与状态
+- **测试通过率**：100% (当前版本已通过全量自动化用例验证)。
+- **内存安全**：集成 AddressSanitizer (ASan) 动态监测，降低核心链路的内存安全风险。
+- **持续集成**：依托 GitHub Actions，在版本发布时执行全量回归测试，确保产物构建的基准质量。
 
-- **测试覆盖**：已实现对会话层 (Session)、传输层 (Transport) 及核心解析引擎 (Frame Analyzer) 的核心逻辑验证，确保复杂连接环境下的稳定性。
-- **持续集成**：项目维护了 GitHub Action 流水线，针对正式发布的版本进行自动化的回归测试与二进制产物分发。
+### 本地运行测试
+```powershell
+cmake -B build -DMODBUS_TOOLS_BUILD_TESTS=ON
+cmake --build build --target modbus_test
+ctest --test-dir build -C Debug --output-on-failure
+```
 
 ---
 
@@ -160,7 +164,7 @@ cmake --build build --config Release -j
 | GUI 框架 | **Qt 6** | Widgets, Charts, Network, SerialPort, Concurrent |
 | 日志系统 | **spdlog** | 异步日志 + 文件轮转（10MB × 20 文件） |
 | 构建系统 | **CMake 3.16+** | 跨平台构建支持，集成 MSVC 并行编译优化 |
-| 单元测试 | **Google Test** | 广泛覆盖核心协议逻辑，确保产品级稳定性 |
+| 单元测试 | **Google Test** | 广泛覆盖核心协议逻辑，旨在优化逻辑一致性 |
 | CI/CD | **GitHub Actions** | 自动化流水线：构建、测试及 Release 解析包分发 |
 
 ### 分层架构
