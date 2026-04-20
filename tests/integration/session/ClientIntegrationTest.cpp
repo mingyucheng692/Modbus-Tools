@@ -19,6 +19,10 @@ protected:
         mockChannel_ = std::make_shared<NiceMock<MockChannel>>();
         mockTransport_ = std::make_shared<NiceMock<MockTransport>>();
         
+        // Capture handlers BEFORE client construction as it hooks them in the constructor
+        EXPECT_CALL(*mockChannel_, setReadHandler(_)).WillRepeatedly(SaveArg<0>(&readHandler_));
+        EXPECT_CALL(*mockChannel_, addStateHandler(_)).WillRepeatedly(DoAll(SaveArg<0>(&stateHandler_), Return(1)));
+
         client_ = std::make_unique<ModbusClient>(mockChannel_, mockTransport_);
         
         modbus::base::ModbusConfig config;
@@ -31,10 +35,10 @@ protected:
         ON_CALL(*mockChannel_, isOpen()).WillByDefault(Invoke([this](){ return currentChannelState_ == ChannelState::Open; }));
         
         ON_CALL(*mockTransport_, buildRequest(_, _)).WillByDefault(Return(QByteArray::fromHex("010300000001")));
-        ON_CALL(*mockTransport_, parseResponse(_)).WillByDefault(Return(ParseResponseResult{ParseResponseStatus::Ok, Pdu(FunctionCode::ReadHoldingRegisters, QByteArray::fromHex("007B"))}));
+        ON_CALL(*mockTransport_, parseResponse(_)).WillByDefault(Return(ParseResponseResult{ParseResponseStatus::Ok, Pdu(FunctionCode::ReadHoldingRegisters, QByteArray::fromHex("02007B"))}));
+        ON_CALL(*mockTransport_, checkIntegrity(_)).WillByDefault(Invoke([](const QByteArray& data){ return data.size(); }));
 
         // Trigger successful connection setup by default
-        EXPECT_CALL(*mockChannel_, addStateHandler(_)).WillRepeatedly(DoAll(SaveArg<0>(&stateHandler_), Return(1)));
         EXPECT_CALL(*mockChannel_, open()).WillRepeatedly(Invoke([this](){
             currentChannelState_ = ChannelState::Open;
             if (stateHandler_) stateHandler_(ChannelState::Open);
@@ -70,11 +74,6 @@ protected:
 TEST_F(ClientIntegrationTest, SuccessfulRequestAsync) {
     client_->connect(); 
     
-    EXPECT_CALL(*mockChannel_, setReadHandler(_)).WillRepeatedly(SaveArg<0>(&readHandler_));
-    
-    // Re-trigger connect logic to ensure handlers are captured
-    client_->connect(); 
-
     // ASYNC SIMULATION: 
     // Trigger the mock response with a small delay to simulate real hardware latency.
     // Use AtLeast(1) and WillRepeatedly to handle potential internal retries in high-load CI.
@@ -110,8 +109,6 @@ TEST_F(ClientIntegrationTest, TimeoutHandlingAsync) {
 
 TEST_F(ClientIntegrationTest, RetryLogicAsync) {
     client_->connect(); 
-    EXPECT_CALL(*mockChannel_, setReadHandler(_)).WillRepeatedly(SaveArg<0>(&readHandler_));
-    client_->connect();
 
     // Use InSequence to strictly control the flow: First call times out, second call succeeds.
     {

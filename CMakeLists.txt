@@ -22,8 +22,8 @@ if(MSVC)
         message(STATUS "AddressSanitizer (ASan) enabled for MSVC")
         # ASan requires debug info and non-incremental linking.
         # We'll apply these globally for MSVC to ensure consistency.
-        add_compile_options(/fsanitize=address /Zi)
-        add_link_options(/fsanitize=address /DEBUG /INCREMENTAL:NO)
+        add_compile_options(/fsanitize:address /Zi)
+        add_link_options(/DEBUG /INCREMENTAL:NO)
         
         # Note: If LNK4044 persists, it typically means LINK.exe is used instead of CL.exe for linking.
         # In modern CMake, /fsanitize=address is the correct flag for both.
