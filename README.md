@@ -7,7 +7,7 @@
 
 **Visual Frame Builder · Real-time Parsing · Robust Connection Strategies**
 
-[![GitHub Release](https://img.shields.io/github/v/release/mingyucheng692/Modbus-Tools?style=flat-square)](https://github.com/mingyucheng692/Modbus-Tools/releases) [![Release Status](https://github.com/mingyucheng692/Modbus-Tools/actions/workflows/release.yml/badge.svg?style=flat-square)](https://github.com/mingyucheng692/Modbus-Tools/actions/workflows/release.yml) [![License](https://img.shields.io/badge/License-MIT-blue.svg?style=flat-square)](LICENSE) [![Stars](https://img.shields.io/github/stars/mingyucheng692/Modbus-Tools?style=flat-square&logo=github)](https://github.com/mingyucheng692/Modbus-Tools/stargazers) [![Forks](https://img.shields.io/github/forks/mingyucheng692/Modbus-Tools?style=flat-square&logo=github)](https://github.com/mingyucheng692/Modbus-Tools/network/members) [![C++20](https://img.shields.io/badge/C%2B%2B-20-orange.svg?style=flat-square)](https://isocpp.org/std/the-standard) [![Qt6](https://img.shields.io/badge/Qt-6.x-41CD52.svg?style=flat-square)](https://www.qt.io) [![CMake](https://img.shields.io/badge/CMake-3.16+-064F8C?style=flat-square&logo=cmake&logoColor=white)](https://cmake.org/) [![Google Test](https://img.shields.io/badge/Google_Test-1.12+-4285F4?style=flat-square&logo=google&logoColor=white)](https://github.com/google/googletest)
+[![GitHub Release](https://img.shields.io/github/v/release/mingyucheng692/Modbus-Tools?style=flat-square)](https://github.com/mingyucheng692/Modbus-Tools/releases) [![Release Status](https://github.com/mingyucheng692/Modbus-Tools/actions/workflows/release.yml/badge.svg?style=flat-square)](https://github.com/mingyucheng692/Modbus-Tools/actions/workflows/release.yml) [![License](https://img.shields.io/badge/License-MIT-blue.svg?style=flat-square)](LICENSE) [![C++20](https://img.shields.io/badge/C%2B%2B-20-orange.svg?style=flat-square)](https://isocpp.org/std/the-standard) [![Qt6](https://img.shields.io/badge/Qt-6.x-41CD52.svg?style=flat-square)](https://www.qt.io) [![CMake](https://img.shields.io/badge/CMake-3.16+-064F8C?style=flat-square&logo=cmake&logoColor=white)](https://cmake.org/) [![Google Test](https://img.shields.io/badge/Google_Test-1.12+-4285F4?style=flat-square&logo=google&logoColor=white)](https://github.com/google/googletest)
 
 **English** | [简体中文](README_zh-CN.md) | [繁體中文](README_zh-TW.md)
 
@@ -129,9 +129,9 @@ This project utilizes the Google Test (GTest) and Google Mock (GMock) frameworks
 - **Data Processing**: Ensures accuracy of endianness conversion, scale factors, and formatting algorithms.
 
 ### Automation & Status
-- **Test Pass Rate**: 100% (Current version has passed all automated test cases).
-- **Memory Safety**: Integrated AddressSanitizer (ASan) dynamic monitoring to reduce memory safety risks in core links.
-- **Continuous Integration**: Powered by GitHub Actions, full regression testing is performed during releases to ensure the baseline quality of build artifacts.
+- **Test Integrity**: 100% of 42 automated test cases passed across all supported tiers.
+- **CI Pipeline**: GitHub Actions integration with MSVC AddressSanitizer (ASan) enabled for automated memory corruption and leak detection.
+- **Reliability Verification**: Regression testing is performed on every release candidate to verify protocol consistency and session state stability.
 
 ### Running Local Tests
 ```powershell

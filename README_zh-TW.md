@@ -7,7 +7,7 @@
 
 **可視化幀構建 · 即時報文解析 · 可靠的連接策略**
 
-[![GitHub Release](https://img.shields.io/github/v/release/mingyucheng692/Modbus-Tools?style=flat-square)](https://github.com/mingyucheng692/Modbus-Tools/releases) [![Release Status](https://github.com/mingyucheng692/Modbus-Tools/actions/workflows/release.yml/badge.svg?style=flat-square)](https://github.com/mingyucheng692/Modbus-Tools/actions/workflows/release.yml) [![License](https://img.shields.io/badge/License-MIT-blue.svg?style=flat-square)](LICENSE) [![Stars](https://img.shields.io/github/stars/mingyucheng692/Modbus-Tools?style=flat-square&logo=github)](https://github.com/mingyucheng692/Modbus-Tools/stargazers) [![Forks](https://img.shields.io/github/forks/mingyucheng692/Modbus-Tools?style=flat-square&logo=github)](https://github.com/mingyucheng692/Modbus-Tools/network/members) [![C++20](https://img.shields.io/badge/C%2B%2B-20-orange.svg?style=flat-square)](https://isocpp.org/std/the-standard) [![Qt6](https://img.shields.io/badge/Qt-6.x-41CD52.svg?style=flat-square)](https://www.qt.io) [![CMake](https://img.shields.io/badge/CMake-3.16+-064F8C?style=flat-square&logo=cmake&logoColor=white)](https://cmake.org/) [![Google Test](https://img.shields.io/badge/Google_Test-1.12+-4285F4?style=flat-square&logo=google&logoColor=white)](https://github.com/google/googletest)
+[![GitHub Release](https://img.shields.io/github/v/release/mingyucheng692/Modbus-Tools?style=flat-square)](https://github.com/mingyucheng692/Modbus-Tools/releases) [![Release Status](https://github.com/mingyucheng692/Modbus-Tools/actions/workflows/release.yml/badge.svg?style=flat-square)](https://github.com/mingyucheng692/Modbus-Tools/actions/workflows/release.yml) [![License](https://img.shields.io/badge/License-MIT-blue.svg?style=flat-square)](LICENSE) [![C++20](https://img.shields.io/badge/C%2B%2B-20-orange.svg?style=flat-square)](https://isocpp.org/std/the-standard) [![Qt6](https://img.shields.io/badge/Qt-6.x-41CD52.svg?style=flat-square)](https://www.qt.io) [![CMake](https://img.shields.io/badge/CMake-3.16+-064F8C?style=flat-square&logo=cmake&logoColor=white)](https://cmake.org/) [![Google Test](https://img.shields.io/badge/Google_Test-1.12+-4285F4?style=flat-square&logo=google&logoColor=white)](https://github.com/google/googletest)
 
 [English](README.md) | [简体中文](README_zh-CN.md) | **繁體中文**
 
@@ -131,9 +131,9 @@ cmake --build build --config Release -j
 - **資料處理**：確保位元組序轉換、工程量縮放及格式化演算法的計算準確性。
 
 ### 自動化與狀態
-- **測試通過率**：100% (當前版本已通過全量自動化案例驗證)。
-- **記憶體安全**：整合 AddressSanitizer (ASan) 動態監測，降低核心鏈路的記憶體安全風險。
-- **持續整合**：依託 GitHub Actions，在版本發佈時執行全量回歸測試，確保產物構建的基準品質。
+- **測試通過率**：全量 42 個自動化測試案例已 100% 通過驗證。
+- **CI 整合**：GitHub Actions 流水線整合了 MSVC AddressSanitizer (ASan)，用於記憶體損壞與洩漏的自動化監測。
+- **回歸驗證**：每次 Release 發佈均執行全量回歸測試，驗證協定一致性與工作階段狀態穩健性。
 
 ### 在地執行測試
 ```powershell
