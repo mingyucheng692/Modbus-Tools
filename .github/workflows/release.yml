@@ -55,7 +55,7 @@ jobs:
         shell: bash
         run: |
           # Use a separate directory to ensure zero contamination
-          cmake -S . -B build_release -DCMAKE_BUILD_TYPE=Release -DMODBUS_TOOLS_BUILD_TESTS=OFF -DMODBUS_TOOLS_ENABLE_ASAN=OFF -DMODBUS_TOOLS_EMBED_RELEASE_I18N=ON
+          cmake -S . -B build_release -DCMAKE_BUILD_TYPE=Release -DMODBUS_TOOLS_BUILD_TESTS=OFF -DMODBUS_TOOLS_ENABLE_ASAN=OFF
           cmake --build build_release --target release_bundle --config Release -j
 
       - name: Prepare Release Artifacts

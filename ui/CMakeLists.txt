@@ -73,41 +73,33 @@ qt_add_lrelease(
     QM_FILES_OUTPUT_VARIABLE ui_translation_qm_files
 )
 
-set(ui_i18n_resource_file "${CMAKE_CURRENT_SOURCE_DIR}/i18n/i18n.qrc")
+set(ui_i18n_resource_file "${CMAKE_CURRENT_BINARY_DIR}/generated/i18n.qrc")
+set(ui_embedded_i18n_qm_list_file "${CMAKE_CURRENT_BINARY_DIR}/generated/i18n_qm_files.cmake")
+file(MAKE_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/generated")
 
-if(MODBUS_TOOLS_EMBED_RELEASE_I18N)
-    set(ui_i18n_resource_file "${CMAKE_CURRENT_BINARY_DIR}/generated/i18n.qrc")
-    set(ui_embedded_i18n_qm_list_file "${CMAKE_CURRENT_BINARY_DIR}/generated/i18n_qm_files.cmake")
-    file(MAKE_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/generated")
+set(ui_embedded_i18n_qm_list_content "set(QM_FILES\n")
+foreach(ui_translation_qm_file IN LISTS ui_translation_qm_files)
+    file(TO_CMAKE_PATH "${ui_translation_qm_file}" ui_translation_qm_path)
+    string(APPEND ui_embedded_i18n_qm_list_content "    \"${ui_translation_qm_path}\"\n")
+endforeach()
+string(APPEND ui_embedded_i18n_qm_list_content ")\n")
+file(GENERATE OUTPUT "${ui_embedded_i18n_qm_list_file}" CONTENT "${ui_embedded_i18n_qm_list_content}")
 
-    set(ui_embedded_i18n_qm_list_content "set(QM_FILES\n")
-    foreach(ui_translation_qm_file IN LISTS ui_translation_qm_files)
-        file(TO_CMAKE_PATH "${ui_translation_qm_file}" ui_translation_qm_path)
-        string(APPEND ui_embedded_i18n_qm_list_content "    \"${ui_translation_qm_path}\"\n")
-    endforeach()
-    string(APPEND ui_embedded_i18n_qm_list_content ")\n")
-    file(GENERATE OUTPUT "${ui_embedded_i18n_qm_list_file}" CONTENT "${ui_embedded_i18n_qm_list_content}")
+add_custom_command(
+    OUTPUT "${ui_i18n_resource_file}"
+    COMMAND ${CMAKE_COMMAND}
+            -DOUTPUT_FILE=${ui_i18n_resource_file}
+            -DQM_FILES_CMAKE=${ui_embedded_i18n_qm_list_file}
+            -P "${CMAKE_SOURCE_DIR}/cmake/GenerateEmbeddedI18nQrc.cmake"
+    DEPENDS modbus_i18n ${ui_translation_qm_files} "${ui_embedded_i18n_qm_list_file}"
+    COMMENT "Generating embedded i18n resource manifest"
+    VERBATIM
+)
 
-    add_custom_command(
-        OUTPUT "${ui_i18n_resource_file}"
-        COMMAND ${CMAKE_COMMAND}
-                -DOUTPUT_FILE=${ui_i18n_resource_file}
-                -DQM_FILES_CMAKE=${ui_embedded_i18n_qm_list_file}
-                -P "${CMAKE_SOURCE_DIR}/cmake/GenerateEmbeddedI18nQrc.cmake"
-        DEPENDS modbus_i18n ${ui_translation_qm_files} "${ui_embedded_i18n_qm_list_file}"
-        COMMENT "Generating embedded i18n resource manifest"
-        VERBATIM
-    )
-
-    add_dependencies(ui modbus_i18n)
-endif()
+add_dependencies(ui modbus_i18n)
 
 target_sources(ui PRIVATE
     "${ui_i18n_resource_file}"
-)
-
-target_compile_definitions(ui PUBLIC
-    MODBUS_TOOLS_PREFER_EMBEDDED_I18N=$<IF:$<BOOL:${MODBUS_TOOLS_EMBED_RELEASE_I18N}>,1,0>
 )
 
 add_custom_target(release_bundle
