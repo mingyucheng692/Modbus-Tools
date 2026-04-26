@@ -16,6 +16,7 @@
 #include <QListView>
 #include <QAbstractListModel>
 #include <QCheckBox>
+#include <QComboBox>
 #include <QLabel>
 #include <QPushButton>
 #include <QDateTime>
@@ -166,6 +167,9 @@ void TrafficMonitorWidget::setupUi() {
     rawFramesCheck_->setChecked(false);
     toolbarLayout->addWidget(rawFramesCheck_);
 
+    levelFilterCombo_ = new QComboBox(this);
+    toolbarLayout->addWidget(levelFilterCombo_);
+
     showTxCheck_ = new QCheckBox(this);
     showTxCheck_->setChecked(true);
     toolbarLayout->addWidget(showTxCheck_);
@@ -220,14 +224,21 @@ void TrafficMonitorWidget::setupUi() {
             return;
         }
         syncPauseUi();
-        rebuildVisibleEntries();
+        scheduleVisibleEntriesRebuild();
     });
     connect(rawFramesCheck_, &QCheckBox::toggled, this, [this]() {
         if (!isViewPaused()) {
             flushPendingEvents();
         }
         syncDisplayModeUi();
-        rebuildVisibleEntries();
+        scheduleVisibleEntriesRebuild();
+        saveSettings();
+    });
+    connect(levelFilterCombo_, &QComboBox::currentIndexChanged, this, [this]() {
+        if (!isViewPaused()) {
+            flushPendingEvents();
+        }
+        scheduleVisibleEntriesRebuild();
         saveSettings();
     });
     connect(showTxCheck_, &QCheckBox::toggled, this, &TrafficMonitorWidget::saveSettings);
@@ -236,13 +247,13 @@ void TrafficMonitorWidget::setupUi() {
         if (!isViewPaused()) {
             flushPendingEvents();
         }
-        rebuildVisibleEntries();
+        scheduleVisibleEntriesRebuild();
     });
     connect(showRxCheck_, &QCheckBox::toggled, this, [this]() {
         if (!isViewPaused()) {
             flushPendingEvents();
         }
-        rebuildVisibleEntries();
+        scheduleVisibleEntriesRebuild();
     });
     connect(section_, &CollapsibleSection::expandedChanged, this, &TrafficMonitorWidget::syncCollapsedGeometry);
     connect(logView_, &QListView::customContextMenuRequested, [this](const QPoint& pos) {
@@ -276,6 +287,42 @@ bool TrafficMonitorWidget::isViewPaused() const {
     return pauseViewCheck_ && pauseViewCheck_->isChecked();
 }
 
+TrafficMonitorWidget::LevelFilter TrafficMonitorWidget::currentLevelFilter() const {
+    if (!levelFilterCombo_) {
+        return LevelFilter::All;
+    }
+
+    switch (levelFilterCombo_->currentIndex()) {
+    case 1:
+        return LevelFilter::Info;
+    case 2:
+        return LevelFilter::Warning;
+    case 3:
+        return LevelFilter::Error;
+    default:
+        return LevelFilter::All;
+    }
+}
+
+bool TrafficMonitorWidget::matchesLevelFilter(const ui::common::TrafficEvent& event) const {
+    if (event.direction != ui::common::TrafficDirection::None) {
+        return true;
+    }
+
+    switch (currentLevelFilter()) {
+    case LevelFilter::All:
+        return true;
+    case LevelFilter::Info:
+        return event.level == ui::common::TrafficEventLevel::Info;
+    case LevelFilter::Warning:
+        return event.level == ui::common::TrafficEventLevel::Warning;
+    case LevelFilter::Error:
+        return event.level == ui::common::TrafficEventLevel::Error;
+    }
+
+    return true;
+}
+
 void TrafficMonitorWidget::syncDisplayModeUi() {
     const bool rawFramesEnabled = currentDisplayMode() == DisplayMode::RawFrames;
     if (showTxCheck_) {
@@ -306,6 +353,7 @@ void TrafficMonitorWidget::appendEventToHistory(const ui::common::TrafficEvent& 
 }
 
 void TrafficMonitorWidget::rebuildVisibleEntries() {
+    rebuildScheduled_ = false;
     if (!logModel_) {
         return;
     }
@@ -325,10 +373,25 @@ void TrafficMonitorWidget::rebuildVisibleEntries() {
     }
 }
 
+void TrafficMonitorWidget::scheduleVisibleEntriesRebuild() {
+    if (rebuildScheduled_) {
+        return;
+    }
+
+    rebuildScheduled_ = true;
+    QTimer::singleShot(0, this, [this]() {
+        rebuildVisibleEntries();
+    });
+}
+
 bool TrafficMonitorWidget::renderEvent(const ui::common::TrafficEvent& event, QString& outText, QColor& outColor) const {
     const QDateTime timestamp = event.timestamp.isValid() ? event.timestamp : QDateTime::currentDateTime();
     const QString timeStr = timestamp.toString("HH:mm:ss.zzz");
     outColor = Qt::gray;
+
+    if (!matchesLevelFilter(event)) {
+        return false;
+    }
 
     const bool rawFramesEnabled = currentDisplayMode() == DisplayMode::RawFrames;
 
@@ -576,25 +639,31 @@ void TrafficMonitorWidget::loadSettings() {
     QSignalBlocker b3(rawFramesCheck_);
     QSignalBlocker b4(showTxCheck_);
     QSignalBlocker b5(showRxCheck_);
+    QSignalBlocker b6(levelFilterCombo_);
 
     const QString autoKey = settingsGroup_ + "/autoScroll";
     const QString rawModeKey = settingsGroup_ + "/rawFramesMode";
     const QString txKey = settingsGroup_ + "/showTx";
     const QString rxKey = settingsGroup_ + "/showRx";
+    const QString levelKey = settingsGroup_ + "/levelFilter";
 
     const bool autoScroll = settingsService_->value(autoKey).toBool();
     const bool rawFramesMode = settingsService_->value(rawModeKey).toBool();
     const bool showTx = settingsService_->value(txKey).toBool();
     const bool showRx = settingsService_->value(rxKey).toBool();
+    const int levelIndex = settingsService_->value(levelKey).toInt();
 
     autoScrollCheck_->setChecked(autoScroll);
     pauseViewCheck_->setChecked(false);
     rawFramesCheck_->setChecked(rawFramesMode);
     showTxCheck_->setChecked(showTx);
     showRxCheck_->setChecked(showRx);
+    if (levelFilterCombo_) {
+        levelFilterCombo_->setCurrentIndex(qBound(0, levelIndex, levelFilterCombo_->count() - 1));
+    }
     syncDisplayModeUi();
     syncPauseUi();
-    rebuildVisibleEntries();
+    scheduleVisibleEntriesRebuild();
 }
 
 void TrafficMonitorWidget::saveSettings() {
@@ -603,6 +672,7 @@ void TrafficMonitorWidget::saveSettings() {
     settingsService_->setValue(settingsGroup_ + "/rawFramesMode", rawFramesCheck_ && rawFramesCheck_->isChecked());
     settingsService_->setValue(settingsGroup_ + "/showTx", showTxCheck_->isChecked());
     settingsService_->setValue(settingsGroup_ + "/showRx", showRxCheck_->isChecked());
+    settingsService_->setValue(settingsGroup_ + "/levelFilter", levelFilterCombo_ ? levelFilterCombo_->currentIndex() : 0);
 }
 
 void TrafficMonitorWidget::syncCollapsedGeometry(bool expanded) {
@@ -638,12 +708,23 @@ void TrafficMonitorWidget::retranslateUi() {
     if (autoScrollCheck_) autoScrollCheck_->setText(tr("Auto Scroll"));
     if (pauseViewCheck_) pauseViewCheck_->setText(tr("Pause View"));
     if (rawFramesCheck_) rawFramesCheck_->setText(tr("Raw Frames"));
+    if (levelFilterCombo_) {
+        const int currentIndex = levelFilterCombo_->currentIndex();
+        QSignalBlocker blocker(levelFilterCombo_);
+        levelFilterCombo_->clear();
+        levelFilterCombo_->addItem(tr("All"));
+        levelFilterCombo_->addItem(tr("Info"));
+        levelFilterCombo_->addItem(tr("Warn"));
+        levelFilterCombo_->addItem(tr("Error"));
+        levelFilterCombo_->setCurrentIndex(qBound(0, currentIndex, levelFilterCombo_->count() - 1));
+    }
     if (showTxCheck_) showTxCheck_->setText(QStringLiteral("TX"));
     if (showRxCheck_) showRxCheck_->setText(QStringLiteral("RX"));
     if (rawHintLabel_) rawHintLabel_->setText(tr("Raw Frames mode may reduce UI smoothness under high-frequency polling."));
     syncPauseUi();
     if (clearBtn_) clearBtn_->setText(tr("Clear"));
     if (saveBtn_) saveBtn_->setText(tr("Save"));
+    scheduleVisibleEntriesRebuild();
 }
 
 void TrafficMonitorWidget::changeEvent(QEvent* event) {

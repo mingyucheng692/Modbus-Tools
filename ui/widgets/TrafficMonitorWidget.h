@@ -16,6 +16,7 @@
 
 class QListView;
 class QCheckBox;
+class QComboBox;
 class QPushButton;
 class QLabel;
 class QEvent;
@@ -58,6 +59,13 @@ private:
         RawFrames
     };
 
+    enum class LevelFilter {
+        All,
+        Info,
+        Warning,
+        Error
+    };
+
     void setupUi();
     QString formatData(const QByteArray& data) const;
     bool isRealtimeEvent(const ui::common::TrafficEvent& event) const;
@@ -65,10 +73,13 @@ private:
     void flushPendingEvents();
     void appendEventToHistory(const ui::common::TrafficEvent& event);
     void rebuildVisibleEntries();
+    void scheduleVisibleEntriesRebuild();
     void syncDisplayModeUi();
     void syncPauseUi();
     bool isViewPaused() const;
     DisplayMode currentDisplayMode() const;
+    LevelFilter currentLevelFilter() const;
+    bool matchesLevelFilter(const ui::common::TrafficEvent& event) const;
     bool renderEvent(const ui::common::TrafficEvent& event, QString& outText, QColor& outColor) const;
     void loadSettings();
     void saveSettings();
@@ -82,6 +93,7 @@ private:
     QCheckBox* autoScrollCheck_ = nullptr;
     QCheckBox* pauseViewCheck_ = nullptr;
     QCheckBox* rawFramesCheck_ = nullptr;
+    QComboBox* levelFilterCombo_ = nullptr;
     QCheckBox* showTxCheck_ = nullptr;
     QCheckBox* showRxCheck_ = nullptr;
     QLabel* rawHintLabel_ = nullptr;
@@ -92,6 +104,7 @@ private:
     QList<ui::common::TrafficEvent> pendingEvents_;
     QList<ui::common::TrafficEvent> eventHistory_;
     int pausedEventCount_ = 0;
+    bool rebuildScheduled_ = false;
 
     QString settingsGroup_;
     ui::common::ISettingsService* settingsService_ = nullptr;
