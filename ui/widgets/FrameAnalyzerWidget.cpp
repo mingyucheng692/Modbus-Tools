@@ -997,6 +997,11 @@ void FrameAnalyzerWidget::processLivePdu(const modbus::base::Pdu& pdu, modbus::c
     if (!d->isLivePaused) renderResult(result);
 }
 
+void FrameAnalyzerWidget::exitLiveMode()
+{
+    clearResult();
+}
+
 void FrameAnalyzerWidget::FrameAnalyzerWidgetPrivate::loadSettings()
 {
     if (!settingsService) return;

@@ -34,6 +34,7 @@ public:
      * @brief 处理来自外部（如会话视图）的实时 PDU 数据。
      */
     void processLivePdu(const modbus::base::Pdu& pdu, modbus::core::parser::ProtocolType protocol, uint16_t addr);
+    void exitLiveMode();
 
 signals:
     void linkageStopRequested();
