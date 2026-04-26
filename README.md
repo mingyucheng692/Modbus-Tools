@@ -34,6 +34,8 @@ Provides intuitive industrial protocol interaction and simplifies the debugging 
 
 > [!TIP]
 > **Configuration**: Polling `Addr` is independent, while `Slave ID` is shared with the function panel. For simultaneous monitoring of different slave IDs, opening multiple windows is recommended (TCP only).
+>
+> **Polling Log Policy**: Single poll failures are recorded as `Warning`. Repeated failures are promoted to `Error` with an adaptive threshold based on the polling interval, and a recovery message is emitted after polling succeeds again.
 
 ### 🔘 Coils Binary Interaction
 Interaction logic specifically designed for bit operations, enabling intuitive control of output states:
