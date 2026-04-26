@@ -10,6 +10,7 @@ option(MODBUS_TOOLS_ENABLE_PCH "Enable precompiled headers" ON)
 option(MODBUS_TOOLS_INCLUDE_PRERELEASE "Include pre-release when checking updates" OFF)
 option(MODBUS_TOOLS_BUILD_TESTS "Build unit tests" OFF)
 option(MODBUS_TOOLS_ENABLE_ASAN "Enable AddressSanitizer (ASan) for memory safety" OFF)
+option(MODBUS_TOOLS_EMBED_RELEASE_I18N "Embed freshly generated translations into the application for release builds" OFF)
 
 if(MSVC)
     if(MODBUS_TOOLS_ENABLE_PARALLEL_COMPILE)

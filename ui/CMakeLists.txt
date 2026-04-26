@@ -8,7 +8,6 @@ target_sources(ui PRIVATE
     common/CompactMenuBarStyle.cpp
     common/CompactMenuBarStyle.h
     common/ISettingsService.h
-    i18n/i18n.qrc
     common/QtThemeRuntime.cpp
     common/QtThemeRuntime.h
     common/SettingsKeys.h
@@ -72,23 +71,46 @@ qt_add_lrelease(
     QM_FILES_OUTPUT_VARIABLE ui_translation_qm_files
 )
 
-add_custom_target(package_runtime_assets
-    COMMAND ${CMAKE_COMMAND} -E make_directory "$<TARGET_FILE_DIR:Modbus-Tools>/i18n"
-    COMMAND ${CMAKE_COMMAND} -E copy_if_different
-            ${ui_translation_qm_files}
-            "$<TARGET_FILE_DIR:Modbus-Tools>/i18n"
-    DEPENDS Modbus-Tools updater modbus_i18n
-    COMMENT "Copying runtime i18n assets"
+set(ui_i18n_resource_file "${CMAKE_CURRENT_SOURCE_DIR}/i18n/i18n.qrc")
+
+if(MODBUS_TOOLS_EMBED_RELEASE_I18N)
+    set(ui_i18n_resource_file "${CMAKE_CURRENT_BINARY_DIR}/generated/i18n.qrc")
+    set(ui_embedded_i18n_qm_list_file "${CMAKE_CURRENT_BINARY_DIR}/generated/i18n_qm_files.cmake")
+    file(MAKE_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/generated")
+
+    set(ui_embedded_i18n_qm_list_content "set(QM_FILES\n")
+    foreach(ui_translation_qm_file IN LISTS ui_translation_qm_files)
+        file(TO_CMAKE_PATH "${ui_translation_qm_file}" ui_translation_qm_path)
+        string(APPEND ui_embedded_i18n_qm_list_content "    \"${ui_translation_qm_path}\"\n")
+    endforeach()
+    string(APPEND ui_embedded_i18n_qm_list_content ")\n")
+    file(GENERATE OUTPUT "${ui_embedded_i18n_qm_list_file}" CONTENT "${ui_embedded_i18n_qm_list_content}")
+
+    add_custom_command(
+        OUTPUT "${ui_i18n_resource_file}"
+        COMMAND ${CMAKE_COMMAND}
+                -DOUTPUT_FILE=${ui_i18n_resource_file}
+                -DQM_FILES_CMAKE=${ui_embedded_i18n_qm_list_file}
+                -P "${CMAKE_SOURCE_DIR}/cmake/GenerateEmbeddedI18nQrc.cmake"
+        DEPENDS modbus_i18n ${ui_translation_qm_files} "${ui_embedded_i18n_qm_list_file}"
+        COMMENT "Generating embedded i18n resource manifest"
+        VERBATIM
+    )
+
+    add_dependencies(ui modbus_i18n)
+endif()
+
+target_sources(ui PRIVATE
+    "${ui_i18n_resource_file}"
+)
+
+target_compile_definitions(ui PUBLIC
+    MODBUS_TOOLS_PREFER_EMBEDDED_I18N=$<IF:$<BOOL:${MODBUS_TOOLS_EMBED_RELEASE_I18N}>,1,0>
 )
 
 add_custom_target(release_bundle
-    DEPENDS Modbus-Tools updater package_runtime_assets
+    DEPENDS Modbus-Tools updater
     COMMENT "Building release bundle artifacts"
-)
-
-install(FILES ${ui_translation_qm_files}
-    DESTINATION i18n
-    COMPONENT Production
 )
 
 target_link_libraries(ui PUBLIC

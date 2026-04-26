@@ -171,12 +171,28 @@ bool loadAppTranslation(QTranslator& translator, const QString& qmFileName) {
 
     const QString diskPath = QDir(QCoreApplication::applicationDirPath())
                                  .filePath(QStringLiteral("i18n/%1").arg(qmFileName));
+    const QString resourcePath = QStringLiteral(":/i18n/%1").arg(qmFileName);
+#if MODBUS_TOOLS_PREFER_EMBEDDED_I18N
+    if (translator.load(resourcePath)) {
+        spdlog::info("Loaded app translation from embedded resource: {}", resourcePath.toStdString());
+        return true;
+    }
+
+    if (translator.load(diskPath)) {
+        spdlog::info("Loaded app translation from disk fallback: {}", diskPath.toStdString());
+        return true;
+    }
+
+    spdlog::warn("Failed to load app translation '{}' from embedded resource '{}' or disk fallback '{}'",
+                 qmFileName.toStdString(),
+                 resourcePath.toStdString(),
+                 diskPath.toStdString());
+#else
     if (translator.load(diskPath)) {
         spdlog::info("Loaded app translation from disk: {}", diskPath.toStdString());
         return true;
     }
 
-    const QString resourcePath = QStringLiteral(":/i18n/%1").arg(qmFileName);
     if (translator.load(resourcePath)) {
         spdlog::info("Loaded app translation from resource fallback: {}", resourcePath.toStdString());
         return true;
@@ -185,6 +201,7 @@ bool loadAppTranslation(QTranslator& translator, const QString& qmFileName) {
     spdlog::warn("Failed to load app translation '{}' from '{}' or resource fallback",
                  qmFileName.toStdString(),
                  diskPath.toStdString());
+#endif
     return false;
 }
 
