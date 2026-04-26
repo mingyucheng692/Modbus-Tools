@@ -1,5 +1,6 @@
 # Build directories
 build/
+build_release/
 bin/
 lib/
 out/
