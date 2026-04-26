@@ -125,8 +125,8 @@ cmake --build build --target Modbus-Tools --config Release -j
 # 当 .ts 发生变化时，单独刷新翻译产物
 cmake --build build --target modbus_i18n --config Release
 
-# 生成发布产物，并将翻译嵌入到 EXE
-cmake -S . -B build_release -DCMAKE_BUILD_TYPE=Release -DMODBUS_TOOLS_BUILD_TESTS=OFF -DMODBUS_TOOLS_ENABLE_ASAN=OFF -DMODBUS_TOOLS_EMBED_RELEASE_I18N=ON
+# 生成发布产物；Release 默认将翻译编译并嵌入到 EXE
+cmake -S . -B build_release -DCMAKE_BUILD_TYPE=Release -DMODBUS_TOOLS_BUILD_TESTS=OFF -DMODBUS_TOOLS_ENABLE_ASAN=OFF
 cmake --build build_release --target release_bundle --config Release -j
 ```
 

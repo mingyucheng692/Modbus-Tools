@@ -122,8 +122,8 @@ cmake --build build --target Modbus-Tools --config Release -j
 # Refresh translation binaries when .ts files change
 cmake --build build --target modbus_i18n --config Release
 
-# Create production artifacts with translations embedded into the EXE
-cmake -S . -B build_release -DCMAKE_BUILD_TYPE=Release -DMODBUS_TOOLS_BUILD_TESTS=OFF -DMODBUS_TOOLS_ENABLE_ASAN=OFF -DMODBUS_TOOLS_EMBED_RELEASE_I18N=ON
+# Create production artifacts; Release embeds compiled translations into the EXE by default
+cmake -S . -B build_release -DCMAKE_BUILD_TYPE=Release -DMODBUS_TOOLS_BUILD_TESTS=OFF -DMODBUS_TOOLS_ENABLE_ASAN=OFF
 cmake --build build_release --target release_bundle --config Release -j
 ```
 
