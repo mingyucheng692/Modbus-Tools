@@ -62,8 +62,11 @@ void cleanupWorker(dispatch::ModbusWorker* worker)
 
 ModbusStack ModbusFactory::createStack(const base::ModbusConfig& config) {
     ModbusStack stack;
+    QThread* threadRaw = new QThread();
+    stack.thread = std::shared_ptr<QThread>(threadRaw, &cleanupThread);
+
     // 1. 创建底层通道 (IO)
-    stack.channel = createChannel(config);
+    stack.channel = createChannel(config, threadRaw);
     if (!stack.channel) return stack;
 
     // 2. 创建传输层策略 (Protocol)
@@ -75,15 +78,12 @@ ModbusStack ModbusFactory::createStack(const base::ModbusConfig& config) {
     stack.client->setConfig(config);
 
     // 4. 创建工作线程 (Dispatch)
-    QThread* threadRaw = new QThread();
-    stack.thread = std::shared_ptr<QThread>(threadRaw, &cleanupThread);
-
     auto workerRaw = new dispatch::ModbusWorker(stack.client, stack.thread.get(), nullptr);
     stack.worker = std::shared_ptr<dispatch::ModbusWorker>(workerRaw, &cleanupWorker);
     return stack;
 }
 
-std::shared_ptr<io::IChannel> ModbusFactory::createChannel(const base::ModbusConfig& config) {
+std::shared_ptr<io::IChannel> ModbusFactory::createChannel(const base::ModbusConfig& config, QThread* workerThread) {
     if (config.mode == base::ModbusMode::RTU) {
         auto serial = std::make_shared<io::SerialChannel>();
         io::SerialConfig serialConfig;
@@ -93,10 +93,12 @@ std::shared_ptr<io::IChannel> ModbusFactory::createChannel(const base::ModbusCon
         serialConfig.stopBits = static_cast<QSerialPort::StopBits>(config.stopBits);
         serialConfig.parity = static_cast<QSerialPort::Parity>(config.parity);
         serial->setConfig(serialConfig);
+        serial->moveToThread(workerThread);
         return serial;
     } else {
         auto tcp = std::make_shared<io::TcpChannel>();
         tcp->setEndpoint(config.ipAddress, config.port);
+        tcp->moveToThread(workerThread);
         return tcp;
     }
 }

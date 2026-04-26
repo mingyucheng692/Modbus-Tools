@@ -9,10 +9,18 @@
 
 #include "SerialChannel.h"
 #include <spdlog/spdlog.h>
+#include <QCoreApplication>
 #include <QThread>
 #include <QMetaObject>
 
 namespace io {
+
+namespace {
+unsigned long long threadToken(QThread* thread)
+{
+    return static_cast<unsigned long long>(reinterpret_cast<quintptr>(thread));
+}
+}
 
 SerialChannel::SerialChannel() {
     writeTimeoutTimer_.setSingleShot(true);
@@ -44,6 +52,8 @@ bool SerialChannel::open() {
             open();
         }, Qt::QueuedConnection);
     }
+
+    logThreadContextOnce("SerialChannel::open", openThreadLogged_);
 
     if (serial_.isOpen()) {
         setState(ChannelState::Open);
@@ -77,8 +87,13 @@ bool SerialChannel::open() {
 }
 
 void SerialChannel::moveToThread(QThread* thread) {
+    spdlog::info("SerialChannel: moveToThread current={} target={}",
+                 threadToken(serial_.thread()),
+                 threadToken(thread));
     serial_.moveToThread(thread);
     writeTimeoutTimer_.moveToThread(thread);
+    openThreadLogged_ = false;
+    ioThreadLogged_ = false;
 }
 
 void SerialChannel::close() {
@@ -206,6 +221,8 @@ void SerialChannel::flushPendingWrites() {
 void SerialChannel::onReadyRead() {
     if (closing_) return;
 
+    logThreadContextOnce("SerialChannel::onReadyRead", ioThreadLogged_);
+
     QByteArray data = serial_.readAll();
     if (!data.isEmpty()) {
         // OS 驱动层推送上来的一批数据视为连续到达，分配统一时间戳
@@ -215,6 +232,26 @@ void SerialChannel::onReadyRead() {
         emitMonitor(false, data);
         emitRead(data);
     }
+}
+
+void SerialChannel::logThreadContextOnce(const char* scope, bool& loggedFlag)
+{
+    if (loggedFlag) {
+        return;
+    }
+    loggedFlag = true;
+    QThread* currentThread = QThread::currentThread();
+    QThread* ownerThread = serial_.thread();
+    QThread* uiThread = QCoreApplication::instance() ? QCoreApplication::instance()->thread() : nullptr;
+    spdlog::info("{} current={} owner={}",
+                 scope,
+                 threadToken(currentThread),
+                 threadToken(ownerThread));
+    spdlog::info("{} ui_thread={} current_is_ui={} owner_is_ui={}",
+                 scope,
+                 threadToken(uiThread),
+                 currentThread == uiThread,
+                 ownerThread == uiThread);
 }
 
 void SerialChannel::onBytesWritten(qint64 bytes) {

@@ -9,10 +9,18 @@
 
 #include "TcpChannel.h"
 #include <spdlog/spdlog.h>
+#include <QCoreApplication>
 #include <QThread>
 #include <QMetaObject>
 
 namespace io {
+
+namespace {
+unsigned long long threadToken(QThread* thread)
+{
+    return static_cast<unsigned long long>(reinterpret_cast<quintptr>(thread));
+}
+}
 
 TcpChannel::TcpChannel() {
     writeTimeoutTimer_.setSingleShot(true);
@@ -51,6 +59,8 @@ bool TcpChannel::open() {
         }, Qt::QueuedConnection);
     }
 
+    logThreadContextOnce("TcpChannel::open", openThreadLogged_);
+
     if (socket_.state() == QAbstractSocket::ConnectedState) {
         setState(ChannelState::Open);
         flushPendingWrites();
@@ -72,8 +82,13 @@ bool TcpChannel::open() {
 }
 
 void TcpChannel::moveToThread(QThread* thread) {
+    spdlog::info("TcpChannel: moveToThread current={} target={}",
+                 threadToken(socket_.thread()),
+                 threadToken(thread));
     socket_.moveToThread(thread);
     writeTimeoutTimer_.moveToThread(thread);
+    openThreadLogged_ = false;
+    ioThreadLogged_ = false;
 }
 
 void TcpChannel::close() {
@@ -184,6 +199,7 @@ void TcpChannel::flushPendingWrites() {
 }
 
 void TcpChannel::onReadyRead() {
+    logThreadContextOnce("TcpChannel::onReadyRead", ioThreadLogged_);
     QByteArray data = socket_.readAll();
     if (!data.isEmpty()) {
         spdlog::info("TcpChannel: Received {} bytes", data.size());
@@ -194,9 +210,30 @@ void TcpChannel::onReadyRead() {
 }
 
 void TcpChannel::onConnected() {
+    logThreadContextOnce("TcpChannel::onConnected", ioThreadLogged_);
     closing_ = false;
     setState(ChannelState::Open);
     flushPendingWrites();
+}
+
+void TcpChannel::logThreadContextOnce(const char* scope, bool& loggedFlag)
+{
+    if (loggedFlag) {
+        return;
+    }
+    loggedFlag = true;
+    QThread* currentThread = QThread::currentThread();
+    QThread* ownerThread = socket_.thread();
+    QThread* uiThread = QCoreApplication::instance() ? QCoreApplication::instance()->thread() : nullptr;
+    spdlog::info("{} current={} owner={}",
+                 scope,
+                 threadToken(currentThread),
+                 threadToken(ownerThread));
+    spdlog::info("{} ui_thread={} current_is_ui={} owner_is_ui={}",
+                 scope,
+                 threadToken(uiThread),
+                 currentThread == uiThread,
+                 ownerThread == uiThread);
 }
 
 void TcpChannel::onBytesWritten(qint64 bytes) {

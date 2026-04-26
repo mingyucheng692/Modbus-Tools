@@ -161,7 +161,6 @@ void ModbusRtuView::setupUi() {
             });
     }
     
-    connect(controlWidget_, &widgets::ControlWidget::pollRequested, this, &ModbusRtuView::pollRequested, Qt::QueuedConnection);
     connect(controlWidget_, &widgets::ControlWidget::linkToggled, this, [this](bool active){
         linked_ = active;
         emit linkageToggled(active);
@@ -207,10 +206,14 @@ void ModbusRtuView::setupUi() {
                     if (!self) return;
                     if (generation != self->connectionGeneration_) return;
                     if (isTx) {
-                        self->trafficMonitor_->appendTx(data);
+                        if (!self->suppressPollTrafficLog_) {
+                            self->trafficMonitor_->appendTx(data);
+                        }
                         self->appendSendData(data);
                     } else {
-                        self->trafficMonitor_->appendRx(data);
+                        if (!self->suppressPollTrafficLog_) {
+                            self->trafficMonitor_->appendRx(data);
+                        }
                         self->appendReceiveData(data);
                     }
                 }, Qt::QueuedConnection);
@@ -234,6 +237,10 @@ void ModbusRtuView::setupUi() {
                     if (!self) return;
                     if (generation != connectionGeneration_) return;
                     rtuSessionConnected_ = ok;
+                    if (!ok) {
+                        pollInFlight_ = false;
+                        suppressPollTrafficLog_ = false;
+                    }
                     if (ok) {
                         connectionWidget_->setConnected(true);
                         trafficMonitor_->appendInfo(tr("Connected"));
@@ -252,6 +259,11 @@ void ModbusRtuView::setupUi() {
                     auto itAddr = requestAddrs_.find(requestId);
                     if (itStart == requestStart_.end() || itKind == requestKinds_.end() || itAddr == requestAddrs_.end()) {
                         return;
+                    }
+
+                    if (itKind->second == RequestKind::Poll) {
+                        pollInFlight_ = false;
+                        suppressPollTrafficLog_ = false;
                     }
 
                     // 分流设计：仅在成功时通过底层测量的精确 RTT 更新统计
@@ -497,6 +509,7 @@ void ModbusRtuView::setupUi() {
     connect(controlWidget_, &widgets::ControlWidget::pollRequested,
         [this, ensureConnected](uint8_t fc, int addr, int qty) {
             if (!ensureConnected()) return;
+            if (pollInFlight_) return;
             
             int slaveId = functionWidget_->getSlaveId();
             
@@ -513,6 +526,8 @@ void ModbusRtuView::setupUi() {
             requestKinds_[requestId] = RequestKind::Poll;
             requestAddrs_[requestId] = static_cast<uint16_t>(addr);
 
+            pollInFlight_ = true;
+            suppressPollTrafficLog_ = true;
             controlWidget_->recordTx(); // 轮询提交时增加 TX 计数
             worker_->submit(request, slaveId, requestId);
     });
@@ -559,6 +574,8 @@ QString ModbusRtuView::formatData(const QByteArray& data, bool hex) const {
 void ModbusRtuView::releaseStack() {
     ++connectionGeneration_;
     rtuSessionConnected_ = false;
+    pollInFlight_ = false;
+    suppressPollTrafficLog_ = false;
     if (connectionWidget_) {
         connectionWidget_->setConnected(false);
     }
@@ -586,6 +603,11 @@ void ModbusRtuView::releaseStack() {
     }
     worker.reset();
     client.reset();
+    if (thread && thread->isRunning()) {
+        thread->requestInterruption();
+        thread->quit();
+        thread->wait(2000);
+    }
     channel.reset();
     thread.reset();
 }

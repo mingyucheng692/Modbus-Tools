@@ -21,7 +21,7 @@ public:
     ModbusStack createStack(const base::ModbusConfig& config) override;
 
 private:
-    std::shared_ptr<io::IChannel> createChannel(const base::ModbusConfig& config);
+    std::shared_ptr<io::IChannel> createChannel(const base::ModbusConfig& config, QThread* workerThread);
     std::shared_ptr<transport::ITransport> createTransport(const base::ModbusConfig& config);
 };
 

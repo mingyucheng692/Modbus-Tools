@@ -33,6 +33,19 @@
 
 namespace ui::widgets {
 
+namespace {
+void trimLogList(QListWidget* logList)
+{
+    if (!logList) {
+        return;
+    }
+    const int maxRows = app::constants::Values::Ui::kTrafficMonitorMaxBlockCount;
+    while (logList->count() > maxRows) {
+        delete logList->takeItem(0);
+    }
+}
+}
+
 TrafficMonitorWidget::TrafficMonitorWidget(ui::common::ISettingsService* settingsService, QWidget *parent)
     : QWidget(parent),
       settingsService_(settingsService) {
@@ -117,6 +130,7 @@ void TrafficMonitorWidget::appendTx(const QByteArray& data) {
     auto item = new QListWidgetItem(itemText);
     item->setForeground(Qt::blue); // TX in Blue
     logList_->addItem(item);
+    trimLogList(logList_);
 
     if (autoScrollCheck_->isChecked()) {
         logList_->scrollToBottom();
@@ -133,6 +147,7 @@ void TrafficMonitorWidget::appendRx(const QByteArray& data) {
     auto item = new QListWidgetItem(itemText);
     item->setForeground(Qt::darkGreen); // RX in Green
     logList_->addItem(item);
+    trimLogList(logList_);
 
     if (autoScrollCheck_->isChecked()) {
         logList_->scrollToBottom();
@@ -146,6 +161,7 @@ void TrafficMonitorWidget::appendInfo(const QString& message) {
     auto item = new QListWidgetItem(itemText);
     item->setForeground(Qt::gray);
     logList_->addItem(item);
+    trimLogList(logList_);
 
     if (autoScrollCheck_->isChecked()) {
         logList_->scrollToBottom();
@@ -159,6 +175,7 @@ void TrafficMonitorWidget::appendWarning(const QString& message) {
     auto item = new QListWidgetItem(itemText);
     item->setForeground(QColor(255, 140, 0)); // Dark Orange for warnings
     logList_->addItem(item);
+    trimLogList(logList_);
 
     if (autoScrollCheck_->isChecked()) {
         logList_->scrollToBottom();

@@ -105,6 +105,8 @@ private:
     quint64 connectionGeneration_ = 0;
     bool tcpSessionConnected_ = false;
     bool suppressDisconnectAlert_ = false;
+    bool pollInFlight_ = false;
+    bool suppressPollTrafficLog_ = false;
     bool linked_ = false;
     int timeoutMs_ = app::constants::Values::Modbus::kDefaultTimeoutMs;
     int retries_ = 0;

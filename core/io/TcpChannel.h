@@ -31,6 +31,7 @@ public:
     void setEndpoint(const QString& ip, int port);
 
 private:
+    void logThreadContextOnce(const char* scope, bool& loggedFlag);
     void flushPendingWrites();
     void onReadyRead();
     void onConnected();
@@ -49,6 +50,8 @@ private:
     std::deque<QByteArray> pendingWrites_;
     qsizetype currentWriteOffset_ = 0;
     bool closing_ = false;
+    bool openThreadLogged_ = false;
+    bool ioThreadLogged_ = false;
 };
 
 }
