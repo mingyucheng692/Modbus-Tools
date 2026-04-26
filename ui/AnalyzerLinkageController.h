@@ -1,6 +1,7 @@
 #pragma once
 
 #include <QObject>
+#include <optional>
 #include <cstdint>
 #include "modbus/base/ModbusFrame.h"
 #include "modbus/parser/ModbusFrameParser.h"
@@ -59,11 +60,20 @@ public:
     static LinkSource sourceFromProtocol(modbus::core::parser::ProtocolType protocol);
 
 private:
+    struct BufferedLiveData {
+        modbus::base::Pdu pdu;
+        modbus::core::parser::ProtocolType protocol = modbus::core::parser::ProtocolType::Tcp;
+        uint16_t addr = 0;
+    };
+
     void transitionTo(LinkState state, LinkSource source);
     void applyState(const State& previousState);
+    void clearBufferedLiveData();
+    void replayBufferedLiveDataIfNeeded();
     void stopInternal();
 
     State state_;
+    std::optional<BufferedLiveData> bufferedLiveData_;
     views::modbus_tcp::ModbusTcpView* tcpView_ = nullptr;
     views::modbus_rtu::ModbusRtuView* rtuView_ = nullptr;
     widgets::FrameAnalyzerWidget* frameAnalyzer_ = nullptr;

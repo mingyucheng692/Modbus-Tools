@@ -42,6 +42,9 @@ void AnalyzerLinkageController::requestPause(bool paused) {
     }
 
     transitionTo(paused ? LinkState::Paused : LinkState::Live, state_.source);
+    if (!paused) {
+        replayBufferedLiveDataIfNeeded();
+    }
 }
 
 void AnalyzerLinkageController::handleLiveData(const modbus::base::Pdu& pdu,
@@ -53,6 +56,7 @@ void AnalyzerLinkageController::handleLiveData(const modbus::base::Pdu& pdu,
     }
 
     if (state_.state == LinkState::Paused) {
+        bufferedLiveData_ = BufferedLiveData{pdu, protocol, addr};
         return;
     }
 
@@ -60,6 +64,7 @@ void AnalyzerLinkageController::handleLiveData(const modbus::base::Pdu& pdu,
         frameAnalyzer_->processLivePdu(pdu, protocol, addr);
         frameAnalyzer_->setLivePaused(false);
     }
+    clearBufferedLiveData();
 }
 
 void AnalyzerLinkageController::handleSourceDisconnected(LinkSource source) {
@@ -83,6 +88,9 @@ void AnalyzerLinkageController::transitionTo(LinkState state, LinkSource source)
     const State previousState = state_;
     state_.state = state;
     state_.source = source;
+    if (state_.state == LinkState::Idle || previousState.source != state_.source) {
+        clearBufferedLiveData();
+    }
     applyState(previousState);
 }
 
@@ -112,6 +120,25 @@ void AnalyzerLinkageController::applyState(const State& previousState) {
     }
 
     frameAnalyzer_->setLivePaused(paused);
+}
+
+void AnalyzerLinkageController::clearBufferedLiveData() {
+    bufferedLiveData_.reset();
+}
+
+void AnalyzerLinkageController::replayBufferedLiveDataIfNeeded() {
+    if (!bufferedLiveData_ || !frameAnalyzer_ || state_.state != LinkState::Live) {
+        return;
+    }
+
+    if (sourceFromProtocol(bufferedLiveData_->protocol) != state_.source) {
+        clearBufferedLiveData();
+        return;
+    }
+
+    frameAnalyzer_->processLivePdu(bufferedLiveData_->pdu, bufferedLiveData_->protocol, bufferedLiveData_->addr);
+    frameAnalyzer_->setLivePaused(false);
+    clearBufferedLiveData();
 }
 
 void AnalyzerLinkageController::stopInternal() {

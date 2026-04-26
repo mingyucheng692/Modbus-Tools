@@ -418,7 +418,6 @@ void FrameAnalyzerWidget::FrameAnalyzerWidgetPrivate::createResultGroup()
     linkageStopBtn->setMinimumHeight(28);
     linkageStopBtn->setVisible(false);
     connect(linkageStopBtn, &QPushButton::clicked, q_ptr, [this]() {
-        q_ptr->clearResult(); // Clear UI state immediately
         emit q_ptr->linkageStopRequested();
     });
     liveLayout->addWidget(linkageStopBtn);
