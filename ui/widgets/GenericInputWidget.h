@@ -34,7 +34,6 @@ public:
     explicit GenericInputWidget(ui::common::ISettingsService* settingsService, QWidget *parent = nullptr);
     ~GenericInputWidget() override;
 
-    void appendData(const QByteArray& data); // For feedback if needed? No, input is for sending.
     void setSettingsGroup(const QString& group);
 
 signals:

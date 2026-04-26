@@ -38,7 +38,6 @@ public:
     void recordTx();
     void recordRx(int rttMs);
     void recordError();
-    void resetStats();
     void setSettingsGroup(const QString& group);
     void setLinked(bool active);
     void setPollingEnabled(bool enabled);

@@ -92,15 +92,6 @@ void ControlWidget::recordError() {
     updateStatsLabel();
 }
 
-void ControlWidget::resetStats() {
-    txCount_ = 0;
-    rxCount_ = 0;
-    errorCount_ = 0;
-    lastRtt_ = 0;
-    hasLastRtt_ = false;
-    updateStatsLabel();
-}
-
 void ControlWidget::onTimer() {
     int fcIndex = fcCombo_->currentIndex();
     uint8_t fc = 0x03; // Default

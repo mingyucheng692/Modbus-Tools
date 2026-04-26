@@ -125,8 +125,7 @@ QList<TrafficLogEntry> toSingleEntryList(const QString& text, const QColor& colo
 }
 
 constexpr int kUiFlushIntervalMs = 120;
-constexpr int kStatusBarMinHeight = 28;
-constexpr int kActionButtonMinWidth = 86;
+constexpr int kActionButtonMinWidth = 78;
 }
 
 TrafficMonitorWidget::TrafficMonitorWidget(ui::common::ISettingsService* settingsService, QWidget *parent)
@@ -150,12 +149,12 @@ void TrafficMonitorWidget::setupUi() {
     section_ = new CollapsibleSection(settingsService_, this);
     auto layout = new QVBoxLayout(section_->contentWidget());
     layout->setContentsMargins(8, 0, 8, 0);
-    layout->setSpacing(6);
+    layout->setSpacing(4);
 
     // Toolbar
     auto toolbarLayout = new QHBoxLayout();
     toolbarLayout->setContentsMargins(0, 0, 0, 0);
-    toolbarLayout->setSpacing(6);
+    toolbarLayout->setSpacing(4);
     
     autoScrollCheck_ = new QCheckBox(this);
     autoScrollCheck_->setChecked(true);
@@ -189,27 +188,20 @@ void TrafficMonitorWidget::setupUi() {
     saveBtn_ = new QPushButton(this);
     saveBtn_->setMinimumWidth(kActionButtonMinWidth);
     toolbarLayout->addWidget(saveBtn_);
-    
-    toolbarLayout->addStretch();
-    layout->addLayout(toolbarLayout);
 
-    statusBarWidget_ = new QWidget(this);
-    statusBarWidget_->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);
-    statusBarWidget_->setMinimumHeight(kStatusBarMinHeight);
-    auto statusLayout = new QHBoxLayout(statusBarWidget_);
-    statusLayout->setContentsMargins(0, 0, 0, 0);
-    statusLayout->setSpacing(12);
+    toolbarLayout->addSpacing(4);
 
     rawHintLabel_ = new QLabel(this);
+    rawHintLabel_->setMinimumWidth(0);
     rawHintLabel_->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Preferred);
     rawHintLabel_->setAlignment(Qt::AlignLeft | Qt::AlignVCenter);
-    statusLayout->addWidget(rawHintLabel_, 1);
+    toolbarLayout->addWidget(rawHintLabel_, 1);
 
     pausedStatusLabel_ = new QLabel(this);
     pausedStatusLabel_->setAlignment(Qt::AlignRight | Qt::AlignVCenter);
-    statusLayout->addWidget(pausedStatusLabel_, 0, Qt::AlignRight);
+    toolbarLayout->addWidget(pausedStatusLabel_, 0, Qt::AlignRight);
 
-    layout->addWidget(statusBarWidget_);
+    layout->addLayout(toolbarLayout);
 
     // Log View
     logView_ = new QListView(this);
@@ -347,7 +339,7 @@ void TrafficMonitorWidget::syncDisplayModeUi() {
     }
     if (rawHintLabel_) {
         rawHintLabel_->setText(rawFramesEnabled
-            ? tr("Raw Frames mode may reduce UI smoothness under high-frequency polling.")
+            ? tr("Raw Frames may affect UI fluency")
             : QString());
     }
 }
@@ -356,7 +348,7 @@ void TrafficMonitorWidget::syncPauseUi() {
     const bool paused = isViewPaused();
     if (pausedStatusLabel_) {
         pausedStatusLabel_->setText(paused
-            ? tr("Paused (%1 new)").arg(pausedEventCount_)
+            ? tr("Paused +%1").arg(pausedEventCount_)
             : QString());
     }
 }

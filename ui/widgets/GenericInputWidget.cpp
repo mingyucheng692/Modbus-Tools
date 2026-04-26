@@ -219,10 +219,6 @@ void GenericInputWidget::onSendFileClicked() {
     emit fileSendRequested(path);
 }
 
-void GenericInputWidget::appendData(const QByteArray& /*data*/) {
-    // Optional: flash success or something?
-}
-
 void GenericInputWidget::retranslateUi() {
     if (inputEdit_) {
         inputEdit_->setPlaceholderText(tr("Enter data to send..."));

@@ -96,7 +96,6 @@ private:
     QComboBox* levelFilterCombo_ = nullptr;
     QCheckBox* showTxCheck_ = nullptr;
     QCheckBox* showRxCheck_ = nullptr;
-    QWidget* statusBarWidget_ = nullptr;
     QLabel* rawHintLabel_ = nullptr;
     QLabel* pausedStatusLabel_ = nullptr;
     QPushButton* clearBtn_ = nullptr;
