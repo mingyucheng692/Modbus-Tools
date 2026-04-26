@@ -21,6 +21,16 @@ if(MSVC)
     )
 endif()
 
+if(WIN32)
+    add_custom_command(TARGET updater PRE_LINK
+        COMMAND ${CMAKE_COMMAND}
+                -DTARGET_PATH="$<TARGET_FILE:updater>"
+                -DTARGET_NAME=updater
+                -P "${CMAKE_SOURCE_DIR}/cmake/CheckRuntimeOutputLock.cmake"
+        VERBATIM
+    )
+endif()
+
 install(TARGETS updater 
     RUNTIME DESTINATION . 
     COMPONENT Production

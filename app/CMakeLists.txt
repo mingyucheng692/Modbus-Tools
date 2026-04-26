@@ -24,6 +24,16 @@ if(MODBUS_TOOLS_ENABLE_PCH AND COMMAND target_precompile_headers)
     )
 endif()
 
+if(WIN32)
+    add_custom_command(TARGET Modbus-Tools PRE_LINK
+        COMMAND ${CMAKE_COMMAND}
+                -DTARGET_PATH="$<TARGET_FILE:Modbus-Tools>"
+                -DTARGET_NAME=Modbus-Tools
+                -P "${CMAKE_SOURCE_DIR}/cmake/CheckRuntimeOutputLock.cmake"
+        VERBATIM
+    )
+endif()
+
 install(TARGETS Modbus-Tools 
     RUNTIME DESTINATION . 
     COMPONENT Production

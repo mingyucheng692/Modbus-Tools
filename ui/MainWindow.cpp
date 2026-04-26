@@ -48,6 +48,7 @@
 #include <QScrollArea>
 #include <QStandardPaths>
 #include <QDateTime>
+#include <QDir>
 #include <QStyle>
 #include <QIcon>
 #include <QColor>
@@ -151,6 +152,40 @@ QString effectiveAppLocale(const QString& locale) {
         return QLatin1String(app::constants::Values::App::kLocaleZhCn);
     }
     return QLatin1String(app::constants::Values::App::kLocaleEn);
+}
+
+QString translationFileNameForLocale(const QString& locale) {
+    if (locale == QLatin1String(app::constants::Values::App::kLocaleZhCn)) {
+        return QStringLiteral("Modbus-Tools_zh_CN.qm");
+    }
+    if (locale == QLatin1String(app::constants::Values::App::kLocaleZhTw)) {
+        return QStringLiteral("Modbus-Tools_zh_TW.qm");
+    }
+    return {};
+}
+
+bool loadAppTranslation(QTranslator& translator, const QString& qmFileName) {
+    if (qmFileName.isEmpty()) {
+        return false;
+    }
+
+    const QString diskPath = QDir(QCoreApplication::applicationDirPath())
+                                 .filePath(QStringLiteral("i18n/%1").arg(qmFileName));
+    if (translator.load(diskPath)) {
+        spdlog::info("Loaded app translation from disk: {}", diskPath.toStdString());
+        return true;
+    }
+
+    const QString resourcePath = QStringLiteral(":/i18n/%1").arg(qmFileName);
+    if (translator.load(resourcePath)) {
+        spdlog::info("Loaded app translation from resource fallback: {}", resourcePath.toStdString());
+        return true;
+    }
+
+    spdlog::warn("Failed to load app translation '{}' from '{}' or resource fallback",
+                 qmFileName.toStdString(),
+                 diskPath.toStdString());
+    return false;
 }
 
 int calculateExpandedNavigationWidth(const QListWidget* navigationList) {
@@ -523,14 +558,14 @@ void MainWindow::applyLanguage(const QString& locale) {
         if (qtTranslator_.load("qtbase_zh_CN", QLibraryInfo::path(QLibraryInfo::TranslationsPath))) {
             qApp->installTranslator(&qtTranslator_);
         }
-        if (appTranslator_.load(":/i18n/Modbus-Tools_zh_CN.qm")) {
+        if (loadAppTranslation(appTranslator_, translationFileNameForLocale(eff))) {
             qApp->installTranslator(&appTranslator_);
         }
     } else if (eff == app::constants::Values::App::kLocaleZhTw) {
         if (qtTranslator_.load("qtbase_zh_TW", QLibraryInfo::path(QLibraryInfo::TranslationsPath))) {
             qApp->installTranslator(&qtTranslator_);
         }
-        if (appTranslator_.load(":/i18n/Modbus-Tools_zh_TW.qm")) {
+        if (loadAppTranslation(appTranslator_, translationFileNameForLocale(eff))) {
             qApp->installTranslator(&appTranslator_);
         }
     }

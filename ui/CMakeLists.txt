@@ -8,6 +8,7 @@ target_sources(ui PRIVATE
     common/CompactMenuBarStyle.cpp
     common/CompactMenuBarStyle.h
     common/ISettingsService.h
+    i18n/i18n.qrc
     common/QtThemeRuntime.cpp
     common/QtThemeRuntime.h
     common/SettingsKeys.h
@@ -60,15 +61,34 @@ set(ui_translation_ts
     ${CMAKE_CURRENT_SOURCE_DIR}/i18n/Modbus-Tools_zh_TW.ts
 )
 
-qt_add_translations(ui
+set(ui_translation_output_dir "${CMAKE_BINARY_DIR}/translations")
+
+qt_add_lrelease(
     TS_FILES ${ui_translation_ts}
+    LRELEASE_TARGET modbus_i18n
+    EXCLUDE_FROM_ALL
+    NO_GLOBAL_TARGET
+    QM_OUTPUT_DIRECTORY "${ui_translation_output_dir}"
     QM_FILES_OUTPUT_VARIABLE ui_translation_qm_files
 )
 
-qt_add_resources(ui i18n
-    PREFIX "/i18n"
-    BASE "${CMAKE_CURRENT_BINARY_DIR}"
-    FILES ${ui_translation_qm_files}
+add_custom_target(package_runtime_assets
+    COMMAND ${CMAKE_COMMAND} -E make_directory "$<TARGET_FILE_DIR:Modbus-Tools>/i18n"
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different
+            ${ui_translation_qm_files}
+            "$<TARGET_FILE_DIR:Modbus-Tools>/i18n"
+    DEPENDS Modbus-Tools updater modbus_i18n
+    COMMENT "Copying runtime i18n assets"
+)
+
+add_custom_target(release_bundle
+    DEPENDS Modbus-Tools updater package_runtime_assets
+    COMMENT "Building release bundle artifacts"
+)
+
+install(FILES ${ui_translation_qm_files}
+    DESTINATION i18n
+    COMPONENT Production
 )
 
 target_link_libraries(ui PUBLIC
