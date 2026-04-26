@@ -757,22 +757,22 @@ void ModbusTcpView::flushPollSummary(bool force) {
         return;
     }
 
-    const int avgRttMs = pollSummarySuccessCount_ > 0
-        ? static_cast<int>(pollSummaryTotalRttMs_ / pollSummarySuccessCount_)
-        : 0;
+    const QString avgRttText = pollSummarySuccessCount_ > 0
+        ? tr("%1 ms").arg(static_cast<int>(pollSummaryTotalRttMs_ / pollSummarySuccessCount_))
+        : tr("--");
 
     ui::common::TrafficEvent event;
     event.level = ui::common::TrafficEventLevel::Info;
     event.requestType = ui::common::TrafficRequestType::Poll;
     event.isPoll = true;
-    event.summary = tr("Poll Summary FC:%1 Addr:%2 Qty:%3 Slave:%4 Success:%5 Error:%6 Avg RTT:%7 ms")
+    event.summary = tr("Poll Summary FC:%1 Addr:%2 Qty:%3 Slave:%4 Success:%5 Error:%6 Avg Success RTT:%7")
         .arg(pollFunctionCode_)
         .arg(pollAddress_)
         .arg(pollQuantity_)
         .arg(pollSlaveId_)
         .arg(pollSummarySuccessCount_)
         .arg(pollSummaryErrorCount_)
-        .arg(avgRttMs);
+        .arg(avgRttText);
     trafficMonitor_->appendEvent(event);
 
     pollSummarySuccessCount_ = 0;

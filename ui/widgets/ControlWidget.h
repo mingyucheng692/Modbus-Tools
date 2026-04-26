@@ -85,6 +85,7 @@ private:
     int rxCount_ = 0;
     int errorCount_ = 0;
     int lastRtt_ = 0;
+    bool hasLastRtt_ = false;
 
     QString settingsGroup_;
     ui::common::ISettingsService* settingsService_ = nullptr;

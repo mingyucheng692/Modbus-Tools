@@ -79,12 +79,14 @@ void ControlWidget::recordRx(int rttMs) {
     rxCount_++;
     if (rttMs >= 0) {
         lastRtt_ = rttMs;
+        hasLastRtt_ = true;
     }
     updateStatsLabel();
 }
 
 void ControlWidget::recordError() {
     errorCount_++;
+    hasLastRtt_ = false;
     updateStatsLabel();
 }
 
@@ -93,6 +95,7 @@ void ControlWidget::resetStats() {
     rxCount_ = 0;
     errorCount_ = 0;
     lastRtt_ = 0;
+    hasLastRtt_ = false;
     updateStatsLabel();
 }
 
@@ -156,11 +159,14 @@ void ControlWidget::onTimer() {
 }
 
 void ControlWidget::updateStatsLabel() {
-    statsLabel_->setText(QStringLiteral("TX: %1 | RX: %2 | Err: %3 | RTT: %4 ms")
+    const QString rttText = hasLastRtt_
+        ? tr("%1 ms").arg(lastRtt_)
+        : tr("--");
+    statsLabel_->setText(QStringLiteral("TX: %1 | RX: %2 | Err: %3 | RTT: %4")
                              .arg(txCount_)
                              .arg(rxCount_)
                              .arg(errorCount_)
-                             .arg(lastRtt_));
+                             .arg(rttText));
 }
 
 void ControlWidget::setSettingsGroup(const QString& group) {
@@ -351,6 +357,9 @@ void ControlWidget::retranslateUi() {
     }
     if (qtyLabel_) {
         qtyLabel_->setText(tr("Qty:"));
+    }
+    if (statsLabel_) {
+        statsLabel_->setToolTip(tr("Last Success RTT"));
     }
     updateStatsLabel();
 }
