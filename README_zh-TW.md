@@ -115,11 +115,18 @@
 git clone --recursive https://github.com/mingyucheng692/Modbus-Tools.git  --progress
 cd Modbus-Tools
 
-# 使用 CMake 配置並生成工程
+# 配置開發構建目錄
 cmake -S . -B build
 
-# 執行編譯（以 Release 為例）
-cmake --build build --config Release -j
+# 日常開發只編譯主程式
+cmake --build build --target Modbus-Tools --config Release -j
+
+# 當 .ts 發生變更時，單獨刷新翻譯產物
+cmake --build build --target modbus_i18n --config Release
+
+# 生成發布產物，並將翻譯嵌入到 EXE
+cmake -S . -B build_release -DCMAKE_BUILD_TYPE=Release -DMODBUS_TOOLS_BUILD_TESTS=OFF -DMODBUS_TOOLS_ENABLE_ASAN=OFF -DMODBUS_TOOLS_EMBED_RELEASE_I18N=ON
+cmake --build build_release --target release_bundle --config Release -j
 ```
 
 ## 🧪 品質與測試 (Testing)
