@@ -11,13 +11,16 @@
 
 #include <QWidget>
 #include <QByteArray>
+#include <QList>
 #include "../common/TrafficEvent.h"
 
-class QListWidget;
+class QListView;
 class QCheckBox;
 class QPushButton;
 class QEvent;
 class QString;
+class QTimer;
+class QColor;
 
 namespace ui::common {
 class ISettingsService;
@@ -25,6 +28,7 @@ class ISettingsService;
 
 namespace ui::widgets {
 class CollapsibleSection;
+class TrafficLogModel;
 
 class TrafficMonitorWidget : public QWidget {
     Q_OBJECT
@@ -48,6 +52,10 @@ private slots:
 private:
     void setupUi();
     QString formatData(const QByteArray& data) const;
+    bool isRealtimeEvent(const ui::common::TrafficEvent& event) const;
+    void appendLogLine(const QString& text, const QColor& color);
+    void flushPendingEvents();
+    bool renderEvent(const ui::common::TrafficEvent& event, QString& outText, QColor& outColor) const;
     void loadSettings();
     void saveSettings();
     void syncCollapsedGeometry(bool expanded);
@@ -55,12 +63,15 @@ private:
     void changeEvent(QEvent* event) override;
 
     CollapsibleSection* section_ = nullptr;
-    QListWidget* logList_ = nullptr;
+    QListView* logView_ = nullptr;
+    TrafficLogModel* logModel_ = nullptr;
     QCheckBox* autoScrollCheck_ = nullptr;
     QCheckBox* showTxCheck_ = nullptr;
     QCheckBox* showRxCheck_ = nullptr;
     QPushButton* clearBtn_ = nullptr;
     QPushButton* saveBtn_ = nullptr;
+    QTimer* flushTimer_ = nullptr;
+    QList<ui::common::TrafficEvent> pendingEvents_;
 
     QString settingsGroup_;
     ui::common::ISettingsService* settingsService_ = nullptr;

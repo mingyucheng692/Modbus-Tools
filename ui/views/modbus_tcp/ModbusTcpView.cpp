@@ -178,14 +178,14 @@ void ModbusTcpView::setupUi() {
         linked_ = active;
         emit linkageToggled(active);
     });
-    
+
     connect(connectionWidget_, &widgets::TcpConnectionWidget::connectClicked, 
         [this](const QString& ip, int port) {
             spdlog::info("ModbusTcpView: Connect requested to {}:{}", ip.toStdString(), port);
             releaseStack();
             suppressDisconnectAlert_ = false;
             const quint64 generation = connectionGeneration_;
-            trafficMonitor_->appendInfo(tr("Connecting to %1:%2...").arg(ip).arg(port));
+            appendConnectionInfo(tr("Connecting to %1:%2...").arg(ip).arg(port));
 
             modbus::base::ModbusConfig config;
             config.mode = modbus::base::ModbusMode::TCP;
@@ -249,7 +249,7 @@ void ModbusTcpView::setupUi() {
                     if (transition.setConnected) {
                         self->tcpSessionConnected_ = true;
                         self->connectionWidget_->setConnected(true);
-                        self->trafficMonitor_->appendInfo(connectedText());
+                        self->appendConnectionInfo(connectedText());
                     } else if (state == io::ChannelState::Open) {
                         self->tcpSessionConnected_ = true;
                         self->connectionWidget_->setConnected(true);
@@ -264,7 +264,7 @@ void ModbusTcpView::setupUi() {
                         self->tcpSessionConnected_ = false;
                         self->connectionWidget_->setConnected(false);
                         self->controlWidget_->setPollingEnabled(false);
-                        self->trafficMonitor_->appendInfo(disconnectedText());
+                        self->appendConnectionInfo(disconnectedText());
                         if (transition.showDisconnectAlert) {
                             ui::common::ConnectionAlert::showDisconnected(self);
                         }
@@ -286,11 +286,11 @@ void ModbusTcpView::setupUi() {
                         suppressDisconnectAlert_ = false;
                         connectionWidget_->setConnected(true);
                         if (!wasConnected) {
-                            trafficMonitor_->appendInfo(tr("Connected"));
+                            self->appendConnectionInfo(tr("Connected"));
                         }
                     } else {
                         connectionWidget_->setConnected(false);
-                        trafficMonitor_->appendInfo(tr("Connection failed: %1").arg(error));
+                        self->appendConnectionInfo(tr("Connection failed: %1").arg(error));
                     }
                 }, Qt::QueuedConnection);
 
@@ -350,7 +350,7 @@ void ModbusTcpView::setupUi() {
             suppressDisconnectAlert_ = true;
             tcpSessionConnected_ = false;
             connectionWidget_->setConnected(false);
-            trafficMonitor_->appendInfo(tr("Disconnected"));
+            appendConnectionInfo(tr("Disconnected"));
             releaseStack();
     });
 
@@ -622,6 +622,16 @@ QString ModbusTcpView::formatData(const QByteArray& data, bool hex) const {
         return QString(data.toHex(' ').toUpper());
     }
     return QString::fromLatin1(data);
+}
+
+void ModbusTcpView::appendConnectionInfo(const QString& message) {
+    if (!trafficMonitor_) {
+        return;
+    }
+    ui::common::TrafficEvent event;
+    event.requestType = ui::common::TrafficRequestType::Connection;
+    event.summary = message;
+    trafficMonitor_->appendEvent(event);
 }
 
 void ModbusTcpView::handlePollCompletion(bool success, int rttMs, const QString& error) {

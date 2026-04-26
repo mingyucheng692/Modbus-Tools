@@ -170,7 +170,7 @@ void ModbusRtuView::setupUi() {
     connect(connectionWidget_, &widgets::SerialConnectionWidget::connectClicked, 
         [this](const io::SerialConfig& config) {
             spdlog::info("ModbusRtuView: Connect requested to {}", config.portName.toStdString());
-            trafficMonitor_->appendInfo(tr("Opening %1...").arg(config.portName));
+            appendConnectionInfo(tr("Opening %1...").arg(config.portName));
 
             releaseStack();
             const quint64 generation = connectionGeneration_;
@@ -252,10 +252,10 @@ void ModbusRtuView::setupUi() {
                     }
                     if (ok) {
                         connectionWidget_->setConnected(true);
-                        trafficMonitor_->appendInfo(tr("Connected"));
+                        self->appendConnectionInfo(tr("Connected"));
                     } else {
                         connectionWidget_->setConnected(false);
-                        trafficMonitor_->appendInfo(tr("Connection failed: %1").arg(error));
+                        self->appendConnectionInfo(tr("Connection failed: %1").arg(error));
                     }
                 }, Qt::QueuedConnection);
 
@@ -314,7 +314,7 @@ void ModbusRtuView::setupUi() {
     connect(connectionWidget_, &widgets::SerialConnectionWidget::disconnectClicked,
         [this]() {
             spdlog::info("ModbusRtuView: Disconnect requested");
-            trafficMonitor_->appendInfo(tr("Disconnected"));
+            appendConnectionInfo(tr("Disconnected"));
             releaseStack();
             connectionWidget_->setConnected(false);
     });
@@ -584,6 +584,16 @@ QString ModbusRtuView::formatData(const QByteArray& data, bool hex) const {
         return QString(data.toHex(' ').toUpper());
     }
     return QString::fromLatin1(data);
+}
+
+void ModbusRtuView::appendConnectionInfo(const QString& message) {
+    if (!trafficMonitor_) {
+        return;
+    }
+    ui::common::TrafficEvent event;
+    event.requestType = ui::common::TrafficRequestType::Connection;
+    event.summary = message;
+    trafficMonitor_->appendEvent(event);
 }
 
 void ModbusRtuView::handlePollCompletion(bool success, int rttMs, const QString& error) {

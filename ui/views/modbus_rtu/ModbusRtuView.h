@@ -72,6 +72,7 @@ private:
     void changeEvent(QEvent* event) override;
     void releaseStack();
     int nextRequestId();
+    void appendConnectionInfo(const QString& message);
     void flushPollSummary(bool force);
     void handlePollCompletion(bool success, int rttMs, const QString& error);
 

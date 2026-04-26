@@ -13,11 +13,11 @@
 #include "../common/ISettingsService.h"
 #include <QVBoxLayout>
 #include <QHBoxLayout>
-#include <QListWidget>
+#include <QListView>
+#include <QAbstractListModel>
 #include <QCheckBox>
 #include <QPushButton>
 #include <QDateTime>
-#include <QListWidgetItem>
 #include <QFileDialog>
 #include <QFile>
 #include <QTextStream>
@@ -27,32 +27,98 @@
 #include <QEvent>
 #include <QSignalBlocker>
 #include <QSizePolicy>
+#include <QTimer>
+#include <QModelIndex>
 #include <QFutureWatcher>
 #include <QtConcurrent/QtConcurrent>
 #include <memory>
 
 namespace ui::widgets {
 
+struct TrafficLogEntry {
+    QString text;
+    QColor color = Qt::gray;
+};
+
+class TrafficLogModel final : public QAbstractListModel {
+public:
+    explicit TrafficLogModel(QObject* parent = nullptr)
+        : QAbstractListModel(parent) {}
+
+    int rowCount(const QModelIndex& parent = QModelIndex()) const override {
+        return parent.isValid() ? 0 : entries_.size();
+    }
+
+    QVariant data(const QModelIndex& index, int role) const override {
+        if (!index.isValid() || index.row() < 0 || index.row() >= entries_.size()) {
+            return {};
+        }
+        const auto& entry = entries_.at(index.row());
+        if (role == Qt::DisplayRole) {
+            return entry.text;
+        }
+        if (role == Qt::ForegroundRole) {
+            return entry.color;
+        }
+        return {};
+    }
+
+    void appendEntries(const QList<TrafficLogEntry>& newEntries) {
+        if (newEntries.isEmpty()) {
+            return;
+        }
+        beginResetModel();
+        for (const auto& entry : newEntries) {
+            entries_.append(entry);
+        }
+        const int maxRows = app::constants::Values::Ui::kTrafficMonitorMaxBlockCount;
+        while (entries_.size() > maxRows) {
+            entries_.removeFirst();
+        }
+        endResetModel();
+    }
+
+    void clearAll() {
+        if (entries_.isEmpty()) {
+            return;
+        }
+        beginResetModel();
+        entries_.clear();
+        endResetModel();
+    }
+
+    QString lineAt(int row) const {
+        if (row < 0 || row >= entries_.size()) {
+            return {};
+        }
+        return entries_.at(row).text;
+    }
+
+private:
+    QList<TrafficLogEntry> entries_;
+};
+
 namespace {
-void trimLogList(QListWidget* logList)
-{
-    if (!logList) {
-        return;
-    }
-    const int maxRows = app::constants::Values::Ui::kTrafficMonitorMaxBlockCount;
-    while (logList->count() > maxRows) {
-        delete logList->takeItem(0);
-    }
+
+QList<TrafficLogEntry> toSingleEntryList(const QString& text, const QColor& color) {
+    return {TrafficLogEntry{text, color}};
 }
+
+constexpr int kUiFlushIntervalMs = 120;
 }
 
 TrafficMonitorWidget::TrafficMonitorWidget(ui::common::ISettingsService* settingsService, QWidget *parent)
     : QWidget(parent),
       settingsService_(settingsService) {
     setupUi();
+    flushTimer_ = new QTimer(this);
+    flushTimer_->setInterval(kUiFlushIntervalMs);
+    connect(flushTimer_, &QTimer::timeout, this, &TrafficMonitorWidget::flushPendingEvents);
 }
 
-TrafficMonitorWidget::~TrafficMonitorWidget() = default;
+TrafficMonitorWidget::~TrafficMonitorWidget() {
+    flushPendingEvents();
+}
 
 void TrafficMonitorWidget::setupUi() {
     auto mainLayout = new QVBoxLayout(this);
@@ -90,15 +156,16 @@ void TrafficMonitorWidget::setupUi() {
     toolbarLayout->addStretch();
     layout->addLayout(toolbarLayout);
 
-    // Log List
-    logList_ = new QListWidget(this);
-    logList_->setAlternatingRowColors(true);
-    logList_->setSelectionMode(QAbstractItemView::ExtendedSelection);
-    logList_->setContextMenuPolicy(Qt::CustomContextMenu);
-    logList_->setMinimumHeight(64);
-    logList_->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
-    logList_->setUniformItemSizes(false);
-    layout->addWidget(logList_);
+    // Log View
+    logView_ = new QListView(this);
+    logModel_ = new TrafficLogModel(this);
+    logView_->setModel(logModel_);
+    logView_->setAlternatingRowColors(true);
+    logView_->setSelectionMode(QAbstractItemView::ExtendedSelection);
+    logView_->setContextMenuPolicy(Qt::CustomContextMenu);
+    logView_->setMinimumHeight(64);
+    logView_->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
+    layout->addWidget(logView_);
 
     mainLayout->addWidget(section_);
     setMinimumHeight(0);
@@ -111,13 +178,59 @@ void TrafficMonitorWidget::setupUi() {
     connect(showTxCheck_, &QCheckBox::toggled, this, &TrafficMonitorWidget::saveSettings);
     connect(showRxCheck_, &QCheckBox::toggled, this, &TrafficMonitorWidget::saveSettings);
     connect(section_, &CollapsibleSection::expandedChanged, this, &TrafficMonitorWidget::syncCollapsedGeometry);
-    connect(logList_, &QListWidget::customContextMenuRequested, [this](const QPoint& pos) {
+    connect(logView_, &QListView::customContextMenuRequested, [this](const QPoint& pos) {
         QMenu menu(this);
         menu.addAction(tr("Copy"), this, &TrafficMonitorWidget::onCopyClicked);
-        menu.exec(logList_->mapToGlobal(pos));
+        menu.exec(logView_->mapToGlobal(pos));
     });
     
     retranslateUi();
+}
+
+bool TrafficMonitorWidget::isRealtimeEvent(const ui::common::TrafficEvent& event) const {
+    return event.level == ui::common::TrafficEventLevel::Warning
+        || event.requestType == ui::common::TrafficRequestType::Connection;
+}
+
+bool TrafficMonitorWidget::renderEvent(const ui::common::TrafficEvent& event, QString& outText, QColor& outColor) const {
+    const QDateTime timestamp = event.timestamp.isValid() ? event.timestamp : QDateTime::currentDateTime();
+    const QString timeStr = timestamp.toString("HH:mm:ss.zzz");
+    outColor = Qt::gray;
+
+    if (event.direction == ui::common::TrafficDirection::Tx) {
+        if (!showTxCheck_->isChecked()) {
+            return false;
+        }
+        outText = tr("[%1] [TX] %2").arg(timeStr, formatData(event.payload));
+        outColor = Qt::blue;
+        return true;
+    }
+    if (event.direction == ui::common::TrafficDirection::Rx) {
+        if (!showRxCheck_->isChecked()) {
+            return false;
+        }
+        outText = tr("[%1] [RX] %2").arg(timeStr, formatData(event.payload));
+        outColor = Qt::darkGreen;
+        return true;
+    }
+    if (event.level == ui::common::TrafficEventLevel::Warning) {
+        outText = tr("[%1] [WARN] %2").arg(timeStr, event.summary);
+        outColor = QColor(255, 140, 0);
+        return true;
+    }
+
+    outText = tr("[%1] [INFO] %2").arg(timeStr, event.summary);
+    return true;
+}
+
+void TrafficMonitorWidget::appendLogLine(const QString& text, const QColor& color) {
+    if (!logModel_) {
+        return;
+    }
+    logModel_->appendEntries(toSingleEntryList(text, color));
+    if (autoScrollCheck_ && autoScrollCheck_->isChecked() && logView_) {
+        logView_->scrollToBottom();
+    }
 }
 
 void TrafficMonitorWidget::appendTx(const QByteArray& data) {
@@ -148,42 +261,128 @@ void TrafficMonitorWidget::appendWarning(const QString& message) {
 }
 
 void TrafficMonitorWidget::appendEvent(const ui::common::TrafficEvent& event) {
-    const QDateTime timestamp = event.timestamp.isValid() ? event.timestamp : QDateTime::currentDateTime();
-    const QString timeStr = timestamp.toString("HH:mm:ss.zzz");
-
-    QString itemText;
-    QColor color = Qt::gray;
-    if (event.direction == ui::common::TrafficDirection::Tx) {
-        if (!showTxCheck_->isChecked()) {
-            return;
-        }
-        itemText = tr("[%1] [TX] %2").arg(timeStr, formatData(event.payload));
-        color = Qt::blue;
-    } else if (event.direction == ui::common::TrafficDirection::Rx) {
-        if (!showRxCheck_->isChecked()) {
-            return;
-        }
-        itemText = tr("[%1] [RX] %2").arg(timeStr, formatData(event.payload));
-        color = Qt::darkGreen;
-    } else if (event.level == ui::common::TrafficEventLevel::Warning) {
-        itemText = tr("[%1] [WARN] %2").arg(timeStr, event.summary);
-        color = QColor(255, 140, 0);
-    } else {
-        itemText = tr("[%1] [INFO] %2").arg(timeStr, event.summary);
+    QString line;
+    QColor color;
+    if (!renderEvent(event, line, color)) {
+        return;
     }
 
-    auto item = new QListWidgetItem(itemText);
-    item->setForeground(color);
-    logList_->addItem(item);
-    trimLogList(logList_);
+    if (isRealtimeEvent(event)) {
+        flushPendingEvents();
+        appendLogLine(line, color);
+        return;
+    }
 
-    if (autoScrollCheck_->isChecked()) {
-        logList_->scrollToBottom();
+    pendingEvents_.append(event);
+    if (flushTimer_ && !flushTimer_->isActive()) {
+        flushTimer_->start();
     }
 }
 
 void TrafficMonitorWidget::clear() {
-    logList_->clear();
+    pendingEvents_.clear();
+    if (flushTimer_) {
+        flushTimer_->stop();
+    }
+    if (logModel_) {
+        logModel_->clearAll();
+    }
+}
+
+void TrafficMonitorWidget::flushPendingEvents() {
+    if (pendingEvents_.isEmpty() || !logModel_) {
+        if (flushTimer_) {
+            flushTimer_->stop();
+        }
+        return;
+    }
+
+    QList<TrafficLogEntry> batch;
+    batch.reserve(pendingEvents_.size());
+    for (const auto& event : pendingEvents_) {
+        QString line;
+        QColor color;
+        if (renderEvent(event, line, color)) {
+            batch.append({line, color});
+        }
+    }
+    pendingEvents_.clear();
+    if (flushTimer_) {
+        flushTimer_->stop();
+    }
+    if (batch.isEmpty()) {
+        return;
+    }
+    logModel_->appendEntries(batch);
+    if (autoScrollCheck_ && autoScrollCheck_->isChecked() && logView_) {
+        logView_->scrollToBottom();
+    }
+}
+
+void TrafficMonitorWidget::onSaveClicked() {
+    flushPendingEvents();
+    QString fileName = QFileDialog::getSaveFileName(this, tr("Save Log"), "", tr("Text Files (*.txt);;All Files (*)"));
+    if (fileName.isEmpty()) return;
+
+    auto errorMessage = std::make_shared<QString>();
+    struct SaveState {
+        int nextIndex = 0;
+        bool firstChunk = true;
+    };
+    auto state = std::make_shared<SaveState>();
+    const int totalCount = logModel_ ? logModel_->rowCount() : 0;
+    const int chunkSize = app::constants::Values::Ui::kTrafficLogExportChunkRows;
+    auto scheduleNextChunk = std::make_shared<std::function<void()>>();
+
+    *scheduleNextChunk = [this, fileName, totalCount, chunkSize, state, errorMessage, scheduleNextChunk]() {
+        if (!errorMessage->isEmpty()) {
+            appendInfo(tr("Save failed: %1").arg(*errorMessage));
+            return;
+        }
+        if (state->nextIndex >= totalCount) {
+            return;
+        }
+
+        const int begin = state->nextIndex;
+        const int end = qMin(begin + chunkSize, totalCount);
+        QStringList lines;
+        lines.reserve(end - begin);
+        for (int i = begin; i < end; ++i) {
+            lines << (logModel_ ? logModel_->lineAt(i) : QString{});
+        }
+        state->nextIndex = end;
+        const bool firstChunk = state->firstChunk;
+        state->firstChunk = false;
+
+        auto* watcher = new QFutureWatcher<void>(this);
+        connect(watcher, &QFutureWatcher<void>::finished, this, [this, errorMessage, scheduleNextChunk, watcher]() {
+            watcher->deleteLater();
+            if (!errorMessage->isEmpty()) {
+                appendInfo(tr("Save failed: %1").arg(*errorMessage));
+                return;
+            }
+            QMetaObject::invokeMethod(this, [scheduleNextChunk]() {
+                (*scheduleNextChunk)();
+            }, Qt::QueuedConnection);
+        });
+
+        watcher->setFuture(QtConcurrent::run([fileName, lines, firstChunk, errorMessage]() {
+            QFile file(fileName);
+            QIODevice::OpenMode mode = QIODevice::WriteOnly | QIODevice::Text;
+            mode |= firstChunk ? QIODevice::Truncate : QIODevice::Append;
+            if (!file.open(mode)) {
+                *errorMessage = QObject::tr("Cannot write file: %1").arg(fileName);
+                return;
+            }
+
+            QTextStream out(&file);
+            for (const QString& line : lines) {
+                out << line << "\n";
+            }
+        }));
+    };
+
+    (*scheduleNextChunk)();
 }
 
 void TrafficMonitorWidget::setSettingsGroup(const QString& group) {
@@ -233,75 +432,15 @@ QString TrafficMonitorWidget::formatData(const QByteArray& data) const {
     return QString(data.toHex(' ').toUpper());
 }
 
-void TrafficMonitorWidget::onSaveClicked() {
-    QString fileName = QFileDialog::getSaveFileName(this, tr("Save Log"), "", tr("Text Files (*.txt);;All Files (*)"));
-    if (fileName.isEmpty()) return;
-
-    auto errorMessage = std::make_shared<QString>();
-    struct SaveState {
-        int nextIndex = 0;
-        bool firstChunk = true;
-    };
-    auto state = std::make_shared<SaveState>();
-    const int totalCount = logList_->count();
-    const int chunkSize = app::constants::Values::Ui::kTrafficLogExportChunkRows;
-    auto scheduleNextChunk = std::make_shared<std::function<void()>>();
-
-    *scheduleNextChunk = [this, fileName, totalCount, chunkSize, state, errorMessage, scheduleNextChunk]() {
-        if (!errorMessage->isEmpty()) {
-            appendInfo(tr("Save failed: %1").arg(*errorMessage));
-            return;
-        }
-        if (state->nextIndex >= totalCount) {
-            return;
-        }
-
-        const int begin = state->nextIndex;
-        const int end = qMin(begin + chunkSize, totalCount);
-        QStringList lines;
-        lines.reserve(end - begin);
-        for (int i = begin; i < end; ++i) {
-            lines << logList_->item(i)->text();
-        }
-        state->nextIndex = end;
-        const bool firstChunk = state->firstChunk;
-        state->firstChunk = false;
-
-        auto* watcher = new QFutureWatcher<void>(this);
-        connect(watcher, &QFutureWatcher<void>::finished, this, [this, errorMessage, scheduleNextChunk, watcher]() {
-            watcher->deleteLater();
-            if (!errorMessage->isEmpty()) {
-                appendInfo(tr("Save failed: %1").arg(*errorMessage));
-                return;
-            }
-            QMetaObject::invokeMethod(this, [scheduleNextChunk]() {
-                (*scheduleNextChunk)();
-            }, Qt::QueuedConnection);
-        });
-
-        watcher->setFuture(QtConcurrent::run([fileName, lines, firstChunk, errorMessage]() {
-            QFile file(fileName);
-            QIODevice::OpenMode mode = QIODevice::WriteOnly | QIODevice::Text;
-            mode |= firstChunk ? QIODevice::Truncate : QIODevice::Append;
-            if (!file.open(mode)) {
-                *errorMessage = QObject::tr("Cannot write file: %1").arg(fileName);
-                return;
-            }
-
-            QTextStream out(&file);
-            for (const QString& line : lines) {
-                out << line << "\n";
-            }
-        }));
-    };
-
-    (*scheduleNextChunk)();
-}
-
 void TrafficMonitorWidget::onCopyClicked() {
+    flushPendingEvents();
+    if (!logView_ || !logModel_) {
+        return;
+    }
     QStringList selectedText;
-    for (auto item : logList_->selectedItems()) {
-        selectedText << item->text();
+    const auto indexes = logView_->selectionModel() ? logView_->selectionModel()->selectedRows() : QModelIndexList{};
+    for (const auto& index : indexes) {
+        selectedText << logModel_->lineAt(index.row());
     }
     QApplication::clipboard()->setText(selectedText.join("\n"));
 }
