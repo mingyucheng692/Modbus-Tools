@@ -796,9 +796,14 @@ void ModbusTcpView::releaseStack() {
     requestStart_.clear();
     requestKinds_.clear();
     requestAddrs_.clear();
+    const bool wasLinked = linked_;
+    linked_ = false;
     if (controlWidget_) {
         controlWidget_->setLinked(false);
         controlWidget_->setPollingEnabled(false);
+    }
+    if (wasLinked) {
+        emit linkageSourceDisconnected();
     }
     
     auto channel = std::move(channel_);

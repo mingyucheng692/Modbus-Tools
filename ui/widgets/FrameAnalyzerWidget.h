@@ -35,8 +35,10 @@ public:
      */
     void processLivePdu(const modbus::base::Pdu& pdu, modbus::core::parser::ProtocolType protocol, uint16_t addr);
     void exitLiveMode();
+    void setLivePaused(bool paused);
 
 signals:
+    void linkagePauseToggled(bool paused);
     void linkageStopRequested();
 
 private slots:

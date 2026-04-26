@@ -60,6 +60,7 @@ signals:
     void pollRequested(uint8_t fc, int addr, int qty);
     void linkageDataReceived(const modbus::base::Pdu& pdu, modbus::core::parser::ProtocolType protocol, uint16_t addr);
     void linkageToggled(bool active);
+    void linkageSourceDisconnected();
 
 private:
     void setupUi();

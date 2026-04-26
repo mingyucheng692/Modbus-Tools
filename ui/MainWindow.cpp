@@ -265,12 +265,25 @@ void MainWindow::setupUi() {
     
     frameAnalyzer_ = new widgets::FrameAnalyzerWidget(settingsController_->settingsService(), this);
     stackedWidget_->addWidget(createScrollablePage(frameAnalyzer_, stackedWidget_));
+    analyzerLinkageController_ = new AnalyzerLinkageController(this);
+    analyzerLinkageController_->bind(modbusTcpView_, modbusRtuView_, frameAnalyzer_);
     
     // Connect Linkage signals
     connect(modbusTcpView_, &views::modbus_tcp::ModbusTcpView::linkageToggled, this, &MainWindow::handleTcpLinkageToggled);
     connect(modbusRtuView_, &views::modbus_rtu::ModbusRtuView::linkageToggled, this, &MainWindow::handleRtuLinkageToggled);
     connect(modbusTcpView_, &views::modbus_tcp::ModbusTcpView::linkageDataReceived, this, &MainWindow::handleLinkageData);
     connect(modbusRtuView_, &views::modbus_rtu::ModbusRtuView::linkageDataReceived, this, &MainWindow::handleLinkageData);
+    connect(modbusTcpView_, &views::modbus_tcp::ModbusTcpView::linkageSourceDisconnected, this, [this]() {
+        if (analyzerLinkageController_) {
+            analyzerLinkageController_->handleSourceDisconnected(AnalyzerLinkageController::LinkSource::Tcp);
+        }
+    });
+    connect(modbusRtuView_, &views::modbus_rtu::ModbusRtuView::linkageSourceDisconnected, this, [this]() {
+        if (analyzerLinkageController_) {
+            analyzerLinkageController_->handleSourceDisconnected(AnalyzerLinkageController::LinkSource::Rtu);
+        }
+    });
+    connect(frameAnalyzer_, &widgets::FrameAnalyzerWidget::linkagePauseToggled, this, &MainWindow::handleLinkagePauseToggled);
     connect(frameAnalyzer_, &widgets::FrameAnalyzerWidget::linkageStopRequested, this, &MainWindow::handleLinkageStopRequested);
 
     connect(navigationList_, &QListWidget::currentRowChanged, stackedWidget_, &QStackedWidget::setCurrentIndex);
@@ -627,80 +640,32 @@ void MainWindow::closeEvent(QCloseEvent* event) {
 }
 
 void MainWindow::handleTcpLinkageToggled(bool active) {
-    handleLinkageToggle(AnalyzerLinkSource::Tcp, active);
+    if (analyzerLinkageController_) {
+        analyzerLinkageController_->requestLinkToggle(AnalyzerLinkageController::LinkSource::Tcp, active);
+    }
 }
 
 void MainWindow::handleRtuLinkageToggled(bool active) {
-    handleLinkageToggle(AnalyzerLinkSource::Rtu, active);
+    if (analyzerLinkageController_) {
+        analyzerLinkageController_->requestLinkToggle(AnalyzerLinkageController::LinkSource::Rtu, active);
+    }
 }
 
 void MainWindow::handleLinkageStopRequested() {
-    stopActiveLinkage();
+    if (analyzerLinkageController_) {
+        analyzerLinkageController_->requestStop();
+    }
+}
+
+void MainWindow::handleLinkagePauseToggled(bool paused) {
+    if (analyzerLinkageController_) {
+        analyzerLinkageController_->requestPause(paused);
+    }
 }
 
 void MainWindow::handleLinkageData(const modbus::base::Pdu& pdu, modbus::core::parser::ProtocolType protocol, uint16_t addr) {
-    const AnalyzerLinkSource dataSource = linkSourceFromProtocol(protocol);
-    if (activeLinkSource_ == AnalyzerLinkSource::None || dataSource == AnalyzerLinkSource::None) {
-        return;
-    }
-
-    if (dataSource != activeLinkSource_) {
-        spdlog::debug("MainWindow: Ignore linkage data from inactive source");
-        return;
-    }
-
-    if (this->frameAnalyzer_) {
-        this->frameAnalyzer_->processLivePdu(pdu, protocol, addr);
-    }
-}
-
-void MainWindow::handleLinkageToggle(AnalyzerLinkSource source, bool active) {
-    if (!active) {
-        if (activeLinkSource_ == source) {
-            stopActiveLinkage();
-        }
-        return;
-    }
-
-    const bool switchingSource = activeLinkSource_ != AnalyzerLinkSource::None && activeLinkSource_ != source;
-    if (source == AnalyzerLinkSource::Tcp) {
-        if (modbusRtuView_) {
-            modbusRtuView_->setLinked(false);
-        }
-    } else if (source == AnalyzerLinkSource::Rtu) {
-        if (modbusTcpView_) {
-            modbusTcpView_->setLinked(false);
-        }
-    }
-
-    activeLinkSource_ = source;
-    if (switchingSource && frameAnalyzer_) {
-        frameAnalyzer_->exitLiveMode();
-    }
-}
-
-void MainWindow::stopActiveLinkage() {
-    activeLinkSource_ = AnalyzerLinkSource::None;
-
-    if (modbusTcpView_) {
-        modbusTcpView_->setLinked(false);
-    }
-    if (modbusRtuView_) {
-        modbusRtuView_->setLinked(false);
-    }
-    if (frameAnalyzer_) {
-        frameAnalyzer_->exitLiveMode();
-    }
-}
-
-MainWindow::AnalyzerLinkSource MainWindow::linkSourceFromProtocol(modbus::core::parser::ProtocolType protocol) {
-    switch (protocol) {
-    case modbus::core::parser::ProtocolType::Tcp:
-        return AnalyzerLinkSource::Tcp;
-    case modbus::core::parser::ProtocolType::Rtu:
-        return AnalyzerLinkSource::Rtu;
-    default:
-        return AnalyzerLinkSource::None;
+    if (analyzerLinkageController_) {
+        analyzerLinkageController_->handleLiveData(pdu, protocol, addr);
     }
 }
 

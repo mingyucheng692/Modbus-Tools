@@ -25,6 +25,8 @@ target_sources(ui PRIVATE
     common/UpdateChecker.cpp
     common/UpdateChecker.h
     assets.qrc
+    AnalyzerLinkageController.cpp
+    AnalyzerLinkageController.h
     MainWindow.cpp
     views/modbus_tcp/ModbusTcpView.cpp
     views/modbus_tcp/ModbusTcpView.h

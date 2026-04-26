@@ -409,13 +409,7 @@ void FrameAnalyzerWidget::FrameAnalyzerWidgetPrivate::createResultGroup()
     linkagePauseBtn->setMinimumHeight(28);
     linkagePauseBtn->setVisible(false);
     connect(linkagePauseBtn, &QPushButton::clicked, q_ptr, [this]() {
-        isLivePaused = !isLivePaused;
-        linkagePauseBtn->setText(isLivePaused ? tr("Resume Refresh") : tr("Pause Refresh"));
-        if (isLivePaused) {
-            linkagePauseBtn->setStyleSheet("background-color: #F59E0B; color: white; border: 1px solid #D97706; font-weight: bold; border-radius: 4px;");
-        } else {
-            linkagePauseBtn->setStyleSheet("");
-        }
+        emit q_ptr->linkagePauseToggled(!isLivePaused);
     });
     liveLayout->addWidget(linkagePauseBtn);
 
@@ -1000,6 +994,20 @@ void FrameAnalyzerWidget::processLivePdu(const modbus::base::Pdu& pdu, modbus::c
 void FrameAnalyzerWidget::exitLiveMode()
 {
     clearResult();
+}
+
+void FrameAnalyzerWidget::setLivePaused(bool paused)
+{
+    Q_D(FrameAnalyzerWidget);
+    d->isLivePaused = paused;
+    if (d->linkagePauseBtn) {
+        d->linkagePauseBtn->setText(paused ? tr("Resume Refresh") : tr("Pause Refresh"));
+        if (paused) {
+            d->linkagePauseBtn->setStyleSheet("background-color: #F59E0B; color: white; border: 1px solid #D97706; font-weight: bold; border-radius: 4px;");
+        } else {
+            d->linkagePauseBtn->setStyleSheet(QString());
+        }
+    }
 }
 
 void FrameAnalyzerWidget::FrameAnalyzerWidgetPrivate::loadSettings()

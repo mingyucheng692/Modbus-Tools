@@ -10,6 +10,7 @@
 #pragma once
 
 #include "AppConstants.h"
+#include "AnalyzerLinkageController.h"
 #include <QMainWindow>
 #include <QTranslator>
 #include <memory>
@@ -48,12 +49,6 @@ public:
     ~MainWindow() override;
 
 private:
-    enum class AnalyzerLinkSource {
-        None,
-        Tcp,
-        Rtu
-    };
-
     // UI Setup
     void setupUi();
     void createNavigation();
@@ -95,10 +90,8 @@ private:
     void handleTcpLinkageToggled(bool active);
     void handleRtuLinkageToggled(bool active);
     void handleLinkageStopRequested();
+    void handleLinkagePauseToggled(bool paused);
     void handleLinkageData(const modbus::base::Pdu& pdu, modbus::core::parser::ProtocolType protocol, uint16_t addr);
-    void handleLinkageToggle(AnalyzerLinkSource source, bool active);
-    void stopActiveLinkage();
-    static AnalyzerLinkSource linkSourceFromProtocol(modbus::core::parser::ProtocolType protocol);
 
     // UI Components
     QListWidget* navigationList_ = nullptr;
@@ -148,7 +141,7 @@ private:
     bool navigationCollapsed_ = false;
     int navigationExpandedWidth_ = app::constants::Values::Ui::kNavigationExpandedWidth;
     int navigationCollapsedWidth_ = app::constants::Values::Ui::kNavigationCollapsedWidth;
-    AnalyzerLinkSource activeLinkSource_ = AnalyzerLinkSource::None;
+    AnalyzerLinkageController* analyzerLinkageController_ = nullptr;
 };
 
 } // namespace ui
