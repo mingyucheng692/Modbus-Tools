@@ -1655,6 +1655,138 @@ Choose update method:</source>
         <source>ABCD(default)</source>
         <translation>ABCD(預設)</translation>
     </message>
+    <message>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="786"/>
+        <source>Logical parsing is disabled for high-frequency linkage</source>
+        <translation>高頻聯動下已停用邏輯解析</translation>
+    </message>
+    <message>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="794"/>
+        <source>Frame Bytes</source>
+        <translation>幀位元組</translation>
+    </message>
+    <message>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="794"/>
+        <source>Complete raw frame</source>
+        <translation>完整原始幀</translation>
+    </message>
+    <message>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="801"/>
+        <source>Transaction + Protocol + Length + Unit ID</source>
+        <translation>交易 + 協定 + 長度 + 單元識別碼</translation>
+    </message>
+    <message>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="806"/>
+        <source>Request/response correlation ID</source>
+        <translation>請求/回應關聯識別碼</translation>
+    </message>
+    <message>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="811"/>
+        <source>Modbus TCP protocol identifier</source>
+        <translation>Modbus TCP 協定識別碼</translation>
+    </message>
+    <message>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="816"/>
+        <source>Remaining bytes after this field</source>
+        <translation>此欄位之後的剩餘位元組數</translation>
+    </message>
+    <message>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="821"/>
+        <source>Target slave / unit address</source>
+        <translation>目標從站 / 單元位址</translation>
+    </message>
+    <message>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="827"/>
+        <source>Target slave address</source>
+        <translation>目標從站位址</translation>
+    </message>
+    <message>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="841"/>
+        <source>Function code + payload</source>
+        <translation>功能碼 + 負載</translation>
+    </message>
+    <message>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="847"/>
+        <source>Normal response</source>
+        <translation>正常回應</translation>
+    </message>
+    <message>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="847"/>
+        <source>Exception response</source>
+        <translation>例外回應</translation>
+    </message>
+    <message>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="850"/>
+        <source>Payload</source>
+        <translation>負載</translation>
+    </message>
+    <message>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="852"/>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="859"/>
+        <source>Exception detail payload</source>
+        <translation>例外詳細負載</translation>
+    </message>
+    <message>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="852"/>
+        <source>Application data payload</source>
+        <translation>應用資料負載</translation>
+    </message>
+    <message>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="863"/>
+        <source>CRC valid</source>
+        <translation>CRC 有效</translation>
+    </message>
+    <message>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="863"/>
+        <source>CRC invalid</source>
+        <translation>CRC 無效</translation>
+    </message>
+    <message>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="867"/>
+        <source>Expected 0x%1</source>
+        <translation>預期 0x%1</translation>
+    </message>
+    <message>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="922"/>
+        <source>Success (%1)</source>
+        <translation>成功（%1）</translation>
+    </message>
+    <message>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="924"/>
+        <source>Forced Parsing</source>
+        <translation>強制解析</translation>
+    </message>
+    <message>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="927"/>
+        <source>Warnings</source>
+        <translation>警告</translation>
+    </message>
+    <message>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="967"/>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="1106"/>
+        <source>Structure (Unavailable in Live Mode)</source>
+        <translation>結構（聯動模式不可用）</translation>
+    </message>
+    <message>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="730"/>
+        <source>Request</source>
+        <translation>請求</translation>
+    </message>
+    <message>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="731"/>
+        <source>Response</source>
+        <translation>回應</translation>
+    </message>
+    <message>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="732"/>
+        <source>Exception</source>
+        <translation>例外</translation>
+    </message>
+    <message>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="733"/>
+        <source>Unknown</source>
+        <translation>未知</translation>
+    </message>
 </context>
 <context>
     <name>ui::widgets::FunctionWidget</name>
