@@ -207,19 +207,25 @@ void ModbusRtuView::setupUi() {
                     if (!self) return;
                     if (generation != self->connectionGeneration_) return;
                     if (isTx) {
-                        if (!self->suppressPollTrafficLog_) {
+                        const bool allowRawFrameLog = !self->suppressPollTrafficLog_
+                            || (self->trafficMonitor_ && self->trafficMonitor_->isRawFramesModeEnabled());
+                        if (allowRawFrameLog) {
                             ui::common::TrafficEvent event;
                             event.direction = ui::common::TrafficDirection::Tx;
                             event.requestType = ui::common::TrafficRequestType::Unknown;
+                            event.isPoll = self->suppressPollTrafficLog_;
                             event.payload = data;
                             self->trafficMonitor_->appendEvent(event);
                         }
                         self->appendSendData(data);
                     } else {
-                        if (!self->suppressPollTrafficLog_) {
+                        const bool allowRawFrameLog = !self->suppressPollTrafficLog_
+                            || (self->trafficMonitor_ && self->trafficMonitor_->isRawFramesModeEnabled());
+                        if (allowRawFrameLog) {
                             ui::common::TrafficEvent event;
                             event.direction = ui::common::TrafficDirection::Rx;
                             event.requestType = ui::common::TrafficRequestType::Unknown;
+                            event.isPoll = self->suppressPollTrafficLog_;
                             event.payload = data;
                             self->trafficMonitor_->appendEvent(event);
                         }

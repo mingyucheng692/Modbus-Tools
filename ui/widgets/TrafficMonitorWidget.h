@@ -17,6 +17,7 @@
 class QListView;
 class QCheckBox;
 class QPushButton;
+class QLabel;
 class QEvent;
 class QString;
 class QTimer;
@@ -38,6 +39,7 @@ public:
     ~TrafficMonitorWidget() override;
 
     void appendEvent(const ui::common::TrafficEvent& event);
+    bool isRawFramesModeEnabled() const;
     void appendTx(const QByteArray& data);
     void appendRx(const QByteArray& data);
     void appendInfo(const QString& message);
@@ -50,11 +52,20 @@ private slots:
     void onCopyClicked();
 
 private:
+    enum class DisplayMode {
+        PollSummary,
+        RawFrames
+    };
+
     void setupUi();
     QString formatData(const QByteArray& data) const;
     bool isRealtimeEvent(const ui::common::TrafficEvent& event) const;
     void appendLogLine(const QString& text, const QColor& color);
     void flushPendingEvents();
+    void appendEventToHistory(const ui::common::TrafficEvent& event);
+    void rebuildVisibleEntries();
+    void syncDisplayModeUi();
+    DisplayMode currentDisplayMode() const;
     bool renderEvent(const ui::common::TrafficEvent& event, QString& outText, QColor& outColor) const;
     void loadSettings();
     void saveSettings();
@@ -66,12 +77,15 @@ private:
     QListView* logView_ = nullptr;
     TrafficLogModel* logModel_ = nullptr;
     QCheckBox* autoScrollCheck_ = nullptr;
+    QCheckBox* rawFramesCheck_ = nullptr;
     QCheckBox* showTxCheck_ = nullptr;
     QCheckBox* showRxCheck_ = nullptr;
+    QLabel* rawHintLabel_ = nullptr;
     QPushButton* clearBtn_ = nullptr;
     QPushButton* saveBtn_ = nullptr;
     QTimer* flushTimer_ = nullptr;
     QList<ui::common::TrafficEvent> pendingEvents_;
+    QList<ui::common::TrafficEvent> eventHistory_;
 
     QString settingsGroup_;
     ui::common::ISettingsService* settingsService_ = nullptr;
