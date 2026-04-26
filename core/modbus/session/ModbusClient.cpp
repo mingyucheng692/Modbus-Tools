@@ -9,6 +9,7 @@
 
 #include "ModbusClient.h"
 #include "AppConstants.h"
+#include "logging/Logger.h"
 #include "../base/ModbusProtocolChecks.h"
 #include <spdlog/spdlog.h>
 #include <chrono>
@@ -238,10 +239,10 @@ void ModbusClient::transitionConnectionState(ConnectionState newState, const cha
     if (oldState == newState) {
         return;
     }
-    spdlog::info("ModbusClient: connection {} -> {} ({})",
-                 toString(oldState),
-                 toString(newState),
-                 reason);
+    MODBUS_TOOLS_VERBOSE_INFO("ModbusClient: connection {} -> {} ({})",
+                              toString(oldState),
+                              toString(newState),
+                              reason);
 }
 
 void ModbusClient::transitionTo(RequestState newState, const char* reason) {
@@ -249,10 +250,10 @@ void ModbusClient::transitionTo(RequestState newState, const char* reason) {
     if (oldState == newState) {
         return;
     }
-    spdlog::info("ModbusClient: state {} -> {} ({})",
-                 toString(oldState),
-                 toString(newState),
-                 reason);
+    MODBUS_TOOLS_VERBOSE_INFO("ModbusClient: state {} -> {} ({})",
+                              toString(oldState),
+                              toString(newState),
+                              reason);
 }
 
 ModbusClient::ConnectionState ModbusClient::connectionState() const {
@@ -273,11 +274,11 @@ int ModbusClient::enqueuePendingRequest(const base::Pdu& request, int slaveId) {
     item.retries = config_.retries;
     item.enqueueAt = std::chrono::steady_clock::now();
     pendingRequests_.push_back(item);
-    spdlog::info("ModbusClient: enqueue request id={}, fc={}, slave={}, queue={}",
-                 item.requestId,
-                 static_cast<int>(item.functionCode),
-                 item.slaveId,
-                 pendingRequests_.size());
+    MODBUS_TOOLS_VERBOSE_INFO("ModbusClient: enqueue request id={}, fc={}, slave={}, queue={}",
+                              item.requestId,
+                              static_cast<int>(item.functionCode),
+                              item.slaveId,
+                              pendingRequests_.size());
     return item.requestId;
 }
 
@@ -292,11 +293,11 @@ void ModbusClient::finishPendingRequest(int requestId, bool success, const QStri
     }
     const auto waitMs = std::chrono::duration_cast<std::chrono::milliseconds>(
         std::chrono::steady_clock::now() - it->enqueueAt).count();
-    spdlog::info("ModbusClient: finish request id={}, success={}, queue_wait={}ms, error='{}'",
-                 requestId,
-                 success,
-                 waitMs,
-                 error.toStdString());
+    MODBUS_TOOLS_VERBOSE_INFO("ModbusClient: finish request id={}, success={}, queue_wait={}ms, error='{}'",
+                              requestId,
+                              success,
+                              waitMs,
+                              error.toStdString());
     pendingRequests_.erase(it);
 }
 
@@ -763,7 +764,7 @@ ModbusResponse ModbusClient::sendRequestInternal(const base::Pdu& request, int s
     }
     transitionTo(RequestState::Waiting, "wait-response");
     int droppedInvalidBytes = 0;
-    spdlog::info("ModbusClient: Entering wait loop, deadline in {}ms", config_.timeoutMs);
+    MODBUS_TOOLS_VERBOSE_INFO("ModbusClient: Entering wait loop, deadline in {}ms", config_.timeoutMs);
     
     while (true) {
         std::unique_lock<std::mutex> lock(mutex_);
@@ -797,7 +798,7 @@ ModbusResponse ModbusClient::sendRequestInternal(const base::Pdu& request, int s
             continue;
         }
         if (aborted_) {
-            spdlog::info("ModbusClient: Aborted during wait");
+            MODBUS_TOOLS_VERBOSE_INFO("ModbusClient: Aborted during wait");
             transitionTo(RequestState::Aborted, "aborted-during-wait");
             return ModbusResponse::Error(trClient("Aborted"));
         }
@@ -1149,7 +1150,7 @@ bool ModbusClient::tryPopRtuResponseFrameLocked(QByteArray& frame) {
 
 void ModbusClient::onDataReceived(QByteArrayView data) {
     std::lock_guard<std::mutex> lock(mutex_);
-    spdlog::info("ModbusClient: Data received, size={}, notifying loop", data.size());
+    MODBUS_TOOLS_VERBOSE_INFO("ModbusClient: Data received, size={}, notifying loop", data.size());
     if (config_.mode == base::ModbusMode::RTU) {
         const auto now = std::chrono::steady_clock::now();
         if (!buffer_.isEmpty() && lastRtuByteReceivedAt_ != std::chrono::steady_clock::time_point{}) {

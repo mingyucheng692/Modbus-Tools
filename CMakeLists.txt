@@ -11,6 +11,9 @@ option(MODBUS_TOOLS_INCLUDE_PRERELEASE "Include pre-release when checking update
 option(MODBUS_TOOLS_BUILD_TESTS "Build unit tests" OFF)
 option(MODBUS_TOOLS_ENABLE_ASAN "Enable AddressSanitizer (ASan) for memory safety" OFF)
 option(MODBUS_TOOLS_EMBED_RELEASE_I18N "Embed freshly generated translations into the application for release builds" OFF)
+# Explicitly enable with:
+#   cmake -S . -B build_release -DMODBUS_TOOLS_ENABLE_VERBOSE_RUNTIME_LOGS=ON
+option(MODBUS_TOOLS_ENABLE_VERBOSE_RUNTIME_LOGS "Enable verbose runtime spdlog info/debug style diagnostics" OFF)
 
 if(MSVC)
     if(MODBUS_TOOLS_ENABLE_PARALLEL_COMPILE)
@@ -96,6 +99,7 @@ target_compile_definitions(core PUBLIC
     MODBUS_TOOLS_RELEASES_PAGE_URL="${MODBUS_TOOLS_RELEASES_PAGE_URL}"
     MODBUS_TOOLS_PLATFORM="${MODBUS_TOOLS_PLATFORM}"
     MODBUS_TOOLS_INCLUDE_PRERELEASE=${MODBUS_TOOLS_INCLUDE_PRERELEASE_VALUE}
+    MODBUS_TOOLS_ENABLE_VERBOSE_RUNTIME_LOGS=$<IF:$<BOOL:${MODBUS_TOOLS_ENABLE_VERBOSE_RUNTIME_LOGS}>,1,0>
 )
 
 target_compile_definitions(ui PUBLIC

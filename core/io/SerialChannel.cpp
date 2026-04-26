@@ -8,6 +8,7 @@
  */
 
 #include "SerialChannel.h"
+#include "logging/Logger.h"
 #include <spdlog/spdlog.h>
 #include <QCoreApplication>
 #include <QThread>
@@ -87,9 +88,9 @@ bool SerialChannel::open() {
 }
 
 void SerialChannel::moveToThread(QThread* thread) {
-    spdlog::info("SerialChannel: moveToThread current={} target={}",
-                 threadToken(serial_.thread()),
-                 threadToken(thread));
+    MODBUS_TOOLS_VERBOSE_INFO("SerialChannel: moveToThread current={} target={}",
+                              threadToken(serial_.thread()),
+                              threadToken(thread));
     serial_.moveToThread(thread);
     writeTimeoutTimer_.moveToThread(thread);
     openThreadLogged_ = false;
@@ -227,7 +228,7 @@ void SerialChannel::onReadyRead() {
     if (!data.isEmpty()) {
         // OS 驱动层推送上来的一批数据视为连续到达，分配统一时间戳
         // 这在 PC 平台上是唯一合理且高性能的做法
-        spdlog::info("SerialChannel: Received {} bytes", data.size());
+        MODBUS_TOOLS_VERBOSE_INFO("SerialChannel: Received {} bytes", data.size());
         addRx(data.size());
         emitMonitor(false, data);
         emitRead(data);
@@ -243,15 +244,15 @@ void SerialChannel::logThreadContextOnce(const char* scope, bool& loggedFlag)
     QThread* currentThread = QThread::currentThread();
     QThread* ownerThread = serial_.thread();
     QThread* uiThread = QCoreApplication::instance() ? QCoreApplication::instance()->thread() : nullptr;
-    spdlog::info("{} current={} owner={}",
-                 scope,
-                 threadToken(currentThread),
-                 threadToken(ownerThread));
-    spdlog::info("{} ui_thread={} current_is_ui={} owner_is_ui={}",
-                 scope,
-                 threadToken(uiThread),
-                 currentThread == uiThread,
-                 ownerThread == uiThread);
+    MODBUS_TOOLS_VERBOSE_INFO("{} current={} owner={}",
+                              scope,
+                              threadToken(currentThread),
+                              threadToken(ownerThread));
+    MODBUS_TOOLS_VERBOSE_INFO("{} ui_thread={} current_is_ui={} owner_is_ui={}",
+                              scope,
+                              threadToken(uiThread),
+                              currentThread == uiThread,
+                              ownerThread == uiThread);
 }
 
 void SerialChannel::onBytesWritten(qint64 bytes) {

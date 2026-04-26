@@ -19,6 +19,14 @@
 
 namespace logging {
 
+constexpr auto kDefaultLogLevel = spdlog::level::info;
+
+#if defined(MODBUS_TOOLS_ENABLE_VERBOSE_RUNTIME_LOGS) && MODBUS_TOOLS_ENABLE_VERBOSE_RUNTIME_LOGS
+constexpr auto kDefaultFlushLevel = spdlog::level::info;
+#else
+constexpr auto kDefaultFlushLevel = spdlog::level::err;
+#endif
+
 static void QtMessageHandler(QtMsgType type, const QMessageLogContext& context, const QString& message)
 {
     auto logger = spdlog::default_logger();
@@ -98,14 +106,14 @@ void Init(const QString& logDir)
         spdlog::thread_pool(),
         spdlog::async_overflow_policy::block);
     logger->set_pattern("%Y-%m-%d %H:%M:%S.%e [%t] [%n] [%^%l%$] %v");
-    logger->set_level(spdlog::level::info);
-    logger->flush_on(spdlog::level::info);
+    logger->set_level(kDefaultLogLevel);
+    logger->flush_on(kDefaultFlushLevel);
     spdlog::set_error_handler([](const std::string& message) {
         qWarning("spdlog failure: %s", message.c_str());
     });
 
     spdlog::set_default_logger(logger);
-    spdlog::set_level(spdlog::level::info);
+    spdlog::set_level(kDefaultLogLevel);
 
     qInstallMessageHandler(QtMessageHandler);
 }

@@ -8,6 +8,7 @@
  */
 
 #include "TcpChannel.h"
+#include "logging/Logger.h"
 #include <spdlog/spdlog.h>
 #include <QCoreApplication>
 #include <QThread>
@@ -82,9 +83,9 @@ bool TcpChannel::open() {
 }
 
 void TcpChannel::moveToThread(QThread* thread) {
-    spdlog::info("TcpChannel: moveToThread current={} target={}",
-                 threadToken(socket_.thread()),
-                 threadToken(thread));
+    MODBUS_TOOLS_VERBOSE_INFO("TcpChannel: moveToThread current={} target={}",
+                              threadToken(socket_.thread()),
+                              threadToken(thread));
     socket_.moveToThread(thread);
     writeTimeoutTimer_.moveToThread(thread);
     openThreadLogged_ = false;
@@ -202,7 +203,7 @@ void TcpChannel::onReadyRead() {
     logThreadContextOnce("TcpChannel::onReadyRead", ioThreadLogged_);
     QByteArray data = socket_.readAll();
     if (!data.isEmpty()) {
-        spdlog::info("TcpChannel: Received {} bytes", data.size());
+        MODBUS_TOOLS_VERBOSE_INFO("TcpChannel: Received {} bytes", data.size());
         addRx(data.size());
         emitMonitor(false, data);
         emitRead(data);
@@ -225,15 +226,15 @@ void TcpChannel::logThreadContextOnce(const char* scope, bool& loggedFlag)
     QThread* currentThread = QThread::currentThread();
     QThread* ownerThread = socket_.thread();
     QThread* uiThread = QCoreApplication::instance() ? QCoreApplication::instance()->thread() : nullptr;
-    spdlog::info("{} current={} owner={}",
-                 scope,
-                 threadToken(currentThread),
-                 threadToken(ownerThread));
-    spdlog::info("{} ui_thread={} current_is_ui={} owner_is_ui={}",
-                 scope,
-                 threadToken(uiThread),
-                 currentThread == uiThread,
-                 ownerThread == uiThread);
+    MODBUS_TOOLS_VERBOSE_INFO("{} current={} owner={}",
+                              scope,
+                              threadToken(currentThread),
+                              threadToken(ownerThread));
+    MODBUS_TOOLS_VERBOSE_INFO("{} ui_thread={} current_is_ui={} owner_is_ui={}",
+                              scope,
+                              threadToken(uiThread),
+                              currentThread == uiThread,
+                              ownerThread == uiThread);
 }
 
 void TcpChannel::onBytesWritten(qint64 bytes) {

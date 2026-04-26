@@ -13,6 +13,12 @@
 #include <memory>
 #include <spdlog/spdlog.h>
 
+#if defined(MODBUS_TOOLS_ENABLE_VERBOSE_RUNTIME_LOGS) && MODBUS_TOOLS_ENABLE_VERBOSE_RUNTIME_LOGS
+#define MODBUS_TOOLS_VERBOSE_INFO(...) spdlog::info(__VA_ARGS__)
+#else
+#define MODBUS_TOOLS_VERBOSE_INFO(...) ((void)0)
+#endif
+
 namespace logging {
 
 void Init(const QString& logDir);
