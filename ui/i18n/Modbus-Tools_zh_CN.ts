@@ -2000,6 +2000,52 @@ Choose update method:</source>
         <translation>自动滚动</translation>
     </message>
     <message>
+        <location filename="../widgets/TrafficMonitorWidget.cpp" line="295"/>
+        <source>Pause</source>
+        <translation>暂停</translation>
+    </message>
+    <message>
+        <location filename="../widgets/TrafficMonitorWidget.cpp" line="296"/>
+        <source>Raw Frames</source>
+        <translation>原始帧</translation>
+    </message>
+    <message>
+        <location filename="../widgets/TrafficMonitorWidget.cpp" line="301"/>
+        <source>All</source>
+        <translation>全部</translation>
+    </message>
+    <message>
+        <location filename="../widgets/TrafficMonitorWidget.cpp" line="302"/>
+        <source>Info</source>
+        <translation>信息</translation>
+    </message>
+    <message>
+        <location filename="../widgets/TrafficMonitorWidget.cpp" line="303"/>
+        <source>Warn</source>
+        <translation>警告</translation>
+    </message>
+    <message>
+        <location filename="../widgets/TrafficMonitorWidget.cpp" line="304"/>
+        <source>Error</source>
+        <translation>错误</translation>
+    </message>
+    <message>
+        <location filename="../widgets/TrafficMonitorWidget.cpp" line="305"/>
+        <location filename="../widgets/TrafficMonitorWidget.cpp" line="306"/>
+        <source>Log Level Filter</source>
+        <translation>日志等级筛选</translation>
+    </message>
+    <message>
+        <location filename="../widgets/TrafficMonitorWidget.cpp" line="308"/>
+        <source>Raw Frames mode may reduce UI smoothness under high-frequency polling.</source>
+        <translation>高频轮询下，原始帧模式可能降低界面流畅度。</translation>
+    </message>
+    <message>
+        <location filename="../widgets/TrafficMonitorWidget.cpp" line="309"/>
+        <source>Paused (%1 new)</source>
+        <translation>已暂停（新增 %1）</translation>
+    </message>
+    <message>
         <location filename="../widgets/TrafficMonitorWidget.cpp" line="297"/>
         <source>Clear</source>
         <translation>清除</translation>

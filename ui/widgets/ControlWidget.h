@@ -20,6 +20,7 @@ class QLabel;
 class QTimer;
 class QEvent;
 class QString;
+class QPoint;
 
 namespace ui::common {
 class ISettingsService;
@@ -60,10 +61,12 @@ private:
     void setupUi();
     void onTimer();
     void updateStatsLabel();
+    bool isRttSegmentHovered(const QPoint& localPos) const;
     void loadSettings();
     void saveSettings();
     void retranslateUi();
     void changeEvent(QEvent* event) override;
+    bool eventFilter(QObject* watched, QEvent* event) override;
 
     QLabel* intervalLabel_ = nullptr;
     QLabel* fcLabel_ = nullptr;

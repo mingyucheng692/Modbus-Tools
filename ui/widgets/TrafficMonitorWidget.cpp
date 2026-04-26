@@ -125,6 +125,8 @@ QList<TrafficLogEntry> toSingleEntryList(const QString& text, const QColor& colo
 }
 
 constexpr int kUiFlushIntervalMs = 120;
+constexpr int kStatusBarMinHeight = 28;
+constexpr int kActionButtonMinWidth = 86;
 }
 
 TrafficMonitorWidget::TrafficMonitorWidget(ui::common::ISettingsService* settingsService, QWidget *parent)
@@ -159,16 +161,9 @@ void TrafficMonitorWidget::setupUi() {
     autoScrollCheck_->setChecked(true);
     toolbarLayout->addWidget(autoScrollCheck_);
 
-    pauseViewCheck_ = new QCheckBox(this);
-    pauseViewCheck_->setChecked(false);
-    toolbarLayout->addWidget(pauseViewCheck_);
-
     rawFramesCheck_ = new QCheckBox(this);
     rawFramesCheck_->setChecked(false);
     toolbarLayout->addWidget(rawFramesCheck_);
-
-    levelFilterCombo_ = new QComboBox(this);
-    toolbarLayout->addWidget(levelFilterCombo_);
 
     showTxCheck_ = new QCheckBox(this);
     showTxCheck_->setChecked(true);
@@ -178,24 +173,43 @@ void TrafficMonitorWidget::setupUi() {
     showRxCheck_->setChecked(true);
     toolbarLayout->addWidget(showRxCheck_);
 
+    levelFilterCombo_ = new QComboBox(this);
+    toolbarLayout->addWidget(levelFilterCombo_);
+
+    pauseBtn_ = new QPushButton(this);
+    pauseBtn_->setCheckable(true);
+    pauseBtn_->setChecked(false);
+    pauseBtn_->setMinimumWidth(kActionButtonMinWidth);
+    toolbarLayout->addWidget(pauseBtn_);
+
     clearBtn_ = new QPushButton(this);
+    clearBtn_->setMinimumWidth(kActionButtonMinWidth);
     toolbarLayout->addWidget(clearBtn_);
     
     saveBtn_ = new QPushButton(this);
+    saveBtn_->setMinimumWidth(kActionButtonMinWidth);
     toolbarLayout->addWidget(saveBtn_);
     
     toolbarLayout->addStretch();
     layout->addLayout(toolbarLayout);
 
+    statusBarWidget_ = new QWidget(this);
+    statusBarWidget_->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);
+    statusBarWidget_->setMinimumHeight(kStatusBarMinHeight);
+    auto statusLayout = new QHBoxLayout(statusBarWidget_);
+    statusLayout->setContentsMargins(0, 0, 0, 0);
+    statusLayout->setSpacing(12);
+
     rawHintLabel_ = new QLabel(this);
-    rawHintLabel_->setVisible(false);
-    rawHintLabel_->setWordWrap(true);
-    layout->addWidget(rawHintLabel_);
+    rawHintLabel_->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Preferred);
+    rawHintLabel_->setAlignment(Qt::AlignLeft | Qt::AlignVCenter);
+    statusLayout->addWidget(rawHintLabel_, 1);
 
     pausedStatusLabel_ = new QLabel(this);
-    pausedStatusLabel_->setVisible(false);
-    pausedStatusLabel_->setWordWrap(true);
-    layout->addWidget(pausedStatusLabel_);
+    pausedStatusLabel_->setAlignment(Qt::AlignRight | Qt::AlignVCenter);
+    statusLayout->addWidget(pausedStatusLabel_, 0, Qt::AlignRight);
+
+    layout->addWidget(statusBarWidget_);
 
     // Log View
     logView_ = new QListView(this);
@@ -216,7 +230,7 @@ void TrafficMonitorWidget::setupUi() {
     connect(clearBtn_, &QPushButton::clicked, this, &TrafficMonitorWidget::clear);
     connect(saveBtn_, &QPushButton::clicked, this, &TrafficMonitorWidget::onSaveClicked);
     connect(autoScrollCheck_, &QCheckBox::toggled, this, &TrafficMonitorWidget::saveSettings);
-    connect(pauseViewCheck_, &QCheckBox::toggled, this, [this](bool checked) {
+    connect(pauseBtn_, &QPushButton::toggled, this, [this](bool checked) {
         if (checked) {
             flushPendingEvents();
             pausedEventCount_ = 0;
@@ -284,7 +298,7 @@ bool TrafficMonitorWidget::isRawFramesModeEnabled() const {
 }
 
 bool TrafficMonitorWidget::isViewPaused() const {
-    return pauseViewCheck_ && pauseViewCheck_->isChecked();
+    return pauseBtn_ && pauseBtn_->isChecked();
 }
 
 TrafficMonitorWidget::LevelFilter TrafficMonitorWidget::currentLevelFilter() const {
@@ -332,15 +346,18 @@ void TrafficMonitorWidget::syncDisplayModeUi() {
         showRxCheck_->setEnabled(rawFramesEnabled);
     }
     if (rawHintLabel_) {
-        rawHintLabel_->setVisible(rawFramesEnabled);
+        rawHintLabel_->setText(rawFramesEnabled
+            ? tr("Raw Frames mode may reduce UI smoothness under high-frequency polling.")
+            : QString());
     }
 }
 
 void TrafficMonitorWidget::syncPauseUi() {
     const bool paused = isViewPaused();
     if (pausedStatusLabel_) {
-        pausedStatusLabel_->setVisible(paused);
-        pausedStatusLabel_->setText(tr("Paused (%1 new)").arg(pausedEventCount_));
+        pausedStatusLabel_->setText(paused
+            ? tr("Paused (%1 new)").arg(pausedEventCount_)
+            : QString());
     }
 }
 
@@ -635,7 +652,7 @@ void TrafficMonitorWidget::setSettingsGroup(const QString& group) {
 void TrafficMonitorWidget::loadSettings() {
     if (settingsGroup_.isEmpty() || !settingsService_) return;
     QSignalBlocker b1(autoScrollCheck_);
-    QSignalBlocker b2(pauseViewCheck_);
+    QSignalBlocker b2(pauseBtn_);
     QSignalBlocker b3(rawFramesCheck_);
     QSignalBlocker b4(showTxCheck_);
     QSignalBlocker b5(showRxCheck_);
@@ -654,7 +671,7 @@ void TrafficMonitorWidget::loadSettings() {
     const int levelIndex = settingsService_->value(levelKey).toInt();
 
     autoScrollCheck_->setChecked(autoScroll);
-    pauseViewCheck_->setChecked(false);
+    pauseBtn_->setChecked(false);
     rawFramesCheck_->setChecked(rawFramesMode);
     showTxCheck_->setChecked(showTx);
     showRxCheck_->setChecked(showRx);
@@ -706,7 +723,7 @@ void TrafficMonitorWidget::onCopyClicked() {
 void TrafficMonitorWidget::retranslateUi() {
     if (section_) section_->setTitle(tr("Traffic Monitor"));
     if (autoScrollCheck_) autoScrollCheck_->setText(tr("Auto Scroll"));
-    if (pauseViewCheck_) pauseViewCheck_->setText(tr("Pause View"));
+    if (pauseBtn_) pauseBtn_->setText(tr("Pause"));
     if (rawFramesCheck_) rawFramesCheck_->setText(tr("Raw Frames"));
     if (levelFilterCombo_) {
         const int currentIndex = levelFilterCombo_->currentIndex();
@@ -717,10 +734,12 @@ void TrafficMonitorWidget::retranslateUi() {
         levelFilterCombo_->addItem(tr("Warn"));
         levelFilterCombo_->addItem(tr("Error"));
         levelFilterCombo_->setCurrentIndex(qBound(0, currentIndex, levelFilterCombo_->count() - 1));
+        levelFilterCombo_->setToolTip(tr("Log Level Filter"));
+        levelFilterCombo_->setStatusTip(tr("Log Level Filter"));
     }
     if (showTxCheck_) showTxCheck_->setText(QStringLiteral("TX"));
     if (showRxCheck_) showRxCheck_->setText(QStringLiteral("RX"));
-    if (rawHintLabel_) rawHintLabel_->setText(tr("Raw Frames mode may reduce UI smoothness under high-frequency polling."));
+    syncDisplayModeUi();
     syncPauseUi();
     if (clearBtn_) clearBtn_->setText(tr("Clear"));
     if (saveBtn_) saveBtn_->setText(tr("Save"));

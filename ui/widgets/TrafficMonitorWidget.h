@@ -91,11 +91,12 @@ private:
     QListView* logView_ = nullptr;
     TrafficLogModel* logModel_ = nullptr;
     QCheckBox* autoScrollCheck_ = nullptr;
-    QCheckBox* pauseViewCheck_ = nullptr;
+    QPushButton* pauseBtn_ = nullptr;
     QCheckBox* rawFramesCheck_ = nullptr;
     QComboBox* levelFilterCombo_ = nullptr;
     QCheckBox* showTxCheck_ = nullptr;
     QCheckBox* showRxCheck_ = nullptr;
+    QWidget* statusBarWidget_ = nullptr;
     QLabel* rawHintLabel_ = nullptr;
     QLabel* pausedStatusLabel_ = nullptr;
     QPushButton* clearBtn_ = nullptr;

@@ -22,6 +22,8 @@
 #include <QSizePolicy>
 #include <QRegularExpressionValidator>
 #include <QMessageBox>
+#include <QHelpEvent>
+#include <QToolTip>
 #include "modbus/base/ModbusDataHelper.h"
 
 namespace ui::widgets {
@@ -167,6 +169,25 @@ void ControlWidget::updateStatsLabel() {
                              .arg(rxCount_)
                              .arg(errorCount_)
                              .arg(rttText));
+}
+
+bool ControlWidget::isRttSegmentHovered(const QPoint& localPos) const {
+    if (!statsLabel_) {
+        return false;
+    }
+
+    const QString statsText = statsLabel_->text();
+    const int rttIndex = statsText.lastIndexOf(QStringLiteral("RTT:"));
+    if (rttIndex < 0) {
+        return false;
+    }
+
+    const QFontMetrics metrics(statsLabel_->font());
+    const QRect contentsRect = statsLabel_->contentsRect();
+    const int rttStartX = contentsRect.left() + metrics.horizontalAdvance(statsText.left(rttIndex));
+    const int rttWidth = metrics.horizontalAdvance(statsText.mid(rttIndex));
+    const QRect rttRect(rttStartX, contentsRect.top(), rttWidth, contentsRect.height());
+    return rttRect.contains(localPos);
 }
 
 void ControlWidget::setSettingsGroup(const QString& group) {
@@ -325,6 +346,7 @@ void ControlWidget::setupUi() {
     // Stats
     statsLabel_ = new QLabel(this);
     statsLabel_->setSizePolicy(QSizePolicy::Minimum, QSizePolicy::Preferred);
+    statsLabel_->installEventFilter(this);
     layout->addWidget(statsLabel_);
 
     retranslateUi();
@@ -358,9 +380,6 @@ void ControlWidget::retranslateUi() {
     if (qtyLabel_) {
         qtyLabel_->setText(tr("Qty:"));
     }
-    if (statsLabel_) {
-        statsLabel_->setToolTip(tr("Last Success RTT"));
-    }
     updateStatsLabel();
 }
 
@@ -369,6 +388,26 @@ void ControlWidget::changeEvent(QEvent* event) {
         retranslateUi();
     }
     QWidget::changeEvent(event);
+}
+
+bool ControlWidget::eventFilter(QObject* watched, QEvent* event) {
+    if (watched == statsLabel_ && event) {
+        if (event->type() == QEvent::ToolTip) {
+            auto* helpEvent = static_cast<QHelpEvent*>(event);
+            if (helpEvent && isRttSegmentHovered(helpEvent->pos())) {
+                QToolTip::showText(helpEvent->globalPos(), tr("Last Success RTT"), statsLabel_);
+            } else {
+                QToolTip::hideText();
+            }
+            return true;
+        }
+
+        if (event->type() == QEvent::Leave) {
+            QToolTip::hideText();
+        }
+    }
+
+    return QWidget::eventFilter(watched, event);
 }
 
 } // namespace ui::widgets
