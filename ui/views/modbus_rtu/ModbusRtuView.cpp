@@ -282,7 +282,7 @@ void ModbusRtuView::setupUi() {
                         handlePollCompletion(response.isSuccess, response.rttMs, response.error);
                     }
 
-                    // 分流设计：仅在成功时通过底层测量的精确 RTT 更新统计
+                    // 分流设计：仅在成功时通过底层测量的精�?RTT 更新统计
                     if (response.isSuccess && response.noResponseExpected) {
                         trafficMonitor_->appendInfo(tr("Success: Broadcast write sent, no response expected"));
                     } else if (response.isSuccess) {
@@ -300,11 +300,11 @@ void ModbusRtuView::setupUi() {
                             emit linkageDataReceived(response.pdu, modbus::core::parser::ProtocolType::Rtu, itAddr->second);
                         }
                     } else {
-                        // 失败路径：仅更新 Error 计数，跳过 RTT 统计防止均值偏移
+                        // Failure path: record the error count and skip RTT statistics.
                         controlWidget_->recordError();
 
                         if (itKind->second != RequestKind::Poll) {
-                            trafficMonitor_->appendInfo(tr("Error: %1").arg(response.error));
+                            trafficMonitor_->appendError(tr("Error: %1").arg(response.error));
                         }
                     }
 
@@ -342,7 +342,7 @@ void ModbusRtuView::setupUi() {
             using namespace modbus::base;
             auto result = ModbusPduBuilder::buildReadRequest(static_cast<FunctionCode>(fc), addr, qty);
             if (!result.isOk()) {
-                trafficMonitor_->appendInfo(tr("Error: %1").arg(result.error));
+                trafficMonitor_->appendError(tr("Error: %1").arg(result.error));
                 return;
             }
             Pdu request = *result.pdu;
@@ -355,7 +355,7 @@ void ModbusRtuView::setupUi() {
             requestKinds_[requestId] = RequestKind::Read;
             requestAddrs_[requestId] = static_cast<uint16_t>(addr);
             
-            controlWidget_->recordTx(); // 提交时增加 TX 计数
+            controlWidget_->recordTx(); // Update TX counters immediately when the request is submitted.
             worker_->submit(request, slaveId, requestId);
     });
 
@@ -375,7 +375,7 @@ void ModbusRtuView::setupUi() {
                     bool ok = false;
                     int value = trimmed.toInt(&ok);
                     if (!ok || (value != 0 && value != 1)) {
-                        trafficMonitor_->appendInfo(tr("Error: Invalid decimal value for 0x05"));
+                        trafficMonitor_->appendError(tr("Error: Invalid decimal value for 0x05"));
                         return;
                     }
                     coilOn = (value != 0);
@@ -383,27 +383,27 @@ void ModbusRtuView::setupUi() {
                     QString cleaned = trimmed;
                     cleaned.remove(QRegularExpression("[^0-1]"));
                     if (cleaned.isEmpty() || cleaned.size() > 1) {
-                         trafficMonitor_->appendInfo(tr("Error: Invalid binary value for 0x05 (expected 0 or 1)"));
+                         trafficMonitor_->appendError(tr("Error: Invalid binary value for 0x05 (expected 0 or 1)"));
                          return;
                     }
                     coilOn = (cleaned == "1");
                 } else {
                     QByteArray bytes = ModbusDataHelper::parseHex(trimmed);
                     if (bytes.isEmpty()) {
-                        trafficMonitor_->appendInfo(tr("Error: Invalid hex value for 0x05"));
+                        trafficMonitor_->appendError(tr("Error: Invalid hex value for 0x05"));
                         return;
                     }
                     if (bytes.size() == 1) {
                         uint8_t raw = static_cast<uint8_t>(bytes[0]);
                         if (raw != 0x00 && raw != 0x01) {
-                            trafficMonitor_->appendInfo(tr("Error: Invalid hex value for 0x05"));
+                            trafficMonitor_->appendError(tr("Error: Invalid hex value for 0x05"));
                             return;
                         }
                         coilOn = raw != 0x00;
                     } else {
                         uint16_t raw = (static_cast<uint8_t>(bytes[0]) << 8) | static_cast<uint8_t>(bytes[1]);
                         if (raw != 0x0000 && raw != 0xFF00) {
-                            trafficMonitor_->appendInfo(tr("Error: Invalid hex value for 0x05"));
+                            trafficMonitor_->appendError(tr("Error: Invalid hex value for 0x05"));
                             return;
                         }
                         coilOn = raw == 0xFF00;
@@ -412,24 +412,24 @@ void ModbusRtuView::setupUi() {
                 result = ModbusPduBuilder::buildWriteSingleCoil(addr, coilOn);
             } else if (fc == 0x06) {
                 if (trimmed.isEmpty()) {
-                    trafficMonitor_->appendInfo(tr("Error: Empty value for 0x06"));
+                    trafficMonitor_->appendError(tr("Error: Empty value for 0x06"));
                     return;
                 }
                 if (fmt == "Decimal") {
                     bool ok = false;
                     uint value = trimmed.toUInt(&ok, 10);
                     if (!ok || value > 65535) {
-                        trafficMonitor_->appendInfo(tr("Error: Invalid decimal value for 0x06"));
+                        trafficMonitor_->appendError(tr("Error: Invalid decimal value for 0x06"));
                         return;
                     }
                     result = ModbusPduBuilder::buildWriteSingleRegister(addr, static_cast<uint16_t>(value));
                 } else if (fmt == "Binary") {
-                    trafficMonitor_->appendInfo(tr("Error: Binary format not supported for registers (0x06)"));
+                    trafficMonitor_->appendError(tr("Error: Binary format not supported for registers (0x06)"));
                     return;
                 } else {
                     QByteArray bytes = ModbusDataHelper::parseHex(trimmed);
                     if (bytes.isEmpty() || bytes.size() > 2) {
-                        trafficMonitor_->appendInfo(tr("Error: Invalid hex value for 0x06"));
+                        trafficMonitor_->appendError(tr("Error: Invalid hex value for 0x06"));
                         return;
                     }
                     uint16_t val = 0;
@@ -441,7 +441,7 @@ void ModbusRtuView::setupUi() {
                 QByteArray bytes;
                 int quantity = functionWidget_->getQuantity();
                 if (quantity <= 0) {
-                    trafficMonitor_->appendInfo(tr("Error: Invalid quantity for 0x0F"));
+                    trafficMonitor_->appendError(tr("Error: Invalid quantity for 0x0F"));
                     return;
                 }
 
@@ -449,7 +449,7 @@ void ModbusRtuView::setupUi() {
                     QString bits = trimmed;
                     bits.remove(QRegularExpression("[^0-1]"));
                     if (bits.size() != quantity) {
-                        trafficMonitor_->appendInfo(tr("Error: Binary bit count (%1) does not match Quantity (%2)")
+                        trafficMonitor_->appendError(tr("Error: Binary bit count (%1) does not match Quantity (%2)")
                             .arg(bits.size()).arg(quantity));
                         return;
                     }
@@ -457,18 +457,18 @@ void ModbusRtuView::setupUi() {
                 } else if (fmt == "Hex") {
                     bytes = ModbusDataHelper::parseHex(trimmed);
                 } else {
-                    trafficMonitor_->appendInfo(tr("Error: 0x0F requires Hex or Binary data"));
+                    trafficMonitor_->appendError(tr("Error: 0x0F requires Hex or Binary data"));
                     return;
                 }
                 result = ModbusPduBuilder::buildWriteMultipleCoils(addr, quantity, bytes);
             } else if (fc == 0x10) {
                 if (trimmed.isEmpty()) {
-                    trafficMonitor_->appendInfo(tr("Error: Empty value for 0x10"));
+                    trafficMonitor_->appendError(tr("Error: Empty value for 0x10"));
                     return;
                 }
                 int quantity = functionWidget_->getQuantity();
                 if (quantity <= 0) {
-                    trafficMonitor_->appendInfo(tr("Error: Invalid quantity for 0x10"));
+                    trafficMonitor_->appendError(tr("Error: Invalid quantity for 0x10"));
                     return;
                 }
                 QByteArray payload;
@@ -476,13 +476,13 @@ void ModbusRtuView::setupUi() {
                     bool okList = false;
                     payload = ModbusDataHelper::parseDecimalList(trimmed, okList);
                     if (!okList) {
-                        trafficMonitor_->appendInfo(tr("Error: Invalid decimal list for 0x10"));
+                        trafficMonitor_->appendError(tr("Error: Invalid decimal list for 0x10"));
                         return;
                     }
                 } else {
                     payload = ModbusDataHelper::parseHex(trimmed);
                     if (payload.isEmpty() || (payload.size() % 2 != 0)) {
-                        trafficMonitor_->appendInfo(tr("Error: Invalid hex value for 0x10"));
+                        trafficMonitor_->appendError(tr("Error: Invalid hex value for 0x10"));
                         return;
                     }
                 }
@@ -490,7 +490,7 @@ void ModbusRtuView::setupUi() {
             }
 
             if (!result.isOk()) {
-                trafficMonitor_->appendInfo(tr("Error: %1").arg(result.error));
+                trafficMonitor_->appendError(tr("Error: %1").arg(result.error));
                 return;
             }
             
@@ -504,7 +504,7 @@ void ModbusRtuView::setupUi() {
             requestKinds_[requestId] = RequestKind::Write;
             requestAddrs_[requestId] = static_cast<uint16_t>(addr);
 
-            controlWidget_->recordTx(); // 提交时增加 TX 计数
+            controlWidget_->recordTx(); // Update TX counters immediately when the request is submitted.
             worker_->submit(request, slaveId, requestId);
     });
     
@@ -530,7 +530,7 @@ void ModbusRtuView::setupUi() {
             using namespace modbus::base;
             auto result = ModbusPduBuilder::buildReadRequest(static_cast<FunctionCode>(fc), addr, qty);
             if (!result.isOk()) {
-                trafficMonitor_->appendInfo(tr("Error: %1").arg(result.error));
+                trafficMonitor_->appendError(tr("Error: %1").arg(result.error));
                 return;
             }
             Pdu request = *result.pdu;
@@ -549,7 +549,7 @@ void ModbusRtuView::setupUi() {
             }
             pollInFlight_ = true;
             suppressPollTrafficLog_ = true;
-            controlWidget_->recordTx(); // 轮询提交时增加 TX 计数
+            controlWidget_->recordTx(); // 轮询提交时增�?TX 计数
             worker_->submit(request, slaveId, requestId);
     });
 

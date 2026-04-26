@@ -23,7 +23,8 @@ enum class TrafficDirection {
 
 enum class TrafficEventLevel {
     Info,
-    Warning
+    Warning,
+    Error
 };
 
 enum class TrafficRequestType {

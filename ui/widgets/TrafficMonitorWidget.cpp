@@ -68,15 +68,27 @@ public:
         if (newEntries.isEmpty()) {
             return;
         }
-        beginResetModel();
-        for (const auto& entry : newEntries) {
+        const int maxRows = app::constants::Values::Ui::kTrafficMonitorMaxBlockCount;
+        QList<TrafficLogEntry> entriesToAppend = newEntries;
+        while (entriesToAppend.size() > maxRows) {
+            entriesToAppend.removeFirst();
+        }
+        const int overflow = qMax(0, entries_.size() + entriesToAppend.size() - maxRows);
+        if (overflow > 0) {
+            beginRemoveRows(QModelIndex(), 0, overflow - 1);
+            for (int i = 0; i < overflow; ++i) {
+                entries_.removeFirst();
+            }
+            endRemoveRows();
+        }
+
+        const int beginRow = entries_.size();
+        const int endRow = beginRow + entriesToAppend.size() - 1;
+        beginInsertRows(QModelIndex(), beginRow, endRow);
+        for (const auto& entry : entriesToAppend) {
             entries_.append(entry);
         }
-        const int maxRows = app::constants::Values::Ui::kTrafficMonitorMaxBlockCount;
-        while (entries_.size() > maxRows) {
-            entries_.removeFirst();
-        }
-        endResetModel();
+        endInsertRows();
     }
 
     void clearAll() {
@@ -146,6 +158,10 @@ void TrafficMonitorWidget::setupUi() {
     autoScrollCheck_->setChecked(true);
     toolbarLayout->addWidget(autoScrollCheck_);
 
+    pauseViewCheck_ = new QCheckBox(this);
+    pauseViewCheck_->setChecked(false);
+    toolbarLayout->addWidget(pauseViewCheck_);
+
     rawFramesCheck_ = new QCheckBox(this);
     rawFramesCheck_->setChecked(false);
     toolbarLayout->addWidget(rawFramesCheck_);
@@ -172,6 +188,11 @@ void TrafficMonitorWidget::setupUi() {
     rawHintLabel_->setWordWrap(true);
     layout->addWidget(rawHintLabel_);
 
+    pausedStatusLabel_ = new QLabel(this);
+    pausedStatusLabel_->setVisible(false);
+    pausedStatusLabel_->setWordWrap(true);
+    layout->addWidget(pausedStatusLabel_);
+
     // Log View
     logView_ = new QListView(this);
     logModel_ = new TrafficLogModel(this);
@@ -191,8 +212,20 @@ void TrafficMonitorWidget::setupUi() {
     connect(clearBtn_, &QPushButton::clicked, this, &TrafficMonitorWidget::clear);
     connect(saveBtn_, &QPushButton::clicked, this, &TrafficMonitorWidget::onSaveClicked);
     connect(autoScrollCheck_, &QCheckBox::toggled, this, &TrafficMonitorWidget::saveSettings);
+    connect(pauseViewCheck_, &QCheckBox::toggled, this, [this](bool checked) {
+        if (checked) {
+            flushPendingEvents();
+            pausedEventCount_ = 0;
+            syncPauseUi();
+            return;
+        }
+        syncPauseUi();
+        rebuildVisibleEntries();
+    });
     connect(rawFramesCheck_, &QCheckBox::toggled, this, [this]() {
-        flushPendingEvents();
+        if (!isViewPaused()) {
+            flushPendingEvents();
+        }
         syncDisplayModeUi();
         rebuildVisibleEntries();
         saveSettings();
@@ -200,11 +233,15 @@ void TrafficMonitorWidget::setupUi() {
     connect(showTxCheck_, &QCheckBox::toggled, this, &TrafficMonitorWidget::saveSettings);
     connect(showRxCheck_, &QCheckBox::toggled, this, &TrafficMonitorWidget::saveSettings);
     connect(showTxCheck_, &QCheckBox::toggled, this, [this]() {
-        flushPendingEvents();
+        if (!isViewPaused()) {
+            flushPendingEvents();
+        }
         rebuildVisibleEntries();
     });
     connect(showRxCheck_, &QCheckBox::toggled, this, [this]() {
-        flushPendingEvents();
+        if (!isViewPaused()) {
+            flushPendingEvents();
+        }
         rebuildVisibleEntries();
     });
     connect(section_, &CollapsibleSection::expandedChanged, this, &TrafficMonitorWidget::syncCollapsedGeometry);
@@ -216,10 +253,12 @@ void TrafficMonitorWidget::setupUi() {
     
     retranslateUi();
     syncDisplayModeUi();
+    syncPauseUi();
 }
 
 bool TrafficMonitorWidget::isRealtimeEvent(const ui::common::TrafficEvent& event) const {
     return event.level == ui::common::TrafficEventLevel::Warning
+        || event.level == ui::common::TrafficEventLevel::Error
         || event.requestType == ui::common::TrafficRequestType::Connection;
 }
 
@@ -233,6 +272,10 @@ bool TrafficMonitorWidget::isRawFramesModeEnabled() const {
     return currentDisplayMode() == DisplayMode::RawFrames;
 }
 
+bool TrafficMonitorWidget::isViewPaused() const {
+    return pauseViewCheck_ && pauseViewCheck_->isChecked();
+}
+
 void TrafficMonitorWidget::syncDisplayModeUi() {
     const bool rawFramesEnabled = currentDisplayMode() == DisplayMode::RawFrames;
     if (showTxCheck_) {
@@ -243,6 +286,14 @@ void TrafficMonitorWidget::syncDisplayModeUi() {
     }
     if (rawHintLabel_) {
         rawHintLabel_->setVisible(rawFramesEnabled);
+    }
+}
+
+void TrafficMonitorWidget::syncPauseUi() {
+    const bool paused = isViewPaused();
+    if (pausedStatusLabel_) {
+        pausedStatusLabel_->setVisible(paused);
+        pausedStatusLabel_->setText(tr("Paused (%1 new)").arg(pausedEventCount_));
     }
 }
 
@@ -308,6 +359,11 @@ bool TrafficMonitorWidget::renderEvent(const ui::common::TrafficEvent& event, QS
         outColor = QColor(255, 140, 0);
         return true;
     }
+    if (event.level == ui::common::TrafficEventLevel::Error) {
+        outText = tr("[%1] [ERROR] %2").arg(timeStr, event.summary);
+        outColor = QColor(220, 20, 60);
+        return true;
+    }
 
     outText = tr("[%1] [INFO] %2").arg(timeStr, event.summary);
     return true;
@@ -350,8 +406,21 @@ void TrafficMonitorWidget::appendWarning(const QString& message) {
     appendEvent(event);
 }
 
+void TrafficMonitorWidget::appendError(const QString& message) {
+    ui::common::TrafficEvent event;
+    event.level = ui::common::TrafficEventLevel::Error;
+    event.summary = message;
+    appendEvent(event);
+}
+
 void TrafficMonitorWidget::appendEvent(const ui::common::TrafficEvent& event) {
     appendEventToHistory(event);
+
+    if (isViewPaused()) {
+        ++pausedEventCount_;
+        syncPauseUi();
+        return;
+    }
 
     QString line;
     QColor color;
@@ -374,12 +443,14 @@ void TrafficMonitorWidget::appendEvent(const ui::common::TrafficEvent& event) {
 void TrafficMonitorWidget::clear() {
     pendingEvents_.clear();
     eventHistory_.clear();
+    pausedEventCount_ = 0;
     if (flushTimer_) {
         flushTimer_->stop();
     }
     if (logModel_) {
         logModel_->clearAll();
     }
+    syncPauseUi();
 }
 
 void TrafficMonitorWidget::flushPendingEvents() {
@@ -413,7 +484,9 @@ void TrafficMonitorWidget::flushPendingEvents() {
 }
 
 void TrafficMonitorWidget::onSaveClicked() {
-    flushPendingEvents();
+    if (!isViewPaused()) {
+        flushPendingEvents();
+    }
     QString fileName = QFileDialog::getSaveFileName(this, tr("Save Log"), "", tr("Text Files (*.txt);;All Files (*)"));
     if (fileName.isEmpty()) return;
 
@@ -439,7 +512,7 @@ void TrafficMonitorWidget::onSaveClicked() {
 
     *scheduleNextChunk = [this, fileName, totalCount, chunkSize, state, errorMessage, scheduleNextChunk, exportLines]() {
         if (!errorMessage->isEmpty()) {
-            appendInfo(tr("Save failed: %1").arg(*errorMessage));
+            appendError(tr("Save failed: %1").arg(*errorMessage));
             return;
         }
         if (state->nextIndex >= totalCount) {
@@ -461,7 +534,7 @@ void TrafficMonitorWidget::onSaveClicked() {
         connect(watcher, &QFutureWatcher<void>::finished, this, [this, errorMessage, scheduleNextChunk, watcher]() {
             watcher->deleteLater();
             if (!errorMessage->isEmpty()) {
-                appendInfo(tr("Save failed: %1").arg(*errorMessage));
+                appendError(tr("Save failed: %1").arg(*errorMessage));
                 return;
             }
             QMetaObject::invokeMethod(this, [scheduleNextChunk]() {
@@ -499,9 +572,10 @@ void TrafficMonitorWidget::setSettingsGroup(const QString& group) {
 void TrafficMonitorWidget::loadSettings() {
     if (settingsGroup_.isEmpty() || !settingsService_) return;
     QSignalBlocker b1(autoScrollCheck_);
-    QSignalBlocker b2(rawFramesCheck_);
-    QSignalBlocker b3(showTxCheck_);
-    QSignalBlocker b4(showRxCheck_);
+    QSignalBlocker b2(pauseViewCheck_);
+    QSignalBlocker b3(rawFramesCheck_);
+    QSignalBlocker b4(showTxCheck_);
+    QSignalBlocker b5(showRxCheck_);
 
     const QString autoKey = settingsGroup_ + "/autoScroll";
     const QString rawModeKey = settingsGroup_ + "/rawFramesMode";
@@ -514,10 +588,12 @@ void TrafficMonitorWidget::loadSettings() {
     const bool showRx = settingsService_->value(rxKey).toBool();
 
     autoScrollCheck_->setChecked(autoScroll);
+    pauseViewCheck_->setChecked(false);
     rawFramesCheck_->setChecked(rawFramesMode);
     showTxCheck_->setChecked(showTx);
     showRxCheck_->setChecked(showRx);
     syncDisplayModeUi();
+    syncPauseUi();
     rebuildVisibleEntries();
 }
 
@@ -543,7 +619,9 @@ QString TrafficMonitorWidget::formatData(const QByteArray& data) const {
 }
 
 void TrafficMonitorWidget::onCopyClicked() {
-    flushPendingEvents();
+    if (!isViewPaused()) {
+        flushPendingEvents();
+    }
     if (!logView_ || !logModel_) {
         return;
     }
@@ -558,10 +636,12 @@ void TrafficMonitorWidget::onCopyClicked() {
 void TrafficMonitorWidget::retranslateUi() {
     if (section_) section_->setTitle(tr("Traffic Monitor"));
     if (autoScrollCheck_) autoScrollCheck_->setText(tr("Auto Scroll"));
+    if (pauseViewCheck_) pauseViewCheck_->setText(tr("Pause View"));
     if (rawFramesCheck_) rawFramesCheck_->setText(tr("Raw Frames"));
     if (showTxCheck_) showTxCheck_->setText(QStringLiteral("TX"));
     if (showRxCheck_) showRxCheck_->setText(QStringLiteral("RX"));
     if (rawHintLabel_) rawHintLabel_->setText(tr("Raw Frames mode may reduce UI smoothness under high-frequency polling."));
+    syncPauseUi();
     if (clearBtn_) clearBtn_->setText(tr("Clear"));
     if (saveBtn_) saveBtn_->setText(tr("Save"));
 }

@@ -44,6 +44,7 @@ public:
     void appendRx(const QByteArray& data);
     void appendInfo(const QString& message);
     void appendWarning(const QString& message);
+    void appendError(const QString& message);
     void clear();
     void setSettingsGroup(const QString& group);
 
@@ -65,6 +66,8 @@ private:
     void appendEventToHistory(const ui::common::TrafficEvent& event);
     void rebuildVisibleEntries();
     void syncDisplayModeUi();
+    void syncPauseUi();
+    bool isViewPaused() const;
     DisplayMode currentDisplayMode() const;
     bool renderEvent(const ui::common::TrafficEvent& event, QString& outText, QColor& outColor) const;
     void loadSettings();
@@ -77,15 +80,18 @@ private:
     QListView* logView_ = nullptr;
     TrafficLogModel* logModel_ = nullptr;
     QCheckBox* autoScrollCheck_ = nullptr;
+    QCheckBox* pauseViewCheck_ = nullptr;
     QCheckBox* rawFramesCheck_ = nullptr;
     QCheckBox* showTxCheck_ = nullptr;
     QCheckBox* showRxCheck_ = nullptr;
     QLabel* rawHintLabel_ = nullptr;
+    QLabel* pausedStatusLabel_ = nullptr;
     QPushButton* clearBtn_ = nullptr;
     QPushButton* saveBtn_ = nullptr;
     QTimer* flushTimer_ = nullptr;
     QList<ui::common::TrafficEvent> pendingEvents_;
     QList<ui::common::TrafficEvent> eventHistory_;
+    int pausedEventCount_ = 0;
 
     QString settingsGroup_;
     ui::common::ISettingsService* settingsService_ = nullptr;

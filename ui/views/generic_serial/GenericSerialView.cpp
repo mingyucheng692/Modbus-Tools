@@ -239,7 +239,7 @@ void GenericSerialView::onWorkerStateChanged(io::ChannelState state) {
 
 void GenericSerialView::onWorkerError(const QString& deviceHint, const QString& error) {
     const QString hint = deviceHint.isEmpty() ? QStringLiteral("Serial") : deviceHint;
-    trafficMonitor_->appendInfo(tr("Error: %1").arg(error));
+    trafficMonitor_->appendError(tr("Error: %1").arg(error));
     spdlog::error("{} Error: {}", hint.toStdString(), error.toStdString());
 }
 

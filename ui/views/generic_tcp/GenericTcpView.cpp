@@ -238,7 +238,7 @@ void GenericTcpView::onWorkerStateChanged(io::ChannelState state, quint64 genera
 
 void GenericTcpView::onWorkerError(const QString& deviceHint, const QString& error) {
     const QString hint = deviceHint.isEmpty() ? QStringLiteral("TCP") : deviceHint;
-    trafficMonitor_->appendInfo(tr("Error: %1").arg(error));
+    trafficMonitor_->appendError(tr("Error: %1").arg(error));
     spdlog::error("{} Error: {}", hint.toStdString(), error.toStdString());
 }
 
