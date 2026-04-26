@@ -191,6 +191,10 @@ void ControlWidget::setConnectionValidator(const std::function<bool()>& validato
     connectionValidator_ = validator;
 }
 
+int ControlWidget::pollingIntervalMs() const {
+    return intervalSpin_ ? intervalSpin_->value() : app::constants::Values::Polling::kDefaultIntervalMs;
+}
+
 void ControlWidget::loadSettings() {
     if (settingsGroup_.isEmpty() || !settingsService_) return;
     QSignalBlocker b1(intervalSpin_);

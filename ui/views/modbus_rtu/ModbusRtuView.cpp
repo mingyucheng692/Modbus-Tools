@@ -34,6 +34,7 @@
 #include <spdlog/spdlog.h>
 #include <QMetaObject>
 #include <QPointer>
+#include <algorithm>
 #include <limits>
 
 namespace ui::views::modbus_rtu {
@@ -606,20 +607,105 @@ void ModbusRtuView::handlePollCompletion(bool success, int rttMs, const QString&
     if (pollSummaryWindowStart_ == std::chrono::steady_clock::time_point{}) {
         pollSummaryWindowStart_ = std::chrono::steady_clock::now();
     }
+    const auto now = std::chrono::steady_clock::now();
 
     if (success) {
         ++pollSummarySuccessCount_;
         pollSummaryTotalRttMs_ += (rttMs > 0 ? rttMs : 0);
+        pollLastSuccessTime_ = now;
+        if (pollConsecutiveErrorCount_ > 0 && trafficMonitor_) {
+            ui::common::TrafficEvent event;
+            event.level = ui::common::TrafficEventLevel::Info;
+            event.requestType = ui::common::TrafficRequestType::Poll;
+            event.isPoll = true;
+            event.summary = tr("Poll recovered after %1 consecutive failures")
+                .arg(pollConsecutiveErrorCount_);
+            trafficMonitor_->appendEvent(event);
+        }
+        resetPollErrorTracking();
     } else {
         ++pollSummaryErrorCount_;
+        ++pollConsecutiveErrorCount_;
+        if (pollFailureStreakStartTime_ == std::chrono::steady_clock::time_point{}) {
+            pollFailureStreakStartTime_ = now;
+        }
+
+        const QString normalizedError = error.toLower();
+        int threshold = pollErrorThreshold();
+        if (normalizedError.contains(QStringLiteral("timeout"))
+            || normalizedError.contains(QStringLiteral("timed out"))) {
+            threshold = std::max(2, threshold - 1);
+        } else if (normalizedError.contains(QStringLiteral("busy"))
+            || normalizedError.contains(QStringLiteral("tempor"))) {
+            threshold = std::min(10, threshold + 1);
+        }
+
+        const bool zeroSuccessWindowExceeded =
+            pollFailureStreakStartTime_ != std::chrono::steady_clock::time_point{}
+            && (now - pollFailureStreakStartTime_) >= std::chrono::milliseconds(3000);
+        const bool connectionFault = !rtuSessionConnected_;
+        const bool escalateToError = connectionFault
+            || zeroSuccessWindowExceeded
+            || pollConsecutiveErrorCount_ >= threshold;
+        const bool shouldLogEscalatedError = !pollErrorEscalated_
+            || error != pollLastErrorText_
+            || (now - pollLastErrorLogTime_) >= std::chrono::seconds(5);
+
         ui::common::TrafficEvent event;
-        event.level = ui::common::TrafficEventLevel::Warning;
+        event.level = escalateToError
+            ? ui::common::TrafficEventLevel::Error
+            : ui::common::TrafficEventLevel::Warning;
         event.requestType = ui::common::TrafficRequestType::Poll;
         event.isPoll = true;
-        event.summary = tr("Poll Error: %1").arg(error);
-        trafficMonitor_->appendEvent(event);
+
+        if (escalateToError) {
+            if (connectionFault) {
+                event.summary = tr("Poll Error: Connection unavailable during polling (%1)")
+                    .arg(error);
+            } else if (!pollErrorEscalated_) {
+                event.summary = tr("Poll Error escalated after %1 consecutive failures: %2")
+                    .arg(pollConsecutiveErrorCount_)
+                    .arg(error);
+            } else {
+                event.summary = tr("Poll Error persists (%1 consecutive failures): %2")
+                    .arg(pollConsecutiveErrorCount_)
+                    .arg(error);
+            }
+
+            if (trafficMonitor_ && shouldLogEscalatedError) {
+                trafficMonitor_->appendEvent(event);
+                pollLastErrorLogTime_ = now;
+            }
+
+            pollErrorEscalated_ = true;
+            pollLastErrorText_ = error;
+        } else if (trafficMonitor_) {
+            event.summary = tr("Poll Error: %1").arg(error);
+            trafficMonitor_->appendEvent(event);
+            pollLastErrorText_ = error;
+        }
     }
     flushPollSummary(false);
+}
+
+int ModbusRtuView::pollErrorThreshold() const {
+    constexpr int kTargetUpgradeWindowMs = 3000;
+    constexpr int kMinThreshold = 3;
+    constexpr int kMaxThreshold = 10;
+
+    const int intervalMs = controlWidget_
+        ? std::max(controlWidget_->pollingIntervalMs(), 1)
+        : app::constants::Values::Polling::kDefaultIntervalMs;
+    const int roundedThreshold = (kTargetUpgradeWindowMs + intervalMs / 2) / intervalMs;
+    return std::clamp(roundedThreshold, kMinThreshold, kMaxThreshold);
+}
+
+void ModbusRtuView::resetPollErrorTracking() {
+    pollConsecutiveErrorCount_ = 0;
+    pollErrorEscalated_ = false;
+    pollLastErrorText_.clear();
+    pollLastErrorLogTime_ = std::chrono::steady_clock::time_point{};
+    pollFailureStreakStartTime_ = std::chrono::steady_clock::time_point{};
 }
 
 void ModbusRtuView::flushPollSummary(bool force) {
@@ -663,6 +749,8 @@ void ModbusRtuView::releaseStack() {
     rtuSessionConnected_ = false;
     pollInFlight_ = false;
     suppressPollTrafficLog_ = false;
+    resetPollErrorTracking();
+    pollLastSuccessTime_ = std::chrono::steady_clock::time_point{};
     if (connectionWidget_) {
         connectionWidget_->setConnected(false);
     }

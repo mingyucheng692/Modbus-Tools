@@ -75,6 +75,8 @@ private:
     void appendConnectionInfo(const QString& message);
     void flushPollSummary(bool force);
     void handlePollCompletion(bool success, int rttMs, const QString& error);
+    int pollErrorThreshold() const;
+    void resetPollErrorTracking();
 
     enum class RequestKind { Read, Write, Poll };
 
@@ -117,6 +119,12 @@ private:
     int pollAddress_ = 0;
     int pollQuantity_ = 0;
     int pollSlaveId_ = 0;
+    int pollConsecutiveErrorCount_ = 0;
+    bool pollErrorEscalated_ = false;
+    QString pollLastErrorText_;
+    std::chrono::steady_clock::time_point pollLastErrorLogTime_{};
+    std::chrono::steady_clock::time_point pollLastSuccessTime_{};
+    std::chrono::steady_clock::time_point pollFailureStreakStartTime_{};
     bool linked_ = false;
     int timeoutMs_ = app::constants::Values::Modbus::kDefaultTimeoutMs;
     int retries_ = 0;

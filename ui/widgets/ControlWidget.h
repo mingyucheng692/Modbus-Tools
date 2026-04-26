@@ -42,6 +42,7 @@ public:
     void setLinked(bool active);
     void setPollingEnabled(bool enabled);
     void setConnectionValidator(const std::function<bool()>& validator);
+    int pollingIntervalMs() const;
 
 signals:
     // Poll Requested: Function Code, Address, Quantity
