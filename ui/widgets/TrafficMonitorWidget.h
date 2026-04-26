@@ -11,6 +11,7 @@
 
 #include <QWidget>
 #include <QByteArray>
+#include "../common/TrafficEvent.h"
 
 class QListWidget;
 class QCheckBox;
@@ -32,6 +33,7 @@ public:
     explicit TrafficMonitorWidget(ui::common::ISettingsService* settingsService, QWidget *parent = nullptr);
     ~TrafficMonitorWidget() override;
 
+    void appendEvent(const ui::common::TrafficEvent& event);
     void appendTx(const QByteArray& data);
     void appendRx(const QByteArray& data);
     void appendInfo(const QString& message);

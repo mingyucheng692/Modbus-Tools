@@ -21,6 +21,7 @@ target_sources(ui PRIVATE
     common/ThemeUiHelpers.h
     common/ThemeVisuals.cpp
     common/ThemeVisuals.h
+    common/TrafficEvent.h
     common/UpdateChecker.cpp
     common/UpdateChecker.h
     assets.qrc

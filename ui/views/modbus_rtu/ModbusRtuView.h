@@ -72,6 +72,8 @@ private:
     void changeEvent(QEvent* event) override;
     void releaseStack();
     int nextRequestId();
+    void flushPollSummary(bool force);
+    void handlePollCompletion(bool success, int rttMs, const QString& error);
 
     enum class RequestKind { Read, Write, Poll };
 
@@ -106,6 +108,14 @@ private:
     bool rtuSessionConnected_ = false;
     bool pollInFlight_ = false;
     bool suppressPollTrafficLog_ = false;
+    std::chrono::steady_clock::time_point pollSummaryWindowStart_{};
+    int pollSummarySuccessCount_ = 0;
+    int pollSummaryErrorCount_ = 0;
+    qint64 pollSummaryTotalRttMs_ = 0;
+    uint8_t pollFunctionCode_ = 0;
+    int pollAddress_ = 0;
+    int pollQuantity_ = 0;
+    int pollSlaveId_ = 0;
     bool linked_ = false;
     int timeoutMs_ = app::constants::Values::Modbus::kDefaultTimeoutMs;
     int retries_ = 0;

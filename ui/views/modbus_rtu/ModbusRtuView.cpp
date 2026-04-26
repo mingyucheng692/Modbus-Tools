@@ -16,6 +16,7 @@
 #include "../../widgets/ControlWidget.h"
 #include "../../widgets/CollapsibleSection.h"
 #include "../../common/ConnectionAlert.h"
+#include "../../common/TrafficEvent.h"
 #include "modbus/factory/ModbusFactory.h"
 #include "modbus/base/ModbusDataHelper.h"
 #include "modbus/base/ModbusPduBuilder.h"
@@ -207,12 +208,20 @@ void ModbusRtuView::setupUi() {
                     if (generation != self->connectionGeneration_) return;
                     if (isTx) {
                         if (!self->suppressPollTrafficLog_) {
-                            self->trafficMonitor_->appendTx(data);
+                            ui::common::TrafficEvent event;
+                            event.direction = ui::common::TrafficDirection::Tx;
+                            event.requestType = ui::common::TrafficRequestType::Unknown;
+                            event.payload = data;
+                            self->trafficMonitor_->appendEvent(event);
                         }
                         self->appendSendData(data);
                     } else {
                         if (!self->suppressPollTrafficLog_) {
-                            self->trafficMonitor_->appendRx(data);
+                            ui::common::TrafficEvent event;
+                            event.direction = ui::common::TrafficDirection::Rx;
+                            event.requestType = ui::common::TrafficRequestType::Unknown;
+                            event.payload = data;
+                            self->trafficMonitor_->appendEvent(event);
                         }
                         self->appendReceiveData(data);
                     }
@@ -264,6 +273,7 @@ void ModbusRtuView::setupUi() {
                     if (itKind->second == RequestKind::Poll) {
                         pollInFlight_ = false;
                         suppressPollTrafficLog_ = false;
+                        handlePollCompletion(response.isSuccess, response.rttMs, response.error);
                     }
 
                     // 分流设计：仅在成功时通过底层测量的精确 RTT 更新统计
@@ -287,9 +297,7 @@ void ModbusRtuView::setupUi() {
                         // 失败路径：仅更新 Error 计数，跳过 RTT 统计防止均值偏移
                         controlWidget_->recordError();
 
-                        if (itKind->second == RequestKind::Poll) {
-                            trafficMonitor_->appendInfo(tr("Poll Error: %1").arg(response.error));
-                        } else {
+                        if (itKind->second != RequestKind::Poll) {
                             trafficMonitor_->appendInfo(tr("Error: %1").arg(response.error));
                         }
                     }
@@ -526,6 +534,13 @@ void ModbusRtuView::setupUi() {
             requestKinds_[requestId] = RequestKind::Poll;
             requestAddrs_[requestId] = static_cast<uint16_t>(addr);
 
+            pollFunctionCode_ = fc;
+            pollAddress_ = addr;
+            pollQuantity_ = qty;
+            pollSlaveId_ = slaveId;
+            if (pollSummaryWindowStart_ == std::chrono::steady_clock::time_point{}) {
+                pollSummaryWindowStart_ = std::chrono::steady_clock::now();
+            }
             pollInFlight_ = true;
             suppressPollTrafficLog_ = true;
             controlWidget_->recordTx(); // 轮询提交时增加 TX 计数
@@ -571,7 +586,63 @@ QString ModbusRtuView::formatData(const QByteArray& data, bool hex) const {
     return QString::fromLatin1(data);
 }
 
+void ModbusRtuView::handlePollCompletion(bool success, int rttMs, const QString& error) {
+    if (pollSummaryWindowStart_ == std::chrono::steady_clock::time_point{}) {
+        pollSummaryWindowStart_ = std::chrono::steady_clock::now();
+    }
+
+    if (success) {
+        ++pollSummarySuccessCount_;
+        pollSummaryTotalRttMs_ += (rttMs > 0 ? rttMs : 0);
+    } else {
+        ++pollSummaryErrorCount_;
+        ui::common::TrafficEvent event;
+        event.level = ui::common::TrafficEventLevel::Warning;
+        event.requestType = ui::common::TrafficRequestType::Poll;
+        event.isPoll = true;
+        event.summary = tr("Poll Error: %1").arg(error);
+        trafficMonitor_->appendEvent(event);
+    }
+    flushPollSummary(false);
+}
+
+void ModbusRtuView::flushPollSummary(bool force) {
+    const int total = pollSummarySuccessCount_ + pollSummaryErrorCount_;
+    if (total <= 0) {
+        return;
+    }
+    const auto now = std::chrono::steady_clock::now();
+    const bool due = (now - pollSummaryWindowStart_) >= std::chrono::milliseconds(1000);
+    if (!force && !due) {
+        return;
+    }
+
+    const int avgRttMs = pollSummarySuccessCount_ > 0
+        ? static_cast<int>(pollSummaryTotalRttMs_ / pollSummarySuccessCount_)
+        : 0;
+
+    ui::common::TrafficEvent event;
+    event.level = ui::common::TrafficEventLevel::Info;
+    event.requestType = ui::common::TrafficRequestType::Poll;
+    event.isPoll = true;
+    event.summary = tr("Poll Summary FC:%1 Addr:%2 Qty:%3 Slave:%4 Success:%5 Error:%6 Avg RTT:%7 ms")
+        .arg(pollFunctionCode_)
+        .arg(pollAddress_)
+        .arg(pollQuantity_)
+        .arg(pollSlaveId_)
+        .arg(pollSummarySuccessCount_)
+        .arg(pollSummaryErrorCount_)
+        .arg(avgRttMs);
+    trafficMonitor_->appendEvent(event);
+
+    pollSummarySuccessCount_ = 0;
+    pollSummaryErrorCount_ = 0;
+    pollSummaryTotalRttMs_ = 0;
+    pollSummaryWindowStart_ = now;
+}
+
 void ModbusRtuView::releaseStack() {
+    flushPollSummary(true);
     ++connectionGeneration_;
     rtuSessionConnected_ = false;
     pollInFlight_ = false;

@@ -121,59 +121,59 @@ void TrafficMonitorWidget::setupUi() {
 }
 
 void TrafficMonitorWidget::appendTx(const QByteArray& data) {
-    if (!showTxCheck_->isChecked()) return;
-
-    QString timeStr = QDateTime::currentDateTime().toString("HH:mm:ss.zzz");
-    QString content = formatData(data);
-    QString itemText = tr("[%1] [TX] %2").arg(timeStr, content);
-    
-    auto item = new QListWidgetItem(itemText);
-    item->setForeground(Qt::blue); // TX in Blue
-    logList_->addItem(item);
-    trimLogList(logList_);
-
-    if (autoScrollCheck_->isChecked()) {
-        logList_->scrollToBottom();
-    }
+    ui::common::TrafficEvent event;
+    event.direction = ui::common::TrafficDirection::Tx;
+    event.payload = data;
+    appendEvent(event);
 }
 
 void TrafficMonitorWidget::appendRx(const QByteArray& data) {
-    if (!showRxCheck_->isChecked()) return;
-
-    QString timeStr = QDateTime::currentDateTime().toString("HH:mm:ss.zzz");
-    QString content = formatData(data);
-    QString itemText = tr("[%1] [RX] %2").arg(timeStr, content);
-    
-    auto item = new QListWidgetItem(itemText);
-    item->setForeground(Qt::darkGreen); // RX in Green
-    logList_->addItem(item);
-    trimLogList(logList_);
-
-    if (autoScrollCheck_->isChecked()) {
-        logList_->scrollToBottom();
-    }
+    ui::common::TrafficEvent event;
+    event.direction = ui::common::TrafficDirection::Rx;
+    event.payload = data;
+    appendEvent(event);
 }
 
 void TrafficMonitorWidget::appendInfo(const QString& message) {
-    QString timeStr = QDateTime::currentDateTime().toString("HH:mm:ss.zzz");
-    QString itemText = tr("[%1] [INFO] %2").arg(timeStr, message);
-    
-    auto item = new QListWidgetItem(itemText);
-    item->setForeground(Qt::gray);
-    logList_->addItem(item);
-    trimLogList(logList_);
-
-    if (autoScrollCheck_->isChecked()) {
-        logList_->scrollToBottom();
-    }
+    ui::common::TrafficEvent event;
+    event.summary = message;
+    appendEvent(event);
 }
 
 void TrafficMonitorWidget::appendWarning(const QString& message) {
-    QString timeStr = QDateTime::currentDateTime().toString("HH:mm:ss.zzz");
-    QString itemText = tr("[%1] [WARN] %2").arg(timeStr, message);
-    
+    ui::common::TrafficEvent event;
+    event.level = ui::common::TrafficEventLevel::Warning;
+    event.summary = message;
+    appendEvent(event);
+}
+
+void TrafficMonitorWidget::appendEvent(const ui::common::TrafficEvent& event) {
+    const QDateTime timestamp = event.timestamp.isValid() ? event.timestamp : QDateTime::currentDateTime();
+    const QString timeStr = timestamp.toString("HH:mm:ss.zzz");
+
+    QString itemText;
+    QColor color = Qt::gray;
+    if (event.direction == ui::common::TrafficDirection::Tx) {
+        if (!showTxCheck_->isChecked()) {
+            return;
+        }
+        itemText = tr("[%1] [TX] %2").arg(timeStr, formatData(event.payload));
+        color = Qt::blue;
+    } else if (event.direction == ui::common::TrafficDirection::Rx) {
+        if (!showRxCheck_->isChecked()) {
+            return;
+        }
+        itemText = tr("[%1] [RX] %2").arg(timeStr, formatData(event.payload));
+        color = Qt::darkGreen;
+    } else if (event.level == ui::common::TrafficEventLevel::Warning) {
+        itemText = tr("[%1] [WARN] %2").arg(timeStr, event.summary);
+        color = QColor(255, 140, 0);
+    } else {
+        itemText = tr("[%1] [INFO] %2").arg(timeStr, event.summary);
+    }
+
     auto item = new QListWidgetItem(itemText);
-    item->setForeground(QColor(255, 140, 0)); // Dark Orange for warnings
+    item->setForeground(color);
     logList_->addItem(item);
     trimLogList(logList_);
 
