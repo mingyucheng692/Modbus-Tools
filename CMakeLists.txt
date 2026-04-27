@@ -44,6 +44,9 @@ find_package(Qt6 REQUIRED COMPONENTS Core Concurrent Network SerialPort Widgets 
 # Add spdlog
 # Check if spdlog exists, if not, we might need to rely on system installed or header only
 if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/third_party/spdlog/CMakeLists.txt")
+    if(WIN32)
+        set(SPDLOG_WCHAR_FILENAMES ON CACHE BOOL "Support wchar filenames" FORCE)
+    endif()
     add_subdirectory(third_party/spdlog)
 else()
     message(WARNING "spdlog submodule not found at third_party/spdlog")

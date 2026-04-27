@@ -9,7 +9,9 @@
 
 #include <QApplication>
 #include <QIcon>
+#include <QMessageBox>
 #include <QResource>
+#include <exception>
 #include "MainWindow.h"
 #include "common/QtThemeRuntime.h"
 #include "common/SettingsService.h"
@@ -32,7 +34,21 @@ int main(int argc, char *argv[])
     ui::common::QtThemeRuntime themeRuntime(app);
     ui::common::ThemeController themeController(themeRuntime, settingsService);
 
-    logging::Init(app.applicationDirPath() + "/logs");
+    try {
+        logging::Init(app.applicationDirPath() + "/logs");
+    } catch (const std::exception& ex) {
+        QMessageBox::critical(
+            nullptr,
+            QObject::tr("Startup Error"),
+            QObject::tr("Failed to initialize application logging.\n%1").arg(QString::fromUtf8(ex.what())));
+        return 1;
+    } catch (...) {
+        QMessageBox::critical(
+            nullptr,
+            QObject::tr("Startup Error"),
+            QObject::tr("Failed to initialize application logging."));
+        return 1;
+    }
 
     app.setWindowIcon(QIcon(":/assets/logo.svg"));
 
