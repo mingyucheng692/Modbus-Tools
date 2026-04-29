@@ -24,6 +24,8 @@ target_sources(ui PRIVATE
     common/TrafficEvent.h
     common/UpdateChecker.cpp
     common/UpdateChecker.h
+    application/UpdateCoordinator.cpp
+    application/UpdateCoordinator.h
     assets.qrc
     AnalyzerLinkageController.cpp
     AnalyzerLinkageController.h

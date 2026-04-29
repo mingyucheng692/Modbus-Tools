@@ -9,6 +9,7 @@
 
 #include "MainWindow.h"
 #include "AppConstants.h"
+#include "application/UpdateCoordinator.h"
 #include "shell/MainWindowPageBuilder.h"
 #include "views/modbus_tcp/ModbusTcpView.h"
 #include "views/modbus_rtu/ModbusRtuView.h"
@@ -25,7 +26,6 @@
 #include "common/ISettingsService.h"
 #include "../core/update/UpdateManager.h"
 #include "../core/common/SettingsController.h"
-#include <QDesktopServices>
 #include <QStackedWidget>
 #include <QListWidget>
 #include <QHBoxLayout>
@@ -45,7 +45,6 @@
 #include <QPushButton>
 #include <QPointer>
 #include <QStandardPaths>
-#include <QDateTime>
 #include <QDir>
 #include <QStyle>
 #include <QIcon>
@@ -257,30 +256,7 @@ void MainWindow::setupUi() {
     navigationList_->setCurrentRow(0);
 
     updateChecker_ = new common::UpdateChecker(this);
-    connect(updateChecker_, &common::UpdateChecker::updateAvailable, this, &MainWindow::handleUpdateAvailable);
-    connect(updateChecker_, &common::UpdateChecker::noUpdateAvailable, [this](const QString& v){ 
-        if(checkUpdatesAction_) checkUpdatesAction_->setEnabled(true);
-        if(checkingUpdateManually_) QMessageBox::information(this, tr("No Updates"), tr("You are using the latest version: v%1").arg(v));
-    });
-    connect(updateChecker_, &common::UpdateChecker::checkFailed, [this](const QString& r){
-        if(checkUpdatesAction_) checkUpdatesAction_->setEnabled(true);
-        if(checkingUpdateManually_) QMessageBox::warning(this, tr("Update Check Failed"), r);
-    });
-
-    // UpdateManager connections
-    connect(updateManager_, &core::update::UpdateManager::updateReadyToInstall, this, [this](const QString& taskFile) {
-        QString error;
-        if (core::update::UpdateManager::launchUpdater(taskFile, currentLocale_, error)) {
-            spdlog::info("MainWindow: Updater launched successfully, terminating application to apply update.");
-            qApp->quit();
-        } else {
-            spdlog::error("MainWindow: Failed to launch updater: {}", error.toStdString());
-            QMessageBox::critical(this, tr("Update Failed"), error);
-        }
-    });
-    connect(updateManager_, &core::update::UpdateManager::updateFailed, this, [this](const QString& err) {
-        if (checkingUpdateManually_) QMessageBox::warning(this, tr("Update Failed"), err);
-    });
+    updateCoordinator_ = new application::UpdateCoordinator(this, updateChecker_, updateManager_, settingsController_, this);
 
     setupLanguageMenu();
     setupSettingsMenu();
@@ -301,9 +277,13 @@ void MainWindow::setupUi() {
     core::update::UpdateManager::cleanupUpdateArtifacts();
     applyModbusSettingsToViews();
     applyLanguage(currentLocale_);
-    refreshUpdateIndicators();
+    if (updateCoordinator_) {
+        updateCoordinator_->refreshIndicators();
+    }
     
-    if (shouldAutoCheckUpdates()) performUpdateCheck(false);
+    if (updateCoordinator_) {
+        updateCoordinator_->triggerAutoCheckIfNeeded();
+    }
     showDisclaimerIfNeeded();
 }
 
@@ -455,81 +435,74 @@ void MainWindow::openAboutDialog() {
 }
 
 void MainWindow::checkForUpdates() {
-    if (updateAvailable_ && !pendingUpdateInfo_.latestVersion.isEmpty()) {
-        promptUpdateAction(common::UpdateChecker::currentVersion());
-        return;
+    if (updateCoordinator_) {
+        updateCoordinator_->checkForUpdates();
     }
-    if (checkUpdatesAction_) checkUpdatesAction_->setEnabled(false);
-    performUpdateCheck(true);
 }
 
-void MainWindow::performUpdateCheck(bool manual) {
-    checkingUpdateManually_ = manual;
-    settingsController_->setLastUpdateCheckUtc(QDateTime::currentDateTimeUtc().toString(Qt::ISODate));
-    updateChecker_->checkForUpdates();
-}
-
-bool MainWindow::shouldAutoCheckUpdates() const {
-    QString freq = settingsController_->updateCheckFrequency();
-    if (freq == app::constants::Values::App::kUpdateCheckNever) return false;
-    if (freq == app::constants::Values::App::kUpdateCheckStartup) return true;
-    
-    QDateTime lastCheck = QDateTime::fromString(settingsController_->lastUpdateCheckUtc(), Qt::ISODate);
-    if (!lastCheck.isValid()) return true;
-    
-    qint64 days = lastCheck.daysTo(QDateTime::currentDateTimeUtc());
-    if (freq == app::constants::Values::App::kUpdateCheckWeekly) return days >= 7;
-    if (freq == app::constants::Values::App::kUpdateCheckMonthly) return days >= 30;
-    return true;
-}
-
-void MainWindow::refreshUpdateIndicators() {
-    if (aboutMenu_) aboutMenu_->setTitle(updateAvailable_ ? tr("About") + " ●" : tr("About"));
-    if (checkUpdatesAction_) checkUpdatesAction_->setText(updateAvailable_ ? tr("Check for Updates") + " ●" : tr("Check for Updates"));
-}
-
-void MainWindow::handleUpdateAvailable(const QString& cur, const QString& lat, const QString& uUrl, const QString& uSha, const QString& cUrl, const QString& fUrl, const QString& rUrl) {
-    if (checkUpdatesAction_) checkUpdatesAction_->setEnabled(true);
-    updateAvailable_ = true;
-    pendingUpdateInfo_ = {lat, uUrl, uSha, cUrl, fUrl, rUrl};
-    refreshUpdateIndicators();
-    if (checkingUpdateManually_) promptUpdateAction(cur);
-}
-
-void MainWindow::promptUpdateAction(const QString& currentVersion) {
-    const QString downloadUrl = pendingUpdateInfo_.fullPackageUrl.isEmpty() ? pendingUpdateInfo_.releaseUrl : pendingUpdateInfo_.fullPackageUrl;
-    if (pendingUpdateInfo_.updateOnlyUrl.isEmpty()) {
-        if (QMessageBox::question(this, tr("Update Available"), tr("New version v%1 available. Open download page?").arg(pendingUpdateInfo_.latestVersion)) == QMessageBox::Yes) {
-            QDesktopServices::openUrl(QUrl(downloadUrl));
-        }
-        return;
+void MainWindow::setUpdateCheckActionEnabled(bool enabled) {
+    if (checkUpdatesAction_) {
+        checkUpdatesAction_->setEnabled(enabled);
     }
+}
 
+void MainWindow::setUpdateIndicatorVisible(bool visible) {
+    if (aboutMenu_) {
+        aboutMenu_->setTitle(visible ? tr("About") + " ●" : tr("About"));
+    }
+    if (checkUpdatesAction_) {
+        checkUpdatesAction_->setText(visible ? tr("Check for Updates") + " ●" : tr("Check for Updates"));
+    }
+}
+
+void MainWindow::showUpdateInfoMessage(const QString& title, const QString& message) {
+    QMessageBox::information(this, title, message);
+}
+
+void MainWindow::showUpdateWarningMessage(const QString& title, const QString& message) {
+    QMessageBox::warning(this, title, message);
+}
+
+void MainWindow::showUpdateCriticalMessage(const QString& title, const QString& message) {
+    QMessageBox::critical(this, title, message);
+}
+
+bool MainWindow::confirmOpenDownloadPage(const QString& latestVersion) {
+    return QMessageBox::question(
+               this,
+               tr("Update Available"),
+               tr("New version v%1 available. Open download page?").arg(latestVersion))
+           == QMessageBox::Yes;
+}
+
+application::UpdatePromptChoice MainWindow::promptUpdateAction(const QString& currentVersion, const QString& latestVersion) {
     QMessageBox mb(this);
     mb.setWindowTitle(tr("Update Available"));
-    mb.setText(tr("Current: v%1, Latest: v%2\nChoose update method:").arg(currentVersion, pendingUpdateInfo_.latestVersion));
+    mb.setText(tr("Current: v%1, Latest: v%2\nChoose update method:").arg(currentVersion, latestVersion));
     auto* btnNow = mb.addButton(tr("Update Main Program"), QMessageBox::AcceptRole);
     auto* btnFull = mb.addButton(tr("Download Full Package"), QMessageBox::ActionRole);
-    mb.addButton(QMessageBox::Cancel);
+    auto* btnCancel = mb.addButton(QMessageBox::Cancel);
     mb.exec();
 
-    if (mb.clickedButton() == btnNow) startSilentUpdate();
-    else if (mb.clickedButton() == btnFull) QDesktopServices::openUrl(QUrl(downloadUrl));
+    if (mb.clickedButton() == btnNow) {
+        return application::UpdatePromptChoice::StartSilentUpdate;
+    }
+    if (mb.clickedButton() == btnFull) {
+        return application::UpdatePromptChoice::DownloadFullPackage;
+    }
+    Q_UNUSED(btnCancel);
+    return application::UpdatePromptChoice::Cancel;
 }
 
-void MainWindow::startSilentUpdate() {
-    updateManager_->startUpdate(QUrl(pendingUpdateInfo_.updateOnlyUrl), 
-                                pendingUpdateInfo_.updateOnlySha256, 
-                                pendingUpdateInfo_.checksumsUrl, 
-                                pendingUpdateInfo_.latestVersion);
-    
+void MainWindow::showUpdateProgress(core::update::UpdateManager* updateManager) {
     auto* progress = new QProgressDialog(tr("Downloading Update..."), tr("Cancel"), 0, 100, this);
     progress->setWindowModality(Qt::WindowModal);
     progress->setAutoClose(true);
-    connect(updateManager_, &core::update::UpdateManager::downloadProgress, progress, &QProgressDialog::setValue);
-    connect(progress, &QProgressDialog::canceled, updateManager_, &core::update::UpdateManager::cancelUpdate);
-    connect(updateManager_, &core::update::UpdateManager::updateReadyToInstall, progress, &QProgressDialog::close);
-    connect(updateManager_, &core::update::UpdateManager::updateFailed, progress, &QProgressDialog::close);
+    connect(updateManager, &core::update::UpdateManager::downloadProgress, progress, &QProgressDialog::setValue);
+    connect(progress, &QProgressDialog::canceled, updateManager, &core::update::UpdateManager::cancelUpdate);
+    connect(updateManager, &core::update::UpdateManager::updateReadyToInstall, progress, &QProgressDialog::close);
+    connect(updateManager, &core::update::UpdateManager::updateFailed, progress, &QProgressDialog::close);
+    connect(updateManager, &core::update::UpdateManager::updateCanceled, progress, &QProgressDialog::close);
     progress->show();
 }
 
@@ -545,6 +518,9 @@ void MainWindow::applyLanguage(const QString& locale) {
     qApp->removeTranslator(&appTranslator_);
     currentLocale_ = locale;
     settingsController_->setLanguage(locale);
+    if (updateCoordinator_) {
+        updateCoordinator_->setCurrentLocale(locale);
+    }
     
     const QString eff = effectiveAppLocale(locale);
     if (eff == app::constants::Values::App::kLocaleZhCn) {
@@ -590,7 +566,9 @@ void MainWindow::retranslateUi() {
     if (langZhCnAction_) langZhCnAction_->setChecked(eff == app::constants::Values::App::kLocaleZhCn);
     if (langZhTwAction_) langZhTwAction_->setChecked(eff == app::constants::Values::App::kLocaleZhTw);
     
-    refreshUpdateIndicators();
+    if (updateCoordinator_) {
+        updateCoordinator_->refreshIndicators();
+    }
 }
 
 void MainWindow::changeEvent(QEvent* event) {

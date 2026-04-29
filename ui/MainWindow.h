@@ -9,6 +9,7 @@
 
 #pragma once
 
+#include "application/UpdateCoordinator.h"
 #include "AppConstants.h"
 #include "AnalyzerLinkageController.h"
 #include <QMainWindow>
@@ -38,8 +39,9 @@ namespace widgets { class FrameAnalyzerWidget; }
 namespace common { class ThemeController; }
 namespace common { class UpdateChecker; }
 namespace common { class ISettingsService; }
+namespace application { class UpdateCoordinator; }
 
-class MainWindow : public QMainWindow {
+class MainWindow : public QMainWindow, public application::IUpdateInteractionView {
     Q_OBJECT
 
 public:
@@ -49,6 +51,16 @@ public:
     ~MainWindow() override;
 
 private:
+    // Update View Interaction
+    void setUpdateCheckActionEnabled(bool enabled) override;
+    void setUpdateIndicatorVisible(bool visible) override;
+    void showUpdateInfoMessage(const QString& title, const QString& message) override;
+    void showUpdateWarningMessage(const QString& title, const QString& message) override;
+    void showUpdateCriticalMessage(const QString& title, const QString& message) override;
+    bool confirmOpenDownloadPage(const QString& latestVersion) override;
+    application::UpdatePromptChoice promptUpdateAction(const QString& currentVersion, const QString& latestVersion) override;
+    void showUpdateProgress(core::update::UpdateManager* updateManager) override;
+
     // UI Setup
     void setupUi();
     void createNavigation();
@@ -69,19 +81,6 @@ private:
     void openUpdateSettingsDialog();
     void openAboutDialog();
     void checkForUpdates();
-    void performUpdateCheck(bool manual);
-    bool shouldAutoCheckUpdates() const;
-    void refreshUpdateIndicators();
-    void promptUpdateAction(const QString& currentVersion);
-    void handleUpdateAvailable(const QString& currentVersion,
-                               const QString& latestVersion,
-                               const QString& updateOnlyUrl,
-                               const QString& updateOnlySha256,
-                               const QString& checksumsUrl,
-                               const QString& fullPackageUrl,
-                               const QString& releaseUrl);
-    
-    void startSilentUpdate();
     void showDisclaimerIfNeeded();
     void changeEvent(QEvent* event) override;
     void closeEvent(QCloseEvent* event) override;
@@ -120,22 +119,11 @@ private:
     common::ThemeController* themeController_ = nullptr;
     common::UpdateChecker* updateChecker_ = nullptr;
     core::update::UpdateManager* updateManager_ = nullptr;
+    application::UpdateCoordinator* updateCoordinator_ = nullptr;
     core::common::SettingsController* settingsController_ = nullptr;
     
     // Local State
     QString currentLocale_ = "en_US";
-    bool updateAvailable_ = false;
-    bool checkingUpdateManually_ = false;
-    
-    // Cached Update Info (for prompt)
-    struct {
-        QString latestVersion;
-        QString updateOnlyUrl;
-        QString updateOnlySha256;
-        QString checksumsUrl;
-        QString fullPackageUrl;
-        QString releaseUrl;
-    } pendingUpdateInfo_;
 
     QObject* parameterWheelBlocker_ = nullptr;
     bool navigationCollapsed_ = false;
