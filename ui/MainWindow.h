@@ -9,6 +9,8 @@
 
 #pragma once
 
+#include "application/IMainWindowView.h"
+#include "application/MainWindowPresenter.h"
 #include "application/UpdateCoordinator.h"
 #include "AppConstants.h"
 #include "AnalyzerLinkageController.h"
@@ -39,9 +41,12 @@ namespace widgets { class FrameAnalyzerWidget; }
 namespace common { class ThemeController; }
 namespace common { class UpdateChecker; }
 namespace common { class ISettingsService; }
+namespace application { class MainWindowPresenter; }
 namespace application { class UpdateCoordinator; }
 
-class MainWindow : public QMainWindow, public application::IUpdateInteractionView {
+class MainWindow : public QMainWindow,
+                   public application::IMainWindowView,
+                   public application::IUpdateInteractionView {
     Q_OBJECT
 
 public:
@@ -51,6 +56,16 @@ public:
     ~MainWindow() override;
 
 private:
+    // Main Window View
+    void initializeUi() override;
+    void setNavigationCollapsed(bool collapsed) override;
+    [[nodiscard]] bool isNavigationCollapsed() const override;
+    void openModbusSettingsDialog() override;
+    void openUpdateSettingsDialog() override;
+    void openAboutDialog() override;
+    void applyLanguage(const QString& locale) override;
+    void persistWindowState() override;
+
     // Update View Interaction
     void setUpdateCheckActionEnabled(bool enabled) override;
     void setUpdateIndicatorVisible(bool visible) override;
@@ -62,24 +77,18 @@ private:
     void showUpdateProgress(core::update::UpdateManager* updateManager) override;
 
     // UI Setup
-    void setupUi();
     void createNavigation();
-    void setNavigationCollapsed(bool collapsed);
     void updateNavigationToggleUi();
     void setupSettingsMenu();
     void setupLanguageMenu();
     void setupAboutMenu();
     void setupThemeToggle();
     void retranslateUi();
-    void applyLanguage(const QString& locale);
     void updateThemeUi();
     void updateThemeToggleUi();
 
     // Logic Bridge / Delegation
     void applyModbusSettingsToViews();
-    void openModbusSettingsDialog();
-    void openUpdateSettingsDialog();
-    void openAboutDialog();
     void checkForUpdates();
     void showDisclaimerIfNeeded();
     void changeEvent(QEvent* event) override;
@@ -119,6 +128,7 @@ private:
     common::ThemeController* themeController_ = nullptr;
     common::UpdateChecker* updateChecker_ = nullptr;
     core::update::UpdateManager* updateManager_ = nullptr;
+    application::MainWindowPresenter* presenter_ = nullptr;
     application::UpdateCoordinator* updateCoordinator_ = nullptr;
     core::common::SettingsController* settingsController_ = nullptr;
     

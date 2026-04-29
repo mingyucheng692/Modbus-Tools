@@ -9,6 +9,7 @@
 
 #include "MainWindow.h"
 #include "AppConstants.h"
+#include "application/MainWindowPresenter.h"
 #include "application/UpdateCoordinator.h"
 #include "shell/MainWindowPageBuilder.h"
 #include "views/modbus_tcp/ModbusTcpView.h"
@@ -189,14 +190,17 @@ MainWindow::MainWindow(common::ISettingsService* settingsService,
       themeController_(themeController),
       settingsController_(new core::common::SettingsController(settingsService, this)),
       updateManager_(new core::update::UpdateManager(this)) {
-    setupUi();
+    updateChecker_ = new common::UpdateChecker(this);
+    updateCoordinator_ = new application::UpdateCoordinator(this, updateChecker_, updateManager_, settingsController_, this);
+    presenter_ = new application::MainWindowPresenter(this, settingsController_, updateCoordinator_);
+    presenter_->initialize();
 }
 
 MainWindow::~MainWindow() {
     spdlog::info("MainWindow: Destructor entry");
 }
 
-void MainWindow::setupUi() {
+void MainWindow::initializeUi() {
     setWindowTitle(tr("Modbus Tools"));
     setMinimumSize(app::constants::Values::Ui::kMainWindowMinWidth, 
                    app::constants::Values::Ui::kMainWindowMinHeight);
@@ -254,9 +258,6 @@ void MainWindow::setupUi() {
         stackedWidget_->setCurrentIndex(pageIndexByNavigationRow[static_cast<std::size_t>(row)]);
     });
     navigationList_->setCurrentRow(0);
-
-    updateChecker_ = new common::UpdateChecker(this);
-    updateCoordinator_ = new application::UpdateCoordinator(this, updateChecker_, updateManager_, settingsController_, this);
 
     setupLanguageMenu();
     setupSettingsMenu();
@@ -320,8 +321,9 @@ void MainWindow::createNavigation() {
 
     common::ThemeUiHelpers::applyNavigationTheme(navigationList_->palette(), navigationPane_, navigationToggleButton_, navigationList_);
     connect(navigationToggleButton_, &QToolButton::clicked, this, [this]() {
-        setNavigationCollapsed(!navigationCollapsed_);
-        settingsController_->setNavigationCollapsed(navigationCollapsed_);
+        if (presenter_) {
+            presenter_->onNavigationToggleRequested();
+        }
     });
 }
 
@@ -336,6 +338,10 @@ void MainWindow::setNavigationCollapsed(bool collapsed) {
     updateNavigationToggleUi();
 }
 
+bool MainWindow::isNavigationCollapsed() const {
+    return navigationCollapsed_;
+}
+
 void MainWindow::updateNavigationToggleUi() {
     if (!navigationToggleButton_) return;
     navigationToggleButton_->setText(navigationCollapsed_ ? QStringLiteral("≫") : QStringLiteral("≪"));
@@ -344,8 +350,16 @@ void MainWindow::updateNavigationToggleUi() {
 
 void MainWindow::setupSettingsMenu() {
     settingsMenu_ = menuBar()->addMenu(tr("Settings"));
-    modbusSettingsAction_ = settingsMenu_->addAction(tr("Modbus Settings"), this, &MainWindow::openModbusSettingsDialog);
-    updateSettingsAction_ = settingsMenu_->addAction(tr("Update Settings"), this, &MainWindow::openUpdateSettingsDialog);
+    modbusSettingsAction_ = settingsMenu_->addAction(tr("Modbus Settings"), this, [this]() {
+        if (presenter_) {
+            presenter_->onModbusSettingsRequested();
+        }
+    });
+    updateSettingsAction_ = settingsMenu_->addAction(tr("Update Settings"), this, [this]() {
+        if (presenter_) {
+            presenter_->onUpdateSettingsRequested();
+        }
+    });
 }
 
 void MainWindow::setupLanguageMenu() {
@@ -368,15 +382,25 @@ void MainWindow::setupLanguageMenu() {
     addLang(tr("繁體中文"), app::constants::Values::App::kLocaleZhTw);
 
     connect(languageActionGroup_, &QActionGroup::triggered, this, [this](QAction* action) {
-        applyLanguage(action->data().toString());
+        if (presenter_) {
+            presenter_->onLanguageSelected(action->data().toString());
+        }
     });
 }
 
 void MainWindow::setupAboutMenu() {
     aboutMenu_ = menuBar()->addMenu(tr("About"));
-    checkUpdatesAction_ = aboutMenu_->addAction(tr("Check for Updates"), this, &MainWindow::checkForUpdates);
+    checkUpdatesAction_ = aboutMenu_->addAction(tr("Check for Updates"), this, [this]() {
+        if (presenter_) {
+            presenter_->onCheckForUpdatesRequested();
+        }
+    });
     aboutMenu_->addSeparator();
-    aboutAction_ = aboutMenu_->addAction(tr("About"), this, &MainWindow::openAboutDialog);
+    aboutAction_ = aboutMenu_->addAction(tr("About"), this, [this]() {
+        if (presenter_) {
+            presenter_->onAboutRequested();
+        }
+    });
 }
 
 void MainWindow::setupThemeToggle() {
@@ -434,9 +458,15 @@ void MainWindow::openAboutDialog() {
     dialog.exec();
 }
 
+void MainWindow::persistWindowState() {
+    settingsController_->setMainWindowGeometry(saveGeometry());
+    settingsController_->setMainWindowState(saveState());
+    settingsController_->sync();
+}
+
 void MainWindow::checkForUpdates() {
-    if (updateCoordinator_) {
-        updateCoordinator_->checkForUpdates();
+    if (presenter_) {
+        presenter_->onCheckForUpdatesRequested();
     }
 }
 
@@ -578,9 +608,9 @@ void MainWindow::changeEvent(QEvent* event) {
 }
 
 void MainWindow::closeEvent(QCloseEvent* event) {
-    settingsController_->setMainWindowGeometry(saveGeometry());
-    settingsController_->setMainWindowState(saveState());
-    settingsController_->sync();
+    if (presenter_) {
+        presenter_->onCloseRequested();
+    }
     QMainWindow::closeEvent(event);
 }
 

@@ -24,6 +24,9 @@ target_sources(ui PRIVATE
     common/TrafficEvent.h
     common/UpdateChecker.cpp
     common/UpdateChecker.h
+    application/IMainWindowView.h
+    application/MainWindowPresenter.cpp
+    application/MainWindowPresenter.h
     application/UpdateCoordinator.cpp
     application/UpdateCoordinator.h
     assets.qrc
