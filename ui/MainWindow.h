@@ -16,6 +16,7 @@
 #include "application/UpdateCoordinator.h"
 #include "AppConstants.h"
 #include "AnalyzerLinkageController.h"
+#include "shell/NavigationController.h"
 #include <QMainWindow>
 #include <memory>
 #include <cstdint>
@@ -46,6 +47,7 @@ namespace application { class AppLifecycleCoordinator; }
 namespace application { class LanguageCoordinator; }
 namespace application { class MainWindowPresenter; }
 namespace application { class UpdateCoordinator; }
+namespace shell { class NavigationController; }
 
 class MainWindow : public QMainWindow,
                    public application::IMainWindowView,
@@ -86,7 +88,6 @@ private:
 
     // UI Setup
     void createNavigation();
-    void updateNavigationToggleUi();
     void setupSettingsMenu();
     void setupLanguageMenu();
     void setupAboutMenu();
@@ -135,6 +136,7 @@ private:
     std::unique_ptr<application::AppLifecycleCoordinator> appLifecycleCoordinator_;
     std::unique_ptr<application::LanguageCoordinator> languageCoordinator_;
     std::unique_ptr<application::MainWindowPresenter> presenter_;
+    std::unique_ptr<shell::NavigationController> navigationController_;
     application::UpdateCoordinator* updateCoordinator_ = nullptr;
     core::common::SettingsController* settingsController_ = nullptr;
     
@@ -142,9 +144,6 @@ private:
     QString effectiveLocale_ = "en_US";
 
     QObject* parameterWheelBlocker_ = nullptr;
-    bool navigationCollapsed_ = false;
-    int navigationExpandedWidth_ = app::constants::Values::Ui::kNavigationExpandedWidth;
-    int navigationCollapsedWidth_ = app::constants::Values::Ui::kNavigationCollapsedWidth;
     AnalyzerLinkageController* analyzerLinkageController_ = nullptr;
 };
 

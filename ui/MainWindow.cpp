@@ -13,6 +13,7 @@
 #include "application/LanguageCoordinator.h"
 #include "application/MainWindowPresenter.h"
 #include "application/UpdateCoordinator.h"
+#include "shell/NavigationController.h"
 #include "shell/MainWindowPageBuilder.h"
 #include "views/modbus_tcp/ModbusTcpView.h"
 #include "views/modbus_rtu/ModbusRtuView.h"
@@ -48,59 +49,11 @@
 #include <QStandardPaths>
 #include <QDir>
 #include <QStyle>
-#include <QIcon>
-#include <QColor>
-#include <QPainter>
-#include <QListWidgetItem>
+#include <vector>
 #include <spdlog/spdlog.h>
 
 namespace {
 // Helper functions moved from MainWindow or kept for UI utility
-
-QIcon buildNavigationIcon(const QString& resourcePath, const QColor& accentColor) {
-    QPixmap sourcePixmap;
-    const QIcon sourceIcon(resourcePath);
-    const QList<QSize> candidateSizes = sourceIcon.availableSizes();
-    if (!candidateSizes.isEmpty()) {
-        QSize best = candidateSizes.first();
-        for (const QSize& size : candidateSizes) {
-            if (size.width() * size.height() > best.width() * best.height()) {
-                best = size;
-            }
-        }
-        sourcePixmap = sourceIcon.pixmap(best);
-    } else {
-        sourcePixmap.load(resourcePath);
-    }
-    if (sourcePixmap.isNull()) {
-        sourcePixmap = sourceIcon.pixmap(256, 256);
-    }
-    if (sourcePixmap.isNull()) return QIcon();
-
-    QImage image = sourcePixmap.toImage().convertToFormat(QImage::Format_ARGB32);
-    for (int y = 0; y < image.height(); ++y) {
-        for (int x = 0; x < image.width(); ++x) {
-            QColor pixel = QColor::fromRgba(image.pixel(x, y));
-            if (pixel.alpha() == 0) continue;
-            if (pixel.red() > 245 && pixel.green() > 245 && pixel.blue() > 245) {
-                pixel.setAlpha(0);
-                image.setPixelColor(x, y, pixel);
-                continue;
-            }
-            const int lightness = qBound(35, qGray(pixel.red(), pixel.green(), pixel.blue()), 215);
-            QColor recolored = accentColor;
-            recolored.setHsl(accentColor.hslHue(), qMax(accentColor.hslSaturation(), 120), lightness, pixel.alpha());
-            image.setPixelColor(x, y, recolored);
-        }
-    }
-
-    QIcon resultIcon;
-    const QList<int> sizes = {20, 24, 32, 48};
-    for (int size : sizes) {
-        resultIcon.addPixmap(QPixmap::fromImage(image).scaled(size, size, Qt::KeepAspectRatio, Qt::SmoothTransformation));
-    }
-    return resultIcon;
-}
 
 class ParameterWheelBlocker : public QObject {
 public:
@@ -116,16 +69,6 @@ protected:
         return QObject::eventFilter(watched, event);
     }
 };
-
-int calculateExpandedNavigationWidth(const QListWidget* navigationList) {
-    if (!navigationList) return app::constants::Values::Ui::kNavigationExpandedWidth;
-    const QFontMetrics metrics(navigationList->fontMetrics());
-    int maxTextWidth = 0;
-    for (int i = 0; i < navigationList->count(); ++i) {
-        maxTextWidth = qMax(maxTextWidth, metrics.horizontalAdvance(navigationList->item(i)->toolTip()));
-    }
-    return qMax(app::constants::Values::Ui::kNavigationExpandedWidth, maxTextWidth + 60);
-}
 }
 
 namespace ui {
@@ -200,14 +143,11 @@ void MainWindow::initializeUi() {
     connect(frameAnalyzer_, &widgets::FrameAnalyzerWidget::linkagePauseToggled, this, &MainWindow::handleLinkagePauseToggled);
     connect(frameAnalyzer_, &widgets::FrameAnalyzerWidget::linkageStopRequested, this, &MainWindow::handleLinkageStopRequested);
 
-    const auto pageIndexByNavigationRow = pages.pageIndexByNavigationRow;
-    connect(navigationList_, &QListWidget::currentRowChanged, this, [this, pageIndexByNavigationRow](int row) {
-        if (!stackedWidget_ || row < 0 || row >= static_cast<int>(pageIndexByNavigationRow.size())) {
-            return;
-        }
-        stackedWidget_->setCurrentIndex(pageIndexByNavigationRow[static_cast<std::size_t>(row)]);
-    });
-    navigationList_->setCurrentRow(0);
+    if (navigationController_) {
+        navigationController_->bindToStack(stackedWidget_,
+                                           std::vector<int>(pages.pageIndexByNavigationRow.begin(),
+                                                            pages.pageIndexByNavigationRow.end()));
+    }
 
     setupLanguageMenu();
     setupSettingsMenu();
@@ -233,23 +173,11 @@ void MainWindow::createNavigation() {
 
     navigationList_ = new QListWidget(navigationPane_);
     navigationList_->setIconSize(QSize(24, 24));
-    
-    // Add items with tooltips for retranslateUi to use
-    auto addNavItem = [this](const QString& iconPath, const QColor& color, const QString& text) {
-        const QIcon icon = buildNavigationIcon(iconPath, color);
-        auto* item = new QListWidgetItem(icon.isNull() ? style()->standardIcon(QStyle::SP_FileIcon) : icon, text);
-        item->setToolTip(text);
-        navigationList_->addItem(item);
-    };
-
-    addNavItem(":/assets/Modbus-TCP.ico", QColor("#3B82F6"), tr("Modbus TCP"));
-    addNavItem(":/assets/Modbus-RTU.ico", QColor("#8B5CF6"), tr("Modbus RTU"));
-    addNavItem(":/assets/TCP-Client.ico", QColor("#06B6D4"), tr("TCP Client"));
-    addNavItem(":/assets/Serial-Port.ico", QColor("#F59E0B"), tr("Serial Port"));
-    addNavItem(":/assets/Frame-Analyzer.ico", QColor("#10B981"), tr("Frame Analyzer"));
-
-    navigationExpandedWidth_ = calculateExpandedNavigationWidth(navigationList_);
     paneLayout->addWidget(navigationList_);
+
+    navigationController_ = std::make_unique<shell::NavigationController>(navigationList_, navigationPane_, navigationToggleButton_);
+    navigationController_->initialize(
+        {tr("Modbus TCP"), tr("Modbus RTU"), tr("TCP Client"), tr("Serial Port"), tr("Frame Analyzer")});
 
     common::ThemeUiHelpers::applyNavigationTheme(navigationList_->palette(), navigationPane_, navigationToggleButton_, navigationList_);
     connect(navigationToggleButton_, &QToolButton::clicked, this, [this]() {
@@ -260,18 +188,13 @@ void MainWindow::createNavigation() {
 }
 
 void MainWindow::setNavigationCollapsed(bool collapsed) {
-    navigationCollapsed_ = collapsed;
-    navigationPane_->setFixedWidth(navigationCollapsed_ ? navigationCollapsedWidth_ : navigationExpandedWidth_);
-    for (int i = 0; i < navigationList_->count(); ++i) {
-        auto* item = navigationList_->item(i);
-        item->setText(navigationCollapsed_ ? QString() : item->toolTip());
-        item->setTextAlignment(navigationCollapsed_ ? Qt::AlignCenter : (Qt::AlignLeft | Qt::AlignVCenter));
+    if (navigationController_) {
+        navigationController_->setCollapsed(collapsed);
     }
-    updateNavigationToggleUi();
 }
 
 bool MainWindow::isNavigationCollapsed() const {
-    return navigationCollapsed_;
+    return navigationController_ && navigationController_->isCollapsed();
 }
 
 void MainWindow::restoreWindowGeometry(const QByteArray& geometry) {
@@ -296,12 +219,6 @@ QByteArray MainWindow::saveWindowState() const {
 
 void MainWindow::applyModbusSettings(int timeoutMs, int retries, int retryIntervalMs) {
     applyModbusSettingsToViews(timeoutMs, retries, retryIntervalMs);
-}
-
-void MainWindow::updateNavigationToggleUi() {
-    if (!navigationToggleButton_) return;
-    navigationToggleButton_->setText(navigationCollapsed_ ? QStringLiteral("≫") : QStringLiteral("≪"));
-    navigationToggleButton_->setToolTip(navigationCollapsed_ ? tr("Expand Navigation") : tr("Collapse Navigation"));
 }
 
 void MainWindow::setupSettingsMenu() {
@@ -491,12 +408,10 @@ void MainWindow::showUpdateProgress(core::update::UpdateManager* updateManager) 
 void MainWindow::retranslateUi(const QString& effectiveLocale) {
     effectiveLocale_ = effectiveLocale;
     setWindowTitle(tr("Modbus Tools"));
-    QStringList titles = {tr("Modbus TCP"), tr("Modbus RTU"), tr("TCP Client"), tr("Serial Port"), tr("Frame Analyzer")};
-    for (int i = 0; i < titles.size() && i < navigationList_->count(); ++i) {
-        navigationList_->item(i)->setToolTip(titles[i]);
-        navigationList_->item(i)->setText(navigationCollapsed_ ? QString() : titles[i]);
+    const QStringList titles = {tr("Modbus TCP"), tr("Modbus RTU"), tr("TCP Client"), tr("Serial Port"), tr("Frame Analyzer")};
+    if (navigationController_) {
+        navigationController_->retranslate(titles, tr("Expand Navigation"), tr("Collapse Navigation"));
     }
-    updateNavigationToggleUi();
     if (languageMenu_) languageMenu_->setTitle(tr("Language"));
     if (settingsMenu_) settingsMenu_->setTitle(tr("Settings"));
     if (aboutMenu_) aboutMenu_->setTitle(tr("About"));
