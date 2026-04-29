@@ -10,18 +10,15 @@
 #pragma once
 
 #include "application/AppLifecycleCoordinator.h"
+#include "application/AnalyzerLinkCoordinator.h"
 #include "application/IMainWindowView.h"
 #include "application/LanguageCoordinator.h"
 #include "application/MainWindowPresenter.h"
 #include "application/UpdateCoordinator.h"
 #include "AppConstants.h"
-#include "AnalyzerLinkageController.h"
 #include "shell/NavigationController.h"
 #include <QMainWindow>
 #include <memory>
-#include <cstdint>
-#include "modbus/base/ModbusFrame.h"
-#include "modbus/parser/ModbusFrameParser.h"
 
 class QStackedWidget;
 class QListWidget;
@@ -44,6 +41,7 @@ namespace common { class ThemeController; }
 namespace common { class UpdateChecker; }
 namespace common { class ISettingsService; }
 namespace application { class AppLifecycleCoordinator; }
+namespace application { class AnalyzerLinkCoordinator; }
 namespace application { class LanguageCoordinator; }
 namespace application { class MainWindowPresenter; }
 namespace application { class UpdateCoordinator; }
@@ -100,13 +98,6 @@ private:
     void checkForUpdates();
     void changeEvent(QEvent* event) override;
     void closeEvent(QCloseEvent* event) override;
-    
-    // Linkage handling
-    void handleTcpLinkageToggled(bool active);
-    void handleRtuLinkageToggled(bool active);
-    void handleLinkageStopRequested();
-    void handleLinkagePauseToggled(bool paused);
-    void handleLinkageData(const modbus::base::Pdu& pdu, modbus::core::parser::ProtocolType protocol, uint16_t addr);
 
     // UI Components
     QListWidget* navigationList_ = nullptr;
@@ -134,6 +125,7 @@ private:
     common::UpdateChecker* updateChecker_ = nullptr;
     core::update::UpdateManager* updateManager_ = nullptr;
     std::unique_ptr<application::AppLifecycleCoordinator> appLifecycleCoordinator_;
+    std::unique_ptr<application::AnalyzerLinkCoordinator> analyzerLinkCoordinator_;
     std::unique_ptr<application::LanguageCoordinator> languageCoordinator_;
     std::unique_ptr<application::MainWindowPresenter> presenter_;
     std::unique_ptr<shell::NavigationController> navigationController_;
@@ -144,7 +136,6 @@ private:
     QString effectiveLocale_ = "en_US";
 
     QObject* parameterWheelBlocker_ = nullptr;
-    AnalyzerLinkageController* analyzerLinkageController_ = nullptr;
 };
 
 } // namespace ui

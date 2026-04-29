@@ -10,6 +10,7 @@
 #include "MainWindow.h"
 #include "AppConstants.h"
 #include "application/AppLifecycleCoordinator.h"
+#include "application/AnalyzerLinkCoordinator.h"
 #include "application/LanguageCoordinator.h"
 #include "application/MainWindowPresenter.h"
 #include "application/UpdateCoordinator.h"
@@ -81,6 +82,7 @@ MainWindow::MainWindow(common::ISettingsService* settingsService,
       settingsController_(new core::common::SettingsController(settingsService, this)),
       updateManager_(new core::update::UpdateManager(this)) {
     updateChecker_ = new common::UpdateChecker(this);
+    analyzerLinkCoordinator_ = std::make_unique<application::AnalyzerLinkCoordinator>(this);
     languageCoordinator_ = std::make_unique<application::LanguageCoordinator>(settingsController_);
     updateCoordinator_ = new application::UpdateCoordinator(this, updateChecker_, updateManager_, settingsController_, this);
     appLifecycleCoordinator_ = std::make_unique<application::AppLifecycleCoordinator>(this, settingsController_, updateCoordinator_);
@@ -122,26 +124,9 @@ void MainWindow::initializeUi() {
     modbusTcpView_ = pages.modbusTcpView;
     modbusRtuView_ = pages.modbusRtuView;
     frameAnalyzer_ = pages.frameAnalyzer;
-    analyzerLinkageController_ = new AnalyzerLinkageController(this);
-    analyzerLinkageController_->bind(modbusTcpView_, modbusRtuView_, frameAnalyzer_);
-    
-    // Connect Linkage signals
-    connect(modbusTcpView_, &views::modbus_tcp::ModbusTcpView::linkageToggled, this, &MainWindow::handleTcpLinkageToggled);
-    connect(modbusRtuView_, &views::modbus_rtu::ModbusRtuView::linkageToggled, this, &MainWindow::handleRtuLinkageToggled);
-    connect(modbusTcpView_, &views::modbus_tcp::ModbusTcpView::linkageDataReceived, this, &MainWindow::handleLinkageData);
-    connect(modbusRtuView_, &views::modbus_rtu::ModbusRtuView::linkageDataReceived, this, &MainWindow::handleLinkageData);
-    connect(modbusTcpView_, &views::modbus_tcp::ModbusTcpView::linkageSourceDisconnected, this, [this]() {
-        if (analyzerLinkageController_) {
-            analyzerLinkageController_->handleSourceDisconnected(AnalyzerLinkageController::LinkSource::Tcp);
-        }
-    });
-    connect(modbusRtuView_, &views::modbus_rtu::ModbusRtuView::linkageSourceDisconnected, this, [this]() {
-        if (analyzerLinkageController_) {
-            analyzerLinkageController_->handleSourceDisconnected(AnalyzerLinkageController::LinkSource::Rtu);
-        }
-    });
-    connect(frameAnalyzer_, &widgets::FrameAnalyzerWidget::linkagePauseToggled, this, &MainWindow::handleLinkagePauseToggled);
-    connect(frameAnalyzer_, &widgets::FrameAnalyzerWidget::linkageStopRequested, this, &MainWindow::handleLinkageStopRequested);
+    if (analyzerLinkCoordinator_) {
+        analyzerLinkCoordinator_->bind(modbusTcpView_, modbusRtuView_, frameAnalyzer_);
+    }
 
     if (navigationController_) {
         navigationController_->bindToStack(stackedWidget_,
@@ -444,36 +429,6 @@ void MainWindow::closeEvent(QCloseEvent* event) {
         presenter_->onCloseRequested();
     }
     QMainWindow::closeEvent(event);
-}
-
-void MainWindow::handleTcpLinkageToggled(bool active) {
-    if (analyzerLinkageController_) {
-        analyzerLinkageController_->requestLinkToggle(AnalyzerLinkageController::LinkSource::Tcp, active);
-    }
-}
-
-void MainWindow::handleRtuLinkageToggled(bool active) {
-    if (analyzerLinkageController_) {
-        analyzerLinkageController_->requestLinkToggle(AnalyzerLinkageController::LinkSource::Rtu, active);
-    }
-}
-
-void MainWindow::handleLinkageStopRequested() {
-    if (analyzerLinkageController_) {
-        analyzerLinkageController_->requestStop();
-    }
-}
-
-void MainWindow::handleLinkagePauseToggled(bool paused) {
-    if (analyzerLinkageController_) {
-        analyzerLinkageController_->requestPause(paused);
-    }
-}
-
-void MainWindow::handleLinkageData(const modbus::base::Pdu& pdu, modbus::core::parser::ProtocolType protocol, uint16_t addr) {
-    if (analyzerLinkageController_) {
-        analyzerLinkageController_->handleLiveData(pdu, protocol, addr);
-    }
 }
 
 } // namespace ui

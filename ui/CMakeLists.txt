@@ -37,6 +37,8 @@ target_sources(ui PRIVATE
     AnalyzerLinkageController.cpp
     AnalyzerLinkageController.h
     MainWindow.cpp
+    application/AnalyzerLinkCoordinator.cpp
+    application/AnalyzerLinkCoordinator.h
     shell/NavigationController.cpp
     shell/NavigationController.h
     shell/MainWindowPageBuilder.cpp
