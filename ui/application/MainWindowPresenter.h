@@ -8,6 +8,7 @@ class SettingsController;
 
 namespace ui::application {
 
+class AppLifecycleCoordinator;
 class IMainWindowView;
 class LanguageCoordinator;
 class UpdateCoordinator;
@@ -16,6 +17,7 @@ class MainWindowPresenter final {
 public:
     MainWindowPresenter(IMainWindowView* view,
                         core::common::SettingsController* settingsController,
+                        AppLifecycleCoordinator* appLifecycleCoordinator,
                         LanguageCoordinator* languageCoordinator,
                         UpdateCoordinator* updateCoordinator);
 
@@ -31,6 +33,7 @@ public:
 private:
     IMainWindowView* view_ = nullptr;
     core::common::SettingsController* settingsController_ = nullptr;
+    AppLifecycleCoordinator* appLifecycleCoordinator_ = nullptr;
     LanguageCoordinator* languageCoordinator_ = nullptr;
     UpdateCoordinator* updateCoordinator_ = nullptr;
 };

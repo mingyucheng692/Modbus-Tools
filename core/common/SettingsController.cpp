@@ -46,11 +46,18 @@ QString SettingsController::updateCheckFrequency() const {
     if (freq.isEmpty()) {
         return QLatin1String(app::constants::Values::App::kUpdateCheckStartup);
     }
+    if (freq == QLatin1String("off")) {
+        return QLatin1String(app::constants::Values::App::kUpdateCheckNever);
+    }
     return freq;
 }
 
 void SettingsController::setUpdateCheckFrequency(const QString& frequency) {
-    settingsService_->setValue(kAppUpdateCheckFrequency, frequency);
+    const QString normalizedFrequency =
+        (frequency == QLatin1String("off"))
+            ? QLatin1String(app::constants::Values::App::kUpdateCheckNever)
+            : frequency;
+    settingsService_->setValue(kAppUpdateCheckFrequency, normalizedFrequency);
 }
 
 QString SettingsController::lastUpdateCheckUtc() const {

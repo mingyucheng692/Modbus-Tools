@@ -9,6 +9,8 @@
 
 #include "UpdateSettingsDialog.h"
 
+#include "../../core/AppConstants.h"
+
 #include <QComboBox>
 #include <QDialogButtonBox>
 #include <QFormLayout>
@@ -32,10 +34,14 @@ void UpdateSettingsDialog::setupUi() {
     auto formLayout = new QFormLayout();
 
     frequencyCombo_ = new QComboBox(this);
-    frequencyCombo_->addItem(QCoreApplication::translate("ui::MainWindow", "Every Startup"), "startup");
-    frequencyCombo_->addItem(QCoreApplication::translate("ui::MainWindow", "Weekly"), "weekly");
-    frequencyCombo_->addItem(QCoreApplication::translate("ui::MainWindow", "Monthly"), "monthly");
-    frequencyCombo_->addItem(QCoreApplication::translate("ui::MainWindow", "Disable Update Check"), "off");
+    frequencyCombo_->addItem(QCoreApplication::translate("ui::MainWindow", "Every Startup"),
+                             QLatin1String(app::constants::Values::App::kUpdateCheckStartup));
+    frequencyCombo_->addItem(QCoreApplication::translate("ui::MainWindow", "Weekly"),
+                             QLatin1String(app::constants::Values::App::kUpdateCheckWeekly));
+    frequencyCombo_->addItem(QCoreApplication::translate("ui::MainWindow", "Monthly"),
+                             QLatin1String(app::constants::Values::App::kUpdateCheckMonthly));
+    frequencyCombo_->addItem(QCoreApplication::translate("ui::MainWindow", "Disable Update Check"),
+                             QLatin1String(app::constants::Values::App::kUpdateCheckNever));
     formLayout->addRow(QCoreApplication::translate("ui::MainWindow", "Update Check Frequency:"), frequencyCombo_);
 
     layout->addLayout(formLayout);

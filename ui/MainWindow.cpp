@@ -9,6 +9,7 @@
 
 #include "MainWindow.h"
 #include "AppConstants.h"
+#include "application/AppLifecycleCoordinator.h"
 #include "application/LanguageCoordinator.h"
 #include "application/MainWindowPresenter.h"
 #include "application/UpdateCoordinator.h"
@@ -137,9 +138,15 @@ MainWindow::MainWindow(common::ISettingsService* settingsService,
       settingsController_(new core::common::SettingsController(settingsService, this)),
       updateManager_(new core::update::UpdateManager(this)) {
     updateChecker_ = new common::UpdateChecker(this);
-    languageCoordinator_ = new application::LanguageCoordinator(settingsController_);
+    languageCoordinator_ = std::make_unique<application::LanguageCoordinator>(settingsController_);
     updateCoordinator_ = new application::UpdateCoordinator(this, updateChecker_, updateManager_, settingsController_, this);
-    presenter_ = new application::MainWindowPresenter(this, settingsController_, languageCoordinator_, updateCoordinator_);
+    appLifecycleCoordinator_ = std::make_unique<application::AppLifecycleCoordinator>(this, settingsController_, updateCoordinator_);
+    presenter_ = std::make_unique<application::MainWindowPresenter>(
+        this,
+        settingsController_,
+        appLifecycleCoordinator_.get(),
+        languageCoordinator_.get(),
+        updateCoordinator_);
     presenter_->initialize();
 }
 
@@ -152,12 +159,8 @@ void MainWindow::initializeUi() {
     setMinimumSize(app::constants::Values::Ui::kMainWindowMinWidth, 
                    app::constants::Values::Ui::kMainWindowMinHeight);
     menuBar()->setStyle(new common::CompactMenuBarStyle(menuBar()->style()->name()));
-    
-    resize(app::constants::Values::Ui::kMainWindowDefaultWidth, 
+    resize(app::constants::Values::Ui::kMainWindowDefaultWidth,
            app::constants::Values::Ui::kMainWindowDefaultHeight);
-    
-    const QByteArray geometry = settingsController_->mainWindowGeometry();
-    if (!geometry.isEmpty()) restoreGeometry(geometry);
 
     auto centralWidget = new QWidget(this);
     setCentralWidget(centralWidget);
@@ -211,26 +214,10 @@ void MainWindow::initializeUi() {
     setupAboutMenu();
     setupThemeToggle();
 
-    const QByteArray windowState = settingsController_->mainWindowState();
-    if (!windowState.isEmpty()) restoreState(windowState);
-
     parameterWheelBlocker_ = new ParameterWheelBlocker(this);
     qApp->installEventFilter(parameterWheelBlocker_);
-
-    navigationCollapsed_ = settingsController_->navigationCollapsed();
-    setNavigationCollapsed(navigationCollapsed_);
     
     updateThemeUi();
-    core::update::UpdateManager::cleanupUpdateArtifacts();
-    applyModbusSettingsToViews();
-    if (updateCoordinator_) {
-        updateCoordinator_->refreshIndicators();
-    }
-    
-    if (updateCoordinator_) {
-        updateCoordinator_->triggerAutoCheckIfNeeded();
-    }
-    showDisclaimerIfNeeded();
 }
 
 void MainWindow::createNavigation() {
@@ -285,6 +272,30 @@ void MainWindow::setNavigationCollapsed(bool collapsed) {
 
 bool MainWindow::isNavigationCollapsed() const {
     return navigationCollapsed_;
+}
+
+void MainWindow::restoreWindowGeometry(const QByteArray& geometry) {
+    if (!geometry.isEmpty()) {
+        restoreGeometry(geometry);
+    }
+}
+
+void MainWindow::restoreWindowState(const QByteArray& state) {
+    if (!state.isEmpty()) {
+        restoreState(state);
+    }
+}
+
+QByteArray MainWindow::saveWindowGeometry() const {
+    return saveGeometry();
+}
+
+QByteArray MainWindow::saveWindowState() const {
+    return saveState();
+}
+
+void MainWindow::applyModbusSettings(int timeoutMs, int retries, int retryIntervalMs) {
+    applyModbusSettingsToViews(timeoutMs, retries, retryIntervalMs);
 }
 
 void MainWindow::updateNavigationToggleUi() {
@@ -370,12 +381,9 @@ void MainWindow::updateThemeToggleUi() {
     themeToggleButton_->setToolTip(tooltip);
 }
 
-void MainWindow::applyModbusSettingsToViews() {
-    int t, r, i; bool e;
-    settingsController_->loadModbusSettings(t, r, i, e);
-    int effectiveRetries = e ? r : 0;
-    if (modbusTcpView_) modbusTcpView_->updateModbusSettings(t, effectiveRetries, i);
-    if (modbusRtuView_) modbusRtuView_->updateModbusSettings(t, effectiveRetries, i);
+void MainWindow::applyModbusSettingsToViews(int timeoutMs, int retries, int retryIntervalMs) {
+    if (modbusTcpView_) modbusTcpView_->updateModbusSettings(timeoutMs, retries, retryIntervalMs);
+    if (modbusRtuView_) modbusRtuView_->updateModbusSettings(timeoutMs, retries, retryIntervalMs);
 }
 
 void MainWindow::openModbusSettingsDialog() {
@@ -387,7 +395,7 @@ void MainWindow::openModbusSettingsDialog() {
     if (dialog.exec() == QDialog::Accepted) {
         auto s = dialog.settings();
         settingsController_->setModbusSettings(s.timeoutMs, s.retries, s.retryIntervalMs, s.retryEnabled);
-        applyModbusSettingsToViews();
+        applyModbusSettingsToViews(s.timeoutMs, s.retryEnabled ? s.retries : 0, s.retryIntervalMs);
     }
 }
 
@@ -403,10 +411,9 @@ void MainWindow::openAboutDialog() {
     dialog.exec();
 }
 
-void MainWindow::persistWindowState() {
-    settingsController_->setMainWindowGeometry(saveGeometry());
-    settingsController_->setMainWindowState(saveState());
-    settingsController_->sync();
+bool MainWindow::showDisclaimerDialog() {
+    widgets::DisclaimerDialog dialog(this);
+    return dialog.exec() == QDialog::Accepted;
 }
 
 void MainWindow::checkForUpdates() {
@@ -479,13 +486,6 @@ void MainWindow::showUpdateProgress(core::update::UpdateManager* updateManager) 
     connect(updateManager, &core::update::UpdateManager::updateFailed, progress, &QProgressDialog::close);
     connect(updateManager, &core::update::UpdateManager::updateCanceled, progress, &QProgressDialog::close);
     progress->show();
-}
-
-void MainWindow::showDisclaimerIfNeeded() {
-    if (settingsController_->disclaimerAccepted()) return;
-    widgets::DisclaimerDialog dialog(this);
-    if (dialog.exec() == QDialog::Accepted) settingsController_->setDisclaimerAccepted(true);
-    else qApp->quit();
 }
 
 void MainWindow::retranslateUi(const QString& effectiveLocale) {

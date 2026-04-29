@@ -91,6 +91,7 @@ void UpdateCoordinator::performUpdateCheck(bool manual) {
 bool UpdateCoordinator::shouldAutoCheckUpdates() const {
     const QString freq = settingsController_->updateCheckFrequency();
     if (freq == app::constants::Values::App::kUpdateCheckNever) {
+        spdlog::info("UpdateCoordinator: Auto update check skipped because frequency is set to 'never'.");
         return false;
     }
     if (freq == app::constants::Values::App::kUpdateCheckStartup) {
@@ -104,9 +105,19 @@ bool UpdateCoordinator::shouldAutoCheckUpdates() const {
 
     const qint64 days = lastCheck.daysTo(QDateTime::currentDateTimeUtc());
     if (freq == app::constants::Values::App::kUpdateCheckWeekly) {
+        if (days >= 7) {
+            spdlog::info("UpdateCoordinator: Auto update check allowed for 'weekly' frequency ({} days since last check).", days);
+        } else {
+            spdlog::info("UpdateCoordinator: Auto update check skipped for 'weekly' frequency ({} days since last check, requires >= 7).", days);
+        }
         return days >= 7;
     }
     if (freq == app::constants::Values::App::kUpdateCheckMonthly) {
+        if (days >= 30) {
+            spdlog::info("UpdateCoordinator: Auto update check allowed for 'monthly' frequency ({} days since last check).", days);
+        } else {
+            spdlog::info("UpdateCoordinator: Auto update check skipped for 'monthly' frequency ({} days since last check, requires >= 30).", days);
+        }
         return days >= 30;
     }
     return true;

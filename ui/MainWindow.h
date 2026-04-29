@@ -9,6 +9,7 @@
 
 #pragma once
 
+#include "application/AppLifecycleCoordinator.h"
 #include "application/IMainWindowView.h"
 #include "application/LanguageCoordinator.h"
 #include "application/MainWindowPresenter.h"
@@ -41,6 +42,7 @@ namespace widgets { class FrameAnalyzerWidget; }
 namespace common { class ThemeController; }
 namespace common { class UpdateChecker; }
 namespace common { class ISettingsService; }
+namespace application { class AppLifecycleCoordinator; }
 namespace application { class LanguageCoordinator; }
 namespace application { class MainWindowPresenter; }
 namespace application { class UpdateCoordinator; }
@@ -61,11 +63,16 @@ private:
     void initializeUi() override;
     void setNavigationCollapsed(bool collapsed) override;
     [[nodiscard]] bool isNavigationCollapsed() const override;
+    void restoreWindowGeometry(const QByteArray& geometry) override;
+    void restoreWindowState(const QByteArray& state) override;
+    [[nodiscard]] QByteArray saveWindowGeometry() const override;
+    [[nodiscard]] QByteArray saveWindowState() const override;
+    void applyModbusSettings(int timeoutMs, int retries, int retryIntervalMs) override;
     void openModbusSettingsDialog() override;
     void openUpdateSettingsDialog() override;
     void openAboutDialog() override;
+    [[nodiscard]] bool showDisclaimerDialog() override;
     void retranslateUi(const QString& effectiveLocale) override;
-    void persistWindowState() override;
 
     // Update View Interaction
     void setUpdateCheckActionEnabled(bool enabled) override;
@@ -88,9 +95,8 @@ private:
     void updateThemeToggleUi();
 
     // Logic Bridge / Delegation
-    void applyModbusSettingsToViews();
+    void applyModbusSettingsToViews(int timeoutMs, int retries, int retryIntervalMs);
     void checkForUpdates();
-    void showDisclaimerIfNeeded();
     void changeEvent(QEvent* event) override;
     void closeEvent(QCloseEvent* event) override;
     
@@ -126,8 +132,9 @@ private:
     common::ThemeController* themeController_ = nullptr;
     common::UpdateChecker* updateChecker_ = nullptr;
     core::update::UpdateManager* updateManager_ = nullptr;
-    application::LanguageCoordinator* languageCoordinator_ = nullptr;
-    application::MainWindowPresenter* presenter_ = nullptr;
+    std::unique_ptr<application::AppLifecycleCoordinator> appLifecycleCoordinator_;
+    std::unique_ptr<application::LanguageCoordinator> languageCoordinator_;
+    std::unique_ptr<application::MainWindowPresenter> presenter_;
     application::UpdateCoordinator* updateCoordinator_ = nullptr;
     core::common::SettingsController* settingsController_ = nullptr;
     

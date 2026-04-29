@@ -24,6 +24,8 @@ target_sources(ui PRIVATE
     common/TrafficEvent.h
     common/UpdateChecker.cpp
     common/UpdateChecker.h
+    application/AppLifecycleCoordinator.cpp
+    application/AppLifecycleCoordinator.h
     application/IMainWindowView.h
     application/LanguageCoordinator.cpp
     application/LanguageCoordinator.h
