@@ -75,7 +75,7 @@ private:
     int nextRequestId();
     void appendConnectionInfo(const QString& message);
     void flushPollSummary(bool force);
-    void handlePollCompletion(bool success, int rttMs, const QString& error);
+    void handlePollCompletion(bool success, int rttMs, int retryCount, const QString& error);
     int pollErrorThreshold() const;
     void resetPollErrorTracking();
 
@@ -116,6 +116,7 @@ private:
     std::chrono::steady_clock::time_point pollSummaryWindowStart_{};
     int pollSummarySuccessCount_ = 0;
     int pollSummaryErrorCount_ = 0;
+    int pollSummaryRetryCount_ = 0;
     qint64 pollSummaryTotalRttMs_ = 0;
     uint8_t pollFunctionCode_ = 0;
     int pollAddress_ = 0;

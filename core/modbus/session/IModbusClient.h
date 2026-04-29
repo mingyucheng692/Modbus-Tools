@@ -25,17 +25,43 @@ struct ModbusResponse {
     int rttMs = -1;
     bool responseReceived = false;
     bool noResponseExpected = false;
+    int attemptCount = 0;
+    int retryCount = 0;
 
-    static ModbusResponse Success(base::Pdu pdu, int rttMs = -1) {
-        return {pdu, true, QString(), rttMs, true, false};
+    static ModbusResponse Success(base::Pdu pdu, int rttMs = -1, int attemptCount = 0) {
+        ModbusResponse response;
+        response.pdu = std::move(pdu);
+        response.isSuccess = true;
+        response.rttMs = rttMs;
+        response.responseReceived = true;
+        response.noResponseExpected = false;
+        response.attemptCount = attemptCount;
+        response.retryCount = attemptCount > 0 ? attemptCount - 1 : 0;
+        return response;
     }
 
-    static ModbusResponse NoResponseExpected(base::Pdu pdu) {
-        return {pdu, true, QString(), -1, false, true};
+    static ModbusResponse NoResponseExpected(base::Pdu pdu, int attemptCount = 0) {
+        ModbusResponse response;
+        response.pdu = std::move(pdu);
+        response.isSuccess = true;
+        response.rttMs = -1;
+        response.responseReceived = false;
+        response.noResponseExpected = true;
+        response.attemptCount = attemptCount;
+        response.retryCount = attemptCount > 0 ? attemptCount - 1 : 0;
+        return response;
     }
     
-    static ModbusResponse Error(QString error) {
-        return {base::Pdu(), false, error, -1, false, false};
+    static ModbusResponse Error(QString error, int attemptCount = 0) {
+        ModbusResponse response;
+        response.error = std::move(error);
+        response.isSuccess = false;
+        response.rttMs = -1;
+        response.responseReceived = false;
+        response.noResponseExpected = false;
+        response.attemptCount = attemptCount;
+        response.retryCount = attemptCount > 0 ? attemptCount - 1 : 0;
+        return response;
     }
 };
 

@@ -628,10 +628,12 @@ ModbusResponse ModbusClient::sendRequest(const base::Pdu& request, int slaveId) 
         if (aborted_) {
             transitionTo(RequestState::Aborted, "request-aborted-before-send");
             finishPendingRequest(requestId, false, "Aborted");
-            return ModbusResponse::Error(trClient("Aborted"));
+            return ModbusResponse::Error(trClient("Aborted"), i);
         }
 
         lastResponse = sendRequestInternal(request, slaveId);
+        lastResponse.attemptCount = i + 1;
+        lastResponse.retryCount = i;
         if (lastResponse.isSuccess) {
             transitionTo(RequestState::Completed, "request-success");
             finishPendingRequest(requestId, true, QString());
@@ -652,7 +654,7 @@ ModbusResponse ModbusClient::sendRequest(const base::Pdu& request, int slaveId) 
             if (!waitForAbortableDelay(std::chrono::milliseconds(retryDelayMs))) {
                 transitionTo(RequestState::Aborted, "request-aborted-during-backoff");
                 finishPendingRequest(requestId, false, "Aborted");
-                return ModbusResponse::Error(trClient("Aborted"));
+                return ModbusResponse::Error(trClient("Aborted"), i + 1);
             }
         }
     }

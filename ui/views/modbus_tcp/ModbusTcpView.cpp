@@ -49,6 +49,42 @@ QString connectedText() {
 QString disconnectedText() {
     return QCoreApplication::translate("ui::views::modbus_tcp::ModbusTcpView", "Disconnected");
 }
+
+QString retryWord(int retryCount)
+{
+    return QCoreApplication::translate(
+        "ui::views::modbus_tcp::ModbusTcpView",
+        retryCount == 1 ? "retry" : "retries");
+}
+
+QString successWithRetrySummary(const QString& baseMessage, int retryCount)
+{
+    if (retryCount <= 0) {
+        return baseMessage;
+    }
+    return QCoreApplication::translate(
+               "ui::views::modbus_tcp::ModbusTcpView",
+               "%1 after %2 %3")
+        .arg(baseMessage)
+        .arg(retryCount)
+        .arg(retryWord(retryCount));
+}
+
+QString errorWithRetrySummary(const QString& error, int retryCount)
+{
+    if (retryCount <= 0) {
+        return QCoreApplication::translate(
+                   "ui::views::modbus_tcp::ModbusTcpView",
+                   "Error: %1")
+            .arg(error);
+    }
+    return QCoreApplication::translate(
+               "ui::views::modbus_tcp::ModbusTcpView",
+               "Error: %1 (failed after %2 %3, see log for details)")
+        .arg(error)
+        .arg(retryCount)
+        .arg(retryWord(retryCount));
+}
 }
 
 ModbusTcpView::ModbusTcpView(ui::common::ISettingsService* settingsService, QWidget *parent)
@@ -315,7 +351,10 @@ void ModbusTcpView::setupUi() {
                     if (itKind->second == RequestKind::Poll) {
                         pollInFlight_ = false;
                         suppressPollTrafficLog_ = false;
-                        handlePollCompletion(response.isSuccess, response.rttMs, response.error);
+                        handlePollCompletion(response.isSuccess,
+                                             response.rttMs,
+                                             response.retryCount,
+                                             response.error);
                     }
 
                     // 分流设计：仅在成功时通过底层测量的精�?RTT 更新统计
@@ -324,9 +363,11 @@ void ModbusTcpView::setupUi() {
                         controlWidget_->recordRx(response.rttMs);
 
                         if (itKind->second == RequestKind::Read) {
-                            trafficMonitor_->appendInfo(tr("Success: Response received"));
+                            trafficMonitor_->appendInfo(
+                                successWithRetrySummary(tr("Success: Response received"), response.retryCount));
                         } else if (itKind->second == RequestKind::Write) {
-                            trafficMonitor_->appendInfo(tr("Success: Write confirmed"));
+                            trafficMonitor_->appendInfo(
+                                successWithRetrySummary(tr("Success: Write confirmed"), response.retryCount));
                         }
                         
                         // Emit linkage signal for Frame Analyzer if linked
@@ -338,7 +379,8 @@ void ModbusTcpView::setupUi() {
                         controlWidget_->recordError();
 
                         if (itKind->second != RequestKind::Poll) {
-                            trafficMonitor_->appendError(tr("Error: %1").arg(response.error));
+                            trafficMonitor_->appendError(
+                                errorWithRetrySummary(response.error, response.retryCount));
                         }
                     }
 
@@ -641,11 +683,12 @@ void ModbusTcpView::appendConnectionInfo(const QString& message) {
     trafficMonitor_->appendEvent(event);
 }
 
-void ModbusTcpView::handlePollCompletion(bool success, int rttMs, const QString& error) {
+void ModbusTcpView::handlePollCompletion(bool success, int rttMs, int retryCount, const QString& error) {
     if (pollSummaryWindowStart_ == std::chrono::steady_clock::time_point{}) {
         pollSummaryWindowStart_ = std::chrono::steady_clock::now();
     }
     const auto now = std::chrono::steady_clock::now();
+    pollSummaryRetryCount_ += std::max(0, retryCount);
 
     if (success) {
         ++pollSummarySuccessCount_;
@@ -765,18 +808,20 @@ void ModbusTcpView::flushPollSummary(bool force) {
     event.level = ui::common::TrafficEventLevel::Info;
     event.requestType = ui::common::TrafficRequestType::Poll;
     event.isPoll = true;
-    event.summary = tr("Poll Summary FC:%1 Addr:%2 Qty:%3 Slave:%4 Success:%5 Error:%6 Avg Success RTT:%7")
+    event.summary = tr("Poll Summary FC:%1 Addr:%2 Qty:%3 Slave:%4 Success:%5 Error:%6 Retries:%7 Avg Success RTT:%8")
         .arg(pollFunctionCode_)
         .arg(pollAddress_)
         .arg(pollQuantity_)
         .arg(pollSlaveId_)
         .arg(pollSummarySuccessCount_)
         .arg(pollSummaryErrorCount_)
+        .arg(pollSummaryRetryCount_)
         .arg(avgRttText);
     trafficMonitor_->appendEvent(event);
 
     pollSummarySuccessCount_ = 0;
     pollSummaryErrorCount_ = 0;
+    pollSummaryRetryCount_ = 0;
     pollSummaryTotalRttMs_ = 0;
     pollSummaryWindowStart_ = now;
 }
