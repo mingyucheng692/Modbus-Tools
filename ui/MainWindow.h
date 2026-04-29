@@ -9,14 +9,9 @@
 
 #pragma once
 
-#include "application/AppLifecycleCoordinator.h"
-#include "application/AnalyzerLinkCoordinator.h"
 #include "application/IMainWindowView.h"
-#include "application/LanguageCoordinator.h"
-#include "application/MainWindowPresenter.h"
+#include "application/IMainWindowPresenter.h"
 #include "application/UpdateCoordinator.h"
-#include "AppConstants.h"
-#include "shell/NavigationController.h"
 #include <QMainWindow>
 #include <memory>
 
@@ -38,14 +33,9 @@ namespace views::modbus_tcp { class ModbusTcpView; }
 namespace views::modbus_rtu { class ModbusRtuView; }
 namespace widgets { class FrameAnalyzerWidget; }
 namespace common { class ThemeController; }
-namespace common { class UpdateChecker; }
 namespace common { class ISettingsService; }
-namespace application { class AppLifecycleCoordinator; }
-namespace application { class AnalyzerLinkCoordinator; }
-namespace application { class LanguageCoordinator; }
-namespace application { class MainWindowPresenter; }
-namespace application { class UpdateCoordinator; }
 namespace shell { class NavigationController; }
+struct MainWindowBusinessContext;
 
 class MainWindow : public QMainWindow,
                    public application::IMainWindowView,
@@ -95,7 +85,6 @@ private:
 
     // Logic Bridge / Delegation
     void applyModbusSettingsToViews(int timeoutMs, int retries, int retryIntervalMs);
-    void checkForUpdates();
     void changeEvent(QEvent* event) override;
     void closeEvent(QCloseEvent* event) override;
 
@@ -122,15 +111,9 @@ private:
     
     // Services and Controllers
     common::ThemeController* themeController_ = nullptr;
-    common::UpdateChecker* updateChecker_ = nullptr;
-    core::update::UpdateManager* updateManager_ = nullptr;
-    std::unique_ptr<application::AppLifecycleCoordinator> appLifecycleCoordinator_;
-    std::unique_ptr<application::AnalyzerLinkCoordinator> analyzerLinkCoordinator_;
-    std::unique_ptr<application::LanguageCoordinator> languageCoordinator_;
-    std::unique_ptr<application::MainWindowPresenter> presenter_;
     std::unique_ptr<shell::NavigationController> navigationController_;
-    application::UpdateCoordinator* updateCoordinator_ = nullptr;
-    core::common::SettingsController* settingsController_ = nullptr;
+    std::unique_ptr<MainWindowBusinessContext> businessContext_;
+    std::unique_ptr<application::IMainWindowPresenter> presenter_;
     
     // Local State
     QString effectiveLocale_ = "en_US";

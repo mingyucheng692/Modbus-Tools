@@ -1,5 +1,6 @@
 #pragma once
 
+#include "application/IMainWindowPresenter.h"
 #include <QString>
 
 namespace core::common {
@@ -13,7 +14,7 @@ class IMainWindowView;
 class LanguageCoordinator;
 class UpdateCoordinator;
 
-class MainWindowPresenter final {
+class MainWindowPresenter final : public IMainWindowPresenter {
 public:
     MainWindowPresenter(IMainWindowView* view,
                         core::common::SettingsController* settingsController,
@@ -21,14 +22,14 @@ public:
                         LanguageCoordinator* languageCoordinator,
                         UpdateCoordinator* updateCoordinator);
 
-    void initialize();
-    void onNavigationToggleRequested();
-    void onModbusSettingsRequested();
-    void onUpdateSettingsRequested();
-    void onAboutRequested();
-    void onCheckForUpdatesRequested();
-    void onLanguageSelected(const QString& locale);
-    void onCloseRequested();
+    void initialize() override;
+    void onNavigationToggleRequested() override;
+    void onModbusSettingsRequested() override;
+    void onUpdateSettingsRequested() override;
+    void onAboutRequested() override;
+    void onCheckForUpdatesRequested() override;
+    void onLanguageSelected(const QString& locale) override;
+    void onCloseRequested() override;
 
 private:
     IMainWindowView* view_ = nullptr;

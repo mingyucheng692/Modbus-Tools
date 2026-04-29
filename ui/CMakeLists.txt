@@ -39,6 +39,7 @@ target_sources(ui PRIVATE
     MainWindow.cpp
     application/AnalyzerLinkCoordinator.cpp
     application/AnalyzerLinkCoordinator.h
+    application/IMainWindowPresenter.h
     shell/NavigationController.cpp
     shell/NavigationController.h
     shell/MainWindowPageBuilder.cpp
