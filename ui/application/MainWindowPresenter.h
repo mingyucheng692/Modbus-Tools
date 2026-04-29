@@ -9,12 +9,14 @@ class SettingsController;
 namespace ui::application {
 
 class IMainWindowView;
+class LanguageCoordinator;
 class UpdateCoordinator;
 
 class MainWindowPresenter final {
 public:
     MainWindowPresenter(IMainWindowView* view,
                         core::common::SettingsController* settingsController,
+                        LanguageCoordinator* languageCoordinator,
                         UpdateCoordinator* updateCoordinator);
 
     void initialize();
@@ -29,6 +31,7 @@ public:
 private:
     IMainWindowView* view_ = nullptr;
     core::common::SettingsController* settingsController_ = nullptr;
+    LanguageCoordinator* languageCoordinator_ = nullptr;
     UpdateCoordinator* updateCoordinator_ = nullptr;
 };
 

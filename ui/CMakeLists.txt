@@ -25,6 +25,8 @@ target_sources(ui PRIVATE
     common/UpdateChecker.cpp
     common/UpdateChecker.h
     application/IMainWindowView.h
+    application/LanguageCoordinator.cpp
+    application/LanguageCoordinator.h
     application/MainWindowPresenter.cpp
     application/MainWindowPresenter.h
     application/UpdateCoordinator.cpp

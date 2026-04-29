@@ -10,12 +10,12 @@
 #pragma once
 
 #include "application/IMainWindowView.h"
+#include "application/LanguageCoordinator.h"
 #include "application/MainWindowPresenter.h"
 #include "application/UpdateCoordinator.h"
 #include "AppConstants.h"
 #include "AnalyzerLinkageController.h"
 #include <QMainWindow>
-#include <QTranslator>
 #include <memory>
 #include <cstdint>
 #include "modbus/base/ModbusFrame.h"
@@ -41,6 +41,7 @@ namespace widgets { class FrameAnalyzerWidget; }
 namespace common { class ThemeController; }
 namespace common { class UpdateChecker; }
 namespace common { class ISettingsService; }
+namespace application { class LanguageCoordinator; }
 namespace application { class MainWindowPresenter; }
 namespace application { class UpdateCoordinator; }
 
@@ -63,7 +64,7 @@ private:
     void openModbusSettingsDialog() override;
     void openUpdateSettingsDialog() override;
     void openAboutDialog() override;
-    void applyLanguage(const QString& locale) override;
+    void retranslateUi(const QString& effectiveLocale) override;
     void persistWindowState() override;
 
     // Update View Interaction
@@ -83,7 +84,6 @@ private:
     void setupLanguageMenu();
     void setupAboutMenu();
     void setupThemeToggle();
-    void retranslateUi();
     void updateThemeUi();
     void updateThemeToggleUi();
 
@@ -123,17 +123,16 @@ private:
     QToolButton* themeToggleButton_ = nullptr;
     
     // Services and Controllers
-    QTranslator qtTranslator_;
-    QTranslator appTranslator_;
     common::ThemeController* themeController_ = nullptr;
     common::UpdateChecker* updateChecker_ = nullptr;
     core::update::UpdateManager* updateManager_ = nullptr;
+    application::LanguageCoordinator* languageCoordinator_ = nullptr;
     application::MainWindowPresenter* presenter_ = nullptr;
     application::UpdateCoordinator* updateCoordinator_ = nullptr;
     core::common::SettingsController* settingsController_ = nullptr;
     
     // Local State
-    QString currentLocale_ = "en_US";
+    QString effectiveLocale_ = "en_US";
 
     QObject* parameterWheelBlocker_ = nullptr;
     bool navigationCollapsed_ = false;

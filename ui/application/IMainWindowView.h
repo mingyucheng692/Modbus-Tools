@@ -14,7 +14,7 @@ public:
     virtual void openModbusSettingsDialog() = 0;
     virtual void openUpdateSettingsDialog() = 0;
     virtual void openAboutDialog() = 0;
-    virtual void applyLanguage(const QString& locale) = 0;
+    virtual void retranslateUi(const QString& effectiveLocale) = 0;
     virtual void persistWindowState() = 0;
 };
 

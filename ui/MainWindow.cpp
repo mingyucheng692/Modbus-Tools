@@ -9,6 +9,7 @@
 
 #include "MainWindow.h"
 #include "AppConstants.h"
+#include "application/LanguageCoordinator.h"
 #include "application/MainWindowPresenter.h"
 #include "application/UpdateCoordinator.h"
 #include "shell/MainWindowPageBuilder.h"
@@ -39,8 +40,6 @@
 #include <QApplication>
 #include <QEvent>
 #include <QCloseEvent>
-#include <QTranslator>
-#include <QLibraryInfo>
 #include <QMessageBox>
 #include <QProgressDialog>
 #include <QPushButton>
@@ -117,59 +116,6 @@ protected:
     }
 };
 
-QString normalizedAppLocale(QString locale) {
-    locale = locale.trimmed();
-    if (locale == QLatin1String(app::constants::Values::App::kLocaleEn) ||
-        locale == QLatin1String(app::constants::Values::App::kLocaleZhCn) ||
-        locale == QLatin1String(app::constants::Values::App::kLocaleZhTw) ||
-        locale == QStringLiteral("system")) {
-        return locale;
-    }
-    return QStringLiteral("system");
-}
-
-QString effectiveAppLocale(const QString& locale) {
-    if (locale != QStringLiteral("system")) return locale;
-    QLocale systemLocale = QLocale::system();
-    if (systemLocale.language() == QLocale::Chinese) {
-        if (systemLocale.script() == QLocale::TraditionalChineseScript || 
-            systemLocale.country() == QLocale::Taiwan || 
-            systemLocale.country() == QLocale::HongKong || 
-            systemLocale.country() == QLocale::Macau) {
-            return QLatin1String(app::constants::Values::App::kLocaleZhTw);
-        }
-        return QLatin1String(app::constants::Values::App::kLocaleZhCn);
-    }
-    return QLatin1String(app::constants::Values::App::kLocaleEn);
-}
-
-QString translationFileNameForLocale(const QString& locale) {
-    if (locale == QLatin1String(app::constants::Values::App::kLocaleZhCn)) {
-        return QStringLiteral("Modbus-Tools_zh_CN.qm");
-    }
-    if (locale == QLatin1String(app::constants::Values::App::kLocaleZhTw)) {
-        return QStringLiteral("Modbus-Tools_zh_TW.qm");
-    }
-    return {};
-}
-
-bool loadAppTranslation(QTranslator& translator, const QString& qmFileName) {
-    if (qmFileName.isEmpty()) {
-        return false;
-    }
-
-    const QString resourcePath = QStringLiteral(":/i18n/%1").arg(qmFileName);
-    if (translator.load(resourcePath)) {
-        spdlog::info("Loaded app translation from embedded resource: {}", resourcePath.toStdString());
-        return true;
-    }
-
-    spdlog::warn("Failed to load app translation '{}' from embedded resource '{}'",
-                 qmFileName.toStdString(),
-                 resourcePath.toStdString());
-    return false;
-}
-
 int calculateExpandedNavigationWidth(const QListWidget* navigationList) {
     if (!navigationList) return app::constants::Values::Ui::kNavigationExpandedWidth;
     const QFontMetrics metrics(navigationList->fontMetrics());
@@ -191,8 +137,9 @@ MainWindow::MainWindow(common::ISettingsService* settingsService,
       settingsController_(new core::common::SettingsController(settingsService, this)),
       updateManager_(new core::update::UpdateManager(this)) {
     updateChecker_ = new common::UpdateChecker(this);
+    languageCoordinator_ = new application::LanguageCoordinator(settingsController_);
     updateCoordinator_ = new application::UpdateCoordinator(this, updateChecker_, updateManager_, settingsController_, this);
-    presenter_ = new application::MainWindowPresenter(this, settingsController_, updateCoordinator_);
+    presenter_ = new application::MainWindowPresenter(this, settingsController_, languageCoordinator_, updateCoordinator_);
     presenter_->initialize();
 }
 
@@ -270,14 +217,12 @@ void MainWindow::initializeUi() {
     parameterWheelBlocker_ = new ParameterWheelBlocker(this);
     qApp->installEventFilter(parameterWheelBlocker_);
 
-    currentLocale_ = normalizedAppLocale(settingsController_->language());
     navigationCollapsed_ = settingsController_->navigationCollapsed();
     setNavigationCollapsed(navigationCollapsed_);
     
     updateThemeUi();
     core::update::UpdateManager::cleanupUpdateArtifacts();
     applyModbusSettingsToViews();
-    applyLanguage(currentLocale_);
     if (updateCoordinator_) {
         updateCoordinator_->refreshIndicators();
     }
@@ -543,35 +488,8 @@ void MainWindow::showDisclaimerIfNeeded() {
     else qApp->quit();
 }
 
-void MainWindow::applyLanguage(const QString& locale) {
-    qApp->removeTranslator(&qtTranslator_);
-    qApp->removeTranslator(&appTranslator_);
-    currentLocale_ = locale;
-    settingsController_->setLanguage(locale);
-    if (updateCoordinator_) {
-        updateCoordinator_->setCurrentLocale(locale);
-    }
-    
-    const QString eff = effectiveAppLocale(locale);
-    if (eff == app::constants::Values::App::kLocaleZhCn) {
-        if (qtTranslator_.load("qtbase_zh_CN", QLibraryInfo::path(QLibraryInfo::TranslationsPath))) {
-            qApp->installTranslator(&qtTranslator_);
-        }
-        if (loadAppTranslation(appTranslator_, translationFileNameForLocale(eff))) {
-            qApp->installTranslator(&appTranslator_);
-        }
-    } else if (eff == app::constants::Values::App::kLocaleZhTw) {
-        if (qtTranslator_.load("qtbase_zh_TW", QLibraryInfo::path(QLibraryInfo::TranslationsPath))) {
-            qApp->installTranslator(&qtTranslator_);
-        }
-        if (loadAppTranslation(appTranslator_, translationFileNameForLocale(eff))) {
-            qApp->installTranslator(&appTranslator_);
-        }
-    }
-    retranslateUi();
-}
-
-void MainWindow::retranslateUi() {
+void MainWindow::retranslateUi(const QString& effectiveLocale) {
+    effectiveLocale_ = effectiveLocale;
     setWindowTitle(tr("Modbus Tools"));
     QStringList titles = {tr("Modbus TCP"), tr("Modbus RTU"), tr("TCP Client"), tr("Serial Port"), tr("Frame Analyzer")};
     for (int i = 0; i < titles.size() && i < navigationList_->count(); ++i) {
@@ -591,10 +509,9 @@ void MainWindow::retranslateUi() {
     if (langZhCnAction_) langZhCnAction_->setText(tr("简体中文"));
     if (langZhTwAction_) langZhTwAction_->setText(tr("繁體中文"));
     
-    const QString eff = effectiveAppLocale(currentLocale_);
-    if (langEnAction_) langEnAction_->setChecked(eff == app::constants::Values::App::kLocaleEn);
-    if (langZhCnAction_) langZhCnAction_->setChecked(eff == app::constants::Values::App::kLocaleZhCn);
-    if (langZhTwAction_) langZhTwAction_->setChecked(eff == app::constants::Values::App::kLocaleZhTw);
+    if (langEnAction_) langEnAction_->setChecked(effectiveLocale_ == app::constants::Values::App::kLocaleEn);
+    if (langZhCnAction_) langZhCnAction_->setChecked(effectiveLocale_ == app::constants::Values::App::kLocaleZhCn);
+    if (langZhTwAction_) langZhTwAction_->setChecked(effectiveLocale_ == app::constants::Values::App::kLocaleZhTw);
     
     if (updateCoordinator_) {
         updateCoordinator_->refreshIndicators();
@@ -602,7 +519,7 @@ void MainWindow::retranslateUi() {
 }
 
 void MainWindow::changeEvent(QEvent* event) {
-    if (event->type() == QEvent::LanguageChange) retranslateUi();
+    if (event->type() == QEvent::LanguageChange) retranslateUi(effectiveLocale_);
     else if (event->type() == QEvent::PaletteChange) updateThemeUi();
     QMainWindow::changeEvent(event);
 }
