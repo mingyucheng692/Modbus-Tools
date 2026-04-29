@@ -9,10 +9,9 @@
 
 #include "MainWindow.h"
 #include "AppConstants.h"
+#include "shell/MainWindowPageBuilder.h"
 #include "views/modbus_tcp/ModbusTcpView.h"
 #include "views/modbus_rtu/ModbusRtuView.h"
-#include "views/generic_tcp/GenericTcpView.h"
-#include "views/generic_serial/GenericSerialView.h"
 #include "widgets/FrameAnalyzerWidget.h"
 #include "widgets/DisclaimerDialog.h"
 #include "widgets/UpdateSettingsDialog.h"
@@ -45,7 +44,6 @@
 #include <QProgressDialog>
 #include <QPushButton>
 #include <QPointer>
-#include <QScrollArea>
 #include <QStandardPaths>
 #include <QDateTime>
 #include <QDir>
@@ -102,15 +100,6 @@ QIcon buildNavigationIcon(const QString& resourcePath, const QColor& accentColor
         resultIcon.addPixmap(QPixmap::fromImage(image).scaled(size, size, Qt::KeepAspectRatio, Qt::SmoothTransformation));
     }
     return resultIcon;
-}
-
-QWidget* createScrollablePage(QWidget* page, QWidget* parent) {
-    auto* scrollArea = new QScrollArea(parent);
-    scrollArea->setWidgetResizable(true);
-    scrollArea->setFrameShape(QFrame::NoFrame);
-    page->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Preferred);
-    scrollArea->setWidget(page);
-    return scrollArea;
 }
 
 class ParameterWheelBlocker : public QObject {
@@ -232,15 +221,11 @@ void MainWindow::setupUi() {
     stackedWidget_ = new QStackedWidget(this);
     mainLayout->addWidget(stackedWidget_, 5);
 
-    modbusTcpView_ = new views::modbus_tcp::ModbusTcpView(settingsController_->settingsService(), this);
-    stackedWidget_->addWidget(createScrollablePage(modbusTcpView_, stackedWidget_));
-    modbusRtuView_ = new views::modbus_rtu::ModbusRtuView(settingsController_->settingsService(), this);
-    stackedWidget_->addWidget(createScrollablePage(modbusRtuView_, stackedWidget_));
-    stackedWidget_->addWidget(createScrollablePage(new views::generic_tcp::GenericTcpView(settingsController_->settingsService(), this), stackedWidget_));
-    stackedWidget_->addWidget(createScrollablePage(new views::generic_serial::GenericSerialView(settingsController_->settingsService(), this), stackedWidget_));
-    
-    frameAnalyzer_ = new widgets::FrameAnalyzerWidget(settingsController_->settingsService(), this);
-    stackedWidget_->addWidget(createScrollablePage(frameAnalyzer_, stackedWidget_));
+    MainWindowPageBuilder pageBuilder(settingsController_->settingsService());
+    const MainWindowPages pages = pageBuilder.build(stackedWidget_, this);
+    modbusTcpView_ = pages.modbusTcpView;
+    modbusRtuView_ = pages.modbusRtuView;
+    frameAnalyzer_ = pages.frameAnalyzer;
     analyzerLinkageController_ = new AnalyzerLinkageController(this);
     analyzerLinkageController_->bind(modbusTcpView_, modbusRtuView_, frameAnalyzer_);
     
@@ -262,7 +247,13 @@ void MainWindow::setupUi() {
     connect(frameAnalyzer_, &widgets::FrameAnalyzerWidget::linkagePauseToggled, this, &MainWindow::handleLinkagePauseToggled);
     connect(frameAnalyzer_, &widgets::FrameAnalyzerWidget::linkageStopRequested, this, &MainWindow::handleLinkageStopRequested);
 
-    connect(navigationList_, &QListWidget::currentRowChanged, stackedWidget_, &QStackedWidget::setCurrentIndex);
+    const auto pageIndexByNavigationRow = pages.pageIndexByNavigationRow;
+    connect(navigationList_, &QListWidget::currentRowChanged, this, [this, pageIndexByNavigationRow](int row) {
+        if (!stackedWidget_ || row < 0 || row >= static_cast<int>(pageIndexByNavigationRow.size())) {
+            return;
+        }
+        stackedWidget_->setCurrentIndex(pageIndexByNavigationRow[static_cast<std::size_t>(row)]);
+    });
     navigationList_->setCurrentRow(0);
 
     updateChecker_ = new common::UpdateChecker(this);

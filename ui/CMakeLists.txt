@@ -28,6 +28,8 @@ target_sources(ui PRIVATE
     AnalyzerLinkageController.cpp
     AnalyzerLinkageController.h
     MainWindow.cpp
+    shell/MainWindowPageBuilder.cpp
+    shell/MainWindowPageBuilder.h
     views/modbus_tcp/ModbusTcpView.cpp
     views/modbus_tcp/ModbusTcpView.h
     views/modbus_rtu/ModbusRtuView.cpp
