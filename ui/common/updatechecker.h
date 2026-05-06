@@ -21,7 +21,7 @@ class UpdateChecker : public QObject {
 
 public:
     explicit UpdateChecker(QObject* parent = nullptr);
-    void checkForUpdates();
+    virtual void checkForUpdates();
 
     static QString currentVersion();
     static QString packagePlatform();

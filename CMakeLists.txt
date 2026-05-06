@@ -63,7 +63,35 @@ if(MODBUS_TOOLS_BUILD_TESTS)
     if(DEFINED ENV{GTEST_SOURCE_DIR})
         set(GTEST_SOURCE_DIR $ENV{GTEST_SOURCE_DIR})
         message(STATUS "Using local GTest source: ${GTEST_SOURCE_DIR}")
-        add_subdirectory(${GTEST_SOURCE_DIR} ${CMAKE_BINARY_DIR}/googletest)
+        if(EXISTS "${GTEST_SOURCE_DIR}/CMakeLists.txt")
+            add_subdirectory(${GTEST_SOURCE_DIR} ${CMAKE_BINARY_DIR}/googletest)
+        elseif(EXISTS "${GTEST_SOURCE_DIR}/googletest/src/gtest-all.cc" AND
+               EXISTS "${GTEST_SOURCE_DIR}/googlemock/src/gmock-all.cc")
+            add_library(gtest STATIC "${GTEST_SOURCE_DIR}/googletest/src/gtest-all.cc")
+            target_include_directories(gtest
+                PUBLIC
+                    "${GTEST_SOURCE_DIR}/googletest/include"
+                PRIVATE
+                    "${GTEST_SOURCE_DIR}/googletest"
+            )
+            target_link_libraries(gtest PUBLIC Threads::Threads)
+
+            add_library(gmock STATIC "${GTEST_SOURCE_DIR}/googlemock/src/gmock-all.cc")
+            target_include_directories(gmock
+                PUBLIC
+                    "${GTEST_SOURCE_DIR}/googlemock/include"
+                    "${GTEST_SOURCE_DIR}/googletest/include"
+                PRIVATE
+                    "${GTEST_SOURCE_DIR}/googlemock"
+                    "${GTEST_SOURCE_DIR}/googletest"
+            )
+            target_link_libraries(gmock PUBLIC gtest)
+
+            add_library(GTest::gtest ALIAS gtest)
+            add_library(GTest::gmock ALIAS gmock)
+        else()
+            message(FATAL_ERROR "GTEST_SOURCE_DIR does not contain a supported GoogleTest source layout: ${GTEST_SOURCE_DIR}")
+        endif()
     else()
         FetchContent_Declare(
           googletest

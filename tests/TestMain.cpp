@@ -1,13 +1,13 @@
 #include <gtest/gtest.h>
 #include <gmock/gmock.h>
-#include <QtCore/QCoreApplication>
+#include <QtWidgets/QApplication>
 #include <QtCore/QStandardPaths>
 #include <QtCore/QLoggingCategory>
 #include "logging/Logger.h" // Assuming this has access to spdlog or spdlog directly
 
 int main(int argc, char** argv) {
     // 1. Initialize Qt Application Environment
-    QCoreApplication app(argc, argv);
+    QApplication app(argc, argv);
     
     // 2. Enable Test Mode for standard paths (Isolates file operations)
     QStandardPaths::setTestModeEnabled(true);

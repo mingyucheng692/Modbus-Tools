@@ -24,10 +24,12 @@ set_property(TARGET ${TEST_TARGET} PROPERTY AUTOMOC ON)
 # We use GTest::gmock instead of gtest_main because we provide our own main in TestMain.cpp
 target_link_libraries(${TEST_TARGET} PRIVATE
     core
+    ui
     GTest::gtest
     GTest::gmock
     Qt6::Core
     Qt6::Test
+    Qt6::Widgets
 )
 
 # Global test properties
