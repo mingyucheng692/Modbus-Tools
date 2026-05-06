@@ -12,7 +12,6 @@
 #include <QWidget>
 #include <memory>
 #include <unordered_map>
-#include <chrono>
 #include <cstdint>
 #include "AppConstants.h"
 #include "modbus/base/ModbusConfig.h"
@@ -33,6 +32,7 @@ class ISettingsService;
 
 namespace ui::application::modbus {
 class RequestSubmissionService;
+class PollingController;
 }
 
 namespace modbus::dispatch { class ModbusWorker; }
@@ -77,10 +77,6 @@ private:
     void changeEvent(QEvent* event) override;
     void releaseStack();
     void appendConnectionInfo(const QString& message);
-    void flushPollSummary(bool force);
-    void handlePollCompletion(bool success, int rttMs, int retryCount, const QString& error);
-    int pollErrorThreshold() const;
-    void resetPollErrorTracking();
 
     QVBoxLayout* mainLayout_ = nullptr;
     ui::widgets::TcpConnectionWidget* connectionWidget_ = nullptr;
@@ -106,26 +102,10 @@ private:
     std::shared_ptr<modbus::dispatch::ModbusWorker> worker_;
     std::shared_ptr<QThread> workerThread_;
     ui::application::modbus::RequestSubmissionService* requestService_ = nullptr;
+    ui::application::modbus::PollingController* pollingController_ = nullptr;
     quint64 connectionGeneration_ = 0;
     bool tcpSessionConnected_ = false;
     bool suppressDisconnectAlert_ = false;
-    bool pollInFlight_ = false;
-    bool suppressPollTrafficLog_ = false;
-    std::chrono::steady_clock::time_point pollSummaryWindowStart_{};
-    int pollSummarySuccessCount_ = 0;
-    int pollSummaryErrorCount_ = 0;
-    int pollSummaryRetryCount_ = 0;
-    qint64 pollSummaryTotalRttMs_ = 0;
-    uint8_t pollFunctionCode_ = 0;
-    int pollAddress_ = 0;
-    int pollQuantity_ = 0;
-    int pollSlaveId_ = 0;
-    int pollConsecutiveErrorCount_ = 0;
-    bool pollErrorEscalated_ = false;
-    QString pollLastErrorText_;
-    std::chrono::steady_clock::time_point pollLastErrorLogTime_{};
-    std::chrono::steady_clock::time_point pollLastSuccessTime_{};
-    std::chrono::steady_clock::time_point pollFailureStreakStartTime_{};
     bool linked_ = false;
     int timeoutMs_ = app::constants::Values::Modbus::kDefaultTimeoutMs;
     int retries_ = 0;

@@ -35,6 +35,8 @@ target_sources(ui PRIVATE
     application/UpdateCoordinator.h
     application/modbus/RequestSubmissionService.cpp
     application/modbus/RequestSubmissionService.h
+    application/modbus/PollingController.cpp
+    application/modbus/PollingController.h
     assets.qrc
     AnalyzerLinkageController.cpp
     AnalyzerLinkageController.h
@@ -130,6 +132,7 @@ target_link_libraries(ui PUBLIC
     Qt6::Charts
     Qt6::Concurrent
     Qt6::Network
+    Qt6::StateMachine
     core
 )
 

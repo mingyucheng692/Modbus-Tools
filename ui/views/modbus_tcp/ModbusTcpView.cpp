@@ -11,6 +11,7 @@
 #include "AppConstants.h"
 #include "../../common/ISettingsService.h"
 #include "../../application/modbus/RequestSubmissionService.h"
+#include "../../application/modbus/PollingController.h"
 #include "../../widgets/TcpConnectionWidget.h"
 #include "../../widgets/FunctionWidget.h"
 #include "../../widgets/TrafficMonitorWidget.h"
@@ -248,6 +249,14 @@ void ModbusTcpView::setupUi() {
             connect(requestService_, &ui::application::modbus::RequestSubmissionService::txCountUpdated,
                     controlWidget_, &ui::widgets::ControlWidget::recordTx);
 
+            pollingController_ = new ui::application::modbus::PollingController(requestService_, this);
+            connect(pollingController_, &ui::application::modbus::PollingController::submitPollRequest,
+                    this, [this](const ::modbus::base::Pdu& pdu, int slaveId, int requestId) {
+                        if (worker_) worker_->submit(pdu, slaveId, requestId);
+                    });
+            connect(pollingController_, &ui::application::modbus::PollingController::trafficEvent,
+                    trafficMonitor_, &ui::widgets::TrafficMonitorWidget::appendEvent);
+
             QPointer<ModbusTcpView> self(this);
             channel_->setMonitor([self, generation](bool isTx, const QByteArray& data) {
                 if (!self) return;
@@ -255,25 +264,29 @@ void ModbusTcpView::setupUi() {
                     if (!self) return;
                     if (generation != self->connectionGeneration_) return;
                     if (isTx) {
-                        const bool allowRawFrameLog = !self->suppressPollTrafficLog_
+                        const bool suppressLog = self->pollingController_
+                            && self->pollingController_->isSuppressingTrafficLog();
+                        const bool allowRawFrameLog = !suppressLog
                             || (self->trafficMonitor_ && self->trafficMonitor_->isRawFramesModeEnabled());
                         if (allowRawFrameLog) {
                             ui::common::TrafficEvent event;
                             event.direction = ui::common::TrafficDirection::Tx;
                             event.requestType = ui::common::TrafficRequestType::Unknown;
-                            event.isPoll = self->suppressPollTrafficLog_;
+                            event.isPoll = suppressLog;
                             event.payload = data;
                             self->trafficMonitor_->appendEvent(event);
                         }
                         self->appendSendData(data);
                     } else {
-                        const bool allowRawFrameLog = !self->suppressPollTrafficLog_
+                        const bool suppressLog = self->pollingController_
+                            && self->pollingController_->isSuppressingTrafficLog();
+                        const bool allowRawFrameLog = !suppressLog
                             || (self->trafficMonitor_ && self->trafficMonitor_->isRawFramesModeEnabled());
                         if (allowRawFrameLog) {
                             ui::common::TrafficEvent event;
                             event.direction = ui::common::TrafficDirection::Rx;
                             event.requestType = ui::common::TrafficRequestType::Unknown;
-                            event.isPoll = self->suppressPollTrafficLog_;
+                            event.isPoll = suppressLog;
                             event.payload = data;
                             self->trafficMonitor_->appendEvent(event);
                         }
@@ -324,8 +337,7 @@ void ModbusTcpView::setupUi() {
                     const bool wasConnected = tcpSessionConnected_;
                     tcpSessionConnected_ = ok;
                     if (!ok) {
-                        pollInFlight_ = false;
-                        suppressPollTrafficLog_ = false;
+                        if (pollingController_) pollingController_->stopPoll();
                     }
                     if (ok) {
                         suppressDisconnectAlert_ = false;
@@ -355,12 +367,10 @@ void ModbusTcpView::setupUi() {
                     auto startTime = trackingInfo->startTime;
 
                     if (kind == ui::application::modbus::RequestKind::Poll) {
-                        pollInFlight_ = false;
-                        suppressPollTrafficLog_ = false;
-                        handlePollCompletion(response.isSuccess,
-                                             response.rttMs,
-                                             response.retryCount,
-                                             response.error);
+                        pollingController_->handleResponse(response.isSuccess,
+                                                           response.rttMs,
+                                                           response.retryCount,
+                                                           response.error);
                     }
 
                     // 分流设计：仅在成功时通过底层测量的精�?RTT 更新统计
@@ -473,32 +483,11 @@ void ModbusTcpView::setupUi() {
     connect(controlWidget_, &widgets::ControlWidget::pollRequested,
         [this, ensureConnected](uint8_t fc, int addr, int qty) {
             if (!ensureConnected()) return;
-            if (pollInFlight_) return;
-
-            if (!requestService_) {
-                trafficMonitor_->appendError(tr("Error: Request service not available"));
-                return;
-            }
-
+            if (!pollingController_) return;
+            pollingController_->setSessionConnected(tcpSessionConnected_);
+            pollingController_->setPollingInterval(controlWidget_->pollingIntervalMs());
             int slaveId = functionWidget_->getSlaveId();
-
-            auto result = requestService_->buildReadRequest(fc, addr, qty, slaveId,
-                ui::application::modbus::RequestKind::Poll);
-            if (!result.ok) {
-                trafficMonitor_->appendError(tr("Error: %1").arg(result.error));
-                return;
-            }
-
-            pollFunctionCode_ = fc;
-            pollAddress_ = addr;
-            pollQuantity_ = qty;
-            pollSlaveId_ = slaveId;
-            if (pollSummaryWindowStart_ == std::chrono::steady_clock::time_point{}) {
-                pollSummaryWindowStart_ = std::chrono::steady_clock::now();
-            }
-            pollInFlight_ = true;
-            suppressPollTrafficLog_ = true;
-            worker_->submit(result.pdu, slaveId, result.requestId);
+            pollingController_->handlePollRequest(fc, addr, qty, slaveId);
     });
 
     connect(clearReceiveButton_, &QPushButton::clicked, [this]() {
@@ -550,163 +539,13 @@ void ModbusTcpView::appendConnectionInfo(const QString& message) {
     trafficMonitor_->appendEvent(event);
 }
 
-void ModbusTcpView::handlePollCompletion(bool success, int rttMs, int retryCount, const QString& error) {
-    if (pollSummaryWindowStart_ == std::chrono::steady_clock::time_point{}) {
-        pollSummaryWindowStart_ = std::chrono::steady_clock::now();
-    }
-    const auto now = std::chrono::steady_clock::now();
-    pollSummaryRetryCount_ += std::max(0, retryCount);
-
-    if (success) {
-        ++pollSummarySuccessCount_;
-        pollSummaryTotalRttMs_ += (rttMs > 0 ? rttMs : 0);
-        pollLastSuccessTime_ = now;
-        if (pollConsecutiveErrorCount_ > 0 && trafficMonitor_) {
-            ui::common::TrafficEvent event;
-            event.level = ui::common::TrafficEventLevel::Info;
-            event.requestType = ui::common::TrafficRequestType::Poll;
-            event.isPoll = true;
-            event.summary = tr("Poll recovered after %1 consecutive failures")
-                .arg(pollConsecutiveErrorCount_);
-            trafficMonitor_->appendEvent(event);
-        }
-        resetPollErrorTracking();
-    } else {
-        ++pollSummaryErrorCount_;
-        ++pollConsecutiveErrorCount_;
-        if (pollFailureStreakStartTime_ == std::chrono::steady_clock::time_point{}) {
-            pollFailureStreakStartTime_ = now;
-        }
-
-        const QString normalizedError = error.toLower();
-        int threshold = pollErrorThreshold();
-        if (normalizedError.contains(QStringLiteral("timeout"))
-            || normalizedError.contains(QStringLiteral("timed out"))) {
-            threshold = std::max(2, threshold - 1);
-        } else if (normalizedError.contains(QStringLiteral("busy"))
-            || normalizedError.contains(QStringLiteral("tempor"))) {
-            threshold = std::min(10, threshold + 1);
-        }
-
-        const bool zeroSuccessWindowExceeded =
-            pollFailureStreakStartTime_ != std::chrono::steady_clock::time_point{}
-            && (now - pollFailureStreakStartTime_) >= std::chrono::milliseconds(3000);
-        const bool connectionFault = !tcpSessionConnected_;
-        const bool escalateToError = connectionFault
-            || zeroSuccessWindowExceeded
-            || pollConsecutiveErrorCount_ >= threshold;
-        const bool shouldLogEscalatedError = !pollErrorEscalated_
-            || error != pollLastErrorText_
-            || (now - pollLastErrorLogTime_) >= std::chrono::seconds(5);
-
-        ui::common::TrafficEvent event;
-        event.level = escalateToError
-            ? ui::common::TrafficEventLevel::Error
-            : ui::common::TrafficEventLevel::Warning;
-        event.requestType = ui::common::TrafficRequestType::Poll;
-        event.isPoll = true;
-
-        if (escalateToError) {
-            if (connectionFault) {
-                event.summary = tr("Poll Error: Connection unavailable during polling (%1)")
-                    .arg(error);
-            } else if (!pollErrorEscalated_) {
-                event.summary = tr("Poll Error escalated after %1 consecutive failures: %2")
-                    .arg(pollConsecutiveErrorCount_)
-                    .arg(error);
-            } else {
-                event.summary = tr("Poll Error persists (%1 consecutive failures): %2")
-                    .arg(pollConsecutiveErrorCount_)
-                    .arg(error);
-            }
-
-            if (trafficMonitor_ && shouldLogEscalatedError) {
-                trafficMonitor_->appendEvent(event);
-                pollLastErrorLogTime_ = now;
-            }
-
-            pollErrorEscalated_ = true;
-            pollLastErrorText_ = error;
-        } else if (trafficMonitor_) {
-            event.summary = tr("Poll Error: %1").arg(error);
-            trafficMonitor_->appendEvent(event);
-            pollLastErrorText_ = error;
-        }
-    }
-    flushPollSummary(false);
-}
-
-int ModbusTcpView::pollErrorThreshold() const {
-    constexpr int kTargetUpgradeWindowMs = 3000;
-    constexpr int kMinThreshold = 3;
-    constexpr int kMaxThreshold = 10;
-
-    const int intervalMs = controlWidget_
-        ? std::max(controlWidget_->pollingIntervalMs(), 1)
-        : app::constants::Values::Polling::kDefaultIntervalMs;
-    const int roundedThreshold = (kTargetUpgradeWindowMs + intervalMs / 2) / intervalMs;
-    return std::clamp(roundedThreshold, kMinThreshold, kMaxThreshold);
-}
-
-void ModbusTcpView::resetPollErrorTracking() {
-    pollConsecutiveErrorCount_ = 0;
-    pollErrorEscalated_ = false;
-    pollLastErrorText_.clear();
-    pollLastErrorLogTime_ = std::chrono::steady_clock::time_point{};
-    pollFailureStreakStartTime_ = std::chrono::steady_clock::time_point{};
-}
-
-void ModbusTcpView::flushPollSummary(bool force) {
-    const int total = pollSummarySuccessCount_ + pollSummaryErrorCount_;
-    if (total <= 0) {
-        return;
-    }
-    const auto now = std::chrono::steady_clock::now();
-    const bool due = (now - pollSummaryWindowStart_) >= std::chrono::milliseconds(1000);
-    if (!force && !due) {
-        return;
-    }
-
-    const QString avgRttText = pollSummarySuccessCount_ > 0
-        ? tr("%1 ms").arg(static_cast<int>(pollSummaryTotalRttMs_ / pollSummarySuccessCount_))
-        : tr("--");
-
-    ui::common::TrafficEvent event;
-    event.level = ui::common::TrafficEventLevel::Info;
-    event.requestType = ui::common::TrafficRequestType::Poll;
-    event.isPoll = true;
-    event.summary = tr("Poll Summary FC:%1 Addr:%2 Qty:%3 Slave:%4 Success:%5 Error:%6 Retries:%7 Avg Success RTT:%8")
-        .arg(pollFunctionCode_)
-        .arg(pollAddress_)
-        .arg(pollQuantity_)
-        .arg(pollSlaveId_)
-        .arg(pollSummarySuccessCount_)
-        .arg(pollSummaryErrorCount_)
-        .arg(pollSummaryRetryCount_)
-        .arg(avgRttText);
-    trafficMonitor_->appendEvent(event);
-
-    pollSummarySuccessCount_ = 0;
-    pollSummaryErrorCount_ = 0;
-    pollSummaryRetryCount_ = 0;
-    pollSummaryTotalRttMs_ = 0;
-    pollSummaryWindowStart_ = now;
-}
-
 void ModbusTcpView::releaseStack() {
-    flushPollSummary(true);
+    if (pollingController_) pollingController_->reset();
     ++connectionGeneration_;
     suppressDisconnectAlert_ = true;
     tcpSessionConnected_ = false;
-    pollInFlight_ = false;
-    suppressPollTrafficLog_ = false;
-    resetPollErrorTracking();
-    pollLastSuccessTime_ = std::chrono::steady_clock::time_point{};
     if (connectionWidget_) {
         connectionWidget_->setConnected(false);
-    }
-    if (requestService_) {
-        requestService_->clearAll();
     }
     const bool wasLinked = linked_;
     linked_ = false;
