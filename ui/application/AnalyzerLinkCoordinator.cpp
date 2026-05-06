@@ -52,8 +52,8 @@ void AnalyzerLinkCoordinator::handleLinkagePauseToggled(bool paused) {
     controller_->requestPause(paused);
 }
 
-void AnalyzerLinkCoordinator::handleLinkageData(const modbus::base::Pdu& pdu,
-                                                modbus::core::parser::ProtocolType protocol,
+void AnalyzerLinkCoordinator::handleLinkageData(const ::modbus::base::Pdu& pdu,
+                                                ::modbus::core::parser::ProtocolType protocol,
                                                 uint16_t addr) {
     controller_->handleLiveData(pdu, protocol, addr);
 }

@@ -32,8 +32,8 @@ private:
     void handleRtuLinkageToggled(bool active);
     void handleLinkageStopRequested();
     void handleLinkagePauseToggled(bool paused);
-    void handleLinkageData(const modbus::base::Pdu& pdu,
-                           modbus::core::parser::ProtocolType protocol,
+    void handleLinkageData(const ::modbus::base::Pdu& pdu,
+                           ::modbus::core::parser::ProtocolType protocol,
                            uint16_t addr);
     void handleTcpSourceDisconnected();
     void handleRtuSourceDisconnected();

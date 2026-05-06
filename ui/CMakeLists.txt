@@ -33,6 +33,8 @@ target_sources(ui PRIVATE
     application/MainWindowPresenter.h
     application/UpdateCoordinator.cpp
     application/UpdateCoordinator.h
+    application/modbus/RequestSubmissionService.cpp
+    application/modbus/RequestSubmissionService.h
     assets.qrc
     AnalyzerLinkageController.cpp
     AnalyzerLinkageController.h

@@ -31,6 +31,10 @@ namespace ui::common {
 class ISettingsService;
 }
 
+namespace ui::application::modbus {
+class RequestSubmissionService;
+}
+
 namespace modbus::dispatch { class ModbusWorker; }
 namespace modbus::session { class IModbusClient; }
 namespace io { class IChannel; }
@@ -72,14 +76,11 @@ private:
     void retranslateUi();
     void changeEvent(QEvent* event) override;
     void releaseStack();
-    int nextRequestId();
     void appendConnectionInfo(const QString& message);
     void flushPollSummary(bool force);
     void handlePollCompletion(bool success, int rttMs, int retryCount, const QString& error);
     int pollErrorThreshold() const;
     void resetPollErrorTracking();
-
-    enum class RequestKind { Read, Write, Poll };
 
     QVBoxLayout* mainLayout_ = nullptr;
     ui::widgets::SerialConnectionWidget* connectionWidget_ = nullptr;
@@ -104,10 +105,7 @@ private:
     std::shared_ptr<modbus::session::IModbusClient> client_;
     std::shared_ptr<modbus::dispatch::ModbusWorker> worker_;
     std::shared_ptr<QThread> workerThread_;
-    std::unordered_map<int, std::chrono::steady_clock::time_point> requestStart_;
-    std::unordered_map<int, RequestKind> requestKinds_;
-    std::unordered_map<int, uint16_t> requestAddrs_;
-    int requestId_ = 0;
+    ui::application::modbus::RequestSubmissionService* requestService_ = nullptr;
     quint64 connectionGeneration_ = 0;
     bool rtuSessionConnected_ = false;
     bool pollInFlight_ = false;

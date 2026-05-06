@@ -10,6 +10,7 @@
 #include "ModbusRtuView.h"
 #include "AppConstants.h"
 #include "../../common/ISettingsService.h"
+#include "../../application/modbus/RequestSubmissionService.h"
 #include "../../widgets/SerialConnectionWidget.h"
 #include "../../widgets/FunctionWidget.h"
 #include "../../widgets/TrafficMonitorWidget.h"
@@ -18,11 +19,8 @@
 #include "../../common/ConnectionAlert.h"
 #include "../../common/TrafficEvent.h"
 #include "modbus/factory/ModbusFactory.h"
-#include "modbus/base/ModbusDataHelper.h"
-#include "modbus/base/ModbusPduBuilder.h"
 #include <QVBoxLayout>
 #include <QLabel>
-#include <QRegularExpression>
 #include <QGroupBox>
 #include <QHBoxLayout>
 #include <QTextEdit>
@@ -239,6 +237,10 @@ void ModbusRtuView::setupUi() {
             worker_ = std::move(stack.worker);
             workerThread_ = std::move(stack.thread);
 
+            requestService_ = new ui::application::modbus::RequestSubmissionService(this);
+            connect(requestService_, &ui::application::modbus::RequestSubmissionService::txCountUpdated,
+                    controlWidget_, &ui::widgets::ControlWidget::recordTx);
+
             QPointer<ModbusRtuView> self(this);
             channel_->setMonitor([self, generation](bool isTx, const QByteArray& data) {
                 if (!self) return;
@@ -308,14 +310,18 @@ void ModbusRtuView::setupUi() {
                 [this, self, generation](int requestId, const modbus::session::ModbusResponse& response) {
                     if (!self) return;
                     if (generation != connectionGeneration_) return;
-                    auto itStart = requestStart_.find(requestId);
-                    auto itKind = requestKinds_.find(requestId);
-                    auto itAddr = requestAddrs_.find(requestId);
-                    if (itStart == requestStart_.end() || itKind == requestKinds_.end() || itAddr == requestAddrs_.end()) {
+                    if (!requestService_) return;
+
+                    auto trackingInfo = requestService_->lookupAndRemove(requestId);
+                    if (!trackingInfo.has_value()) {
                         return;
                     }
 
-                    if (itKind->second == RequestKind::Poll) {
+                    auto kind = trackingInfo->kind;
+                    uint16_t addr = trackingInfo->address;
+                    auto startTime = trackingInfo->startTime;
+
+                    if (kind == ui::application::modbus::RequestKind::Poll) {
                         pollInFlight_ = false;
                         suppressPollTrafficLog_ = false;
                         handlePollCompletion(response.isSuccess,
@@ -333,31 +339,28 @@ void ModbusRtuView::setupUi() {
                         // 更新成功统计 (RX + 1, 更新 RTT)
                         controlWidget_->recordRx(response.rttMs);
 
-                        if (itKind->second == RequestKind::Read) {
+                        if (kind == ui::application::modbus::RequestKind::Read) {
                             trafficMonitor_->appendInfo(
                                 successWithRetrySummary(tr("Success: Response received"), response.retryCount));
-                        } else if (itKind->second == RequestKind::Write) {
+                        } else if (kind == ui::application::modbus::RequestKind::Write) {
                             trafficMonitor_->appendInfo(
                                 successWithRetrySummary(tr("Success: Write confirmed"), response.retryCount));
                         }
 
                         // Emit linkage signal for Frame Analyzer if linked
                         if (linked_) {
-                            emit linkageDataReceived(response.pdu, modbus::core::parser::ProtocolType::Rtu, itAddr->second);
+                            emit linkageDataReceived(response.pdu, modbus::core::parser::ProtocolType::Rtu, addr);
                         }
                     } else {
                         // Failure path: record the error count and skip RTT statistics.
                         controlWidget_->recordError();
 
-                        if (itKind->second != RequestKind::Poll) {
+                        if (kind != ui::application::modbus::RequestKind::Poll) {
                             trafficMonitor_->appendError(
                                 errorWithRetrySummary(response.error, response.retryCount));
                         }
                     }
 
-                    requestStart_.erase(itStart);
-                    requestKinds_.erase(itKind);
-                    requestAddrs_.erase(itAddr);
                 }, Qt::QueuedConnection);
 
             worker_->start();
@@ -385,207 +388,75 @@ void ModbusRtuView::setupUi() {
     connect(functionWidget_, &widgets::FunctionWidget::readRequested,
         [this, ensureConnected](uint8_t fc, int addr, int qty, int slaveId) {
             if (!ensureConnected()) return;
-            
-            using namespace modbus::base;
-            auto result = ModbusPduBuilder::buildReadRequest(static_cast<FunctionCode>(fc), addr, qty);
-            if (!result.isOk()) {
+
+            if (!requestService_) {
+                trafficMonitor_->appendError(tr("Error: Request service not available"));
+                return;
+            }
+
+            auto result = requestService_->buildReadRequest(fc, addr, qty, slaveId);
+            if (!result.ok) {
                 trafficMonitor_->appendError(tr("Error: %1").arg(result.error));
                 return;
             }
-            Pdu request = *result.pdu;
 
             trafficMonitor_->appendInfo(tr("Sending Read Request FC:%1 Addr:%2 Qty:%3 Slave:%4")
                 .arg(fc).arg(addr).arg(qty).arg(slaveId));
 
-            int requestId = nextRequestId();
-            requestStart_[requestId] = std::chrono::steady_clock::now();
-            requestKinds_[requestId] = RequestKind::Read;
-            requestAddrs_[requestId] = static_cast<uint16_t>(addr);
-            
-            controlWidget_->recordTx(); // Update TX counters immediately when the request is submitted.
-            worker_->submit(request, slaveId, requestId);
+            worker_->submit(result.pdu, slaveId, result.requestId);
     });
 
     connect(functionWidget_, &widgets::FunctionWidget::writeRequested,
         [this, ensureConnected](uint8_t fc, int addr, const QString& dataStr, const QString& fmt, int slaveId) {
             if (!ensureConnected()) return;
 
-            using namespace modbus::base;
-            
-            PduBuildResult result = PduBuildResult::fail(tr("Unsupported function code"));
-            QString trimmed = dataStr.trimmed();
-            using modbus::base::ModbusDataHelper;
-
-            if (fc == 0x05) {
-                bool coilOn = false;
-                if (fmt == "Decimal") {
-                    bool ok = false;
-                    int value = trimmed.toInt(&ok);
-                    if (!ok || (value != 0 && value != 1)) {
-                        trafficMonitor_->appendError(tr("Error: Invalid decimal value for 0x05"));
-                        return;
-                    }
-                    coilOn = (value != 0);
-                } else if (fmt == "Binary") {
-                    QString cleaned = trimmed;
-                    cleaned.remove(QRegularExpression("[^0-1]"));
-                    if (cleaned.isEmpty() || cleaned.size() > 1) {
-                         trafficMonitor_->appendError(tr("Error: Invalid binary value for 0x05 (expected 0 or 1)"));
-                         return;
-                    }
-                    coilOn = (cleaned == "1");
-                } else {
-                    QByteArray bytes = ModbusDataHelper::parseHex(trimmed);
-                    if (bytes.isEmpty()) {
-                        trafficMonitor_->appendError(tr("Error: Invalid hex value for 0x05"));
-                        return;
-                    }
-                    if (bytes.size() == 1) {
-                        uint8_t raw = static_cast<uint8_t>(bytes[0]);
-                        if (raw != 0x00 && raw != 0x01) {
-                            trafficMonitor_->appendError(tr("Error: Invalid hex value for 0x05"));
-                            return;
-                        }
-                        coilOn = raw != 0x00;
-                    } else {
-                        uint16_t raw = (static_cast<uint8_t>(bytes[0]) << 8) | static_cast<uint8_t>(bytes[1]);
-                        if (raw != 0x0000 && raw != 0xFF00) {
-                            trafficMonitor_->appendError(tr("Error: Invalid hex value for 0x05"));
-                            return;
-                        }
-                        coilOn = raw == 0xFF00;
-                    }
-                }
-                result = ModbusPduBuilder::buildWriteSingleCoil(addr, coilOn);
-            } else if (fc == 0x06) {
-                if (trimmed.isEmpty()) {
-                    trafficMonitor_->appendError(tr("Error: Empty value for 0x06"));
-                    return;
-                }
-                if (fmt == "Decimal") {
-                    bool ok = false;
-                    uint value = trimmed.toUInt(&ok, 10);
-                    if (!ok || value > 65535) {
-                        trafficMonitor_->appendError(tr("Error: Invalid decimal value for 0x06"));
-                        return;
-                    }
-                    result = ModbusPduBuilder::buildWriteSingleRegister(addr, static_cast<uint16_t>(value));
-                } else if (fmt == "Binary") {
-                    trafficMonitor_->appendError(tr("Error: Binary format not supported for registers (0x06)"));
-                    return;
-                } else {
-                    QByteArray bytes = ModbusDataHelper::parseHex(trimmed);
-                    if (bytes.isEmpty() || bytes.size() > 2) {
-                        trafficMonitor_->appendError(tr("Error: Invalid hex value for 0x06"));
-                        return;
-                    }
-                    uint16_t val = 0;
-                    if (bytes.size() == 1) val = static_cast<uint8_t>(bytes[0]);
-                    else val = (static_cast<uint8_t>(bytes[0]) << 8) | static_cast<uint8_t>(bytes[1]);
-                    result = ModbusPduBuilder::buildWriteSingleRegister(addr, val);
-                }
-            } else if (fc == 0x0F) {
-                QByteArray bytes;
-                int quantity = functionWidget_->getQuantity();
-                if (quantity <= 0) {
-                    trafficMonitor_->appendError(tr("Error: Invalid quantity for 0x0F"));
-                    return;
-                }
-
-                if (fmt == "Binary") {
-                    QString bits = trimmed;
-                    bits.remove(QRegularExpression("[^0-1]"));
-                    if (bits.size() != quantity) {
-                        trafficMonitor_->appendError(tr("Error: Binary bit count (%1) does not match Quantity (%2)")
-                            .arg(bits.size()).arg(quantity));
-                        return;
-                    }
-                    bytes = ModbusDataHelper::parseBinary(bits);
-                } else if (fmt == "Hex") {
-                    bytes = ModbusDataHelper::parseHex(trimmed);
-                } else {
-                    trafficMonitor_->appendError(tr("Error: 0x0F requires Hex or Binary data"));
-                    return;
-                }
-                result = ModbusPduBuilder::buildWriteMultipleCoils(addr, quantity, bytes);
-            } else if (fc == 0x10) {
-                if (trimmed.isEmpty()) {
-                    trafficMonitor_->appendError(tr("Error: Empty value for 0x10"));
-                    return;
-                }
-                int quantity = functionWidget_->getQuantity();
-                if (quantity <= 0) {
-                    trafficMonitor_->appendError(tr("Error: Invalid quantity for 0x10"));
-                    return;
-                }
-                QByteArray payload;
-                if (fmt == "Decimal") {
-                    bool okList = false;
-                    payload = ModbusDataHelper::parseDecimalList(trimmed, okList);
-                    if (!okList) {
-                        trafficMonitor_->appendError(tr("Error: Invalid decimal list for 0x10"));
-                        return;
-                    }
-                } else {
-                    payload = ModbusDataHelper::parseHex(trimmed);
-                    if (payload.isEmpty() || (payload.size() % 2 != 0)) {
-                        trafficMonitor_->appendError(tr("Error: Invalid hex value for 0x10"));
-                        return;
-                    }
-                }
-                result = ModbusPduBuilder::buildWriteMultipleRegisters(addr, quantity, payload);
+            if (!requestService_) {
+                trafficMonitor_->appendError(tr("Error: Request service not available"));
+                return;
             }
 
-            if (!result.isOk()) {
+            int quantity = functionWidget_->getQuantity();
+
+            auto result = requestService_->buildWriteRequest(fc, addr, dataStr, fmt, slaveId, quantity);
+            if (!result.ok) {
                 trafficMonitor_->appendError(tr("Error: %1").arg(result.error));
                 return;
             }
-            
-            Pdu request = *result.pdu;
 
             trafficMonitor_->appendInfo(tr("Sending Write Request FC:%1 Addr:%2 Data:%3 Slave:%4")
                 .arg(fc).arg(addr).arg(dataStr).arg(slaveId));
 
-            int requestId = nextRequestId();
-            requestStart_[requestId] = std::chrono::steady_clock::now();
-            requestKinds_[requestId] = RequestKind::Write;
-            requestAddrs_[requestId] = static_cast<uint16_t>(addr);
-
-            controlWidget_->recordTx(); // Update TX counters immediately when the request is submitted.
-            worker_->submit(request, slaveId, requestId);
+            worker_->submit(result.pdu, slaveId, result.requestId);
     });
     
     connect(functionWidget_, &widgets::FunctionWidget::rawSendRequested,
         [this, ensureConnected](const QByteArray& data) {
             if (!ensureConnected()) return;
-            if (data.isEmpty()) return;
-            
+            if (!requestService_ || !requestService_->validateRawData(data)) return;
+
             trafficMonitor_->appendInfo(tr("Sending Raw Data: %1").arg(QString(data.toHex(' ').toUpper())));
-            
+
             worker_->sendRaw(data);
-            
-            controlWidget_->recordTx();
     });
 
     connect(controlWidget_, &widgets::ControlWidget::pollRequested,
         [this, ensureConnected](uint8_t fc, int addr, int qty) {
             if (!ensureConnected()) return;
             if (pollInFlight_) return;
-            
+
+            if (!requestService_) {
+                trafficMonitor_->appendError(tr("Error: Request service not available"));
+                return;
+            }
+
             int slaveId = functionWidget_->getSlaveId();
-            
-            using namespace modbus::base;
-            auto result = ModbusPduBuilder::buildReadRequest(static_cast<FunctionCode>(fc), addr, qty);
-            if (!result.isOk()) {
+
+            auto result = requestService_->buildReadRequest(fc, addr, qty, slaveId,
+                ui::application::modbus::RequestKind::Poll);
+            if (!result.ok) {
                 trafficMonitor_->appendError(tr("Error: %1").arg(result.error));
                 return;
             }
-            Pdu request = *result.pdu;
-            
-            int requestId = nextRequestId();
-            requestStart_[requestId] = std::chrono::steady_clock::now();
-            requestKinds_[requestId] = RequestKind::Poll;
-            requestAddrs_[requestId] = static_cast<uint16_t>(addr);
 
             pollFunctionCode_ = fc;
             pollAddress_ = addr;
@@ -596,8 +467,7 @@ void ModbusRtuView::setupUi() {
             }
             pollInFlight_ = true;
             suppressPollTrafficLog_ = true;
-            controlWidget_->recordTx(); // 轮询提交时增�?TX 计数
-            worker_->submit(request, slaveId, requestId);
+            worker_->submit(result.pdu, slaveId, result.requestId);
     });
 
     connect(clearReceiveButton_, &QPushButton::clicked, [this]() {
@@ -803,9 +673,9 @@ void ModbusRtuView::releaseStack() {
     if (connectionWidget_) {
         connectionWidget_->setConnected(false);
     }
-    requestStart_.clear();
-    requestKinds_.clear();
-    requestAddrs_.clear();
+    if (requestService_) {
+        requestService_->clearAll();
+    }
     const bool wasLinked = linked_;
     linked_ = false;
     if (controlWidget_) {
@@ -841,12 +711,6 @@ void ModbusRtuView::releaseStack() {
     thread.reset();
 }
 
-int ModbusRtuView::nextRequestId() {
-    if (requestId_ == std::numeric_limits<int>::max()) {
-        requestId_ = 0;
-    }
-    return ++requestId_;
-}
 
 void ModbusRtuView::appendReceiveData(const QByteArray& data) {
     lastReceiveFrame_ = data;
