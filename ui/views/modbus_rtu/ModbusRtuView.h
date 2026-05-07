@@ -33,6 +33,7 @@ class ISettingsService;
 namespace ui::application::modbus {
 class RequestSubmissionService;
 class PollingController;
+class TrafficLogController;
 }
 
 namespace modbus::dispatch { class ModbusWorker; }
@@ -76,7 +77,6 @@ private:
     void retranslateUi();
     void changeEvent(QEvent* event) override;
     void releaseStack();
-    void appendConnectionInfo(const QString& message);
 
     QVBoxLayout* mainLayout_ = nullptr;
     ui::widgets::SerialConnectionWidget* connectionWidget_ = nullptr;
@@ -103,6 +103,7 @@ private:
     std::shared_ptr<QThread> workerThread_;
     ui::application::modbus::RequestSubmissionService* requestService_ = nullptr;
     ui::application::modbus::PollingController* pollingController_ = nullptr;
+    ui::application::modbus::TrafficLogController* trafficLogController_ = nullptr;
     quint64 connectionGeneration_ = 0;
     bool rtuSessionConnected_ = false;
     bool linked_ = false;

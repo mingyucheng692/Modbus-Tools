@@ -12,13 +12,13 @@
 #include "../../common/ISettingsService.h"
 #include "../../application/modbus/RequestSubmissionService.h"
 #include "../../application/modbus/PollingController.h"
+#include "../../application/modbus/TrafficLogController.h"
 #include "../../widgets/SerialConnectionWidget.h"
 #include "../../widgets/FunctionWidget.h"
 #include "../../widgets/TrafficMonitorWidget.h"
 #include "../../widgets/ControlWidget.h"
 #include "../../widgets/CollapsibleSection.h"
 #include "../../common/ConnectionAlert.h"
-#include "../../common/TrafficEvent.h"
 #include "modbus/factory/ModbusFactory.h"
 #include <QVBoxLayout>
 #include <QLabel>
@@ -28,6 +28,7 @@
 #include <QCheckBox>
 #include <QPushButton>
 #include <QEvent>
+#include <QEventLoop>
 #include <QClipboard>
 #include <QGuiApplication>
 #include <spdlog/spdlog.h>
@@ -37,44 +38,6 @@
 #include <limits>
 
 namespace ui::views::modbus_rtu {
-
-namespace {
-QString retryWord(int retryCount)
-{
-    return QCoreApplication::translate(
-        "ui::views::modbus_rtu::ModbusRtuView",
-        retryCount == 1 ? "retry" : "retries");
-}
-
-QString successWithRetrySummary(const QString& baseMessage, int retryCount)
-{
-    if (retryCount <= 0) {
-        return baseMessage;
-    }
-    return QCoreApplication::translate(
-               "ui::views::modbus_rtu::ModbusRtuView",
-               "%1 after %2 %3")
-        .arg(baseMessage)
-        .arg(retryCount)
-        .arg(retryWord(retryCount));
-}
-
-QString errorWithRetrySummary(const QString& error, int retryCount)
-{
-    if (retryCount <= 0) {
-        return QCoreApplication::translate(
-                   "ui::views::modbus_rtu::ModbusRtuView",
-                   "Error: %1")
-            .arg(error);
-    }
-    return QCoreApplication::translate(
-               "ui::views::modbus_rtu::ModbusRtuView",
-               "Error: %1 (failed after %2 %3, see log for details)")
-        .arg(error)
-        .arg(retryCount)
-        .arg(retryWord(retryCount));
-}
-} // namespace
 
 ModbusRtuView::ModbusRtuView(ui::common::ISettingsService* settingsService, QWidget *parent)
     : QWidget(parent),
@@ -181,10 +144,11 @@ void ModbusRtuView::setupUi() {
     if (functionWidget_ && trafficMonitor_) {
         connect(functionWidget_, &widgets::FunctionWidget::logMessageRequested,
             this, [this](const QString& message, bool isError) {
+                if (!trafficLogController_) return;
                 if (isError) {
-                    trafficMonitor_->appendWarning(message);
+                    trafficLogController_->logWarning(message);
                 } else {
-                    trafficMonitor_->appendInfo(message);
+                    trafficLogController_->logInfo(message);
                 }
             });
     }
@@ -192,10 +156,11 @@ void ModbusRtuView::setupUi() {
     if (controlWidget_ && trafficMonitor_) {
         connect(controlWidget_, &widgets::ControlWidget::logMessageRequested,
             this, [this](const QString& message, bool isError) {
+                if (!trafficLogController_) return;
                 if (isError) {
-                    trafficMonitor_->appendWarning(message);
+                    trafficLogController_->logWarning(message);
                 } else {
-                    trafficMonitor_->appendInfo(message);
+                    trafficLogController_->logInfo(message);
                 }
             });
     }
@@ -208,7 +173,13 @@ void ModbusRtuView::setupUi() {
     connect(connectionWidget_, &widgets::SerialConnectionWidget::connectClicked, 
         [this](const io::SerialConfig& config) {
             spdlog::info("ModbusRtuView: Connect requested to {}", config.portName.toStdString());
-            appendConnectionInfo(tr("Opening %1...").arg(config.portName));
+
+            if (!trafficLogController_) {
+                trafficLogController_ = new ui::application::modbus::TrafficLogController(
+                    trafficMonitor_, nullptr, this);
+            }
+
+            trafficLogController_->logConnectionInfo(tr("Opening %1...").arg(config.portName));
 
             releaseStack();
             const quint64 generation = connectionGeneration_;
@@ -228,7 +199,7 @@ void ModbusRtuView::setupUi() {
             modbus::factory::ModbusFactory factory;
             auto stack = factory.createStack(modbusConfig);
             if (!stack.worker || !stack.thread) {
-                trafficMonitor_->appendInfo(tr("Failed to create Modbus stack"));
+                trafficLogController_->logError(tr("Failed to create Modbus stack"));
                 return;
             }
 
@@ -250,6 +221,8 @@ void ModbusRtuView::setupUi() {
             connect(pollingController_, &ui::application::modbus::PollingController::trafficEvent,
                     trafficMonitor_, &ui::widgets::TrafficMonitorWidget::appendEvent);
 
+            trafficLogController_->setPollingController(pollingController_);
+
             QPointer<ModbusRtuView> self(this);
             channel_->setMonitor([self, generation](bool isTx, const QByteArray& data) {
                 if (!self) return;
@@ -257,32 +230,12 @@ void ModbusRtuView::setupUi() {
                     if (!self) return;
                     if (generation != self->connectionGeneration_) return;
                     if (isTx) {
-                        const bool suppressLog = self->pollingController_
-                            && self->pollingController_->isSuppressingTrafficLog();
-                        const bool allowRawFrameLog = !suppressLog
-                            || (self->trafficMonitor_ && self->trafficMonitor_->isRawFramesModeEnabled());
-                        if (allowRawFrameLog) {
-                            ui::common::TrafficEvent event;
-                            event.direction = ui::common::TrafficDirection::Tx;
-                            event.requestType = ui::common::TrafficRequestType::Unknown;
-                            event.isPoll = suppressLog;
-                            event.payload = data;
-                            self->trafficMonitor_->appendEvent(event);
-                        }
+                        self->trafficLogController_->logRawFrame(
+                            ui::common::TrafficDirection::Tx, data);
                         self->appendSendData(data);
                     } else {
-                        const bool suppressLog = self->pollingController_
-                            && self->pollingController_->isSuppressingTrafficLog();
-                        const bool allowRawFrameLog = !suppressLog
-                            || (self->trafficMonitor_ && self->trafficMonitor_->isRawFramesModeEnabled());
-                        if (allowRawFrameLog) {
-                            ui::common::TrafficEvent event;
-                            event.direction = ui::common::TrafficDirection::Rx;
-                            event.requestType = ui::common::TrafficRequestType::Unknown;
-                            event.isPoll = suppressLog;
-                            event.payload = data;
-                            self->trafficMonitor_->appendEvent(event);
-                        }
+                        self->trafficLogController_->logRawFrame(
+                            ui::common::TrafficDirection::Rx, data);
                         self->appendReceiveData(data);
                     }
                 }, Qt::QueuedConnection);
@@ -311,10 +264,10 @@ void ModbusRtuView::setupUi() {
                     }
                     if (ok) {
                         connectionWidget_->setConnected(true);
-                        self->appendConnectionInfo(tr("Connected"));
+                        self->trafficLogController_->logConnectionInfo(tr("Connected"));
                     } else {
                         connectionWidget_->setConnected(false);
-                        self->appendConnectionInfo(tr("Connection failed: %1").arg(error));
+                        self->trafficLogController_->logConnectionInfo(tr("Connection failed: %1").arg(error));
                     }
                 }, Qt::QueuedConnection);
 
@@ -342,32 +295,24 @@ void ModbusRtuView::setupUi() {
 
                     // 分流设计：仅在成功时通过底层测量的精�?RTT 更新统计
                     if (response.isSuccess && response.noResponseExpected) {
-                        trafficMonitor_->appendInfo(successWithRetrySummary(
-                            tr("Success: Broadcast write sent, no response expected"),
-                            response.retryCount));
+                        trafficLogController_->logBroadcastWriteSuccess(response.retryCount);
                     } else if (response.isSuccess) {
-                        // 更新成功统计 (RX + 1, 更新 RTT)
                         controlWidget_->recordRx(response.rttMs);
 
                         if (kind == ui::application::modbus::RequestKind::Read) {
-                            trafficMonitor_->appendInfo(
-                                successWithRetrySummary(tr("Success: Response received"), response.retryCount));
+                            trafficLogController_->logReadSuccess(response.retryCount);
                         } else if (kind == ui::application::modbus::RequestKind::Write) {
-                            trafficMonitor_->appendInfo(
-                                successWithRetrySummary(tr("Success: Write confirmed"), response.retryCount));
+                            trafficLogController_->logWriteSuccess(response.retryCount);
                         }
 
-                        // Emit linkage signal for Frame Analyzer if linked
                         if (linked_) {
                             emit linkageDataReceived(response.pdu, modbus::core::parser::ProtocolType::Rtu, addr);
                         }
                     } else {
-                        // Failure path: record the error count and skip RTT statistics.
                         controlWidget_->recordError();
 
                         if (kind != ui::application::modbus::RequestKind::Poll) {
-                            trafficMonitor_->appendError(
-                                errorWithRetrySummary(response.error, response.retryCount));
+                            trafficLogController_->logRequestError(response.error, response.retryCount);
                         }
                     }
 
@@ -380,7 +325,7 @@ void ModbusRtuView::setupUi() {
     connect(connectionWidget_, &widgets::SerialConnectionWidget::disconnectClicked,
         [this]() {
             spdlog::info("ModbusRtuView: Disconnect requested");
-            appendConnectionInfo(tr("Disconnected"));
+            trafficLogController_->logConnectionInfo(tr("Disconnected"));
             releaseStack();
             connectionWidget_->setConnected(false);
     });
@@ -400,18 +345,17 @@ void ModbusRtuView::setupUi() {
             if (!ensureConnected()) return;
 
             if (!requestService_) {
-                trafficMonitor_->appendError(tr("Error: Request service not available"));
+                trafficLogController_->logError(tr("Error: Request service not available"));
                 return;
             }
 
             auto result = requestService_->buildReadRequest(fc, addr, qty, slaveId);
             if (!result.ok) {
-                trafficMonitor_->appendError(tr("Error: %1").arg(result.error));
+                trafficLogController_->logError(tr("Error: %1").arg(result.error));
                 return;
             }
 
-            trafficMonitor_->appendInfo(tr("Sending Read Request FC:%1 Addr:%2 Qty:%3 Slave:%4")
-                .arg(fc).arg(addr).arg(qty).arg(slaveId));
+            trafficLogController_->logSendingReadRequest(fc, addr, qty, slaveId);
 
             worker_->submit(result.pdu, slaveId, result.requestId);
     });
@@ -421,7 +365,7 @@ void ModbusRtuView::setupUi() {
             if (!ensureConnected()) return;
 
             if (!requestService_) {
-                trafficMonitor_->appendError(tr("Error: Request service not available"));
+                trafficLogController_->logError(tr("Error: Request service not available"));
                 return;
             }
 
@@ -429,12 +373,11 @@ void ModbusRtuView::setupUi() {
 
             auto result = requestService_->buildWriteRequest(fc, addr, dataStr, fmt, slaveId, quantity);
             if (!result.ok) {
-                trafficMonitor_->appendError(tr("Error: %1").arg(result.error));
+                trafficLogController_->logError(tr("Error: %1").arg(result.error));
                 return;
             }
 
-            trafficMonitor_->appendInfo(tr("Sending Write Request FC:%1 Addr:%2 Data:%3 Slave:%4")
-                .arg(fc).arg(addr).arg(dataStr).arg(slaveId));
+            trafficLogController_->logSendingWriteRequest(fc, addr, dataStr, slaveId);
 
             worker_->submit(result.pdu, slaveId, result.requestId);
     });
@@ -444,7 +387,7 @@ void ModbusRtuView::setupUi() {
             if (!ensureConnected()) return;
             if (!requestService_ || !requestService_->validateRawData(data)) return;
 
-            trafficMonitor_->appendInfo(tr("Sending Raw Data: %1").arg(QString(data.toHex(' ').toUpper())));
+            trafficLogController_->logSendingRawData(data);
 
             worker_->sendRaw(data);
     });
@@ -498,16 +441,6 @@ QString ModbusRtuView::formatData(const QByteArray& data, bool hex) const {
     return QString::fromLatin1(data);
 }
 
-void ModbusRtuView::appendConnectionInfo(const QString& message) {
-    if (!trafficMonitor_) {
-        return;
-    }
-    ui::common::TrafficEvent event;
-    event.requestType = ui::common::TrafficRequestType::Connection;
-    event.summary = message;
-    trafficMonitor_->appendEvent(event);
-}
-
 void ModbusRtuView::releaseStack() {
     if (pollingController_) pollingController_->reset();
     ++connectionGeneration_;
@@ -534,7 +467,11 @@ void ModbusRtuView::releaseStack() {
     }
 
     if (worker) {
+        QEventLoop wait;
+        QObject::connect(worker.get(), &modbus::dispatch::ModbusWorker::stopped,
+                         &wait, &QEventLoop::quit);
         worker->stop();
+        wait.exec();
     } else if (thread && thread->isRunning()) {
         thread->requestInterruption();
         thread->quit();
