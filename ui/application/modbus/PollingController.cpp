@@ -79,14 +79,11 @@ void PollingController::setPollingInterval(int ms) {
     pollingIntervalMs_ = std::max(1, ms);
 }
 
-void PollingController::handlePollRequest(uint8_t fc, int addr, int qty, int slaveId) {
+void PollingController::handlePollRequest(const PollSpec& spec) {
     if (pollInFlight_) return;
     if (!sessionConnected_) return;
 
-    pollFunctionCode_ = fc;
-    pollAddress_ = addr;
-    pollQuantity_ = qty;
-    pollSlaveId_ = slaveId;
+    currentPollSpec_ = spec;
 
     buildAndSubmit();
 }
@@ -94,9 +91,7 @@ void PollingController::handlePollRequest(uint8_t fc, int addr, int qty, int sla
 void PollingController::buildAndSubmit() {
     if (!requestService_) return;
 
-    auto result = requestService_->buildReadRequest(
-        pollFunctionCode_, pollAddress_, pollQuantity_, pollSlaveId_,
-        RequestKind::Poll);
+    auto result = requestService_->buildReadRequest(currentPollSpec_, RequestKind::Poll);
     if (!result.ok) {
         ui::common::TrafficEvent event;
         event.level = ui::common::TrafficEventLevel::Error;
@@ -112,7 +107,7 @@ void PollingController::buildAndSubmit() {
     }
     pollInFlight_ = true;
     suppressPollTrafficLog_ = true;
-    emit submitPollRequest(result.pdu, pollSlaveId_, result.requestId);
+    emit submitPollRequest(result.pdu, currentPollSpec_.slaveId, result.requestId);
 }
 
 void PollingController::handleResponse(bool success, int rttMs, int retryCount,
@@ -249,10 +244,10 @@ void PollingController::flushPollSummary(bool force) {
     }
 
     PollSummary summary;
-    summary.functionCode = pollFunctionCode_;
-    summary.address = pollAddress_;
-    summary.quantity = pollQuantity_;
-    summary.slaveId = pollSlaveId_;
+    summary.functionCode = currentPollSpec_.functionCode;
+    summary.address = currentPollSpec_.startAddress;
+    summary.quantity = currentPollSpec_.quantity;
+    summary.slaveId = currentPollSpec_.slaveId;
     summary.successCount = pollSummarySuccessCount_;
     summary.errorCount = pollSummaryErrorCount_;
     summary.retryCount = pollSummaryRetryCount_;

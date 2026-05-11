@@ -138,10 +138,10 @@ void ModbusSessionPresenter::releaseStack() {
     emit stackReleased();
 }
 
-void ModbusSessionPresenter::updateSettings(int timeoutMs, int retries, int retryIntervalMs) {
-    timeoutMs_ = timeoutMs;
-    retries_ = retries;
-    retryIntervalMs_ = retryIntervalMs;
+void ModbusSessionPresenter::updateSettings(const ModbusTimingParams& params) {
+    timeoutMs_ = static_cast<int>(params.timeout.count());
+    retries_ = params.retryCount;
+    retryIntervalMs_ = static_cast<int>(params.retryInterval.count());
     if (worker_) {
         currentConfig_.timeoutMs = timeoutMs_;
         currentConfig_.retries = retries_;

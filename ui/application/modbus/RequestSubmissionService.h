@@ -15,14 +15,9 @@
 #include <cstdint>
 #include <optional>
 #include "modbus/base/ModbusFrame.h"
+#include "ModbusTypes.h"
 
 namespace ui::application::modbus {
-
-enum class RequestKind {
-    Read,
-    Write,
-    Poll
-};
 
 struct RequestTrackingInfo {
     RequestKind kind = RequestKind::Read;
@@ -50,7 +45,7 @@ public:
         int requestId = 0;
     };
 
-    ReadRequestResult buildReadRequest(uint8_t fc, int addr, int qty, int slaveId,
+    ReadRequestResult buildReadRequest(const PollSpec& spec,
                                         RequestKind kind = RequestKind::Read);
     WriteRequestResult buildWriteRequest(uint8_t fc, int addr, const QString& dataStr,
                                          const QString& fmt, int slaveId, int quantity);

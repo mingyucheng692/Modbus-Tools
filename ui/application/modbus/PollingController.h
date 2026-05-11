@@ -16,6 +16,7 @@
 #include <cstdint>
 #include "modbus/base/ModbusFrame.h"
 #include "../../common/TrafficEvent.h"
+#include "ModbusTypes.h"
 
 namespace ui::application::modbus {
 
@@ -49,7 +50,7 @@ public:
     void setSessionConnected(bool connected);
     void setPollingInterval(int ms);
 
-    void handlePollRequest(uint8_t fc, int addr, int qty, int slaveId);
+    void handlePollRequest(const PollSpec& spec);
     void handleResponse(bool success, int rttMs, int retryCount, const QString& error);
     void stopPoll();
     void reset();
@@ -93,10 +94,7 @@ private:
     int pollSummaryErrorCount_ = 0;
     int pollSummaryRetryCount_ = 0;
     qint64 pollSummaryTotalRttMs_ = 0;
-    uint8_t pollFunctionCode_ = 0;
-    int pollAddress_ = 0;
-    int pollQuantity_ = 0;
-    int pollSlaveId_ = 0;
+    PollSpec currentPollSpec_;
     int pollConsecutiveErrorCount_ = 0;
     bool pollErrorEscalated_ = false;
     QString pollLastErrorText_;

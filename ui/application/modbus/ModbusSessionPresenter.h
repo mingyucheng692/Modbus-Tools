@@ -7,6 +7,7 @@
 #include "modbus/session/IModbusClient.h"
 #include "../../../core/io/IChannel.h"
 #include "../../../core/io/SerialChannel.h"
+#include "ModbusTypes.h"
 
 class QThread;
 class QWidget;
@@ -43,7 +44,7 @@ public:
     void requestDisconnect();
     void releaseStack();
 
-    void updateSettings(int timeoutMs, int retries, int retryIntervalMs);
+    void updateSettings(const ModbusTimingParams& params);
 
     bool isSessionConnected() const;
     quint64 connectionGeneration() const;

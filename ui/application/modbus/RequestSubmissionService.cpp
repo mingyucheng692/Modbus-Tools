@@ -21,11 +21,12 @@ RequestSubmissionService::RequestSubmissionService(QObject* parent)
 }
 
 RequestSubmissionService::ReadRequestResult RequestSubmissionService::buildReadRequest(
-    uint8_t fc, int addr, int qty, int slaveId, RequestKind kind) {
+    const PollSpec& spec, RequestKind kind) {
     ReadRequestResult result;
 
     using namespace ::modbus::base;
-    auto buildResult = ModbusPduBuilder::buildReadRequest(static_cast<FunctionCode>(fc), addr, qty);
+    auto buildResult = ModbusPduBuilder::buildReadRequest(
+        static_cast<FunctionCode>(spec.functionCode), spec.startAddress, spec.quantity);
     if (!buildResult.isOk()) {
         result.ok = false;
         result.error = buildResult.error;
@@ -34,7 +35,7 @@ RequestSubmissionService::ReadRequestResult RequestSubmissionService::buildReadR
 
     result.pdu = *buildResult.pdu;
     result.requestId = nextRequestId();
-    trackRequest(result.requestId, kind, static_cast<uint16_t>(addr));
+    trackRequest(result.requestId, kind, spec.startAddress);
     result.ok = true;
     return result;
 }

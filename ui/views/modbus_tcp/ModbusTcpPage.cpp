@@ -49,7 +49,11 @@ ModbusTcpPage::~ModbusTcpPage() {
 
 void ModbusTcpPage::updateModbusSettings(int timeoutMs, int retries, int retryIntervalMs) {
     if (sessionPresenter_) {
-        sessionPresenter_->updateSettings(timeoutMs, retries, retryIntervalMs);
+        ui::application::modbus::ModbusTimingParams params;
+        params.timeout = std::chrono::milliseconds(timeoutMs);
+        params.retryCount = retries;
+        params.retryInterval = std::chrono::milliseconds(retryIntervalMs);
+        sessionPresenter_->updateSettings(params);
     }
 }
 
@@ -268,7 +272,13 @@ void ModbusTcpPage::setupUi() {
                 return;
             }
 
-            auto result = requestService_->buildReadRequest(fc, addr, qty, slaveId);
+            ui::application::modbus::PollSpec spec;
+            spec.functionCode = fc;
+            spec.startAddress = static_cast<uint16_t>(addr);
+            spec.quantity = static_cast<uint16_t>(qty);
+            spec.slaveId = static_cast<uint8_t>(slaveId);
+
+            auto result = requestService_->buildReadRequest(spec);
             if (!result.ok) {
                 trafficLogController_->logError(tr("Error: %1").arg(result.error));
                 return;
@@ -317,8 +327,12 @@ void ModbusTcpPage::setupUi() {
             if (!pollingController_) return;
             pollingController_->setSessionConnected(sessionPresenter_->isSessionConnected());
             pollingController_->setPollingInterval(controlWidget_->pollingIntervalMs());
-            int slaveId = functionWidget_->getSlaveId();
-            pollingController_->handlePollRequest(fc, addr, qty, slaveId);
+            ui::application::modbus::PollSpec spec;
+            spec.functionCode = fc;
+            spec.startAddress = static_cast<uint16_t>(addr);
+            spec.quantity = static_cast<uint16_t>(qty);
+            spec.slaveId = static_cast<uint8_t>(functionWidget_->getSlaveId());
+            pollingController_->handlePollRequest(spec);
     });
 
     connect(clearReceiveButton_, &QPushButton::clicked, [this]() {
