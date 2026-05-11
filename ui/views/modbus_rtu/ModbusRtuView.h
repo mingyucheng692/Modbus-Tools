@@ -10,9 +10,7 @@
 #pragma once
 
 #include <QWidget>
-#include <memory>
 #include <cstdint>
-#include "AppConstants.h"
 #include "modbus/base/ModbusFrame.h"
 #include "modbus/parser/ModbusFrameParser.h"
 
