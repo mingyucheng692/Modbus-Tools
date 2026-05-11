@@ -1,8 +1,8 @@
 #include "application/AnalyzerLinkCoordinator.h"
 
 #include "AnalyzerLinkageController.h"
-#include "views/modbus_tcp/ModbusTcpView.h"
-#include "views/modbus_rtu/ModbusRtuView.h"
+#include "views/modbus_tcp/ModbusTcpPage.h"
+#include "views/modbus_rtu/ModbusRtuPage.h"
 #include "widgets/FrameAnalyzerWidget.h"
 
 namespace ui::application {
@@ -13,22 +13,22 @@ AnalyzerLinkCoordinator::AnalyzerLinkCoordinator(QObject* parent)
 
 AnalyzerLinkCoordinator::~AnalyzerLinkCoordinator() = default;
 
-void AnalyzerLinkCoordinator::bind(views::modbus_tcp::ModbusTcpView* tcpView,
-                                   views::modbus_rtu::ModbusRtuView* rtuView,
+void AnalyzerLinkCoordinator::bind(views::modbus_tcp::ModbusTcpPage* tcpView,
+                                   views::modbus_rtu::ModbusRtuPage* rtuView,
                                    widgets::FrameAnalyzerWidget* frameAnalyzer) {
     controller_->bind(tcpView, rtuView, frameAnalyzer);
 
-    QObject::connect(tcpView, &views::modbus_tcp::ModbusTcpView::linkageToggled,
+    QObject::connect(tcpView, &views::modbus_tcp::ModbusTcpPage::linkageToggled,
                      this, &AnalyzerLinkCoordinator::handleTcpLinkageToggled);
-    QObject::connect(rtuView, &views::modbus_rtu::ModbusRtuView::linkageToggled,
+    QObject::connect(rtuView, &views::modbus_rtu::ModbusRtuPage::linkageToggled,
                      this, &AnalyzerLinkCoordinator::handleRtuLinkageToggled);
-    QObject::connect(tcpView, &views::modbus_tcp::ModbusTcpView::linkageDataReceived,
+    QObject::connect(tcpView, &views::modbus_tcp::ModbusTcpPage::linkageDataReceived,
                      this, &AnalyzerLinkCoordinator::handleLinkageData);
-    QObject::connect(rtuView, &views::modbus_rtu::ModbusRtuView::linkageDataReceived,
+    QObject::connect(rtuView, &views::modbus_rtu::ModbusRtuPage::linkageDataReceived,
                      this, &AnalyzerLinkCoordinator::handleLinkageData);
-    QObject::connect(tcpView, &views::modbus_tcp::ModbusTcpView::linkageSourceDisconnected,
+    QObject::connect(tcpView, &views::modbus_tcp::ModbusTcpPage::linkageSourceDisconnected,
                      this, &AnalyzerLinkCoordinator::handleTcpSourceDisconnected);
-    QObject::connect(rtuView, &views::modbus_rtu::ModbusRtuView::linkageSourceDisconnected,
+    QObject::connect(rtuView, &views::modbus_rtu::ModbusRtuPage::linkageSourceDisconnected,
                      this, &AnalyzerLinkCoordinator::handleRtuSourceDisconnected);
     QObject::connect(frameAnalyzer, &widgets::FrameAnalyzerWidget::linkagePauseToggled,
                      this, &AnalyzerLinkCoordinator::handleLinkagePauseToggled);

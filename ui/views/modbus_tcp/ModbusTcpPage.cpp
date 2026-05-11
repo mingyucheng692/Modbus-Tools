@@ -1,20 +1,20 @@
 /**
- * @file ModbusRtuView.cpp
- * @brief Implementation of ModbusRtuView.
- * 
+ * @file ModbusTcpPage.cpp
+ * @brief Implementation of ModbusTcpPage.
+ *
  * Copyright (c) 2025 - present mingyucheng692
- * 
+ *
  * Licensed under the MIT License. See LICENSE file in the project root for full license information.
  */
 
-#include "ModbusRtuView.h"
+#include "ModbusTcpPage.h"
 #include "AppConstants.h"
 #include "../../common/ISettingsService.h"
 #include "../../application/modbus/RequestSubmissionService.h"
 #include "../../application/modbus/PollingController.h"
 #include "../../application/modbus/TrafficLogController.h"
 #include "../../application/modbus/ModbusSessionPresenter.h"
-#include "../../widgets/SerialConnectionWidget.h"
+#include "../../widgets/TcpConnectionWidget.h"
 #include "../../widgets/FunctionWidget.h"
 #include "../../widgets/TrafficMonitorWidget.h"
 #include "../../widgets/ControlWidget.h"
@@ -29,56 +29,57 @@
 #include <QPushButton>
 #include <QEvent>
 #include <QClipboard>
+#include <QCoreApplication>
 #include <QGuiApplication>
 #include <spdlog/spdlog.h>
 #include <algorithm>
 
-namespace ui::views::modbus_rtu {
+namespace ui::views::modbus_tcp {
 
-ModbusRtuView::ModbusRtuView(ui::common::ISettingsService* settingsService, QWidget *parent)
+ModbusTcpPage::ModbusTcpPage(ui::common::ISettingsService* settingsService, QWidget *parent)
     : QWidget(parent),
       settingsService_(settingsService) {
     sessionPresenter_ = new ui::application::modbus::ModbusSessionPresenter(
-        ui::application::modbus::SessionMode::Rtu, this);
+        ui::application::modbus::SessionMode::Tcp, this);
     setupUi();
 }
 
-ModbusRtuView::~ModbusRtuView() {
+ModbusTcpPage::~ModbusTcpPage() {
 }
 
-void ModbusRtuView::updateModbusSettings(int timeoutMs, int retries, int retryIntervalMs) {
+void ModbusTcpPage::updateModbusSettings(int timeoutMs, int retries, int retryIntervalMs) {
     if (sessionPresenter_) {
         sessionPresenter_->updateSettings(timeoutMs, retries, retryIntervalMs);
     }
 }
 
-void ModbusRtuView::setLinked(bool linked) {
+void ModbusTcpPage::setLinked(bool linked) {
     linked_ = linked;
     if (sessionPresenter_) {
         sessionPresenter_->setLinked(linked);
     }
 }
 
-bool ModbusRtuView::isLinked() const {
+bool ModbusTcpPage::isLinked() const {
     return linked_;
 }
 
-void ModbusRtuView::setupUi() {
+void ModbusTcpPage::setupUi() {
     mainLayout_ = new QVBoxLayout(this);
     mainLayout_->setContentsMargins(2, 2, 2, 2);
     mainLayout_->setSpacing(2);
-    
-    connectionWidget_ = new widgets::SerialConnectionWidget(settingsService_, this);
-    connectionWidget_->setSettingsGroup("modbus/rtu/serial");
+
+    connectionWidget_ = new widgets::TcpConnectionWidget(settingsService_, this);
+    connectionWidget_->setSettingsGroup("modbus/tcp");
     mainLayout_->addWidget(connectionWidget_);
-    
+
     functionWidget_ = new widgets::FunctionWidget(settingsService_, this);
-    functionWidget_->setSettingsGroup("modbus/rtu/standard");
-    functionWidget_->setTcpMode(false);
+    functionWidget_->setSettingsGroup("modbus/tcp/standard");
+    functionWidget_->setTcpMode(true);
     mainLayout_->addWidget(functionWidget_);
-    
+
     dataGroup_ = new widgets::CollapsibleSection(settingsService_, this);
-    dataGroup_->setSettingsKey("modbus/rtu/ui/dataMonitorCollapsed");
+    dataGroup_->setSettingsKey("modbus/tcp/ui/dataMonitorCollapsed");
     auto dataLayout = new QHBoxLayout(dataGroup_->contentWidget());
     dataLayout->setContentsMargins(4, 0, 4, 4);
     dataLayout->setSpacing(4);
@@ -123,17 +124,20 @@ void ModbusRtuView::setupUi() {
     dataLayout->addWidget(sendGroup_, 1);
     trafficMonitor_ = new widgets::TrafficMonitorWidget(settingsService_, this);
     trafficMonitor_->setMinimumHeight(140);
-    trafficMonitor_->setSettingsGroup("modbus/rtu/traffic");
+    trafficMonitor_->setSettingsGroup("modbus/tcp/traffic");
 
     mainLayout_->addWidget(dataGroup_);
     mainLayout_->addWidget(trafficMonitor_);
-    
+
     controlWidget_ = new widgets::ControlWidget(settingsService_, this);
-    controlWidget_->setSettingsGroup("modbus/rtu/control");
+    controlWidget_->setSettingsGroup("modbus/tcp/control");
     mainLayout_->addWidget(controlWidget_);
 
     sessionPresenter_->setConnectionWidget(connectionWidget_);
     sessionPresenter_->setControlWidget(controlWidget_);
+
+    trafficLogController_ = new ui::application::modbus::TrafficLogController(
+        trafficMonitor_, nullptr, this);
 
     if (functionWidget_ && trafficLogController_) {
         connect(functionWidget_, &widgets::FunctionWidget::logMessageRequested,
@@ -158,7 +162,7 @@ void ModbusRtuView::setupUi() {
                 }
             });
     }
-    
+
     connect(controlWidget_, &widgets::ControlWidget::linkToggled, this, [this](bool active){
         linked_ = active;
         emit linkageToggled(active);
@@ -166,7 +170,7 @@ void ModbusRtuView::setupUi() {
 
     connect(sessionPresenter_,
             &ui::application::modbus::ModbusSessionPresenter::linkageSourceDisconnected,
-            this, &ModbusRtuView::linkageSourceDisconnected);
+            this, &ModbusTcpPage::linkageSourceDisconnected);
 
     connect(sessionPresenter_,
             &ui::application::modbus::ModbusSessionPresenter::rawFrameReceived,
@@ -197,33 +201,25 @@ void ModbusRtuView::setupUi() {
 
                 if (response.isSuccess && linked_) {
                     emit linkageDataReceived(response.pdu,
-                                             modbus::core::parser::ProtocolType::Rtu,
+                                             modbus::core::parser::ProtocolType::Tcp,
                                              addr);
                 }
             });
 
-    connect(connectionWidget_, &widgets::SerialConnectionWidget::connectClicked, 
-        [this](const io::SerialConfig& config) {
-            spdlog::info("ModbusRtuView: Connect requested to {}", config.portName.toStdString());
-
-            if (!trafficLogController_) {
-                trafficLogController_ = new ui::application::modbus::TrafficLogController(
-                    trafficMonitor_, nullptr, this);
-            }
+    connect(connectionWidget_, &widgets::TcpConnectionWidget::connectClicked,
+        [this](const QString& ip, int port) {
+            spdlog::info("ModbusTcpPage: Connect requested to {}:{}", ip.toStdString(), port);
 
             sessionPresenter_->setTrafficLogController(trafficLogController_);
 
-            modbus::base::ModbusConfig modbusConfig;
-            modbusConfig.mode = modbus::base::ModbusMode::RTU;
-            modbusConfig.portName = config.portName;
-            modbusConfig.baudRate = config.baudRate;
-            modbusConfig.dataBits = config.dataBits;
-            modbusConfig.stopBits = static_cast<int>(config.stopBits);
-            modbusConfig.parity = static_cast<int>(config.parity);
-            modbusConfig.slaveId = static_cast<uint8_t>(functionWidget_->getSlaveId());
-            modbusConfig.timeoutMs = 1000;
-            modbusConfig.retries = 0;
-            modbusConfig.retryIntervalMs = 200;
+            modbus::base::ModbusConfig config;
+            config.mode = modbus::base::ModbusMode::TCP;
+            config.ipAddress = ip;
+            config.port = port;
+            config.slaveId = static_cast<uint8_t>(functionWidget_->getSlaveId());
+            config.timeoutMs = 1000;
+            config.retries = 0;
+            config.retryIntervalMs = 200;
 
             requestService_ = new ui::application::modbus::RequestSubmissionService(this);
             connect(requestService_, &ui::application::modbus::RequestSubmissionService::txCountUpdated,
@@ -244,12 +240,12 @@ void ModbusRtuView::setupUi() {
             sessionPresenter_->setPollingController(pollingController_);
             trafficLogController_->setPollingController(pollingController_);
 
-            sessionPresenter_->connectRtu(config, modbusConfig);
+            sessionPresenter_->connectTcp(ip, port, config);
     });
 
-    connect(connectionWidget_, &widgets::SerialConnectionWidget::disconnectClicked,
+    connect(connectionWidget_, &widgets::TcpConnectionWidget::disconnectClicked,
         [this]() {
-            spdlog::info("ModbusRtuView: Disconnect requested");
+            spdlog::info("ModbusTcpPage: Disconnect requested");
             sessionPresenter_->requestDisconnect();
     });
 
@@ -304,7 +300,7 @@ void ModbusRtuView::setupUi() {
 
             sessionPresenter_->submitRequest(result.pdu, slaveId, result.requestId);
     });
-    
+
     connect(functionWidget_, &widgets::FunctionWidget::rawSendRequested,
         [this, ensureConnected](const QByteArray& data) {
             if (!ensureConnected()) return;
@@ -351,30 +347,30 @@ void ModbusRtuView::setupUi() {
     connect(sendHexCheck_, &QCheckBox::toggled, this, [this]() {
         refreshSendDisplay();
     });
-    
+
     mainLayout_->addStretch();
 
     retranslateUi();
 }
 
-QString ModbusRtuView::formatData(const QByteArray& data, bool hex) const {
+QString ModbusTcpPage::formatData(const QByteArray& data, bool hex) const {
     if (hex) {
         return QString(data.toHex(' ').toUpper());
     }
     return QString::fromLatin1(data);
 }
 
-void ModbusRtuView::appendReceiveData(const QByteArray& data) {
+void ModbusTcpPage::appendReceiveData(const QByteArray& data) {
     lastReceiveFrame_ = data;
     refreshReceiveDisplay();
 }
 
-void ModbusRtuView::appendSendData(const QByteArray& data) {
+void ModbusTcpPage::appendSendData(const QByteArray& data) {
     lastSendFrame_ = data;
     refreshSendDisplay();
 }
 
-void ModbusRtuView::refreshReceiveDisplay() {
+void ModbusTcpPage::refreshReceiveDisplay() {
     if (!receiveTextEdit_) return;
     if (lastReceiveFrame_.isEmpty()) {
         receiveTextEdit_->clear();
@@ -386,7 +382,7 @@ void ModbusRtuView::refreshReceiveDisplay() {
                                        .arg(formatData(lastReceiveFrame_, hex)));
 }
 
-void ModbusRtuView::refreshSendDisplay() {
+void ModbusTcpPage::refreshSendDisplay() {
     if (!sendTextEdit_) return;
     if (lastSendFrame_.isEmpty()) {
         sendTextEdit_->clear();
@@ -398,7 +394,7 @@ void ModbusRtuView::refreshSendDisplay() {
                                      .arg(formatData(lastSendFrame_, hex)));
 }
 
-void ModbusRtuView::retranslateUi() {
+void ModbusTcpPage::retranslateUi() {
     if (receiveGroup_) receiveGroup_->setTitle(tr("Receive Data"));
     if (sendGroup_) sendGroup_->setTitle(tr("Send Data"));
     if (copyReceiveButton_) copyReceiveButton_->setText(tr("Copy"));
@@ -407,11 +403,11 @@ void ModbusRtuView::retranslateUi() {
     if (clearSendButton_) clearSendButton_->setText(tr("Clear"));
 }
 
-void ModbusRtuView::changeEvent(QEvent* event) {
+void ModbusTcpPage::changeEvent(QEvent* event) {
     QWidget::changeEvent(event);
     if (event->type() == QEvent::LanguageChange) {
         retranslateUi();
     }
 }
 
-} // namespace ui::views::modbus_rtu
+} // namespace ui::views::modbus_tcp

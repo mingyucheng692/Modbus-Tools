@@ -52,10 +52,10 @@ target_sources(ui PRIVATE
     shell/NavigationController.h
     shell/MainWindowPageBuilder.cpp
     shell/MainWindowPageBuilder.h
-    views/modbus_tcp/ModbusTcpView.cpp
-    views/modbus_tcp/ModbusTcpView.h
-    views/modbus_rtu/ModbusRtuView.cpp
-    views/modbus_rtu/ModbusRtuView.h
+    views/modbus_tcp/ModbusTcpPage.cpp
+    views/modbus_tcp/ModbusTcpPage.h
+    views/modbus_rtu/ModbusRtuPage.cpp
+    views/modbus_rtu/ModbusRtuPage.h
     views/generic_tcp/GenericTcpView.cpp
     views/generic_tcp/GenericTcpView.h
     views/generic_serial/GenericSerialView.cpp

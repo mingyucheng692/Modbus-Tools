@@ -3,8 +3,8 @@
 #include "common/ISettingsService.h"
 #include "views/generic_serial/GenericSerialView.h"
 #include "views/generic_tcp/GenericTcpView.h"
-#include "views/modbus_rtu/ModbusRtuView.h"
-#include "views/modbus_tcp/ModbusTcpView.h"
+#include "views/modbus_rtu/ModbusRtuPage.h"
+#include "views/modbus_tcp/ModbusTcpPage.h"
 #include "widgets/FrameAnalyzerWidget.h"
 
 #include <QFrame>
@@ -37,11 +37,11 @@ MainWindowPageBuilder::MainWindowPageBuilder(common::ISettingsService* settingsS
 MainWindowPages MainWindowPageBuilder::build(QStackedWidget* stackedWidget, QWidget* owner) const {
     MainWindowPages pages;
 
-    pages.modbusTcpView = new views::modbus_tcp::ModbusTcpView(settingsService_, owner);
+    pages.modbusTcpView = new views::modbus_tcp::ModbusTcpPage(settingsService_, owner);
     pages.pageIndexByNavigationRow[static_cast<std::size_t>(MainPage::ModbusTcp)] =
         stackedWidget->addWidget(createScrollablePage(pages.modbusTcpView, stackedWidget));
 
-    pages.modbusRtuView = new views::modbus_rtu::ModbusRtuView(settingsService_, owner);
+    pages.modbusRtuView = new views::modbus_rtu::ModbusRtuPage(settingsService_, owner);
     pages.pageIndexByNavigationRow[static_cast<std::size_t>(MainPage::ModbusRtu)] =
         stackedWidget->addWidget(createScrollablePage(pages.modbusRtuView, stackedWidget));
 

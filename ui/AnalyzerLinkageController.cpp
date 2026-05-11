@@ -1,6 +1,6 @@
 #include "AnalyzerLinkageController.h"
-#include "views/modbus_tcp/ModbusTcpView.h"
-#include "views/modbus_rtu/ModbusRtuView.h"
+#include "views/modbus_tcp/ModbusTcpPage.h"
+#include "views/modbus_rtu/ModbusRtuPage.h"
 #include "widgets/FrameAnalyzerWidget.h"
 
 namespace ui {
@@ -8,8 +8,8 @@ namespace ui {
 AnalyzerLinkageController::AnalyzerLinkageController(QObject* parent)
     : QObject(parent) {}
 
-void AnalyzerLinkageController::bind(views::modbus_tcp::ModbusTcpView* tcpView,
-                                     views::modbus_rtu::ModbusRtuView* rtuView,
+void AnalyzerLinkageController::bind(views::modbus_tcp::ModbusTcpPage* tcpView,
+                                     views::modbus_rtu::ModbusRtuPage* rtuView,
                                      widgets::FrameAnalyzerWidget* frameAnalyzer) {
     tcpView_ = tcpView;
     rtuView_ = rtuView;

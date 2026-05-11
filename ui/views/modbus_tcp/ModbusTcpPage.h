@@ -1,9 +1,9 @@
 /**
- * @file ModbusTcpView.h
- * @brief Header file for ModbusTcpView.
- * 
+ * @file ModbusTcpPage.h
+ * @brief Header file for ModbusTcpPage.
+ *
  * Copyright (c) 2025 - present mingyucheng692
- * 
+ *
  * Licensed under the MIT License. See LICENSE file in the project root for full license information.
  */
 
@@ -43,12 +43,12 @@ namespace ui::widgets {
 
 namespace ui::views::modbus_tcp {
 
-class ModbusTcpView : public QWidget {
+class ModbusTcpPage : public QWidget {
     Q_OBJECT
 
 public:
-    explicit ModbusTcpView(ui::common::ISettingsService* settingsService, QWidget *parent = nullptr);
-    ~ModbusTcpView() override;
+    explicit ModbusTcpPage(ui::common::ISettingsService* settingsService, QWidget *parent = nullptr);
+    ~ModbusTcpPage() override;
     void updateModbusSettings(int timeoutMs, int retries, int retryIntervalMs);
     void setLinked(bool linked);
     bool isLinked() const;

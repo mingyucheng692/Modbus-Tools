@@ -11,11 +11,11 @@ class ISettingsService;
 }
 
 namespace ui::views::modbus_tcp {
-class ModbusTcpView;
+class ModbusTcpPage;
 }
 
 namespace ui::views::modbus_rtu {
-class ModbusRtuView;
+class ModbusRtuPage;
 }
 
 namespace ui::widgets {
@@ -36,8 +36,8 @@ enum class MainPage : std::size_t {
 constexpr std::size_t kMainPageCount = static_cast<std::size_t>(MainPage::Count);
 
 struct MainWindowPages {
-    views::modbus_tcp::ModbusTcpView* modbusTcpView = nullptr;
-    views::modbus_rtu::ModbusRtuView* modbusRtuView = nullptr;
+    views::modbus_tcp::ModbusTcpPage* modbusTcpView = nullptr;
+    views::modbus_rtu::ModbusRtuPage* modbusRtuView = nullptr;
     widgets::FrameAnalyzerWidget* frameAnalyzer = nullptr;
     std::array<int, kMainPageCount> pageIndexByNavigationRow = {};
 

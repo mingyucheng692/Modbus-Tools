@@ -9,8 +9,8 @@
 
 namespace ui {
 class AnalyzerLinkageController;
-namespace views::modbus_tcp { class ModbusTcpView; }
-namespace views::modbus_rtu { class ModbusRtuView; }
+namespace views::modbus_tcp { class ModbusTcpPage; }
+namespace views::modbus_rtu { class ModbusRtuPage; }
 namespace widgets { class FrameAnalyzerWidget; }
 }
 
@@ -23,8 +23,8 @@ public:
     explicit AnalyzerLinkCoordinator(QObject* parent = nullptr);
     ~AnalyzerLinkCoordinator() override;
 
-    void bind(views::modbus_tcp::ModbusTcpView* tcpView,
-              views::modbus_rtu::ModbusRtuView* rtuView,
+    void bind(views::modbus_tcp::ModbusTcpPage* tcpView,
+              views::modbus_rtu::ModbusRtuPage* rtuView,
               widgets::FrameAnalyzerWidget* frameAnalyzer);
 
 private:
