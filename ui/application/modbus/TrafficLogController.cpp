@@ -109,6 +109,28 @@ void TrafficLogController::logInfo(const QString& message) {
     monitor_->appendInfo(message);
 }
 
+void TrafficLogController::logPollSummary(const PollSummary& summary) {
+    if (!monitor_) return;
+    const QString avgRttText = summary.successCount > 0
+        ? tr("%1 ms").arg(summary.avgRttMs)
+        : tr("--");
+
+    ui::common::TrafficEvent event;
+    event.level = ui::common::TrafficEventLevel::Info;
+    event.requestType = ui::common::TrafficRequestType::Poll;
+    event.isPoll = true;
+    event.summary = tr("Poll Summary FC:%1 Addr:%2 Qty:%3 Slave:%4 Success:%5 Error:%6 Retries:%7 Avg Success RTT:%8")
+        .arg(summary.functionCode)
+        .arg(summary.address)
+        .arg(summary.quantity)
+        .arg(summary.slaveId)
+        .arg(summary.successCount)
+        .arg(summary.errorCount)
+        .arg(summary.retryCount)
+        .arg(avgRttText);
+    monitor_->appendEvent(event);
+}
+
 QString TrafficLogController::retryWord(int retryCount) {
     return QCoreApplication::translate(
         "ui::application::modbus::TrafficLogController",

@@ -11,10 +11,8 @@
 
 #include <QWidget>
 #include <memory>
-#include <unordered_map>
 #include <cstdint>
 #include "AppConstants.h"
-#include "modbus/base/ModbusConfig.h"
 #include "modbus/base/ModbusFrame.h"
 #include "modbus/parser/ModbusFrameParser.h"
 
@@ -34,12 +32,8 @@ namespace ui::application::modbus {
 class RequestSubmissionService;
 class PollingController;
 class TrafficLogController;
+class ModbusSessionPresenter;
 }
-
-namespace modbus::dispatch { class ModbusWorker; }
-namespace modbus::session { class IModbusClient; }
-namespace io { class IChannel; }
-class QThread;
 
 namespace ui::widgets {
     class SerialConnectionWidget;
@@ -76,7 +70,6 @@ private:
     QString formatData(const QByteArray& data, bool hex) const;
     void retranslateUi();
     void changeEvent(QEvent* event) override;
-    void releaseStack();
 
     QVBoxLayout* mainLayout_ = nullptr;
     ui::widgets::SerialConnectionWidget* connectionWidget_ = nullptr;
@@ -97,20 +90,11 @@ private:
     QByteArray lastReceiveFrame_;
     QByteArray lastSendFrame_;
 
-    std::shared_ptr<io::IChannel> channel_;
-    std::shared_ptr<modbus::session::IModbusClient> client_;
-    std::shared_ptr<modbus::dispatch::ModbusWorker> worker_;
-    std::shared_ptr<QThread> workerThread_;
     ui::application::modbus::RequestSubmissionService* requestService_ = nullptr;
     ui::application::modbus::PollingController* pollingController_ = nullptr;
     ui::application::modbus::TrafficLogController* trafficLogController_ = nullptr;
-    quint64 connectionGeneration_ = 0;
-    bool rtuSessionConnected_ = false;
+    ui::application::modbus::ModbusSessionPresenter* sessionPresenter_ = nullptr;
     bool linked_ = false;
-    int timeoutMs_ = app::constants::Values::Modbus::kDefaultTimeoutMs;
-    int retries_ = 0;
-    int retryIntervalMs_ = app::constants::Values::Modbus::kDefaultRetryIntervalMs;
-    modbus::base::ModbusConfig currentConfig_;
     ui::common::ISettingsService* settingsService_ = nullptr;
 };
 

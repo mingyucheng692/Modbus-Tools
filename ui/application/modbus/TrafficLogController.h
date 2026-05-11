@@ -14,6 +14,7 @@
 #include <QString>
 #include <cstdint>
 #include "../../common/TrafficEvent.h"
+#include "PollingController.h"
 
 namespace ui::widgets {
 class TrafficMonitorWidget;
@@ -45,6 +46,7 @@ public:
     void logError(const QString& message);
     void logWarning(const QString& message);
     void logInfo(const QString& message);
+    void logPollSummary(const PollSummary& summary);
 
 private:
     static QString retryWord(int retryCount);

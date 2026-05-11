@@ -39,6 +39,8 @@ target_sources(ui PRIVATE
     application/modbus/PollingController.h
     application/modbus/TrafficLogController.cpp
     application/modbus/TrafficLogController.h
+    application/modbus/ModbusSessionPresenter.cpp
+    application/modbus/ModbusSessionPresenter.h
     assets.qrc
     AnalyzerLinkageController.cpp
     AnalyzerLinkageController.h

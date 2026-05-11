@@ -13,14 +13,13 @@
 #include "../../application/modbus/RequestSubmissionService.h"
 #include "../../application/modbus/PollingController.h"
 #include "../../application/modbus/TrafficLogController.h"
+#include "../../application/modbus/ModbusSessionPresenter.h"
 #include "../../widgets/TcpConnectionWidget.h"
 #include "../../widgets/FunctionWidget.h"
 #include "../../widgets/TrafficMonitorWidget.h"
 #include "../../widgets/ControlWidget.h"
 #include "../../widgets/CollapsibleSection.h"
 #include "../../common/ConnectionAlert.h"
-#include "../../common/TcpConnectionStateCoordinator.h"
-#include "modbus/factory/ModbusFactory.h"
 #include <QVBoxLayout>
 #include <QLabel>
 #include <QGroupBox>
@@ -29,44 +28,35 @@
 #include <QCheckBox>
 #include <QPushButton>
 #include <QEvent>
-#include <QEventLoop>
 #include <QClipboard>
 #include <QCoreApplication>
 #include <QGuiApplication>
 #include <spdlog/spdlog.h>
-#include <QMetaObject>
-#include <QPointer>
 #include <algorithm>
-#include <limits>
 
 namespace ui::views::modbus_tcp {
 
 ModbusTcpView::ModbusTcpView(ui::common::ISettingsService* settingsService, QWidget *parent)
     : QWidget(parent),
       settingsService_(settingsService) {
+    sessionPresenter_ = new ui::application::modbus::ModbusSessionPresenter(
+        ui::application::modbus::SessionMode::Tcp, this);
     setupUi();
 }
 
 ModbusTcpView::~ModbusTcpView() {
-    releaseStack();
 }
 
 void ModbusTcpView::updateModbusSettings(int timeoutMs, int retries, int retryIntervalMs) {
-    timeoutMs_ = timeoutMs;
-    retries_ = retries;
-    retryIntervalMs_ = retryIntervalMs;
-    if (worker_) {
-        currentConfig_.timeoutMs = timeoutMs_;
-        currentConfig_.retries = retries_;
-        currentConfig_.retryIntervalMs = retryIntervalMs_;
-        worker_->updateConfig(currentConfig_);
+    if (sessionPresenter_) {
+        sessionPresenter_->updateSettings(timeoutMs, retries, retryIntervalMs);
     }
 }
 
 void ModbusTcpView::setLinked(bool linked) {
     linked_ = linked;
-    if (controlWidget_) {
-        controlWidget_->setLinked(linked);
+    if (sessionPresenter_) {
+        sessionPresenter_->setLinked(linked);
     }
 }
 
@@ -143,7 +133,13 @@ void ModbusTcpView::setupUi() {
     controlWidget_->setSettingsGroup("modbus/tcp/control");
     mainLayout_->addWidget(controlWidget_);
 
-    if (functionWidget_ && trafficMonitor_) {
+    sessionPresenter_->setConnectionWidget(connectionWidget_);
+    sessionPresenter_->setControlWidget(controlWidget_);
+
+    trafficLogController_ = new ui::application::modbus::TrafficLogController(
+        trafficMonitor_, nullptr, this);
+
+    if (functionWidget_ && trafficLogController_) {
         connect(functionWidget_, &widgets::FunctionWidget::logMessageRequested,
             this, [this](const QString& message, bool isError) {
                 if (!trafficLogController_) return;
@@ -155,7 +151,7 @@ void ModbusTcpView::setupUi() {
             });
     }
 
-    if (controlWidget_ && trafficMonitor_) {
+    if (controlWidget_ && trafficLogController_) {
         connect(controlWidget_, &widgets::ControlWidget::logMessageRequested,
             this, [this](const QString& message, bool isError) {
                 if (!trafficLogController_) return;
@@ -172,194 +168,89 @@ void ModbusTcpView::setupUi() {
         emit linkageToggled(active);
     });
 
+    connect(sessionPresenter_,
+            &ui::application::modbus::ModbusSessionPresenter::linkageSourceDisconnected,
+            this, &ModbusTcpView::linkageSourceDisconnected);
+
+    connect(sessionPresenter_,
+            &ui::application::modbus::ModbusSessionPresenter::rawFrameReceived,
+            this, [this](bool isTx, const QByteArray& data) {
+                if (isTx) {
+                    appendSendData(data);
+                } else {
+                    appendReceiveData(data);
+                }
+            });
+
+    connect(sessionPresenter_,
+            &ui::application::modbus::ModbusSessionPresenter::requestFinished,
+            this, [this](int requestId, const ::modbus::session::ModbusResponse& response) {
+                if (!requestService_) return;
+
+                auto trackingInfo = requestService_->lookupAndRemove(requestId);
+                if (!trackingInfo.has_value()) {
+                    return;
+                }
+
+                auto kind = trackingInfo->kind;
+                uint16_t addr = trackingInfo->address;
+
+                if (kind == ui::application::modbus::RequestKind::Poll) {
+                    return;
+                }
+
+                if (response.isSuccess && linked_) {
+                    emit linkageDataReceived(response.pdu,
+                                             modbus::core::parser::ProtocolType::Tcp,
+                                             addr);
+                }
+            });
+
     connect(connectionWidget_, &widgets::TcpConnectionWidget::connectClicked, 
         [this](const QString& ip, int port) {
             spdlog::info("ModbusTcpView: Connect requested to {}:{}", ip.toStdString(), port);
-            releaseStack();
-            suppressDisconnectAlert_ = false;
-            const quint64 generation = connectionGeneration_;
 
-            if (!trafficLogController_) {
-                trafficLogController_ = new ui::application::modbus::TrafficLogController(
-                    trafficMonitor_, nullptr, this);
-            }
-
-            trafficLogController_->logConnectionInfo(tr("Connecting to %1:%2...").arg(ip).arg(port));
+            sessionPresenter_->setTrafficLogController(trafficLogController_);
 
             modbus::base::ModbusConfig config;
             config.mode = modbus::base::ModbusMode::TCP;
             config.ipAddress = ip;
             config.port = port;
             config.slaveId = static_cast<uint8_t>(functionWidget_->getSlaveId());
-            config.timeoutMs = timeoutMs_;
-            config.retries = retries_;
-            config.retryIntervalMs = retryIntervalMs_;
-
-            modbus::factory::ModbusFactory factory;
-            auto stack = factory.createStack(config);
-            if (!stack.worker || !stack.thread) {
-                trafficLogController_->logError(tr("Failed to create Modbus stack"));
-                return;
-            }
-
-            currentConfig_ = config;
-            channel_ = std::move(stack.channel);
-            client_ = std::move(stack.client);
-            worker_ = std::move(stack.worker);
-            workerThread_ = std::move(stack.thread);
+            config.timeoutMs = 1000;
+            config.retries = 0;
+            config.retryIntervalMs = 200;
 
             requestService_ = new ui::application::modbus::RequestSubmissionService(this);
             connect(requestService_, &ui::application::modbus::RequestSubmissionService::txCountUpdated,
                     controlWidget_, &ui::widgets::ControlWidget::recordTx);
 
+            sessionPresenter_->setRequestService(requestService_);
+
             pollingController_ = new ui::application::modbus::PollingController(requestService_, this);
             connect(pollingController_, &ui::application::modbus::PollingController::submitPollRequest,
                     this, [this](const ::modbus::base::Pdu& pdu, int slaveId, int requestId) {
-                        if (worker_) worker_->submit(pdu, slaveId, requestId);
+                        sessionPresenter_->submitRequest(pdu, slaveId, requestId);
                     });
             connect(pollingController_, &ui::application::modbus::PollingController::trafficEvent,
                     trafficMonitor_, &ui::widgets::TrafficMonitorWidget::appendEvent);
+            connect(pollingController_, &ui::application::modbus::PollingController::summaryReady,
+                    trafficLogController_, &ui::application::modbus::TrafficLogController::logPollSummary);
 
+            sessionPresenter_->setPollingController(pollingController_);
             trafficLogController_->setPollingController(pollingController_);
 
-            QPointer<ModbusTcpView> self(this);
-            channel_->setMonitor([self, generation](bool isTx, const QByteArray& data) {
-                if (!self) return;
-                QMetaObject::invokeMethod(self, [self, generation, isTx, data]() {
-                    if (!self) return;
-                    if (generation != self->connectionGeneration_) return;
-                    if (isTx) {
-                        self->trafficLogController_->logRawFrame(
-                            ui::common::TrafficDirection::Tx, data);
-                        self->appendSendData(data);
-                    } else {
-                        self->trafficLogController_->logRawFrame(
-                            ui::common::TrafficDirection::Rx, data);
-                        self->appendReceiveData(data);
-                    }
-                }, Qt::QueuedConnection);
-            });
-            channel_->addStateHandler([self, generation](io::ChannelState state) {
-                if (!self) return;
-                QMetaObject::invokeMethod(self, [self, generation, state]() {
-                    if (!self) return;
-                    if (generation != self->connectionGeneration_) return;
-                    const bool wasConnected = self->tcpSessionConnected_;
-                    const auto transition = ui::common::TcpConnectionStateCoordinator::transition(
-                        state,
-                        wasConnected,
-                        self->suppressDisconnectAlert_);
-                    if (transition.setConnected) {
-                        self->tcpSessionConnected_ = true;
-                        self->connectionWidget_->setConnected(true);
-                        self->trafficLogController_->logConnectionInfo(self->tr("Connected"));
-                    } else if (state == io::ChannelState::Open) {
-                        self->tcpSessionConnected_ = true;
-                        self->connectionWidget_->setConnected(true);
-                    }
-                    if (transition.clearSuppressDisconnectAlert) {
-                        self->suppressDisconnectAlert_ = false;
-                    }
-                    if (transition.setConnected) {
-                        return;
-                    }
-                    if (transition.setDisconnected) {
-                        self->tcpSessionConnected_ = false;
-                        self->connectionWidget_->setConnected(false);
-                        self->controlWidget_->setPollingEnabled(false);
-                        self->trafficLogController_->logConnectionInfo(self->tr("Disconnected"));
-                        if (transition.showDisconnectAlert) {
-                            ui::common::ConnectionAlert::showDisconnected(self);
-                        }
-                    }
-                }, Qt::QueuedConnection);
-            });
-
-            connect(worker_.get(), &modbus::dispatch::ModbusWorker::connectFinished, this,
-                [this, self, generation](bool ok, const QString& error) {
-                    if (!self) return;
-                    if (generation != connectionGeneration_) return;
-                    const bool wasConnected = tcpSessionConnected_;
-                    tcpSessionConnected_ = ok;
-                    if (!ok) {
-                        if (pollingController_) pollingController_->stopPoll();
-                    }
-                    if (ok) {
-                        suppressDisconnectAlert_ = false;
-                        connectionWidget_->setConnected(true);
-                        if (!wasConnected) {
-                            self->trafficLogController_->logConnectionInfo(tr("Connected"));
-                        }
-                    } else {
-                        connectionWidget_->setConnected(false);
-                        self->trafficLogController_->logConnectionInfo(tr("Connection failed: %1").arg(error));
-                    }
-                }, Qt::QueuedConnection);
-
-            connect(worker_.get(), &modbus::dispatch::ModbusWorker::requestFinished, this,
-                [this, self, generation](int requestId, const modbus::session::ModbusResponse& response) {
-                    if (!self) return;
-                    if (generation != connectionGeneration_) return;
-                    if (!requestService_) return;
-
-                    auto trackingInfo = requestService_->lookupAndRemove(requestId);
-                    if (!trackingInfo.has_value()) {
-                        return;
-                    }
-
-                    auto kind = trackingInfo->kind;
-                    uint16_t addr = trackingInfo->address;
-                    auto startTime = trackingInfo->startTime;
-
-                    if (kind == ui::application::modbus::RequestKind::Poll) {
-                        pollingController_->handleResponse(response.isSuccess,
-                                                           response.rttMs,
-                                                           response.retryCount,
-                                                           response.error);
-                    }
-
-                    // 分流设计：仅在成功时通过底层测量的精�?RTT 更新统计
-                    if (response.isSuccess) {
-                        // 更新成功统计 (RX + 1, 更新 RTT)
-                        controlWidget_->recordRx(response.rttMs);
-
-                        if (kind == ui::application::modbus::RequestKind::Read) {
-                            trafficLogController_->logReadSuccess(response.retryCount);
-                        } else if (kind == ui::application::modbus::RequestKind::Write) {
-                            trafficLogController_->logWriteSuccess(response.retryCount);
-                        }
-                        
-                        // Emit linkage signal for Frame Analyzer if linked
-                        if (linked_) {
-                            emit linkageDataReceived(response.pdu, modbus::core::parser::ProtocolType::Tcp, addr);
-                        }
-                    } else {
-                        // Failure path: record the error count and skip RTT statistics.
-                        controlWidget_->recordError();
-
-                        if (kind != ui::application::modbus::RequestKind::Poll) {
-                            trafficLogController_->logRequestError(response.error, response.retryCount);
-                        }
-                    }
-
-                }, Qt::QueuedConnection);
-
-            worker_->start();
-            worker_->requestConnect();
+            sessionPresenter_->connectTcp(ip, port, config);
     });
 
     connect(connectionWidget_, &widgets::TcpConnectionWidget::disconnectClicked,
         [this]() {
             spdlog::info("ModbusTcpView: Disconnect requested");
-            suppressDisconnectAlert_ = true;
-            tcpSessionConnected_ = false;
-            connectionWidget_->setConnected(false);
-            trafficLogController_->logConnectionInfo(tr("Disconnected"));
-            releaseStack();
+            sessionPresenter_->requestDisconnect();
     });
 
     auto ensureConnected = [this]() {
-        if (worker_ && tcpSessionConnected_) {
+        if (sessionPresenter_ && sessionPresenter_->isSessionConnected()) {
             return true;
         }
         ui::common::ConnectionAlert::showNotConnected(this);
@@ -385,7 +276,7 @@ void ModbusTcpView::setupUi() {
 
             trafficLogController_->logSendingReadRequest(fc, addr, qty, slaveId);
 
-            worker_->submit(result.pdu, slaveId, result.requestId);
+            sessionPresenter_->submitRequest(result.pdu, slaveId, result.requestId);
     });
 
     connect(functionWidget_, &widgets::FunctionWidget::writeRequested,
@@ -407,7 +298,7 @@ void ModbusTcpView::setupUi() {
 
             trafficLogController_->logSendingWriteRequest(fc, addr, dataStr, slaveId);
 
-            worker_->submit(result.pdu, slaveId, result.requestId);
+            sessionPresenter_->submitRequest(result.pdu, slaveId, result.requestId);
     });
     
     connect(functionWidget_, &widgets::FunctionWidget::rawSendRequested,
@@ -417,14 +308,14 @@ void ModbusTcpView::setupUi() {
 
             trafficLogController_->logSendingRawData(data);
 
-            worker_->sendRaw(data);
+            sessionPresenter_->sendRaw(data);
     });
 
     connect(controlWidget_, &widgets::ControlWidget::pollRequested,
         [this, ensureConnected](uint8_t fc, int addr, int qty) {
             if (!ensureConnected()) return;
             if (!pollingController_) return;
-            pollingController_->setSessionConnected(tcpSessionConnected_);
+            pollingController_->setSessionConnected(sessionPresenter_->isSessionConnected());
             pollingController_->setPollingInterval(controlWidget_->pollingIntervalMs());
             int slaveId = functionWidget_->getSlaveId();
             pollingController_->handlePollRequest(fc, addr, qty, slaveId);
@@ -469,54 +360,6 @@ QString ModbusTcpView::formatData(const QByteArray& data, bool hex) const {
     return QString::fromLatin1(data);
 }
 
-void ModbusTcpView::releaseStack() {
-    if (pollingController_) pollingController_->reset();
-    ++connectionGeneration_;
-    suppressDisconnectAlert_ = true;
-    tcpSessionConnected_ = false;
-    if (connectionWidget_) {
-        connectionWidget_->setConnected(false);
-    }
-    const bool wasLinked = linked_;
-    linked_ = false;
-    if (controlWidget_) {
-        controlWidget_->setLinked(false);
-        controlWidget_->setPollingEnabled(false);
-    }
-    if (wasLinked) {
-        emit linkageSourceDisconnected();
-    }
-    
-    auto channel = std::move(channel_);
-    auto client = std::move(client_);
-    auto worker = std::move(worker_);
-    auto thread = std::move(workerThread_);
-    if (!worker && !client && !channel && !thread) {
-        return;
-    }
-
-    if (worker) {
-        QEventLoop wait;
-        QObject::connect(worker.get(), &modbus::dispatch::ModbusWorker::stopped,
-                         &wait, &QEventLoop::quit);
-        worker->stop();
-        wait.exec();
-    } else if (thread && thread->isRunning()) {
-        thread->requestInterruption();
-        thread->quit();
-    }
-    worker.reset();
-    client.reset();
-    if (thread && thread->isRunning()) {
-        thread->requestInterruption();
-        thread->quit();
-        thread->wait(2000);
-    }
-    channel.reset();
-    thread.reset();
-}
-
-
 void ModbusTcpView::appendReceiveData(const QByteArray& data) {
     lastReceiveFrame_ = data;
     refreshReceiveDisplay();
@@ -547,29 +390,24 @@ void ModbusTcpView::refreshSendDisplay() {
     }
     bool hex = sendHexCheck_ ? sendHexCheck_->isChecked() : true;
     sendTextEdit_->setPlainText(QStringLiteral("[%1] %2")
-                                    .arg(QStringLiteral("TX"))
-                                    .arg(formatData(lastSendFrame_, hex)));
+                                     .arg(QStringLiteral("TX"))
+                                     .arg(formatData(lastSendFrame_, hex)));
 }
 
 void ModbusTcpView::retranslateUi() {
-    if (dataGroup_) dataGroup_->setTitle(tr("Data Monitor"));
     if (receiveGroup_) receiveGroup_->setTitle(tr("Receive Data"));
     if (sendGroup_) sendGroup_->setTitle(tr("Send Data"));
-    if (receiveHexCheck_) receiveHexCheck_->setText(tr("HEX"));
-    if (sendHexCheck_) sendHexCheck_->setText(tr("HEX"));
     if (copyReceiveButton_) copyReceiveButton_->setText(tr("Copy"));
     if (copySendButton_) copySendButton_->setText(tr("Copy"));
     if (clearReceiveButton_) clearReceiveButton_->setText(tr("Clear"));
     if (clearSendButton_) clearSendButton_->setText(tr("Clear"));
-    refreshReceiveDisplay();
-    refreshSendDisplay();
 }
 
 void ModbusTcpView::changeEvent(QEvent* event) {
+    QWidget::changeEvent(event);
     if (event->type() == QEvent::LanguageChange) {
         retranslateUi();
     }
-    QWidget::changeEvent(event);
 }
 
 } // namespace ui::views::modbus_tcp
