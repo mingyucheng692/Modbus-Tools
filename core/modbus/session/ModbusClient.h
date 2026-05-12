@@ -12,6 +12,7 @@
 #include "AppConstants.h"
 #include "IModbusClient.h"
 #include "RequestValidator.h"
+#include "FrameExtractor.h"
 #include "../transport/ITransport.h"
 #include "../../io/IChannel.h"
 #include <mutex>
@@ -87,9 +88,6 @@ private:
     void waitForRtuInterFrameDelay();
     bool waitForAbortableDelay(std::chrono::steady_clock::duration delay);
     void updateRtuSendWindow(qsizetype frameBytes);
-    bool isRtuFrameReadyToParseLocked(std::chrono::steady_clock::time_point now) const;
-    std::chrono::steady_clock::time_point nextRtuFrameBoundaryLocked() const;
-    bool tryPopRtuResponseFrameLocked(QByteArray& frame);
     int enqueuePendingRequest(const base::Pdu& request, int slaveId);
     void finishPendingRequest(int requestId, bool success, const QString& error);
     void clearRuntimeState(bool clearPendingQueue);
@@ -115,8 +113,7 @@ private:
     std::atomic<ConnectionState> connectionState_ {ConnectionState::Disconnected};
     std::atomic<RequestState> requestState_ {RequestState::Idle};
     std::mutex pendingMutex_;
-    std::deque<QByteArray> completedRtuFrames_;
-    std::chrono::steady_clock::time_point lastRtuByteReceivedAt_ {};
+    FrameExtractor frameExtractor_;
     std::chrono::steady_clock::time_point nextRtuSendAllowedAt_ {};
     int nextRequestId_ = 1;
     std::deque<PendingRequest> pendingRequests_;
