@@ -9,6 +9,7 @@
 
 #include "ModbusClient.h"
 #include "ExceptionInterpreter.h"
+#include "RequestValidator.h"
 #include "AppConstants.h"
 #include "logging/Logger.h"
 #include "../base/ModbusProtocolChecks.h"
@@ -117,24 +118,6 @@ bool isBroadcastWriteFunction(base::FunctionCode functionCode)
     default:
         return false;
     }
-}
-
-bool readBigEndianUInt16(const QByteArray& data, qsizetype offset, uint16_t& value)
-{
-    if (offset < 0 || offset + 2 > data.size()) {
-        return false;
-    }
-    value = qFromBigEndian<uint16_t>(reinterpret_cast<const uchar*>(data.constData() + offset));
-    return true;
-}
-
-bool isAddressRangeValid(uint16_t startAddress, uint16_t quantity)
-{
-    if (quantity == 0) {
-        return false;
-    }
-    const uint32_t endAddress = static_cast<uint32_t>(startAddress) + static_cast<uint32_t>(quantity) - 1U;
-    return endAddress <= static_cast<uint32_t>(app::constants::Values::Modbus::kMaxAddress);
 }
 
 int sanitizeDelayMs(int value)
@@ -657,10 +640,11 @@ ModbusResponse ModbusClient::sendRequestInternal(const base::Pdu& request, int s
         return ModbusResponse::Error(lastChannelError_.isEmpty() ? trClient("Not connected") : lastChannelError_);
     }
 
-    const QString validationError = validateRequest(request, slaveId);
-    if (!validationError.isEmpty()) {
+    const int targetSlaveId = (slaveId == -1) ? config_.slaveId : slaveId;
+    const auto validationResult = requestValidator_.validate(request, targetSlaveId, config_.mode);
+    if (!validationResult.valid) {
         transitionTo(RequestState::Failed, "request-validation-failed");
-        return ModbusResponse::Error(validationError);
+        return ModbusResponse::Error(validationResult.error);
     }
 
     // 1. 清理旧缓冲区和状态
@@ -681,7 +665,6 @@ ModbusResponse ModbusClient::sendRequestInternal(const base::Pdu& request, int s
     transport_->resetPendingState();
 
     // 2. 构建 ADU
-    int targetSlaveId = (slaveId == -1) ? config_.slaveId : slaveId;
     if (isRtuBroadcastRequest(targetSlaveId, request.functionCode()) &&
         !isBroadcastWriteFunction(request.functionCode())) {
         transitionTo(RequestState::Failed, "invalid-rtu-broadcast-function");
@@ -902,131 +885,6 @@ bool ModbusClient::shouldWaitForResponse(int slaveId, base::FunctionCode functio
         return true;
     }
     return false;
-}
-
-QString ModbusClient::validateRequest(const base::Pdu& request, int slaveId) const {
-    const int targetSlaveId = (slaveId == -1) ? config_.slaveId : slaveId;
-    if (config_.mode == base::ModbusMode::RTU &&
-        (targetSlaveId < app::constants::Values::Modbus::kMinSlaveId ||
-         targetSlaveId > app::constants::Values::Modbus::kMaxSlaveId)) {
-        return QString("Invalid RTU slave id: %1").arg(targetSlaveId);
-    }
-
-    const QByteArray data = request.data();
-    if (data.size() > app::constants::Values::Modbus::kMaxPduDataLength) {
-        return QString("PDU data too long: %1 bytes").arg(data.size());
-    }
-
-    uint16_t quantity = 0;
-    uint16_t startAddress = 0;
-    uint16_t value = 0;
-    uint8_t declaredByteCount = 0;
-    switch (request.functionCode()) {
-    case base::FunctionCode::ReadCoils:
-    case base::FunctionCode::ReadDiscreteInputs:
-    case base::FunctionCode::ReadHoldingRegisters:
-    case base::FunctionCode::ReadInputRegisters:
-        if (data.size() != 4 ||
-            !readBigEndianUInt16(data, 0, startAddress) ||
-            !readBigEndianUInt16(data, 2, quantity)) {
-            return QString("Invalid read request payload length: %1").arg(data.size());
-        }
-        if (quantity < app::constants::Values::Modbus::kMinQuantity) {
-            return QString("Read quantity must be at least %1").arg(app::constants::Values::Modbus::kMinQuantity);
-        }
-        if (!isAddressRangeValid(startAddress, quantity)) {
-            return QString("Read address range exceeds limit: start=%1 quantity=%2")
-                .arg(startAddress)
-                .arg(quantity);
-        }
-        if ((request.functionCode() == base::FunctionCode::ReadCoils ||
-             request.functionCode() == base::FunctionCode::ReadDiscreteInputs) &&
-            quantity > app::constants::Values::Modbus::kMaxReadBitsQuantity) {
-            return QString("Read bit quantity exceeds limit: %1").arg(quantity);
-        }
-        if ((request.functionCode() == base::FunctionCode::ReadHoldingRegisters ||
-             request.functionCode() == base::FunctionCode::ReadInputRegisters) &&
-            quantity > app::constants::Values::Modbus::kMaxReadQuantity) {
-            return QString("Read register quantity exceeds limit: %1").arg(quantity);
-        }
-        break;
-    case base::FunctionCode::WriteSingleCoil:
-    case base::FunctionCode::WriteSingleRegister:
-        if (data.size() != 4 ||
-            !readBigEndianUInt16(data, 0, startAddress) ||
-            !readBigEndianUInt16(data, 2, value)) {
-            return QString("Invalid write-single request payload length: %1").arg(data.size());
-        }
-        if (!isAddressRangeValid(startAddress, 1)) {
-            return QString("Write address out of range: %1").arg(startAddress);
-        }
-        if (request.functionCode() == base::FunctionCode::WriteSingleCoil &&
-            value != 0x0000 && value != 0xFF00) {
-            return QString("Invalid single coil value: 0x%1")
-                .arg(value, 4, 16, QChar('0'))
-                .toUpper();
-        }
-        break;
-    case base::FunctionCode::WriteMultipleCoils:
-    case base::FunctionCode::WriteMultipleRegisters:
-        if (data.size() < 5 ||
-            !readBigEndianUInt16(data, 0, startAddress) ||
-            !readBigEndianUInt16(data, 2, quantity)) {
-            return QString("Invalid write-multiple request payload length: %1").arg(data.size());
-        }
-        declaredByteCount = static_cast<uint8_t>(data[4]);
-        if (quantity < app::constants::Values::Modbus::kMinQuantity) {
-            return QString("Write quantity must be at least %1").arg(app::constants::Values::Modbus::kMinQuantity);
-        }
-        if (!isAddressRangeValid(startAddress, quantity)) {
-            return QString("Write address range exceeds limit: start=%1 quantity=%2")
-                .arg(startAddress)
-                .arg(quantity);
-        }
-        if (static_cast<int>(declaredByteCount) != data.size() - 5) {
-            return QString("Write request byte count mismatch: declared %1, actual %2")
-                .arg(declaredByteCount)
-                .arg(data.size() - 5);
-        }
-        if (request.functionCode() == base::FunctionCode::WriteMultipleCoils) {
-            if (quantity > app::constants::Values::Modbus::kMaxWriteCoilsQuantity) {
-                return QString("Write coil quantity exceeds limit: %1").arg(quantity);
-            }
-            const int expectedByteCount = (static_cast<int>(quantity) + 7) / 8;
-            if (declaredByteCount != expectedByteCount) {
-                return QString("Write coil byte count mismatch: declared %1, expected %2")
-                    .arg(declaredByteCount)
-                    .arg(expectedByteCount);
-            }
-        } else {
-            if (quantity > app::constants::Values::Modbus::kMaxWriteRegistersQuantity) {
-                return QString("Write register quantity exceeds limit: %1").arg(quantity);
-            }
-            const int expectedByteCount = static_cast<int>(quantity) * 2;
-            if (declaredByteCount != expectedByteCount) {
-                return QString("Write register byte count mismatch: declared %1, expected %2")
-                    .arg(declaredByteCount)
-                    .arg(expectedByteCount);
-            }
-        }
-        break;
-    default:
-        return QString("Unsupported function code: 0x%1")
-            .arg(static_cast<int>(request.functionCode()), 2, 16, QChar('0'))
-            .toUpper();
-    }
-
-    const int tcpMbapLength = 2 + data.size();
-    if (tcpMbapLength > app::constants::Values::Modbus::kMaxTcpMbapLength) {
-        return QString("TCP MBAP length exceeds limit: %1").arg(tcpMbapLength);
-    }
-
-    const int rtuAduLength = 4 + data.size();
-    if (rtuAduLength > 256) {
-        return QString("RTU ADU length exceeds limit: %1").arg(rtuAduLength);
-    }
-
-    return QString();
 }
 
 void ModbusClient::waitForRtuInterFrameDelay() {

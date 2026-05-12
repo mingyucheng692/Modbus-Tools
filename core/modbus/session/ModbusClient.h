@@ -11,6 +11,7 @@
 
 #include "AppConstants.h"
 #include "IModbusClient.h"
+#include "RequestValidator.h"
 #include "../transport/ITransport.h"
 #include "../../io/IChannel.h"
 #include <mutex>
@@ -86,7 +87,6 @@ private:
     void waitForRtuInterFrameDelay();
     bool waitForAbortableDelay(std::chrono::steady_clock::duration delay);
     void updateRtuSendWindow(qsizetype frameBytes);
-    QString validateRequest(const base::Pdu& request, int slaveId) const;
     bool isRtuFrameReadyToParseLocked(std::chrono::steady_clock::time_point now) const;
     std::chrono::steady_clock::time_point nextRtuFrameBoundaryLocked() const;
     bool tryPopRtuResponseFrameLocked(QByteArray& frame);
@@ -97,6 +97,7 @@ private:
     std::shared_ptr<io::IChannel> channel_;
     std::shared_ptr<transport::ITransport> transport_;
     base::ModbusConfig config_;
+    RequestValidator requestValidator_;
 
     // 同步机制：等待响应
     std::mutex mutex_;

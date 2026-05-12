@@ -80,7 +80,7 @@ void FunctionWidget::setupStandardUi(QWidget* parent) {
     paramLayout->addWidget(quantityLabel_);
     quantityEdit_ = new QSpinBox(parent);
     quantityEdit_->setRange(app::constants::Values::Modbus::kMinQuantity,
-                            app::constants::Values::Modbus::kMaxReadQuantity);
+                            app::constants::Values::Modbus::kMaxAddress);
     quantityEdit_->setValue(app::constants::Values::Modbus::kDefaultStandardQuantity);
     quantityEdit_->setFixedWidth(72);
     paramLayout->addWidget(quantityEdit_);

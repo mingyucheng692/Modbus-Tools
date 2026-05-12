@@ -327,7 +327,7 @@ void ControlWidget::setupUi() {
     layout->addWidget(qtyLabel_);
     qtySpin_ = new QSpinBox(this);
     qtySpin_->setRange(app::constants::Values::Modbus::kMinQuantity,
-                       app::constants::Values::Modbus::kMaxReadQuantity);
+                       app::constants::Values::Modbus::kMaxAddress);
     qtySpin_->setValue(app::constants::Values::Modbus::kDefaultControlQuantity);
     qtySpin_->setFixedWidth(60);
     layout->addWidget(qtySpin_);

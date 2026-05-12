@@ -32,6 +32,8 @@ target_sources(core PRIVATE
     modbus/session/ModbusClient.cpp
     modbus/session/ExceptionInterpreter.h
     modbus/session/ExceptionInterpreter.cpp
+    modbus/session/RequestValidator.h
+    modbus/session/RequestValidator.cpp
     # modbus dispatch
     modbus/dispatch/ModbusWorker.h
     modbus/dispatch/ModbusWorker.cpp
