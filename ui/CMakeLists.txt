@@ -116,7 +116,7 @@ add_custom_command(
             -DOUTPUT_FILE=${ui_i18n_resource_file}
             -DQM_FILES_CMAKE=${ui_embedded_i18n_qm_list_file}
             -P "${CMAKE_SOURCE_DIR}/cmake/GenerateEmbeddedI18nQrc.cmake"
-    DEPENDS modbus_i18n ${ui_translation_qm_files} "${ui_embedded_i18n_qm_list_file}"
+    DEPENDS ${ui_translation_qm_files} "${ui_embedded_i18n_qm_list_file}"
     COMMENT "Generating embedded i18n resource manifest"
     VERBATIM
 )
