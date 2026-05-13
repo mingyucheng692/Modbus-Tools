@@ -13,6 +13,7 @@
 #include "IModbusClient.h"
 #include "RequestValidator.h"
 #include "FrameExtractor.h"
+#include "BackoffCalculator.h"
 #include "../transport/ITransport.h"
 #include "../../io/IChannel.h"
 #include <mutex>

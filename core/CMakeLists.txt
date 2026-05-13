@@ -36,6 +36,8 @@ target_sources(core PRIVATE
     modbus/session/RequestValidator.cpp
     modbus/session/FrameExtractor.h
     modbus/session/FrameExtractor.cpp
+    modbus/session/BackoffCalculator.h
+    modbus/session/BackoffCalculator.cpp
     # modbus dispatch
     modbus/dispatch/ModbusWorker.h
     modbus/dispatch/ModbusWorker.cpp

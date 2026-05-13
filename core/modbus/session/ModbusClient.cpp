@@ -45,30 +45,6 @@ bool isBroadcastWriteFunction(base::FunctionCode functionCode)
     }
 }
 
-int sanitizeDelayMs(int value)
-{
-    return std::max(0, value);
-}
-
-int calculateBackoffDelayMs(const base::ModbusConfig& config, int baseDelayMs, int maxDelayMs, int attempt)
-{
-    const double factor = std::max(1.0, config.retryBackoffFactor);
-    const int sanitizedBase = sanitizeDelayMs(baseDelayMs);
-    const int sanitizedMax = std::max(sanitizedBase, sanitizeDelayMs(maxDelayMs));
-    const double scaled = static_cast<double>(sanitizedBase) * std::pow(factor, static_cast<double>(attempt));
-    const int cappedDelay = std::min(sanitizedMax, static_cast<int>(std::llround(scaled)));
-
-    const int jitterPercent = std::clamp(config.retryJitterPercent, 0, 100);
-    if (jitterPercent == 0 || cappedDelay == 0) {
-        return cappedDelay;
-    }
-
-    thread_local std::mt19937 generator{std::random_device{}()};
-    const int jitterWindow = std::max(1, (cappedDelay * jitterPercent) / 100);
-    std::uniform_int_distribution<int> distribution(-jitterWindow, jitterWindow);
-    return std::max(0, cappedDelay + distribution(generator));
-}
-
 constexpr auto kQtWaitSlice = std::chrono::milliseconds(5);
 
 void pumpCurrentThreadEvents(std::chrono::milliseconds maxTime)
@@ -331,11 +307,13 @@ bool ModbusClient::ensureConnected(bool allowReconnect) {
             break;
         }
 
-        const int reconnectDelayMs = calculateBackoffDelayMs(
-            config_,
-            config_.reconnectBaseMs,
-            config_.reconnectMaxMs,
-            attempt);
+        BackoffCalculator::Config reconnectBackoffCfg;
+        reconnectBackoffCfg.baseIntervalMs = config_.reconnectBaseMs;
+        reconnectBackoffCfg.maxIntervalMs = config_.reconnectMaxMs;
+        reconnectBackoffCfg.backoffFactor = config_.retryBackoffFactor;
+        reconnectBackoffCfg.jitterPercent = config_.retryJitterPercent;
+        BackoffCalculator reconnectBackoff(reconnectBackoffCfg);
+        const int reconnectDelayMs = reconnectBackoff.calculateMs(attempt);
         if (!waitForAbortableDelay(std::chrono::milliseconds(reconnectDelayMs))) {
             std::lock_guard<std::mutex> lock(mutex_);
             lastChannelError_ = trClient("Aborted");
@@ -514,11 +492,13 @@ ModbusResponse ModbusClient::sendRequest(const base::Pdu& request, int slaveId) 
         
         if (i < retries && !aborted_) {
             transitionTo(RequestState::Failed, "request-retry");
-            const int retryDelayMs = calculateBackoffDelayMs(
-                activeConfig,
-                activeConfig.retryIntervalMs,
-                activeConfig.maxRetryIntervalMs,
-                i);
+            BackoffCalculator::Config retryBackoffCfg;
+            retryBackoffCfg.baseIntervalMs = activeConfig.retryIntervalMs;
+            retryBackoffCfg.maxIntervalMs = activeConfig.maxRetryIntervalMs;
+            retryBackoffCfg.backoffFactor = activeConfig.retryBackoffFactor;
+            retryBackoffCfg.jitterPercent = activeConfig.retryJitterPercent;
+            BackoffCalculator retryBackoff(retryBackoffCfg);
+            const int retryDelayMs = retryBackoff.calculateMs(i);
             spdlog::warn("Request failed, retrying... ({}/{}) Error: {}", 
                          i + 1,
                          retries,
