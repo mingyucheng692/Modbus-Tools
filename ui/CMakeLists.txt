@@ -89,14 +89,24 @@ set(ui_translation_ts
 
 set(ui_translation_output_dir "${CMAKE_BINARY_DIR}/translations")
 
-qt_add_lrelease(
-    TS_FILES ${ui_translation_ts}
-    LRELEASE_TARGET modbus_i18n
-    EXCLUDE_FROM_ALL
-    NO_GLOBAL_TARGET
-    QM_OUTPUT_DIRECTORY "${ui_translation_output_dir}"
-    QM_FILES_OUTPUT_VARIABLE ui_translation_qm_files
-)
+set(ui_translation_qm_files "")
+foreach(ts_file IN LISTS ui_translation_ts)
+    get_filename_component(ts_basename "${ts_file}" NAME_WE)
+    set(qm_file "${ui_translation_output_dir}/${ts_basename}.qm")
+    add_custom_command(
+        OUTPUT "${qm_file}"
+        COMMAND Qt6::lrelease
+                -silent
+                "${ts_file}"
+                -qm "${qm_file}"
+        DEPENDS "${ts_file}"
+        COMMENT "Generating translation: ${ts_basename}.qm"
+        VERBATIM
+    )
+    list(APPEND ui_translation_qm_files "${qm_file}")
+endforeach()
+
+add_custom_target(modbus_i18n DEPENDS ${ui_translation_qm_files})
 
 set(ui_i18n_resource_file "${CMAKE_CURRENT_BINARY_DIR}/generated/i18n.qrc")
 set(ui_embedded_i18n_qm_list_file "${CMAKE_CURRENT_BINARY_DIR}/generated/i18n_qm_files.cmake")
