@@ -22,7 +22,7 @@ class FrameExtractor {
 public:
     explicit FrameExtractor(modbus::base::ModbusMode mode, int baudRate);
 
-    void extract(QByteArray& buffer, QByteArrayView newData,
+    bool extract(QByteArray& buffer, QByteArrayView newData,
         std::chrono::steady_clock::time_point now);
 
     [[nodiscard]] bool hasCompleteFrame() const;

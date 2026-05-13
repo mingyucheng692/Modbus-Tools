@@ -836,9 +836,9 @@ void ModbusClient::onDataReceived(QByteArrayView data) {
     MODBUS_TOOLS_VERBOSE_INFO("ModbusClient: Data received, size={}, notifying loop", data.size());
 
     const auto now = std::chrono::steady_clock::now();
-    frameExtractor_.extract(buffer_, data, now);
+    const bool dataReceived = frameExtractor_.extract(buffer_, data, now);
 
-    responseReady_ = frameExtractor_.hasCompleteFrame();
+    responseReady_ = dataReceived || frameExtractor_.hasCompleteFrame();
     cv_.notify_one();
 }
 

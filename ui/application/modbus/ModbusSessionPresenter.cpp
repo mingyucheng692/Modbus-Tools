@@ -40,6 +40,13 @@ void ModbusSessionPresenter::connectTcp(const QString& ip, int port,
 
     initStack(config);
 
+    if (worker_) {
+        currentConfig_.timeoutMs = timeoutMs_;
+        currentConfig_.retries = retries_;
+        currentConfig_.retryIntervalMs = retryIntervalMs_;
+        worker_->updateConfig(currentConfig_);
+    }
+
     setupChannelMonitor(generation);
     setupChannelStateHandler(generation);
     setupWorkerSignals(generation);
@@ -61,6 +68,13 @@ void ModbusSessionPresenter::connectRtu(const io::SerialConfig& serialConfig,
     const quint64 generation = connectionGeneration_;
 
     initStack(modbusConfig);
+
+    if (worker_) {
+        currentConfig_.timeoutMs = timeoutMs_;
+        currentConfig_.retries = retries_;
+        currentConfig_.retryIntervalMs = retryIntervalMs_;
+        worker_->updateConfig(currentConfig_);
+    }
 
     setupChannelMonitor(generation);
     setupChannelStateHandler(generation);

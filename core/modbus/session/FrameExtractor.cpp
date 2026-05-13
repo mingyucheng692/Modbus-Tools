@@ -107,9 +107,13 @@ FrameExtractor::FrameExtractor(modbus::base::ModbusMode mode, int baudRate)
 // extract() – called from onDataReceived
 // ---------------------------------------------------------------------------
 
-void FrameExtractor::extract(QByteArray& buffer, QByteArrayView newData,
+bool FrameExtractor::extract(QByteArray& buffer, QByteArrayView newData,
     std::chrono::steady_clock::time_point now)
 {
+    if (newData.isEmpty()) {
+        return false;
+    }
+
     if (mode_ == base::ModbusMode::RTU) {
         // --- inter-frame silence detection ---
         if (!buffer.isEmpty() &&
@@ -155,6 +159,7 @@ void FrameExtractor::extract(QByteArray& buffer, QByteArrayView newData,
                 buffer.size() - app::constants::Values::Modbus::kMaxTcpBufferedBytes);
         }
     }
+    return true;
 }
 
 // ---------------------------------------------------------------------------
@@ -184,6 +189,7 @@ void FrameExtractor::reset()
 
 void FrameExtractor::setConfig(const base::ModbusConfig& config)
 {
+    mode_ = config.mode;
     config_ = config;
     reset();
 }
