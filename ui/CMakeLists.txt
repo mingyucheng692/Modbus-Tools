@@ -106,8 +106,6 @@ foreach(ts_file IN LISTS ui_translation_ts)
     list(APPEND ui_translation_qm_files "${qm_file}")
 endforeach()
 
-add_custom_target(modbus_i18n DEPENDS ${ui_translation_qm_files})
-
 set(ui_i18n_resource_file "${CMAKE_CURRENT_BINARY_DIR}/generated/i18n.qrc")
 set(ui_embedded_i18n_qm_list_file "${CMAKE_CURRENT_BINARY_DIR}/generated/i18n_qm_files.cmake")
 file(MAKE_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/generated")
@@ -130,8 +128,6 @@ add_custom_command(
     COMMENT "Generating embedded i18n resource manifest"
     VERBATIM
 )
-
-add_dependencies(ui modbus_i18n)
 
 target_sources(ui PRIVATE
     "${ui_i18n_resource_file}"
