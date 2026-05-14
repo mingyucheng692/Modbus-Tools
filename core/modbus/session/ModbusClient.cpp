@@ -169,7 +169,8 @@ void ModbusClient::clearRuntimeState(bool clearPendingQueue) {
 ModbusClient::ModbusClient(std::shared_ptr<io::IChannel> channel, 
                            std::shared_ptr<transport::ITransport> transport)
     : channel_(std::move(channel)), transport_(std::move(transport))
-    , frameExtractor_(base::ModbusMode::TCP, 9600) {
+    , frameExtractor_(base::ModbusMode::TCP, 9600)
+    , retryStrategy_(RetryStrategy::Config{}) {
     
     // 设置 Channel 回调
     channel_->setReadHandler([this](QByteArrayView data) {
@@ -246,6 +247,12 @@ QString ModbusClient::lastChannelError() {
 void ModbusClient::setConfig(const base::ModbusConfig& config) {
     config_ = config;
     frameExtractor_.setConfig(config);
+    retryStrategy_.reconfigure(RetryStrategy::Config{
+        config.retries,
+        config.retryIntervalMs,
+        config.maxRetryIntervalMs,
+        config.retryBackoffFactor,
+        config.retryJitterPercent});
     if (isConnected()) {
         // 如果已经连接，动态更新超时
         io::Timeouts timeouts;
@@ -468,46 +475,42 @@ ModbusResponse ModbusClient::sendRequest(const base::Pdu& request, int slaveId) 
     std::lock_guard<std::recursive_mutex> lock(requestMutex_);
     aborted_ = false;
 
-    const base::ModbusConfig activeConfig = config_;
-    const int retries = std::max(0, activeConfig.retries);
+    retryStrategy_.reset();
     ModbusResponse lastResponse = ModbusResponse::Error(trClient("Unknown error"));
     const int requestId = enqueuePendingRequest(request, slaveId);
     transitionTo(RequestState::Idle, "request-start");
 
-    for (int i = 0; i <= retries; ++i) {
+    for (;;) {
         if (aborted_) {
             transitionTo(RequestState::Aborted, "request-aborted-before-send");
             finishPendingRequest(requestId, false, "Aborted");
-            return ModbusResponse::Error(trClient("Aborted"), i);
+            return ModbusResponse::Error(trClient("Aborted"), retryStrategy_.attemptCount());
         }
 
         lastResponse = sendRequestInternal(request, slaveId);
-        lastResponse.attemptCount = i + 1;
-        lastResponse.retryCount = i;
+        lastResponse.attemptCount = retryStrategy_.attemptCount() + 1;
+        lastResponse.retryCount = retryStrategy_.attemptCount();
         if (lastResponse.isSuccess) {
             transitionTo(RequestState::Completed, "request-success");
             finishPendingRequest(requestId, true, QString());
             return lastResponse;
         }
         
-        if (i < retries && !aborted_) {
+        retryStrategy_.recordAttempt();
+        if (retryStrategy_.shouldRetry() && !aborted_) {
             transitionTo(RequestState::Failed, "request-retry");
-            BackoffCalculator::Config retryBackoffCfg;
-            retryBackoffCfg.baseIntervalMs = activeConfig.retryIntervalMs;
-            retryBackoffCfg.maxIntervalMs = activeConfig.maxRetryIntervalMs;
-            retryBackoffCfg.backoffFactor = activeConfig.retryBackoffFactor;
-            retryBackoffCfg.jitterPercent = activeConfig.retryJitterPercent;
-            BackoffCalculator retryBackoff(retryBackoffCfg);
-            const int retryDelayMs = retryBackoff.calculateMs(i);
+            const auto retryDelay = retryStrategy_.nextWait();
             spdlog::warn("Request failed, retrying... ({}/{}) Error: {}", 
-                         i + 1,
-                         retries,
+                         retryStrategy_.attemptCount(),
+                         config_.retries,
                          lastResponse.error.toStdString());
-            if (!waitForAbortableDelay(std::chrono::milliseconds(retryDelayMs))) {
+            if (!waitForAbortableDelay(retryDelay)) {
                 transitionTo(RequestState::Aborted, "request-aborted-during-backoff");
                 finishPendingRequest(requestId, false, "Aborted");
-                return ModbusResponse::Error(trClient("Aborted"), i + 1);
+                return ModbusResponse::Error(trClient("Aborted"), retryStrategy_.attemptCount());
             }
+        } else {
+            break;
         }
     }
     if (aborted_) {

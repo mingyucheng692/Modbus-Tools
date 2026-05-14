@@ -38,6 +38,8 @@ target_sources(core PRIVATE
     modbus/session/FrameExtractor.cpp
     modbus/session/BackoffCalculator.h
     modbus/session/BackoffCalculator.cpp
+    modbus/session/RetryStrategy.h
+    modbus/session/RetryStrategy.cpp
     # modbus dispatch
     modbus/dispatch/ModbusWorker.h
     modbus/dispatch/ModbusWorker.cpp

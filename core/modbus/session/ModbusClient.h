@@ -14,6 +14,7 @@
 #include "RequestValidator.h"
 #include "FrameExtractor.h"
 #include "BackoffCalculator.h"
+#include "RetryStrategy.h"
 #include "../transport/ITransport.h"
 #include "../../io/IChannel.h"
 #include <mutex>
@@ -115,6 +116,7 @@ private:
     std::atomic<RequestState> requestState_ {RequestState::Idle};
     std::mutex pendingMutex_;
     FrameExtractor frameExtractor_;
+    RetryStrategy retryStrategy_;
     std::chrono::steady_clock::time_point nextRtuSendAllowedAt_ {};
     int nextRequestId_ = 1;
     std::deque<PendingRequest> pendingRequests_;
