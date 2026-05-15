@@ -102,7 +102,6 @@ private:
     // 同步机制：等待响应
     std::mutex mutex_;
     std::condition_variable cv_;
-    QByteArray buffer_;
     bool responseReady_ = false;
     bool writeDrained_ = true;
     QString lastChannelError_;

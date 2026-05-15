@@ -150,7 +150,6 @@ void ModbusClient::finishPendingRequest(int requestId, bool success, const QStri
 
 void ModbusClient::clearRuntimeState(bool clearPendingQueue) {
     std::lock_guard<std::mutex> lock(mutex_);
-    buffer_.clear();
     frameExtractor_.reset();
     responseReady_ = false;
     writeDrained_ = true;
@@ -563,7 +562,6 @@ ModbusResponse ModbusClient::sendRequestInternal(const base::Pdu& request, int s
             transitionTo(RequestState::Aborted, "aborted-before-build");
             return ModbusResponse::Error(trClient("Aborted"));
         }
-        buffer_.clear();
         frameExtractor_.reset();
         responseReady_ = false;
         writeDrained_ = config_.mode != base::ModbusMode::RTU;
@@ -619,13 +617,12 @@ ModbusResponse ModbusClient::sendRequestInternal(const base::Pdu& request, int s
         deadline += FrameExtractor::calculateInterFrameDelay(config_);
     }
     transitionTo(RequestState::Waiting, "wait-response");
-    int droppedInvalidBytes = 0;
     MODBUS_TOOLS_VERBOSE_INFO("ModbusClient: Entering wait loop, deadline in {}ms", config_.timeoutMs);
     
     while (true) {
         std::unique_lock<std::mutex> lock(mutex_);
         const auto now = std::chrono::steady_clock::now();
-        const bool rtuFrameReady = frameExtractor_.isRtuFrameReadyToParse(now, buffer_);
+        const bool rtuFrameReady = frameExtractor_.isRtuFrameReadyToParse(now);
         if (!rtuFrameReady && !responseReady_ && lastChannelError_.isEmpty() && !aborted_.load()) {
             lock.unlock();
             const bool stillWaiting = waitForEventOrTimeout(deadline);
@@ -638,7 +635,7 @@ ModbusResponse ModbusClient::sendRequestInternal(const base::Pdu& request, int s
             }
             continue;
         }
-        if (!rtuFrameReady && config_.mode == base::ModbusMode::RTU && !buffer_.isEmpty()) {
+        if (!rtuFrameReady && config_.mode == base::ModbusMode::RTU && frameExtractor_.bufferSize() > 0) {
             responseReady_ = false;
             const auto frameDeadline = std::min(deadline, frameExtractor_.nextRtuFrameBoundary());
             lock.unlock();
@@ -664,15 +661,19 @@ ModbusResponse ModbusClient::sendRequestInternal(const base::Pdu& request, int s
             return ModbusResponse::Error(err);
         }
 
+        if (frameExtractor_.hasExceededDropLimit()) {
+            transitionTo(RequestState::Failed, "too-many-invalid-bytes");
+            return ModbusResponse::Error(trClient("Too many invalid response bytes"));
+        }
+
         responseReady_ = false;
 
         while (true) {
-            // 对于 RTU，走基于静默时间的帧提取流程
             if (config_.mode == base::ModbusMode::RTU) {
-                QByteArray frame;
-                if (frameExtractor_.tryPopRtuResponseFrame(buffer_, now, frame)) {
+                auto frameOpt = frameExtractor_.tryPopRtuResponseFrame(now);
+                if (frameOpt) {
                     lock.unlock();
-                    auto parseResult = transport_->parseResponse(frame);
+                    auto parseResult = transport_->parseResponse(*frameOpt);
                     if (parseResult.status == transport::ParseResponseStatus::Ok && parseResult.pdu) {
                         const auto& pdu = *parseResult.pdu;
                         if (pdu.isException()) {
@@ -708,12 +709,10 @@ ModbusResponse ModbusClient::sendRequestInternal(const base::Pdu& request, int s
                 break;
             }
 
-            int integrity = transport_->checkIntegrity(buffer_);
-            if (integrity > 0) {
-                QByteArray frame = buffer_.left(integrity);
-                buffer_.remove(0, integrity);
+            auto frameOpt = frameExtractor_.popFrame();
+            if (frameOpt) {
                 lock.unlock();
-                auto parseResult = transport_->parseResponse(frame);
+                auto parseResult = transport_->parseResponse(*frameOpt);
                 if (parseResult.status == transport::ParseResponseStatus::Ok && parseResult.pdu) {
                     const auto& pdu = *parseResult.pdu;
                     if (pdu.isException()) {
@@ -748,25 +747,9 @@ ModbusResponse ModbusClient::sendRequestInternal(const base::Pdu& request, int s
                 }
                 lock.lock();
                 continue;
-            } else if (integrity == -1) {
-                if (!buffer_.isEmpty()) {
-                    spdlog::warn("ModbusClient: RTU CRC mismatch, dropping first byte [{}] of buffer={} totalDropped={}",
-                                 static_cast<int>(buffer_.at(0)),
-                                 QString(buffer_.toHex(' ').toUpper()).toStdString(),
-                                 droppedInvalidBytes + 1);
-                    buffer_.remove(0, 1);
-                    ++droppedInvalidBytes;
-                }
-                if (droppedInvalidBytes > app::constants::Values::Modbus::kMaxDroppedInvalidBytes) {
-                    spdlog::error("ModbusClient: RTU CRC mismatch limit exceeded ({}), aborting request", droppedInvalidBytes);
-                    transitionTo(RequestState::Failed, "too-many-invalid-bytes");
-                    return ModbusResponse::Error(trClient("Too many invalid response bytes"));
-                }
-                responseReady_ = !buffer_.isEmpty();
-                continue;
             }
-            if (config_.mode == base::ModbusMode::RTU && !buffer_.isEmpty() &&
-                frameExtractor_.isRtuFrameReadyToParse(std::chrono::steady_clock::now(), buffer_)) {
+            if (config_.mode == base::ModbusMode::RTU && frameExtractor_.bufferSize() > 0 &&
+                frameExtractor_.isRtuFrameReadyToParse(std::chrono::steady_clock::now())) {
                 transitionTo(RequestState::Failed, "incomplete-rtu-frame-after-gap");
                 return ModbusResponse::Error(trClient("Incomplete RTU frame after inter-frame silence"));
             }
@@ -838,10 +821,8 @@ void ModbusClient::onDataReceived(QByteArrayView data) {
     std::lock_guard<std::mutex> lock(mutex_);
     MODBUS_TOOLS_VERBOSE_INFO("ModbusClient: Data received, size={}, notifying loop", data.size());
 
-    const auto now = std::chrono::steady_clock::now();
-    const bool dataReceived = frameExtractor_.extract(buffer_, data, now);
-
-    responseReady_ = dataReceived || frameExtractor_.hasCompleteFrame();
+    frameExtractor_.feed(data);
+    responseReady_ = frameExtractor_.hasCompleteFrame();
     cv_.notify_one();
 }
 

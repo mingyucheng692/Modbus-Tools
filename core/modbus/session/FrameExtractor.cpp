@@ -9,6 +9,7 @@
 
 #include "FrameExtractor.h"
 #include "AppConstants.h"
+#include "../base/ModbusProtocolChecks.h"
 #include <spdlog/spdlog.h>
 #include <cmath>
 
@@ -104,62 +105,119 @@ FrameExtractor::FrameExtractor(modbus::base::ModbusMode mode, int baudRate)
 }
 
 // ---------------------------------------------------------------------------
-// extract() – called from onDataReceived
+// feed() – called from onDataReceived
 // ---------------------------------------------------------------------------
 
-bool FrameExtractor::extract(QByteArray& buffer, QByteArrayView newData,
-    std::chrono::steady_clock::time_point now)
+void FrameExtractor::feed(QByteArrayView data)
 {
-    if (newData.isEmpty()) {
-        return false;
+    if (data.isEmpty()) {
+        return;
     }
 
+    const auto now = std::chrono::steady_clock::now();
+
     if (mode_ == base::ModbusMode::RTU) {
-        // --- inter-frame silence detection ---
-        if (!buffer.isEmpty() &&
+        if (!buffer_.isEmpty() &&
             lastByteReceivedAt_ != std::chrono::steady_clock::time_point{}) {
             const auto silentInterval = now - lastByteReceivedAt_;
             const auto interFrameDelay = calculateInterFrameDelay(config_);
 
             if (silentInterval >= interFrameDelay) {
-                completedFrames_.push_back(buffer);
-                buffer.clear();
+                completedFrames_.push_back(buffer_);
+                buffer_.clear();
             } else {
                 const auto interCharDelay = calculateInterCharacterDelay(config_);
                 if (silentInterval > interCharDelay) {
                     spdlog::warn(
                         "FrameExtractor: discarding RTU fragment after "
                         "inter-character gap violation");
-                    buffer.clear();
+                    buffer_.clear();
                 }
             }
         }
 
-        // --- append new data ---
-        buffer.append(newData);
+        buffer_.append(data);
 
-        // --- buffer overflow ---
-        if (buffer.size() > app::constants::Values::Modbus::kMaxRtuBufferedBytes) {
+        if (buffer_.size() > app::constants::Values::Modbus::kMaxRtuBufferedBytes) {
             spdlog::warn(
                 "FrameExtractor: RTU buffer exceeded {} bytes limit, clearing",
                 app::constants::Values::Modbus::kMaxRtuBufferedBytes);
-            buffer.clear();
+            buffer_.clear();
         }
 
         lastByteReceivedAt_ = now;
     } else {
-        // --- TCP ---
-        buffer.append(newData);
-        if (buffer.size() > app::constants::Values::Modbus::kMaxTcpBufferedBytes) {
+        buffer_.append(data);
+        if (buffer_.size() > app::constants::Values::Modbus::kMaxTcpBufferedBytes) {
             spdlog::warn(
                 "FrameExtractor: TCP buffer exceeded {} bytes limit, "
                 "dropping oldest bytes",
                 app::constants::Values::Modbus::kMaxTcpBufferedBytes);
-            buffer.remove(0,
-                buffer.size() - app::constants::Values::Modbus::kMaxTcpBufferedBytes);
+            buffer_.remove(0,
+                buffer_.size() - app::constants::Values::Modbus::kMaxTcpBufferedBytes);
+        }
+        processTcpBuffer();
+    }
+}
+
+// ---------------------------------------------------------------------------
+// processTcpBuffer() – extract complete TCP frames via MBAP header parsing
+// ---------------------------------------------------------------------------
+
+void FrameExtractor::processTcpBuffer()
+{
+    while (!buffer_.isEmpty()) {
+        const int integrity = base::inspectTcpAdu(buffer_);
+        if (integrity > 0) {
+            if (buffer_.size() >= integrity) {
+                completedFrames_.push_back(buffer_.left(integrity));
+                buffer_.remove(0, integrity);
+                droppedInvalidBytes_ = 0;
+            }
+        } else if (integrity == -1) {
+            spdlog::warn(
+                "FrameExtractor: invalid TCP MBAP header, dropping first byte "
+                "[{}] of buffer totalDropped={}",
+                static_cast<int>(static_cast<uint8_t>(buffer_.at(0))),
+                droppedInvalidBytes_ + 1);
+            buffer_.remove(0, 1);
+            ++droppedInvalidBytes_;
+            if (droppedInvalidBytes_ > app::constants::Values::Modbus::kMaxDroppedInvalidBytes) {
+                spdlog::error(
+                    "FrameExtractor: TCP invalid byte limit exceeded ({}), "
+                    "clearing buffer",
+                    droppedInvalidBytes_);
+                buffer_.clear();
+                break;
+            }
+        } else {
+            break;
         }
     }
-    return true;
+}
+
+// ---------------------------------------------------------------------------
+// processRtuBuffer() – extract RTU frame when silence period elapsed
+// ---------------------------------------------------------------------------
+
+void FrameExtractor::processRtuBuffer(std::chrono::steady_clock::time_point now)
+{
+    if (mode_ != base::ModbusMode::RTU) {
+        return;
+    }
+    if (!completedFrames_.empty()) {
+        return;
+    }
+    if (buffer_.isEmpty()) {
+        return;
+    }
+    if (!isRtuFrameReadyToParse(now)) {
+        return;
+    }
+
+    completedFrames_.push_back(buffer_);
+    buffer_.clear();
+    lastByteReceivedAt_ = std::chrono::steady_clock::time_point{};
 }
 
 // ---------------------------------------------------------------------------
@@ -183,8 +241,10 @@ std::optional<QByteArray> FrameExtractor::popFrame()
 
 void FrameExtractor::reset()
 {
+    buffer_.clear();
     completedFrames_.clear();
     lastByteReceivedAt_ = {};
+    droppedInvalidBytes_ = 0;
 }
 
 void FrameExtractor::setConfig(const base::ModbusConfig& config)
@@ -194,13 +254,27 @@ void FrameExtractor::setConfig(const base::ModbusConfig& config)
     reset();
 }
 
+qsizetype FrameExtractor::bufferSize() const
+{
+    return buffer_.size();
+}
+
+bool FrameExtractor::hasExceededDropLimit() const
+{
+    return droppedInvalidBytes_ > app::constants::Values::Modbus::kMaxDroppedInvalidBytes;
+}
+
+int FrameExtractor::droppedInvalidBytes() const
+{
+    return droppedInvalidBytes_;
+}
+
 // ---------------------------------------------------------------------------
 // RTU query methods – used by sendRequestInternal wait loop
 // ---------------------------------------------------------------------------
 
 bool FrameExtractor::isRtuFrameReadyToParse(
-    std::chrono::steady_clock::time_point now,
-    const QByteArray& buffer) const
+    std::chrono::steady_clock::time_point now) const
 {
     if (mode_ != base::ModbusMode::RTU) {
         return false;
@@ -208,7 +282,7 @@ bool FrameExtractor::isRtuFrameReadyToParse(
     if (!completedFrames_.empty()) {
         return true;
     }
-    if (buffer.isEmpty()) {
+    if (buffer_.isEmpty()) {
         return false;
     }
     if (lastByteReceivedAt_ == std::chrono::steady_clock::time_point{}) {
@@ -225,29 +299,28 @@ std::chrono::steady_clock::time_point FrameExtractor::nextRtuFrameBoundary() con
     return lastByteReceivedAt_ + calculateInterFrameDelay(config_);
 }
 
-bool FrameExtractor::tryPopRtuResponseFrame(QByteArray& buffer,
-    std::chrono::steady_clock::time_point now,
-    QByteArray& frame)
+std::optional<QByteArray> FrameExtractor::tryPopRtuResponseFrame(
+    std::chrono::steady_clock::time_point now)
 {
     if (mode_ != base::ModbusMode::RTU) {
-        return false;
+        return std::nullopt;
     }
 
     if (!completedFrames_.empty()) {
-        frame = completedFrames_.front();
+        QByteArray frame = completedFrames_.front();
         completedFrames_.pop_front();
-        return true;
+        return frame;
     }
 
-    if (buffer.isEmpty() || buffer.size() < 5 ||
-        !isRtuFrameReadyToParse(now, buffer)) {
-        return false;
+    processRtuBuffer(now);
+
+    if (!completedFrames_.empty()) {
+        QByteArray frame = completedFrames_.front();
+        completedFrames_.pop_front();
+        return frame;
     }
 
-    frame = std::move(buffer);
-    buffer.clear();
-    lastByteReceivedAt_ = std::chrono::steady_clock::time_point{};
-    return true;
+    return std::nullopt;
 }
 
 } // namespace modbus::session

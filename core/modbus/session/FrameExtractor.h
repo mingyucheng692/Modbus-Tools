@@ -22,23 +22,24 @@ class FrameExtractor {
 public:
     explicit FrameExtractor(modbus::base::ModbusMode mode, int baudRate);
 
-    bool extract(QByteArray& buffer, QByteArrayView newData,
-        std::chrono::steady_clock::time_point now);
+    void feed(QByteArrayView data);
 
     [[nodiscard]] bool hasCompleteFrame() const;
     std::optional<QByteArray> popFrame();
     void reset();
     void setConfig(const base::ModbusConfig& config);
+    [[nodiscard]] qsizetype bufferSize() const;
 
     [[nodiscard]] bool isRtuFrameReadyToParse(
-        std::chrono::steady_clock::time_point now,
-        const QByteArray& buffer) const;
+        std::chrono::steady_clock::time_point now) const;
 
     [[nodiscard]] std::chrono::steady_clock::time_point nextRtuFrameBoundary() const;
 
-    bool tryPopRtuResponseFrame(QByteArray& buffer,
-        std::chrono::steady_clock::time_point now,
-        QByteArray& frame);
+    std::optional<QByteArray> tryPopRtuResponseFrame(
+        std::chrono::steady_clock::time_point now);
+
+    [[nodiscard]] bool hasExceededDropLimit() const;
+    [[nodiscard]] int droppedInvalidBytes() const;
 
     static std::chrono::microseconds calculateInterFrameDelay(const base::ModbusConfig& config);
     static std::chrono::microseconds calculateInterCharacterDelay(const base::ModbusConfig& config);
@@ -49,10 +50,15 @@ private:
     static int parityBitCount(int parity);
     static int bitsPerCharacter(const base::ModbusConfig& config);
 
+    void processTcpBuffer();
+    void processRtuBuffer(std::chrono::steady_clock::time_point now);
+
     modbus::base::ModbusMode mode_;
     base::ModbusConfig config_;
+    QByteArray buffer_;
     std::deque<QByteArray> completedFrames_;
     std::chrono::steady_clock::time_point lastByteReceivedAt_;
+    int droppedInvalidBytes_ = 0;
 };
 
 } // namespace modbus::session
