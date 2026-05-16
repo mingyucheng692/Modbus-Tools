@@ -17,6 +17,7 @@
 #include "RetryStrategy.h"
 #include "ConnectionStateMachine.h"
 #include "RequestStateMachine.h"
+#include "FlowController.h"
 #include "../transport/ITransport.h"
 #include "../../io/IChannel.h"
 #include <mutex>
@@ -70,9 +71,7 @@ private:
     bool waitForEventOrTimeout(std::chrono::steady_clock::time_point deadline);
     bool isRtuBroadcastRequest(int slaveId, base::FunctionCode functionCode) const;
     bool shouldWaitForResponse(int slaveId, base::FunctionCode functionCode) const;
-    void waitForRtuInterFrameDelay();
     bool waitForAbortableDelay(std::chrono::steady_clock::duration delay);
-    void updateRtuSendWindow(qsizetype frameBytes);
     int enqueuePendingRequest(const base::Pdu& request, int slaveId);
     void finishPendingRequest(int requestId, bool success, const QString& error);
     void clearRuntimeState(bool clearPendingQueue);
@@ -86,9 +85,7 @@ private:
     std::mutex mutex_;
     std::condition_variable cv_;
     bool responseReady_ = false;
-    bool writeDrained_ = true;
     QString lastChannelError_;
-    std::chrono::steady_clock::time_point lastWriteDrainedAt_ {};
     io::IChannel::HandlerId stateHandlerId_ = 0;
     
     // 保护 sendRequest 串行执行，避免请求路径发生重入
@@ -99,7 +96,7 @@ private:
     std::mutex pendingMutex_;
     FrameExtractor frameExtractor_;
     RetryStrategy retryStrategy_;
-    std::chrono::steady_clock::time_point nextRtuSendAllowedAt_ {};
+    FlowController flowController_;
     int nextRequestId_ = 1;
     std::deque<PendingRequest> pendingRequests_;
 };

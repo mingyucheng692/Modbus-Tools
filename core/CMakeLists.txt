@@ -44,6 +44,8 @@ target_sources(core PRIVATE
     modbus/session/ConnectionStateMachine.cpp
     modbus/session/RequestStateMachine.h
     modbus/session/RequestStateMachine.cpp
+    modbus/session/FlowController.h
+    modbus/session/FlowController.cpp
     # modbus dispatch
     modbus/dispatch/ModbusWorker.h
     modbus/dispatch/ModbusWorker.cpp

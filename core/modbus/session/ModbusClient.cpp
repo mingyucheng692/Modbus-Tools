@@ -105,11 +105,9 @@ void ModbusClient::finishPendingRequest(int requestId, bool success, const QStri
 void ModbusClient::clearRuntimeState(bool clearPendingQueue) {
     std::lock_guard<std::mutex> lock(mutex_);
     frameExtractor_.reset();
+    flowController_.reset();
     responseReady_ = false;
-    writeDrained_ = true;
     lastChannelError_.clear();
-    lastWriteDrainedAt_ = std::chrono::steady_clock::time_point{};
-    nextRtuSendAllowedAt_ = std::chrono::steady_clock::time_point{};
     if (clearPendingQueue) {
         std::lock_guard<std::mutex> pendingLock(pendingMutex_);
         pendingRequests_.clear();
@@ -123,7 +121,8 @@ ModbusClient::ModbusClient(std::shared_ptr<io::IChannel> channel,
                            std::shared_ptr<transport::ITransport> transport)
     : channel_(std::move(channel)), transport_(std::move(transport))
     , frameExtractor_(base::ModbusMode::TCP, 9600)
-    , retryStrategy_(RetryStrategy::Config{}) {
+    , retryStrategy_(RetryStrategy::Config{})
+    , flowController_(base::ModbusMode::TCP) {
     
     // 设置 Channel 回调
     channel_->setReadHandler([this](QByteArrayView data) {
@@ -136,8 +135,7 @@ ModbusClient::ModbusClient(std::shared_ptr<io::IChannel> channel,
 
     channel_->setWriteDrainedHandler([this]() {
         std::lock_guard<std::mutex> lock(mutex_);
-        writeDrained_ = true;
-        lastWriteDrainedAt_ = std::chrono::steady_clock::now();
+        flowController_.markWriteDrained(std::chrono::steady_clock::now());
         cv_.notify_one();
     });
     stateHandlerId_ = channel_->addStateHandler([this](io::ChannelState) {
@@ -203,6 +201,7 @@ QString ModbusClient::lastChannelError() {
 void ModbusClient::setConfig(const base::ModbusConfig& config) {
     config_ = config;
     frameExtractor_.setConfig(config);
+    flowController_.setMode(config.mode);
     retryStrategy_.reconfigure(RetryStrategy::Config{
         config.retries,
         config.retryIntervalMs,
@@ -359,11 +358,12 @@ bool ModbusClient::waitForWriteDrain(std::chrono::steady_clock::time_point deadl
         }
         {
             std::lock_guard<std::mutex> lock(mutex_);
-            if (writeDrained_) {
+            if (flowController_.isWriteDrained()) {
                 if (drainedAt) {
-                    *drainedAt = (lastWriteDrainedAt_ == std::chrono::steady_clock::time_point{})
+                    const auto da = flowController_.drainedAt();
+                    *drainedAt = (da == std::chrono::steady_clock::time_point{})
                         ? std::chrono::steady_clock::now()
-                        : lastWriteDrainedAt_;
+                        : da;
                 }
                 return true;
             }
@@ -382,7 +382,7 @@ bool ModbusClient::waitForWriteDrain(std::chrono::steady_clock::time_point deadl
 
         std::unique_lock<std::mutex> lock(mutex_);
         if (!cv_.wait_for(lock, slice, [this]() {
-                return aborted_.load() || writeDrained_ || !lastChannelError_.isEmpty() ||
+                return aborted_.load() || flowController_.isWriteDrained() || !lastChannelError_.isEmpty() ||
                     channel_->state() == io::ChannelState::Error;
             })) {
             continue;
@@ -390,11 +390,12 @@ bool ModbusClient::waitForWriteDrain(std::chrono::steady_clock::time_point deadl
     }
 
     std::lock_guard<std::mutex> lock(mutex_);
-    if (writeDrained_) {
+    if (flowController_.isWriteDrained()) {
         if (drainedAt) {
-            *drainedAt = (lastWriteDrainedAt_ == std::chrono::steady_clock::time_point{})
+            const auto da = flowController_.drainedAt();
+            *drainedAt = (da == std::chrono::steady_clock::time_point{})
                 ? std::chrono::steady_clock::now()
-                : lastWriteDrainedAt_;
+                : da;
         }
         return true;
     }
@@ -481,15 +482,18 @@ ModbusResponse ModbusClient::sendRequest(const base::Pdu& request, int slaveId) 
 void ModbusClient::sendRaw(const QByteArray& data) {
     std::lock_guard<std::recursive_mutex> lock(requestMutex_);
     if (isConnected()) {
-        waitForRtuInterFrameDelay();
+        if (!flowController_.isRtuSendWindowOpen(std::chrono::steady_clock::now())) {
+            waitForAbortableDelay(flowController_.rtuSendWindowOpensAt() - std::chrono::steady_clock::now());
+        }
         {
             std::lock_guard<std::mutex> stateLock(mutex_);
             lastChannelError_.clear();
-            writeDrained_ = config_.mode != base::ModbusMode::RTU;
-            lastWriteDrainedAt_ = std::chrono::steady_clock::time_point{};
+            if (config_.mode == base::ModbusMode::RTU) {
+                flowController_.markWritePending();
+            }
         }
         if (channel_->write(data)) {
-            updateRtuSendWindow(data.size());
+            flowController_.updateRtuSendWindow(data.size(), config_);
             if (config_.mode == base::ModbusMode::RTU) {
                 const auto writeDeadline = std::chrono::steady_clock::now() + std::chrono::milliseconds(config_.timeoutMs);
                 waitForWriteDrain(writeDeadline, nullptr);
@@ -521,9 +525,10 @@ ModbusResponse ModbusClient::sendRequestInternal(const base::Pdu& request, int s
         }
         frameExtractor_.reset();
         responseReady_ = false;
-        writeDrained_ = config_.mode != base::ModbusMode::RTU;
+        if (config_.mode == base::ModbusMode::RTU) {
+            flowController_.markWritePending();
+        }
         lastChannelError_.clear();
-        lastWriteDrainedAt_ = std::chrono::steady_clock::time_point{};
     }
     transport_->resetPendingState();
 
@@ -534,14 +539,15 @@ ModbusResponse ModbusClient::sendRequestInternal(const base::Pdu& request, int s
         return ModbusResponse::Error(trClient("RTU broadcast only supports write function codes"));
     }
     QByteArray adu = transport_->buildRequest(request, targetSlaveId);
-    waitForRtuInterFrameDelay();
+    if (!flowController_.isRtuSendWindowOpen(std::chrono::steady_clock::now())) {
+        waitForAbortableDelay(flowController_.rtuSendWindowOpensAt() - std::chrono::steady_clock::now());
+    }
 
-    // 3. 发送数�?
     if (!channel_->write(adu)) {
         requestStateMachine_.tryTransition(RequestState::Failed, "write-failed");
         return ModbusResponse::Error(trClient("Write failed"));
     }
-    updateRtuSendWindow(adu.size());
+    flowController_.updateRtuSendWindow(adu.size(), config_);
     requestStateMachine_.tryTransition(RequestState::Sending, "write-success");
     auto start = std::chrono::steady_clock::now();
 
@@ -734,17 +740,6 @@ bool ModbusClient::shouldWaitForResponse(int slaveId, base::FunctionCode functio
     return false;
 }
 
-void ModbusClient::waitForRtuInterFrameDelay() {
-    if (config_.mode != base::ModbusMode::RTU) {
-        return;
-    }
-
-    const auto now = std::chrono::steady_clock::now();
-    if (nextRtuSendAllowedAt_ > now) {
-        waitForAbortableDelay(nextRtuSendAllowedAt_ - now);
-    }
-}
-
 bool ModbusClient::waitForAbortableDelay(std::chrono::steady_clock::duration delay) {
     if (delay <= std::chrono::steady_clock::duration::zero()) {
         return !aborted_.load();
@@ -763,15 +758,6 @@ bool ModbusClient::waitForAbortableDelay(std::chrono::steady_clock::duration del
         });
     }
     return !aborted_.load();
-}
-
-void ModbusClient::updateRtuSendWindow(qsizetype frameBytes) {
-    if (config_.mode != base::ModbusMode::RTU) {
-        return;
-    }
-
-    const auto now = std::chrono::steady_clock::now();
-    nextRtuSendAllowedAt_ = now + FrameExtractor::calculateFrameDuration(config_, frameBytes) + FrameExtractor::calculateInterFrameDelay(config_);
 }
 
 void ModbusClient::onDataReceived(QByteArrayView data) {
