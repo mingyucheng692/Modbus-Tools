@@ -57,58 +57,12 @@ void pumpCurrentThreadEvents(std::chrono::milliseconds maxTime)
 
 } // namespace
 
-const char* ModbusClient::toString(ConnectionState state) {
-    switch (state) {
-    case ConnectionState::Disconnected: return "Disconnected";
-    case ConnectionState::Connecting: return "Connecting";
-    case ConnectionState::Connected: return "Connected";
-    case ConnectionState::Reconnecting: return "Reconnecting";
-    case ConnectionState::Disconnecting: return "Disconnecting";
-    case ConnectionState::Failed: return "Failed";
-    }
-    return "Unknown";
-}
-
-const char* ModbusClient::toString(RequestState state) {
-    switch (state) {
-    case RequestState::Idle: return "Idle";
-    case RequestState::Sending: return "Sending";
-    case RequestState::Waiting: return "Waiting";
-    case RequestState::Completed: return "Completed";
-    case RequestState::Failed: return "Failed";
-    case RequestState::Aborted: return "Aborted";
-    }
-    return "Unknown";
-}
-
-void ModbusClient::transitionConnectionState(ConnectionState newState, const char* reason) {
-    ConnectionState oldState = connectionState_.exchange(newState);
-    if (oldState == newState) {
-        return;
-    }
-    MODBUS_TOOLS_VERBOSE_INFO("ModbusClient: connection {} -> {} ({})",
-                              toString(oldState),
-                              toString(newState),
-                              reason);
-}
-
-void ModbusClient::transitionTo(RequestState newState, const char* reason) {
-    RequestState oldState = requestState_.exchange(newState);
-    if (oldState == newState) {
-        return;
-    }
-    MODBUS_TOOLS_VERBOSE_INFO("ModbusClient: state {} -> {} ({})",
-                              toString(oldState),
-                              toString(newState),
-                              reason);
-}
-
 ModbusClient::ConnectionState ModbusClient::connectionState() const {
-    return connectionState_.load();
+    return connectionStateMachine_.currentState();
 }
 
 ModbusClient::RequestState ModbusClient::requestState() const {
-    return requestState_.load();
+    return requestStateMachine_.currentState();
 }
 
 int ModbusClient::enqueuePendingRequest(const base::Pdu& request, int slaveId) {
@@ -210,27 +164,30 @@ bool ModbusClient::connect() {
     const bool connected = ensureConnected(config_.autoReconnect);
     if (connected) {
         clearRuntimeState(false);
-        transitionTo(RequestState::Idle, "connect");
+        requestStateMachine_.tryTransition(RequestState::Idle, "connect");
     }
     return connected;
 }
 
 void ModbusClient::disconnect() {
     aborted_ = true;
-    transitionConnectionState(ConnectionState::Disconnecting, "disconnect");
+    connectionStateMachine_.tryTransition(ConnectionState::Disconnecting, "disconnect");
     if (channel_) {
         channel_->close();
     }
     clearRuntimeState(true);
     aborted_ = false;
-    transitionConnectionState(ConnectionState::Disconnected, "disconnect-complete");
-    transitionTo(RequestState::Idle, "disconnect");
+    connectionStateMachine_.forceReset(ConnectionState::Disconnected);
+    requestStateMachine_.tryTransition(RequestState::Idle, "disconnect");
 }
 
 void ModbusClient::abort() {
     spdlog::info("ModbusClient: Abort requested");
     aborted_ = true;
-    transitionTo(RequestState::Aborted, "abort");
+    const auto current = requestStateMachine_.currentState();
+    if (current != RequestState::Completed && current != RequestState::Failed) {
+        requestStateMachine_.tryTransition(RequestState::Aborted, "abort");
+    }
     cv_.notify_all();
 }
 
@@ -253,7 +210,7 @@ void ModbusClient::setConfig(const base::ModbusConfig& config) {
         config.retryBackoffFactor,
         config.retryJitterPercent});
     if (isConnected()) {
-        // 如果已经连接，动态更新超时
+        // 如果已经连接，动态更新超�?
         io::Timeouts timeouts;
         timeouts.readMs = config_.timeoutMs;
         timeouts.writeMs = config_.timeoutMs;
@@ -265,7 +222,7 @@ bool ModbusClient::ensureConnected(bool allowReconnect) {
     if (!channel_) {
         std::lock_guard<std::mutex> lock(mutex_);
         lastChannelError_ = trClient("No channel attached");
-        transitionConnectionState(ConnectionState::Failed, "no-channel");
+        connectionStateMachine_.tryTransition(ConnectionState::Failed, "no-channel");
         return false;
     }
 
@@ -275,7 +232,7 @@ bool ModbusClient::ensureConnected(bool allowReconnect) {
     channel_->setTimeouts(timeouts);
 
     if (channel_->isOpen()) {
-        transitionConnectionState(ConnectionState::Connected, "already-open");
+        connectionStateMachine_.tryTransition(ConnectionState::Connected, "already-open");
         return true;
     }
 
@@ -285,11 +242,11 @@ bool ModbusClient::ensureConnected(bool allowReconnect) {
         if (aborted_.load()) {
             std::lock_guard<std::mutex> lock(mutex_);
             lastChannelError_ = trClient("Aborted");
-            transitionConnectionState(ConnectionState::Failed, "connect-aborted");
+            connectionStateMachine_.tryTransition(ConnectionState::Failed, "connect-aborted");
             return false;
         }
 
-        transitionConnectionState(attempt == 0 ? ConnectionState::Connecting : ConnectionState::Reconnecting,
+        connectionStateMachine_.tryTransition(attempt == 0 ? ConnectionState::Connecting : ConnectionState::Reconnecting,
                                   attempt == 0 ? "connect-attempt" : "reconnect-attempt");
         {
             std::lock_guard<std::mutex> lock(mutex_);
@@ -302,13 +259,13 @@ bool ModbusClient::ensureConnected(bool allowReconnect) {
         } else {
             const auto deadline = std::chrono::steady_clock::now() + std::chrono::milliseconds(config_.timeoutMs);
             if (waitForChannelState(io::ChannelState::Open, deadline, &connectError)) {
-                transitionConnectionState(ConnectionState::Connected, "connect-success");
+                connectionStateMachine_.tryTransition(ConnectionState::Connected, "connect-success");
                 return true;
             }
         }
 
         channel_->close();
-        transitionConnectionState(ConnectionState::Failed, "connect-failed");
+        connectionStateMachine_.tryTransition(ConnectionState::Failed, "connect-failed");
         if (attempt + 1 >= attempts) {
             break;
         }
@@ -323,7 +280,7 @@ bool ModbusClient::ensureConnected(bool allowReconnect) {
         if (!waitForAbortableDelay(std::chrono::milliseconds(reconnectDelayMs))) {
             std::lock_guard<std::mutex> lock(mutex_);
             lastChannelError_ = trClient("Aborted");
-            transitionConnectionState(ConnectionState::Failed, "reconnect-aborted");
+            connectionStateMachine_.tryTransition(ConnectionState::Failed, "reconnect-aborted");
             return false;
         }
     }
@@ -477,11 +434,11 @@ ModbusResponse ModbusClient::sendRequest(const base::Pdu& request, int slaveId) 
     retryStrategy_.reset();
     ModbusResponse lastResponse = ModbusResponse::Error(trClient("Unknown error"));
     const int requestId = enqueuePendingRequest(request, slaveId);
-    transitionTo(RequestState::Idle, "request-start");
+    requestStateMachine_.tryTransition(RequestState::Idle, "request-start");
 
     for (;;) {
         if (aborted_) {
-            transitionTo(RequestState::Aborted, "request-aborted-before-send");
+            requestStateMachine_.tryTransition(RequestState::Aborted, "request-aborted-before-send");
             finishPendingRequest(requestId, false, "Aborted");
             return ModbusResponse::Error(trClient("Aborted"), retryStrategy_.attemptCount());
         }
@@ -490,21 +447,21 @@ ModbusResponse ModbusClient::sendRequest(const base::Pdu& request, int slaveId) 
         lastResponse.attemptCount = retryStrategy_.attemptCount() + 1;
         lastResponse.retryCount = retryStrategy_.attemptCount();
         if (lastResponse.isSuccess) {
-            transitionTo(RequestState::Completed, "request-success");
+            requestStateMachine_.tryTransition(RequestState::Completed, "request-success");
             finishPendingRequest(requestId, true, QString());
             return lastResponse;
         }
         
         retryStrategy_.recordAttempt();
         if (retryStrategy_.shouldRetry() && !aborted_) {
-            transitionTo(RequestState::Failed, "request-retry");
+            requestStateMachine_.tryTransition(RequestState::Failed, "request-retry");
             const auto retryDelay = retryStrategy_.nextWait();
             spdlog::warn("Request failed, retrying... ({}/{}) Error: {}", 
                          retryStrategy_.attemptCount(),
                          config_.retries,
                          lastResponse.error.toStdString());
             if (!waitForAbortableDelay(retryDelay)) {
-                transitionTo(RequestState::Aborted, "request-aborted-during-backoff");
+                requestStateMachine_.tryTransition(RequestState::Aborted, "request-aborted-during-backoff");
                 finishPendingRequest(requestId, false, "Aborted");
                 return ModbusResponse::Error(trClient("Aborted"), retryStrategy_.attemptCount());
             }
@@ -513,9 +470,9 @@ ModbusResponse ModbusClient::sendRequest(const base::Pdu& request, int slaveId) 
         }
     }
     if (aborted_) {
-        transitionTo(RequestState::Aborted, "request-aborted-after-retries");
+        requestStateMachine_.tryTransition(RequestState::Aborted, "request-aborted-after-retries");
     } else {
-        transitionTo(RequestState::Failed, "request-failed");
+        requestStateMachine_.tryTransition(RequestState::Failed, "request-failed");
     }
     finishPendingRequest(requestId, false, lastResponse.error);
     return lastResponse;
@@ -543,7 +500,7 @@ void ModbusClient::sendRaw(const QByteArray& data) {
 
 ModbusResponse ModbusClient::sendRequestInternal(const base::Pdu& request, int slaveId) {
     if (!ensureConnected(config_.autoReconnect)) {
-        transitionTo(RequestState::Failed, "not-connected");
+        requestStateMachine_.tryTransition(RequestState::Failed, "not-connected");
         std::lock_guard<std::mutex> lock(mutex_);
         return ModbusResponse::Error(lastChannelError_.isEmpty() ? trClient("Not connected") : lastChannelError_);
     }
@@ -551,15 +508,15 @@ ModbusResponse ModbusClient::sendRequestInternal(const base::Pdu& request, int s
     const int targetSlaveId = (slaveId == -1) ? config_.slaveId : slaveId;
     const auto validationResult = requestValidator_.validate(request, targetSlaveId, config_.mode);
     if (!validationResult.valid) {
-        transitionTo(RequestState::Failed, "request-validation-failed");
+        requestStateMachine_.tryTransition(RequestState::Failed, "request-validation-failed");
         return ModbusResponse::Error(validationResult.error);
     }
 
-    // 1. 清理旧缓冲区和状态
+    // 1. 清理旧缓冲区和状�?
     {
         std::lock_guard<std::mutex> lock(mutex_);
         if (aborted_) {
-            transitionTo(RequestState::Aborted, "aborted-before-build");
+            requestStateMachine_.tryTransition(RequestState::Aborted, "aborted-before-build");
             return ModbusResponse::Error(trClient("Aborted"));
         }
         frameExtractor_.reset();
@@ -573,26 +530,26 @@ ModbusResponse ModbusClient::sendRequestInternal(const base::Pdu& request, int s
     // 2. 构建 ADU
     if (isRtuBroadcastRequest(targetSlaveId, request.functionCode()) &&
         !isBroadcastWriteFunction(request.functionCode())) {
-        transitionTo(RequestState::Failed, "invalid-rtu-broadcast-function");
+        requestStateMachine_.tryTransition(RequestState::Failed, "invalid-rtu-broadcast-function");
         return ModbusResponse::Error(trClient("RTU broadcast only supports write function codes"));
     }
     QByteArray adu = transport_->buildRequest(request, targetSlaveId);
     waitForRtuInterFrameDelay();
 
-    // 3. 发送数据
+    // 3. 发送数�?
     if (!channel_->write(adu)) {
-        transitionTo(RequestState::Failed, "write-failed");
+        requestStateMachine_.tryTransition(RequestState::Failed, "write-failed");
         return ModbusResponse::Error(trClient("Write failed"));
     }
     updateRtuSendWindow(adu.size());
-    transitionTo(RequestState::Sending, "write-success");
+    requestStateMachine_.tryTransition(RequestState::Sending, "write-success");
     auto start = std::chrono::steady_clock::now();
 
     if (config_.mode == base::ModbusMode::RTU) {
         std::chrono::steady_clock::time_point drainedAt{};
         const auto writeDeadline = start + std::chrono::milliseconds(config_.timeoutMs);
         if (!waitForWriteDrain(writeDeadline, &drainedAt)) {
-            transitionTo(RequestState::Failed, "write-drain-timeout");
+            requestStateMachine_.tryTransition(RequestState::Failed, "write-drain-timeout");
             std::lock_guard<std::mutex> lock(mutex_);
             const QString error = lastChannelError_.isEmpty()
                 ? trClient("Write drain timeout")
@@ -606,7 +563,7 @@ ModbusResponse ModbusClient::sendRequestInternal(const base::Pdu& request, int s
     }
 
     if (!shouldWaitForResponse(targetSlaveId, request.functionCode())) {
-        transitionTo(RequestState::Completed, "broadcast-write-no-response");
+        requestStateMachine_.tryTransition(RequestState::Completed, "broadcast-write-no-response");
         return ModbusResponse::NoResponseExpected(base::Pdu(request.functionCode(), request.data()));
     }
 
@@ -616,7 +573,7 @@ ModbusResponse ModbusClient::sendRequestInternal(const base::Pdu& request, int s
     if (config_.mode == base::ModbusMode::RTU) {
         deadline += FrameExtractor::calculateInterFrameDelay(config_);
     }
-    transitionTo(RequestState::Waiting, "wait-response");
+    requestStateMachine_.tryTransition(RequestState::Waiting, "wait-response");
     MODBUS_TOOLS_VERBOSE_INFO("ModbusClient: Entering wait loop, deadline in {}ms", config_.timeoutMs);
     
     while (true) {
@@ -628,7 +585,7 @@ ModbusResponse ModbusClient::sendRequestInternal(const base::Pdu& request, int s
             const bool stillWaiting = waitForEventOrTimeout(deadline);
             lock.lock();
             if (!stillWaiting && std::chrono::steady_clock::now() >= deadline) {
-                transitionTo(RequestState::Failed, "timeout");
+                requestStateMachine_.tryTransition(RequestState::Failed, "timeout");
                 spdlog::warn("ModbusClient: request timeout slave={} fc={} timeoutMs={}",
                              slaveId, static_cast<int>(request.functionCode()), config_.timeoutMs);
                 return ModbusResponse::Error(trClient("Timeout"));
@@ -642,7 +599,7 @@ ModbusResponse ModbusClient::sendRequestInternal(const base::Pdu& request, int s
             const bool stillWaiting = waitForEventOrTimeout(frameDeadline);
             lock.lock();
             if (!stillWaiting && std::chrono::steady_clock::now() >= deadline) {
-                transitionTo(RequestState::Failed, "timeout");
+                requestStateMachine_.tryTransition(RequestState::Failed, "timeout");
                 spdlog::warn("ModbusClient: RTU frame wait timeout slave={} fc={} timeoutMs={}",
                              slaveId, static_cast<int>(request.functionCode()), config_.timeoutMs);
                 return ModbusResponse::Error(trClient("Timeout"));
@@ -651,18 +608,18 @@ ModbusResponse ModbusClient::sendRequestInternal(const base::Pdu& request, int s
         }
         if (aborted_) {
             MODBUS_TOOLS_VERBOSE_INFO("ModbusClient: Aborted during wait");
-            transitionTo(RequestState::Aborted, "aborted-during-wait");
+            requestStateMachine_.tryTransition(RequestState::Aborted, "aborted-during-wait");
             return ModbusResponse::Error(trClient("Aborted"));
         }
         if (!lastChannelError_.isEmpty()) {
             QString err = lastChannelError_;
             lastChannelError_.clear();
-            transitionTo(RequestState::Failed, "channel-error");
+            requestStateMachine_.tryTransition(RequestState::Failed, "channel-error");
             return ModbusResponse::Error(err);
         }
 
         if (frameExtractor_.hasExceededDropLimit()) {
-            transitionTo(RequestState::Failed, "too-many-invalid-bytes");
+            requestStateMachine_.tryTransition(RequestState::Failed, "too-many-invalid-bytes");
             return ModbusResponse::Error(trClient("Too many invalid response bytes"));
         }
 
@@ -677,7 +634,7 @@ ModbusResponse ModbusClient::sendRequestInternal(const base::Pdu& request, int s
                     if (parseResult.status == transport::ParseResponseStatus::Ok && parseResult.pdu) {
                         const auto& pdu = *parseResult.pdu;
                         if (pdu.isException()) {
-                            transitionTo(RequestState::Failed, "modbus-exception");
+                            requestStateMachine_.tryTransition(RequestState::Failed, "modbus-exception");
                             const QString exceptionMessage = ExceptionInterpreter::buildMessage(
                                 slaveId,
                                 request.functionCode(),
@@ -691,19 +648,19 @@ ModbusResponse ModbusClient::sendRequestInternal(const base::Pdu& request, int s
                         }
                         const QString responseValidationError = base::validateResponsePdu(request, pdu);
                         if (!responseValidationError.isEmpty()) {
-                            transitionTo(RequestState::Failed, "response-validation-failed");
+                            requestStateMachine_.tryTransition(RequestState::Failed, "response-validation-failed");
                             return ModbusResponse::Error(responseValidationError);
                         }
                         auto rttMs = std::chrono::duration_cast<std::chrono::milliseconds>(
                             std::chrono::steady_clock::now() - start).count();
-                        transitionTo(RequestState::Completed, "response-parsed");
+                        requestStateMachine_.tryTransition(RequestState::Completed, "response-parsed");
                         return ModbusResponse::Success(pdu, static_cast<int>(rttMs));
                     }
                     if (parseResult.status == transport::ParseResponseStatus::Unmatched) {
                         lock.lock();
                         continue;
                     }
-                    transitionTo(RequestState::Failed, "response-parse-failed");
+                    requestStateMachine_.tryTransition(RequestState::Failed, "response-parse-failed");
                     return ModbusResponse::Error(trClient("Response parsing failed"));
                 }
                 break;
@@ -716,7 +673,7 @@ ModbusResponse ModbusClient::sendRequestInternal(const base::Pdu& request, int s
                 if (parseResult.status == transport::ParseResponseStatus::Ok && parseResult.pdu) {
                     const auto& pdu = *parseResult.pdu;
                     if (pdu.isException()) {
-                        transitionTo(RequestState::Failed, "modbus-exception");
+                        requestStateMachine_.tryTransition(RequestState::Failed, "modbus-exception");
                         const QString exceptionMessage = ExceptionInterpreter::buildMessage(
                             slaveId,
                             request.functionCode(),
@@ -730,11 +687,11 @@ ModbusResponse ModbusClient::sendRequestInternal(const base::Pdu& request, int s
                     }
                     const QString responseValidationError = base::validateResponsePdu(request, pdu);
                     if (!responseValidationError.isEmpty()) {
-                        transitionTo(RequestState::Failed, "response-validation-failed");
+                        requestStateMachine_.tryTransition(RequestState::Failed, "response-validation-failed");
                         return ModbusResponse::Error(responseValidationError);
                     }
                     auto rttMs = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - start).count();
-                    transitionTo(RequestState::Completed, "response-parsed");
+                    requestStateMachine_.tryTransition(RequestState::Completed, "response-parsed");
                     return ModbusResponse::Success(pdu, static_cast<int>(rttMs));
                 }
                 if (parseResult.status == transport::ParseResponseStatus::Unmatched) {
@@ -742,7 +699,7 @@ ModbusResponse ModbusClient::sendRequestInternal(const base::Pdu& request, int s
                     continue;
                 }
                 if (parseResult.status == transport::ParseResponseStatus::Invalid) {
-                    transitionTo(RequestState::Failed, "response-parse-failed");
+                    requestStateMachine_.tryTransition(RequestState::Failed, "response-parse-failed");
                     return ModbusResponse::Error(trClient("Response parsing failed"));
                 }
                 lock.lock();
@@ -750,14 +707,14 @@ ModbusResponse ModbusClient::sendRequestInternal(const base::Pdu& request, int s
             }
             if (config_.mode == base::ModbusMode::RTU && frameExtractor_.bufferSize() > 0 &&
                 frameExtractor_.isRtuFrameReadyToParse(std::chrono::steady_clock::now())) {
-                transitionTo(RequestState::Failed, "incomplete-rtu-frame-after-gap");
+                requestStateMachine_.tryTransition(RequestState::Failed, "incomplete-rtu-frame-after-gap");
                 return ModbusResponse::Error(trClient("Incomplete RTU frame after inter-frame silence"));
             }
             break;
         }
         
         if (std::chrono::steady_clock::now() >= deadline) {
-            transitionTo(RequestState::Failed, "timeout-full-packet");
+            requestStateMachine_.tryTransition(RequestState::Failed, "timeout-full-packet");
             spdlog::warn("ModbusClient: full packet wait timeout slave={} fc={} timeoutMs={}",
                          slaveId, static_cast<int>(request.functionCode()), config_.timeoutMs);
             return ModbusResponse::Error(trClient("Timeout while waiting for full packet"));
@@ -822,7 +779,8 @@ void ModbusClient::onDataReceived(QByteArrayView data) {
     MODBUS_TOOLS_VERBOSE_INFO("ModbusClient: Data received, size={}, notifying loop", data.size());
 
     frameExtractor_.feed(data);
-    responseReady_ = frameExtractor_.hasCompleteFrame();
+    responseReady_ = frameExtractor_.hasCompleteFrame() ||
+        (config_.mode == base::ModbusMode::RTU && frameExtractor_.bufferSize() > 0);
     cv_.notify_one();
 }
 
@@ -833,8 +791,8 @@ void ModbusClient::onChannelError(const QString& error) {
     }
     spdlog::warn("ModbusClient: channel error forwarded: '{}' state={} connState={}",
                  error.toStdString(),
-                 toString(requestState_.load()),
-                 toString(connectionState_.load()));
+                 RequestStateMachine::toString(requestStateMachine_.currentState()),
+                 ConnectionStateMachine::toString(connectionStateMachine_.currentState()));
     cv_.notify_one();
 }
 

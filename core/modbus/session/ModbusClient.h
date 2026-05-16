@@ -15,6 +15,8 @@
 #include "FrameExtractor.h"
 #include "BackoffCalculator.h"
 #include "RetryStrategy.h"
+#include "ConnectionStateMachine.h"
+#include "RequestStateMachine.h"
 #include "../transport/ITransport.h"
 #include "../../io/IChannel.h"
 #include <mutex>
@@ -28,23 +30,8 @@ namespace modbus::session {
 
 class ModbusClient : public IModbusClient {
 public:
-    enum class ConnectionState {
-        Disconnected,
-        Connecting,
-        Connected,
-        Reconnecting,
-        Disconnecting,
-        Failed
-    };
-
-    enum class RequestState {
-        Idle,
-        Sending,
-        Waiting,
-        Completed,
-        Failed,
-        Aborted
-    };
+    using ConnectionState = ConnectionStateMachine::State;
+    using RequestState = RequestStateMachine::State;
 
     ModbusClient(std::shared_ptr<io::IChannel> channel, 
                  std::shared_ptr<transport::ITransport> transport);
@@ -81,10 +68,6 @@ private:
     bool waitForWriteDrain(std::chrono::steady_clock::time_point deadline,
                            std::chrono::steady_clock::time_point* drainedAt);
     bool waitForEventOrTimeout(std::chrono::steady_clock::time_point deadline);
-    void transitionConnectionState(ConnectionState newState, const char* reason);
-    static const char* toString(ConnectionState state);
-    void transitionTo(RequestState newState, const char* reason);
-    static const char* toString(RequestState state);
     bool isRtuBroadcastRequest(int slaveId, base::FunctionCode functionCode) const;
     bool shouldWaitForResponse(int slaveId, base::FunctionCode functionCode) const;
     void waitForRtuInterFrameDelay();
@@ -111,8 +94,8 @@ private:
     // 保护 sendRequest 串行执行，避免请求路径发生重入
     std::recursive_mutex requestMutex_;
     std::atomic<bool> aborted_ {false};
-    std::atomic<ConnectionState> connectionState_ {ConnectionState::Disconnected};
-    std::atomic<RequestState> requestState_ {RequestState::Idle};
+    ConnectionStateMachine connectionStateMachine_;
+    RequestStateMachine requestStateMachine_;
     std::mutex pendingMutex_;
     FrameExtractor frameExtractor_;
     RetryStrategy retryStrategy_;

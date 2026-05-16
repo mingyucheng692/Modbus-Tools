@@ -40,6 +40,10 @@ target_sources(core PRIVATE
     modbus/session/BackoffCalculator.cpp
     modbus/session/RetryStrategy.h
     modbus/session/RetryStrategy.cpp
+    modbus/session/ConnectionStateMachine.h
+    modbus/session/ConnectionStateMachine.cpp
+    modbus/session/RequestStateMachine.h
+    modbus/session/RequestStateMachine.cpp
     # modbus dispatch
     modbus/dispatch/ModbusWorker.h
     modbus/dispatch/ModbusWorker.cpp
