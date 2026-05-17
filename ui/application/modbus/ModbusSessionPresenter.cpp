@@ -417,7 +417,7 @@ void ModbusSessionPresenter::handleRequestFinished(int requestId,
     if (generation != connectionGeneration_) return;
     if (!requestService_) return;
 
-    auto trackingInfo = requestService_->lookupAndRemove(requestId);
+    auto trackingInfo = requestService_->lookup(requestId);
     if (!trackingInfo.has_value()) {
         return;
     }

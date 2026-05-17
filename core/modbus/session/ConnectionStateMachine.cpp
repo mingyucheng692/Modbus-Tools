@@ -38,7 +38,7 @@ bool ConnectionStateMachine::tryTransition(State newState, const char* reason) {
 
         if (state_.compare_exchange_weak(oldState, newState,
                 std::memory_order_acq_rel, std::memory_order_relaxed)) {
-            spdlog::info("ConnectionStateMachine: {} -> {} ({})",
+            spdlog::debug("ConnectionStateMachine: {} -> {} ({})",
                           toString(oldState), toString(newState),
                           reason ? reason : "");
             return true;

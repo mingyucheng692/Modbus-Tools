@@ -51,6 +51,7 @@ public:
                                          const QString& fmt, int slaveId, int quantity);
     bool validateRawData(const QByteArray& data, QString* errorOut = nullptr);
 
+    std::optional<RequestTrackingInfo> lookup(int requestId) const;
     std::optional<RequestTrackingInfo> lookupAndRemove(int requestId);
     void clearAll();
 

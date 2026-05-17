@@ -199,10 +199,6 @@ void ModbusTcpPage::setupUi() {
                 auto kind = trackingInfo->kind;
                 uint16_t addr = trackingInfo->address;
 
-                if (kind == ui::application::modbus::RequestKind::Poll) {
-                    return;
-                }
-
                 if (response.isSuccess && linked_) {
                     emit linkageDataReceived(response.pdu,
                                              modbus::core::parser::ProtocolType::Tcp,

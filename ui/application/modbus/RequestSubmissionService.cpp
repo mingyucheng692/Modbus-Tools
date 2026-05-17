@@ -224,6 +224,21 @@ bool RequestSubmissionService::validateRawData(const QByteArray& data, QString* 
     return true;
 }
 
+std::optional<RequestTrackingInfo> RequestSubmissionService::lookup(int requestId) const {
+    auto itStart = requestStart_.find(requestId);
+    auto itKind = requestKinds_.find(requestId);
+    auto itAddr = requestAddrs_.find(requestId);
+    if (itStart == requestStart_.end() || itKind == requestKinds_.end() || itAddr == requestAddrs_.end()) {
+        return std::nullopt;
+    }
+
+    RequestTrackingInfo info;
+    info.kind = itKind->second;
+    info.address = itAddr->second;
+    info.startTime = itStart->second;
+    return info;
+}
+
 std::optional<RequestTrackingInfo> RequestSubmissionService::lookupAndRemove(int requestId) {
     auto itStart = requestStart_.find(requestId);
     auto itKind = requestKinds_.find(requestId);

@@ -119,7 +119,7 @@ void Init(const QString& logDir)
         sinks.end(),
         spdlog::thread_pool(),
         spdlog::async_overflow_policy::block);
-    logger->set_pattern("%Y-%m-%d %H:%M:%S.%e [%t] [%n] [%^%l%$] %v");
+    logger->set_pattern("%Y-%m-%d %H:%M:%S.%e [%t] [%^%l%$] %v");
     logger->set_level(kDefaultLogLevel);
     logger->flush_on(kDefaultFlushLevel);
     spdlog::set_error_handler([](const std::string& message) {
