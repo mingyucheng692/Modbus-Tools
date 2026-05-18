@@ -38,7 +38,7 @@ constexpr auto kDefaultLogLevel = spdlog::level::info;
 #if defined(MODBUS_TOOLS_ENABLE_VERBOSE_RUNTIME_LOGS) && MODBUS_TOOLS_ENABLE_VERBOSE_RUNTIME_LOGS
 constexpr auto kDefaultFlushLevel = spdlog::level::info;
 #else
-constexpr auto kDefaultFlushLevel = spdlog::level::err;
+constexpr auto kDefaultFlushLevel = spdlog::level::warn;
 #endif
 
 static void QtMessageHandler(QtMsgType type, const QMessageLogContext& context, const QString& message)
@@ -123,7 +123,7 @@ void Init(const QString& logDir)
     logger->set_level(kDefaultLogLevel);
     logger->flush_on(kDefaultFlushLevel);
     spdlog::set_error_handler([](const std::string& message) {
-        qWarning("spdlog failure: %s", message.c_str());
+        fprintf(stderr, "spdlog failure: %s\n", message.c_str());
     });
 
     spdlog::set_default_logger(logger);

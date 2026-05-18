@@ -17,7 +17,9 @@
 #include <chrono>
 #include <algorithm>
 #include <cmath>
+#include <map>
 #include <random>
+#include <tuple>
 #include <QtEndian>
 #include <QCoreApplication>
 #include <QEventLoop>
@@ -631,6 +633,9 @@ ModbusResponse ModbusClient::sendRequestInternal(const base::Pdu& request, int s
 
         responseReady_ = false;
 
+        static std::map<std::tuple<uint8_t, uint8_t, uint8_t>,
+                       std::chrono::steady_clock::time_point> dupeTracker;
+
         while (true) {
             if (config_.mode == base::ModbusMode::RTU) {
                 auto frameOpt = frameExtractor_.tryPopRtuResponseFrame(now);
@@ -645,7 +650,20 @@ ModbusResponse ModbusClient::sendRequestInternal(const base::Pdu& request, int s
                                 slaveId,
                                 request.functionCode(),
                                 pdu.exceptionCode());
-                            spdlog::warn("ModbusClient: {}", exceptionMessage.toStdString());
+                            auto dupeKey = std::make_tuple(static_cast<uint8_t>(slaveId),
+                                                           static_cast<uint8_t>(request.functionCode()),
+                                                           static_cast<uint8_t>(pdu.exceptionCode()));
+                            auto now = std::chrono::steady_clock::now();
+                            auto it = dupeTracker.find(dupeKey);
+                            if (it != dupeTracker.end() && (now - it->second) < std::chrono::seconds(5)) {
+                                spdlog::debug("ModbusClient: Modbus exception response. "
+                                              "Slave={} FC=0x{:02X} Exception=0x{:02X} (duplicate within 5s)",
+                                              slaveId, static_cast<int>(request.functionCode()),
+                                              static_cast<int>(pdu.exceptionCode()));
+                            } else {
+                                spdlog::warn("ModbusClient: {}", exceptionMessage.toStdString());
+                                dupeTracker[dupeKey] = now;
+                            }
                             return ModbusResponse::Error(exceptionMessage);
                         }
                         if (pdu.originalFunctionCode() != request.functionCode()) {
@@ -684,7 +702,20 @@ ModbusResponse ModbusClient::sendRequestInternal(const base::Pdu& request, int s
                             slaveId,
                             request.functionCode(),
                             pdu.exceptionCode());
-                        spdlog::warn("ModbusClient: {}", exceptionMessage.toStdString());
+                        auto dupeKey = std::make_tuple(static_cast<uint8_t>(slaveId),
+                                                       static_cast<uint8_t>(request.functionCode()),
+                                                       static_cast<uint8_t>(pdu.exceptionCode()));
+                        auto now = std::chrono::steady_clock::now();
+                        auto it = dupeTracker.find(dupeKey);
+                        if (it != dupeTracker.end() && (now - it->second) < std::chrono::seconds(5)) {
+                            spdlog::debug("ModbusClient: Modbus exception response. "
+                                          "Slave={} FC=0x{:02X} Exception=0x{:02X} (duplicate within 5s)",
+                                          slaveId, static_cast<int>(request.functionCode()),
+                                          static_cast<int>(pdu.exceptionCode()));
+                        } else {
+                            spdlog::warn("ModbusClient: {}", exceptionMessage.toStdString());
+                            dupeTracker[dupeKey] = now;
+                        }
                         return ModbusResponse::Error(exceptionMessage);
                     }
                     if (pdu.originalFunctionCode() != request.functionCode()) {

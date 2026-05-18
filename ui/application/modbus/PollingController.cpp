@@ -192,6 +192,7 @@ void PollingController::handlePollCompletion(bool success, int rttMs, int retryC
             }
 
             if (shouldLogEscalatedError) {
+                spdlog::error("{}", event.summary.toStdString());
                 emit trafficEvent(event);
                 pollLastErrorLogTime_ = now;
             }
@@ -204,6 +205,9 @@ void PollingController::handlePollCompletion(bool success, int rttMs, int retryC
                     tr("Poll escalated after %1 consecutive failures").arg(pollConsecutiveErrorCount_));
             }
         } else {
+            event.summary = tr("Poll Warning: %1 consecutive failure(s): %2")
+                .arg(pollConsecutiveErrorCount_)
+                .arg(error);
             emit trafficEvent(event);
             pollLastErrorText_ = error;
             if (currentState_ == PollState::Polling) {
@@ -235,6 +239,9 @@ void PollingController::resetPollErrorTracking() {
 void PollingController::flushPollSummary(bool force) {
     const int total = pollSummarySuccessCount_ + pollSummaryErrorCount_;
     if (total <= 0) {
+        return;
+    }
+    if (!force && pollErrorEscalated_ && pollSummarySuccessCount_ == 0) {
         return;
     }
     const auto now = std::chrono::steady_clock::now();
