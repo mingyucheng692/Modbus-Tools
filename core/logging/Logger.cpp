@@ -35,6 +35,9 @@ spdlog::filename_t ToSpdlogFilename(const QString& path)
 
 constexpr auto kDefaultLogLevel = spdlog::level::info;
 
+// Controlled by CMake option MODBUS_TOOLS_ENABLE_VERBOSE_RUNTIME_LOGS.
+// ON:  flush after every log call (verbose diagnostics mode).
+// OFF: flush on warn or above (production default — see LoggingStrategy.h).
 #if defined(MODBUS_TOOLS_ENABLE_VERBOSE_RUNTIME_LOGS) && MODBUS_TOOLS_ENABLE_VERBOSE_RUNTIME_LOGS
 constexpr auto kDefaultFlushLevel = spdlog::level::info;
 #else

@@ -13,6 +13,8 @@
 #include <memory>
 #include <spdlog/spdlog.h>
 
+// Controls MODBUS_TOOLS_VERBOSE_INFO macro (spdlog::info vs ((void)0)).
+// Corollary: also gates kDefaultFlushLevel (info vs warn) in Logger.cpp.
 #if defined(MODBUS_TOOLS_ENABLE_VERBOSE_RUNTIME_LOGS) && MODBUS_TOOLS_ENABLE_VERBOSE_RUNTIME_LOGS
 #define MODBUS_TOOLS_VERBOSE_INFO(...) spdlog::info(__VA_ARGS__)
 #else
