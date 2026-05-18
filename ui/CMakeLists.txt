@@ -42,6 +42,8 @@ target_sources(ui PRIVATE
     application/modbus/ModbusSessionPresenter.cpp
     application/modbus/ModbusSessionPresenter.h
     application/modbus/ModbusTypes.h
+    logging/LogBridge.cpp
+    logging/LogBridge.h
     assets.qrc
     AnalyzerLinkageController.cpp
     AnalyzerLinkageController.h

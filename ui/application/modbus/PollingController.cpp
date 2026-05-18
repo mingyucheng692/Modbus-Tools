@@ -10,6 +10,7 @@
 #include "PollingController.h"
 #include "RequestSubmissionService.h"
 #include "AppConstants.h"
+#include "../../logging/LogBridge.h"
 #include <QCoreApplication>
 #include <algorithm>
 #include <spdlog/spdlog.h>
@@ -192,7 +193,7 @@ void PollingController::handlePollCompletion(bool success, int rttMs, int retryC
             }
 
             if (shouldLogEscalatedError) {
-                spdlog::error("{}", event.summary.toStdString());
+                ui::logging::relay(event);
                 emit trafficEvent(event);
                 pollLastErrorLogTime_ = now;
             }

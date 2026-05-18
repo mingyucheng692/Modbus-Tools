@@ -661,7 +661,10 @@ ModbusResponse ModbusClient::sendRequestInternal(const base::Pdu& request, int s
                                               slaveId, static_cast<int>(request.functionCode()),
                                               static_cast<int>(pdu.exceptionCode()));
                             } else {
-                                spdlog::warn("ModbusClient: {}", exceptionMessage.toStdString());
+                                spdlog::debug("ModbusClient: Modbus exception response. "
+                                              "Slave={} FC=0x{:02X} Exception=0x{:02X}",
+                                              slaveId, static_cast<int>(request.functionCode()),
+                                              static_cast<int>(pdu.exceptionCode()));
                                 dupeTracker[dupeKey] = now;
                             }
                             return ModbusResponse::Error(exceptionMessage);
@@ -713,7 +716,10 @@ ModbusResponse ModbusClient::sendRequestInternal(const base::Pdu& request, int s
                                           slaveId, static_cast<int>(request.functionCode()),
                                           static_cast<int>(pdu.exceptionCode()));
                         } else {
-                            spdlog::warn("ModbusClient: {}", exceptionMessage.toStdString());
+                            spdlog::debug("ModbusClient: Modbus exception response. "
+                                          "Slave={} FC=0x{:02X} Exception=0x{:02X}",
+                                          slaveId, static_cast<int>(request.functionCode()),
+                                          static_cast<int>(pdu.exceptionCode()));
                             dupeTracker[dupeKey] = now;
                         }
                         return ModbusResponse::Error(exceptionMessage);
