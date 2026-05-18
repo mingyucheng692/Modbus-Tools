@@ -183,7 +183,7 @@ void TcpChannel::flushPendingWrites() {
         const qint64 accepted = socket_.write(dataPtr, remaining);
         if (accepted < 0) {
             const QString err = socket_.errorString().isEmpty() ? QStringLiteral("TCP write failed") : socket_.errorString();
-            spdlog::warn("TcpChannel: write failed endpoint={}:{} error={}",
+            spdlog::error("TcpChannel: write failed endpoint={}:{} error={}",
                          ip_.toStdString(), port_, err.toStdString());
             resetWriteState();
             disarmWriteTimeout();

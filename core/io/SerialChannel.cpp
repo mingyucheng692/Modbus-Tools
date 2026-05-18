@@ -203,7 +203,7 @@ void SerialChannel::flushPendingWrites() {
         const qint64 accepted = serial_.write(dataPtr, remaining);
         if (accepted < 0) {
             const QString err = serial_.errorString().isEmpty() ? QStringLiteral("Serial write failed") : serial_.errorString();
-            spdlog::warn("SerialChannel: write failed port={} error={}",
+            spdlog::error("SerialChannel: write failed port={} error={}",
                          config_.portName.toStdString(), err.toStdString());
             resetWriteState();
             disarmWriteTimeout();
