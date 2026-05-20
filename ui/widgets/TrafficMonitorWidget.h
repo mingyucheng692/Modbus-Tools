@@ -13,6 +13,7 @@
 #include <QByteArray>
 #include <QList>
 #include "../common/TrafficEvent.h"
+#include "LogListModel.h"
 
 class QListView;
 class QCheckBox;
@@ -30,7 +31,6 @@ class ISettingsService;
 
 namespace ui::widgets {
 class CollapsibleSection;
-class TrafficLogModel;
 
 class TrafficMonitorWidget : public QWidget {
     Q_OBJECT
@@ -89,7 +89,7 @@ private:
 
     CollapsibleSection* section_ = nullptr;
     QListView* logView_ = nullptr;
-    TrafficLogModel* logModel_ = nullptr;
+    LogListModel* logModel_ = nullptr;
     QCheckBox* autoScrollCheck_ = nullptr;
     QPushButton* pauseBtn_ = nullptr;
     QCheckBox* rawFramesCheck_ = nullptr;

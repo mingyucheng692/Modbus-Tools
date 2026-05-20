@@ -68,6 +68,8 @@ target_sources(ui PRIVATE
     widgets/FunctionWidget.cpp
     widgets/ControlWidget.cpp
     widgets/TrafficMonitorWidget.cpp
+    widgets/LogListModel.cpp
+    widgets/LogListModel.h
     widgets/GenericInputWidget.cpp
     widgets/GenericInputWidget.h
     widgets/CollapsibleSection.cpp

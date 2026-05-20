@@ -14,7 +14,6 @@
 #include <QVBoxLayout>
 #include <QHBoxLayout>
 #include <QListView>
-#include <QAbstractListModel>
 #include <QCheckBox>
 #include <QComboBox>
 #include <QLabel>
@@ -37,91 +36,10 @@
 
 namespace ui::widgets {
 
-struct TrafficLogEntry {
-    QString text;
-    QColor color = Qt::gray;
-};
-
-class TrafficLogModel final : public QAbstractListModel {
-public:
-    explicit TrafficLogModel(QObject* parent = nullptr)
-        : QAbstractListModel(parent) {}
-
-    int rowCount(const QModelIndex& parent = QModelIndex()) const override {
-        return parent.isValid() ? 0 : entries_.size();
-    }
-
-    QVariant data(const QModelIndex& index, int role) const override {
-        if (!index.isValid() || index.row() < 0 || index.row() >= entries_.size()) {
-            return {};
-        }
-        const auto& entry = entries_.at(index.row());
-        if (role == Qt::DisplayRole) {
-            return entry.text;
-        }
-        if (role == Qt::ForegroundRole) {
-            return entry.color;
-        }
-        return {};
-    }
-
-    void appendEntries(const QList<TrafficLogEntry>& newEntries) {
-        if (newEntries.isEmpty()) {
-            return;
-        }
-        const int maxRows = app::constants::Values::Ui::kTrafficMonitorMaxBlockCount;
-        QList<TrafficLogEntry> entriesToAppend = newEntries;
-        while (entriesToAppend.size() > maxRows) {
-            entriesToAppend.removeFirst();
-        }
-        const int overflow = qMax(0, entries_.size() + entriesToAppend.size() - maxRows);
-        if (overflow > 0) {
-            beginRemoveRows(QModelIndex(), 0, overflow - 1);
-            for (int i = 0; i < overflow; ++i) {
-                entries_.removeFirst();
-            }
-            endRemoveRows();
-        }
-
-        const int beginRow = entries_.size();
-        const int endRow = beginRow + entriesToAppend.size() - 1;
-        beginInsertRows(QModelIndex(), beginRow, endRow);
-        for (const auto& entry : entriesToAppend) {
-            entries_.append(entry);
-        }
-        endInsertRows();
-    }
-
-    void clearAll() {
-        if (entries_.isEmpty()) {
-            return;
-        }
-        beginResetModel();
-        entries_.clear();
-        endResetModel();
-    }
-
-    void replaceEntries(const QList<TrafficLogEntry>& newEntries) {
-        beginResetModel();
-        entries_ = newEntries;
-        endResetModel();
-    }
-
-    QString lineAt(int row) const {
-        if (row < 0 || row >= entries_.size()) {
-            return {};
-        }
-        return entries_.at(row).text;
-    }
-
-private:
-    QList<TrafficLogEntry> entries_;
-};
-
 namespace {
 
-QList<TrafficLogEntry> toSingleEntryList(const QString& text, const QColor& color) {
-    return {TrafficLogEntry{text, color}};
+QList<LogEntry> toSingleEntryList(const QString& text, const QColor& color) {
+    return {LogEntry{text, color}};
 }
 
 constexpr int kUiFlushIntervalMs = 120;
@@ -205,7 +123,7 @@ void TrafficMonitorWidget::setupUi() {
 
     // Log View
     logView_ = new QListView(this);
-    logModel_ = new TrafficLogModel(this);
+    logModel_ = new LogListModel(this);
     logView_->setModel(logModel_);
     logView_->setAlternatingRowColors(true);
     logView_->setSelectionMode(QAbstractItemView::ExtendedSelection);
@@ -367,7 +285,7 @@ void TrafficMonitorWidget::rebuildVisibleEntries() {
         return;
     }
 
-    QList<TrafficLogEntry> rebuiltEntries;
+    QList<LogEntry> rebuiltEntries;
     rebuiltEntries.reserve(eventHistory_.size());
     for (const auto& event : eventHistory_) {
         QString line;
@@ -533,7 +451,7 @@ void TrafficMonitorWidget::flushPendingEvents() {
         return;
     }
 
-    QList<TrafficLogEntry> batch;
+    QList<LogEntry> batch;
     batch.reserve(pendingEvents_.size());
     for (const auto& event : pendingEvents_) {
         QString line;
