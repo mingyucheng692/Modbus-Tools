@@ -405,6 +405,7 @@ void ModbusTcpPage::refreshSendDisplay() {
 }
 
 void ModbusTcpPage::retranslateUi() {
+    if (dataGroup_) dataGroup_->setTitle(tr("Data Monitor"));
     if (receiveGroup_) receiveGroup_->setTitle(tr("Receive Data"));
     if (sendGroup_) sendGroup_->setTitle(tr("Send Data"));
     if (copyReceiveButton_) copyReceiveButton_->setText(tr("Copy"));
