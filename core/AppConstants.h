@@ -131,6 +131,7 @@ public:
         inline static constexpr int kNavigationTextGap = 6;
         inline static constexpr int kNavigationRightInset = 9;
         inline static constexpr int kTrafficMonitorMaxBlockCount = 1000;
+        inline static constexpr int kByteMonitorMaxBlockCount = 50000;
     };
 };
 

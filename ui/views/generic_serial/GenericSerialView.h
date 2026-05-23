@@ -20,7 +20,7 @@ class ChannelOperationWorker;
 
 namespace ui::widgets {
 class SerialConnectionWidget;
-class TrafficMonitorWidget;
+class ByteMonitorWidget;
 class GenericInputWidget;
 class CollapsibleSection;
 }
@@ -68,7 +68,7 @@ private:
 
     // UI Components
     widgets::SerialConnectionWidget* connectionWidget_ = nullptr;
-    widgets::TrafficMonitorWidget* trafficMonitor_ = nullptr;
+    widgets::ByteMonitorWidget* monitor_ = nullptr;
     widgets::GenericInputWidget* inputWidget_ = nullptr;
     
     QCheckBox* dtrCheck_ = nullptr;

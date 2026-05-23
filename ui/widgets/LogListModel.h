@@ -23,6 +23,7 @@ struct LogEntry {
 
 class LogListModel final : public QAbstractListModel {
 public:
+    explicit LogListModel(int maxBlockCount, QObject* parent = nullptr);
     explicit LogListModel(QObject* parent = nullptr);
 
     int rowCount(const QModelIndex& parent = QModelIndex()) const override;
@@ -32,9 +33,11 @@ public:
     void clearAll();
     void replaceEntries(const QList<LogEntry>& newEntries);
     QString lineAt(int row) const;
+    void setMaxBlockCount(int count);
 
 private:
     QList<LogEntry> entries_;
+    int maxBlockCount_;
 };
 
 } // namespace ui::widgets

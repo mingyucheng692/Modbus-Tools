@@ -11,7 +11,7 @@
 #include "AppConstants.h"
 #include "../../common/ISettingsService.h"
 #include "../../widgets/TcpConnectionWidget.h"
-#include "../../widgets/TrafficMonitorWidget.h"
+#include "../../widgets/ByteMonitorWidget.h"
 #include "../../widgets/GenericInputWidget.h"
 #include "../../widgets/CollapsibleSection.h"
 #include "../../common/ConnectionAlert.h"
@@ -50,9 +50,9 @@ void GenericTcpView::setupUi() {
     mainLayout->addWidget(connectionWidget_);
 
     // 2. Central Area (Traffic Monitor)
-    trafficMonitor_ = new widgets::TrafficMonitorWidget(settingsService_, this);
-    trafficMonitor_->setSettingsGroup("tcp_client/traffic");
-    mainLayout->addWidget(trafficMonitor_);
+    monitor_ = new widgets::ByteMonitorWidget(settingsService_, this);
+    monitor_->setSettingsGroup("tcp_client/traffic");
+    mainLayout->addWidget(monitor_);
 
     // 3. Input Section (Bottom)
     inputSection_ = new widgets::CollapsibleSection(settingsService_, this);
@@ -91,7 +91,7 @@ void GenericTcpView::startWorker() {
     connect(worker, &io::ChannelOperationWorker::channelErrorOccurred, this, &GenericTcpView::onWorkerError);
     connect(worker, &io::ChannelOperationWorker::monitor, this, &GenericTcpView::onWorkerMonitor);
     connect(worker, &io::ChannelOperationWorker::fileTransferStarted, this, [this](const QString& filePath, qint64 totalBytes) {
-        trafficMonitor_->appendInfo(tr("File transfer started: %1 (%2 bytes)").arg(filePath).arg(totalBytes));
+        monitor_->appendInfo(tr("File transfer started: %1 (%2 bytes)").arg(filePath).arg(totalBytes));
     });
     connect(worker, &io::ChannelOperationWorker::fileTransferProgress, this, [this](const QString& filePath, qint64 sentBytes, qint64 totalBytes) {
         if (totalBytes <= 0) {
@@ -99,20 +99,20 @@ void GenericTcpView::startWorker() {
         }
         const int progress = static_cast<int>((sentBytes * 100) / totalBytes);
         if (progress == 100 || sentBytes == 0) {
-            trafficMonitor_->appendInfo(tr("File transfer progress: %1 %2/%3")
+            monitor_->appendInfo(tr("File transfer progress: %1 %2/%3")
                                             .arg(filePath)
                                             .arg(sentBytes)
                                             .arg(totalBytes));
         }
     });
     connect(worker, &io::ChannelOperationWorker::fileTransferFinished, this, [this](const QString& filePath) {
-        trafficMonitor_->appendInfo(tr("File transfer finished: %1").arg(filePath));
+        monitor_->appendInfo(tr("File transfer finished: %1").arg(filePath));
     });
     connect(worker, &io::ChannelOperationWorker::fileTransferFailed, this, [this](const QString& filePath, const QString& error) {
-        trafficMonitor_->appendInfo(tr("File transfer failed: %1 (%2)").arg(filePath, error));
+        monitor_->appendInfo(tr("File transfer failed: %1 (%2)").arg(filePath, error));
     });
     connect(worker, &io::ChannelOperationWorker::fileTransferCanceled, this, [this](const QString& filePath) {
-        trafficMonitor_->appendInfo(tr("File transfer canceled: %1").arg(filePath));
+        monitor_->appendInfo(tr("File transfer canceled: %1").arg(filePath));
     });
 
     workerThread_->start();
@@ -160,7 +160,7 @@ void GenericTcpView::onConnectClicked(const QString& ip, int port) {
     spdlog::info("GenericTcp: Connecting to {}:{}", ip.toStdString(), port);
     suppressDisconnectAlert_ = false;
     const quint64 generation = ++connectionGeneration_;
-    trafficMonitor_->appendInfo(tr("Connecting to %1:%2...").arg(ip).arg(port));
+    monitor_->appendInfo(tr("Connecting to %1:%2...").arg(ip).arg(port));
     
     // Invoke openTcp on worker thread
     QMetaObject::invokeMethod(worker_, "openTcp", 
@@ -229,7 +229,7 @@ void GenericTcpView::onWorkerStateChanged(io::ChannelState state, quint64 genera
         default: stateStr = tr("Unknown"); break;
     }
     
-    trafficMonitor_->appendInfo(tr("State changed: %1").arg(stateStr));
+    monitor_->appendInfo(tr("State changed: %1").arg(stateStr));
     if (transition.showDisconnectAlert) {
         ui::common::ConnectionAlert::showDisconnected(this);
     }
@@ -238,15 +238,15 @@ void GenericTcpView::onWorkerStateChanged(io::ChannelState state, quint64 genera
 
 void GenericTcpView::onWorkerError(const QString& deviceHint, const QString& error) {
     const QString hint = deviceHint.isEmpty() ? QStringLiteral("TCP") : deviceHint;
-    trafficMonitor_->appendError(tr("Error: %1").arg(error));
+    monitor_->appendError(tr("Error: %1").arg(error));
     spdlog::error("{} Error: {}", hint.toStdString(), error.toStdString());
 }
 
 void GenericTcpView::onWorkerMonitor(bool isTx, const QByteArray& data) {
     if (isTx) {
-        trafficMonitor_->appendTx(data);
+        monitor_->appendTx(data);
     } else {
-        trafficMonitor_->appendRx(data);
+        monitor_->appendRx(data);
     }
 }
 

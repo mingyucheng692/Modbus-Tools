@@ -11,7 +11,7 @@
 #include "AppConstants.h"
 #include "../../common/ISettingsService.h"
 #include "../../widgets/SerialConnectionWidget.h"
-#include "../../widgets/TrafficMonitorWidget.h"
+#include "../../widgets/ByteMonitorWidget.h"
 #include "../../widgets/GenericInputWidget.h"
 #include "../../widgets/CollapsibleSection.h"
 #include "../../common/ConnectionAlert.h"
@@ -65,9 +65,9 @@ void GenericSerialView::setupUi() {
     mainLayout->addLayout(topLayout);
 
     // 2. Central Area (Traffic Monitor)
-    trafficMonitor_ = new widgets::TrafficMonitorWidget(settingsService_, this);
-    trafficMonitor_->setSettingsGroup("serial_port/traffic");
-    mainLayout->addWidget(trafficMonitor_);
+    monitor_ = new widgets::ByteMonitorWidget(settingsService_, this);
+    monitor_->setSettingsGroup("serial_port/traffic");
+    mainLayout->addWidget(monitor_);
 
     // 3. Input Section (Bottom)
     inputSection_ = new widgets::CollapsibleSection(settingsService_, this);
@@ -117,7 +117,7 @@ void GenericSerialView::startWorker() {
     connect(worker, &io::ChannelOperationWorker::channelErrorOccurred, this, &GenericSerialView::onWorkerError);
     connect(worker, &io::ChannelOperationWorker::monitor, this, &GenericSerialView::onWorkerMonitor);
     connect(worker, &io::ChannelOperationWorker::fileTransferStarted, this, [this](const QString& filePath, qint64 totalBytes) {
-        trafficMonitor_->appendInfo(tr("File transfer started: %1 (%2 bytes)").arg(filePath).arg(totalBytes));
+        monitor_->appendInfo(tr("File transfer started: %1 (%2 bytes)").arg(filePath).arg(totalBytes));
     });
     connect(worker, &io::ChannelOperationWorker::fileTransferProgress, this, [this](const QString& filePath, qint64 sentBytes, qint64 totalBytes) {
         if (totalBytes <= 0) {
@@ -125,20 +125,20 @@ void GenericSerialView::startWorker() {
         }
         const int progress = static_cast<int>((sentBytes * 100) / totalBytes);
         if (progress == 100 || sentBytes == 0) {
-            trafficMonitor_->appendInfo(tr("File transfer progress: %1 %2/%3")
+            monitor_->appendInfo(tr("File transfer progress: %1 %2/%3")
                                             .arg(filePath)
                                             .arg(sentBytes)
                                             .arg(totalBytes));
         }
     });
     connect(worker, &io::ChannelOperationWorker::fileTransferFinished, this, [this](const QString& filePath) {
-        trafficMonitor_->appendInfo(tr("File transfer finished: %1").arg(filePath));
+        monitor_->appendInfo(tr("File transfer finished: %1").arg(filePath));
     });
     connect(worker, &io::ChannelOperationWorker::fileTransferFailed, this, [this](const QString& filePath, const QString& error) {
-        trafficMonitor_->appendInfo(tr("File transfer failed: %1 (%2)").arg(filePath, error));
+        monitor_->appendInfo(tr("File transfer failed: %1 (%2)").arg(filePath, error));
     });
     connect(worker, &io::ChannelOperationWorker::fileTransferCanceled, this, [this](const QString& filePath) {
-        trafficMonitor_->appendInfo(tr("File transfer canceled: %1").arg(filePath));
+        monitor_->appendInfo(tr("File transfer canceled: %1").arg(filePath));
     });
     
     workerThread_->start();
@@ -183,7 +183,7 @@ void GenericSerialView::onConnectClicked(const io::SerialConfig& config) {
     if (!worker_) return;
     
     spdlog::info("GenericSerial: Connecting to {}", config.portName.toStdString());
-    trafficMonitor_->appendInfo(tr("Opening %1...").arg(config.portName));
+    monitor_->appendInfo(tr("Opening %1...").arg(config.portName));
     
     QMetaObject::invokeMethod(worker_, "openSerial", 
                               Qt::QueuedConnection, 
@@ -234,20 +234,20 @@ void GenericSerialView::onWorkerStateChanged(io::ChannelState state) {
         default: stateStr = tr("Unknown"); break;
     }
     
-    trafficMonitor_->appendInfo(tr("State changed: %1").arg(stateStr));
+    monitor_->appendInfo(tr("State changed: %1").arg(stateStr));
 }
 
 void GenericSerialView::onWorkerError(const QString& deviceHint, const QString& error) {
     const QString hint = deviceHint.isEmpty() ? QStringLiteral("Serial") : deviceHint;
-    trafficMonitor_->appendError(tr("Error: %1").arg(error));
+    monitor_->appendError(tr("Error: %1").arg(error));
     spdlog::error("{} Error: {}", hint.toStdString(), error.toStdString());
 }
 
 void GenericSerialView::onWorkerMonitor(bool isTx, const QByteArray& data) {
     if (isTx) {
-        trafficMonitor_->appendTx(data);
+        monitor_->appendTx(data);
     } else {
-        trafficMonitor_->appendRx(data);
+        monitor_->appendRx(data);
     }
 }
 

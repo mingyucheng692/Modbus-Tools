@@ -20,7 +20,7 @@ class ChannelOperationWorker;
 
 namespace ui::widgets {
 class TcpConnectionWidget;
-class TrafficMonitorWidget;
+class ByteMonitorWidget;
 class GenericInputWidget;
 class CollapsibleSection;
 }
@@ -61,7 +61,7 @@ private:
 
     // UI Components
     widgets::TcpConnectionWidget* connectionWidget_ = nullptr;
-    widgets::TrafficMonitorWidget* trafficMonitor_ = nullptr;
+    widgets::ByteMonitorWidget* monitor_ = nullptr;
     widgets::GenericInputWidget* inputWidget_ = nullptr;
     widgets::CollapsibleSection* inputSection_ = nullptr;
 

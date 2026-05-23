@@ -12,8 +12,12 @@
 
 namespace ui::widgets {
 
+LogListModel::LogListModel(int maxBlockCount, QObject* parent)
+    : QAbstractListModel(parent),
+      maxBlockCount_(qMax(1, maxBlockCount)) {}
+
 LogListModel::LogListModel(QObject* parent)
-    : QAbstractListModel(parent) {}
+    : LogListModel(app::constants::Values::Ui::kTrafficMonitorMaxBlockCount, parent) {}
 
 int LogListModel::rowCount(const QModelIndex& parent) const {
     return parent.isValid() ? 0 : entries_.size();
@@ -37,7 +41,7 @@ void LogListModel::appendEntries(const QList<LogEntry>& newEntries) {
     if (newEntries.isEmpty()) {
         return;
     }
-    const int maxRows = app::constants::Values::Ui::kTrafficMonitorMaxBlockCount;
+    const int maxRows = maxBlockCount_;
     QList<LogEntry> entriesToAppend = newEntries;
     while (entriesToAppend.size() > maxRows) {
         entriesToAppend.removeFirst();
@@ -80,6 +84,21 @@ QString LogListModel::lineAt(int row) const {
         return {};
     }
     return entries_.at(row).text;
+}
+
+void LogListModel::setMaxBlockCount(int count) {
+    if (count < 1) {
+        return;
+    }
+    maxBlockCount_ = count;
+    while (entries_.size() > maxBlockCount_) {
+        const int removeEnd = entries_.size() - maxBlockCount_ - 1;
+        beginRemoveRows(QModelIndex(), 0, removeEnd);
+        for (int i = 0; i <= removeEnd; ++i) {
+            entries_.removeFirst();
+        }
+        endRemoveRows();
+    }
 }
 
 } // namespace ui::widgets
