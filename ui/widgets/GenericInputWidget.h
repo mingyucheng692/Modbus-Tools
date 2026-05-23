@@ -15,6 +15,7 @@
 class QTextEdit;
 class QRadioButton;
 class QCheckBox;
+class QComboBox;
 class QSpinBox;
 class QPushButton;
 class QProgressBar;
@@ -69,6 +70,8 @@ private:
     QSpinBox* intervalSpin_ = nullptr;
     QPushButton* sendBtn_ = nullptr;
     QPushButton* sendFileBtn_ = nullptr;
+    QComboBox* lineEndingCombo_ = nullptr;
+    QComboBox* encodingCombo_ = nullptr;
     
     QTimer* autoSendTimer_ = nullptr;
     QString settingsGroup_;

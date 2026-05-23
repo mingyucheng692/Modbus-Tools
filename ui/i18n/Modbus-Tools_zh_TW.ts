@@ -1,4 +1,4 @@
-﻿<?xml version="1.0" encoding="utf-8"?>
+<?xml version="1.0" encoding="utf-8"?>
 <!DOCTYPE TS>
 <TS version="2.1" language="zh_TW">
 <context>
@@ -1979,6 +1979,26 @@ Choose update method:</source>
         <location filename="../widgets/GenericInputWidget.cpp" line="246"/>
         <source>Send</source>
         <translation>發送</translation>
+    </message>
+    <message>
+        <location filename="../widgets/GenericInputWidget.cpp" line="69"/>
+        <source>No LF</source>
+        <translation>無換行</translation>
+    </message>
+    <message>
+        <location filename="../widgets/GenericInputWidget.cpp" line="70"/>
+        <source>CR (\r)</source>
+        <translation>CR (\r)</translation>
+    </message>
+    <message>
+        <location filename="../widgets/GenericInputWidget.cpp" line="71"/>
+        <source>LF (\n)</source>
+        <translation>LF (\n)</translation>
+    </message>
+    <message>
+        <location filename="../widgets/GenericInputWidget.cpp" line="72"/>
+        <source>CRLF (\r\n)</source>
+        <translation>CRLF (\r\n)</translation>
     </message>
 </context>
 <context>

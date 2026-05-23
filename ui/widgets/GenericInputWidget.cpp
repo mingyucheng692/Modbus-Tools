@@ -16,6 +16,7 @@
 #include <QRadioButton>
 #include <QButtonGroup>
 #include <QCheckBox>
+#include <QComboBox>
 #include <QSpinBox>
 #include <QPushButton>
 #include <QLabel>
@@ -23,6 +24,8 @@
 #include <QDebug>
 #include <QEvent>
 #include <QSignalBlocker>
+#include <QStringConverter>
+#include <QVariant>
 
 namespace ui::widgets {
 
@@ -58,6 +61,21 @@ void GenericInputWidget::setupUi() {
     
     controlLayout->addWidget(hexRadio_);
     controlLayout->addWidget(asciiRadio_);
+    
+    controlLayout->addSpacing(8);
+    lineEndingCombo_ = new QComboBox(this);
+    lineEndingCombo_->addItem(tr("No LF"), QVariant(0));
+    lineEndingCombo_->addItem(tr("CR (\\r)"), QVariant(1));
+    lineEndingCombo_->addItem(tr("LF (\\n)"), QVariant(2));
+    lineEndingCombo_->addItem(tr("CRLF (\\r\\n)"), QVariant(3));
+    controlLayout->addWidget(lineEndingCombo_);
+    
+    encodingCombo_ = new QComboBox(this);
+    encodingCombo_->addItem(QStringLiteral("UTF-8"), QVariant(0));
+    encodingCombo_->addItem(QStringLiteral("Latin-1"), QVariant(1));
+    encodingCombo_->addItem(QStringLiteral("GBK"), QVariant(2));
+    encodingCombo_->addItem(QStringLiteral("ASCII"), QVariant(3));
+    controlLayout->addWidget(encodingCombo_);
     
     // Auto Send
     controlLayout->addSpacing(20);
@@ -100,6 +118,11 @@ void GenericInputWidget::setupUi() {
     connect(sendBtn_, &QPushButton::clicked, this, &GenericInputWidget::onSendClicked);
     connect(sendFileBtn_, &QPushButton::clicked, this, &GenericInputWidget::onSendFileClicked);
 
+    connect(lineEndingCombo_, QOverload<int>::of(&QComboBox::currentIndexChanged),
+            this, &GenericInputWidget::saveSettings);
+    connect(encodingCombo_, QOverload<int>::of(&QComboBox::currentIndexChanged),
+            this, &GenericInputWidget::saveSettings);
+
     retranslateUi();
 }
 
@@ -141,11 +164,17 @@ void GenericInputWidget::loadSettings() {
     QString format = settingsService_->value(key).toString().toLower();
     const bool autoSend = settingsService_->value(settingsGroup_ + "/autoSend").toBool();
     const int intervalMs = settingsService_->value(settingsGroup_ + "/intervalMs").toInt();
+    const int lineEnding = settingsService_->contains(settingsGroup_ + "/lineEnding")
+        ? settingsService_->value(settingsGroup_ + "/lineEnding").toInt() : 0;
+    const int encoding = settingsService_->contains(settingsGroup_ + "/encoding")
+        ? settingsService_->value(settingsGroup_ + "/encoding").toInt() : 0;
 
     QSignalBlocker b1(hexRadio_);
     QSignalBlocker b2(asciiRadio_);
     QSignalBlocker b3(autoSendCheck_);
     QSignalBlocker b4(intervalSpin_);
+    QSignalBlocker b5(lineEndingCombo_);
+    QSignalBlocker b6(encodingCombo_);
     if (format == "ascii") {
         asciiRadio_->setChecked(true);
     } else {
@@ -159,6 +188,8 @@ void GenericInputWidget::loadSettings() {
     } else {
         autoSendTimer_->stop();
     }
+    lineEndingCombo_->setCurrentIndex(qBound(0, lineEnding, 3));
+    encodingCombo_->setCurrentIndex(qBound(0, encoding, 3));
 }
 
 void GenericInputWidget::saveSettings() {
@@ -167,19 +198,58 @@ void GenericInputWidget::saveSettings() {
     settingsService_->setValue(settingsGroup_ + "/format", format);
     settingsService_->setValue(settingsGroup_ + "/autoSend", autoSendCheck_->isChecked());
     settingsService_->setValue(settingsGroup_ + "/intervalMs", intervalSpin_->value());
+    settingsService_->setValue(settingsGroup_ + "/lineEnding", lineEndingCombo_->currentData().toInt());
+    settingsService_->setValue(settingsGroup_ + "/encoding", encodingCombo_->currentData().toInt());
 }
 
 QByteArray GenericInputWidget::getData() const {
     QString text = inputEdit_->toPlainText();
+    QByteArray data;
     if (hexRadio_->isChecked()) {
         QString hex = text;
         hex.remove(' ');
         hex.remove('\n');
         hex.remove('\r');
-        return QByteArray::fromHex(hex.toUtf8());
+        data = QByteArray::fromHex(hex.toUtf8());
     } else {
-        return text.toUtf8();
+        const int enc = encodingCombo_->currentData().toInt();
+        switch (enc) {
+        case 1: { // Latin-1
+            data.reserve(text.size());
+            for (const QChar& ch : text) {
+                if (ch.unicode() <= 0xFF)
+                    data.append(static_cast<char>(ch.unicode()));
+                else
+                    data.append('?');
+            }
+            break;
+        }
+        case 2: { // GBK (via GB18030 superset)
+            QStringEncoder encoder(QStringLiteral("GB18030"));
+            data = encoder.encode(text);
+            break;
+        }
+        case 3: { // ASCII
+            data.reserve(text.size());
+            for (const QChar& ch : text) {
+                data.append(ch.unicode() <= 0x7F
+                    ? static_cast<char>(ch.unicode()) : '?');
+            }
+            break;
+        }
+        default: data = text.toUtf8(); break;
+        }
     }
+
+    const int ending = lineEndingCombo_->currentData().toInt();
+    switch (ending) {
+    case 1: data.append('\r'); break;
+    case 2: data.append('\n'); break;
+    case 3: data.append("\r\n"); break;
+    default: break;
+    }
+
+    return data;
 }
 
 void GenericInputWidget::onSendClicked() {
@@ -240,6 +310,16 @@ void GenericInputWidget::retranslateUi() {
     }
     if (sendBtn_) {
         sendBtn_->setText(tr("Send"));
+    }
+    if (lineEndingCombo_) {
+        QSignalBlocker b(lineEndingCombo_);
+        const int current = lineEndingCombo_->currentIndex();
+        lineEndingCombo_->clear();
+        lineEndingCombo_->addItem(tr("No LF"), QVariant(0));
+        lineEndingCombo_->addItem(tr("CR (\\r)"), QVariant(1));
+        lineEndingCombo_->addItem(tr("LF (\\n)"), QVariant(2));
+        lineEndingCombo_->addItem(tr("CRLF (\\r\\n)"), QVariant(3));
+        lineEndingCombo_->setCurrentIndex(current);
     }
 }
 
