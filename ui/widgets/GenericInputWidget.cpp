@@ -94,7 +94,14 @@ void GenericInputWidget::setupUi() {
     controlLayout->addStretch();
     sendFileBtn_ = new QPushButton(this);
     controlLayout->addWidget(sendFileBtn_);
-    
+
+    // Send History
+    sendHistoryCombo_ = new QComboBox(this);
+    sendHistoryCombo_->setEditable(true);
+    sendHistoryCombo_->setMinimumWidth(80);
+    sendHistoryCombo_->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);
+    controlLayout->addWidget(sendHistoryCombo_);
+
     // Send Button
     sendBtn_ = new QPushButton(this);
     sendBtn_->setMinimumWidth(64);
@@ -122,6 +129,9 @@ void GenericInputWidget::setupUi() {
             this, &GenericInputWidget::saveSettings);
     connect(encodingCombo_, QOverload<int>::of(&QComboBox::currentIndexChanged),
             this, &GenericInputWidget::saveSettings);
+
+    connect(sendHistoryCombo_, QOverload<int>::of(&QComboBox::activated),
+            this, &GenericInputWidget::onHistoryActivated);
 
     retranslateUi();
 }
@@ -190,6 +200,8 @@ void GenericInputWidget::loadSettings() {
     }
     lineEndingCombo_->setCurrentIndex(qBound(0, lineEnding, 3));
     encodingCombo_->setCurrentIndex(qBound(0, encoding, 3));
+
+    loadHistory();
 }
 
 void GenericInputWidget::saveSettings() {
@@ -253,8 +265,10 @@ QByteArray GenericInputWidget::getData() const {
 }
 
 void GenericInputWidget::onSendClicked() {
+    const QString text = inputEdit_->toPlainText();
     QByteArray data = getData();
     if (!data.isEmpty()) {
+        addToHistory(text);
         emit sendRequested(data);
     }
 }
@@ -287,6 +301,59 @@ void GenericInputWidget::onSendFileClicked() {
     QString path = QFileDialog::getOpenFileName(this, tr("Select File to Send"));
     if (path.isEmpty()) return;
     emit fileSendRequested(path);
+}
+
+void GenericInputWidget::onHistoryActivated(int index) {
+    if (index < 0 || !sendHistoryCombo_) return;
+    const QString text = sendHistoryCombo_->itemText(index);
+    if (!text.isEmpty()) {
+        inputEdit_->setText(text);
+    }
+}
+
+void GenericInputWidget::addToHistory(const QString& text) {
+    if (text.isEmpty() || !sendHistoryCombo_) return;
+
+    const int existingIndex = sendHistoryCombo_->findText(text);
+    if (existingIndex >= 0) {
+        sendHistoryCombo_->removeItem(existingIndex);
+    }
+
+    sendHistoryCombo_->insertItem(0, text);
+    sendHistoryCombo_->setCurrentIndex(-1);
+
+    while (sendHistoryCombo_->count() > 20) {
+        sendHistoryCombo_->removeItem(sendHistoryCombo_->count() - 1);
+    }
+
+    saveHistory();
+}
+
+void GenericInputWidget::saveHistory() {
+    if (!sendHistoryCombo_) return;
+    if (settingsGroup_.isEmpty() || !settingsService_) return;
+
+    QStringList items;
+    items.reserve(sendHistoryCombo_->count());
+    for (int i = 0; i < sendHistoryCombo_->count(); ++i) {
+        items.append(sendHistoryCombo_->itemText(i));
+    }
+    settingsService_->setValue(settingsGroup_ + "/sendHistory", items);
+}
+
+void GenericInputWidget::loadHistory() {
+    if (!sendHistoryCombo_) return;
+    if (settingsGroup_.isEmpty() || !settingsService_) return;
+
+    const QString key = settingsGroup_ + "/sendHistory";
+    if (!settingsService_->contains(key)) return;
+
+    const QStringList items = settingsService_->value(key).toStringList();
+    sendHistoryCombo_->clear();
+    for (const QString& item : items) {
+        sendHistoryCombo_->addItem(item);
+    }
+    sendHistoryCombo_->setCurrentIndex(-1);
 }
 
 void GenericInputWidget::retranslateUi() {

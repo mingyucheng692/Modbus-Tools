@@ -54,6 +54,7 @@ private slots:
     void onAutoSendToggled(bool checked);
     void onTimerTimeout();
     void onFormatChanged();
+    void onHistoryActivated(int index);
 
 private:
     void setupUi();
@@ -62,6 +63,10 @@ private:
     void saveSettings();
     void retranslateUi();
     void changeEvent(QEvent* event) override;
+
+    void addToHistory(const QString& text);
+    void saveHistory();
+    void loadHistory();
 
     QTextEdit* inputEdit_ = nullptr;
     QRadioButton* hexRadio_ = nullptr;
@@ -72,7 +77,8 @@ private:
     QPushButton* sendFileBtn_ = nullptr;
     QComboBox* lineEndingCombo_ = nullptr;
     QComboBox* encodingCombo_ = nullptr;
-    
+    QComboBox* sendHistoryCombo_ = nullptr;
+
     QTimer* autoSendTimer_ = nullptr;
     QString settingsGroup_;
     ui::common::ISettingsService* settingsService_ = nullptr;
