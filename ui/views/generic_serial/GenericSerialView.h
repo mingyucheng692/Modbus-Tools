@@ -80,6 +80,7 @@ private:
     io::ChannelOperationWorker* worker_ = nullptr;
     QThread* workerThread_ = nullptr;
     bool isConnected_ = false;
+    int lastLoggedFileTransferPct_ = -1;
     ui::common::ISettingsService* settingsService_ = nullptr;
 };
 

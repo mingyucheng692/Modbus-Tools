@@ -71,6 +71,7 @@ private:
     bool isConnected_ = false;
     bool suppressDisconnectAlert_ = false;
     quint64 connectionGeneration_ = 0;
+    int lastLoggedFileTransferPct_ = -1;
     ui::common::ISettingsService* settingsService_ = nullptr;
 };
 

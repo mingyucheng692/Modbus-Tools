@@ -117,6 +117,7 @@ void GenericSerialView::startWorker() {
     connect(worker, &io::ChannelOperationWorker::channelErrorOccurred, this, &GenericSerialView::onWorkerError);
     connect(worker, &io::ChannelOperationWorker::monitor, this, &GenericSerialView::onWorkerMonitor);
     connect(worker, &io::ChannelOperationWorker::fileTransferStarted, this, [this](const QString& filePath, qint64 totalBytes) {
+        lastLoggedFileTransferPct_ = -1;
         monitor_->appendInfo(tr("File transfer started: %1 (%2 bytes)").arg(filePath).arg(totalBytes));
     });
     connect(worker, &io::ChannelOperationWorker::fileTransferProgress, this, [this](const QString& filePath, qint64 sentBytes, qint64 totalBytes) {
@@ -124,12 +125,14 @@ void GenericSerialView::startWorker() {
             return;
         }
         const int progress = static_cast<int>((sentBytes * 100) / totalBytes);
-        if (progress == 100 || sentBytes == 0) {
-            monitor_->appendInfo(tr("File transfer progress: %1 %2/%3")
-                                            .arg(filePath)
-                                            .arg(sentBytes)
-                                            .arg(totalBytes));
+        if (progress == lastLoggedFileTransferPct_) {
+            return;
         }
+        lastLoggedFileTransferPct_ = progress;
+        monitor_->appendInfo(tr("File transfer progress: %1 %2/%3")
+                                        .arg(filePath)
+                                        .arg(sentBytes)
+                                        .arg(totalBytes));
     });
     connect(worker, &io::ChannelOperationWorker::fileTransferFinished, this, [this](const QString& filePath) {
         monitor_->appendInfo(tr("File transfer finished: %1").arg(filePath));
