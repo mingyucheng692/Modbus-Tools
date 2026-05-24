@@ -22,6 +22,7 @@ struct SerialConfig {
     int dataBits = app::constants::Values::Serial::kDefaultDataBits;
     int stopBits = app::constants::Values::Serial::kDefaultStopBits;
     QSerialPort::Parity parity = QSerialPort::NoParity;
+    QSerialPort::FlowControl flowControl = QSerialPort::NoFlowControl;
 };
 
 class SerialChannel : public ChannelBase {

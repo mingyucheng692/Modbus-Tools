@@ -66,6 +66,8 @@ private:
     QComboBox* parityCombo_ = nullptr;
     QLabel* stopBitsLabel_ = nullptr;
     QComboBox* stopBitsCombo_ = nullptr;
+    QLabel* flowControlLabel_ = nullptr;
+    QComboBox* flowControlCombo_ = nullptr;
     QPushButton* connectBtn_ = nullptr;
     QLabel* statusLabel_ = nullptr;
     CollapsibleSection* section_ = nullptr;

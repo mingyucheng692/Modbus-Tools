@@ -71,6 +71,7 @@ bool SerialChannel::open() {
     serial_.setDataBits(static_cast<QSerialPort::DataBits>(config_.dataBits));
     serial_.setStopBits(static_cast<QSerialPort::StopBits>(config_.stopBits));
     serial_.setParity(config_.parity);
+    serial_.setFlowControl(config_.flowControl);
     // 移除 setReadBufferSize(1)，恢复系统级块读取，极大降低高波特率下的 CPU 开销。
     // 在非 RTOS 系统上，块内字符间隙已由驱动保证，无需应用层逐字节判断 t1.5。
     
