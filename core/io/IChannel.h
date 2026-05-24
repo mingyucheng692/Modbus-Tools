@@ -20,7 +20,7 @@ class QThread;
 
 namespace io {
 
-enum class ChannelKind { Tcp, Serial };
+enum class ChannelKind { Tcp, Serial, Udp };
 enum class ChannelState { Closed, Opening, Open, Closing, Error };
 
 enum class ChannelErrorCode {

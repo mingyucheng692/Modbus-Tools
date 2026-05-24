@@ -10,6 +10,9 @@ target_sources(core PRIVATE
     io/TcpChannel.cpp
     io/ChannelOperationWorker.h
     io/ChannelOperationWorker.cpp
+    io/IChannel.h
+    io/ServerChannelWorker.h
+    io/ServerChannelWorker.cpp
     # modbus base
     modbus/base/ModbusTypes.h
     modbus/base/ModbusFrame.h

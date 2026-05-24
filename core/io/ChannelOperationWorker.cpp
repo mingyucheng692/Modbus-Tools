@@ -63,6 +63,16 @@ void ChannelOperationWorker::openSerial(const SerialConfig& config)
     }
 }
 
+void ChannelOperationWorker::openUdp(const QString& localIp, int localPort,
+                                      const QString& remoteIp, int remotePort)
+{
+    Q_UNUSED(localIp);
+    Q_UNUSED(localPort);
+    Q_UNUSED(remoteIp);
+    Q_UNUSED(remotePort);
+    emitError("UDP mode not yet implemented");
+}
+
 void ChannelOperationWorker::close()
 {
     cancelFileTransfer();
