@@ -10,9 +10,11 @@
 #pragma once
 
 #include <QWidget>
+#include <QTimer>
 #include <memory>
 #include <QThread>
 #include "../../../core/io/IChannel.h"
+#include "../../../core/ReconnectPolicy.h"
 #include "../../widgets/TcpConnectionWidget.h"
 
 namespace io {
@@ -77,6 +79,10 @@ private:
     void retranslateUi();
     void changeEvent(QEvent* event) override;
 
+    void startReconnectTimer();
+    void stopReconnectTimer();
+    void onReconnectTimerTick();
+
     // UI Components
     widgets::TcpConnectionWidget* connectionWidget_ = nullptr;
     widgets::ByteMonitorWidget* monitor_ = nullptr;
@@ -98,6 +104,11 @@ private:
     quint64 connectionGeneration_ = 0;
     int lastLoggedFileTransferPct_ = -1;
     ui::common::ISettingsService* settingsService_ = nullptr;
+
+    io::ReconnectPolicy reconnectPolicy_;
+    QTimer* reconnectTimer_ = nullptr;
+    QString reconnectHost_;
+    int reconnectPort_ = 0;
 };
 
 } // namespace ui::views::generic_tcp

@@ -10,9 +10,11 @@
 #pragma once
 
 #include <QWidget>
+#include <QTimer>
 #include <memory>
 #include "../../../core/io/SerialChannel.h"
 #include "../../../core/io/IChannel.h"
+#include "../../../core/ReconnectPolicy.h"
 
 namespace io {
 class ChannelOperationWorker;
@@ -66,6 +68,10 @@ private:
     void retranslateUi();
     void changeEvent(QEvent* event) override;
 
+    void startReconnectTimer();
+    void stopReconnectTimer();
+    void onReconnectTimerTick();
+
     // UI Components
     widgets::SerialConnectionWidget* connectionWidget_ = nullptr;
     widgets::ByteMonitorWidget* monitor_ = nullptr;
@@ -82,6 +88,10 @@ private:
     bool isConnected_ = false;
     int lastLoggedFileTransferPct_ = -1;
     ui::common::ISettingsService* settingsService_ = nullptr;
+
+    io::ReconnectPolicy reconnectPolicy_;
+    QTimer* reconnectTimer_ = nullptr;
+    io::SerialConfig reconnectConfig_;
 };
 
 } // namespace ui::views::generic_serial

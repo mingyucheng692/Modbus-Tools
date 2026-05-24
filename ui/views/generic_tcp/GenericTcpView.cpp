@@ -21,6 +21,7 @@
 #include <QVBoxLayout>
 #include <QHBoxLayout>
 #include <QThread>
+#include <QTimer>
 #include <QMetaObject>
 #include <QEvent>
 #include <spdlog/spdlog.h>
@@ -94,6 +95,10 @@ void GenericTcpView::setupUi() {
             this, &GenericTcpView::onFileSendRequested);
 
     retranslateUi();
+
+    reconnectTimer_ = new QTimer(this);
+    reconnectTimer_->setSingleShot(true);
+    connect(reconnectTimer_, &QTimer::timeout, this, &GenericTcpView::onReconnectTimerTick);
 }
 
 void GenericTcpView::startWorker() {
@@ -138,6 +143,8 @@ void GenericTcpView::startWorker() {
 }
 
 void GenericTcpView::stopWorker() {
+    stopReconnectTimer();
+
     auto* thread = workerThread_;
     auto* worker = worker_;
     workerThread_ = nullptr;
@@ -254,6 +261,11 @@ void GenericTcpView::switchToUdpMode() {
 void GenericTcpView::onConnectClicked(const QString& ip, int port) {
     if (!worker_) return;
 
+    stopReconnectTimer();
+    reconnectPolicy_.reset();
+    reconnectHost_ = ip;
+    reconnectPort_ = port;
+
     spdlog::info("GenericTcp: Connecting to {}:{}", ip.toStdString(), port);
     suppressDisconnectAlert_ = false;
     const quint64 generation = ++connectionGeneration_;
@@ -269,6 +281,8 @@ void GenericTcpView::onConnectClicked(const QString& ip, int port) {
 void GenericTcpView::onDisconnectClicked() {
     if (!worker_) return;
 
+    stopReconnectTimer();
+    reconnectPolicy_.reset();
     suppressDisconnectAlert_ = true;
     QMetaObject::invokeMethod(worker_, "close", Qt::QueuedConnection);
 }
@@ -412,6 +426,18 @@ void GenericTcpView::onWorkerStateChanged(io::ChannelState state, quint64 genera
     if (transition.showDisconnectAlert) {
         ui::common::ConnectionAlert::showDisconnected(this);
     }
+
+    if (!isConnected_ && wasConnected
+        && currentProtocol_ == widgets::TcpConnectionWidget::Protocol::TcpClient
+        && connectionWidget_->autoReconnectEnabled()
+        && !suppressDisconnectAlert_
+        && !reconnectTimer_->isActive()) {
+        startReconnectTimer();
+    }
+
+    if (state == io::ChannelState::Open) {
+        reconnectPolicy_.onSuccess();
+    }
 }
 
 void GenericTcpView::onWorkerError(const QString& deviceHint, const QString& error) {
@@ -459,6 +485,60 @@ void GenericTcpView::onServerError(const QString& deviceHint, const QString& err
 
 void GenericTcpView::retranslateUi() {
     if (inputSection_) inputSection_->setTitle(tr("Send Data"));
+}
+
+void GenericTcpView::startReconnectTimer() {
+    if (!connectionWidget_ || !connectionWidget_->autoReconnectEnabled()) {
+        return;
+    }
+
+    if (reconnectPolicy_.exhausted()) {
+        monitor_->appendInfo(tr("Auto-reconnect exhausted (%1 attempts)")
+                                 .arg(reconnectPolicy_.maxRetries()));
+        stopReconnectTimer();
+        return;
+    }
+
+    reconnectPolicy_.onFailed();
+    const int delay = connectionWidget_->reconnectDelayMs();
+    reconnectPolicy_.setDelayMs(delay);
+
+    monitor_->appendInfo(tr("Auto-reconnect in %1ms (%2)")
+                             .arg(delay)
+                             .arg(reconnectPolicy_.statusString()));
+    reconnectTimer_->start(delay);
+}
+
+void GenericTcpView::stopReconnectTimer() {
+    reconnectTimer_->stop();
+}
+
+void GenericTcpView::onReconnectTimerTick() {
+    if (!connectionWidget_ || !worker_) return;
+
+    if (!connectionWidget_->autoReconnectEnabled()) {
+        stopReconnectTimer();
+        return;
+    }
+
+    if (reconnectHost_.isEmpty()) {
+        stopReconnectTimer();
+        return;
+    }
+
+    spdlog::info("GenericTcp: Auto-reconnecting to {}:{} (attempt {})",
+                 reconnectHost_.toStdString(), reconnectPort_,
+                 reconnectPolicy_.attemptCount());
+
+    monitor_->appendInfo(tr("Reconnecting to %1:%2...").arg(reconnectHost_).arg(reconnectPort_));
+    suppressDisconnectAlert_ = false;
+    const quint64 generation = ++connectionGeneration_;
+
+    QMetaObject::invokeMethod(worker_, "openTcp",
+                              Qt::QueuedConnection,
+                              Q_ARG(QString, reconnectHost_),
+                              Q_ARG(int, reconnectPort_),
+                              Q_ARG(quint64, generation));
 }
 
 void GenericTcpView::changeEvent(QEvent* event) {

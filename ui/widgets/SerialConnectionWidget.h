@@ -16,6 +16,8 @@
 class QComboBox;
 class QPushButton;
 class QLabel;
+class QCheckBox;
+class QSpinBox;
 class QEvent;
 class QString;
 
@@ -35,6 +37,8 @@ public:
 
     io::SerialConfig getConfig() const;
     void setSettingsGroup(const QString& group);
+    bool autoReconnectEnabled() const;
+    int reconnectDelayMs() const;
 
 signals:
     void connectClicked(const io::SerialConfig& config);
@@ -65,7 +69,10 @@ private:
     QPushButton* connectBtn_ = nullptr;
     QLabel* statusLabel_ = nullptr;
     CollapsibleSection* section_ = nullptr;
-    
+
+    QCheckBox* autoReconnectCheck_ = nullptr;
+    QSpinBox* reconnectDelaySpin_ = nullptr;
+
     bool isConnected_ = false;
     QString settingsGroup_ = "serial";
     ui::common::ISettingsService* settingsService_ = nullptr;

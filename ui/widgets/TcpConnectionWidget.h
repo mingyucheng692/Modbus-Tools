@@ -17,6 +17,7 @@ class QSpinBox;
 class QPushButton;
 class QLabel;
 class QComboBox;
+class QCheckBox;
 class QEvent;
 class QString;
 
@@ -46,6 +47,8 @@ public:
     QString getIpAddress() const;
     int getPort() const;
     Protocol currentProtocol() const;
+    bool autoReconnectEnabled() const;
+    int reconnectDelayMs() const;
 
 signals:
     void connectClicked(const QString& ip, int port);
@@ -80,6 +83,9 @@ private:
     QLineEdit* remoteIpEdit_ = nullptr;
     QLabel* remotePortLabel_ = nullptr;
     QSpinBox* remotePortEdit_ = nullptr;
+
+    QCheckBox* autoReconnectCheck_ = nullptr;
+    QSpinBox* reconnectDelaySpin_ = nullptr;
 
     bool isConnected_ = false;
     Protocol currentProtocol_ = Protocol::TcpClient;

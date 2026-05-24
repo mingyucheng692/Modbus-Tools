@@ -17,6 +17,7 @@
 #include <QSpinBox>
 #include <QPushButton>
 #include <QComboBox>
+#include <QCheckBox>
 #include <QEvent>
 #include <QSignalBlocker>
 #include <QSizePolicy>
@@ -88,6 +89,18 @@ void TcpConnectionWidget::setupUi() {
     remotePortEdit_->setSpecialValueText(QStringLiteral("-"));
     layout->addWidget(remotePortEdit_);
 
+    autoReconnectCheck_ = new QCheckBox(this);
+    layout->addWidget(autoReconnectCheck_);
+
+    reconnectDelaySpin_ = new QSpinBox(this);
+    reconnectDelaySpin_->setRange(500, 30000);
+    reconnectDelaySpin_->setValue(3000);
+    reconnectDelaySpin_->setSuffix(QStringLiteral("ms"));
+    reconnectDelaySpin_->setFixedWidth(76);
+    layout->addWidget(reconnectDelaySpin_);
+
+    layout->addSpacing(4);
+
     // Connect/Bind Button
     connectBtn_ = new QPushButton(this);
     connectBtn_->setMinimumWidth(84);
@@ -146,6 +159,11 @@ void TcpConnectionWidget::setupUi() {
     connect(portEdit_, qOverload<int>(&QSpinBox::valueChanged), this, &TcpConnectionWidget::saveSettings);
     connect(remoteIpEdit_, &QLineEdit::textChanged, this, &TcpConnectionWidget::saveSettings);
     connect(remotePortEdit_, qOverload<int>(&QSpinBox::valueChanged), this, &TcpConnectionWidget::saveSettings);
+    connect(autoReconnectCheck_, &QCheckBox::toggled, this, &TcpConnectionWidget::saveSettings);
+    connect(autoReconnectCheck_, &QCheckBox::toggled, this, [this]() {
+        reconnectDelaySpin_->setVisible(autoReconnectCheck_->isChecked());
+    });
+    connect(reconnectDelaySpin_, qOverload<int>(&QSpinBox::valueChanged), this, &TcpConnectionWidget::saveSettings);
 
     loadSettings();
     section_->setSettingsKey(settingsGroup_ + "/ui/connectionSettingsCollapsed");
@@ -186,12 +204,16 @@ void TcpConnectionWidget::loadSettings() {
     QSignalBlocker b3(remoteIpEdit_);
     QSignalBlocker b4(remotePortEdit_);
     QSignalBlocker b5(protocolCombo_);
+    QSignalBlocker b6(autoReconnectCheck_);
+    QSignalBlocker b7(reconnectDelaySpin_);
 
     const QString ipKey = settingsGroup_ + "/ip";
     const QString portKey = settingsGroup_ + "/port";
     const QString protocolKey = settingsGroup_ + "/protocol";
     const QString remoteIpKey = settingsGroup_ + "/remoteIp";
     const QString remotePortKey = settingsGroup_ + "/remotePort";
+    const QString autoReconnectKey = settingsGroup_ + "/autoReconnect";
+    const QString reconnectDelayKey = settingsGroup_ + "/reconnectDelay";
 
     const QString ip = settingsService_->value(ipKey).toString();
     const int port = settingsService_->value(portKey).toInt();
@@ -201,12 +223,19 @@ void TcpConnectionWidget::loadSettings() {
     const int remotePort = settingsService_->contains(remotePortKey)
         ? settingsService_->value(remotePortKey).toInt() : 0;
 
+    const bool autoReconnect = settingsService_->contains(autoReconnectKey)
+        ? settingsService_->value(autoReconnectKey).toBool() : false;
+    const int reconnectDelay = settingsService_->contains(reconnectDelayKey)
+        ? settingsService_->value(reconnectDelayKey).toInt() : 3000;
+
     ipEdit_->setText(ip);
     portEdit_->setValue(port);
     protocolCombo_->setCurrentIndex(protocolIdx);
     currentProtocol_ = static_cast<Protocol>(protocolCombo_->currentData().toInt());
     remoteIpEdit_->setText(remoteIp);
     remotePortEdit_->setValue(remotePort);
+    autoReconnectCheck_->setChecked(autoReconnect);
+    reconnectDelaySpin_->setValue(reconnectDelay);
 }
 
 void TcpConnectionWidget::saveSettings() {
@@ -216,6 +245,8 @@ void TcpConnectionWidget::saveSettings() {
     settingsService_->setValue(settingsGroup_ + "/protocol", protocolCombo_->currentIndex());
     settingsService_->setValue(settingsGroup_ + "/remoteIp", remoteIpEdit_->text());
     settingsService_->setValue(settingsGroup_ + "/remotePort", remotePortEdit_->value());
+    settingsService_->setValue(settingsGroup_ + "/autoReconnect", autoReconnectCheck_->isChecked());
+    settingsService_->setValue(settingsGroup_ + "/reconnectDelay", reconnectDelaySpin_->value());
 }
 
 QString TcpConnectionWidget::getIpAddress() const {
@@ -228,6 +259,14 @@ int TcpConnectionWidget::getPort() const {
 
 TcpConnectionWidget::Protocol TcpConnectionWidget::currentProtocol() const {
     return currentProtocol_;
+}
+
+bool TcpConnectionWidget::autoReconnectEnabled() const {
+    return autoReconnectCheck_ ? autoReconnectCheck_->isChecked() : false;
+}
+
+int TcpConnectionWidget::reconnectDelayMs() const {
+    return reconnectDelaySpin_ ? reconnectDelaySpin_->value() : 3000;
 }
 
 void TcpConnectionWidget::setConnected(bool connected) {
@@ -253,6 +292,8 @@ void TcpConnectionWidget::setConnected(bool connected) {
         protocolCombo_->setEnabled(false);
         remoteIpEdit_->setEnabled(false);
         remotePortEdit_->setEnabled(false);
+        autoReconnectCheck_->setEnabled(false);
+        reconnectDelaySpin_->setEnabled(false);
     } else {
         switch (currentProtocol_) {
         case Protocol::TcpServer:
@@ -272,6 +313,8 @@ void TcpConnectionWidget::setConnected(bool connected) {
         protocolCombo_->setEnabled(true);
         remoteIpEdit_->setEnabled(true);
         remotePortEdit_->setEnabled(true);
+        autoReconnectCheck_->setEnabled(true);
+        reconnectDelaySpin_->setEnabled(true);
     }
     updateProtocolUi();
 }
@@ -288,6 +331,8 @@ void TcpConnectionWidget::updateProtocolUi() {
         remoteIpEdit_->setVisible(false);
         remotePortLabel_->setVisible(false);
         remotePortEdit_->setVisible(false);
+        autoReconnectCheck_->setVisible(true);
+        reconnectDelaySpin_->setVisible(autoReconnectCheck_->isChecked());
         break;
     case Protocol::TcpServer:
         hostLabel_->setText(tr("Listen:"));
@@ -297,6 +342,8 @@ void TcpConnectionWidget::updateProtocolUi() {
         remoteIpEdit_->setVisible(false);
         remotePortLabel_->setVisible(false);
         remotePortEdit_->setVisible(false);
+        autoReconnectCheck_->setVisible(false);
+        reconnectDelaySpin_->setVisible(false);
         break;
     case Protocol::Udp:
         hostLabel_->setText(tr("Local:"));
@@ -306,6 +353,8 @@ void TcpConnectionWidget::updateProtocolUi() {
         remoteIpEdit_->setVisible(true);
         remotePortLabel_->setVisible(true);
         remotePortEdit_->setVisible(true);
+        autoReconnectCheck_->setVisible(false);
+        reconnectDelaySpin_->setVisible(false);
         break;
     }
 }
@@ -319,6 +368,9 @@ void TcpConnectionWidget::retranslateUi() {
     }
     if (remotePortLabel_) {
         remotePortLabel_->setText(tr("Remote Port:"));
+    }
+    if (autoReconnectCheck_) {
+        autoReconnectCheck_->setText(tr("Auto Reconnect"));
     }
     setConnected(isConnected_);
 }

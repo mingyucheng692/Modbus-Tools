@@ -20,6 +20,7 @@
 #include <QHBoxLayout>
 #include <QGroupBox>
 #include <QThread>
+#include <QTimer>
 #include <QMetaObject>
 #include <QCheckBox>
 #include <QEvent>
@@ -105,6 +106,10 @@ void GenericSerialView::setupUi() {
     }
 
     retranslateUi();
+
+    reconnectTimer_ = new QTimer(this);
+    reconnectTimer_->setSingleShot(true);
+    connect(reconnectTimer_, &QTimer::timeout, this, &GenericSerialView::onReconnectTimerTick);
 }
 
 void GenericSerialView::startWorker() {
@@ -149,6 +154,8 @@ void GenericSerialView::startWorker() {
 }
 
 void GenericSerialView::stopWorker() {
+    stopReconnectTimer();
+
     auto* thread = workerThread_;
     auto* worker = worker_;
     workerThread_ = nullptr;
@@ -184,7 +191,11 @@ void GenericSerialView::stopWorker() {
 
 void GenericSerialView::onConnectClicked(const io::SerialConfig& config) {
     if (!worker_) return;
-    
+
+    stopReconnectTimer();
+    reconnectPolicy_.reset();
+    reconnectConfig_ = config;
+
     spdlog::info("GenericSerial: Connecting to {}", config.portName.toStdString());
     monitor_->appendInfo(tr("Opening %1...").arg(config.portName));
     
@@ -195,6 +206,9 @@ void GenericSerialView::onConnectClicked(const io::SerialConfig& config) {
 
 void GenericSerialView::onDisconnectClicked() {
     if (!worker_) return;
+
+    stopReconnectTimer();
+    reconnectPolicy_.reset();
     QMetaObject::invokeMethod(worker_, "close", Qt::QueuedConnection);
 }
 
@@ -222,11 +236,13 @@ void GenericSerialView::onFileSendRequested(const QString& filePath) {
 }
 
 void GenericSerialView::onWorkerStateChanged(io::ChannelState state) {
+    const bool wasConnected = isConnected_;
+
     isConnected_ = (state == io::ChannelState::Open);
     connectionWidget_->setConnected(isConnected_);
     dtrCheck_->setEnabled(isConnected_);
     rtsCheck_->setEnabled(isConnected_);
-    
+
     QString stateStr;
     switch (state) {
         case io::ChannelState::Closed: stateStr = tr("Closed"); break;
@@ -236,8 +252,16 @@ void GenericSerialView::onWorkerStateChanged(io::ChannelState state) {
         case io::ChannelState::Error: stateStr = tr("Error"); break;
         default: stateStr = tr("Unknown"); break;
     }
-    
+
     monitor_->appendInfo(tr("State changed: %1").arg(stateStr));
+
+    if (isConnected_) {
+        reconnectPolicy_.onSuccess();
+    } else if (wasConnected
+               && connectionWidget_->autoReconnectEnabled()
+               && !reconnectTimer_->isActive()) {
+        startReconnectTimer();
+    }
 }
 
 void GenericSerialView::onWorkerError(const QString& deviceHint, const QString& error) {
@@ -279,6 +303,56 @@ void GenericSerialView::retranslateUi() {
     if (inputSection_) inputSection_->setTitle(tr("Send Data"));
     if (dtrCheck_) dtrCheck_->setText(tr("DTR"));
     if (rtsCheck_) rtsCheck_->setText(tr("RTS"));
+}
+
+void GenericSerialView::startReconnectTimer() {
+    if (!connectionWidget_ || !connectionWidget_->autoReconnectEnabled()) {
+        return;
+    }
+
+    if (reconnectPolicy_.exhausted()) {
+        monitor_->appendInfo(tr("Auto-reconnect exhausted (%1 attempts)")
+                                 .arg(reconnectPolicy_.maxRetries()));
+        stopReconnectTimer();
+        return;
+    }
+
+    reconnectPolicy_.onFailed();
+    const int delay = connectionWidget_->reconnectDelayMs();
+    reconnectPolicy_.setDelayMs(delay);
+
+    monitor_->appendInfo(tr("Auto-reconnect in %1ms (%2)")
+                             .arg(delay)
+                             .arg(reconnectPolicy_.statusString()));
+    reconnectTimer_->start(delay);
+}
+
+void GenericSerialView::stopReconnectTimer() {
+    reconnectTimer_->stop();
+}
+
+void GenericSerialView::onReconnectTimerTick() {
+    if (!connectionWidget_ || !worker_) return;
+
+    if (!connectionWidget_->autoReconnectEnabled()) {
+        stopReconnectTimer();
+        return;
+    }
+
+    if (reconnectConfig_.portName.isEmpty()) {
+        stopReconnectTimer();
+        return;
+    }
+
+    spdlog::info("GenericSerial: Auto-reconnecting to {} (attempt {})",
+                 reconnectConfig_.portName.toStdString(),
+                 reconnectPolicy_.attemptCount());
+
+    monitor_->appendInfo(tr("Reconnecting to %1...").arg(reconnectConfig_.portName));
+
+    QMetaObject::invokeMethod(worker_, "openSerial",
+                              Qt::QueuedConnection,
+                              Q_ARG(io::SerialConfig, reconnectConfig_));
 }
 
 void GenericSerialView::changeEvent(QEvent* event) {

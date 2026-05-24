@@ -16,6 +16,8 @@
 #include <QComboBox>
 #include <QPushButton>
 #include <QLabel>
+#include <QCheckBox>
+#include <QSpinBox>
 #include <QSerialPortInfo>
 #include <QEvent>
 #include <QSignalBlocker>
@@ -78,6 +80,8 @@ void SerialConnectionWidget::setConnected(bool connected) {
     parityCombo_->setEnabled(!connected);
     stopBitsCombo_->setEnabled(!connected);
     refreshBtn_->setEnabled(!connected);
+    autoReconnectCheck_->setEnabled(!connected);
+    reconnectDelaySpin_->setEnabled(!connected);
 }
 
 void SerialConnectionWidget::refreshPorts() {
@@ -171,6 +175,18 @@ void SerialConnectionWidget::setupUi() {
     stopBitsCombo_->setMinimumWidth(40);
     layout->addWidget(stopBitsCombo_);
 
+    autoReconnectCheck_ = new QCheckBox(this);
+    layout->addWidget(autoReconnectCheck_);
+
+    reconnectDelaySpin_ = new QSpinBox(this);
+    reconnectDelaySpin_->setRange(500, 30000);
+    reconnectDelaySpin_->setValue(3000);
+    reconnectDelaySpin_->setSuffix(QStringLiteral("ms"));
+    reconnectDelaySpin_->setFixedWidth(76);
+    layout->addWidget(reconnectDelaySpin_);
+
+    layout->addSpacing(4);
+
     // Connect Button
     connectBtn_ = new QPushButton(this);
     connect(connectBtn_, &QPushButton::clicked, [this]() {
@@ -196,6 +212,11 @@ void SerialConnectionWidget::setupUi() {
     connect(dataBitsCombo_, &QComboBox::currentTextChanged, this, &SerialConnectionWidget::saveSettings);
     connect(parityCombo_, &QComboBox::currentTextChanged, this, &SerialConnectionWidget::saveSettings);
     connect(stopBitsCombo_, &QComboBox::currentTextChanged, this, &SerialConnectionWidget::saveSettings);
+    connect(autoReconnectCheck_, &QCheckBox::toggled, this, &SerialConnectionWidget::saveSettings);
+    connect(autoReconnectCheck_, &QCheckBox::toggled, this, [this]() {
+        reconnectDelaySpin_->setVisible(autoReconnectCheck_->isChecked());
+    });
+    connect(reconnectDelaySpin_, qOverload<int>(&QSpinBox::valueChanged), this, &SerialConnectionWidget::saveSettings);
 
     loadSettings();
     section_->setSettingsKey(settingsGroup_ + "/ui/connectionSettingsCollapsed");
@@ -217,12 +238,16 @@ void SerialConnectionWidget::loadSettings() {
     QSignalBlocker b2(dataBitsCombo_);
     QSignalBlocker b3(parityCombo_);
     QSignalBlocker b4(stopBitsCombo_);
+    QSignalBlocker b5(autoReconnectCheck_);
+    QSignalBlocker b6(reconnectDelaySpin_);
 
     const QString baudKey = settingsGroup_ + "/baudRate";
     const QString dataKey = settingsGroup_ + "/dataBits";
     const QString parityKey = settingsGroup_ + "/parity";
     const QString stopKey = settingsGroup_ + "/stopBits";
     const QString portKey = settingsGroup_ + "/portName";
+    const QString autoReconnectKey = settingsGroup_ + "/autoReconnect";
+    const QString reconnectDelayKey = settingsGroup_ + "/reconnectDelay";
 
     const int fallbackBaud = settingsService_->value("serial/baudRate").toInt();
     const int baudRate = settingsService_->contains(baudKey) ? settingsService_->value(baudKey).toInt() : fallbackBaud;
@@ -257,6 +282,13 @@ void SerialConnectionWidget::loadSettings() {
             portCombo_->setCurrentIndex(portIndex);
         }
     }
+
+    const bool autoReconnect = settingsService_->contains(autoReconnectKey)
+        ? settingsService_->value(autoReconnectKey).toBool() : false;
+    const int reconnectDelay = settingsService_->contains(reconnectDelayKey)
+        ? settingsService_->value(reconnectDelayKey).toInt() : 3000;
+    autoReconnectCheck_->setChecked(autoReconnect);
+    reconnectDelaySpin_->setValue(reconnectDelay);
 }
 
 void SerialConnectionWidget::saveSettings() {
@@ -266,6 +298,16 @@ void SerialConnectionWidget::saveSettings() {
     settingsService_->setValue(settingsGroup_ + "/parity", parityCombo_->currentText());
     settingsService_->setValue(settingsGroup_ + "/stopBits", stopBitsCombo_->currentText());
     settingsService_->setValue(settingsGroup_ + "/portName", portCombo_->currentData().toString());
+    settingsService_->setValue(settingsGroup_ + "/autoReconnect", autoReconnectCheck_->isChecked());
+    settingsService_->setValue(settingsGroup_ + "/reconnectDelay", reconnectDelaySpin_->value());
+}
+
+bool SerialConnectionWidget::autoReconnectEnabled() const {
+    return autoReconnectCheck_ ? autoReconnectCheck_->isChecked() : false;
+}
+
+int SerialConnectionWidget::reconnectDelayMs() const {
+    return reconnectDelaySpin_ ? reconnectDelaySpin_->value() : 3000;
 }
 
 void SerialConnectionWidget::retranslateUi() {
@@ -289,6 +331,9 @@ void SerialConnectionWidget::retranslateUi() {
     }
     if (refreshBtn_) {
         refreshBtn_->setToolTip(tr("Refresh Ports"));
+    }
+    if (autoReconnectCheck_) {
+        autoReconnectCheck_->setText(tr("Auto Reconnect"));
     }
     setConnected(isConnected_);
 }

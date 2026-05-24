@@ -17,6 +17,9 @@ target_sources(core PRIVATE
     io/IChannel.h
     io/ServerChannelWorker.h
     io/ServerChannelWorker.cpp
+    # reconnect
+    ReconnectPolicy.h
+    ReconnectPolicy.cpp
     # modbus base
     modbus/base/ModbusTypes.h
     modbus/base/ModbusFrame.h
