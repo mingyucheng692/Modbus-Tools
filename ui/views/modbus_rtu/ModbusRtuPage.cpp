@@ -25,7 +25,6 @@
 #include <QGroupBox>
 #include <QHBoxLayout>
 #include <QTextEdit>
-#include <QCheckBox>
 #include <QPushButton>
 #include <QEvent>
 #include <QClipboard>
@@ -90,12 +89,8 @@ void ModbusRtuPage::setupUi() {
     receiveGroup_ = new QGroupBox(dataGroup_->contentWidget());
     auto receiveLayout = new QVBoxLayout(receiveGroup_);
     auto receiveToolbar = new QHBoxLayout();
-    receiveHexCheck_ = new QCheckBox(receiveGroup_);
-    receiveHexCheck_->setChecked(true);
-    receiveHexCheck_->setVisible(false);
     copyReceiveButton_ = new QPushButton(receiveGroup_);
     clearReceiveButton_ = new QPushButton(receiveGroup_);
-    receiveToolbar->addWidget(receiveHexCheck_);
     receiveToolbar->addStretch();
     receiveToolbar->addWidget(copyReceiveButton_);
     receiveToolbar->addWidget(clearReceiveButton_);
@@ -108,12 +103,8 @@ void ModbusRtuPage::setupUi() {
     sendGroup_ = new QGroupBox(dataGroup_->contentWidget());
     auto sendLayout = new QVBoxLayout(sendGroup_);
     auto sendToolbar = new QHBoxLayout();
-    sendHexCheck_ = new QCheckBox(sendGroup_);
-    sendHexCheck_->setChecked(true);
-    sendHexCheck_->setVisible(false);
     copySendButton_ = new QPushButton(sendGroup_);
     clearSendButton_ = new QPushButton(sendGroup_);
-    sendToolbar->addWidget(sendHexCheck_);
     sendToolbar->addStretch();
     sendToolbar->addWidget(copySendButton_);
     sendToolbar->addWidget(clearSendButton_);
@@ -355,12 +346,6 @@ void ModbusRtuPage::setupUi() {
         if (!clipboard) return;
         clipboard->setText(sendTextEdit_->toPlainText());
     });
-    connect(receiveHexCheck_, &QCheckBox::toggled, this, [this]() {
-        refreshReceiveDisplay();
-    });
-    connect(sendHexCheck_, &QCheckBox::toggled, this, [this]() {
-        refreshSendDisplay();
-    });
 
     mainLayout_->addStretch();
 
@@ -390,7 +375,7 @@ void ModbusRtuPage::refreshReceiveDisplay() {
         receiveTextEdit_->clear();
         return;
     }
-    bool hex = receiveHexCheck_ ? receiveHexCheck_->isChecked() : true;
+    const bool hex = true;
     receiveTextEdit_->setPlainText(QStringLiteral("[%1] %2")
                                        .arg(QStringLiteral("RX"))
                                        .arg(formatData(lastReceiveFrame_, hex)));
@@ -402,7 +387,7 @@ void ModbusRtuPage::refreshSendDisplay() {
         sendTextEdit_->clear();
         return;
     }
-    bool hex = sendHexCheck_ ? sendHexCheck_->isChecked() : true;
+    const bool hex = true;
     sendTextEdit_->setPlainText(QStringLiteral("[%1] %2")
                                      .arg(QStringLiteral("TX"))
                                      .arg(formatData(lastSendFrame_, hex)));

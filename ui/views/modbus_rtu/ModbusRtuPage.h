@@ -17,7 +17,6 @@
 class QVBoxLayout;
 class QLabel;
 class QGroupBox;
-class QCheckBox;
 class QTextEdit;
 class QPushButton;
 class QEvent;
@@ -79,8 +78,6 @@ private:
     QGroupBox* sendGroup_ = nullptr;
     QTextEdit* receiveTextEdit_ = nullptr;
     QTextEdit* sendTextEdit_ = nullptr;
-    QCheckBox* receiveHexCheck_ = nullptr;
-    QCheckBox* sendHexCheck_ = nullptr;
     QPushButton* copyReceiveButton_ = nullptr;
     QPushButton* copySendButton_ = nullptr;
     QPushButton* clearReceiveButton_ = nullptr;
