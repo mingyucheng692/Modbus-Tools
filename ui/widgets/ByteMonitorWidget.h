@@ -52,6 +52,8 @@ public:
     void appendError(const QString& message);
     void appendWarn(const QString& message);
     void clear();
+    void appendMessage(bool isTx, const QByteArray& data);
+    void appendMessageWithClient(bool isTx, const QByteArray& data, int clientId);
     void setSettingsGroup(const QString& group);
 
 signals:

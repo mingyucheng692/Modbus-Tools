@@ -29,6 +29,7 @@ public:
     bool write(QByteArrayView data) override;
     
     void setEndpoint(const QString& ip, int port);
+    bool adoptSocketDescriptor(qintptr socketDescriptor);
 
 private:
     void logThreadContextOnce(const char* scope, bool& loggedFlag);

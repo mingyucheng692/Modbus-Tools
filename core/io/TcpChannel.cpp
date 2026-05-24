@@ -350,4 +350,19 @@ void TcpChannel::resetWriteState() {
     currentWriteOffset_ = 0;
 }
 
+bool TcpChannel::adoptSocketDescriptor(qintptr socketDescriptor) {
+    if (socketDescriptor < 0) {
+        return false;
+    }
+    if (!socket_.setSocketDescriptor(socketDescriptor)) {
+        spdlog::error("TcpChannel: setSocketDescriptor failed: {}",
+                      socket_.errorString().toStdString());
+        return false;
+    }
+    ip_ = socket_.peerAddress().toString();
+    port_ = socket_.peerPort();
+    setState(ChannelState::Open);
+    return true;
+}
+
 }

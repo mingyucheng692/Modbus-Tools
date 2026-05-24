@@ -203,6 +203,20 @@ void ByteMonitorWidget::appendRx(const QByteArray& data) {
     emit rxDataReceived(data);
 }
 
+void ByteMonitorWidget::appendMessage(bool isTx, const QByteArray& data) {
+    if (isTx) {
+        emit txDataReceived(data);
+    } else {
+        emit rxDataReceived(data);
+    }
+}
+
+void ByteMonitorWidget::appendMessageWithClient(bool isTx, const QByteArray& data, int clientId) {
+    QByteArray tagged = QByteArrayLiteral("[Client ") + QByteArray::number(clientId) + QByteArrayLiteral("] ");
+    tagged.append(data);
+    appendMessage(isTx, tagged);
+}
+
 void ByteMonitorWidget::appendInfo(const QString& message) {
     emit infoMessageReceived(message);
 }

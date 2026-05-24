@@ -8,6 +8,10 @@ target_sources(core PRIVATE
     io/SerialChannel.cpp
     io/TcpChannel.h
     io/TcpChannel.cpp
+    io/UdpChannel.h
+    io/UdpChannel.cpp
+    io/TcpServerHandle.h
+    io/TcpServerHandle.cpp
     io/ChannelOperationWorker.h
     io/ChannelOperationWorker.cpp
     io/IChannel.h
@@ -94,6 +98,8 @@ if(MODBUS_TOOLS_ENABLE_PCH AND COMMAND target_precompile_headers)
         <QtCore/QSharedPointer>
         <QtNetwork/QTcpSocket>
         <QtNetwork/QHostAddress>
+        <QtNetwork/QUdpSocket>
+        <QtNetwork/QTcpServer>
         <QtSerialPort/QSerialPort>
         <spdlog/spdlog.h>
         <vector>

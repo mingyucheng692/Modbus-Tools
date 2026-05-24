@@ -13,9 +13,11 @@
 #include <memory>
 #include <QThread>
 #include "../../../core/io/IChannel.h"
+#include "../../widgets/TcpConnectionWidget.h"
 
 namespace io {
 class ChannelOperationWorker;
+class ServerChannelWorker;
 }
 
 namespace ui::widgets {
@@ -46,16 +48,32 @@ public:
 private slots:
     void onConnectClicked(const QString& ip, int port);
     void onDisconnectClicked();
+    void onStartListenClicked(const QString& ip, int port);
+    void onStopListenClicked();
+    void onBindClicked(const QString& localIp, int localPort,
+                       const QString& remoteIp, int remotePort);
+    void onUnbindClicked();
+    void onProtocolChanged(widgets::TcpConnectionWidget::Protocol protocol);
     void onSendRequested(const QByteArray& data);
     void onFileSendRequested(const QString& filePath);
     void onWorkerStateChanged(io::ChannelState state, quint64 generation);
     void onWorkerError(const QString& deviceHint, const QString& error);
     void onWorkerMonitor(bool isTx, const QByteArray& data);
+    void onServerClientConnected(int clientId, const QString& peerInfo);
+    void onServerClientDisconnected(int clientId);
+    void onServerMonitorWithClient(bool isTx, const QByteArray& data, int clientId);
+    void onServerStateChanged(io::ChannelState state);
+    void onServerError(const QString& deviceHint, const QString& error);
 
 private:
     void setupUi();
     void startWorker();
     void stopWorker();
+    void startServerWorker();
+    void stopServerWorker();
+    void switchToClientMode();
+    void switchToServerMode();
+    void switchToUdpMode();
     void retranslateUi();
     void changeEvent(QEvent* event) override;
 
@@ -65,9 +83,16 @@ private:
     widgets::GenericInputWidget* inputWidget_ = nullptr;
     widgets::CollapsibleSection* inputSection_ = nullptr;
 
-    // Backend
+    // Backend - Client/UDP
     io::ChannelOperationWorker* worker_ = nullptr;
     QThread* workerThread_ = nullptr;
+
+    // Backend - Server
+    io::ServerChannelWorker* serverWorker_ = nullptr;
+    QThread* serverThread_ = nullptr;
+
+    widgets::TcpConnectionWidget::Protocol currentProtocol_ = 
+        widgets::TcpConnectionWidget::Protocol::TcpClient;
     bool isConnected_ = false;
     bool suppressDisconnectAlert_ = false;
     quint64 connectionGeneration_ = 0;

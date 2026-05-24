@@ -11,6 +11,7 @@
 #include "AppConstants.h"
 #include "TcpChannel.h"
 #include "SerialChannel.h"
+#include "UdpChannel.h"
 #include <QFileInfo>
 #include <QThread>
 #include <QMetaObject>
@@ -66,11 +67,19 @@ void ChannelOperationWorker::openSerial(const SerialConfig& config)
 void ChannelOperationWorker::openUdp(const QString& localIp, int localPort,
                                       const QString& remoteIp, int remotePort)
 {
-    Q_UNUSED(localIp);
-    Q_UNUSED(localPort);
-    Q_UNUSED(remoteIp);
-    Q_UNUSED(remotePort);
-    emitError("UDP mode not yet implemented");
+    cleanupChannel();
+    deviceHint_ = QString("UDP %1:%2").arg(localIp).arg(localPort);
+
+    auto udp = std::make_shared<UdpChannel>();
+    udp->setBindEndpoint(localIp, localPort);
+    udp->setRemotePeer(remoteIp, remotePort);
+    channel_ = udp;
+
+    setupChannel();
+
+    if (!channel_->open()) {
+        emitError("Failed to open UDP channel");
+    }
 }
 
 void ChannelOperationWorker::close()

@@ -1,9 +1,9 @@
 /**
  * @file TcpConnectionWidget.h
  * @brief Header file for TcpConnectionWidget.
- * 
+ *
  * Copyright (c) 2025 - present mingyucheng692
- * 
+ *
  * Licensed under the MIT License. See LICENSE file in the project root for full license information.
  */
 
@@ -16,6 +16,7 @@ class QLineEdit;
 class QSpinBox;
 class QPushButton;
 class QLabel;
+class QComboBox;
 class QEvent;
 class QString;
 
@@ -30,6 +31,13 @@ class TcpConnectionWidget : public QWidget {
     Q_OBJECT
 
 public:
+    enum class Protocol {
+        TcpClient = 0,
+        TcpServer,
+        Udp
+    };
+    Q_ENUM(Protocol)
+
     explicit TcpConnectionWidget(ui::common::ISettingsService* settingsService, QWidget *parent = nullptr);
     ~TcpConnectionWidget() override;
 
@@ -37,10 +45,16 @@ public:
     void setSettingsGroup(const QString& group);
     QString getIpAddress() const;
     int getPort() const;
+    Protocol currentProtocol() const;
 
 signals:
     void connectClicked(const QString& ip, int port);
     void disconnectClicked();
+    void startListenClicked(const QString& ip, int port);
+    void stopListenClicked();
+    void bindClicked(const QString& localIp, int localPort,
+                     const QString& remoteIp, int remotePort);
+    void unbindClicked();
 
 public slots:
     void setConnected(bool connected);
@@ -51,6 +65,7 @@ private:
     void saveSettings();
     void retranslateUi();
     void changeEvent(QEvent* event) override;
+    void updateProtocolUi();
 
     CollapsibleSection* section_ = nullptr;
     QLabel* hostLabel_ = nullptr;
@@ -59,8 +74,15 @@ private:
     QSpinBox* portEdit_ = nullptr;
     QPushButton* connectBtn_ = nullptr;
     QLabel* statusLabel_ = nullptr;
-    
+    QComboBox* protocolCombo_ = nullptr;
+
+    QLabel* remoteIpLabel_ = nullptr;
+    QLineEdit* remoteIpEdit_ = nullptr;
+    QLabel* remotePortLabel_ = nullptr;
+    QSpinBox* remotePortEdit_ = nullptr;
+
     bool isConnected_ = false;
+    Protocol currentProtocol_ = Protocol::TcpClient;
     QString settingsGroup_ = "modbus/tcp";
     ui::common::ISettingsService* settingsService_ = nullptr;
     int defaultPort_ = app::constants::Values::Network::kDefaultModbusTcpPort;

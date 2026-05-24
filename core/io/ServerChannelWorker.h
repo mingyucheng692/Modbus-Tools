@@ -16,6 +16,8 @@
 
 namespace io {
 
+class TcpServerHandle;
+
 /**
  * @brief Multi-channel I/O worker for TCP server mode.
  *
@@ -53,6 +55,9 @@ signals:
     void clientDisconnected(int clientId);
     void stateChanged(ChannelState state);
     void channelErrorOccurred(const QString& deviceHint, const QString& error);
+
+private:
+    TcpServerHandle* serverHandle_ = nullptr;
 };
 
 } // namespace io
