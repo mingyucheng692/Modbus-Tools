@@ -104,12 +104,23 @@ if(MODBUS_TOOLS_BUILD_TESTS)
     endif()
 endif()
 
+if(WIN32)
+    set(MODBUS_TOOLS_UPDATER_ENABLED ON)
+    set(MODBUS_TOOLS_UPDATER_STATUS "enabled (Windows native target)")
+else()
+    set(MODBUS_TOOLS_UPDATER_ENABLED OFF)
+    set(MODBUS_TOOLS_UPDATER_STATUS "disabled on ${CMAKE_SYSTEM_NAME}; main application builds without updater")
+endif()
+message(STATUS "Updater target status: ${MODBUS_TOOLS_UPDATER_STATUS}")
+
 # Add subdirectories
 add_subdirectory(infra)
 add_subdirectory(core)
 add_subdirectory(ui)
 add_subdirectory(app)
-add_subdirectory(updater)
+if(MODBUS_TOOLS_UPDATER_ENABLED)
+    add_subdirectory(updater)
+endif()
 
 if(MODBUS_TOOLS_BUILD_TESTS)
     add_subdirectory(tests)
@@ -151,5 +162,7 @@ target_compile_definitions(Modbus-Tools PRIVATE
     MODBUS_TOOLS_INCLUDE_PRERELEASE=${MODBUS_TOOLS_INCLUDE_PRERELEASE_VALUE}
 )
 
-# Ensure updater is built along with the main application
-add_dependencies(Modbus-Tools updater)
+# Ensure updater is built along with the main application when supported.
+if(MODBUS_TOOLS_UPDATER_ENABLED)
+    add_dependencies(Modbus-Tools updater)
+endif()

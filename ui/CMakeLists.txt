@@ -142,8 +142,13 @@ target_sources(ui PRIVATE
     "${ui_i18n_resource_file}"
 )
 
+set(modbus_tools_release_bundle_dependencies Modbus-Tools)
+if(MODBUS_TOOLS_UPDATER_ENABLED)
+    list(APPEND modbus_tools_release_bundle_dependencies updater)
+endif()
+
 add_custom_target(release_bundle
-    DEPENDS Modbus-Tools updater
+    DEPENDS ${modbus_tools_release_bundle_dependencies}
     COMMENT "Building release bundle artifacts"
 )
 

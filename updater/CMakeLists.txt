@@ -1,3 +1,7 @@
+if(NOT WIN32)
+    message(FATAL_ERROR "The updater target is Windows-only and must not be configured on ${CMAKE_SYSTEM_NAME}.")
+endif()
+
 add_executable(updater WIN32
     main.cpp
 )
