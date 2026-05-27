@@ -7,13 +7,56 @@ on:
       - master
       - develop
   pull_request:
+  workflow_dispatch:
+    inputs:
+      build_type:
+        description: Build type
+        required: true
+        default: Release
+        type: choice
+        options:
+          - Release
+          - RelWithDebInfo
+      run_tests:
+        description: Run unit tests
+        required: true
+        default: false
+        type: boolean
+      sanitizer:
+        description: Sanitizer profile
+        required: true
+        default: off
+        type: choice
+        options:
+          - off
+          - asan
+      platform_set:
+        description: Platform scope
+        required: true
+        default: full
+        type: choice
+        options:
+          - full
+          - windows
+          - linux
+          - macos
 
 permissions:
   contents: read
 
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   build-matrix:
     name: ${{ matrix.name }}
+    if: |
+      github.event_name != 'workflow_dispatch' ||
+      github.event.inputs.platform_set == 'full' ||
+      (github.event.inputs.platform_set == 'windows' && matrix.os == 'windows-latest') ||
+      (github.event.inputs.platform_set == 'linux' && startsWith(matrix.name, 'Linux')) ||
+      (github.event.inputs.platform_set == 'macos' && matrix.os == 'macos-latest')
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
@@ -54,6 +97,31 @@ jobs:
         uses: actions/checkout@v4
         with:
           submodules: recursive
+
+      - name: Resolve CI options
+        id: ci_options
+        shell: pwsh
+        run: |
+          $buildType = 'Release'
+          $runTests = 'OFF'
+          $enableAsan = 'OFF'
+          $artifactSuffix = 'auto'
+
+          if ('${{ github.event_name }}' -eq 'workflow_dispatch') {
+            $buildType = '${{ github.event.inputs.build_type }}'
+            $runTests = if ('${{ github.event.inputs.run_tests }}' -eq 'true') { 'ON' } else { 'OFF' }
+            $enableAsan = if ('${{ github.event.inputs.sanitizer }}' -eq 'asan') { 'ON' } else { 'OFF' }
+            $artifactSuffix = 'manual'
+
+            if ($enableAsan -eq 'ON' -and $buildType -eq 'Release') {
+              $buildType = 'RelWithDebInfo'
+            }
+          }
+
+          "build_type=$buildType" >> $env:GITHUB_OUTPUT
+          "run_tests=$runTests" >> $env:GITHUB_OUTPUT
+          "enable_asan=$enableAsan" >> $env:GITHUB_OUTPUT
+          "artifact_name=ci-$artifactSuffix-${{ github.run_id }}-${{ github.run_attempt }}-${{ matrix.name }}" >> $env:GITHUB_OUTPUT
 
       - name: Install Linux system dependencies
         if: runner.os == 'Linux'
@@ -102,9 +170,9 @@ jobs:
         if: runner.os == 'Windows'
         run: >
           cmake -S . -B build_ci
-          -DCMAKE_BUILD_TYPE=${{ matrix.build_config }}
-          -DMODBUS_TOOLS_BUILD_TESTS=OFF
-          -DMODBUS_TOOLS_ENABLE_ASAN=OFF
+          -DCMAKE_BUILD_TYPE=${{ steps.ci_options.outputs.build_type }}
+          -DMODBUS_TOOLS_BUILD_TESTS=${{ steps.ci_options.outputs.run_tests }}
+          -DMODBUS_TOOLS_ENABLE_ASAN=${{ steps.ci_options.outputs.enable_asan }}
 
       - name: Configure (POSIX)
         if: runner.os != 'Windows'
@@ -114,20 +182,57 @@ jobs:
           CXX: ${{ matrix.cxx_compiler }}
         run: |
           cmake -S . -B build_ci -G "${{ matrix.generator }}" \
-            -DCMAKE_BUILD_TYPE=${{ matrix.build_config }} \
-            -DMODBUS_TOOLS_BUILD_TESTS=OFF \
-            -DMODBUS_TOOLS_ENABLE_ASAN=OFF
+            -DCMAKE_BUILD_TYPE=${{ steps.ci_options.outputs.build_type }} \
+            -DMODBUS_TOOLS_BUILD_TESTS=${{ steps.ci_options.outputs.run_tests }} \
+            -DMODBUS_TOOLS_ENABLE_ASAN=${{ steps.ci_options.outputs.enable_asan }}
 
-      - name: Build (Windows)
+      - name: Build release bundle (Windows)
         if: runner.os == 'Windows'
         run: >
           cmake --build build_ci
           --target release_bundle
-          --config "${{ matrix.build_config }}"
+          --config "${{ steps.ci_options.outputs.build_type }}"
           --parallel
 
-      - name: Build (POSIX)
+      - name: Build release bundle (POSIX)
         if: runner.os != 'Windows'
         shell: bash
         run: |
           cmake --build build_ci --target release_bundle --parallel
+
+      - name: Build tests (Windows)
+        if: runner.os == 'Windows' && steps.ci_options.outputs.run_tests == 'ON'
+        run: >
+          cmake --build build_ci
+          --config "${{ steps.ci_options.outputs.build_type }}"
+          --parallel
+
+      - name: Build tests (POSIX)
+        if: runner.os != 'Windows' && steps.ci_options.outputs.run_tests == 'ON'
+        shell: bash
+        run: |
+          cmake --build build_ci --parallel
+
+      - name: Run tests (Windows)
+        if: runner.os == 'Windows' && steps.ci_options.outputs.run_tests == 'ON'
+        run: >
+          ctest --test-dir build_ci
+          -C "${{ steps.ci_options.outputs.build_type }}"
+          --output-on-failure
+
+      - name: Run tests (POSIX)
+        if: runner.os != 'Windows' && steps.ci_options.outputs.run_tests == 'ON'
+        shell: bash
+        run: |
+          ctest --test-dir build_ci --output-on-failure
+
+      - name: Upload CI summary artifact
+        if: github.event_name == 'workflow_dispatch'
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.ci_options.outputs.artifact_name }}
+          path: |
+            build_ci/CMakeCache.txt
+            build_ci/CTestTestfile.cmake
+          if-no-files-found: ignore
+          retention-days: 5

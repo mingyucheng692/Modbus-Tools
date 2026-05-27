@@ -8,8 +8,13 @@ on:
 permissions:
   contents: write    # 允许创建/更新 Release 和上传资产
 
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
 jobs:
   build-and-release:
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
     runs-on: windows-latest
     
     steps:
