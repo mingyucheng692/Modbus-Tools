@@ -9,6 +9,7 @@
 
 #include "UpdateManager.h"
 #include "../AppConstants.h"
+#include "infra/platform/PlatformProcessRunnerFactory.h"
 #include <QNetworkAccessManager>
 #include <QNetworkReply>
 #include <QFile>
@@ -21,12 +22,8 @@
 #include <QCoreApplication>
 #include <QThread>
 #include <QRegularExpression>
+#include <QStringList>
 #include <spdlog/spdlog.h>
-
-#ifdef Q_OS_WIN
-#include <windows.h>
-#include <shellapi.h>
-#endif
 
 namespace core::update {
 
@@ -91,10 +88,15 @@ signals:
     void finished(bool success, const QString& error, const QString& expected, const QString& actual);
 };
 
-UpdateManager::UpdateManager(QObject* parent)
+UpdateManager::UpdateManager(QObject* parent,
+                             std::unique_ptr<infra::platform::IPlatformProcessRunner> processRunner)
     : QObject(parent),
       networkManager_(new QNetworkAccessManager(this)),
-      cancelToken_(std::make_shared<std::atomic_bool>(false)) {
+      cancelToken_(std::make_shared<std::atomic_bool>(false)),
+      processRunner_(std::move(processRunner)) {
+    if (!processRunner_) {
+        processRunner_ = infra::platform::createPlatformProcessRunner();
+    }
 }
 
 UpdateManager::~UpdateManager() {
@@ -269,44 +271,29 @@ void UpdateManager::processDownloadedUpdate(const QString& updateFilePath, const
 }
 
 bool UpdateManager::launchUpdater(const QString& taskFilePath, const QString& langCode, QString& errorMessage) {
+    if (!processRunner_ || !processRunner_->supportsElevatedLaunch()) {
+        spdlog::warn("UpdateManager: Automatic update is not supported on this platform");
+        errorMessage = tr("Automatic update is only supported on Windows");
+        return false;
+    }
+
     const QString updaterPath = QDir(QCoreApplication::applicationDirPath()).filePath("updater.exe");
     if (!QFileInfo::exists(updaterPath)) {
         errorMessage = tr("Updater not found");
         return false;
     }
 
-#ifdef Q_OS_WIN
-    const QString parameters = QStringLiteral("--task \"%1\" --lang %2").arg(QDir::toNativeSeparators(taskFilePath), langCode);
-    SHELLEXECUTEINFOW shellExecInfo{};
-    shellExecInfo.cbSize = sizeof(SHELLEXECUTEINFOW);
-    shellExecInfo.fMask = SEE_MASK_NOCLOSEPROCESS;
-    shellExecInfo.hwnd = nullptr;
-    shellExecInfo.lpVerb = L"runas";
-    const std::wstring updaterPathW = QDir::toNativeSeparators(updaterPath).toStdWString();
-    const std::wstring parametersW = parameters.toStdWString();
-    const std::wstring workingDirW = QDir::toNativeSeparators(QCoreApplication::applicationDirPath()).toStdWString();
-    shellExecInfo.lpFile = updaterPathW.c_str();
-    shellExecInfo.lpParameters = parametersW.c_str();
-    shellExecInfo.lpDirectory = workingDirW.c_str();
-    shellExecInfo.nShow = SW_SHOWNORMAL;
-    
-    if (!ShellExecuteExW(&shellExecInfo)) {
-        const DWORD lastErr = GetLastError();
-        spdlog::error("UpdateManager: Failed to launch updater. ShellExecuteExW error: {}", lastErr);
-        errorMessage = tr("Failed to launch updater (Access Denied or System Error)");
-        return false;
-    }
-    if (shellExecInfo.hProcess) {
+    const QStringList arguments{
+        QStringLiteral("--task"),
+        QDir::toNativeSeparators(taskFilePath),
+        QStringLiteral("--lang"),
+        langCode
+    };
+    const bool launched = processRunner_->startElevated(updaterPath, arguments, &errorMessage);
+    if (launched) {
         spdlog::info("UpdateManager: Updater launched successfully. Path: {}", updaterPath.toStdString());
-        CloseHandle(shellExecInfo.hProcess);
     }
-    return true;
-#else
-    Q_UNUSED(taskFilePath);
-    spdlog::warn("UpdateManager: Automatic update is not supported on this platform");
-    errorMessage = tr("Automatic update is only supported on Windows");
-    return false;
-#endif
+    return launched;
 }
 
 void UpdateManager::cleanupUpdateArtifacts() {

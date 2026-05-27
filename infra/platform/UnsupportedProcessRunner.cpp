@@ -1,4 +1,4 @@
-﻿/**
+/**
  * @file UnsupportedProcessRunner.cpp
  * @brief Implements the default non-supported elevated process launcher.
  */
@@ -8,6 +8,11 @@
 #include "infra/platform/PlatformInfo.h"
 
 namespace infra::platform {
+
+bool UnsupportedProcessRunner::supportsElevatedLaunch() const noexcept
+{
+    return false;
+}
 
 bool UnsupportedProcessRunner::startElevated(const QString& executablePath,
                                              const QStringList& arguments,

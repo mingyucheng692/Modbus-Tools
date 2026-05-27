@@ -1,6 +1,6 @@
-/**
- * @file UnsupportedProcessRunner.h
- * @brief Provides the default non-supported elevated process launcher.
+﻿/**
+ * @file Win32ProcessRunner.h
+ * @brief Declares the Windows elevated process launcher.
  */
 
 #pragma once
@@ -9,9 +9,9 @@
 
 namespace infra::platform {
 
-class UnsupportedProcessRunner final : public IPlatformProcessRunner {
+class Win32ProcessRunner final : public IPlatformProcessRunner {
 public:
-    ~UnsupportedProcessRunner() noexcept override = default;
+    ~Win32ProcessRunner() noexcept override = default;
 
     [[nodiscard]] bool supportsElevatedLaunch() const noexcept override;
     [[nodiscard]] bool startElevated(const QString& executablePath,

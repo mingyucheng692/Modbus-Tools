@@ -1,4 +1,4 @@
-﻿/**
+/**
  * @file IPlatformProcessRunner.h
  * @brief Declares the elevated process launch abstraction.
  */
@@ -14,6 +14,7 @@ class IPlatformProcessRunner {
 public:
     virtual ~IPlatformProcessRunner() noexcept = default;
 
+    [[nodiscard]] virtual bool supportsElevatedLaunch() const noexcept = 0;
     [[nodiscard]] virtual bool startElevated(const QString& executablePath,
                                              const QStringList& arguments,
                                              QString* errorMessage) = 0;

@@ -1,10 +1,11 @@
-﻿add_library(infra_platform STATIC)
+add_library(infra_platform STATIC)
 
 target_sources(infra_platform
     PRIVATE
         IPlatformPaths.h
         IPlatformProcessRunner.h
         PlatformEncoding.h
+        PlatformProcessRunnerFactory.h
         PlatformInfo.h
         QtStandardPlatformPaths.h
         QtStandardPlatformPaths.cpp
@@ -14,16 +15,21 @@ target_sources(infra_platform
 
 if(WIN32)
     target_sources(infra_platform PRIVATE
+        win/PlatformProcessRunnerFactory.cpp
         win/PlatformEncoding.cpp
         win/PlatformInfo.cpp
+        win/Win32ProcessRunner.h
+        win/Win32ProcessRunner.cpp
     )
 elseif(APPLE)
     target_sources(infra_platform PRIVATE
+        macos/PlatformProcessRunnerFactory.cpp
         macos/PlatformEncoding.cpp
         macos/PlatformInfo.cpp
     )
 elseif(UNIX)
     target_sources(infra_platform PRIVATE
+        linux/PlatformProcessRunnerFactory.cpp
         linux/PlatformEncoding.cpp
         linux/PlatformInfo.cpp
     )

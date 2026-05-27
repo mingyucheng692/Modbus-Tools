@@ -13,6 +13,7 @@
 #include <QString>
 #include <QUrl>
 #include <QPointer>
+#include "infra/platform/IPlatformProcessRunner.h"
 #include <memory>
 #include <atomic>
 #include <functional>
@@ -42,7 +43,8 @@ class UpdateManager : public QObject {
     Q_OBJECT
 
 public:
-    explicit UpdateManager(QObject* parent = nullptr);
+    explicit UpdateManager(QObject* parent = nullptr,
+                           std::unique_ptr<infra::platform::IPlatformProcessRunner> processRunner = {});
     ~UpdateManager() override;
 
     /**
@@ -68,7 +70,9 @@ public:
      * @param errorMessage Output parameter for error messages.
      * @return true if launched successfully.
      */
-    static bool launchUpdater(const QString& taskFilePath, const QString& langCode, QString& errorMessage);
+    [[nodiscard]] bool launchUpdater(const QString& taskFilePath,
+                                     const QString& langCode,
+                                     QString& errorMessage);
 
     /**
      * @brief Cleans up temporary update artifacts.
@@ -115,6 +119,7 @@ private:
     QNetworkAccessManager* networkManager_ = nullptr;
     QPointer<QNetworkReply> currentReply_;
     std::unique_ptr<QFile> outputFile_;
+    std::unique_ptr<infra::platform::IPlatformProcessRunner> processRunner_;
 };
 
 } // namespace core::update

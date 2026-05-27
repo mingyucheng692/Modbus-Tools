@@ -167,10 +167,13 @@ void UpdateCoordinator::handleCheckFailed(const QString& reason) {
 
 void UpdateCoordinator::handleUpdateReadyToInstall(const QString& taskFile) {
     QString error;
-    if (core::update::UpdateManager::launchUpdater(taskFile, currentLocale_, error)) {
+    if (updateManager_ != nullptr && updateManager_->launchUpdater(taskFile, currentLocale_, error)) {
         spdlog::info("UpdateCoordinator: Updater launched successfully, terminating application to apply update.");
         qApp->quit();
     } else {
+        if (updateManager_ == nullptr && error.isEmpty()) {
+            error = trMainWindow("Update service unavailable");
+        }
         spdlog::error("UpdateCoordinator: Failed to launch updater: {}", error.toStdString());
         if (view_) {
             view_->showUpdateCriticalMessage(trMainWindow("Update Failed"), error);
