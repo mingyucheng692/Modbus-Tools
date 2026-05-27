@@ -10,6 +10,7 @@
 #include "Logger.h"
 
 #include "AppConstants.h"
+#include "infra/platform/PlatformEncoding.h"
 #include <QDateTime>
 #include <QDir>
 #include <QtGlobal>
@@ -19,19 +20,6 @@
 #include <spdlog/sinks/stdout_color_sinks.h>
 
 namespace logging {
-
-namespace {
-
-spdlog::filename_t ToSpdlogFilename(const QString& path)
-{
-#if defined(_WIN32) && defined(SPDLOG_WCHAR_FILENAMES)
-    return QDir::toNativeSeparators(path).toStdWString();
-#else
-    return QDir::toNativeSeparators(path).toStdString();
-#endif
-}
-
-} // namespace
 
 constexpr auto kDefaultLogLevel = spdlog::level::info;
 
@@ -101,7 +89,7 @@ void Init(const QString& logDir)
     
     const QString timestamp = QDateTime::currentDateTime().toString("yyyyMMdd-HHmmss");
     const QString fileName = QStringLiteral("modbus-tools_%1.log").arg(timestamp);
-    const spdlog::filename_t filePath = ToSpdlogFilename(dir.filePath(fileName));
+    const spdlog::filename_t filePath = infra::platform::encodePathForSpdlog(dir.filePath(fileName));
     
     // rotating_file_sink 负责单次长时运行期间的日志切分防爆盘
     auto fileSink = std::make_shared<spdlog::sinks::rotating_file_sink_mt>(
