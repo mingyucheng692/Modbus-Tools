@@ -83,6 +83,7 @@ target_link_libraries(core PUBLIC
     Qt6::Core
     Qt6::Network
     Qt6::SerialPort
+    infra_platform
     spdlog::spdlog
 )
 

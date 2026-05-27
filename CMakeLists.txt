@@ -105,6 +105,7 @@ if(MODBUS_TOOLS_BUILD_TESTS)
 endif()
 
 # Add subdirectories
+add_subdirectory(infra)
 add_subdirectory(core)
 add_subdirectory(ui)
 add_subdirectory(app)
