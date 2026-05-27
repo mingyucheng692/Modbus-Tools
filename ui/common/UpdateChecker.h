@@ -1,6 +1,6 @@
 /**
- * @file updatechecker.h
- * @brief Header file for updatechecker.
+ * @file UpdateChecker.h
+ * @brief Header file for UpdateChecker.
  * 
  * Copyright (c) 2025 - present mingyucheng692
  * 

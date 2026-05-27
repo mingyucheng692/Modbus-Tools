@@ -1,6 +1,6 @@
 /**
- * @file updatechecker.cpp
- * @brief Implementation of updatechecker.
+ * @file UpdateChecker.cpp
+ * @brief Implementation of UpdateChecker.
  * 
  * Copyright (c) 2025 - present mingyucheng692
  * 
