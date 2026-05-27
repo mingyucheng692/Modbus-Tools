@@ -1,0 +1,133 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+      - master
+      - develop
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  build-matrix:
+    name: ${{ matrix.name }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: Windows MSVC
+            os: windows-latest
+            qt_host: windows
+            qt_arch: win64_msvc2022_64
+            build_config: Release
+          - name: Linux GCC
+            os: ubuntu-latest
+            qt_host: linux
+            qt_arch: gcc_64
+            generator: Ninja
+            build_config: Release
+            c_compiler: gcc
+            cxx_compiler: g++
+          - name: Linux Clang
+            os: ubuntu-latest
+            qt_host: linux
+            qt_arch: gcc_64
+            generator: Ninja
+            build_config: Release
+            c_compiler: clang
+            cxx_compiler: clang++
+          - name: macOS AppleClang
+            os: macos-latest
+            qt_host: mac
+            qt_arch: clang_64
+            generator: Ninja
+            build_config: Release
+            c_compiler: clang
+            cxx_compiler: clang++
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Install Linux system dependencies
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            ninja-build \
+            libgl1-mesa-dev \
+            libegl1-mesa-dev \
+            libx11-xcb-dev \
+            libxkbcommon-dev \
+            libxkbcommon-x11-dev \
+            libxcb-cursor-dev \
+            libxcb-icccm4-dev \
+            libxcb-image0-dev \
+            libxcb-keysyms1-dev \
+            libxcb-randr0-dev \
+            libxcb-render-util0-dev \
+            libxcb-shape0-dev \
+            libxcb-sync-dev \
+            libxcb-xfixes0-dev \
+            libxcb-xinerama0-dev \
+            libxcb-xkb-dev
+
+      - name: Install Ninja (macOS)
+        if: runner.os == 'macOS'
+        run: brew install ninja
+
+      - name: Setup MSVC environment
+        if: runner.os == 'Windows'
+        uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: x64
+
+      - name: Install Qt
+        uses: jurplel/install-qt-action@v3
+        with:
+          version: '6.10.1'
+          host: ${{ matrix.qt_host }}
+          target: desktop
+          arch: ${{ matrix.qt_arch }}
+          modules: 'qtserialport qtcharts'
+          cache: 'true'
+
+      - name: Configure (Windows)
+        if: runner.os == 'Windows'
+        run: >
+          cmake -S . -B build_ci
+          -DCMAKE_BUILD_TYPE=${{ matrix.build_config }}
+          -DMODBUS_TOOLS_BUILD_TESTS=OFF
+          -DMODBUS_TOOLS_ENABLE_ASAN=OFF
+
+      - name: Configure (POSIX)
+        if: runner.os != 'Windows'
+        shell: bash
+        env:
+          CC: ${{ matrix.c_compiler }}
+          CXX: ${{ matrix.cxx_compiler }}
+        run: |
+          cmake -S . -B build_ci -G "${{ matrix.generator }}" \
+            -DCMAKE_BUILD_TYPE=${{ matrix.build_config }} \
+            -DMODBUS_TOOLS_BUILD_TESTS=OFF \
+            -DMODBUS_TOOLS_ENABLE_ASAN=OFF
+
+      - name: Build (Windows)
+        if: runner.os == 'Windows'
+        run: >
+          cmake --build build_ci
+          --target release_bundle
+          --config "${{ matrix.build_config }}"
+          --parallel
+
+      - name: Build (POSIX)
+        if: runner.os != 'Windows'
+        shell: bash
+        run: |
+          cmake --build build_ci --target release_bundle --parallel

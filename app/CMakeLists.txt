@@ -1,7 +1,20 @@
-add_executable(Modbus-Tools WIN32
-    app.rc
+set(modbus_tools_app_sources
     main.cpp
 )
+
+if(WIN32)
+    list(APPEND modbus_tools_app_sources
+        app.rc
+    )
+endif()
+
+add_executable(Modbus-Tools
+    ${modbus_tools_app_sources}
+)
+
+if(WIN32)
+    set_target_properties(Modbus-Tools PROPERTIES WIN32_EXECUTABLE ON)
+endif()
 
 set_target_properties(Modbus-Tools PROPERTIES OUTPUT_NAME "Modbus-Tools")
 
