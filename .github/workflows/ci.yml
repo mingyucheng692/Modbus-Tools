@@ -61,7 +61,7 @@ jobs:
             os: ubuntu-latest
             platform_scope: linux
             qt_host: linux
-            qt_arch: gcc_64
+            qt_arch: linux_gcc_64
             generator: Ninja
             build_config: Release
             c_compiler: gcc

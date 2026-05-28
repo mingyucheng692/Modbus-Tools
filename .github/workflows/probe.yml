@@ -117,7 +117,7 @@ jobs:
         shell: bash
         env:
           QT_HOST: linux
-          QT_ARCH: gcc_64
+          QT_ARCH: linux_gcc_64
         run: |
           python - <<'PY'
           import json
@@ -166,7 +166,7 @@ jobs:
               fh.write(f"supported_versions={json.dumps(supported)}\n")
 
           with open(os.environ["GITHUB_STEP_SUMMARY"], "a", encoding="utf-8") as fh:
-              fh.write("## linux:gcc_64\n")
+              fh.write("## linux:linux_gcc_64\n")
               if supported:
                   fh.write("- Supported versions: " + ", ".join(supported) + "\n")
               else:
@@ -321,7 +321,7 @@ jobs:
           - name: Linux GCC
             os: ubuntu-latest
             qt_host: linux
-            qt_arch: gcc_64
+            qt_arch: linux_gcc_64
             generator: Ninja
             build_config: Release
             c_compiler: gcc
