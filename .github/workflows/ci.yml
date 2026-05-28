@@ -151,7 +151,7 @@ jobs:
         if: steps.ci_options.outputs.should_run == 'true'
         uses: jurplel/install-qt-action@v4
         with:
-          version: '6.10.1'
+          version: '6.10.3'
           host: ${{ matrix.qt_host }}
           target: desktop
           arch: ${{ matrix.qt_arch }}
