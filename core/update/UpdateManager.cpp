@@ -25,6 +25,17 @@
 #include <QStringList>
 #include <spdlog/spdlog.h>
 
+namespace {
+
+QString resolveBundledUpdaterPath()
+{
+    // The updater binary is shipped beside the main executable, so this remains a
+    // read-only bundle lookup instead of a writable runtime path.
+    return QDir(QCoreApplication::applicationDirPath()).filePath(QStringLiteral("updater.exe"));
+}
+
+} // namespace
+
 namespace core::update {
 
 /**
@@ -277,7 +288,7 @@ bool UpdateManager::launchUpdater(const QString& taskFilePath, const QString& la
         return false;
     }
 
-    const QString updaterPath = QDir(QCoreApplication::applicationDirPath()).filePath("updater.exe");
+    const QString updaterPath = resolveBundledUpdaterPath();
     if (!QFileInfo::exists(updaterPath)) {
         errorMessage = tr("Updater not found");
         return false;
@@ -298,9 +309,6 @@ bool UpdateManager::launchUpdater(const QString& taskFilePath, const QString& la
 
 void UpdateManager::cleanupUpdateArtifacts() {
     spdlog::info("UpdateManager: Cleaning up temporary update artifacts...");
-    
-    const QDir appDir(QCoreApplication::applicationDirPath());
-
 
     const QString tempRoot = QStandardPaths::writableLocation(QStandardPaths::TempLocation);
     if (!tempRoot.isEmpty()) {
