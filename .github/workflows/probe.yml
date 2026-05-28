@@ -1,0 +1,419 @@
+name: Qt Version Probe
+
+on:
+  workflow_dispatch:
+    inputs:
+      run_smoke_build:
+        description: Run smoke configure/build with the highest common version
+        required: true
+        default: true
+        type: boolean
+
+permissions:
+  contents: read
+
+concurrency:
+  group: probe-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  probe-windows:
+    name: Probe Windows MSVC
+    runs-on: windows-latest
+    outputs:
+      supported_versions: ${{ steps.probe.outputs.supported_versions }}
+    steps:
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install probe dependencies
+        shell: bash
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install "aqtinstall>=3.3,<4"
+
+      - name: Probe available Qt versions
+        id: probe
+        shell: bash
+        env:
+          QT_HOST: windows
+          QT_ARCH: win64_msvc2022_64
+        run: |
+          python - <<'PY'
+          import json
+          import os
+          import re
+          import subprocess
+          import sys
+
+          qt_host = os.environ["QT_HOST"]
+          qt_arch = os.environ["QT_ARCH"]
+          required_modules = {"qtserialport", "qtcharts", "qtscxml"}
+          version_pattern = re.compile(r"\b(6\.(?:9|10)\.\d+)\b")
+
+          def run_aqt(args):
+              result = subprocess.run(
+                  [sys.executable, "-m", "aqt", *args],
+                  check=True,
+                  text=True,
+                  capture_output=True,
+              )
+              return result.stdout
+
+          all_versions_output = run_aqt(["list-qt", qt_host, "desktop"])
+          candidates = sorted(set(version_pattern.findall(all_versions_output)), key=lambda s: tuple(int(part) for part in s.split(".")), reverse=True)
+
+          supported = []
+          for version in candidates:
+              try:
+                  arch_output = run_aqt(["list-qt", qt_host, "desktop", "--arch", version])
+              except subprocess.CalledProcessError:
+                  continue
+
+              if qt_arch not in arch_output.split():
+                  continue
+
+              try:
+                  modules_output = run_aqt(["list-qt", qt_host, "desktop", "--modules", version, qt_arch])
+              except subprocess.CalledProcessError:
+                  continue
+
+              available_modules = set(re.findall(r"\b[a-z0-9_]+\b", modules_output))
+              if required_modules.issubset(available_modules):
+                  supported.append(version)
+
+          with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as fh:
+              fh.write(f"supported_versions={json.dumps(supported)}\n")
+
+          with open(os.environ["GITHUB_STEP_SUMMARY"], "a", encoding="utf-8") as fh:
+              fh.write("## windows:win64_msvc2022_64\n")
+              if supported:
+                  fh.write("- Supported versions: " + ", ".join(supported) + "\n")
+              else:
+                  fh.write("- Supported versions: none in 6.9.x to 6.10.x\n")
+          PY
+
+  probe-linux:
+    name: Probe Linux GCC
+    runs-on: ubuntu-latest
+    outputs:
+      supported_versions: ${{ steps.probe.outputs.supported_versions }}
+    steps:
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install probe dependencies
+        shell: bash
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install "aqtinstall>=3.3,<4"
+
+      - name: Probe available Qt versions
+        id: probe
+        shell: bash
+        env:
+          QT_HOST: linux
+          QT_ARCH: gcc_64
+        run: |
+          python - <<'PY'
+          import json
+          import os
+          import re
+          import subprocess
+          import sys
+
+          qt_host = os.environ["QT_HOST"]
+          qt_arch = os.environ["QT_ARCH"]
+          required_modules = {"qtserialport", "qtcharts", "qtscxml"}
+          version_pattern = re.compile(r"\b(6\.(?:9|10)\.\d+)\b")
+
+          def run_aqt(args):
+              result = subprocess.run(
+                  [sys.executable, "-m", "aqt", *args],
+                  check=True,
+                  text=True,
+                  capture_output=True,
+              )
+              return result.stdout
+
+          all_versions_output = run_aqt(["list-qt", qt_host, "desktop"])
+          candidates = sorted(set(version_pattern.findall(all_versions_output)), key=lambda s: tuple(int(part) for part in s.split(".")), reverse=True)
+
+          supported = []
+          for version in candidates:
+              try:
+                  arch_output = run_aqt(["list-qt", qt_host, "desktop", "--arch", version])
+              except subprocess.CalledProcessError:
+                  continue
+
+              if qt_arch not in arch_output.split():
+                  continue
+
+              try:
+                  modules_output = run_aqt(["list-qt", qt_host, "desktop", "--modules", version, qt_arch])
+              except subprocess.CalledProcessError:
+                  continue
+
+              available_modules = set(re.findall(r"\b[a-z0-9_]+\b", modules_output))
+              if required_modules.issubset(available_modules):
+                  supported.append(version)
+
+          with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as fh:
+              fh.write(f"supported_versions={json.dumps(supported)}\n")
+
+          with open(os.environ["GITHUB_STEP_SUMMARY"], "a", encoding="utf-8") as fh:
+              fh.write("## linux:gcc_64\n")
+              if supported:
+                  fh.write("- Supported versions: " + ", ".join(supported) + "\n")
+              else:
+                  fh.write("- Supported versions: none in 6.9.x to 6.10.x\n")
+          PY
+
+  probe-macos:
+    name: Probe macOS AppleClang
+    runs-on: macos-latest
+    outputs:
+      supported_versions: ${{ steps.probe.outputs.supported_versions }}
+    steps:
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install probe dependencies
+        shell: bash
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install "aqtinstall>=3.3,<4"
+
+      - name: Probe available Qt versions
+        id: probe
+        shell: bash
+        env:
+          QT_HOST: mac
+          QT_ARCH: clang_64
+        run: |
+          python - <<'PY'
+          import json
+          import os
+          import re
+          import subprocess
+          import sys
+
+          qt_host = os.environ["QT_HOST"]
+          qt_arch = os.environ["QT_ARCH"]
+          required_modules = {"qtserialport", "qtcharts", "qtscxml"}
+          version_pattern = re.compile(r"\b(6\.(?:9|10)\.\d+)\b")
+
+          def run_aqt(args):
+              result = subprocess.run(
+                  [sys.executable, "-m", "aqt", *args],
+                  check=True,
+                  text=True,
+                  capture_output=True,
+              )
+              return result.stdout
+
+          all_versions_output = run_aqt(["list-qt", qt_host, "desktop"])
+          candidates = sorted(set(version_pattern.findall(all_versions_output)), key=lambda s: tuple(int(part) for part in s.split(".")), reverse=True)
+
+          supported = []
+          for version in candidates:
+              try:
+                  arch_output = run_aqt(["list-qt", qt_host, "desktop", "--arch", version])
+              except subprocess.CalledProcessError:
+                  continue
+
+              if qt_arch not in arch_output.split():
+                  continue
+
+              try:
+                  modules_output = run_aqt(["list-qt", qt_host, "desktop", "--modules", version, qt_arch])
+              except subprocess.CalledProcessError:
+                  continue
+
+              available_modules = set(re.findall(r"\b[a-z0-9_]+\b", modules_output))
+              if required_modules.issubset(available_modules):
+                  supported.append(version)
+
+          with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as fh:
+              fh.write(f"supported_versions={json.dumps(supported)}\n")
+
+          with open(os.environ["GITHUB_STEP_SUMMARY"], "a", encoding="utf-8") as fh:
+              fh.write("## mac:clang_64\n")
+              if supported:
+                  fh.write("- Supported versions: " + ", ".join(supported) + "\n")
+              else:
+                  fh.write("- Supported versions: none in 6.9.x to 6.10.x\n")
+          PY
+
+  resolve-common-version:
+    name: Resolve Common Version
+    runs-on: ubuntu-latest
+    needs:
+      - probe-windows
+      - probe-linux
+      - probe-macos
+    outputs:
+      common_version: ${{ steps.resolve.outputs.common_version }}
+
+    steps:
+      - name: Resolve highest common version
+        id: resolve
+        shell: bash
+        env:
+          WINDOWS_VERSIONS: ${{ needs.probe-windows.outputs.supported_versions }}
+          LINUX_VERSIONS: ${{ needs.probe-linux.outputs.supported_versions }}
+          MACOS_VERSIONS: ${{ needs.probe-macos.outputs.supported_versions }}
+        run: |
+          python - <<'PY'
+          import json
+          import os
+
+          def parse_versions(name):
+              raw = os.environ.get(name, "[]").strip()
+              return json.loads(raw) if raw else []
+
+          windows_versions = parse_versions("WINDOWS_VERSIONS")
+          linux_versions = parse_versions("LINUX_VERSIONS")
+          macos_versions = parse_versions("MACOS_VERSIONS")
+
+          common = sorted(
+              set(windows_versions) & set(linux_versions) & set(macos_versions),
+              key=lambda s: tuple(int(part) for part in s.split(".")),
+              reverse=True,
+          )
+          selected = common[0] if common else ""
+
+          with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as fh:
+              fh.write(f"common_version={selected}\n")
+
+          with open(os.environ["GITHUB_STEP_SUMMARY"], "a", encoding="utf-8") as fh:
+              fh.write("## Common Qt Version\n")
+              fh.write(f"- Windows: {', '.join(windows_versions) if windows_versions else 'none'}\n")
+              fh.write(f"- Linux: {', '.join(linux_versions) if linux_versions else 'none'}\n")
+              fh.write(f"- macOS: {', '.join(macos_versions) if macos_versions else 'none'}\n")
+              fh.write(f"- Highest common: {selected if selected else 'none'}\n")
+
+          if not selected:
+              raise SystemExit("No common Qt version found in 6.9.x to 6.10.x.")
+          PY
+
+  smoke-build:
+    name: Smoke ${{ matrix.name }} Qt ${{ needs.resolve-common-version.outputs.common_version }}
+    if: ${{ github.event.inputs.run_smoke_build == 'true' }}
+    needs:
+      - resolve-common-version
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: Windows MSVC
+            os: windows-latest
+            qt_host: windows
+            qt_arch: win64_msvc2022_64
+            build_config: Release
+          - name: Linux GCC
+            os: ubuntu-latest
+            qt_host: linux
+            qt_arch: gcc_64
+            generator: Ninja
+            build_config: Release
+            c_compiler: gcc
+            cxx_compiler: g++
+          - name: macOS AppleClang
+            os: macos-latest
+            qt_host: mac
+            qt_arch: clang_64
+            generator: Ninja
+            build_config: Release
+            c_compiler: clang
+            cxx_compiler: clang++
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Install Linux system dependencies
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            ninja-build \
+            libgl1-mesa-dev \
+            libegl1-mesa-dev \
+            libx11-xcb-dev \
+            libxkbcommon-dev \
+            libxkbcommon-x11-dev \
+            libxcb-cursor-dev \
+            libxcb-icccm4-dev \
+            libxcb-image0-dev \
+            libxcb-keysyms1-dev \
+            libxcb-randr0-dev \
+            libxcb-render-util0-dev \
+            libxcb-shape0-dev \
+            libxcb-sync-dev \
+            libxcb-xfixes0-dev \
+            libxcb-xinerama0-dev \
+            libxcb-xkb-dev
+
+      - name: Install Ninja (macOS)
+        if: runner.os == 'macOS'
+        run: brew install ninja
+
+      - name: Setup MSVC environment
+        if: runner.os == 'Windows'
+        uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: x64
+
+      - name: Install Qt
+        uses: jurplel/install-qt-action@v4
+        with:
+          version: ${{ needs.resolve-common-version.outputs.common_version }}
+          host: ${{ matrix.qt_host }}
+          target: desktop
+          arch: ${{ matrix.qt_arch }}
+          modules: 'qtserialport qtcharts qtscxml'
+          cache: 'false'
+
+      - name: Configure (Windows)
+        if: runner.os == 'Windows'
+        run: >
+          cmake -S . -B build_probe
+          -DCMAKE_BUILD_TYPE=${{ matrix.build_config }}
+          -DMODBUS_TOOLS_BUILD_TESTS=OFF
+          -DMODBUS_TOOLS_ENABLE_ASAN=OFF
+
+      - name: Configure (POSIX)
+        if: runner.os != 'Windows'
+        shell: bash
+        env:
+          CC: ${{ matrix.c_compiler }}
+          CXX: ${{ matrix.cxx_compiler }}
+        run: |
+          cmake -S . -B build_probe -G "${{ matrix.generator }}" \
+            -DCMAKE_BUILD_TYPE=${{ matrix.build_config }} \
+            -DMODBUS_TOOLS_BUILD_TESTS=OFF \
+            -DMODBUS_TOOLS_ENABLE_ASAN=OFF
+
+      - name: Build release bundle (Windows)
+        if: runner.os == 'Windows'
+        run: >
+          cmake --build build_probe
+          --target release_bundle
+          --config "${{ matrix.build_config }}"
+          --parallel
+
+      - name: Build release bundle (POSIX)
+        if: runner.os != 'Windows'
+        shell: bash
+        run: |
+          cmake --build build_probe --target release_bundle --parallel
