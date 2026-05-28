@@ -4,6 +4,8 @@ target_sources(infra_platform
     PRIVATE
         IPlatformPaths.h
         IPlatformProcessRunner.h
+        PathResolver.h
+        PathResolver.cpp
         PlatformEncoding.h
         PlatformProcessRunnerFactory.h
         PlatformInfo.h

@@ -16,6 +16,7 @@
 #include "common/QtThemeRuntime.h"
 #include "common/SettingsService.h"
 #include "common/ThemeController.h"
+#include "infra/platform/PathResolver.h"
 #include "logging/Logger.h"
 
 #ifndef MODBUS_TOOLS_APP_VERSION
@@ -35,7 +36,7 @@ int main(int argc, char *argv[])
     ui::common::ThemeController themeController(themeRuntime, settingsService);
 
     try {
-        logging::Init(app.applicationDirPath() + "/logs");
+        logging::Init(infra::platform::PathResolver::instance().resolveLogDir());
     } catch (const std::exception& ex) {
         QMessageBox::critical(
             nullptr,

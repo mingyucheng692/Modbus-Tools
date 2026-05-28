@@ -10,6 +10,7 @@
 #include "SettingsService.h"
 #include "SettingsKeys.h"
 #include "AppConstants.h"
+#include "infra/platform/PathResolver.h"
 #include <QCoreApplication>
 #include <QDir>
 #include <QSettings>
@@ -54,7 +55,7 @@ void SettingsService::setValue(const QString& key, const QVariant& value) {
 }
 
 QString SettingsService::configFilePath() const {
-    return QDir(QCoreApplication::applicationDirPath()).filePath("config.ini");
+    return QDir(infra::platform::PathResolver::instance().resolveConfigDir()).filePath("config.ini");
 }
 
 void SettingsService::sync() {
