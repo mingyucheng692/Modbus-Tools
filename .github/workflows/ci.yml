@@ -155,7 +155,7 @@ jobs:
           host: ${{ matrix.qt_host }}
           target: desktop
           arch: ${{ matrix.qt_arch }}
-          modules: 'qtserialport qtcharts qtstatemachine'
+          modules: 'qtserialport qtcharts qtscxml'
           cache: 'false'
 
       - name: Configure (Windows)
