@@ -5,8 +5,11 @@ set(CMAKE_AUTORCC ON)
 add_library(ui STATIC)
 
 target_sources(ui PRIVATE
+    common/AppConfig.cpp
+    common/AppConfig.h
     common/CompactMenuBarStyle.cpp
     common/CompactMenuBarStyle.h
+    common/IAppConfig.h
     common/ISettingsService.h
     common/QtThemeRuntime.cpp
     common/QtThemeRuntime.h
