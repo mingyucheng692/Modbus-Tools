@@ -66,15 +66,6 @@ jobs:
             build_config: Release
             c_compiler: gcc
             cxx_compiler: g++
-          - name: Linux Clang
-            os: ubuntu-latest
-            platform_scope: linux
-            qt_host: linux
-            qt_arch: gcc_64
-            generator: Ninja
-            build_config: Release
-            c_compiler: clang
-            cxx_compiler: clang++
           - name: macOS AppleClang
             os: macos-latest
             platform_scope: macos
@@ -158,14 +149,14 @@ jobs:
 
       - name: Install Qt
         if: steps.ci_options.outputs.should_run == 'true'
-        uses: jurplel/install-qt-action@v3
+        uses: jurplel/install-qt-action@v4
         with:
           version: '6.10.1'
           host: ${{ matrix.qt_host }}
           target: desktop
           arch: ${{ matrix.qt_arch }}
-          modules: 'qtserialport qtcharts'
-          cache: 'true'
+          modules: 'qtserialport qtcharts qtstatemachine'
+          cache: 'false'
 
       - name: Configure (Windows)
         if: runner.os == 'Windows' && steps.ci_options.outputs.should_run == 'true'
