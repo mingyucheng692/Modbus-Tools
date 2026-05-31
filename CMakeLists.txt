@@ -113,6 +113,29 @@ else()
 endif()
 message(STATUS "Updater target status: ${MODBUS_TOOLS_UPDATER_STATUS}")
 
+if(CMAKE_SYSTEM_NAME STREQUAL "Windows")
+    set(MODBUS_TOOLS_PLATFORM_OS "windows")
+elseif(CMAKE_SYSTEM_NAME STREQUAL "Darwin")
+    set(MODBUS_TOOLS_PLATFORM_OS "macos")
+elseif(CMAKE_SYSTEM_NAME STREQUAL "Linux")
+    set(MODBUS_TOOLS_PLATFORM_OS "linux")
+else()
+    string(TOLOWER "${CMAKE_SYSTEM_NAME}" MODBUS_TOOLS_PLATFORM_OS)
+endif()
+
+set(MODBUS_TOOLS_PLATFORM_ARCH "${CMAKE_SYSTEM_PROCESSOR}")
+if(NOT MODBUS_TOOLS_PLATFORM_ARCH)
+    set(MODBUS_TOOLS_PLATFORM_ARCH "unknown")
+endif()
+string(TOLOWER "${MODBUS_TOOLS_PLATFORM_ARCH}" MODBUS_TOOLS_PLATFORM_ARCH)
+if(MODBUS_TOOLS_PLATFORM_ARCH MATCHES "^(amd64|x86_64)$")
+    set(MODBUS_TOOLS_PLATFORM_ARCH "x86_64")
+elseif(MODBUS_TOOLS_PLATFORM_ARCH MATCHES "^(arm64|aarch64)$")
+    set(MODBUS_TOOLS_PLATFORM_ARCH "arm64")
+endif()
+
+set(MODBUS_TOOLS_PLATFORM "${MODBUS_TOOLS_PLATFORM_OS}-${MODBUS_TOOLS_PLATFORM_ARCH}")
+
 # Add subdirectories
 add_subdirectory(infra)
 add_subdirectory(core)
@@ -135,7 +158,6 @@ else()
     set(MODBUS_TOOLS_INCLUDE_PRERELEASE_VALUE 0)
 endif()
 set(MODBUS_TOOLS_RELEASES_PAGE_URL "https://github.com/mingyucheng692/Modbus-Tools/releases")
-set(MODBUS_TOOLS_PLATFORM "windows-x86_64")
 
 target_compile_definitions(core PUBLIC
     MODBUS_TOOLS_APP_VERSION="${PROJECT_VERSION}"

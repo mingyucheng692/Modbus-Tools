@@ -12,6 +12,7 @@
 #include <QObject>
 
 class QNetworkAccessManager;
+class QJsonArray;
 class QString;
 
 namespace ui::common {
@@ -29,6 +30,10 @@ public:
     static QString expectedUpdateOnlyName(const QString& version);
     static QString expectedSetupName(const QString& version);
     static QString expectedZipName(const QString& version);
+    static QString resolveFullPackageUrl(const QJsonArray& assets,
+                                         const QString& expectedSetupAsset,
+                                         const QString& expectedZipAsset,
+                                         const QString& releaseUrl);
 
 signals:
     void updateAvailable(const QString& currentVersion,

@@ -8,9 +8,15 @@ if(WIN32)
     )
 endif()
 
-add_executable(Modbus-Tools
-    ${modbus_tools_app_sources}
-)
+if(APPLE)
+    add_executable(Modbus-Tools MACOSX_BUNDLE
+        ${modbus_tools_app_sources}
+    )
+else()
+    add_executable(Modbus-Tools
+        ${modbus_tools_app_sources}
+    )
+endif()
 
 if(WIN32)
     set_target_properties(Modbus-Tools PROPERTIES WIN32_EXECUTABLE ON)
@@ -38,6 +44,7 @@ if(MODBUS_TOOLS_ENABLE_PCH AND COMMAND target_precompile_headers)
 endif()
 
 install(TARGETS Modbus-Tools 
+    BUNDLE DESTINATION .
     RUNTIME DESTINATION . 
     COMPONENT Production
 )

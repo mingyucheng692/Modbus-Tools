@@ -120,6 +120,26 @@ TEST(PathResolver, PortableMarkerUsesApplicationLocalPaths)
               QDir::cleanPath(resolver.resolveConfigDir()).toStdString());
 }
 
+TEST(PathResolver, MacAppBundleInstalledModeKeepsWritablePathsOutsideBundle)
+{
+    QTemporaryDir sandbox;
+    ASSERT_TRUE(sandbox.isValid());
+
+    const QString appDir = QDir(sandbox.path()).filePath("Modbus-Tools.app/Contents/MacOS");
+    const QString dataDir = QDir(sandbox.path()).filePath("data");
+    const QString configDir = QDir(sandbox.path()).filePath("config");
+    const QString tempDir = QDir(sandbox.path()).filePath("temp");
+
+    auto platformPaths = std::make_shared<FakePlatformPaths>(dataDir, configDir, tempDir);
+    const infra::platform::PathResolver resolver(platformPaths, appDir, {}, "Modbus-Tools-Test");
+
+    EXPECT_FALSE(resolver.isPortableMode());
+    EXPECT_EQ(QDir::cleanPath(configDir).toStdString(),
+              QDir::cleanPath(resolver.resolveConfigDir()).toStdString());
+    EXPECT_EQ(QDir::cleanPath(QDir(dataDir).filePath("logs")).toStdString(),
+              QDir::cleanPath(resolver.resolveLogDir()).toStdString());
+}
+
 TEST(PathResolver, UnwritablePortablePathsFallBackToStandardLocations)
 {
     QTemporaryDir sandbox;

@@ -138,20 +138,10 @@ void UpdateChecker::checkForUpdates() {
                 }
             } else if (assetName.compare(QStringLiteral("sha256sums.txt"), Qt::CaseInsensitive) == 0) {
                 checksumsUrl = assetUrl;
-            } else if (assetName.compare(expectedSetupAsset, Qt::CaseInsensitive) == 0 ||
-                       assetName.compare(expectedZipAsset, Qt::CaseInsensitive) == 0) {
-                if (fullPackageUrl.isEmpty()) {
-                    fullPackageUrl = assetUrl;
-                }
             }
         }
 
-        if (fullPackageUrl.isEmpty() && !assets.isEmpty() && assets.first().isObject()) {
-            fullPackageUrl = assets.first().toObject().value("browser_download_url").toString();
-        }
-        if (fullPackageUrl.isEmpty()) {
-            fullPackageUrl = releaseUrl;
-        }
+        fullPackageUrl = resolveFullPackageUrl(assets, expectedSetupAsset, expectedZipAsset, releaseUrl);
 
         const int compareResult = compareVersions(latestVersion, currentVersion());
         if (compareResult > 0) {
@@ -222,6 +212,32 @@ int UpdateChecker::compareVersions(const QString& left, const QString& right) {
         }
     }
     return 0;
+}
+
+QString UpdateChecker::resolveFullPackageUrl(const QJsonArray& assets,
+                                             const QString& expectedSetupAsset,
+                                             const QString& expectedZipAsset,
+                                             const QString& releaseUrl)
+{
+    for (const QJsonValue& assetValue : assets) {
+        if (!assetValue.isObject()) {
+            continue;
+        }
+
+        const QJsonObject asset = assetValue.toObject();
+        const QString assetName = asset.value("name").toString();
+        if (assetName.compare(expectedSetupAsset, Qt::CaseInsensitive) != 0 &&
+            assetName.compare(expectedZipAsset, Qt::CaseInsensitive) != 0) {
+            continue;
+        }
+
+        const QString assetUrl = asset.value("browser_download_url").toString();
+        if (!assetUrl.isEmpty()) {
+            return assetUrl;
+        }
+    }
+
+    return releaseUrl;
 }
 
 } // namespace ui::common
