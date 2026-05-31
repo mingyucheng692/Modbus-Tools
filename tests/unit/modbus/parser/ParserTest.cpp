@@ -54,6 +54,7 @@ TEST_F(FrameParserTest, ParseTcpRequestSuccess) {
     EXPECT_EQ(result.transactionId, 1);
     EXPECT_EQ(result.slaveId, 1);
     EXPECT_EQ(result.functionCode, FunctionCode::ReadHoldingRegisters);
+    EXPECT_EQ(result.timestamp.timeSpec(), Qt::UTC);
 }
 
 TEST_F(FrameParserTest, ParseExceptionResponse) {
@@ -74,6 +75,7 @@ TEST_F(FrameParserTest, ParsePduLinkToAnalyzer) {
     ParseResult result;
     result.isValid = true;
     result.protocol = ProtocolType::Tcp; // Assume TCP context
+    result.timestamp = QDateTime::currentDateTimeUtc();
     
     ModbusFrameParser::parsePdu(result, pdu, 40010, 1);
     
@@ -81,6 +83,7 @@ TEST_F(FrameParserTest, ParsePduLinkToAnalyzer) {
     ASSERT_EQ(result.dataItems.size(), 1);
     EXPECT_EQ(result.dataItems[0].address, 40010);
     EXPECT_EQ(result.dataItems[0].value.toUInt(), 123);
+    EXPECT_EQ(result.timestamp.timeSpec(), Qt::UTC);
 }
 
 TEST_F(FrameParserTest, ByteOrderTransformation) {

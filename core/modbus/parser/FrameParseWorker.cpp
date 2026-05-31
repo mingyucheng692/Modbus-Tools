@@ -99,7 +99,7 @@ ParseResult FrameParseWorker::Private::buildResult(const QString& input,
     const QString hexStr = FrameParseWorker::normalizeHexInput(input);
 
     ParseResult result;
-    result.timestamp = QDateTime::currentDateTime();
+    result.timestamp = QDateTime::currentDateTimeUtc();
     if (hexStr.isEmpty()) {
         result.isValid = false;
         result.error = QCoreApplication::translate("FrameParseWorker", "Error: Empty input");

@@ -312,7 +312,7 @@ void TrafficMonitorWidget::scheduleVisibleEntriesRebuild() {
 }
 
 bool TrafficMonitorWidget::renderEvent(const ui::common::TrafficEvent& event, QString& outText, QColor& outColor) const {
-    const QDateTime timestamp = event.timestamp.isValid() ? event.timestamp : QDateTime::currentDateTime();
+    const QDateTime timestamp = (event.timestamp.isValid() ? event.timestamp : QDateTime::currentDateTimeUtc()).toLocalTime();
     const QString timeStr = timestamp.toString("HH:mm:ss.zzz");
     outColor = Qt::gray;
 

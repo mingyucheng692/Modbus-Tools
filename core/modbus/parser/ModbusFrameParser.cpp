@@ -68,7 +68,7 @@ ParseResult ModbusFrameParser::parse(const QByteArray& frame,
                                      modbus::base::RegisterOrder order)
 {
     ParseResult result;
-    result.timestamp = QDateTime::currentDateTime();
+    result.timestamp = QDateTime::currentDateTimeUtc();
     result.rawFrame = frame;
     result.expectedQuantity = expectedQuantity;
     result.isForced = force;
@@ -126,7 +126,7 @@ bool ModbusFrameParser::detectRtu(const QByteArray& frame)
 ParseResult ModbusFrameParser::parseTcp(const QByteArray& frame, uint16_t startAddress, uint16_t expectedQuantity, bool force, modbus::base::RegisterOrder order)
 {
     ParseResult result;
-    result.timestamp = QDateTime::currentDateTime();
+    result.timestamp = QDateTime::currentDateTimeUtc();
     result.protocol = ProtocolType::Tcp;
     result.rawFrame = frame;
     result.expectedQuantity = expectedQuantity;
@@ -195,7 +195,7 @@ ParseResult ModbusFrameParser::parseTcp(const QByteArray& frame, uint16_t startA
 ParseResult ModbusFrameParser::parseRtu(const QByteArray& frame, uint16_t startAddress, uint16_t expectedQuantity, bool force, modbus::base::RegisterOrder order)
 {
     ParseResult result;
-    result.timestamp = QDateTime::currentDateTime();
+    result.timestamp = QDateTime::currentDateTimeUtc();
     result.protocol = ProtocolType::Rtu;
     result.rawFrame = frame;
     result.expectedQuantity = expectedQuantity;

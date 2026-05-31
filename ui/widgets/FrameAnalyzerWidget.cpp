@@ -222,7 +222,7 @@ QString FrameAnalyzerWidget::FrameAnalyzerWidgetPrivate::historyItemText(const m
     const QString status = result.isValid ? tr("OK") : tr("ERR");
     const QString type = (result.protocol == ProtocolType::Tcp) ? "TCP" : "RTU";
     return QString("[%1] %2 %3 - %4")
-        .arg(result.timestamp.toString("HH:mm:ss"))
+        .arg(result.timestamp.toLocalTime().toString("HH:mm:ss"))
         .arg(type)
         .arg(status)
         .arg(QString::fromLatin1(result.rawFrame.toHex().toUpper().left(16)) + "...");
@@ -689,7 +689,7 @@ void FrameAnalyzerWidget::onExportCsvClicked()
     }
 
     const QString filePath = QFileDialog::getSaveFileName(this, tr("Export CSV"), 
-        QStringLiteral("analysis_%1.csv").arg(QDateTime::currentDateTime().toString(QStringLiteral("yyyyMMdd_HHmmss"))),
+        QStringLiteral("analysis_%1.csv").arg(QDateTime::currentDateTimeUtc().toString(QStringLiteral("yyyyMMdd_HHmmss'Z'"))),
         tr("CSV Files (*.csv)"));
     if (filePath.isEmpty()) return;
 
@@ -963,7 +963,7 @@ void FrameAnalyzerWidget::processLivePdu(const modbus::base::Pdu& pdu, modbus::c
     ParseResult result;
     result.isValid = true;
     result.protocol = protocol;
-    result.timestamp = QDateTime::currentDateTime();
+    result.timestamp = QDateTime::currentDateTimeUtc();
     result.functionCode = pdu.functionCode();
     result.isException = pdu.isException();
     result.pduData = pdu.toByteArray();
@@ -977,7 +977,7 @@ void FrameAnalyzerWidget::processLivePdu(const modbus::base::Pdu& pdu, modbus::c
         d->liveLabel->setVisible(true);
     }
     if (d->statusLabel) {
-        d->statusLabel->setText(tr("Live Data Received at %1").arg(result.timestamp.toString("HH:mm:ss.zzz")));
+        d->statusLabel->setText(tr("Live Data Received at %1").arg(result.timestamp.toLocalTime().toString("HH:mm:ss.zzz")));
         d->statusLabel->setStyleSheet(QStringLiteral("color: #10B981; font-weight: bold;"));
     }
     if (d->linkageTipLabel) d->linkageTipLabel->setVisible(true);
@@ -1099,7 +1099,7 @@ void FrameAnalyzerWidget::retranslateUi()
         QString protocolStr = (d->lastLiveResult.protocol == ProtocolType::Tcp) ? tr("TCP") : tr("RTU");
         if (d->liveLabel) d->liveLabel->setText(tr("LIVE: %1").arg(protocolStr));
         if (d->statusLabel && d->lastLiveResult.isValid) {
-            d->statusLabel->setText(tr("Live Data Received at %1").arg(d->lastLiveResult.timestamp.toString("HH:mm:ss.zzz")));
+            d->statusLabel->setText(tr("Live Data Received at %1").arg(d->lastLiveResult.timestamp.toLocalTime().toString("HH:mm:ss.zzz")));
         }
     } else {
         if (d->liveLabel) d->liveLabel->setText(QString());

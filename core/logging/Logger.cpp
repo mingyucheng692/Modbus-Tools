@@ -16,6 +16,7 @@
 #include <QtGlobal>
 #include <spdlog/async.h>
 #include <spdlog/common.h>
+#include <spdlog/pattern_formatter.h>
 #include <spdlog/sinks/rotating_file_sink.h>
 #include <spdlog/sinks/stdout_color_sinks.h>
 
@@ -87,7 +88,7 @@ void Init(const QString& logDir)
     // 2. 初始化本次运行的日志文件（带时间戳）
     auto consoleSink = std::make_shared<spdlog::sinks::stdout_color_sink_mt>();
     
-    const QString timestamp = QDateTime::currentDateTime().toString("yyyyMMdd-HHmmss");
+    const QString timestamp = QDateTime::currentDateTimeUtc().toString("yyyyMMdd-HHmmss'Z'");
     const QString fileName = QStringLiteral("modbus-tools_%1.log").arg(timestamp);
     const spdlog::filename_t filePath = infra::platform::encodePathForSpdlog(dir.filePath(fileName));
     
@@ -110,7 +111,9 @@ void Init(const QString& logDir)
         sinks.end(),
         spdlog::thread_pool(),
         spdlog::async_overflow_policy::block);
-    logger->set_pattern("%Y-%m-%d %H:%M:%S.%e [%t] [%^%l%$] %v");
+    logger->set_formatter(std::make_unique<spdlog::pattern_formatter>(
+        "%Y-%m-%d %H:%M:%S.%eZ [%t] [%^%l%$] %v",
+        spdlog::pattern_time_type::utc));
     logger->set_level(kDefaultLogLevel);
     logger->flush_on(kDefaultFlushLevel);
     spdlog::set_error_handler([](const std::string& message) {

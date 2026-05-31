@@ -37,7 +37,7 @@ enum class TrafficRequestType {
 };
 
 struct TrafficEvent {
-    QDateTime timestamp = QDateTime::currentDateTime();
+    QDateTime timestamp = QDateTime::currentDateTimeUtc();
     TrafficDirection direction = TrafficDirection::None;
     TrafficEventLevel level = TrafficEventLevel::Info;
     TrafficRequestType requestType = TrafficRequestType::Unknown;
