@@ -178,6 +178,11 @@ class FakeUpdateManager : public core::update::UpdateManager {
 public:
     explicit FakeUpdateManager(QObject* parent = nullptr) : core::update::UpdateManager(parent) {}
 
+    [[nodiscard]] core::update::UpdateInstallMode installMode() const noexcept override
+    {
+        return installMode_;
+    }
+
     void emitUpdateReadyToInstall(const QString& taskFilePath) {
         emit updateReadyToInstall(taskFilePath);
     }
@@ -189,6 +194,8 @@ public:
     void emitUpdateCanceled() {
         emit updateCanceled();
     }
+
+    core::update::UpdateInstallMode installMode_ = core::update::UpdateInstallMode::AutomaticInstaller;
 };
 
 } // namespace tests::mocks

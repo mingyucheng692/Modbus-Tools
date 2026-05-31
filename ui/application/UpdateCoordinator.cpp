@@ -4,6 +4,7 @@
 #include "common/UpdateChecker.h"
 #include "../core/common/SettingsController.h"
 #include "../core/update/UpdateManager.h"
+#include "infra/platform/PlatformInfo.h"
 
 #include <QCoreApplication>
 #include <QDateTime>
@@ -197,6 +198,21 @@ void UpdateCoordinator::promptUpdateAction(const QString& currentVersion) {
     if (pendingUpdateInfo_.updateOnlyUrl.isEmpty()) {
         if (view_ && view_->confirmOpenDownloadPage(pendingUpdateInfo_.latestVersion)) {
             QDesktopServices::openUrl(QUrl(downloadUrl));
+        }
+        checkingUpdateManually_ = false;
+        return;
+    }
+
+    if (updateManager_ == nullptr ||
+        updateManager_->installMode() == core::update::UpdateInstallMode::DownloadOnly) {
+        if (view_) {
+            view_->showUpdateInfoMessage(
+                trMainWindow("Automatic Update Unsupported"),
+                trMainWindow("In-app automatic update is not supported on %1. Download the latest package instead.")
+                    .arg(infra::platform::platformDisplayName()));
+            if (view_->confirmOpenDownloadPage(pendingUpdateInfo_.latestVersion)) {
+                QDesktopServices::openUrl(QUrl(downloadUrl));
+            }
         }
         checkingUpdateManually_ = false;
         return;

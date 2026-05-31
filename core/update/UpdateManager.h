@@ -24,6 +24,11 @@ class QFile;
 
 namespace core::update {
 
+enum class UpdateInstallMode {
+    AutomaticInstaller,
+    DownloadOnly
+};
+
 /**
  * @brief Result of the update preparation process (download + verify).
  */
@@ -63,6 +68,8 @@ public:
      * @brief Cancels any ongoing update process.
      */
     void cancelUpdate();
+
+    [[nodiscard]] virtual UpdateInstallMode installMode() const noexcept;
 
     /**
      * @brief Launches the external updater tool.

@@ -114,6 +114,13 @@ UpdateManager::~UpdateManager() {
     cancelUpdate();
 }
 
+UpdateInstallMode UpdateManager::installMode() const noexcept
+{
+    return (processRunner_ != nullptr && processRunner_->supportsElevatedLaunch())
+               ? UpdateInstallMode::AutomaticInstaller
+               : UpdateInstallMode::DownloadOnly;
+}
+
 void UpdateManager::startUpdate(const QUrl& updateUrl, 
                                 const QString& expectedSha, 
                                 const QString& checksumsUrl,

@@ -60,6 +60,25 @@ TEST_F(UpdateCoordinatorTest, UpdateAvailableBranchShowsPromptAndIndicator) {
     EXPECT_EQ(view_.lastPromptLatestVersion, QStringLiteral("1.1.0"));
 }
 
+TEST_F(UpdateCoordinatorTest, DownloadOnlyPlatformShowsExplicitDownloadFlow) {
+    updateManager_.installMode_ = core::update::UpdateInstallMode::DownloadOnly;
+    view_.confirmOpenDownloadPageResult = false;
+
+    coordinator_->checkForUpdates();
+    updateChecker_.emitUpdateAvailable(QStringLiteral("1.0.0"),
+                                       QStringLiteral("1.1.0"),
+                                       QStringLiteral("https://example.com/update-only.zip"),
+                                       QStringLiteral("sha256"),
+                                       QStringLiteral("https://example.com/checksums.txt"),
+                                       QStringLiteral("https://example.com/setup.dmg"),
+                                       QStringLiteral("https://example.com/releases"));
+
+    EXPECT_TRUE(coordinator_->updateAvailable());
+    EXPECT_EQ(view_.showUpdateInfoMessageCallCount, 1);
+    EXPECT_EQ(view_.confirmOpenDownloadPageCallCount, 1);
+    EXPECT_EQ(view_.promptUpdateActionCallCount, 0);
+}
+
 TEST_F(UpdateCoordinatorTest, DownloadFailureDuringManualCheckShowsWarning) {
     coordinator_->checkForUpdates();
     updateManager_.emitUpdateFailed(QStringLiteral("Download failed"));
