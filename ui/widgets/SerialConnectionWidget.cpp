@@ -11,6 +11,7 @@
 #include "AppConstants.h"
 #include "CollapsibleSection.h"
 #include "../common/ISettingsService.h"
+#include <QCoreApplication>
 #include <QHBoxLayout>
 #include <QVBoxLayout>
 #include <QComboBox>
@@ -23,6 +24,68 @@
 #include <QSignalBlocker>
 
 namespace ui::widgets {
+
+namespace {
+
+constexpr auto kParityNone = "none";
+constexpr auto kParityEven = "even";
+constexpr auto kParityOdd = "odd";
+constexpr auto kParitySpace = "space";
+constexpr auto kParityMark = "mark";
+constexpr auto kFlowNone = "none";
+constexpr auto kFlowRtsCts = "rts_cts";
+constexpr auto kFlowXonXoff = "xon_xoff";
+constexpr auto kSerialContext = "ui::widgets::SerialConnectionWidget";
+constexpr auto kNoneText = QT_TRANSLATE_NOOP("ui::widgets::SerialConnectionWidget", "None");
+constexpr auto kEvenText = QT_TRANSLATE_NOOP("ui::widgets::SerialConnectionWidget", "Even");
+constexpr auto kOddText = QT_TRANSLATE_NOOP("ui::widgets::SerialConnectionWidget", "Odd");
+constexpr auto kSpaceText = QT_TRANSLATE_NOOP("ui::widgets::SerialConnectionWidget", "Space");
+constexpr auto kMarkText = QT_TRANSLATE_NOOP("ui::widgets::SerialConnectionWidget", "Mark");
+constexpr auto kRtsCtsText = QT_TRANSLATE_NOOP("ui::widgets::SerialConnectionWidget", "RTS/CTS");
+constexpr auto kXonXoffText = QT_TRANSLATE_NOOP("ui::widgets::SerialConnectionWidget", "XON/XOFF");
+
+QString trSerialOption(const char* sourceText)
+{
+    return QCoreApplication::translate(kSerialContext, sourceText);
+}
+
+void repopulateParityOptions(QComboBox* combo)
+{
+    if (!combo) {
+        return;
+    }
+
+    const QString currentValue = combo->currentData().toString();
+    QSignalBlocker blocker(combo);
+    combo->clear();
+    combo->addItem(trSerialOption(kNoneText), QString::fromLatin1(kParityNone));
+    combo->addItem(trSerialOption(kEvenText), QString::fromLatin1(kParityEven));
+    combo->addItem(trSerialOption(kOddText), QString::fromLatin1(kParityOdd));
+    combo->addItem(trSerialOption(kSpaceText), QString::fromLatin1(kParitySpace));
+    combo->addItem(trSerialOption(kMarkText), QString::fromLatin1(kParityMark));
+
+    const int currentIndex = combo->findData(currentValue);
+    combo->setCurrentIndex(currentIndex >= 0 ? currentIndex : 0);
+}
+
+void repopulateFlowControlOptions(QComboBox* combo)
+{
+    if (!combo) {
+        return;
+    }
+
+    const QString currentValue = combo->currentData().toString();
+    QSignalBlocker blocker(combo);
+    combo->clear();
+    combo->addItem(trSerialOption(kNoneText), QString::fromLatin1(kFlowNone));
+    combo->addItem(trSerialOption(kRtsCtsText), QString::fromLatin1(kFlowRtsCts));
+    combo->addItem(trSerialOption(kXonXoffText), QString::fromLatin1(kFlowXonXoff));
+
+    const int currentIndex = combo->findData(currentValue);
+    combo->setCurrentIndex(currentIndex >= 0 ? currentIndex : 0);
+}
+
+} // namespace
 
 SerialConnectionWidget::SerialConnectionWidget(ui::common::ISettingsService* settingsService, QWidget *parent)
     : QWidget(parent),
@@ -52,17 +115,17 @@ io::SerialConfig SerialConnectionWidget::getConfig() const {
     else if (stopStr == "2") config.stopBits = QSerialPort::TwoStop;
     
     // Parity
-    QString parityStr = parityCombo_->currentText();
-    if (parityStr == "None") config.parity = QSerialPort::NoParity;
-    else if (parityStr == "Even") config.parity = QSerialPort::EvenParity;
-    else if (parityStr == "Odd") config.parity = QSerialPort::OddParity;
-    else if (parityStr == "Space") config.parity = QSerialPort::SpaceParity;
-    else if (parityStr == "Mark") config.parity = QSerialPort::MarkParity;
+    const QString parityValue = parityCombo_->currentData().toString();
+    if (parityValue == QLatin1String(kParityEven)) config.parity = QSerialPort::EvenParity;
+    else if (parityValue == QLatin1String(kParityOdd)) config.parity = QSerialPort::OddParity;
+    else if (parityValue == QLatin1String(kParitySpace)) config.parity = QSerialPort::SpaceParity;
+    else if (parityValue == QLatin1String(kParityMark)) config.parity = QSerialPort::MarkParity;
+    else config.parity = QSerialPort::NoParity;
 
     // Flow Control
-    const QString flowStr = flowControlCombo_->currentText();
-    if (flowStr == "RTS/CTS") config.flowControl = QSerialPort::HardwareControl;
-    else if (flowStr == "XON/XOFF") config.flowControl = QSerialPort::SoftwareControl;
+    const QString flowValue = flowControlCombo_->currentData().toString();
+    if (flowValue == QLatin1String(kFlowRtsCts)) config.flowControl = QSerialPort::HardwareControl;
+    else if (flowValue == QLatin1String(kFlowXonXoff)) config.flowControl = QSerialPort::SoftwareControl;
     else config.flowControl = QSerialPort::NoFlowControl;
 
     return config;
@@ -164,11 +227,6 @@ void SerialConnectionWidget::setupUi() {
     parityLabel_ = new QLabel(this);
     layout->addWidget(parityLabel_);
     parityCombo_ = new QComboBox(this);
-    parityCombo_->addItems({QString::fromLatin1(app::constants::Values::Serial::kDefaultParityText),
-                            QStringLiteral("Even"),
-                            QStringLiteral("Odd"),
-                            QStringLiteral("Space"),
-                            QStringLiteral("Mark")});
     parityCombo_->setMinimumWidth(58);
     layout->addWidget(parityCombo_);
 
@@ -186,9 +244,6 @@ void SerialConnectionWidget::setupUi() {
     flowControlLabel_ = new QLabel(this);
     layout->addWidget(flowControlLabel_);
     flowControlCombo_ = new QComboBox(this);
-    flowControlCombo_->addItems({QStringLiteral("None"),
-                                 QStringLiteral("RTS/CTS"),
-                                 QStringLiteral("XON/XOFF")});
     flowControlCombo_->setMinimumWidth(80);
     layout->addWidget(flowControlCombo_);
 
@@ -236,6 +291,8 @@ void SerialConnectionWidget::setupUi() {
     });
     connect(reconnectDelaySpin_, qOverload<int>(&QSpinBox::valueChanged), this, &SerialConnectionWidget::saveSettings);
 
+    repopulateParityOptions(parityCombo_);
+    repopulateFlowControlOptions(flowControlCombo_);
     loadSettings();
     section_->setSettingsKey(settingsGroup_ + "/ui/connectionSettingsCollapsed");
 
@@ -286,7 +343,10 @@ void SerialConnectionWidget::loadSettings() {
         dataBitsCombo_->setCurrentIndex(dataIndex);
     }
 
-    const int parityIndex = parityCombo_->findText(parity);
+    int parityIndex = parityCombo_->findData(parity);
+    if (parityIndex < 0) {
+        parityIndex = parityCombo_->findText(parity);
+    }
     if (parityIndex >= 0) {
         parityCombo_->setCurrentIndex(parityIndex);
     }
@@ -297,7 +357,10 @@ void SerialConnectionWidget::loadSettings() {
     }
 
     const QString flowControl = settingsService_->value(flowControlKey).toString();
-    const int flowIndex = flowControl.isEmpty() ? 0 : flowControlCombo_->findText(flowControl);
+    int flowIndex = flowControl.isEmpty() ? 0 : flowControlCombo_->findData(flowControl);
+    if (flowIndex < 0 && !flowControl.isEmpty()) {
+        flowIndex = flowControlCombo_->findText(flowControl);
+    }
     if (flowIndex >= 0) {
         flowControlCombo_->setCurrentIndex(flowIndex);
     }
@@ -321,10 +384,10 @@ void SerialConnectionWidget::saveSettings() {
     if (settingsGroup_.isEmpty() || !settingsService_) return;
     settingsService_->setValue(settingsGroup_ + "/baudRate", baudCombo_->currentText());
     settingsService_->setValue(settingsGroup_ + "/dataBits", dataBitsCombo_->currentText());
-    settingsService_->setValue(settingsGroup_ + "/parity", parityCombo_->currentText());
+    settingsService_->setValue(settingsGroup_ + "/parity", parityCombo_->currentData().toString());
     settingsService_->setValue(settingsGroup_ + "/stopBits", stopBitsCombo_->currentText());
     settingsService_->setValue(settingsGroup_ + "/portName", portCombo_->currentData().toString());
-    settingsService_->setValue(settingsGroup_ + "/flowControl", flowControlCombo_->currentText());
+    settingsService_->setValue(settingsGroup_ + "/flowControl", flowControlCombo_->currentData().toString());
     settingsService_->setValue(settingsGroup_ + "/autoReconnect", autoReconnectCheck_->isChecked());
     settingsService_->setValue(settingsGroup_ + "/reconnectDelay", reconnectDelaySpin_->value());
 }
@@ -353,12 +416,14 @@ void SerialConnectionWidget::retranslateUi() {
     if (parityLabel_) {
         parityLabel_->setText(tr("Parity:"));
     }
+    repopulateParityOptions(parityCombo_);
     if (stopBitsLabel_) {
         stopBitsLabel_->setText(tr("Stop:"));
     }
     if (flowControlLabel_) {
         flowControlLabel_->setText(tr("Flow:"));
     }
+    repopulateFlowControlOptions(flowControlCombo_);
     if (refreshBtn_) {
         refreshBtn_->setToolTip(tr("Refresh Ports"));
     }

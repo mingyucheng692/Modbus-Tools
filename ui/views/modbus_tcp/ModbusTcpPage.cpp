@@ -372,8 +372,8 @@ void ModbusTcpPage::refreshReceiveDisplay() {
         return;
     }
     const bool hex = true;
-    receiveTextEdit_->setPlainText(QStringLiteral("[%1] %2")
-                                       .arg(QStringLiteral("RX"))
+    receiveTextEdit_->setPlainText(tr("[%1] %2")
+                                       .arg(tr("RX"))
                                        .arg(formatData(lastReceiveFrame_, hex)));
 }
 
@@ -384,8 +384,8 @@ void ModbusTcpPage::refreshSendDisplay() {
         return;
     }
     const bool hex = true;
-    sendTextEdit_->setPlainText(QStringLiteral("[%1] %2")
-                                     .arg(QStringLiteral("TX"))
+    sendTextEdit_->setPlainText(tr("[%1] %2")
+                                     .arg(tr("TX"))
                                      .arg(formatData(lastSendFrame_, hex)));
 }
 
@@ -397,6 +397,8 @@ void ModbusTcpPage::retranslateUi() {
     if (copySendButton_) copySendButton_->setText(tr("Copy"));
     if (clearReceiveButton_) clearReceiveButton_->setText(tr("Clear"));
     if (clearSendButton_) clearSendButton_->setText(tr("Clear"));
+    refreshReceiveDisplay();
+    refreshSendDisplay();
 }
 
 void ModbusTcpPage::changeEvent(QEvent* event) {

@@ -11,6 +11,7 @@
 #include "AppConstants.h"
 #include "CollapsibleSection.h"
 #include "../common/ISettingsService.h"
+#include <QCoreApplication>
 #include <QHBoxLayout>
 #include <QLabel>
 #include <QLineEdit>
@@ -23,6 +24,39 @@
 #include <QSizePolicy>
 
 namespace ui::widgets {
+
+namespace {
+
+constexpr auto kTcpConnectionContext = "ui::widgets::TcpConnectionWidget";
+constexpr auto kTcpClientText = QT_TRANSLATE_NOOP("ui::widgets::TcpConnectionWidget", "TCP Client");
+constexpr auto kTcpServerText = QT_TRANSLATE_NOOP("ui::widgets::TcpConnectionWidget", "TCP Server");
+constexpr auto kUdpText = QT_TRANSLATE_NOOP("ui::widgets::TcpConnectionWidget", "UDP");
+
+QString trTcpConnection(const char* sourceText)
+{
+    return QCoreApplication::translate(kTcpConnectionContext, sourceText);
+}
+
+void repopulateProtocolOptions(QComboBox* combo)
+{
+    if (!combo) {
+        return;
+    }
+
+    const int currentValue = combo->count() > 0
+        ? combo->currentData().toInt()
+        : static_cast<int>(TcpConnectionWidget::Protocol::TcpClient);
+    QSignalBlocker blocker(combo);
+    combo->clear();
+    combo->addItem(trTcpConnection(kTcpClientText), static_cast<int>(TcpConnectionWidget::Protocol::TcpClient));
+    combo->addItem(trTcpConnection(kTcpServerText), static_cast<int>(TcpConnectionWidget::Protocol::TcpServer));
+    combo->addItem(trTcpConnection(kUdpText), static_cast<int>(TcpConnectionWidget::Protocol::Udp));
+
+    const int currentIndex = combo->findData(currentValue);
+    combo->setCurrentIndex(currentIndex >= 0 ? currentIndex : 0);
+}
+
+} // namespace
 
 TcpConnectionWidget::TcpConnectionWidget(ui::common::ISettingsService* settingsService, QWidget *parent)
     : QWidget(parent),
@@ -44,9 +78,7 @@ void TcpConnectionWidget::setupUi() {
 
     // Protocol ComboBox
     protocolCombo_ = new QComboBox(this);
-    protocolCombo_->addItem(QStringLiteral("TCP Client"), static_cast<int>(Protocol::TcpClient));
-    protocolCombo_->addItem(QStringLiteral("TCP Server"), static_cast<int>(Protocol::TcpServer));
-    protocolCombo_->addItem(QStringLiteral("UDP"), static_cast<int>(Protocol::Udp));
+    repopulateProtocolOptions(protocolCombo_);
     protocolCombo_->setFixedWidth(104);
     layout->addWidget(protocolCombo_);
 
@@ -363,6 +395,7 @@ void TcpConnectionWidget::retranslateUi() {
     if (section_) {
         section_->setTitle(tr("Connection Settings"));
     }
+    repopulateProtocolOptions(protocolCombo_);
     if (remoteIpLabel_) {
         remoteIpLabel_->setText(tr("Remote:"));
     }

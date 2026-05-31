@@ -647,8 +647,8 @@ void TrafficMonitorWidget::retranslateUi() {
         levelFilterCombo_->setToolTip(tr("Log Level Filter"));
         levelFilterCombo_->setStatusTip(tr("Log Level Filter"));
     }
-    if (showTxCheck_) showTxCheck_->setText(QStringLiteral("TX"));
-    if (showRxCheck_) showRxCheck_->setText(QStringLiteral("RX"));
+    if (showTxCheck_) showTxCheck_->setText(tr("TX"));
+    if (showRxCheck_) showRxCheck_->setText(tr("RX"));
     syncDisplayModeUi();
     syncPauseUi();
     if (clearBtn_) clearBtn_->setText(tr("Clear"));

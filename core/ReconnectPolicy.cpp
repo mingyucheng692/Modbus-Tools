@@ -9,6 +9,8 @@
 
 #include "ReconnectPolicy.h"
 
+#include <QCoreApplication>
+
 namespace io {
 
 ReconnectPolicy::ReconnectPolicy(int maxRetries, int delayMs)
@@ -79,7 +81,7 @@ int ReconnectPolicy::delayMs() const
 
 QString ReconnectPolicy::statusString() const
 {
-    return QStringLiteral("Attempt %1/%2")
+    return QCoreApplication::translate("ReconnectPolicy", "Attempt %1/%2")
         .arg(attemptCount_)
         .arg(maxRetries_ > 0 ? QString::number(maxRetries_) : QStringLiteral("\u221E"));
 }

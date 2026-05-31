@@ -11,11 +11,34 @@
 #include "AppConstants.h"
 #include "ModbusCrc.h"
 #include "ModbusFrame.h"
+#include <QCoreApplication>
 #include <QtEndian>
 
 namespace modbus::base {
 
 namespace {
+
+constexpr auto kProtocolChecksContext = "ModbusProtocolChecks";
+constexpr auto kOperationException = QT_TRANSLATE_NOOP("ModbusProtocolChecks", "Exception");
+constexpr auto kOperationBitRead = QT_TRANSLATE_NOOP("ModbusProtocolChecks", "Bit read");
+constexpr auto kOperationRegisterRead = QT_TRANSLATE_NOOP("ModbusProtocolChecks", "Register read");
+constexpr auto kOperationWriteSingle = QT_TRANSLATE_NOOP("ModbusProtocolChecks", "Write single");
+constexpr auto kOperationWriteMultiple = QT_TRANSLATE_NOOP("ModbusProtocolChecks", "Write multiple");
+constexpr auto kPayloadMismatchText = QT_TRANSLATE_NOOP("ModbusProtocolChecks", "%1 response payload length mismatch: expected %2, got %3");
+constexpr auto kExceptionFunctionCodeMismatchText = QT_TRANSLATE_NOOP("ModbusProtocolChecks", "Exception function code does not match request");
+constexpr auto kResponseFunctionCodeMismatchText = QT_TRANSLATE_NOOP("ModbusProtocolChecks", "Response function code does not match request");
+constexpr auto kBitReadRequestQuantityMissingText = QT_TRANSLATE_NOOP("ModbusProtocolChecks", "Request quantity missing for bit-read validation");
+constexpr auto kBitReadPayloadLengthMismatchText = QT_TRANSLATE_NOOP("ModbusProtocolChecks", "Bit-read response byte count does not match payload length");
+constexpr auto kBitReadQuantityMismatchText = QT_TRANSLATE_NOOP("ModbusProtocolChecks", "Bit-read response byte count does not match requested quantity");
+constexpr auto kRegisterReadRequestQuantityMissingText = QT_TRANSLATE_NOOP("ModbusProtocolChecks", "Request quantity missing for register-read validation");
+constexpr auto kRegisterReadPayloadLengthMismatchText = QT_TRANSLATE_NOOP("ModbusProtocolChecks", "Register-read response byte count does not match payload length");
+constexpr auto kRegisterReadQuantityMismatchText = QT_TRANSLATE_NOOP("ModbusProtocolChecks", "Register-read response byte count does not match requested quantity");
+constexpr auto kRegisterReadByteCountEvenText = QT_TRANSLATE_NOOP("ModbusProtocolChecks", "Register-read response byte count must be even");
+constexpr auto kWriteSingleEchoMismatchText = QT_TRANSLATE_NOOP("ModbusProtocolChecks", "Write-single response echo does not match request");
+constexpr auto kWriteMultipleRequestEchoMissingText = QT_TRANSLATE_NOOP("ModbusProtocolChecks", "Request echo fields missing for write-multiple validation");
+constexpr auto kWriteMultipleEchoIncompleteText = QT_TRANSLATE_NOOP("ModbusProtocolChecks", "Write-multiple response echo fields are incomplete");
+constexpr auto kWriteMultipleEchoMismatchText = QT_TRANSLATE_NOOP("ModbusProtocolChecks", "Write-multiple response echo does not match request");
+constexpr auto kUnsupportedFunctionValidationText = QT_TRANSLATE_NOOP("ModbusProtocolChecks", "Unsupported function code for response validation");
 
 bool readBigEndianUInt16(QByteArrayView data, qsizetype offset, uint16_t& value)
 {
@@ -27,10 +50,15 @@ bool readBigEndianUInt16(QByteArrayView data, qsizetype offset, uint16_t& value)
     return true;
 }
 
+QString trProtocolCheck(const char* sourceText)
+{
+    return QCoreApplication::translate(kProtocolChecksContext, sourceText);
+}
+
 QString payloadLengthMismatch(const char* operation, qsizetype actual, qsizetype expected)
 {
-    return QStringLiteral("%1 response payload length mismatch: expected %2, got %3")
-        .arg(QString::fromLatin1(operation))
+    return trProtocolCheck(kPayloadMismatchText)
+        .arg(trProtocolCheck(operation))
         .arg(expected)
         .arg(actual);
 }
@@ -96,16 +124,16 @@ QString validateResponsePdu(const Pdu& request, const Pdu& response)
 {
     if (response.isException()) {
         if (response.originalFunctionCode() != request.functionCode()) {
-            return QStringLiteral("Exception function code does not match request");
+            return trProtocolCheck(kExceptionFunctionCodeMismatchText);
         }
         if (response.data().size() != 1) {
-            return payloadLengthMismatch("Exception", response.data().size(), 1);
+            return payloadLengthMismatch(kOperationException, response.data().size(), 1);
         }
         return QString();
     }
 
     if (response.functionCode() != request.functionCode()) {
-        return QStringLiteral("Response function code does not match request");
+        return trProtocolCheck(kResponseFunctionCodeMismatchText);
     }
 
     const QByteArrayView requestData(request.data());
@@ -117,74 +145,74 @@ QString validateResponsePdu(const Pdu& request, const Pdu& response)
     case FunctionCode::ReadCoils:
     case FunctionCode::ReadDiscreteInputs: {
         if (!readBigEndianUInt16(requestData, 2, requestQuantity)) {
-            return QStringLiteral("Request quantity missing for bit-read validation");
+            return trProtocolCheck(kBitReadRequestQuantityMissingText);
         }
         if (responseData.size() < 1) {
-            return payloadLengthMismatch("Bit read", responseData.size(), 1);
+            return payloadLengthMismatch(kOperationBitRead, responseData.size(), 1);
         }
         const uint8_t byteCount = static_cast<uint8_t>(responseData[0]);
         if (responseData.size() != 1 + byteCount) {
-            return QStringLiteral("Bit-read response byte count does not match payload length");
+            return trProtocolCheck(kBitReadPayloadLengthMismatchText);
         }
         const int expectedByteCount = (static_cast<int>(requestQuantity) + 7) / 8;
         if (byteCount != expectedByteCount) {
-            return QStringLiteral("Bit-read response byte count does not match requested quantity");
+            return trProtocolCheck(kBitReadQuantityMismatchText);
         }
         return QString();
     }
     case FunctionCode::ReadHoldingRegisters:
     case FunctionCode::ReadInputRegisters: {
         if (!readBigEndianUInt16(requestData, 2, requestQuantity)) {
-            return QStringLiteral("Request quantity missing for register-read validation");
+            return trProtocolCheck(kRegisterReadRequestQuantityMissingText);
         }
         if (responseData.size() < 1) {
-            return payloadLengthMismatch("Register read", responseData.size(), 1);
+            return payloadLengthMismatch(kOperationRegisterRead, responseData.size(), 1);
         }
         const uint8_t byteCount = static_cast<uint8_t>(responseData[0]);
         if (responseData.size() != 1 + byteCount) {
-            return QStringLiteral("Register-read response byte count does not match payload length");
+            return trProtocolCheck(kRegisterReadPayloadLengthMismatchText);
         }
         const int expectedByteCount = static_cast<int>(requestQuantity) * 2;
         if (byteCount != expectedByteCount) {
-            return QStringLiteral("Register-read response byte count does not match requested quantity");
+            return trProtocolCheck(kRegisterReadQuantityMismatchText);
         }
         if ((byteCount % 2) != 0) {
-            return QStringLiteral("Register-read response byte count must be even");
+            return trProtocolCheck(kRegisterReadByteCountEvenText);
         }
         return QString();
     }
     case FunctionCode::WriteSingleCoil:
     case FunctionCode::WriteSingleRegister:
         if (responseData.size() != requestData.size()) {
-            return payloadLengthMismatch("Write single", responseData.size(), requestData.size());
+            return payloadLengthMismatch(kOperationWriteSingle, responseData.size(), requestData.size());
         }
         if (responseData != requestData) {
-            return QStringLiteral("Write-single response echo does not match request");
+            return trProtocolCheck(kWriteSingleEchoMismatchText);
         }
         return QString();
     case FunctionCode::WriteMultipleCoils:
     case FunctionCode::WriteMultipleRegisters:
         if (!readBigEndianUInt16(requestData, 0, requestStartAddress) ||
             !readBigEndianUInt16(requestData, 2, requestQuantity)) {
-            return QStringLiteral("Request echo fields missing for write-multiple validation");
+            return trProtocolCheck(kWriteMultipleRequestEchoMissingText);
         }
         if (responseData.size() != 4) {
-            return payloadLengthMismatch("Write multiple", responseData.size(), 4);
+            return payloadLengthMismatch(kOperationWriteMultiple, responseData.size(), 4);
         }
         {
             uint16_t responseStartAddress = 0;
             uint16_t responseQuantity = 0;
             if (!readBigEndianUInt16(responseData, 0, responseStartAddress) ||
                 !readBigEndianUInt16(responseData, 2, responseQuantity)) {
-                return QStringLiteral("Write-multiple response echo fields are incomplete");
+                return trProtocolCheck(kWriteMultipleEchoIncompleteText);
             }
             if (responseStartAddress != requestStartAddress || responseQuantity != requestQuantity) {
-                return QStringLiteral("Write-multiple response echo does not match request");
+                return trProtocolCheck(kWriteMultipleEchoMismatchText);
             }
         }
         return QString();
     default:
-        return QStringLiteral("Unsupported function code for response validation");
+        return trProtocolCheck(kUnsupportedFunctionValidationText);
     }
 }
 
