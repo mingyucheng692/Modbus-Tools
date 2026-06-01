@@ -13,6 +13,7 @@
 #include "infra/platform/PlatformEncoding.h"
 #include <QDateTime>
 #include <QDir>
+#include <QFile>
 #include <QtGlobal>
 #include <spdlog/async.h>
 #include <spdlog/common.h>
@@ -64,12 +65,47 @@ static void QtMessageHandler(QtMsgType type, const QMessageLogContext& context, 
     Q_UNUSED(context);
 }
 
-void Init(const QString& logDir)
+bool ensureLogDirectoryWritable(const QString& logDir, QString* errorMessage)
 {
-    QDir dir(logDir);
-    if (!dir.exists()) {
-        dir.mkpath(".");
+    if (logDir.isEmpty()) {
+        if (errorMessage) {
+            *errorMessage = QObject::tr("Log directory path is empty.");
+        }
+        return false;
     }
+
+    QDir dir(logDir);
+    if (!dir.exists() && !dir.mkpath(QStringLiteral("."))) {
+        if (errorMessage) {
+            *errorMessage = QObject::tr("Failed to create log directory: %1").arg(logDir);
+        }
+        return false;
+    }
+
+    const QString probePath = dir.filePath(QStringLiteral(".write_probe"));
+    QFile probeFile(probePath);
+    if (!probeFile.open(QIODevice::WriteOnly | QIODevice::Truncate)) {
+        if (errorMessage) {
+            *errorMessage = QObject::tr("Log directory is not writable: %1").arg(logDir);
+        }
+        return false;
+    }
+    probeFile.close();
+    probeFile.remove();
+    return true;
+}
+
+bool Init(const QString& logDir, QString* errorMessage) noexcept
+{
+    if (errorMessage) {
+        errorMessage->clear();
+    }
+
+    if (!ensureLogDirectoryWritable(logDir, errorMessage)) {
+        return false;
+    }
+
+    QDir dir(logDir);
 
     // 1. 全局防爆盘：扫描历史带有时间戳的日志文件，主动淘汰过旧的文件
     const int maxAllowedFiles = app::constants::Values::Logging::kMaxRotatedFiles;
@@ -124,6 +160,7 @@ void Init(const QString& logDir)
     spdlog::set_level(kDefaultLogLevel);
 
     qInstallMessageHandler(QtMessageHandler);
+    return true;
 }
 
 void Shutdown()

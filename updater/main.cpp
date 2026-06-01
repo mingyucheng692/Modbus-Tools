@@ -12,9 +12,11 @@
 #include <bcrypt.h>
 
 #include <algorithm>
+#include <cerrno>
 #include <cstdint>
 #include <cwctype>
 #include <fstream>
+#include <limits>
 #include <optional>
 #include <regex>
 #include <sstream>
@@ -127,11 +129,15 @@ std::optional<std::uint32_t> parseJsonUInt(const std::wstring& json, const std::
     if (!std::regex_search(json, match, pattern) || match.size() < 2) {
         return std::nullopt;
     }
-    try {
-        return static_cast<std::uint32_t>(std::stoul(match[1].str()));
-    } catch (...) {
+    errno = 0;
+    const std::wstring valueText = match[1].str();
+    wchar_t* end = nullptr;
+    const unsigned long value = wcstoul(valueText.c_str(), &end, 10);
+    if (end == valueText.c_str() || (end && *end != L'\0') || errno == ERANGE ||
+        value > static_cast<unsigned long>(std::numeric_limits<std::uint32_t>::max())) {
         return std::nullopt;
     }
+    return static_cast<std::uint32_t>(value);
 }
 
 std::optional<int> parseJsonInt(const std::wstring& json, const std::wstring& key) {
@@ -140,11 +146,16 @@ std::optional<int> parseJsonInt(const std::wstring& json, const std::wstring& ke
     if (!std::regex_search(json, match, pattern) || match.size() < 2) {
         return std::nullopt;
     }
-    try {
-        return std::stoi(match[1].str());
-    } catch (...) {
+    errno = 0;
+    const std::wstring valueText = match[1].str();
+    wchar_t* end = nullptr;
+    const long value = wcstol(valueText.c_str(), &end, 10);
+    if (end == valueText.c_str() || (end && *end != L'\0') || errno == ERANGE ||
+        value < static_cast<long>(std::numeric_limits<int>::min()) ||
+        value > static_cast<long>(std::numeric_limits<int>::max())) {
         return std::nullopt;
     }
+    return static_cast<int>(value);
 }
 
 std::optional<bool> parseJsonBool(const std::wstring& json, const std::wstring& key) {

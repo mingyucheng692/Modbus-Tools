@@ -11,7 +11,6 @@
 #include <QIcon>
 #include <QMessageBox>
 #include <QResource>
-#include <exception>
 #include "MainWindow.h"
 #include "common/QtThemeRuntime.h"
 #include "common/SettingsService.h"
@@ -35,19 +34,14 @@ int main(int argc, char *argv[])
     ui::common::QtThemeRuntime themeRuntime(app);
     ui::common::ThemeController themeController(themeRuntime, settingsService);
 
-    try {
-        logging::Init(infra::platform::PathResolver::instance().resolveLogDir());
-    } catch (const std::exception& ex) {
+    QString loggingError;
+    if (!logging::Init(infra::platform::PathResolver::instance().resolveLogDir(), &loggingError)) {
         QMessageBox::critical(
             nullptr,
             QObject::tr("Startup Error"),
-            QObject::tr("Failed to initialize application logging.\n%1").arg(QString::fromUtf8(ex.what())));
-        return 1;
-    } catch (...) {
-        QMessageBox::critical(
-            nullptr,
-            QObject::tr("Startup Error"),
-            QObject::tr("Failed to initialize application logging."));
+            loggingError.isEmpty()
+                ? QObject::tr("Failed to initialize application logging.")
+                : QObject::tr("Failed to initialize application logging.\n%1").arg(loggingError));
         return 1;
     }
 
