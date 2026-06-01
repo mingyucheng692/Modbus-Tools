@@ -61,7 +61,7 @@ class IChannel {
 public:
     using HandlerId = quint64;
 
-    virtual ~IChannel() = default;
+    virtual ~IChannel() noexcept = default;
     virtual ChannelKind kind() const = 0;
     virtual ChannelState state() const = 0;
     virtual bool open() = 0;

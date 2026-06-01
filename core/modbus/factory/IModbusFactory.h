@@ -28,7 +28,7 @@ struct ModbusStack {
 
 class IModbusFactory {
 public:
-    virtual ~IModbusFactory() = default;
+    virtual ~IModbusFactory() noexcept = default;
 
     virtual ModbusStack createStack(const base::ModbusConfig& config) = 0;
 };

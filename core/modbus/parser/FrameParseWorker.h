@@ -28,7 +28,7 @@ class FrameParseWorker : public QObject {
 
 public:
     explicit FrameParseWorker(QObject* parent = nullptr);
-    ~FrameParseWorker() override;
+    ~FrameParseWorker() noexcept override;
 
     /**
      * @brief Utility to normalize hex input (removes brackets, Fail/RTT tags, etc.)

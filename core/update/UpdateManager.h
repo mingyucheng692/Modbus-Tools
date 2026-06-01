@@ -50,7 +50,7 @@ class UpdateManager : public QObject {
 public:
     explicit UpdateManager(QObject* parent = nullptr,
                            std::unique_ptr<infra::platform::IPlatformProcessRunner> processRunner = {});
-    ~UpdateManager() override;
+    ~UpdateManager() noexcept override;
 
     /**
      * @brief Starts the silent update process.

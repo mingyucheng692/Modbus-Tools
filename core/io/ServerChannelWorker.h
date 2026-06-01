@@ -41,7 +41,7 @@ class ServerChannelWorker : public QObject {
 
 public:
     explicit ServerChannelWorker(QObject* parent = nullptr);
-    ~ServerChannelWorker() override;
+    ~ServerChannelWorker() noexcept override;
 
 public slots:
     void openTcpServer(const QString& listenIp, int port, int maxClients);

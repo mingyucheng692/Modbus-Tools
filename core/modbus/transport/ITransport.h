@@ -28,7 +28,7 @@ struct ParseResponseResult {
 
 class ITransport {
 public:
-    virtual ~ITransport() = default;
+    virtual ~ITransport() noexcept = default;
 
     // 构建请求帧（将 PDU 封装为 ADU）
     virtual QByteArray buildRequest(const base::Pdu& pdu, uint8_t slaveId) = 0;

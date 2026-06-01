@@ -20,7 +20,7 @@ namespace io {
 class TcpChannel : public ChannelBase {
 public:
     TcpChannel();
-    ~TcpChannel() override;
+    ~TcpChannel() noexcept override;
 
     ChannelKind kind() const override { return ChannelKind::Tcp; }
     bool open() override;

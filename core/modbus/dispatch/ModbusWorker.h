@@ -23,7 +23,7 @@ class ModbusWorker : public QObject {
     Q_OBJECT
 public:
     explicit ModbusWorker(std::shared_ptr<session::IModbusClient> client, QThread* workerThread, QObject* parent = nullptr);
-    ~ModbusWorker() override;
+    ~ModbusWorker() noexcept override;
 
     void start();
     void stop();

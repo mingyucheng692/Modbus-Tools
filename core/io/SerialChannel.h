@@ -28,7 +28,7 @@ struct SerialConfig {
 class SerialChannel : public ChannelBase {
 public:
     SerialChannel();
-    ~SerialChannel() override;
+    ~SerialChannel() noexcept override;
 
     ChannelKind kind() const override { return ChannelKind::Serial; }
     bool open() override;

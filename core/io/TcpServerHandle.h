@@ -30,7 +30,7 @@ class TcpServerHandle : public QObject {
 
 public:
     explicit TcpServerHandle(QObject* parent = nullptr);
-    ~TcpServerHandle() override;
+    ~TcpServerHandle() noexcept override;
 
     bool start(const QString& listenIp, int port, int maxClients);
     void stop();

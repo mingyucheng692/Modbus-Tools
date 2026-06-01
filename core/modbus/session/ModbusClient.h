@@ -36,7 +36,7 @@ public:
 
     ModbusClient(std::shared_ptr<io::IChannel> channel, 
                  std::shared_ptr<transport::ITransport> transport);
-    ~ModbusClient() override;
+    ~ModbusClient() noexcept override;
 
     ModbusResponse sendRequest(const base::Pdu& request, int slaveId = -1) override;
     void sendRaw(const QByteArray& data) override;

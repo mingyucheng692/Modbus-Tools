@@ -37,7 +37,7 @@ class ModbusSessionPresenter : public QObject {
 
 public:
     explicit ModbusSessionPresenter(SessionMode mode, QObject* parent = nullptr);
-    ~ModbusSessionPresenter() override;
+    ~ModbusSessionPresenter() noexcept override;
 
     void connectTcp(const QString& ip, int port, const ::modbus::base::ModbusConfig& config);
     void connectRtu(const io::SerialConfig& serialConfig, const ::modbus::base::ModbusConfig& modbusConfig);

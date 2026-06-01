@@ -67,7 +67,7 @@ struct ModbusResponse {
 
 class IModbusClient {
 public:
-    virtual ~IModbusClient() = default;
+    virtual ~IModbusClient() noexcept = default;
 
     // 发送请求并等待响应（由 Worker 线程保证不阻塞 UI）
     // slaveId: 如果为 -1，则使用 setConfig 设置的默认 slaveId

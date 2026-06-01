@@ -18,7 +18,7 @@ namespace io {
 class UdpChannel : public ChannelBase {
 public:
     UdpChannel();
-    ~UdpChannel() override;
+    ~UdpChannel() noexcept override;
 
     ChannelKind kind() const override { return ChannelKind::Udp; }
     bool open() override;

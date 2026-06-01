@@ -20,7 +20,7 @@ namespace ui::widgets {
 class LogRecorder {
 public:
     LogRecorder();
-    ~LogRecorder();
+    ~LogRecorder() noexcept;
 
     LogRecorder(const LogRecorder&) = delete;
     LogRecorder& operator=(const LogRecorder&) = delete;

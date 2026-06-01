@@ -43,7 +43,7 @@ class ChannelOperationWorker : public QObject {
 
 public:
     explicit ChannelOperationWorker(QObject* parent = nullptr);
-    ~ChannelOperationWorker() override;
+    ~ChannelOperationWorker() noexcept override;
 
 public slots:
     void openTcp(const QString& ip, int port, quint64 generation);

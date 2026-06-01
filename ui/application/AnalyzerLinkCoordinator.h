@@ -21,7 +21,7 @@ class AnalyzerLinkCoordinator final : public QObject {
 
 public:
     explicit AnalyzerLinkCoordinator(QObject* parent = nullptr);
-    ~AnalyzerLinkCoordinator() override;
+    ~AnalyzerLinkCoordinator() noexcept override;
 
     void bind(views::modbus_tcp::ModbusTcpPage* tcpView,
               views::modbus_rtu::ModbusRtuPage* rtuView,
