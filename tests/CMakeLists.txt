@@ -5,7 +5,7 @@ set(TEST_TARGET modbus_test)
 
 # Collect test sources
 # We start with TestMain.cpp and will add specific test cases
-file(GLOB_RECURSE TEST_SOURCES 
+file(GLOB_RECURSE TEST_SOURCES CONFIGURE_DEPENDS
     "*.cpp"
     "*.h"
 )

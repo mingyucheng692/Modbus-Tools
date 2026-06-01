@@ -11,6 +11,7 @@
 #include "../base/ModbusFrame.h"
 #include "AppConstants.h"
 #include <QtEndian>
+#include <cstring>
 
 namespace modbus::session {
 
@@ -19,7 +20,10 @@ bool RequestValidator::readBigEndianUInt16(const QByteArray& data, int offset, u
     if (offset < 0 || offset + 2 > data.size()) {
         return false;
     }
-    out = qFromBigEndian<uint16_t>(reinterpret_cast<const uchar*>(data.constData() + offset));
+
+    uint16_t rawValue = 0;
+    std::memcpy(&rawValue, data.constData() + offset, sizeof(rawValue));
+    out = qFromBigEndian(rawValue);
     return true;
 }
 

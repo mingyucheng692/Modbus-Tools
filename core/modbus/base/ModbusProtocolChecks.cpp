@@ -13,6 +13,7 @@
 #include "ModbusFrame.h"
 #include <QCoreApplication>
 #include <QtEndian>
+#include <cstring>
 
 namespace modbus::base {
 
@@ -40,13 +41,36 @@ constexpr auto kWriteMultipleEchoIncompleteText = QT_TRANSLATE_NOOP("ModbusProto
 constexpr auto kWriteMultipleEchoMismatchText = QT_TRANSLATE_NOOP("ModbusProtocolChecks", "Write-multiple response echo does not match request");
 constexpr auto kUnsupportedFunctionValidationText = QT_TRANSLATE_NOOP("ModbusProtocolChecks", "Unsupported function code for response validation");
 
-bool readBigEndianUInt16(QByteArrayView data, qsizetype offset, uint16_t& value)
+template <typename T>
+bool copyValue(QByteArrayView data, qsizetype offset, T& value)
 {
-    if (offset < 0 || offset + 2 > data.size()) {
+    if (offset < 0 || offset + static_cast<qsizetype>(sizeof(T)) > data.size()) {
         return false;
     }
 
-    value = qFromBigEndian<uint16_t>(reinterpret_cast<const uchar*>(data.data() + offset));
+    std::memcpy(&value, data.data() + offset, sizeof(T));
+    return true;
+}
+
+bool readBigEndianUInt16(QByteArrayView data, qsizetype offset, uint16_t& value)
+{
+    uint16_t rawValue = 0;
+    if (!copyValue(data, offset, rawValue)) {
+        return false;
+    }
+
+    value = qFromBigEndian(rawValue);
+    return true;
+}
+
+bool readLittleEndianUInt16(QByteArrayView data, qsizetype offset, uint16_t& value)
+{
+    uint16_t rawValue = 0;
+    if (!copyValue(data, offset, rawValue)) {
+        return false;
+    }
+
+    value = qFromLittleEndian(rawValue);
     return true;
 }
 
@@ -70,10 +94,14 @@ int inspectTcpAdu(QByteArrayView adu, TcpAduFields* fields) {
         return 0;
     }
 
-    const auto* data = reinterpret_cast<const uchar*>(adu.data());
-    const uint16_t transactionId = qFromBigEndian<uint16_t>(data);
-    const uint16_t protocolId = qFromBigEndian<uint16_t>(data + 2);
-    const uint16_t length = qFromBigEndian<uint16_t>(data + 4);
+    uint16_t transactionId = 0;
+    uint16_t protocolId = 0;
+    uint16_t length = 0;
+    if (!readBigEndianUInt16(adu, 0, transactionId) ||
+        !readBigEndianUInt16(adu, 2, protocolId) ||
+        !readBigEndianUInt16(adu, 4, length)) {
+        return -1;
+    }
 
     if (protocolId != 0) {
         return -1;
@@ -102,8 +130,10 @@ int inspectRtuAdu(QByteArrayView adu, RtuAduFields* fields) {
         return 0;
     }
 
-    const auto* data = reinterpret_cast<const uchar*>(adu.data());
-    const uint16_t receivedCrc = qFromLittleEndian<uint16_t>(data + adu.size() - 2);
+    uint16_t receivedCrc = 0;
+    if (!readLittleEndianUInt16(adu, adu.size() - 2, receivedCrc)) {
+        return -1;
+    }
     const uint16_t calculatedCrc = calculateModbusRtuCrc(adu.first(adu.size() - 2));
 
     if (fields) {

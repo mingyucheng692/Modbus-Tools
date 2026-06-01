@@ -10,8 +10,19 @@
 #include "ModbusPduBuilder.h"
 #include <QtEndian>
 #include <QCoreApplication>
+#include <cstring>
 
 namespace modbus::base {
+
+namespace {
+
+void appendBigEndianUInt16(QByteArray& data, qsizetype offset, uint16_t value)
+{
+    uint16_t encoded = qToBigEndian(value);
+    std::memcpy(data.data() + offset, &encoded, sizeof(encoded));
+}
+
+} // namespace
 
 PduBuildResult ModbusPduBuilder::buildReadRequest(FunctionCode fc, int startAddress, int quantity) {
     if (startAddress < 0 || startAddress > 0xFFFF) {
@@ -23,8 +34,8 @@ PduBuildResult ModbusPduBuilder::buildReadRequest(FunctionCode fc, int startAddr
 
     QByteArray data;
     data.resize(4);
-    qToBigEndian<uint16_t>(static_cast<uint16_t>(startAddress), reinterpret_cast<uchar*>(data.data()));
-    qToBigEndian<uint16_t>(static_cast<uint16_t>(quantity), reinterpret_cast<uchar*>(data.data() + 2));
+    appendBigEndianUInt16(data, 0, static_cast<uint16_t>(startAddress));
+    appendBigEndianUInt16(data, 2, static_cast<uint16_t>(quantity));
 
     return PduBuildResult::ok(Pdu(fc, data));
 }
@@ -36,9 +47,9 @@ PduBuildResult ModbusPduBuilder::buildWriteSingleCoil(int startAddress, bool val
 
     QByteArray data;
     data.resize(4);
-    qToBigEndian<uint16_t>(static_cast<uint16_t>(startAddress), reinterpret_cast<uchar*>(data.data()));
+    appendBigEndianUInt16(data, 0, static_cast<uint16_t>(startAddress));
     uint16_t coilValue = value ? 0xFF00 : 0x0000;
-    qToBigEndian<uint16_t>(coilValue, reinterpret_cast<uchar*>(data.data() + 2));
+    appendBigEndianUInt16(data, 2, coilValue);
 
     return PduBuildResult::ok(Pdu(FunctionCode::WriteSingleCoil, data));
 }
@@ -50,8 +61,8 @@ PduBuildResult ModbusPduBuilder::buildWriteSingleRegister(int startAddress, uint
 
     QByteArray data;
     data.resize(4);
-    qToBigEndian<uint16_t>(static_cast<uint16_t>(startAddress), reinterpret_cast<uchar*>(data.data()));
-    qToBigEndian<uint16_t>(value, reinterpret_cast<uchar*>(data.data() + 2));
+    appendBigEndianUInt16(data, 0, static_cast<uint16_t>(startAddress));
+    appendBigEndianUInt16(data, 2, value);
 
     return PduBuildResult::ok(Pdu(FunctionCode::WriteSingleRegister, data));
 }
