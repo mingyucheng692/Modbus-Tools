@@ -1,7 +1,6 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 #include <QSignalSpy>
-#include <QCoreApplication>
 
 #include "../../../ui/application/modbus/PollingController.h"
 #include "../../../ui/application/modbus/RequestSubmissionService.h"
@@ -37,12 +36,6 @@ protected:
     void succeedPoll() {
         submitPoll();
         controller_->handleResponse(true, 10, 0, QString());
-    }
-
-    void processEvents() {
-        QCoreApplication::processEvents();
-        QThread::msleep(10);
-        QCoreApplication::processEvents();
     }
 
     std::unique_ptr<RequestSubmissionService> requestService_;

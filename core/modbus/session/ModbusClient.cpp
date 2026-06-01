@@ -22,7 +22,6 @@
 #include <tuple>
 #include <QtEndian>
 #include <QCoreApplication>
-#include <QEventLoop>
 
 namespace modbus::session {
 
@@ -48,14 +47,6 @@ bool isBroadcastWriteFunction(base::FunctionCode functionCode)
 }
 
 constexpr auto kQtWaitSlice = std::chrono::milliseconds(5);
-
-void pumpCurrentThreadEvents(std::chrono::milliseconds maxTime)
-{
-    if (!QCoreApplication::instance()) {
-        return;
-    }
-    QCoreApplication::processEvents(QEventLoop::AllEvents, static_cast<int>(maxTime.count()));
-}
 
 } // namespace
 
@@ -329,8 +320,6 @@ bool ModbusClient::waitForChannelState(io::ChannelState expectedState,
         const auto now = std::chrono::steady_clock::now();
         const auto remaining = std::chrono::duration_cast<std::chrono::milliseconds>(deadline - now);
         const auto slice = std::min(kQtWaitSlice, std::max(std::chrono::milliseconds(1), remaining));
-        pumpCurrentThreadEvents(slice);
-
         std::unique_lock<std::mutex> lock(mutex_);
         if (!cv_.wait_for(lock, slice, [this, expectedState]() {
                 return aborted_.load() ||
@@ -380,8 +369,6 @@ bool ModbusClient::waitForWriteDrain(std::chrono::steady_clock::time_point deadl
         const auto now = std::chrono::steady_clock::now();
         const auto remaining = std::chrono::duration_cast<std::chrono::milliseconds>(deadline - now);
         const auto slice = std::min(kQtWaitSlice, std::max(std::chrono::milliseconds(1), remaining));
-        pumpCurrentThreadEvents(slice);
-
         std::unique_lock<std::mutex> lock(mutex_);
         if (!cv_.wait_for(lock, slice, [this]() {
                 return aborted_.load() || flowController_.isWriteDrained() || !lastChannelError_.isEmpty() ||
@@ -417,8 +404,6 @@ bool ModbusClient::waitForEventOrTimeout(std::chrono::steady_clock::time_point d
         const auto now = std::chrono::steady_clock::now();
         const auto remaining = std::chrono::duration_cast<std::chrono::milliseconds>(deadline - now);
         const auto slice = std::min(kQtWaitSlice, std::max(std::chrono::milliseconds(1), remaining));
-        pumpCurrentThreadEvents(slice);
-
         std::unique_lock<std::mutex> lock(mutex_);
         if (cv_.wait_for(lock, slice, [this]() {
                 return aborted_.load() || responseReady_ || !lastChannelError_.isEmpty() ||
@@ -787,8 +772,6 @@ bool ModbusClient::waitForAbortableDelay(std::chrono::steady_clock::duration del
         const auto now = std::chrono::steady_clock::now();
         const auto remaining = std::chrono::duration_cast<std::chrono::milliseconds>(deadline - now);
         const auto slice = std::min(kQtWaitSlice, std::max(std::chrono::milliseconds(1), remaining));
-        pumpCurrentThreadEvents(slice);
-
         std::unique_lock<std::mutex> lock(mutex_);
         cv_.wait_for(lock, slice, [this]() {
             return aborted_.load();

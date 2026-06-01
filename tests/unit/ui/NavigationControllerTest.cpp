@@ -3,7 +3,6 @@
 #include "../../../core/AppConstants.h"
 #include "../../../ui/shell/NavigationController.h"
 
-#include <QCoreApplication>
 #include <QListWidget>
 #include <QStackedWidget>
 #include <QToolButton>
@@ -28,7 +27,6 @@ TEST(NavigationControllerTest, BindToStackMapsRowsToPages) {
     EXPECT_EQ(stackedWidget.currentIndex(), 1);
 
     navigationList.setCurrentRow(1);
-    QCoreApplication::processEvents();
     EXPECT_EQ(stackedWidget.currentIndex(), 0);
 }
 

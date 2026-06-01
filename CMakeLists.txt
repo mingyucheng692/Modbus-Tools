@@ -16,6 +16,19 @@ option(MODBUS_TOOLS_ENABLE_ASAN "Enable AddressSanitizer (ASan) for memory safet
 #   cmake -S . -B build_release -DMODBUS_TOOLS_ENABLE_VERBOSE_RUNTIME_LOGS=ON
 option(MODBUS_TOOLS_ENABLE_VERBOSE_RUNTIME_LOGS "Flush spdlog on info level (ON) or warn level (OFF)" OFF)
 
+function(modbus_tools_disable_exceptions target_name)
+    if(NOT TARGET ${target_name})
+        message(FATAL_ERROR "Target '${target_name}' must exist before disabling exceptions")
+    endif()
+
+    if(MSVC)
+        target_compile_options(${target_name} PRIVATE /EHs-c-)
+        target_compile_definitions(${target_name} PRIVATE _HAS_EXCEPTIONS=0)
+    else()
+        target_compile_options(${target_name} PRIVATE -fno-exceptions)
+    endif()
+endfunction()
+
 if(MSVC)
     if(MODBUS_TOOLS_ENABLE_PARALLEL_COMPILE)
         add_compile_options(/utf-8 /MP)
@@ -46,6 +59,7 @@ find_package(Qt6 REQUIRED COMPONENTS Core Concurrent Network SerialPort Widgets 
 # Add spdlog
 # Check if spdlog exists, if not, we might need to rely on system installed or header only
 if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/third_party/spdlog/CMakeLists.txt")
+    set(SPDLOG_NO_EXCEPTIONS ON CACHE BOOL "Disable exceptions in spdlog" FORCE)
     if(WIN32)
         set(SPDLOG_WCHAR_FILENAMES ON CACHE BOOL "Support wchar filenames" FORCE)
     endif()
@@ -148,6 +162,16 @@ endif()
 if(MODBUS_TOOLS_BUILD_TESTS)
     add_subdirectory(tests)
 endif()
+
+foreach(modbus_tools_target IN ITEMS infra_platform core ui Modbus-Tools)
+    modbus_tools_disable_exceptions(${modbus_tools_target})
+endforeach()
+
+if(TARGET updater)
+    modbus_tools_disable_exceptions(updater)
+endif()
+
+message(STATUS "Exception policy: first-party targets build with exceptions disabled; SPDLOG_NO_EXCEPTIONS=${SPDLOG_NO_EXCEPTIONS}")
 
 
 if(MODBUS_TOOLS_INCLUDE_PRERELEASE)
