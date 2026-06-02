@@ -160,11 +160,16 @@ jobs:
 
       - name: Configure (Windows)
         if: runner.os == 'Windows' && steps.ci_options.outputs.should_run == 'true'
-        run: >
-          cmake -S . -B build_ci
-          -DCMAKE_BUILD_TYPE=${{ steps.ci_options.outputs.build_type }}
-          -DMODBUS_TOOLS_BUILD_TESTS=${{ steps.ci_options.outputs.run_tests }}
-          -DMODBUS_TOOLS_ENABLE_ASAN=${{ steps.ci_options.outputs.enable_asan }}
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path build_ci | Out-Null
+          & cmake -S . -B build_ci `
+            -DCMAKE_BUILD_TYPE=${{ steps.ci_options.outputs.build_type }} `
+            -DMODBUS_TOOLS_BUILD_TESTS=${{ steps.ci_options.outputs.run_tests }} `
+            -DMODBUS_TOOLS_ENABLE_ASAN=${{ steps.ci_options.outputs.enable_asan }} 2>&1 | Tee-Object -FilePath build_ci/configure.log
+          if ($LASTEXITCODE -ne 0) {
+            exit $LASTEXITCODE
+          }
 
       - name: Configure (POSIX)
         if: runner.os != 'Windows' && steps.ci_options.outputs.should_run == 'true'
@@ -173,10 +178,46 @@ jobs:
           CC: ${{ matrix.c_compiler }}
           CXX: ${{ matrix.cxx_compiler }}
         run: |
+          set -o pipefail
+          mkdir -p build_ci
           cmake -S . -B build_ci -G "${{ matrix.generator }}" \
             -DCMAKE_BUILD_TYPE=${{ steps.ci_options.outputs.build_type }} \
             -DMODBUS_TOOLS_BUILD_TESTS=${{ steps.ci_options.outputs.run_tests }} \
-            -DMODBUS_TOOLS_ENABLE_ASAN=${{ steps.ci_options.outputs.enable_asan }}
+            -DMODBUS_TOOLS_ENABLE_ASAN=${{ steps.ci_options.outputs.enable_asan }} \
+            2>&1 | tee build_ci/configure.log
+
+      - name: Validate platform decoupling invariants
+        if: steps.ci_options.outputs.should_run == 'true'
+        shell: pwsh
+        run: |
+          $updateMatches = Get-ChildItem core/update -Recurse -Include *.cpp,*.h |
+            Select-String -Pattern 'windows\.h|shellapi\.h|ShellExecuteExW'
+          if ($updateMatches) {
+            Write-Error "Win32 API leakage detected in core/update"
+            $updateMatches | ForEach-Object { Write-Host $_ }
+            exit 1
+          }
+
+          $loggingMatches = Get-ChildItem core/logging -Recurse -Include *.cpp,*.h |
+            Select-String -Pattern '_WIN32|Q_OS_WIN'
+          if ($loggingMatches) {
+            Write-Error "Platform macro leakage detected in core/logging"
+            $loggingMatches | ForEach-Object { Write-Host $_ }
+            exit 1
+          }
+
+          $configureLog = Get-Content build_ci/configure.log -Raw
+          if ('${{ runner.os }}' -eq 'Windows') {
+            if ($configureLog -notmatch 'Updater target status: enabled \(Windows native target\)') {
+              Write-Error "Missing Windows updater enabled status in configure log"
+              exit 1
+            }
+          } else {
+            if ($configureLog -notmatch 'Updater target status: disabled on .+; main application builds without updater') {
+              Write-Error "Missing non-Windows updater disabled status in configure log"
+              exit 1
+            }
+          }
 
       - name: Build release bundle (Windows)
         if: runner.os == 'Windows' && steps.ci_options.outputs.should_run == 'true'
@@ -191,6 +232,14 @@ jobs:
         shell: bash
         run: |
           cmake --build build_ci --target release_bundle --parallel
+
+      - name: Build updater target (Windows)
+        if: runner.os == 'Windows' && steps.ci_options.outputs.should_run == 'true'
+        run: >
+          cmake --build build_ci
+          --target updater
+          --config "${{ steps.ci_options.outputs.build_type }}"
+          --parallel
 
       - name: Build tests (Windows)
         if: runner.os == 'Windows' && steps.ci_options.outputs.should_run == 'true' && steps.ci_options.outputs.run_tests == 'ON'
@@ -230,6 +279,7 @@ jobs:
         with:
           name: ${{ steps.ci_options.outputs.artifact_name }}
           path: |
+            build_ci/configure.log
             build_ci/CMakeCache.txt
             build_ci/CTestTestfile.cmake
           if-no-files-found: ignore
