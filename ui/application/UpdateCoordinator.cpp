@@ -168,7 +168,7 @@ void UpdateCoordinator::handleCheckFailed(const QString& reason) {
 
 void UpdateCoordinator::handleUpdateReadyToInstall(const QString& taskFile) {
     QString error;
-    if (updateManager_ != nullptr && updateManager_->launchUpdater(taskFile, currentLocale_, error)) {
+    if (updateManager_ != nullptr && updateManager_->launchInstaller(taskFile, currentLocale_, error)) {
         spdlog::info("UpdateCoordinator: Updater launched successfully, terminating application to apply update.");
         qApp->quit();
     } else {

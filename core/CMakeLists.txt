@@ -73,6 +73,10 @@ target_sources(core PRIVATE
     analyzer/AnalyzerExporter.h
     analyzer/AnalyzerExporter.cpp
     analyzer/ValueFormatter.cpp
+    update/PlatformReleaseAssetStrategy.h
+    update/PlatformReleaseAssetStrategy.cpp
+    update/PlatformUpdateInstallStrategy.h
+    update/PlatformUpdateInstallStrategy.cpp
     update/UpdateManager.h
     update/UpdateManager.cpp
     common/SettingsController.h

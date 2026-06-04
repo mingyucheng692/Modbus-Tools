@@ -10,6 +10,7 @@
 #include "UpdateManager.h"
 #include "../AppConstants.h"
 #include "infra/platform/PlatformProcessRunnerFactory.h"
+#include "PlatformUpdateInstallStrategy.h"
 #include <QNetworkAccessManager>
 #include <QNetworkReply>
 #include <QFile>
@@ -17,24 +18,11 @@
 #include <QDir>
 #include <QStandardPaths>
 #include <QCryptographicHash>
-#include <QJsonDocument>
-#include <QJsonObject>
 #include <QCoreApplication>
 #include <QThread>
 #include <QRegularExpression>
 #include <QStringList>
 #include <spdlog/spdlog.h>
-
-namespace {
-
-QString resolveBundledUpdaterPath()
-{
-    // The updater binary is shipped beside the main executable, so this remains a
-    // read-only bundle lookup instead of a writable runtime path.
-    return QDir(QCoreApplication::applicationDirPath()).filePath(QStringLiteral("updater.exe"));
-}
-
-} // namespace
 
 namespace core::update {
 
@@ -100,13 +88,18 @@ signals:
 };
 
 UpdateManager::UpdateManager(QObject* parent,
-                             std::unique_ptr<infra::platform::IPlatformProcessRunner> processRunner)
+                             std::unique_ptr<infra::platform::IPlatformProcessRunner> processRunner,
+                             std::unique_ptr<PlatformUpdateInstallStrategy> installStrategy)
     : QObject(parent),
       networkManager_(new QNetworkAccessManager(this)),
       cancelToken_(std::make_shared<std::atomic_bool>(false)),
-      processRunner_(std::move(processRunner)) {
+      processRunner_(std::move(processRunner)),
+      installStrategy_(std::move(installStrategy)) {
     if (!processRunner_) {
         processRunner_ = infra::platform::createPlatformProcessRunner();
+    }
+    if (!installStrategy_) {
+        installStrategy_ = createPlatformUpdateInstallStrategy();
     }
 }
 
@@ -116,9 +109,10 @@ UpdateManager::~UpdateManager() {
 
 UpdateInstallMode UpdateManager::installMode() const noexcept
 {
-    return (processRunner_ != nullptr && processRunner_->supportsElevatedLaunch())
-               ? UpdateInstallMode::AutomaticInstaller
-               : UpdateInstallMode::DownloadOnly;
+    if (!installStrategy_) {
+        return UpdateInstallMode::DownloadOnly;
+    }
+    return installStrategy_->installMode(processRunner_.get());
 }
 
 void UpdateManager::startUpdate(const QUrl& updateUrl, 
@@ -253,30 +247,29 @@ void UpdateManager::processDownloadedUpdate(const QString& updateFilePath, const
 
         spdlog::info("UpdateManager: Verification successful. Expected: {}, Actual: {}", expected.toStdString(), actual.toStdString());
 
-        // Write task file
-        const QString taskFilePath = QFileInfo(updateFilePath).dir().filePath("update_task.json");
-        const QString targetExePath = QCoreApplication::applicationFilePath();
-        const QString backupExePath = targetExePath + ".bak";
-
-        QJsonObject root;
-        root.insert("schemaVersion", 1);
-        root.insert("launcherPid", static_cast<qint64>(QCoreApplication::applicationPid()));
-        root.insert("targetExePath", QDir::toNativeSeparators(targetExePath));
-        root.insert("newExePath", QDir::toNativeSeparators(updateFilePath));
-        root.insert("backupExePath", QDir::toNativeSeparators(backupExePath));
-        root.insert("expectedVersion", pendingLatestVersion_);
-        root.insert("expectedSha256", expected);
-        root.insert("restartAfterUpdate", true);
-
-        QFile taskFile(taskFilePath);
-        if (!taskFile.open(QIODevice::WriteOnly | QIODevice::Truncate)) {
-            emit updateFailed(tr("Failed to create update task file"));
-        } else {
-            taskFile.write(QJsonDocument(root).toJson());
-            taskFile.close();
-            spdlog::info("UpdateManager: Update task file created at {}", taskFilePath.toStdString());
-            emit updateReadyToInstall(taskFilePath);
+        if (!installStrategy_) {
+            emit updateFailed(tr("No update install strategy available"));
+            thread->quit();
+            return;
         }
+
+        PreparedUpdateContext context;
+        context.updateFilePath = updateFilePath;
+        context.latestVersion = pendingLatestVersion_;
+        context.expectedSha256 = expected;
+        context.applicationFilePath = QCoreApplication::applicationFilePath();
+
+        QString installArtifactPath;
+        QString errorMessage;
+        if (!installStrategy_->createInstallArtifact(context, installArtifactPath, errorMessage)) {
+            emit updateFailed(errorMessage);
+            thread->quit();
+            return;
+        }
+
+        spdlog::info("UpdateManager: Update install artifact created at {}",
+                     installArtifactPath.toStdString());
+        emit updateReadyToInstall(installArtifactPath);
         
         thread->quit();
     });
@@ -288,28 +281,17 @@ void UpdateManager::processDownloadedUpdate(const QString& updateFilePath, const
     }, Qt::QueuedConnection);
 }
 
-bool UpdateManager::launchUpdater(const QString& taskFilePath, const QString& langCode, QString& errorMessage) {
-    if (!processRunner_ || !processRunner_->supportsElevatedLaunch()) {
-        spdlog::warn("UpdateManager: Automatic update is not supported on this platform");
-        errorMessage = tr("Automatic update is only supported on Windows");
+bool UpdateManager::launchInstaller(const QString& installArtifactPath, const QString& langCode, QString& errorMessage) {
+    if (!installStrategy_) {
+        errorMessage = tr("No update install strategy available");
         return false;
     }
 
-    const QString updaterPath = resolveBundledUpdaterPath();
-    if (!QFileInfo::exists(updaterPath)) {
-        errorMessage = tr("Updater not found");
-        return false;
-    }
-
-    const QStringList arguments{
-        QStringLiteral("--task"),
-        QDir::toNativeSeparators(taskFilePath),
-        QStringLiteral("--lang"),
-        langCode
-    };
-    const bool launched = processRunner_->startElevated(updaterPath, arguments, &errorMessage);
+    const bool launched = installStrategy_->launchInstallArtifact(
+        installArtifactPath, langCode, processRunner_.get(), errorMessage);
     if (launched) {
-        spdlog::info("UpdateManager: Updater launched successfully. Path: {}", updaterPath.toStdString());
+        spdlog::info("UpdateManager: Installer launched successfully. Artifact: {}",
+                     installArtifactPath.toStdString());
     }
     return launched;
 }

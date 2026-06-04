@@ -14,6 +14,7 @@
 #include <QUrl>
 #include <QPointer>
 #include "infra/platform/IPlatformProcessRunner.h"
+#include "PlatformUpdateInstallStrategy.h"
 #include <memory>
 #include <atomic>
 #include <functional>
@@ -49,7 +50,8 @@ class UpdateManager : public QObject {
 
 public:
     explicit UpdateManager(QObject* parent = nullptr,
-                           std::unique_ptr<infra::platform::IPlatformProcessRunner> processRunner = {});
+                           std::unique_ptr<infra::platform::IPlatformProcessRunner> processRunner = {},
+                           std::unique_ptr<PlatformUpdateInstallStrategy> installStrategy = {});
     ~UpdateManager() noexcept override;
 
     /**
@@ -77,9 +79,9 @@ public:
      * @param errorMessage Output parameter for error messages.
      * @return true if launched successfully.
      */
-    [[nodiscard]] bool launchUpdater(const QString& taskFilePath,
-                                     const QString& langCode,
-                                     QString& errorMessage);
+    [[nodiscard]] bool launchInstaller(const QString& installArtifactPath,
+                                       const QString& langCode,
+                                       QString& errorMessage);
 
     /**
      * @brief Cleans up temporary update artifacts.
@@ -127,6 +129,7 @@ private:
     QPointer<QNetworkReply> currentReply_;
     std::unique_ptr<QFile> outputFile_;
     std::unique_ptr<infra::platform::IPlatformProcessRunner> processRunner_;
+    std::unique_ptr<PlatformUpdateInstallStrategy> installStrategy_;
 };
 
 } // namespace core::update

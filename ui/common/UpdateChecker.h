@@ -15,6 +15,10 @@ class QNetworkAccessManager;
 class QJsonArray;
 class QString;
 
+namespace core::update {
+struct PlatformUpdateArtifactLayout;
+}
+
 namespace ui::common {
 
 class UpdateChecker : public QObject {
@@ -27,12 +31,9 @@ public:
     static QString currentVersion();
     static QString packagePlatform();
     static QString releasePageUrl();
-    static QString expectedUpdateOnlyName(const QString& version);
-    static QString expectedSetupName(const QString& version);
-    static QString expectedZipName(const QString& version);
+    static core::update::PlatformUpdateArtifactLayout currentArtifactLayout(const QString& version);
     static QString resolveFullPackageUrl(const QJsonArray& assets,
-                                         const QString& expectedSetupAsset,
-                                         const QString& expectedZipAsset,
+                                         const core::update::PlatformUpdateArtifactLayout& layout,
                                          const QString& releaseUrl);
 
 signals:

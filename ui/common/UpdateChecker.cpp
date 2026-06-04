@@ -9,6 +9,8 @@
 
 #include "UpdateChecker.h"
 
+#include "../../core/update/PlatformReleaseAssetStrategy.h"
+
 #include <QJsonArray>
 #include <QCoreApplication>
 #include <QJsonDocument>
@@ -117,9 +119,7 @@ void UpdateChecker::checkForUpdates() {
         QString updateOnlySha256;
         QString checksumsUrl;
         QString fullPackageUrl;
-        const QString expectedUpdateOnlyAsset = expectedUpdateOnlyName(latestVersion);
-        const QString expectedSetupAsset = expectedSetupName(latestVersion);
-        const QString expectedZipAsset = expectedZipName(latestVersion);
+        const auto artifactLayout = currentArtifactLayout(latestVersion);
         const QJsonArray assets = root.value("assets").toArray();
         const QRegularExpression digestPattern(QStringLiteral("^sha256:([a-fA-F0-9]{64})$"));
         for (const QJsonValue& assetValue : assets) {
@@ -129,7 +129,8 @@ void UpdateChecker::checkForUpdates() {
             const QJsonObject asset = assetValue.toObject();
             const QString assetName = asset.value("name").toString();
             const QString assetUrl = asset.value("browser_download_url").toString();
-            if (assetName.compare(expectedUpdateOnlyAsset, Qt::CaseInsensitive) == 0) {
+            if (!artifactLayout.updateOnlyAssetName.isEmpty() &&
+                assetName.compare(artifactLayout.updateOnlyAssetName, Qt::CaseInsensitive) == 0) {
                 updateOnlyUrl = assetUrl;
                 const QString digestRaw = asset.value("digest").toString().trimmed();
                 const QRegularExpressionMatch digestMatch = digestPattern.match(digestRaw);
@@ -141,7 +142,7 @@ void UpdateChecker::checkForUpdates() {
             }
         }
 
-        fullPackageUrl = resolveFullPackageUrl(assets, expectedSetupAsset, expectedZipAsset, releaseUrl);
+        fullPackageUrl = resolveFullPackageUrl(assets, artifactLayout, releaseUrl);
 
         const int compareResult = compareVersions(latestVersion, currentVersion());
         if (compareResult > 0) {
@@ -177,16 +178,8 @@ QString UpdateChecker::releasePageUrl() {
     return QStringLiteral(MODBUS_TOOLS_RELEASES_PAGE_URL);
 }
 
-QString UpdateChecker::expectedUpdateOnlyName(const QString& version) {
-    return QStringLiteral("Modbus-Tools-v%1-%2-UpdateOnly.exe").arg(version, packagePlatform());
-}
-
-QString UpdateChecker::expectedSetupName(const QString& version) {
-    return QStringLiteral("Modbus-Tools-v%1-%2-Setup.exe").arg(version, packagePlatform());
-}
-
-QString UpdateChecker::expectedZipName(const QString& version) {
-    return QStringLiteral("Modbus-Tools-v%1-%2.zip").arg(version, packagePlatform());
+core::update::PlatformUpdateArtifactLayout UpdateChecker::currentArtifactLayout(const QString& version) {
+    return core::update::PlatformReleaseAssetStrategy::layoutForPackage(version, packagePlatform());
 }
 
 QString UpdateChecker::normalizeVersion(const QString& rawVersion) {
@@ -215,29 +208,11 @@ int UpdateChecker::compareVersions(const QString& left, const QString& right) {
 }
 
 QString UpdateChecker::resolveFullPackageUrl(const QJsonArray& assets,
-                                             const QString& expectedSetupAsset,
-                                             const QString& expectedZipAsset,
+                                             const core::update::PlatformUpdateArtifactLayout& layout,
                                              const QString& releaseUrl)
 {
-    for (const QJsonValue& assetValue : assets) {
-        if (!assetValue.isObject()) {
-            continue;
-        }
-
-        const QJsonObject asset = assetValue.toObject();
-        const QString assetName = asset.value("name").toString();
-        if (assetName.compare(expectedSetupAsset, Qt::CaseInsensitive) != 0 &&
-            assetName.compare(expectedZipAsset, Qt::CaseInsensitive) != 0) {
-            continue;
-        }
-
-        const QString assetUrl = asset.value("browser_download_url").toString();
-        if (!assetUrl.isEmpty()) {
-            return assetUrl;
-        }
-    }
-
-    return releaseUrl;
+    return core::update::PlatformReleaseAssetStrategy::resolveFullPackageUrl(
+        assets, layout, releaseUrl);
 }
 
 } // namespace ui::common
