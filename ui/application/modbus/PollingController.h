@@ -40,6 +40,25 @@ struct PollSummary {
     int avgRttMs = 0;
 };
 
+struct PollContext {
+    PollState state = PollState::Idle;
+    bool sessionConnected = false;
+    bool requestInFlight = false;
+    bool suppressTrafficLog = false;
+    PollSpec currentSpec{};
+    int consecutiveErrorCount = 0;
+    bool errorEscalated = false;
+    QString lastErrorText;
+    std::chrono::steady_clock::time_point lastErrorLogTime{};
+    std::chrono::steady_clock::time_point lastSuccessTime{};
+    std::chrono::steady_clock::time_point failureStreakStartTime{};
+    std::chrono::steady_clock::time_point summaryWindowStart{};
+    int summarySuccessCount = 0;
+    int summaryErrorCount = 0;
+    int summaryRetryCount = 0;
+    qint64 summaryTotalRttMs = 0;
+};
+
 class PollingController : public QObject {
     Q_OBJECT
 
@@ -57,6 +76,7 @@ public:
 
     PollState currentState() const;
     bool isSuppressingTrafficLog() const;
+    const PollContext& context() const;
 
 signals:
     void submitPollRequest(const ::modbus::base::Pdu& pdu, int slaveId, int requestId);
@@ -68,12 +88,18 @@ signals:
     void recovered();
     void stopRequested();
 
+public slots:
+    void handleSessionConnected();
+    void handleSessionDisconnected(const QString& reason = QString());
+
 private:
     void buildAndSubmit();
     void handlePollCompletion(bool success, int rttMs, int retryCount, const QString& error);
     int pollErrorThreshold() const;
     void resetPollErrorTracking();
     void flushPollSummary(bool force);
+    void setSessionConnectedInternal(bool connected, bool stopActivePolling);
+    void transitionTo(PollState newState);
 
     RequestSubmissionService* requestService_ = nullptr;
 
@@ -82,25 +108,8 @@ private:
     QState* pollingState_ = nullptr;
     QState* degradedState_ = nullptr;
     QState* escalatedState_ = nullptr;
-    PollState currentState_ = PollState::Idle;
-
-    bool sessionConnected_ = false;
     int pollingIntervalMs_ = 1000;
-
-    bool pollInFlight_ = false;
-    bool suppressPollTrafficLog_ = false;
-    std::chrono::steady_clock::time_point pollSummaryWindowStart_{};
-    int pollSummarySuccessCount_ = 0;
-    int pollSummaryErrorCount_ = 0;
-    int pollSummaryRetryCount_ = 0;
-    qint64 pollSummaryTotalRttMs_ = 0;
-    PollSpec currentPollSpec_;
-    int pollConsecutiveErrorCount_ = 0;
-    bool pollErrorEscalated_ = false;
-    QString pollLastErrorText_;
-    std::chrono::steady_clock::time_point pollLastErrorLogTime_{};
-    std::chrono::steady_clock::time_point pollLastSuccessTime_{};
-    std::chrono::steady_clock::time_point pollFailureStreakStartTime_{};
+    PollContext context_{};
 };
 
 } // namespace ui::application::modbus

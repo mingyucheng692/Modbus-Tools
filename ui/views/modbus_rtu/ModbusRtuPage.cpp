@@ -316,7 +316,6 @@ void ModbusRtuPage::setupUi() {
         [this, ensureConnected](uint8_t fc, int addr, int qty) {
             if (!ensureConnected()) return;
             if (!pollingController_) return;
-            pollingController_->setSessionConnected(sessionPresenter_->isSessionConnected());
             pollingController_->setPollingInterval(controlWidget_->pollingIntervalMs());
             ui::application::modbus::PollSpec spec;
             spec.functionCode = fc;

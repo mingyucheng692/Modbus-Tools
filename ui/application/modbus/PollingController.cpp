@@ -47,25 +47,15 @@ PollingController::PollingController(RequestSubmissionService* requestService,
     escalatedState_->addTransition(this, &PollingController::stopRequested, idleState_);
 
     connect(pollingState_, &QState::entered, this, [this]() {
-        currentState_ = PollState::Polling;
         spdlog::debug("PollingController: entered Polling state");
     });
     connect(degradedState_, &QState::entered, this, [this]() {
-        auto old = currentState_;
-        currentState_ = PollState::Degraded;
-        emit stateChanged(old, PollState::Degraded);
         spdlog::debug("PollingController: entered Degraded state");
     });
     connect(escalatedState_, &QState::entered, this, [this]() {
-        auto old = currentState_;
-        currentState_ = PollState::Escalated;
-        emit stateChanged(old, PollState::Escalated);
         spdlog::debug("PollingController: entered Escalated state");
     });
     connect(idleState_, &QState::entered, this, [this]() {
-        auto old = currentState_;
-        currentState_ = PollState::Idle;
-        emit stateChanged(old, PollState::Idle);
         spdlog::debug("PollingController: entered Idle state");
     });
 
@@ -73,18 +63,31 @@ PollingController::PollingController(RequestSubmissionService* requestService,
 }
 
 void PollingController::setSessionConnected(bool connected) {
-    sessionConnected_ = connected;
+    setSessionConnectedInternal(connected, false);
 }
 
 void PollingController::setPollingInterval(int ms) {
     pollingIntervalMs_ = std::max(1, ms);
 }
 
-void PollingController::handlePollRequest(const PollSpec& spec) {
-    if (pollInFlight_) return;
-    if (!sessionConnected_) return;
+const PollContext& PollingController::context() const {
+    return context_;
+}
 
-    currentPollSpec_ = spec;
+void PollingController::handleSessionConnected() {
+    setSessionConnectedInternal(true, false);
+}
+
+void PollingController::handleSessionDisconnected(const QString& reason) {
+    Q_UNUSED(reason);
+    setSessionConnectedInternal(false, true);
+}
+
+void PollingController::handlePollRequest(const PollSpec& spec) {
+    if (context_.requestInFlight) return;
+    if (!context_.sessionConnected) return;
+
+    context_.currentSpec = spec;
 
     buildAndSubmit();
 }
@@ -92,7 +95,7 @@ void PollingController::handlePollRequest(const PollSpec& spec) {
 void PollingController::buildAndSubmit() {
     if (!requestService_) return;
 
-    auto result = requestService_->buildReadRequest(currentPollSpec_, RequestKind::Poll);
+    auto result = requestService_->buildReadRequest(context_.currentSpec, RequestKind::Poll);
     if (!result.ok) {
         ui::common::TrafficEvent event;
         event.level = ui::common::TrafficEventLevel::Error;
@@ -103,51 +106,53 @@ void PollingController::buildAndSubmit() {
         return;
     }
 
-    if (pollSummaryWindowStart_ == std::chrono::steady_clock::time_point{}) {
-        pollSummaryWindowStart_ = std::chrono::steady_clock::now();
+    if (context_.summaryWindowStart == std::chrono::steady_clock::time_point{}) {
+        context_.summaryWindowStart = std::chrono::steady_clock::now();
     }
-    pollInFlight_ = true;
-    suppressPollTrafficLog_ = true;
-    emit submitPollRequest(result.pdu, currentPollSpec_.slaveId, result.requestId);
+    context_.requestInFlight = true;
+    context_.suppressTrafficLog = true;
+    transitionTo(PollState::Polling);
+    emit submitPollRequest(result.pdu, context_.currentSpec.slaveId, result.requestId);
 }
 
 void PollingController::handleResponse(bool success, int rttMs, int retryCount,
                                        const QString& error) {
-    pollInFlight_ = false;
-    suppressPollTrafficLog_ = false;
+    context_.requestInFlight = false;
+    context_.suppressTrafficLog = false;
     handlePollCompletion(success, rttMs, retryCount, error);
 }
 
 void PollingController::handlePollCompletion(bool success, int rttMs, int retryCount,
                                              const QString& error) {
-    if (pollSummaryWindowStart_ == std::chrono::steady_clock::time_point{}) {
-        pollSummaryWindowStart_ = std::chrono::steady_clock::now();
+    if (context_.summaryWindowStart == std::chrono::steady_clock::time_point{}) {
+        context_.summaryWindowStart = std::chrono::steady_clock::now();
     }
     const auto now = std::chrono::steady_clock::now();
-    pollSummaryRetryCount_ += std::max(0, retryCount);
+    context_.summaryRetryCount += std::max(0, retryCount);
 
     if (success) {
-        ++pollSummarySuccessCount_;
-        pollSummaryTotalRttMs_ += (rttMs > 0 ? rttMs : 0);
-        pollLastSuccessTime_ = now;
-        if (pollConsecutiveErrorCount_ > 0) {
+        ++context_.summarySuccessCount;
+        context_.summaryTotalRttMs += (rttMs > 0 ? rttMs : 0);
+        context_.lastSuccessTime = now;
+        if (context_.consecutiveErrorCount > 0) {
             ui::common::TrafficEvent event;
             event.level = ui::common::TrafficEventLevel::Info;
             event.requestType = ui::common::TrafficRequestType::Poll;
             event.isPoll = true;
             event.summary = tr("Poll recovered after %1 consecutive failures")
-                .arg(pollConsecutiveErrorCount_);
+                .arg(context_.consecutiveErrorCount);
             emit trafficEvent(event);
         }
         resetPollErrorTracking();
-        if (currentState_ == PollState::Degraded || currentState_ == PollState::Escalated) {
+        if (context_.state == PollState::Degraded || context_.state == PollState::Escalated) {
             emit recovered();
+            transitionTo(PollState::Polling);
         }
     } else {
-        ++pollSummaryErrorCount_;
-        ++pollConsecutiveErrorCount_;
-        if (pollFailureStreakStartTime_ == std::chrono::steady_clock::time_point{}) {
-            pollFailureStreakStartTime_ = now;
+        ++context_.summaryErrorCount;
+        ++context_.consecutiveErrorCount;
+        if (context_.failureStreakStartTime == std::chrono::steady_clock::time_point{}) {
+            context_.failureStreakStartTime = now;
         }
 
         const QString normalizedError = error.toLower();
@@ -161,15 +166,15 @@ void PollingController::handlePollCompletion(bool success, int rttMs, int retryC
         }
 
         const bool zeroSuccessWindowExceeded =
-            pollFailureStreakStartTime_ != std::chrono::steady_clock::time_point{}
-            && (now - pollFailureStreakStartTime_) >= std::chrono::milliseconds(3000);
-        const bool connectionFault = !sessionConnected_;
+            context_.failureStreakStartTime != std::chrono::steady_clock::time_point{}
+            && (now - context_.failureStreakStartTime) >= std::chrono::milliseconds(3000);
+        const bool connectionFault = !context_.sessionConnected;
         const bool escalateToError = connectionFault
             || zeroSuccessWindowExceeded
-            || pollConsecutiveErrorCount_ >= threshold;
-        const bool shouldLogEscalatedError = !pollErrorEscalated_
-            || error != pollLastErrorText_
-            || (now - pollLastErrorLogTime_) >= std::chrono::seconds(5);
+            || context_.consecutiveErrorCount >= threshold;
+        const bool shouldLogEscalatedError = !context_.errorEscalated
+            || error != context_.lastErrorText
+            || (now - context_.lastErrorLogTime) >= std::chrono::seconds(5);
 
         ui::common::TrafficEvent event;
         event.level = escalateToError
@@ -182,37 +187,39 @@ void PollingController::handlePollCompletion(bool success, int rttMs, int retryC
             if (connectionFault) {
                 event.summary = tr("Poll Error: Connection unavailable during polling (%1)")
                     .arg(error);
-            } else if (!pollErrorEscalated_) {
+            } else if (!context_.errorEscalated) {
                 event.summary = tr("Poll Error escalated after %1 consecutive failures: %2")
-                    .arg(pollConsecutiveErrorCount_)
+                    .arg(context_.consecutiveErrorCount)
                     .arg(error);
             } else {
                 event.summary = tr("Poll Error persists (%1 consecutive failures): %2")
-                    .arg(pollConsecutiveErrorCount_)
+                    .arg(context_.consecutiveErrorCount)
                     .arg(error);
             }
 
             if (shouldLogEscalatedError) {
                 ui::logging::relay(event);
                 emit trafficEvent(event);
-                pollLastErrorLogTime_ = now;
+                context_.lastErrorLogTime = now;
             }
 
-            pollErrorEscalated_ = true;
-            pollLastErrorText_ = error;
+            context_.errorEscalated = true;
+            context_.lastErrorText = error;
 
-            if (currentState_ != PollState::Escalated) {
+            if (context_.state != PollState::Escalated) {
                 emit escalated(
-                    tr("Poll escalated after %1 consecutive failures").arg(pollConsecutiveErrorCount_));
+                    tr("Poll escalated after %1 consecutive failures").arg(context_.consecutiveErrorCount));
+                transitionTo(PollState::Escalated);
             }
         } else {
             event.summary = tr("Poll Warning: %1 consecutive failure(s): %2")
-                .arg(pollConsecutiveErrorCount_)
+                .arg(context_.consecutiveErrorCount)
                 .arg(error);
             emit trafficEvent(event);
-            pollLastErrorText_ = error;
-            if (currentState_ == PollState::Polling) {
+            context_.lastErrorText = error;
+            if (context_.state == PollState::Polling) {
                 emit degraded();
+                transitionTo(PollState::Degraded);
             }
         }
     }
@@ -230,54 +237,55 @@ int PollingController::pollErrorThreshold() const {
 }
 
 void PollingController::resetPollErrorTracking() {
-    pollConsecutiveErrorCount_ = 0;
-    pollErrorEscalated_ = false;
-    pollLastErrorText_.clear();
-    pollLastErrorLogTime_ = std::chrono::steady_clock::time_point{};
-    pollFailureStreakStartTime_ = std::chrono::steady_clock::time_point{};
+    context_.consecutiveErrorCount = 0;
+    context_.errorEscalated = false;
+    context_.lastErrorText.clear();
+    context_.lastErrorLogTime = std::chrono::steady_clock::time_point{};
+    context_.failureStreakStartTime = std::chrono::steady_clock::time_point{};
 }
 
 void PollingController::flushPollSummary(bool force) {
-    const int total = pollSummarySuccessCount_ + pollSummaryErrorCount_;
+    const int total = context_.summarySuccessCount + context_.summaryErrorCount;
     if (total <= 0) {
         return;
     }
-    if (!force && pollErrorEscalated_ && pollSummarySuccessCount_ == 0) {
+    if (!force && context_.errorEscalated && context_.summarySuccessCount == 0) {
         return;
     }
     const auto now = std::chrono::steady_clock::now();
-    const bool due = (now - pollSummaryWindowStart_) >= std::chrono::milliseconds(1000);
+    const bool due = (now - context_.summaryWindowStart) >= std::chrono::milliseconds(1000);
     if (!force && !due) {
         return;
     }
 
     PollSummary summary;
-    summary.functionCode = currentPollSpec_.functionCode;
-    summary.address = currentPollSpec_.startAddress;
-    summary.quantity = currentPollSpec_.quantity;
-    summary.slaveId = currentPollSpec_.slaveId;
-    summary.successCount = pollSummarySuccessCount_;
-    summary.errorCount = pollSummaryErrorCount_;
-    summary.retryCount = pollSummaryRetryCount_;
-    summary.avgRttMs = pollSummarySuccessCount_ > 0
-        ? static_cast<int>(pollSummaryTotalRttMs_ / pollSummarySuccessCount_)
+    summary.functionCode = context_.currentSpec.functionCode;
+    summary.address = context_.currentSpec.startAddress;
+    summary.quantity = context_.currentSpec.quantity;
+    summary.slaveId = context_.currentSpec.slaveId;
+    summary.successCount = context_.summarySuccessCount;
+    summary.errorCount = context_.summaryErrorCount;
+    summary.retryCount = context_.summaryRetryCount;
+    summary.avgRttMs = context_.summarySuccessCount > 0
+        ? static_cast<int>(context_.summaryTotalRttMs / context_.summarySuccessCount)
         : 0;
 
     emit summaryReady(summary);
 
-    pollSummarySuccessCount_ = 0;
-    pollSummaryErrorCount_ = 0;
-    pollSummaryRetryCount_ = 0;
-    pollSummaryTotalRttMs_ = 0;
-    pollSummaryWindowStart_ = now;
+    context_.summarySuccessCount = 0;
+    context_.summaryErrorCount = 0;
+    context_.summaryRetryCount = 0;
+    context_.summaryTotalRttMs = 0;
+    context_.summaryWindowStart = now;
 }
 
 void PollingController::stopPoll() {
     flushPollSummary(true);
-    pollInFlight_ = false;
-    suppressPollTrafficLog_ = false;
+    context_.requestInFlight = false;
+    context_.suppressTrafficLog = false;
     resetPollErrorTracking();
-    pollLastSuccessTime_ = std::chrono::steady_clock::time_point{};
+    context_.lastSuccessTime = std::chrono::steady_clock::time_point{};
+    transitionTo(PollState::Idle);
     emit stopRequested();
 }
 
@@ -289,11 +297,30 @@ void PollingController::reset() {
 }
 
 PollState PollingController::currentState() const {
-    return currentState_;
+    return context_.state;
 }
 
 bool PollingController::isSuppressingTrafficLog() const {
-    return suppressPollTrafficLog_;
+    return context_.suppressTrafficLog;
+}
+
+void PollingController::setSessionConnectedInternal(bool connected, bool stopActivePolling) {
+    context_.sessionConnected = connected;
+    if (!connected
+        && stopActivePolling
+        && (context_.requestInFlight || context_.state != PollState::Idle)) {
+        stopPoll();
+    }
+}
+
+void PollingController::transitionTo(PollState newState) {
+    if (context_.state == newState) {
+        return;
+    }
+
+    const auto oldState = context_.state;
+    context_.state = newState;
+    emit stateChanged(oldState, newState);
 }
 
 } // namespace ui::application::modbus

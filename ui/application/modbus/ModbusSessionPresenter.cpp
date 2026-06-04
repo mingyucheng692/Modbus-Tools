@@ -207,7 +207,27 @@ void ModbusSessionPresenter::setTrafficLogController(TrafficLogController* contr
 }
 
 void ModbusSessionPresenter::setPollingController(PollingController* controller) {
+    if (pollingController_ == controller) {
+        return;
+    }
+
+    if (pollingController_) {
+        disconnect(this, &ModbusSessionPresenter::sessionConnected,
+                   pollingController_, &PollingController::handleSessionConnected);
+        disconnect(this, &ModbusSessionPresenter::sessionDisconnected,
+                   pollingController_, &PollingController::handleSessionDisconnected);
+    }
+
     pollingController_ = controller;
+    if (!pollingController_) {
+        return;
+    }
+
+    connect(this, &ModbusSessionPresenter::sessionConnected,
+            pollingController_, &PollingController::handleSessionConnected);
+    connect(this, &ModbusSessionPresenter::sessionDisconnected,
+            pollingController_, &PollingController::handleSessionDisconnected);
+    pollingController_->setSessionConnected(sessionConnected_);
 }
 
 void ModbusSessionPresenter::setRequestService(RequestSubmissionService* service) {
