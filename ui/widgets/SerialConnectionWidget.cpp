@@ -85,6 +85,26 @@ void repopulateFlowControlOptions(QComboBox* combo)
     combo->setCurrentIndex(currentIndex >= 0 ? currentIndex : 0);
 }
 
+bool locksInputs(SerialConnectionWidget::DisplayState state)
+{
+    return state != SerialConnectionWidget::DisplayState::Disconnected;
+}
+
+bool usesDisconnectAction(SerialConnectionWidget::DisplayState state)
+{
+    switch (state) {
+    case SerialConnectionWidget::DisplayState::Connecting:
+    case SerialConnectionWidget::DisplayState::TransportConnected:
+    case SerialConnectionWidget::DisplayState::Connected:
+        return true;
+    case SerialConnectionWidget::DisplayState::Disconnected:
+    case SerialConnectionWidget::DisplayState::Disconnecting:
+        return false;
+    }
+
+    return false;
+}
+
 } // namespace
 
 SerialConnectionWidget::SerialConnectionWidget(ui::common::ISettingsService* settingsService, QWidget *parent)
@@ -132,26 +152,65 @@ io::SerialConfig SerialConnectionWidget::getConfig() const {
 }
 
 void SerialConnectionWidget::setConnected(bool connected) {
-    isConnected_ = connected;
-    if (connected) {
-        connectBtn_->setText(tr("Disconnect"));
-        statusLabel_->setText(tr("Connected"));
-        statusLabel_->setStyleSheet("color: green; font-weight: bold;");
-    } else {
-        connectBtn_->setText(tr("Connect"));
-        statusLabel_->setText(tr("Disconnected"));
-        statusLabel_->setStyleSheet("color: red; font-weight: bold;");
+    setDisplayState(connected ? DisplayState::Connected : DisplayState::Disconnected);
+}
+
+void SerialConnectionWidget::setDisplayState(DisplayState state)
+{
+    displayState_ = state;
+    isConnected_ = (state == DisplayState::TransportConnected
+                    || state == DisplayState::Connected);
+    applyDisplayState();
+}
+
+void SerialConnectionWidget::applyDisplayState()
+{
+    QString buttonText;
+    QString statusText;
+    QString statusStyle = QStringLiteral("color: red; font-weight: bold;");
+
+    switch (displayState_) {
+    case DisplayState::Disconnected:
+        buttonText = tr("Connect");
+        statusText = tr("Disconnected");
+        break;
+    case DisplayState::Connecting:
+        buttonText = tr("Disconnect");
+        statusText = tr("Connecting");
+        statusStyle = QStringLiteral("color: orange; font-weight: bold;");
+        break;
+    case DisplayState::TransportConnected:
+        buttonText = tr("Disconnect");
+        statusText = tr("Transport Connected");
+        statusStyle = QStringLiteral("color: #1f6feb; font-weight: bold;");
+        break;
+    case DisplayState::Connected:
+        buttonText = tr("Disconnect");
+        statusText = tr("Connected");
+        statusStyle = QStringLiteral("color: green; font-weight: bold;");
+        break;
+    case DisplayState::Disconnecting:
+        buttonText = tr("Disconnecting");
+        statusText = tr("Disconnecting");
+        statusStyle = QStringLiteral("color: orange; font-weight: bold;");
+        break;
     }
-    
-    portCombo_->setEnabled(!connected);
-    baudCombo_->setEnabled(!connected);
-    dataBitsCombo_->setEnabled(!connected);
-    parityCombo_->setEnabled(!connected);
-    stopBitsCombo_->setEnabled(!connected);
-    flowControlCombo_->setEnabled(!connected);
-    refreshBtn_->setEnabled(!connected);
-    autoReconnectCheck_->setEnabled(!connected);
-    reconnectDelaySpin_->setEnabled(!connected);
+
+    connectBtn_->setText(buttonText);
+    statusLabel_->setText(statusText);
+    statusLabel_->setStyleSheet(statusStyle);
+
+    const bool inputsEnabled = !locksInputs(displayState_);
+    portCombo_->setEnabled(inputsEnabled);
+    baudCombo_->setEnabled(inputsEnabled);
+    dataBitsCombo_->setEnabled(inputsEnabled);
+    parityCombo_->setEnabled(inputsEnabled);
+    stopBitsCombo_->setEnabled(inputsEnabled);
+    flowControlCombo_->setEnabled(inputsEnabled);
+    refreshBtn_->setEnabled(inputsEnabled);
+    autoReconnectCheck_->setEnabled(inputsEnabled);
+    reconnectDelaySpin_->setEnabled(inputsEnabled);
+    connectBtn_->setEnabled(displayState_ != DisplayState::Disconnecting);
 }
 
 void SerialConnectionWidget::refreshPorts() {
@@ -262,7 +321,7 @@ void SerialConnectionWidget::setupUi() {
     // Connect Button
     connectBtn_ = new QPushButton(this);
     connect(connectBtn_, &QPushButton::clicked, [this]() {
-        if (isConnected_) {
+        if (usesDisconnectAction(displayState_)) {
             emit disconnectClicked();
         } else {
             const auto config = getConfig();
@@ -430,7 +489,7 @@ void SerialConnectionWidget::retranslateUi() {
     if (autoReconnectCheck_) {
         autoReconnectCheck_->setText(tr("Auto Reconnect"));
     }
-    setConnected(isConnected_);
+    applyDisplayState();
 }
 
 void SerialConnectionWidget::changeEvent(QEvent* event) {

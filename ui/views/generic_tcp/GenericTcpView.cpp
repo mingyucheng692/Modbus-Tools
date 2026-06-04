@@ -88,6 +88,8 @@ void GenericTcpView::setupUi() {
             this, &GenericTcpView::onBindClicked);
     connect(connectionWidget_, &widgets::TcpConnectionWidget::unbindClicked,
             this, &GenericTcpView::onUnbindClicked);
+    connect(connectionWidget_, &widgets::TcpConnectionWidget::protocolChanged,
+            this, &GenericTcpView::onProtocolChanged);
 
     connect(inputWidget_, &widgets::GenericInputWidget::sendRequested,
             this, &GenericTcpView::onSendRequested);
@@ -99,6 +101,8 @@ void GenericTcpView::setupUi() {
     reconnectTimer_ = new QTimer(this);
     reconnectTimer_->setSingleShot(true);
     connect(reconnectTimer_, &QTimer::timeout, this, &GenericTcpView::onReconnectTimerTick);
+
+    onProtocolChanged(connectionWidget_->currentProtocol());
 }
 
 void GenericTcpView::startWorker() {
@@ -270,6 +274,7 @@ void GenericTcpView::onConnectClicked(const QString& ip, int port) {
     suppressDisconnectAlert_ = false;
     const quint64 generation = ++connectionGeneration_;
     monitor_->appendInfo(tr("Connecting to %1:%2...").arg(ip).arg(port));
+    connectionWidget_->setDisplayState(widgets::TcpConnectionWidget::DisplayState::Connecting);
 
     QMetaObject::invokeMethod(worker_, "openTcp",
                               Qt::QueuedConnection,
@@ -284,6 +289,7 @@ void GenericTcpView::onDisconnectClicked() {
     stopReconnectTimer();
     reconnectPolicy_.reset();
     suppressDisconnectAlert_ = true;
+    connectionWidget_->setDisplayState(widgets::TcpConnectionWidget::DisplayState::Disconnecting);
     QMetaObject::invokeMethod(worker_, "close", Qt::QueuedConnection);
 }
 
@@ -292,6 +298,7 @@ void GenericTcpView::onStartListenClicked(const QString& ip, int port) {
 
     spdlog::info("GenericTcp: Starting TCP server on {}:{}", ip.toStdString(), port);
     monitor_->appendInfo(tr("Starting TCP server on %1:%2...").arg(ip).arg(port));
+    connectionWidget_->setDisplayState(widgets::TcpConnectionWidget::DisplayState::Connecting);
 
     QMetaObject::invokeMethod(serverWorker_, "openTcpServer",
                               Qt::QueuedConnection,
@@ -304,6 +311,7 @@ void GenericTcpView::onStopListenClicked() {
     if (!serverWorker_) return;
 
     monitor_->appendInfo(tr("Stopping TCP server..."));
+    connectionWidget_->setDisplayState(widgets::TcpConnectionWidget::DisplayState::Disconnecting);
     QMetaObject::invokeMethod(serverWorker_, "closeAllClients", Qt::QueuedConnection);
 }
 
@@ -321,6 +329,7 @@ void GenericTcpView::onBindClicked(const QString& localIp, int localPort,
     }
 
     suppressDisconnectAlert_ = false;
+    connectionWidget_->setDisplayState(widgets::TcpConnectionWidget::DisplayState::Connecting);
 
     QMetaObject::invokeMethod(worker_, "openUdp",
                               Qt::QueuedConnection,
@@ -334,6 +343,7 @@ void GenericTcpView::onUnbindClicked() {
     if (!worker_) return;
 
     suppressDisconnectAlert_ = true;
+    connectionWidget_->setDisplayState(widgets::TcpConnectionWidget::DisplayState::Disconnecting);
     QMetaObject::invokeMethod(worker_, "close", Qt::QueuedConnection);
 }
 
@@ -407,7 +417,6 @@ void GenericTcpView::onWorkerStateChanged(io::ChannelState state, quint64 genera
         suppressDisconnectAlert_);
 
     isConnected_ = (state == io::ChannelState::Open);
-    connectionWidget_->setConnected(isConnected_);
     if (transition.clearSuppressDisconnectAlert) {
         suppressDisconnectAlert_ = false;
     }
@@ -420,6 +429,22 @@ void GenericTcpView::onWorkerStateChanged(io::ChannelState state, quint64 genera
         case io::ChannelState::Closing: stateStr = tr("Closing"); break;
         case io::ChannelState::Error: stateStr = tr("Error"); break;
         default: stateStr = tr("Unknown"); break;
+    }
+
+    switch (state) {
+    case io::ChannelState::Opening:
+        connectionWidget_->setDisplayState(widgets::TcpConnectionWidget::DisplayState::Connecting);
+        break;
+    case io::ChannelState::Open:
+        connectionWidget_->setConnected(true);
+        break;
+    case io::ChannelState::Closing:
+        connectionWidget_->setDisplayState(widgets::TcpConnectionWidget::DisplayState::Disconnecting);
+        break;
+    case io::ChannelState::Closed:
+    case io::ChannelState::Error:
+        connectionWidget_->setConnected(false);
+        break;
     }
 
     monitor_->appendInfo(tr("State changed: %1").arg(stateStr));
@@ -464,7 +489,6 @@ void GenericTcpView::onServerMonitorWithClient(bool isTx, const QByteArray& data
 
 void GenericTcpView::onServerStateChanged(io::ChannelState state) {
     isConnected_ = (state == io::ChannelState::Open);
-    connectionWidget_->setConnected(isConnected_);
 
     QString stateStr;
     switch (state) {
@@ -472,6 +496,22 @@ void GenericTcpView::onServerStateChanged(io::ChannelState state) {
         case io::ChannelState::Closed: stateStr = tr("Stopped"); break;
         case io::ChannelState::Error: stateStr = tr("Error"); break;
         default: stateStr = tr("Unknown"); break;
+    }
+
+    switch (state) {
+    case io::ChannelState::Opening:
+        connectionWidget_->setDisplayState(widgets::TcpConnectionWidget::DisplayState::Connecting);
+        break;
+    case io::ChannelState::Open:
+        connectionWidget_->setConnected(true);
+        break;
+    case io::ChannelState::Closing:
+        connectionWidget_->setDisplayState(widgets::TcpConnectionWidget::DisplayState::Disconnecting);
+        break;
+    case io::ChannelState::Closed:
+    case io::ChannelState::Error:
+        connectionWidget_->setConnected(false);
+        break;
     }
 
     monitor_->appendInfo(tr("Server state: %1").arg(stateStr));
@@ -533,6 +573,7 @@ void GenericTcpView::onReconnectTimerTick() {
     monitor_->appendInfo(tr("Reconnecting to %1:%2...").arg(reconnectHost_).arg(reconnectPort_));
     suppressDisconnectAlert_ = false;
     const quint64 generation = ++connectionGeneration_;
+    connectionWidget_->setDisplayState(widgets::TcpConnectionWidget::DisplayState::Connecting);
 
     QMetaObject::invokeMethod(worker_, "openTcp",
                               Qt::QueuedConnection,

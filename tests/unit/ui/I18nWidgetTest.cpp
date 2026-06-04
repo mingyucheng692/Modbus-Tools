@@ -6,9 +6,11 @@
 #include "../../mocks/UiTestDoubles.h"
 
 #include <QApplication>
+#include <QSignalSpy>
 #include <QCheckBox>
 #include <QComboBox>
 #include <QCoreApplication>
+#include <QLabel>
 #include <QDir>
 #include <QEvent>
 #include <QFileInfo>
@@ -112,6 +114,70 @@ TEST(I18nWidgets, SerialConnectionConfigParsingUsesStableOptionValuesAfterLangua
     EXPECT_EQ(config.parity, QSerialPort::EvenParity);
     EXPECT_EQ(config.stopBits, QSerialPort::TwoStop);
     EXPECT_EQ(config.flowControl, QSerialPort::HardwareControl);
+}
+
+TEST(I18nWidgets, TcpConnectionWidget_EmitsProtocolChangedAndSupportsIntermediateStates)
+{
+    tests::mocks::FakeSettingsService settingsService;
+    ui::widgets::TcpConnectionWidget widget(&settingsService);
+
+    auto* protocolCombo = widget.findChild<QComboBox*>();
+    ASSERT_NE(protocolCombo, nullptr);
+
+    QSignalSpy protocolSpy(&widget, &ui::widgets::TcpConnectionWidget::protocolChanged);
+    protocolCombo->setCurrentIndex(2);
+
+    ASSERT_EQ(protocolSpy.count(), 1);
+    const auto arguments = protocolSpy.takeFirst();
+    ASSERT_EQ(arguments.size(), 1);
+    EXPECT_EQ(arguments.at(0).value<ui::widgets::TcpConnectionWidget::Protocol>(),
+              ui::widgets::TcpConnectionWidget::Protocol::Udp);
+
+    widget.setDisplayState(ui::widgets::TcpConnectionWidget::DisplayState::TransportConnected);
+    bool foundTransportLabel = false;
+    for (auto* label : widget.findChildren<QLabel*>()) {
+        if (label->text() == QStringLiteral("Transport Connected")) {
+            foundTransportLabel = true;
+            break;
+        }
+    }
+    EXPECT_TRUE(foundTransportLabel);
+
+    widget.setDisplayState(ui::widgets::TcpConnectionWidget::DisplayState::Disconnecting);
+    bool foundDisconnectingLabel = false;
+    for (auto* label : widget.findChildren<QLabel*>()) {
+        if (label->text() == QStringLiteral("Disconnecting")) {
+            foundDisconnectingLabel = true;
+            break;
+        }
+    }
+    EXPECT_TRUE(foundDisconnectingLabel);
+}
+
+TEST(I18nWidgets, SerialConnectionWidget_SupportsIntermediateStates)
+{
+    tests::mocks::FakeSettingsService settingsService;
+    ui::widgets::SerialConnectionWidget widget(&settingsService);
+
+    widget.setDisplayState(ui::widgets::SerialConnectionWidget::DisplayState::TransportConnected);
+    bool foundTransportLabel = false;
+    for (auto* label : widget.findChildren<QLabel*>()) {
+        if (label->text() == QStringLiteral("Transport Connected")) {
+            foundTransportLabel = true;
+            break;
+        }
+    }
+    EXPECT_TRUE(foundTransportLabel);
+
+    widget.setDisplayState(ui::widgets::SerialConnectionWidget::DisplayState::Disconnecting);
+    bool foundDisconnectingLabel = false;
+    for (auto* label : widget.findChildren<QLabel*>()) {
+        if (label->text() == QStringLiteral("Disconnecting")) {
+            foundDisconnectingLabel = true;
+            break;
+        }
+    }
+    EXPECT_TRUE(foundDisconnectingLabel);
 }
 
 TEST(I18nWidgets, TrafficMonitorDirectionCheckboxesRetranslate)

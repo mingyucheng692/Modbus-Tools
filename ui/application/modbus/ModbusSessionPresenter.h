@@ -3,6 +3,7 @@
 #include <QObject>
 #include <memory>
 #include <cstdint>
+#include <vector>
 #include "modbus/base/ModbusConfig.h"
 #include "modbus/session/IModbusClient.h"
 #include "../../../core/io/IChannel.h"
@@ -72,6 +73,8 @@ signals:
     void linkageSourceDisconnected();
 
 private:
+    struct PendingReleaseContext;
+
     void initStack(const ::modbus::base::ModbusConfig& config);
     void setupChannelMonitor(quint64 generation);
     void setupChannelStateHandler(quint64 generation);
@@ -81,6 +84,19 @@ private:
     void handleConnectFinished(bool ok, const QString& error, quint64 generation);
     void handleRequestFinished(int requestId, const ::modbus::session::ModbusResponse& response,
                                quint64 generation);
+    void setConnectionWidgetConnecting();
+    void setConnectionWidgetTransportConnected();
+    void setConnectionWidgetConnected();
+    void setConnectionWidgetDisconnecting();
+    void setConnectionWidgetDisconnected();
+    void finalizePendingRelease(const std::shared_ptr<PendingReleaseContext>& pending);
+
+    struct PendingReleaseContext {
+        std::shared_ptr<io::IChannel> channel;
+        std::shared_ptr<::modbus::session::IModbusClient> client;
+        std::shared_ptr<::modbus::dispatch::ModbusWorker> worker;
+        std::shared_ptr<QThread> thread;
+    };
 
     SessionMode mode_;
     std::shared_ptr<io::IChannel> channel_;
@@ -90,6 +106,8 @@ private:
     ::modbus::base::ModbusConfig currentConfig_;
     quint64 connectionGeneration_ = 0;
     bool sessionConnected_ = false;
+    bool transportConnected_ = false;
+    bool connectionAttemptInProgress_ = false;
     bool suppressDisconnectAlert_ = false;
     bool linked_ = false;
     int timeoutMs_;
@@ -101,6 +119,7 @@ private:
     RequestSubmissionService* requestService_ = nullptr;
     QWidget* connectionWidget_ = nullptr;
     ui::widgets::ControlWidget* controlWidget_ = nullptr;
+    std::vector<std::shared_ptr<PendingReleaseContext>> pendingReleases_;
 };
 
 } // namespace ui::application::modbus

@@ -56,6 +56,28 @@ void repopulateProtocolOptions(QComboBox* combo)
     combo->setCurrentIndex(currentIndex >= 0 ? currentIndex : 0);
 }
 
+bool locksInputs(TcpConnectionWidget::DisplayState state)
+{
+    return state != TcpConnectionWidget::DisplayState::Disconnected;
+}
+
+bool usesDisconnectAction(TcpConnectionWidget::DisplayState state)
+{
+    switch (state) {
+    case TcpConnectionWidget::DisplayState::Connecting:
+    case TcpConnectionWidget::DisplayState::TransportConnected:
+    case TcpConnectionWidget::DisplayState::Connected:
+    case TcpConnectionWidget::DisplayState::Listening:
+    case TcpConnectionWidget::DisplayState::Bound:
+        return true;
+    case TcpConnectionWidget::DisplayState::Disconnected:
+    case TcpConnectionWidget::DisplayState::Disconnecting:
+        return false;
+    }
+
+    return false;
+}
+
 } // namespace
 
 TcpConnectionWidget::TcpConnectionWidget(ui::common::ISettingsService* settingsService, QWidget *parent)
@@ -151,7 +173,7 @@ void TcpConnectionWidget::setupUi() {
 
     // Connections
     connect(connectBtn_, &QPushButton::clicked, this, [this]() {
-        if (isConnected_) {
+        if (usesDisconnectAction(displayState_)) {
             switch (currentProtocol_) {
             case Protocol::TcpServer:
                 emit stopListenClicked();
@@ -185,6 +207,7 @@ void TcpConnectionWidget::setupUi() {
         currentProtocol_ = static_cast<Protocol>(protocolCombo_->currentData().toInt());
         saveSettings();
         updateProtocolUi();
+        emit protocolChanged(currentProtocol_);
     });
 
     connect(ipEdit_, &QLineEdit::textChanged, this, &TcpConnectionWidget::saveSettings);
@@ -302,57 +325,129 @@ int TcpConnectionWidget::reconnectDelayMs() const {
 }
 
 void TcpConnectionWidget::setConnected(bool connected) {
-    isConnected_ = connected;
-    if (connected) {
-        switch (currentProtocol_) {
-        case Protocol::TcpServer:
-            connectBtn_->setText(tr("Stop"));
-            statusLabel_->setText(tr("Listening"));
-            break;
-        case Protocol::Udp:
-            connectBtn_->setText(tr("Unbind"));
-            statusLabel_->setText(tr("Bound"));
-            break;
-        case Protocol::TcpClient:
-            connectBtn_->setText(tr("Disconnect"));
-            statusLabel_->setText(tr("Connected"));
-            break;
-        }
-        statusLabel_->setStyleSheet("color: green; font-weight: bold;");
-        ipEdit_->setEnabled(false);
-        portEdit_->setEnabled(false);
-        protocolCombo_->setEnabled(false);
-        remoteIpEdit_->setEnabled(false);
-        remotePortEdit_->setEnabled(false);
-        autoReconnectCheck_->setEnabled(false);
-        reconnectDelaySpin_->setEnabled(false);
-    } else {
-        switch (currentProtocol_) {
-        case Protocol::TcpServer:
-            connectBtn_->setText(tr("Start Listen"));
-            break;
-        case Protocol::Udp:
-            connectBtn_->setText(tr("Bind"));
-            break;
-        case Protocol::TcpClient:
-            connectBtn_->setText(tr("Connect"));
-            break;
-        }
-        statusLabel_->setText(tr("Disconnected"));
-        statusLabel_->setStyleSheet("color: red; font-weight: bold;");
-        ipEdit_->setEnabled(true);
-        portEdit_->setEnabled(true);
-        protocolCombo_->setEnabled(true);
-        remoteIpEdit_->setEnabled(true);
-        remotePortEdit_->setEnabled(true);
-        autoReconnectCheck_->setEnabled(true);
-        reconnectDelaySpin_->setEnabled(true);
+    if (!connected) {
+        setDisplayState(DisplayState::Disconnected);
+        return;
     }
+
+    switch (currentProtocol_) {
+    case Protocol::TcpServer:
+        setDisplayState(DisplayState::Listening);
+        break;
+    case Protocol::Udp:
+        setDisplayState(DisplayState::Bound);
+        break;
+    case Protocol::TcpClient:
+        setDisplayState(DisplayState::Connected);
+        break;
+    }
+}
+
+void TcpConnectionWidget::setDisplayState(DisplayState state) {
+    displayState_ = state;
+    isConnected_ = (state == DisplayState::TransportConnected
+                    || state == DisplayState::Connected
+                    || state == DisplayState::Listening
+                    || state == DisplayState::Bound);
+    applyDisplayState();
+}
+
+void TcpConnectionWidget::applyDisplayState()
+{
+    QString buttonText;
+    QString statusText;
+    QString statusStyle = QStringLiteral("color: red; font-weight: bold;");
+
+    switch (displayState_) {
+    case DisplayState::Disconnected:
+        switch (currentProtocol_) {
+        case Protocol::TcpServer:
+            buttonText = tr("Start Listen");
+            break;
+        case Protocol::Udp:
+            buttonText = tr("Bind");
+            break;
+        case Protocol::TcpClient:
+            buttonText = tr("Connect");
+            break;
+        }
+        statusText = tr("Disconnected");
+        break;
+    case DisplayState::Connecting:
+        switch (currentProtocol_) {
+        case Protocol::TcpServer:
+            buttonText = tr("Stop");
+            statusText = tr("Starting");
+            break;
+        case Protocol::Udp:
+            buttonText = tr("Unbind");
+            statusText = tr("Binding");
+            break;
+        case Protocol::TcpClient:
+            buttonText = tr("Disconnect");
+            statusText = tr("Connecting");
+            break;
+        }
+        statusStyle = QStringLiteral("color: orange; font-weight: bold;");
+        break;
+    case DisplayState::TransportConnected:
+        buttonText = tr("Disconnect");
+        statusText = tr("Transport Connected");
+        statusStyle = QStringLiteral("color: #1f6feb; font-weight: bold;");
+        break;
+    case DisplayState::Connected:
+        buttonText = tr("Disconnect");
+        statusText = tr("Connected");
+        statusStyle = QStringLiteral("color: green; font-weight: bold;");
+        break;
+    case DisplayState::Disconnecting:
+        switch (currentProtocol_) {
+        case Protocol::TcpServer:
+            buttonText = tr("Stopping");
+            break;
+        case Protocol::Udp:
+            buttonText = tr("Unbinding");
+            break;
+        case Protocol::TcpClient:
+            buttonText = tr("Disconnecting");
+            break;
+        }
+        statusText = tr("Disconnecting");
+        statusStyle = QStringLiteral("color: orange; font-weight: bold;");
+        break;
+    case DisplayState::Listening:
+        buttonText = tr("Stop");
+        statusText = tr("Listening");
+        statusStyle = QStringLiteral("color: green; font-weight: bold;");
+        break;
+    case DisplayState::Bound:
+        buttonText = tr("Unbind");
+        statusText = tr("Bound");
+        statusStyle = QStringLiteral("color: green; font-weight: bold;");
+        break;
+    }
+
+    connectBtn_->setText(buttonText);
+    statusLabel_->setText(statusText);
+    statusLabel_->setStyleSheet(statusStyle);
+
+    const bool inputsEnabled = !locksInputs(displayState_);
+    ipEdit_->setEnabled(inputsEnabled);
+    portEdit_->setEnabled(inputsEnabled);
+    protocolCombo_->setEnabled(inputsEnabled);
+    remoteIpEdit_->setEnabled(inputsEnabled);
+    remotePortEdit_->setEnabled(inputsEnabled);
+    autoReconnectCheck_->setEnabled(inputsEnabled);
+    reconnectDelaySpin_->setEnabled(inputsEnabled);
+    connectBtn_->setEnabled(displayState_ != DisplayState::Disconnecting);
+
     updateProtocolUi();
 }
 
 void TcpConnectionWidget::updateProtocolUi() {
-    if (isConnected_) return;
+    if (displayState_ != DisplayState::Disconnected) {
+        return;
+    }
 
     switch (currentProtocol_) {
     case Protocol::TcpClient:
@@ -405,7 +500,7 @@ void TcpConnectionWidget::retranslateUi() {
     if (autoReconnectCheck_) {
         autoReconnectCheck_->setText(tr("Auto Reconnect"));
     }
-    setConnected(isConnected_);
+    applyDisplayState();
 }
 
 void TcpConnectionWidget::changeEvent(QEvent* event) {

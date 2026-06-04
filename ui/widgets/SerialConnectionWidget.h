@@ -32,6 +32,15 @@ class SerialConnectionWidget : public QWidget {
     Q_OBJECT
 
 public:
+    enum class DisplayState {
+        Disconnected = 0,
+        Connecting,
+        TransportConnected,
+        Connected,
+        Disconnecting
+    };
+    Q_ENUM(DisplayState)
+
     explicit SerialConnectionWidget(ui::common::ISettingsService* settingsService, QWidget *parent = nullptr);
     ~SerialConnectionWidget() override;
 
@@ -46,6 +55,7 @@ signals:
 
 public slots:
     void setConnected(bool connected);
+    void setDisplayState(DisplayState state);
     void refreshPorts();
 
 private:
@@ -54,6 +64,7 @@ private:
     void saveSettings();
     void retranslateUi();
     void changeEvent(QEvent* event) override;
+    void applyDisplayState();
 
     QLabel* portLabel_ = nullptr;
     QComboBox* portCombo_ = nullptr;
@@ -76,6 +87,7 @@ private:
     QSpinBox* reconnectDelaySpin_ = nullptr;
 
     bool isConnected_ = false;
+    DisplayState displayState_ = DisplayState::Disconnected;
     QString settingsGroup_ = "serial";
     ui::common::ISettingsService* settingsService_ = nullptr;
 };

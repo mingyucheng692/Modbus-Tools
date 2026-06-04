@@ -39,6 +39,17 @@ public:
     };
     Q_ENUM(Protocol)
 
+    enum class DisplayState {
+        Disconnected = 0,
+        Connecting,
+        TransportConnected,
+        Connected,
+        Disconnecting,
+        Listening,
+        Bound
+    };
+    Q_ENUM(DisplayState)
+
     explicit TcpConnectionWidget(ui::common::ISettingsService* settingsService, QWidget *parent = nullptr);
     ~TcpConnectionWidget() override;
 
@@ -58,9 +69,11 @@ signals:
     void bindClicked(const QString& localIp, int localPort,
                      const QString& remoteIp, int remotePort);
     void unbindClicked();
+    void protocolChanged(Protocol protocol);
 
 public slots:
     void setConnected(bool connected);
+    void setDisplayState(DisplayState state);
 
 private:
     void setupUi();
@@ -69,6 +82,7 @@ private:
     void retranslateUi();
     void changeEvent(QEvent* event) override;
     void updateProtocolUi();
+    void applyDisplayState();
 
     CollapsibleSection* section_ = nullptr;
     QLabel* hostLabel_ = nullptr;
@@ -88,6 +102,7 @@ private:
     QSpinBox* reconnectDelaySpin_ = nullptr;
 
     bool isConnected_ = false;
+    DisplayState displayState_ = DisplayState::Disconnected;
     Protocol currentProtocol_ = Protocol::TcpClient;
     QString settingsGroup_ = "modbus/tcp";
     ui::common::ISettingsService* settingsService_ = nullptr;

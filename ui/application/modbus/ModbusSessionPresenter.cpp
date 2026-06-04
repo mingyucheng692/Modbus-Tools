@@ -3,13 +3,14 @@
 #include "PollingController.h"
 #include "TrafficLogController.h"
 #include "../../widgets/ControlWidget.h"
+#include "../../widgets/TcpConnectionWidget.h"
+#include "../../widgets/SerialConnectionWidget.h"
 #include "../../common/ConnectionAlert.h"
-#include "../../common/TcpConnectionStateCoordinator.h"
 #include "modbus/factory/ModbusFactory.h"
-#include <QEventLoop>
 #include <QMetaObject>
 #include <QPointer>
 #include <QApplication>
+#include <algorithm>
 #include <spdlog/spdlog.h>
 
 namespace ui::application::modbus {
@@ -32,20 +33,28 @@ void ModbusSessionPresenter::connectTcp(const QString& ip, int port,
     spdlog::info("ModbusSessionPresenter[TCP]: Connect requested to {}:{}", ip.toStdString(), port);
     releaseStack();
     suppressDisconnectAlert_ = false;
+    sessionConnected_ = false;
+    transportConnected_ = false;
+    connectionAttemptInProgress_ = true;
     const quint64 generation = connectionGeneration_;
+    setConnectionWidgetConnecting();
 
     if (trafficLogController_) {
         trafficLogController_->logConnectionInfo(tr("Connecting to %1:%2...").arg(ip).arg(port));
     }
 
     initStack(config);
-
-    if (worker_) {
-        currentConfig_.timeoutMs = timeoutMs_;
-        currentConfig_.retries = retries_;
-        currentConfig_.retryIntervalMs = retryIntervalMs_;
-        worker_->updateConfig(currentConfig_);
+    if (!worker_ || !channel_) {
+        connectionAttemptInProgress_ = false;
+        setConnectionWidgetDisconnected();
+        emit connectFinished(false, tr("Failed to create Modbus stack"));
+        return;
     }
+
+    currentConfig_.timeoutMs = timeoutMs_;
+    currentConfig_.retries = retries_;
+    currentConfig_.retryIntervalMs = retryIntervalMs_;
+    worker_->updateConfig(currentConfig_);
 
     setupChannelMonitor(generation);
     setupChannelStateHandler(generation);
@@ -60,21 +69,29 @@ void ModbusSessionPresenter::connectRtu(const io::SerialConfig& serialConfig,
     Q_ASSERT(mode_ == SessionMode::Rtu);
     spdlog::info("ModbusSessionPresenter[RTU]: Connect requested to {}", serialConfig.portName.toStdString());
 
+    releaseStack();
+    sessionConnected_ = false;
+    transportConnected_ = false;
+    connectionAttemptInProgress_ = true;
+    setConnectionWidgetConnecting();
+
     if (trafficLogController_) {
         trafficLogController_->logConnectionInfo(tr("Opening %1...").arg(serialConfig.portName));
     }
-
-    releaseStack();
     const quint64 generation = connectionGeneration_;
 
     initStack(modbusConfig);
-
-    if (worker_) {
-        currentConfig_.timeoutMs = timeoutMs_;
-        currentConfig_.retries = retries_;
-        currentConfig_.retryIntervalMs = retryIntervalMs_;
-        worker_->updateConfig(currentConfig_);
+    if (!worker_ || !channel_) {
+        connectionAttemptInProgress_ = false;
+        setConnectionWidgetDisconnected();
+        emit connectFinished(false, tr("Failed to create Modbus stack"));
+        return;
     }
+
+    currentConfig_.timeoutMs = timeoutMs_;
+    currentConfig_.retries = retries_;
+    currentConfig_.retryIntervalMs = retryIntervalMs_;
+    worker_->updateConfig(currentConfig_);
 
     setupChannelMonitor(generation);
     setupChannelStateHandler(generation);
@@ -87,16 +104,13 @@ void ModbusSessionPresenter::connectRtu(const io::SerialConfig& serialConfig,
 void ModbusSessionPresenter::requestDisconnect() {
     spdlog::info("ModbusSessionPresenter[{}]: Disconnect requested",
                  mode_ == SessionMode::Tcp ? "TCP" : "RTU");
-    if (mode_ == SessionMode::Tcp) {
-        suppressDisconnectAlert_ = true;
-    }
+    suppressDisconnectAlert_ = true;
+    connectionAttemptInProgress_ = false;
+    transportConnected_ = false;
     sessionConnected_ = false;
-    if (connectionWidget_) {
-        QMetaObject::invokeMethod(connectionWidget_, "setConnected", Qt::QueuedConnection,
-                                  Q_ARG(bool, false));
-    }
+    setConnectionWidgetDisconnecting();
     if (trafficLogController_) {
-        trafficLogController_->logConnectionInfo(tr("Disconnected"));
+        trafficLogController_->logConnectionInfo(tr("Disconnecting..."));
     }
     releaseStack();
 }
@@ -105,11 +119,9 @@ void ModbusSessionPresenter::releaseStack() {
     if (pollingController_) pollingController_->reset();
     ++connectionGeneration_;
     suppressDisconnectAlert_ = true;
+    connectionAttemptInProgress_ = false;
+    transportConnected_ = false;
     sessionConnected_ = false;
-    if (connectionWidget_) {
-        QMetaObject::invokeMethod(connectionWidget_, "setConnected", Qt::QueuedConnection,
-                                  Q_ARG(bool, false));
-    }
     const bool wasLinked = linked_;
     linked_ = false;
     if (controlWidget_) {
@@ -120,36 +132,37 @@ void ModbusSessionPresenter::releaseStack() {
         emit linkageSourceDisconnected();
     }
 
-    auto channel = std::move(channel_);
-    auto client = std::move(client_);
-    auto worker = std::move(worker_);
-    auto thread = std::move(workerThread_);
-    if (!worker && !client && !channel && !thread) {
+    auto release = std::make_shared<PendingReleaseContext>();
+    release->channel = std::move(channel_);
+    release->client = std::move(client_);
+    release->worker = std::move(worker_);
+    release->thread = std::move(workerThread_);
+    if (!release->worker && !release->client && !release->channel && !release->thread) {
+        setConnectionWidgetDisconnected();
         emit stackReleased();
         return;
     }
 
-    if (worker) {
-        QEventLoop wait;
-        QObject::connect(worker.get(), &::modbus::dispatch::ModbusWorker::stopped,
-                         &wait, &QEventLoop::quit);
-        worker->stop();
-        wait.exec();
-    } else if (thread && thread->isRunning()) {
-        thread->requestInterruption();
-        thread->quit();
-    }
-    worker.reset();
-    client.reset();
-    if (thread && thread->isRunning()) {
-        thread->requestInterruption();
-        thread->quit();
-        thread->wait(2000);
-    }
-    channel.reset();
-    thread.reset();
+    pendingReleases_.push_back(release);
+    setConnectionWidgetDisconnecting();
 
-    emit stackReleased();
+    if (release->thread && release->thread->isRunning()) {
+        release->thread->requestInterruption();
+    }
+
+    if (release->worker) {
+        QObject::connect(release->worker.get(), &::modbus::dispatch::ModbusWorker::stopped,
+                         this,
+                         [this, release]() { finalizePendingRelease(release); },
+                         Qt::QueuedConnection);
+        release->worker->stop();
+        return;
+    }
+
+    if (release->thread && release->thread->isRunning()) {
+        release->thread->quit();
+    }
+    finalizePendingRelease(release);
 }
 
 void ModbusSessionPresenter::updateSettings(const ModbusTimingParams& params) {
@@ -207,6 +220,137 @@ void ModbusSessionPresenter::setConnectionWidget(QWidget* widget) {
 
 void ModbusSessionPresenter::setControlWidget(ui::widgets::ControlWidget* widget) {
     controlWidget_ = widget;
+}
+
+void ModbusSessionPresenter::setConnectionWidgetConnecting() {
+    if (!connectionWidget_) {
+        return;
+    }
+
+    if (mode_ == SessionMode::Tcp) {
+        if (auto* tcpWidget = qobject_cast<ui::widgets::TcpConnectionWidget*>(connectionWidget_)) {
+            QMetaObject::invokeMethod(
+                tcpWidget,
+                [tcpWidget]() {
+                    tcpWidget->setDisplayState(ui::widgets::TcpConnectionWidget::DisplayState::Connecting);
+                },
+                Qt::QueuedConnection);
+        }
+        return;
+    }
+
+    if (auto* serialWidget = qobject_cast<ui::widgets::SerialConnectionWidget*>(connectionWidget_)) {
+        QMetaObject::invokeMethod(
+            serialWidget,
+            [serialWidget]() {
+                serialWidget->setDisplayState(ui::widgets::SerialConnectionWidget::DisplayState::Connecting);
+            },
+            Qt::QueuedConnection);
+    }
+}
+
+void ModbusSessionPresenter::setConnectionWidgetTransportConnected() {
+    if (!connectionWidget_) {
+        return;
+    }
+
+    if (mode_ == SessionMode::Tcp) {
+        if (auto* tcpWidget = qobject_cast<ui::widgets::TcpConnectionWidget*>(connectionWidget_)) {
+            QMetaObject::invokeMethod(
+                tcpWidget,
+                [tcpWidget]() {
+                    tcpWidget->setDisplayState(
+                        ui::widgets::TcpConnectionWidget::DisplayState::TransportConnected);
+                },
+                Qt::QueuedConnection);
+        }
+        return;
+    }
+
+    if (auto* serialWidget = qobject_cast<ui::widgets::SerialConnectionWidget*>(connectionWidget_)) {
+        QMetaObject::invokeMethod(
+            serialWidget,
+            [serialWidget]() {
+                serialWidget->setDisplayState(
+                    ui::widgets::SerialConnectionWidget::DisplayState::TransportConnected);
+            },
+            Qt::QueuedConnection);
+    }
+}
+
+void ModbusSessionPresenter::setConnectionWidgetConnected() {
+    if (!connectionWidget_) {
+        return;
+    }
+
+    QMetaObject::invokeMethod(connectionWidget_, "setConnected", Qt::QueuedConnection, Q_ARG(bool, true));
+}
+
+void ModbusSessionPresenter::setConnectionWidgetDisconnecting() {
+    if (!connectionWidget_) {
+        return;
+    }
+
+    if (mode_ == SessionMode::Tcp) {
+        if (auto* tcpWidget = qobject_cast<ui::widgets::TcpConnectionWidget*>(connectionWidget_)) {
+            QMetaObject::invokeMethod(
+                tcpWidget,
+                [tcpWidget]() {
+                    tcpWidget->setDisplayState(ui::widgets::TcpConnectionWidget::DisplayState::Disconnecting);
+                },
+                Qt::QueuedConnection);
+        }
+        return;
+    }
+
+    if (auto* serialWidget = qobject_cast<ui::widgets::SerialConnectionWidget*>(connectionWidget_)) {
+        QMetaObject::invokeMethod(
+            serialWidget,
+            [serialWidget]() {
+                serialWidget->setDisplayState(
+                    ui::widgets::SerialConnectionWidget::DisplayState::Disconnecting);
+            },
+            Qt::QueuedConnection);
+    }
+}
+
+void ModbusSessionPresenter::setConnectionWidgetDisconnected() {
+    if (!connectionWidget_) {
+        return;
+    }
+
+    QMetaObject::invokeMethod(connectionWidget_, "setConnected", Qt::QueuedConnection, Q_ARG(bool, false));
+}
+
+void ModbusSessionPresenter::finalizePendingRelease(const std::shared_ptr<PendingReleaseContext>& pending) {
+    if (!pending) {
+        if (!worker_ && !channel_ && !client_) {
+            setConnectionWidgetDisconnected();
+        }
+        emit stackReleased();
+        return;
+    }
+
+    const auto it = std::find(pendingReleases_.begin(), pendingReleases_.end(), pending);
+    if (it == pendingReleases_.end()) {
+        return;
+    }
+    pendingReleases_.erase(it);
+
+    if (pending->thread && pending->thread->isRunning()) {
+        pending->thread->quit();
+    }
+
+    pending->worker.reset();
+    pending->client.reset();
+    pending->channel.reset();
+    pending->thread.reset();
+
+    if (!worker_ && !channel_ && !client_ && !connectionAttemptInProgress_) {
+        setConnectionWidgetDisconnected();
+    }
+
+    emit stackReleased();
 }
 
 void ModbusSessionPresenter::setLinked(bool linked) {
@@ -288,67 +432,83 @@ void ModbusSessionPresenter::setupWorkerSignals(quint64 generation) {
 
 void ModbusSessionPresenter::handleTcpStateTransition(io::ChannelState state,
                                                        quint64 generation) {
-    const bool wasConnected = sessionConnected_;
-    const auto transition = ui::common::TcpConnectionStateCoordinator::transition(
-        state, wasConnected, suppressDisconnectAlert_);
+    Q_UNUSED(generation);
+    const bool hadLiveTransport = connectionAttemptInProgress_ || transportConnected_ || sessionConnected_;
 
-    if (transition.setConnected) {
-        sessionConnected_ = true;
-        if (connectionWidget_) {
-            QMetaObject::invokeMethod(connectionWidget_, "setConnected", Qt::QueuedConnection,
-                                      Q_ARG(bool, true));
+    switch (state) {
+    case io::ChannelState::Opening:
+        if (!sessionConnected_) {
+            setConnectionWidgetConnecting();
         }
-        if (trafficLogController_) {
-            trafficLogController_->logConnectionInfo(tr("Connected"));
-        }
-        emit sessionConnected();
-    } else if (state == io::ChannelState::Open) {
-        sessionConnected_ = true;
-        if (connectionWidget_) {
-            QMetaObject::invokeMethod(connectionWidget_, "setConnected", Qt::QueuedConnection,
-                                      Q_ARG(bool, true));
-        }
-    }
-    if (transition.clearSuppressDisconnectAlert) {
-        suppressDisconnectAlert_ = false;
-    }
-    if (transition.setConnected) {
         return;
-    }
-    if (transition.setDisconnected) {
-        sessionConnected_ = false;
-        if (connectionWidget_) {
-            QMetaObject::invokeMethod(connectionWidget_, "setConnected", Qt::QueuedConnection,
-                                      Q_ARG(bool, false));
+    case io::ChannelState::Open:
+        transportConnected_ = true;
+        if (!sessionConnected_) {
+            setConnectionWidgetTransportConnected();
+            if (trafficLogController_) {
+                trafficLogController_->logConnectionInfo(tr("Transport connected, validating session..."));
+            }
         }
-        if (controlWidget_) {
-            controlWidget_->setPollingEnabled(false);
+        return;
+    case io::ChannelState::Closing:
+        setConnectionWidgetDisconnecting();
+        return;
+    case io::ChannelState::Closed:
+    case io::ChannelState::Error:
+        transportConnected_ = false;
+        connectionAttemptInProgress_ = false;
+        if (sessionConnected_ || hadLiveTransport) {
+            const bool shouldShowDisconnectAlert = sessionConnected_ && !suppressDisconnectAlert_;
+            sessionConnected_ = false;
+            setConnectionWidgetDisconnected();
+            if (controlWidget_) {
+                controlWidget_->setPollingEnabled(false);
+            }
+            if (trafficLogController_) {
+                trafficLogController_->logConnectionInfo(tr("Disconnected"));
+            }
+            if (shouldShowDisconnectAlert) {
+                ui::common::ConnectionAlert::showDisconnected(qApp->activeWindow());
+            }
+            emit sessionDisconnected(QString());
         }
-        if (trafficLogController_) {
-            trafficLogController_->logConnectionInfo(tr("Disconnected"));
-        }
-        if (transition.showDisconnectAlert) {
-            ui::common::ConnectionAlert::showDisconnected(qApp->activeWindow());
-        }
-        emit sessionDisconnected(QString());
+        return;
     }
 }
 
 void ModbusSessionPresenter::handleRtuStateTransition(io::ChannelState state,
                                                        quint64 generation) {
-    const bool connected = (state == io::ChannelState::Open);
-    sessionConnected_ = connected;
-    if (connectionWidget_) {
-        QMetaObject::invokeMethod(connectionWidget_, "setConnected", Qt::QueuedConnection,
-                                  Q_ARG(bool, connected));
-    }
-    if (!connected) {
-        if (controlWidget_) {
-            controlWidget_->setPollingEnabled(false);
+    Q_UNUSED(generation);
+    const bool hadLiveTransport = connectionAttemptInProgress_ || transportConnected_ || sessionConnected_;
+
+    switch (state) {
+    case io::ChannelState::Opening:
+        if (!sessionConnected_) {
+            setConnectionWidgetConnecting();
         }
-        emit sessionDisconnected(QString());
-    } else {
-        emit sessionConnected();
+        return;
+    case io::ChannelState::Open:
+        transportConnected_ = true;
+        if (!sessionConnected_) {
+            setConnectionWidgetTransportConnected();
+        }
+        return;
+    case io::ChannelState::Closing:
+        setConnectionWidgetDisconnecting();
+        return;
+    case io::ChannelState::Closed:
+    case io::ChannelState::Error:
+        transportConnected_ = false;
+        connectionAttemptInProgress_ = false;
+        if (sessionConnected_ || hadLiveTransport) {
+            sessionConnected_ = false;
+            setConnectionWidgetDisconnected();
+            if (controlWidget_) {
+                controlWidget_->setPollingEnabled(false);
+            }
+            emit sessionDisconnected(QString());
+        }
+        return;
     }
 }
 
@@ -356,55 +516,34 @@ void ModbusSessionPresenter::handleConnectFinished(bool ok, const QString& error
                                                     quint64 generation) {
     if (generation != connectionGeneration_) return;
 
-    if (mode_ == SessionMode::Tcp) {
-        const bool wasConnected = sessionConnected_;
-        sessionConnected_ = ok;
-        if (!ok) {
-            if (pollingController_) pollingController_->stopPoll();
+    connectionAttemptInProgress_ = false;
+
+    if (!ok) {
+        transportConnected_ = false;
+        sessionConnected_ = false;
+        setConnectionWidgetDisconnected();
+        if (controlWidget_) {
+            controlWidget_->setPollingEnabled(false);
         }
-        if (ok) {
-            suppressDisconnectAlert_ = false;
-            if (connectionWidget_) {
-                QMetaObject::invokeMethod(connectionWidget_, "setConnected", Qt::QueuedConnection,
-                                          Q_ARG(bool, true));
-            }
-            if (!wasConnected && trafficLogController_) {
-                trafficLogController_->logConnectionInfo(tr("Connected"));
-            }
-        } else {
-            if (connectionWidget_) {
-                QMetaObject::invokeMethod(connectionWidget_, "setConnected", Qt::QueuedConnection,
-                                          Q_ARG(bool, false));
-            }
-            if (trafficLogController_) {
-                trafficLogController_->logConnectionInfo(tr("Connection failed: %1").arg(error));
-            }
+        if (pollingController_) {
+            pollingController_->stopPoll();
         }
-    } else {
-        sessionConnected_ = ok;
-        if (!ok) {
-            if (pollingController_) pollingController_->stopPoll();
+        if (trafficLogController_) {
+            trafficLogController_->logConnectionInfo(tr("Connection failed: %1").arg(error));
         }
-        if (ok) {
-            if (connectionWidget_) {
-                QMetaObject::invokeMethod(connectionWidget_, "setConnected", Qt::QueuedConnection,
-                                          Q_ARG(bool, true));
-            }
-            if (trafficLogController_) {
-                trafficLogController_->logConnectionInfo(tr("Connected"));
-            }
-        } else {
-            if (connectionWidget_) {
-                QMetaObject::invokeMethod(connectionWidget_, "setConnected", Qt::QueuedConnection,
-                                          Q_ARG(bool, false));
-            }
-            if (trafficLogController_) {
-                trafficLogController_->logConnectionInfo(tr("Connection failed: %1").arg(error));
-            }
-        }
+        emit connectFinished(false, error);
+        return;
     }
 
-    emit connectFinished(ok, error);
+    suppressDisconnectAlert_ = false;
+    transportConnected_ = true;
+    sessionConnected_ = true;
+    setConnectionWidgetConnected();
+    if (trafficLogController_) {
+        trafficLogController_->logConnectionInfo(tr("Connected"));
+    }
+    emit sessionConnected();
+    emit connectFinished(true, error);
 }
 
 void ModbusSessionPresenter::handleRequestFinished(int requestId,
