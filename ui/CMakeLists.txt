@@ -77,6 +77,8 @@ target_sources(ui PRIVATE
     widgets/LogRecorder.h
     widgets/ByteMonitorWidget.cpp
     widgets/ByteMonitorWidget.h
+    widgets/ServerClientPanel.cpp
+    widgets/ServerClientPanel.h
     widgets/TrafficStats.h
     widgets/GenericInputWidget.cpp
     widgets/GenericInputWidget.h

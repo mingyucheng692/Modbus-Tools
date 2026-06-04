@@ -14,12 +14,14 @@
 #include "../../widgets/ByteMonitorWidget.h"
 #include "../../widgets/GenericInputWidget.h"
 #include "../../widgets/CollapsibleSection.h"
+#include "../../widgets/ServerClientPanel.h"
 #include "../../common/ConnectionAlert.h"
 #include "../../common/TcpConnectionStateCoordinator.h"
 #include "../../../core/io/ChannelOperationWorker.h"
 #include "../../../core/io/ServerChannelWorker.h"
 #include <QVBoxLayout>
 #include <QHBoxLayout>
+#include <QSplitter>
 #include <QThread>
 #include <QTimer>
 #include <QMetaObject>
@@ -53,10 +55,21 @@ void GenericTcpView::setupUi() {
     connectionWidget_->setDefaultPort(app::constants::Values::Network::kDefaultGenericTcpPort);
     mainLayout->addWidget(connectionWidget_);
 
-    // 2. Central Area (Traffic Monitor)
-    monitor_ = new widgets::ByteMonitorWidget(settingsService_, this);
+    // 2. Central Area (Traffic Monitor + Server Client Panel)
+    auto* centerSplitter = new QSplitter(Qt::Horizontal, this);
+    centerSplitter->setChildrenCollapsible(false);
+
+    monitor_ = new widgets::ByteMonitorWidget(settingsService_, centerSplitter);
     monitor_->setSettingsGroup("tcp_client/traffic");
-    mainLayout->addWidget(monitor_);
+    centerSplitter->addWidget(monitor_);
+
+    serverClientPanel_ = new widgets::ServerClientPanel(centerSplitter);
+    serverClientPanel_->setObjectName(QStringLiteral("serverClientPanel"));
+    serverClientPanel_->hide();
+    centerSplitter->addWidget(serverClientPanel_);
+    centerSplitter->setStretchFactor(0, 1);
+    centerSplitter->setStretchFactor(1, 0);
+    mainLayout->addWidget(centerSplitter);
 
     // 3. Input Section (Bottom)
     inputSection_ = new widgets::CollapsibleSection(settingsService_, this);
@@ -95,6 +108,10 @@ void GenericTcpView::setupUi() {
             this, &GenericTcpView::onSendRequested);
     connect(inputWidget_, &widgets::GenericInputWidget::fileSendRequested,
             this, &GenericTcpView::onFileSendRequested);
+    connect(serverClientPanel_, &widgets::ServerClientPanel::disconnectClientsRequested,
+            this, &GenericTcpView::onDisconnectSelectedClientsRequested);
+    connect(serverClientPanel_, &widgets::ServerClientPanel::disconnectAllClientsRequested,
+            this, &GenericTcpView::onDisconnectAllClientsRequested);
 
     retranslateUi();
 
@@ -242,6 +259,10 @@ void GenericTcpView::switchToClientMode() {
     monitor_->setSettingsGroup("tcp_client/traffic");
     inputSection_->setSettingsKey("tcp_client/ui/inputCollapsed");
     inputWidget_->setSettingsGroup("tcp_client/input");
+    if (serverClientPanel_) {
+        serverClientPanel_->clearClients();
+        serverClientPanel_->hide();
+    }
 }
 
 void GenericTcpView::switchToServerMode() {
@@ -251,6 +272,9 @@ void GenericTcpView::switchToServerMode() {
     monitor_->setSettingsGroup("tcp_server/traffic");
     inputSection_->setSettingsKey("tcp_server/ui/inputCollapsed");
     inputWidget_->setSettingsGroup("tcp_server/input");
+    if (serverClientPanel_) {
+        serverClientPanel_->show();
+    }
 }
 
 void GenericTcpView::switchToUdpMode() {
@@ -260,6 +284,10 @@ void GenericTcpView::switchToUdpMode() {
     monitor_->setSettingsGroup("udp/traffic");
     inputSection_->setSettingsKey("udp/ui/inputCollapsed");
     inputWidget_->setSettingsGroup("udp/input");
+    if (serverClientPanel_) {
+        serverClientPanel_->clearClients();
+        serverClientPanel_->hide();
+    }
 }
 
 void GenericTcpView::onConnectClicked(const QString& ip, int port) {
@@ -378,8 +406,27 @@ void GenericTcpView::onSendRequested(const QByteArray& data) {
                                   Q_ARG(QByteArray, data));
         break;
     case widgets::TcpConnectionWidget::Protocol::TcpServer:
-        if (!serverWorker_) return;
-        monitor_->appendWarn(tr("Server mode: use client list to send data"));
+        if (!serverWorker_ || !serverClientPanel_) {
+            return;
+        }
+        {
+            const QList<int> targetClientIds = serverClientPanel_->broadcastEnabled()
+                ? serverClientPanel_->allClientIds()
+                : serverClientPanel_->selectedClientIds();
+            if (targetClientIds.isEmpty()) {
+                monitor_->appendWarn(serverClientPanel_->broadcastEnabled()
+                                         ? tr("Server mode: no connected clients available")
+                                         : tr("Server mode: select at least one client"));
+                return;
+            }
+
+            for (const int clientId : targetClientIds) {
+                QMetaObject::invokeMethod(serverWorker_, "writeToClient",
+                                          Qt::QueuedConnection,
+                                          Q_ARG(int, clientId),
+                                          Q_ARG(QByteArray, data));
+            }
+        }
         break;
     }
 }
@@ -476,11 +523,17 @@ void GenericTcpView::onWorkerMonitor(bool isTx, const QByteArray& data) {
 }
 
 void GenericTcpView::onServerClientConnected(int clientId, const QString& peerInfo) {
+    if (serverClientPanel_) {
+        serverClientPanel_->addOrUpdateClient(clientId, peerInfo);
+    }
     monitor_->appendInfo(tr("Client #%1 connected: %2").arg(clientId).arg(peerInfo));
 }
 
 void GenericTcpView::onServerClientDisconnected(int clientId) {
-    monitor_->appendInfo(tr("Client #%1 disconnected").arg(clientId));
+    const bool removed = serverClientPanel_ ? serverClientPanel_->removeClient(clientId) : true;
+    if (removed) {
+        monitor_->appendInfo(tr("Client #%1 disconnected").arg(clientId));
+    }
 }
 
 void GenericTcpView::onServerMonitorWithClient(bool isTx, const QByteArray& data, int clientId) {
@@ -510,6 +563,9 @@ void GenericTcpView::onServerStateChanged(io::ChannelState state) {
         break;
     case io::ChannelState::Closed:
     case io::ChannelState::Error:
+        if (serverClientPanel_) {
+            serverClientPanel_->clearClients();
+        }
         connectionWidget_->setConnected(false);
         break;
     }
@@ -521,6 +577,33 @@ void GenericTcpView::onServerError(const QString& deviceHint, const QString& err
     const QString hint = deviceHint.isEmpty() ? QStringLiteral("TCP Server") : deviceHint;
     monitor_->appendError(tr("Server Error: %1").arg(error));
     spdlog::error("{} Error: {}", hint.toStdString(), error.toStdString());
+}
+
+void GenericTcpView::onDisconnectSelectedClientsRequested(const QList<int>& clientIds)
+{
+    if (!serverWorker_) {
+        return;
+    }
+
+    for (const int clientId : clientIds) {
+        QMetaObject::invokeMethod(serverWorker_, "closeClient",
+                                  Qt::QueuedConnection,
+                                  Q_ARG(int, clientId));
+    }
+}
+
+void GenericTcpView::onDisconnectAllClientsRequested()
+{
+    if (!serverWorker_ || !serverClientPanel_) {
+        return;
+    }
+
+    const QList<int> clientIds = serverClientPanel_->allClientIds();
+    for (const int clientId : clientIds) {
+        QMetaObject::invokeMethod(serverWorker_, "closeClient",
+                                  Qt::QueuedConnection,
+                                  Q_ARG(int, clientId));
+    }
 }
 
 void GenericTcpView::retranslateUi() {

@@ -10,6 +10,7 @@
 #pragma once
 
 #include <QWidget>
+#include <QList>
 #include <QTimer>
 #include <memory>
 #include <QThread>
@@ -27,6 +28,7 @@ class TcpConnectionWidget;
 class ByteMonitorWidget;
 class GenericInputWidget;
 class CollapsibleSection;
+class ServerClientPanel;
 }
 
 class QVBoxLayout;
@@ -66,6 +68,8 @@ private slots:
     void onServerMonitorWithClient(bool isTx, const QByteArray& data, int clientId);
     void onServerStateChanged(io::ChannelState state);
     void onServerError(const QString& deviceHint, const QString& error);
+    void onDisconnectSelectedClientsRequested(const QList<int>& clientIds);
+    void onDisconnectAllClientsRequested();
 
 private:
     void setupUi();
@@ -88,6 +92,7 @@ private:
     widgets::ByteMonitorWidget* monitor_ = nullptr;
     widgets::GenericInputWidget* inputWidget_ = nullptr;
     widgets::CollapsibleSection* inputSection_ = nullptr;
+    widgets::ServerClientPanel* serverClientPanel_ = nullptr;
 
     // Backend - Client/UDP
     io::ChannelOperationWorker* worker_ = nullptr;
