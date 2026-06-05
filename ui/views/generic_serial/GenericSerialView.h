@@ -9,89 +9,49 @@
 
 #pragma once
 
-#include <QWidget>
-#include <QTimer>
-#include <memory>
+#include "../GenericChannelViewBase.h"
 #include "../../../core/io/SerialChannel.h"
-#include "../../../core/io/IChannel.h"
-#include "../../../core/ReconnectPolicy.h"
-
-namespace io {
-class ChannelOperationWorker;
-}
 
 namespace ui::widgets {
 class SerialConnectionWidget;
-class ByteMonitorWidget;
-class GenericInputWidget;
-class CollapsibleSection;
 }
 
-class QVBoxLayout;
-class QHBoxLayout;
-class QSplitter;
 class QCheckBox;
-class QThread;
 class QGroupBox;
-class QEvent;
-
-namespace ui::common {
-class ISettingsService;
-}
 
 namespace ui::views::generic_serial {
 
-class GenericSerialView : public QWidget {
+class GenericSerialView : public GenericChannelViewBase {
     Q_OBJECT
 
 public:
     explicit GenericSerialView(ui::common::ISettingsService* settingsService, QWidget *parent = nullptr);
-    ~GenericSerialView() override;
+    ~GenericSerialView() noexcept override;
 
 private slots:
     void onConnectClicked(const io::SerialConfig& config);
-    void onDisconnectClicked();
-    void onSendRequested(const QByteArray& data);
-    void onFileSendRequested(const QString& filePath);
     void onWorkerStateChanged(io::ChannelState state);
-    void onWorkerError(const QString& deviceHint, const QString& error);
-    void onWorkerMonitor(bool isTx, const QByteArray& data);
     
     // Serial Control
     void onDtrChanged(bool checked);
     void onRtsChanged(bool checked);
+    void onReconnectTimerTick() override;
 
-private:
-    void setupUi();
+protected:
     void startWorker();
-    void stopWorker();
-    void retranslateUi();
-    void changeEvent(QEvent* event) override;
-
-    void startReconnectTimer();
-    void stopReconnectTimer();
-    void onReconnectTimerTick();
+    void retranslateUi() override;
 
     // UI Components
     widgets::SerialConnectionWidget* connectionWidget_ = nullptr;
-    widgets::ByteMonitorWidget* monitor_ = nullptr;
-    widgets::GenericInputWidget* inputWidget_ = nullptr;
     
     QCheckBox* dtrCheck_ = nullptr;
     QCheckBox* rtsCheck_ = nullptr;
     QGroupBox* controlGroup_ = nullptr;
-    widgets::CollapsibleSection* inputSection_ = nullptr;
 
-    // Backend
-    io::ChannelOperationWorker* worker_ = nullptr;
-    QThread* workerThread_ = nullptr;
-    bool isConnected_ = false;
-    int lastLoggedFileTransferPct_ = -1;
-    ui::common::ISettingsService* settingsService_ = nullptr;
-
-    io::ReconnectPolicy reconnectPolicy_;
-    QTimer* reconnectTimer_ = nullptr;
     io::SerialConfig reconnectConfig_;
+
+private:
+    void setupUi();
 };
 
 } // namespace ui::views::generic_serial

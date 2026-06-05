@@ -9,60 +9,47 @@
 
 #pragma once
 
-#include <QWidget>
-#include <QList>
-#include <QTimer>
-#include <memory>
-#include <QThread>
-#include "../../../core/io/IChannel.h"
-#include "../../../core/ReconnectPolicy.h"
+#include "../GenericChannelViewBase.h"
 #include "../../widgets/TcpConnectionWidget.h"
+#include "../../../core/io/IChannel.h"
+#include <QList>
 
 namespace io {
-class ChannelOperationWorker;
 class ServerChannelWorker;
 }
 
 namespace ui::widgets {
 class TcpConnectionWidget;
-class ByteMonitorWidget;
-class GenericInputWidget;
-class CollapsibleSection;
 class ServerClientPanel;
 }
 
-class QVBoxLayout;
-class QHBoxLayout;
-class QSplitter;
-class QEvent;
-
-namespace ui::common {
-class ISettingsService;
-}
+class QThread;
 
 namespace ui::views::generic_tcp {
 
-class GenericTcpView : public QWidget {
+class GenericTcpView : public GenericChannelViewBase {
     Q_OBJECT
 
 public:
     explicit GenericTcpView(ui::common::ISettingsService* settingsService, QWidget *parent = nullptr);
-    ~GenericTcpView() override;
+    ~GenericTcpView() noexcept override;
+
+protected:
+    void startWorker();
 
 private slots:
     void onConnectClicked(const QString& ip, int port);
-    void onDisconnectClicked();
     void onStartListenClicked(const QString& ip, int port);
     void onStopListenClicked();
     void onBindClicked(const QString& localIp, int localPort,
                        const QString& remoteIp, int remotePort);
     void onUnbindClicked();
     void onProtocolChanged(widgets::TcpConnectionWidget::Protocol protocol);
-    void onSendRequested(const QByteArray& data);
-    void onFileSendRequested(const QString& filePath);
+    
+    void onSendRequested(const QByteArray& data) override;
+    void onFileSendRequested(const QString& filePath) override;
+    
     void onWorkerStateChanged(io::ChannelState state, quint64 generation);
-    void onWorkerError(const QString& deviceHint, const QString& error);
-    void onWorkerMonitor(bool isTx, const QByteArray& data);
     void onServerClientConnected(int clientId, const QString& peerInfo);
     void onServerClientDisconnected(int clientId);
     void onServerMonitorWithClient(bool isTx, const QByteArray& data, int clientId);
@@ -70,33 +57,20 @@ private slots:
     void onServerError(const QString& deviceHint, const QString& error);
     void onDisconnectSelectedClientsRequested(const QList<int>& clientIds);
     void onDisconnectAllClientsRequested();
+    void onReconnectTimerTick() override;
 
 private:
     void setupUi();
-    void startWorker();
-    void stopWorker();
     void startServerWorker();
     void stopServerWorker();
     void switchToClientMode();
     void switchToServerMode();
     void switchToUdpMode();
-    void retranslateUi();
-    void changeEvent(QEvent* event) override;
-
-    void startReconnectTimer();
-    void stopReconnectTimer();
-    void onReconnectTimerTick();
+    void retranslateUi() override;
 
     // UI Components
     widgets::TcpConnectionWidget* connectionWidget_ = nullptr;
-    widgets::ByteMonitorWidget* monitor_ = nullptr;
-    widgets::GenericInputWidget* inputWidget_ = nullptr;
-    widgets::CollapsibleSection* inputSection_ = nullptr;
     widgets::ServerClientPanel* serverClientPanel_ = nullptr;
-
-    // Backend - Client/UDP
-    io::ChannelOperationWorker* worker_ = nullptr;
-    QThread* workerThread_ = nullptr;
 
     // Backend - Server
     io::ServerChannelWorker* serverWorker_ = nullptr;
@@ -104,16 +78,14 @@ private:
 
     widgets::TcpConnectionWidget::Protocol currentProtocol_ = 
         widgets::TcpConnectionWidget::Protocol::TcpClient;
-    bool isConnected_ = false;
     bool suppressDisconnectAlert_ = false;
     quint64 connectionGeneration_ = 0;
-    int lastLoggedFileTransferPct_ = -1;
-    ui::common::ISettingsService* settingsService_ = nullptr;
 
-    io::ReconnectPolicy reconnectPolicy_;
-    QTimer* reconnectTimer_ = nullptr;
     QString reconnectHost_;
     int reconnectPort_ = 0;
+
+private:
+    void setupUi_internal(); // For any internal setup if needed
 };
 
 } // namespace ui::views::generic_tcp
