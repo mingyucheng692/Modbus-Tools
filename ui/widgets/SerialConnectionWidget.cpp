@@ -100,16 +100,16 @@ bool usesDisconnectAction(SerialConnectionWidget::DisplayState state)
     case SerialConnectionWidget::DisplayState::Disconnected:
     case SerialConnectionWidget::DisplayState::Disconnecting:
         return false;
+    default:
+        return false;
     }
-
-    return false;
 }
 
 } // namespace
 
 SerialConnectionWidget::SerialConnectionWidget(ui::common::ISettingsService* settingsService, QWidget *parent)
-    : QWidget(parent),
-      settingsService_(settingsService) {
+    : BaseConnectionWidget(settingsService, parent) {
+    settingsGroup_ = QStringLiteral("serial");
     setupUi();
     refreshPorts();
 }
@@ -118,9 +118,9 @@ SerialConnectionWidget::~SerialConnectionWidget() = default;
 
 io::SerialConfig SerialConnectionWidget::getConfig() const {
     io::SerialConfig config;
-    config.portName = portCombo_->currentData().toString(); // Use user data for port name
+    config.portName = portCombo_->currentData().toString();
     if (config.portName.isEmpty()) {
-        config.portName = portCombo_->currentText(); // Fallback
+        config.portName = portCombo_->currentText();
     }
     
     bool ok;
@@ -130,9 +130,9 @@ io::SerialConfig SerialConnectionWidget::getConfig() const {
     
     // Stop Bits
     QString stopStr = stopBitsCombo_->currentText();
-    if (stopStr == "1") config.stopBits = QSerialPort::OneStop;
-    else if (stopStr == "1.5") config.stopBits = QSerialPort::OneAndHalfStop;
-    else if (stopStr == "2") config.stopBits = QSerialPort::TwoStop;
+    if (stopStr == QStringLiteral("1")) config.stopBits = QSerialPort::OneStop;
+    else if (stopStr == QStringLiteral("1.5")) config.stopBits = QSerialPort::OneAndHalfStop;
+    else if (stopStr == QStringLiteral("2")) config.stopBits = QSerialPort::TwoStop;
     
     // Parity
     const QString parityValue = parityCombo_->currentData().toString();
@@ -153,14 +153,6 @@ io::SerialConfig SerialConnectionWidget::getConfig() const {
 
 void SerialConnectionWidget::setConnected(bool connected) {
     setDisplayState(connected ? DisplayState::Connected : DisplayState::Disconnected);
-}
-
-void SerialConnectionWidget::setDisplayState(DisplayState state)
-{
-    displayState_ = state;
-    isConnected_ = (state == DisplayState::TransportConnected
-                    || state == DisplayState::Connected);
-    applyDisplayState();
 }
 
 void SerialConnectionWidget::applyDisplayState()
@@ -194,6 +186,8 @@ void SerialConnectionWidget::applyDisplayState()
         statusText = tr("Disconnecting");
         statusStyle = QStringLiteral("color: orange; font-weight: bold;");
         break;
+    default:
+        break;
     }
 
     connectBtn_->setText(buttonText);
@@ -214,7 +208,6 @@ void SerialConnectionWidget::applyDisplayState()
 }
 
 void SerialConnectionWidget::refreshPorts() {
-    // Store current port name (not the full text)
     QString currentPortName = portCombo_->currentData().toString();
     if (currentPortName.isEmpty()) {
         currentPortName = portCombo_->currentText();
@@ -225,12 +218,11 @@ void SerialConnectionWidget::refreshPorts() {
     for (const QSerialPortInfo &info : infos) {
         QString itemText = info.portName();
         if (!info.description().isEmpty()) {
-            itemText = info.portName() + " (" + info.description() + ")";
+            itemText = info.portName() + QStringLiteral(" (") + info.description() + QStringLiteral(")");
         }
-        portCombo_->addItem(itemText, info.portName()); // Store port name as user data
+        portCombo_->addItem(itemText, info.portName());
     }
     
-    // Restore selection if possible (match user data which is the real port name)
     int index = portCombo_->findData(currentPortName); 
     
     if (index != -1) {
@@ -255,7 +247,7 @@ void SerialConnectionWidget::setupUi() {
     portCombo_->setMinimumWidth(64);
     layout->addWidget(portCombo_);
 
-    refreshBtn_ = new QPushButton("R", this);
+    refreshBtn_ = new QPushButton(QStringLiteral("R"), this);
     refreshBtn_->setFixedWidth(30);
     refreshBtn_->setToolTip(tr("Refresh Ports"));
     connect(refreshBtn_, &QPushButton::clicked, this, &SerialConnectionWidget::refreshPorts);
@@ -306,20 +298,18 @@ void SerialConnectionWidget::setupUi() {
     flowControlCombo_->setMinimumWidth(80);
     layout->addWidget(flowControlCombo_);
 
-    autoReconnectCheck_ = new QCheckBox(this);
+    // Create common widgets (autoReconnectCheck_, reconnectDelaySpin_, connectBtn_, statusLabel_)
+    createCommonWidgets(section_->contentWidget());
+
     layout->addWidget(autoReconnectCheck_);
-
-    reconnectDelaySpin_ = new QSpinBox(this);
-    reconnectDelaySpin_->setRange(500, 30000);
-    reconnectDelaySpin_->setValue(3000);
-    reconnectDelaySpin_->setSuffix(QStringLiteral("ms"));
-    reconnectDelaySpin_->setFixedWidth(76);
     layout->addWidget(reconnectDelaySpin_);
-
     layout->addSpacing(4);
+    layout->addWidget(connectBtn_);
+    layout->addWidget(statusLabel_);
+    
+    layout->addStretch();
+    mainLayout->addWidget(section_);
 
-    // Connect Button
-    connectBtn_ = new QPushButton(this);
     connect(connectBtn_, &QPushButton::clicked, [this]() {
         if (usesDisconnectAction(displayState_)) {
             emit disconnectClicked();
@@ -329,14 +319,6 @@ void SerialConnectionWidget::setupUi() {
             emit connectClicked(config);
         }
     });
-    layout->addWidget(connectBtn_);
-
-    statusLabel_ = new QLabel(this);
-    statusLabel_->setStyleSheet("color: red; font-weight: bold;");
-    layout->addWidget(statusLabel_);
-    
-    layout->addStretch();
-    mainLayout->addWidget(section_);
 
     connect(portCombo_, qOverload<int>(&QComboBox::currentIndexChanged), this, &SerialConnectionWidget::saveSettings);
     connect(baudCombo_, &QComboBox::currentTextChanged, this, &SerialConnectionWidget::saveSettings);
@@ -344,48 +326,33 @@ void SerialConnectionWidget::setupUi() {
     connect(parityCombo_, &QComboBox::currentTextChanged, this, &SerialConnectionWidget::saveSettings);
     connect(stopBitsCombo_, &QComboBox::currentTextChanged, this, &SerialConnectionWidget::saveSettings);
     connect(flowControlCombo_, &QComboBox::currentTextChanged, this, &SerialConnectionWidget::saveSettings);
-    connect(autoReconnectCheck_, &QCheckBox::toggled, this, &SerialConnectionWidget::saveSettings);
-    connect(autoReconnectCheck_, &QCheckBox::toggled, this, [this]() {
-        reconnectDelaySpin_->setVisible(autoReconnectCheck_->isChecked());
-    });
-    connect(reconnectDelaySpin_, qOverload<int>(&QSpinBox::valueChanged), this, &SerialConnectionWidget::saveSettings);
 
+    setupCommonConnections();
     repopulateParityOptions(parityCombo_);
     repopulateFlowControlOptions(flowControlCombo_);
     loadSettings();
-    section_->setSettingsKey(settingsGroup_ + "/ui/connectionSettingsCollapsed");
+    section_->setSettingsKey(settingsGroup_ + QStringLiteral("/ui/connectionSettingsCollapsed"));
 
     retranslateUi();
 }
 
-void SerialConnectionWidget::setSettingsGroup(const QString& group) {
-    settingsGroup_ = group;
-    if (section_) {
-        section_->setSettingsKey(settingsGroup_ + "/ui/connectionSettingsCollapsed");
-    }
-    loadSettings();
-}
-
 void SerialConnectionWidget::loadSettings() {
+    loadCommonSettings();
     if (settingsGroup_.isEmpty() || !settingsService_) return;
     QSignalBlocker b1(baudCombo_);
     QSignalBlocker b2(dataBitsCombo_);
     QSignalBlocker b3(parityCombo_);
     QSignalBlocker b4(stopBitsCombo_);
-    QSignalBlocker b5(autoReconnectCheck_);
-    QSignalBlocker b6(reconnectDelaySpin_);
-    QSignalBlocker b7(flowControlCombo_);
+    QSignalBlocker b5(flowControlCombo_);
 
-    const QString baudKey = settingsGroup_ + "/baudRate";
-    const QString dataKey = settingsGroup_ + "/dataBits";
-    const QString parityKey = settingsGroup_ + "/parity";
-    const QString stopKey = settingsGroup_ + "/stopBits";
-    const QString portKey = settingsGroup_ + "/portName";
-    const QString flowControlKey = settingsGroup_ + "/flowControl";
-    const QString autoReconnectKey = settingsGroup_ + "/autoReconnect";
-    const QString reconnectDelayKey = settingsGroup_ + "/reconnectDelay";
+    const QString baudKey = settingsGroup_ + QStringLiteral("/baudRate");
+    const QString dataKey = settingsGroup_ + QStringLiteral("/dataBits");
+    const QString parityKey = settingsGroup_ + QStringLiteral("/parity");
+    const QString stopKey = settingsGroup_ + QStringLiteral("/stopBits");
+    const QString portKey = settingsGroup_ + QStringLiteral("/portName");
+    const QString flowControlKey = settingsGroup_ + QStringLiteral("/flowControl");
 
-    const int fallbackBaud = settingsService_->value("serial/baudRate").toInt();
+    const int fallbackBaud = settingsService_->value(QStringLiteral("serial/baudRate")).toInt();
     const int baudRate = settingsService_->contains(baudKey) ? settingsService_->value(baudKey).toInt() : fallbackBaud;
     const QString dataBits = settingsService_->value(dataKey).toString();
     const QString parity = settingsService_->value(parityKey).toString();
@@ -430,39 +397,21 @@ void SerialConnectionWidget::loadSettings() {
             portCombo_->setCurrentIndex(portIndex);
         }
     }
-
-    const bool autoReconnect = settingsService_->contains(autoReconnectKey)
-        ? settingsService_->value(autoReconnectKey).toBool() : false;
-    const int reconnectDelay = settingsService_->contains(reconnectDelayKey)
-        ? settingsService_->value(reconnectDelayKey).toInt() : 3000;
-    autoReconnectCheck_->setChecked(autoReconnect);
-    reconnectDelaySpin_->setValue(reconnectDelay);
 }
 
 void SerialConnectionWidget::saveSettings() {
+    saveCommonSettings();
     if (settingsGroup_.isEmpty() || !settingsService_) return;
-    settingsService_->setValue(settingsGroup_ + "/baudRate", baudCombo_->currentText());
-    settingsService_->setValue(settingsGroup_ + "/dataBits", dataBitsCombo_->currentText());
-    settingsService_->setValue(settingsGroup_ + "/parity", parityCombo_->currentData().toString());
-    settingsService_->setValue(settingsGroup_ + "/stopBits", stopBitsCombo_->currentText());
-    settingsService_->setValue(settingsGroup_ + "/portName", portCombo_->currentData().toString());
-    settingsService_->setValue(settingsGroup_ + "/flowControl", flowControlCombo_->currentData().toString());
-    settingsService_->setValue(settingsGroup_ + "/autoReconnect", autoReconnectCheck_->isChecked());
-    settingsService_->setValue(settingsGroup_ + "/reconnectDelay", reconnectDelaySpin_->value());
-}
-
-bool SerialConnectionWidget::autoReconnectEnabled() const {
-    return autoReconnectCheck_ ? autoReconnectCheck_->isChecked() : false;
-}
-
-int SerialConnectionWidget::reconnectDelayMs() const {
-    return reconnectDelaySpin_ ? reconnectDelaySpin_->value() : 3000;
+    settingsService_->setValue(settingsGroup_ + QStringLiteral("/baudRate"), baudCombo_->currentText());
+    settingsService_->setValue(settingsGroup_ + QStringLiteral("/dataBits"), dataBitsCombo_->currentText());
+    settingsService_->setValue(settingsGroup_ + QStringLiteral("/parity"), parityCombo_->currentData().toString());
+    settingsService_->setValue(settingsGroup_ + QStringLiteral("/stopBits"), stopBitsCombo_->currentText());
+    settingsService_->setValue(settingsGroup_ + QStringLiteral("/portName"), portCombo_->currentData().toString());
+    settingsService_->setValue(settingsGroup_ + QStringLiteral("/flowControl"), flowControlCombo_->currentData().toString());
 }
 
 void SerialConnectionWidget::retranslateUi() {
-    if (section_) {
-        section_->setTitle(tr("Connection Settings"));
-    }
+    retranslateCommonUi();
     if (portLabel_) {
         portLabel_->setText(tr("Port:"));
     }
@@ -485,9 +434,6 @@ void SerialConnectionWidget::retranslateUi() {
     repopulateFlowControlOptions(flowControlCombo_);
     if (refreshBtn_) {
         refreshBtn_->setToolTip(tr("Refresh Ports"));
-    }
-    if (autoReconnectCheck_) {
-        autoReconnectCheck_->setText(tr("Auto Reconnect"));
     }
     applyDisplayState();
 }

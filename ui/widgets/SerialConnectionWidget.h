@@ -9,15 +9,13 @@
 
 #pragma once
 
-#include <QWidget>
+#include "BaseConnectionWidget.h"
 #include <QSerialPort>
 #include "../../../core/io/SerialChannel.h" // For SerialConfig
 
 class QComboBox;
 class QPushButton;
 class QLabel;
-class QCheckBox;
-class QSpinBox;
 class QEvent;
 class QString;
 
@@ -26,45 +24,34 @@ class ISettingsService;
 }
 
 namespace ui::widgets {
-class CollapsibleSection;
 
-class SerialConnectionWidget : public QWidget {
+class SerialConnectionWidget : public BaseConnectionWidget {
     Q_OBJECT
 
 public:
-    enum class DisplayState {
-        Disconnected = 0,
-        Connecting,
-        TransportConnected,
-        Connected,
-        Disconnecting
-    };
-    Q_ENUM(DisplayState)
+    using DisplayState = BaseConnectionWidget::DisplayState;
 
     explicit SerialConnectionWidget(ui::common::ISettingsService* settingsService, QWidget *parent = nullptr);
     ~SerialConnectionWidget() override;
 
-    io::SerialConfig getConfig() const;
-    void setSettingsGroup(const QString& group);
-    bool autoReconnectEnabled() const;
-    int reconnectDelayMs() const;
+    [[nodiscard]] io::SerialConfig getConfig() const;
 
 signals:
     void connectClicked(const io::SerialConfig& config);
-    void disconnectClicked();
 
 public slots:
-    void setConnected(bool connected);
-    void setDisplayState(DisplayState state);
+    void setConnected(bool connected) override;
     void refreshPorts();
+
+protected:
+    void loadSettings() override;
+    void saveSettings() override;
+    void applyDisplayState() override;
 
 private:
     void setupUi();
-    void loadSettings();
-    void saveSettings();
     void retranslateUi();
     void changeEvent(QEvent* event) override;
-    void applyDisplayState();
 
     QLabel* portLabel_ = nullptr;
     QComboBox* portCombo_ = nullptr;
@@ -79,17 +66,6 @@ private:
     QComboBox* stopBitsCombo_ = nullptr;
     QLabel* flowControlLabel_ = nullptr;
     QComboBox* flowControlCombo_ = nullptr;
-    QPushButton* connectBtn_ = nullptr;
-    QLabel* statusLabel_ = nullptr;
-    CollapsibleSection* section_ = nullptr;
-
-    QCheckBox* autoReconnectCheck_ = nullptr;
-    QSpinBox* reconnectDelaySpin_ = nullptr;
-
-    bool isConnected_ = false;
-    DisplayState displayState_ = DisplayState::Disconnected;
-    QString settingsGroup_ = "serial";
-    ui::common::ISettingsService* settingsService_ = nullptr;
 };
 
 } // namespace ui::widgets

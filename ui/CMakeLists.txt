@@ -66,6 +66,8 @@ target_sources(ui PRIVATE
     views/generic_tcp/GenericTcpView.h
     views/generic_serial/GenericSerialView.cpp
     views/generic_serial/GenericSerialView.h
+    widgets/BaseConnectionWidget.cpp
+    widgets/BaseConnectionWidget.h
     widgets/TcpConnectionWidget.cpp
     widgets/SerialConnectionWidget.cpp
     widgets/FunctionWidget.cpp

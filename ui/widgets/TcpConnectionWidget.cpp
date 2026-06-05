@@ -73,16 +73,16 @@ bool usesDisconnectAction(TcpConnectionWidget::DisplayState state)
     case TcpConnectionWidget::DisplayState::Disconnected:
     case TcpConnectionWidget::DisplayState::Disconnecting:
         return false;
+    default:
+        return false;
     }
-
-    return false;
 }
 
 } // namespace
 
 TcpConnectionWidget::TcpConnectionWidget(ui::common::ISettingsService* settingsService, QWidget *parent)
-    : QWidget(parent),
-      settingsService_(settingsService) {
+    : BaseConnectionWidget(settingsService, parent) {
+    settingsGroup_ = QStringLiteral("modbus/tcp");
     setupUi();
 }
 
@@ -143,29 +143,13 @@ void TcpConnectionWidget::setupUi() {
     remotePortEdit_->setSpecialValueText(QStringLiteral("-"));
     layout->addWidget(remotePortEdit_);
 
-    autoReconnectCheck_ = new QCheckBox(this);
+    // Create common widgets (autoReconnectCheck_, reconnectDelaySpin_, connectBtn_, statusLabel_)
+    createCommonWidgets(section_->contentWidget());
+
     layout->addWidget(autoReconnectCheck_);
-
-    reconnectDelaySpin_ = new QSpinBox(this);
-    reconnectDelaySpin_->setRange(500, 30000);
-    reconnectDelaySpin_->setValue(3000);
-    reconnectDelaySpin_->setSuffix(QStringLiteral("ms"));
-    reconnectDelaySpin_->setFixedWidth(76);
     layout->addWidget(reconnectDelaySpin_);
-
     layout->addSpacing(4);
-
-    // Connect/Bind Button
-    connectBtn_ = new QPushButton(this);
-    connectBtn_->setMinimumWidth(84);
-    connectBtn_->setSizePolicy(QSizePolicy::Minimum, QSizePolicy::Fixed);
     layout->addWidget(connectBtn_);
-
-    // Status
-    statusLabel_ = new QLabel(this);
-    statusLabel_->setStyleSheet("color: red; font-weight: bold;");
-    statusLabel_->setMinimumWidth(96);
-    statusLabel_->setSizePolicy(QSizePolicy::Minimum, QSizePolicy::Preferred);
     layout->addWidget(statusLabel_);
 
     layout->addStretch();
@@ -214,14 +198,11 @@ void TcpConnectionWidget::setupUi() {
     connect(portEdit_, qOverload<int>(&QSpinBox::valueChanged), this, &TcpConnectionWidget::saveSettings);
     connect(remoteIpEdit_, &QLineEdit::textChanged, this, &TcpConnectionWidget::saveSettings);
     connect(remotePortEdit_, qOverload<int>(&QSpinBox::valueChanged), this, &TcpConnectionWidget::saveSettings);
-    connect(autoReconnectCheck_, &QCheckBox::toggled, this, &TcpConnectionWidget::saveSettings);
-    connect(autoReconnectCheck_, &QCheckBox::toggled, this, [this]() {
-        reconnectDelaySpin_->setVisible(autoReconnectCheck_->isChecked());
-    });
-    connect(reconnectDelaySpin_, qOverload<int>(&QSpinBox::valueChanged), this, &TcpConnectionWidget::saveSettings);
+
+    setupCommonConnections();
 
     loadSettings();
-    section_->setSettingsKey(settingsGroup_ + "/ui/connectionSettingsCollapsed");
+    section_->setSettingsKey(settingsGroup_ + QStringLiteral("/ui/connectionSettingsCollapsed"));
     updateProtocolUi();
     retranslateUi();
 }
@@ -233,7 +214,7 @@ void TcpConnectionWidget::setDefaultPort(int port) {
         portEdit_->setValue(port);
         return;
     }
-    const QString key = settingsGroup_ + "/port";
+    const QString key = settingsGroup_ + QStringLiteral("/port");
     if (!settingsService_ || !settingsService_->contains(key)) {
         portEdit_->setValue(port);
         if (settingsService_) {
@@ -244,31 +225,20 @@ void TcpConnectionWidget::setDefaultPort(int port) {
     }
 }
 
-void TcpConnectionWidget::setSettingsGroup(const QString& group) {
-    settingsGroup_ = group;
-    if (section_) {
-        section_->setSettingsKey(settingsGroup_ + "/ui/connectionSettingsCollapsed");
-    }
-    loadSettings();
-}
-
 void TcpConnectionWidget::loadSettings() {
+    loadCommonSettings();
     if (settingsGroup_.isEmpty() || !settingsService_) return;
     QSignalBlocker b1(ipEdit_);
     QSignalBlocker b2(portEdit_);
     QSignalBlocker b3(remoteIpEdit_);
     QSignalBlocker b4(remotePortEdit_);
     QSignalBlocker b5(protocolCombo_);
-    QSignalBlocker b6(autoReconnectCheck_);
-    QSignalBlocker b7(reconnectDelaySpin_);
 
-    const QString ipKey = settingsGroup_ + "/ip";
-    const QString portKey = settingsGroup_ + "/port";
-    const QString protocolKey = settingsGroup_ + "/protocol";
-    const QString remoteIpKey = settingsGroup_ + "/remoteIp";
-    const QString remotePortKey = settingsGroup_ + "/remotePort";
-    const QString autoReconnectKey = settingsGroup_ + "/autoReconnect";
-    const QString reconnectDelayKey = settingsGroup_ + "/reconnectDelay";
+    const QString ipKey = settingsGroup_ + QStringLiteral("/ip");
+    const QString portKey = settingsGroup_ + QStringLiteral("/port");
+    const QString protocolKey = settingsGroup_ + QStringLiteral("/protocol");
+    const QString remoteIpKey = settingsGroup_ + QStringLiteral("/remoteIp");
+    const QString remotePortKey = settingsGroup_ + QStringLiteral("/remotePort");
 
     const QString ip = settingsService_->value(ipKey).toString();
     const int port = settingsService_->value(portKey).toInt();
@@ -278,30 +248,22 @@ void TcpConnectionWidget::loadSettings() {
     const int remotePort = settingsService_->contains(remotePortKey)
         ? settingsService_->value(remotePortKey).toInt() : 0;
 
-    const bool autoReconnect = settingsService_->contains(autoReconnectKey)
-        ? settingsService_->value(autoReconnectKey).toBool() : false;
-    const int reconnectDelay = settingsService_->contains(reconnectDelayKey)
-        ? settingsService_->value(reconnectDelayKey).toInt() : 3000;
-
     ipEdit_->setText(ip);
     portEdit_->setValue(port);
     protocolCombo_->setCurrentIndex(protocolIdx);
     currentProtocol_ = static_cast<Protocol>(protocolCombo_->currentData().toInt());
     remoteIpEdit_->setText(remoteIp);
     remotePortEdit_->setValue(remotePort);
-    autoReconnectCheck_->setChecked(autoReconnect);
-    reconnectDelaySpin_->setValue(reconnectDelay);
 }
 
 void TcpConnectionWidget::saveSettings() {
+    saveCommonSettings();
     if (settingsGroup_.isEmpty() || !settingsService_) return;
-    settingsService_->setValue(settingsGroup_ + "/ip", ipEdit_->text());
-    settingsService_->setValue(settingsGroup_ + "/port", portEdit_->value());
-    settingsService_->setValue(settingsGroup_ + "/protocol", protocolCombo_->currentIndex());
-    settingsService_->setValue(settingsGroup_ + "/remoteIp", remoteIpEdit_->text());
-    settingsService_->setValue(settingsGroup_ + "/remotePort", remotePortEdit_->value());
-    settingsService_->setValue(settingsGroup_ + "/autoReconnect", autoReconnectCheck_->isChecked());
-    settingsService_->setValue(settingsGroup_ + "/reconnectDelay", reconnectDelaySpin_->value());
+    settingsService_->setValue(settingsGroup_ + QStringLiteral("/ip"), ipEdit_->text());
+    settingsService_->setValue(settingsGroup_ + QStringLiteral("/port"), portEdit_->value());
+    settingsService_->setValue(settingsGroup_ + QStringLiteral("/protocol"), protocolCombo_->currentIndex());
+    settingsService_->setValue(settingsGroup_ + QStringLiteral("/remoteIp"), remoteIpEdit_->text());
+    settingsService_->setValue(settingsGroup_ + QStringLiteral("/remotePort"), remotePortEdit_->value());
 }
 
 QString TcpConnectionWidget::getIpAddress() const {
@@ -314,14 +276,6 @@ int TcpConnectionWidget::getPort() const {
 
 TcpConnectionWidget::Protocol TcpConnectionWidget::currentProtocol() const {
     return currentProtocol_;
-}
-
-bool TcpConnectionWidget::autoReconnectEnabled() const {
-    return autoReconnectCheck_ ? autoReconnectCheck_->isChecked() : false;
-}
-
-int TcpConnectionWidget::reconnectDelayMs() const {
-    return reconnectDelaySpin_ ? reconnectDelaySpin_->value() : 3000;
 }
 
 void TcpConnectionWidget::setConnected(bool connected) {
@@ -343,17 +297,7 @@ void TcpConnectionWidget::setConnected(bool connected) {
     }
 }
 
-void TcpConnectionWidget::setDisplayState(DisplayState state) {
-    displayState_ = state;
-    isConnected_ = (state == DisplayState::TransportConnected
-                    || state == DisplayState::Connected
-                    || state == DisplayState::Listening
-                    || state == DisplayState::Bound);
-    applyDisplayState();
-}
-
-void TcpConnectionWidget::applyDisplayState()
-{
+void TcpConnectionWidget::applyDisplayState() {
     QString buttonText;
     QString statusText;
     QString statusStyle = QStringLiteral("color: red; font-weight: bold;");
@@ -487,18 +431,13 @@ void TcpConnectionWidget::updateProtocolUi() {
 }
 
 void TcpConnectionWidget::retranslateUi() {
-    if (section_) {
-        section_->setTitle(tr("Connection Settings"));
-    }
+    retranslateCommonUi();
     repopulateProtocolOptions(protocolCombo_);
     if (remoteIpLabel_) {
         remoteIpLabel_->setText(tr("Remote:"));
     }
     if (remotePortLabel_) {
         remotePortLabel_->setText(tr("Remote Port:"));
-    }
-    if (autoReconnectCheck_) {
-        autoReconnectCheck_->setText(tr("Auto Reconnect"));
     }
     applyDisplayState();
 }
