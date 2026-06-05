@@ -257,6 +257,7 @@ void FunctionWidget::setTcpMode(bool tcp) {
     isTcp_ = tcp;
     if (appendCrcBtn_) appendCrcBtn_->setVisible(!isTcp_);
     if (addMbapBtn_) addMbapBtn_->setVisible(isTcp_);
+    retranslateUi();
 }
 
 void FunctionWidget::loadSettings() {
@@ -313,7 +314,9 @@ void FunctionWidget::onReadClicked(uint8_t functionCode) {
     int address = modbus::base::ModbusDataHelper::parseSmartInt(addressEdit_->text(), &addrOk);
 
     if (!slaveOk || slaveId < app::constants::Values::Modbus::kMinSlaveId || slaveId > 255) {
-        emit logMessageRequested(tr("Invalid Slave ID format or range (0-255): %1").arg(slaveIdEdit_->text()), true);
+        emit logMessageRequested(isTcp_
+                                 ? tr("Invalid Unit ID format or range (0-255): %1").arg(slaveIdEdit_->text())
+                                 : tr("Invalid Slave ID format or range (0-255): %1").arg(slaveIdEdit_->text()), true);
         return;
     }
     if (!addrOk || address < app::constants::Values::Modbus::kMinAddress || address > app::constants::Values::Modbus::kMaxAddress) {
@@ -330,7 +333,9 @@ void FunctionWidget::onWriteClicked(uint8_t functionCode) {
     int address = modbus::base::ModbusDataHelper::parseSmartInt(addressEdit_->text(), &addrOk);
 
     if (!slaveOk || slaveId < app::constants::Values::Modbus::kMinSlaveId || slaveId > 255) {
-        emit logMessageRequested(tr("Invalid Slave ID format or range (0-255): %1").arg(slaveIdEdit_->text()), true);
+        emit logMessageRequested(isTcp_
+                                 ? tr("Invalid Unit ID format or range (0-255): %1").arg(slaveIdEdit_->text())
+                                 : tr("Invalid Slave ID format or range (0-255): %1").arg(slaveIdEdit_->text()), true);
         return;
     }
     if (!addrOk || address < app::constants::Values::Modbus::kMinAddress || address > app::constants::Values::Modbus::kMaxAddress) {
@@ -389,13 +394,15 @@ void FunctionWidget::retranslateUi() {
         rawSection_->setTitle(tr("Raw"));
     }
     if (slaveIdLabel_) {
-        slaveIdLabel_->setText(tr("Slave ID:"));
+        slaveIdLabel_->setText(isTcp_ ? tr("Unit ID:") : tr("Slave ID:"));
     }
     if (addressLabel_) {
         addressLabel_->setText(tr("Start Addr:"));
     }
     if (slaveIdEdit_) {
-        slaveIdEdit_->setToolTip(tr("Slave ID (0-255). Supports HEX (0x10 or 10H) and DEC (16)."));
+        slaveIdEdit_->setToolTip(isTcp_
+                                 ? tr("Unit ID (0-255). Supports HEX (0x10 or 10H) and DEC (16).")
+                                 : tr("Slave ID (0-255). Supports HEX (0x10 or 10H) and DEC (16)."));
     }
     if (addressEdit_) {
         addressEdit_->setToolTip(tr("Start Address (0-65535). Supports HEX (0x10 or 10H) and DEC (16)."));
@@ -439,7 +446,9 @@ void FunctionWidget::retranslateUi() {
         writeBtn10_->setText(tr("Write Multiple Registers (0x10)"));
     }
     if (rawDataLabel_) {
-        rawDataLabel_->setText(tr("Raw Hex Data (e.g., 01 03 00 00 00 01 84 0A):"));
+        rawDataLabel_->setText(isTcp_
+                               ? tr("Raw Hex Data (e.g., 00 00 00 00 00 06 01 03 00 00 00 01):")
+                               : tr("Raw Hex Data (e.g., 01 03 00 00 00 01 84 0A):"));
     }
     if (rawSendBtn_) {
         rawSendBtn_->setText(tr("Send Raw"));

@@ -184,7 +184,7 @@ void MainWindow::createNavigation() {
 
     navigationController_ = std::make_unique<shell::NavigationController>(navigationList_, navigationPane_, navigationToggleButton_);
     navigationController_->initialize(
-        {tr("Modbus TCP"), tr("Modbus RTU"), tr("TCP Client"), tr("Serial Port"), tr("Frame Analyzer")});
+        {tr("Modbus TCP"), tr("Modbus RTU"), tr("TCP/UDP Tool"), tr("Serial Debugger"), tr("Frame Analyzer")});
 
     common::ThemeUiHelpers::applyNavigationTheme(navigationList_->palette(), navigationPane_, navigationToggleButton_, navigationList_);
     connect(navigationToggleButton_, &QToolButton::clicked, this, [this]() {
@@ -409,7 +409,7 @@ void MainWindow::showUpdateProgress(core::update::UpdateManager* updateManager) 
 void MainWindow::retranslateUi(const QString& effectiveLocale) {
     effectiveLocale_ = effectiveLocale;
     setWindowTitle(tr("Modbus Tools"));
-    const QStringList titles = {tr("Modbus TCP"), tr("Modbus RTU"), tr("TCP Client"), tr("Serial Port"), tr("Frame Analyzer")};
+    const QStringList titles = {tr("Modbus TCP"), tr("Modbus RTU"), tr("TCP/UDP Tool"), tr("Serial Debugger"), tr("Frame Analyzer")};
     if (navigationController_) {
         navigationController_->retranslate(titles, tr("Expand Navigation"), tr("Collapse Navigation"));
     }

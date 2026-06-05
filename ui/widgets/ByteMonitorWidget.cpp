@@ -442,7 +442,7 @@ QString ByteMonitorWidget::formatTimestamp() {
         return {};
     case TimestampFormat::Absolute:
     default: {
-        const QDateTime now = QDateTime::currentDateTime();
+        const QDateTime now = QDateTime::currentDateTimeUtc().toLocalTime();
         lastAppendTimeMs_ = elapsedTimer_.elapsed();
         return now.toString("HH:mm:ss.zzz");
     }

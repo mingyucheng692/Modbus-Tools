@@ -68,8 +68,8 @@ Breaks down the barrier between traffic monitoring and the analyzer for automate
 
 ### 🛠 General Debugging Tools
 In addition to deep Modbus support, the project integrates high-performance general debugging tools:
-- **General TCP Client**: Supports Text/Hex modes, suitable for non-standard network protocol verification.
-- **Serial Port Monitor**: Custom baud rate, parity, and data bits, with integrated file transfer and other utility functions.
+- **TCP/UDP Tool**: Supports TCP Client, TCP Server, and UDP modes, suitable for general network protocol verification.
+- **Serial Debugger**: Custom baud rate, parity, and data bits, with integrated file transfer, control line states (DTR/RTS), and other utility functions.
 
 ---
 
