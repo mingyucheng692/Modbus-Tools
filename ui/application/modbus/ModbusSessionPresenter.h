@@ -7,7 +7,7 @@
 #include "modbus/base/ModbusConfig.h"
 #include "modbus/session/IModbusClient.h"
 #include "../../../core/io/IChannel.h"
-#include "../../../core/io/SerialChannel.h"
+#include "../../../core/io/SerialConfig.h"
 #include "ModbusTypes.h"
 
 class QThread;
@@ -33,6 +33,18 @@ namespace ui::application::modbus {
 
 enum class SessionMode { Tcp, Rtu };
 
+/**
+ * @brief Session presenter bridging the UI layer and Modbus worker thread.
+ *
+ * @thread Lives on the GUI thread. All public methods must be called from the
+ *         GUI thread. Cross-thread communication with the ModbusWorker happens
+ *         exclusively via queued signal/slot connections (no DirectConnection).
+ *         Worker thread lifecycle managed via shared_ptr<PendingReleaseContext>.
+ *
+ * @guarded_by Qt event loop — all member writes occur on the GUI thread via
+ *             queued signal delivery. No explicit mutex needed as Qt's event
+ *             system provides implicit serialization.
+ */
 class ModbusSessionPresenter : public QObject {
     Q_OBJECT
 

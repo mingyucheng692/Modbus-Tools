@@ -9,6 +9,8 @@
 
 #include "ModbusTcpTransport.h"
 #include "../base/ModbusProtocolChecks.h"
+#include "../../Config.h"
+#include <spdlog/spdlog.h>
 
 namespace modbus::transport {
 
@@ -58,7 +60,15 @@ ParseResponseResult ModbusTcpTransport::parseResponse(const QByteArray& adu) {
 }
 
 int ModbusTcpTransport::checkIntegrity(const QByteArray& data) {
-    return base::inspectTcpAdu(data);
+    base::TcpAduFields fields;
+    const int result = base::inspectTcpAdu(data, &fields);
+    if (result > 0 && fields.length > config::Modbus::kMaxMbapLength) {
+        spdlog::warn(
+            "ModbusTcpTransport: MBAP length {} exceeds limit {}, rejecting",
+            fields.length, config::Modbus::kMaxMbapLength);
+        return -1;
+    }
+    return result;
 }
 
 void ModbusTcpTransport::resetPendingState() {

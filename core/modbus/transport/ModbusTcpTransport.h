@@ -27,7 +27,7 @@ public:
     void purgeStaleTransactions(uint16_t thresholdCount = 256);
 
 private:
-    uint16_t transactionId_;
+    uint16_t transactionId_ = 0;
     std::map<uint16_t, uint8_t> pendingTransactions_;
 };
 

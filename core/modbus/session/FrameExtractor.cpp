@@ -9,6 +9,7 @@
 
 #include "FrameExtractor.h"
 #include "AppConstants.h"
+#include "../../Config.h"
 #include "../base/ModbusProtocolChecks.h"
 #include <spdlog/spdlog.h>
 #include <cmath>
@@ -169,6 +170,14 @@ void FrameExtractor::processTcpBuffer()
     while (!buffer_.isEmpty()) {
         const int integrity = base::inspectTcpAdu(buffer_);
         if (integrity > 0) {
+            if (integrity > config::Modbus::kMaxAdpuSize) {
+                spdlog::warn(
+                    "FrameExtractor: TCP frame size {} exceeds ADPU limit {}, discarding",
+                    integrity, config::Modbus::kMaxAdpuSize);
+                buffer_.remove(0, integrity);
+                ++droppedInvalidBytes_;
+                continue;
+            }
             if (buffer_.size() >= integrity) {
                 completedFrames_.push_back(buffer_.left(integrity));
                 buffer_.remove(0, integrity);
@@ -212,6 +221,15 @@ void FrameExtractor::processRtuBuffer(std::chrono::steady_clock::time_point now)
         return;
     }
     if (!isRtuFrameReadyToParse(now)) {
+        return;
+    }
+
+    if (buffer_.size() > config::Modbus::kMaxAdpuSize) {
+        spdlog::warn(
+            "FrameExtractor: RTU frame size {} exceeds ADPU limit {}, discarding",
+            buffer_.size(), config::Modbus::kMaxAdpuSize);
+        buffer_.clear();
+        lastByteReceivedAt_ = std::chrono::steady_clock::time_point{};
         return;
     }
 

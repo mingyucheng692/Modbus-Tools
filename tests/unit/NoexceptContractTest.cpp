@@ -2,6 +2,7 @@
 
 #include "../../core/io/ChannelOperationWorker.h"
 #include "../../core/io/SerialChannel.h"
+#include "../../core/io/SerialConfig.h"
 #include "../../core/io/ServerChannelWorker.h"
 #include "../../core/io/TcpChannel.h"
 #include "../../core/io/TcpServerHandle.h"

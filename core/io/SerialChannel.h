@@ -10,20 +10,12 @@
 #pragma once
 #include "AppConstants.h"
 #include "ChannelBase.h"
+#include "SerialConfig.h"
 #include <QSerialPort>
 #include <QTimer>
 #include <deque>
 
 namespace io {
-
-struct SerialConfig {
-    QString portName;
-    qint32 baudRate = app::constants::Values::Serial::kDefaultBaudRate;
-    int dataBits = app::constants::Values::Serial::kDefaultDataBits;
-    int stopBits = app::constants::Values::Serial::kDefaultStopBits;
-    QSerialPort::Parity parity = QSerialPort::NoParity;
-    QSerialPort::FlowControl flowControl = QSerialPort::NoFlowControl;
-};
 
 class SerialChannel : public ChannelBase {
 public:

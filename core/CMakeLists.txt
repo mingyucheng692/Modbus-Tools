@@ -1,11 +1,13 @@
 add_library(core STATIC)
 
 target_sources(core PRIVATE
+    Config.h
     logging/Logger.cpp
     io/ChannelBase.h
     io/ChannelBase.cpp
     io/SerialChannel.h
     io/SerialChannel.cpp
+    io/SerialConfig.h
     io/TcpChannel.h
     io/TcpChannel.cpp
     io/UdpChannel.h

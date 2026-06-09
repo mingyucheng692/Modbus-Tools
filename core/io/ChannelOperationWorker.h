@@ -15,7 +15,7 @@
 #include <QFile>
 #include <memory>
 #include "IChannel.h"
-#include "SerialChannel.h" // For SerialConfig
+#include "SerialConfig.h"
 
 namespace io {
 
@@ -29,6 +29,11 @@ namespace io {
  *     backpressure via write-drained notifications.
  *   - Serial control signals (DTR / RTS) are forwarded to the underlying
  *     SerialChannel if active; silently ignored for other channel kinds.
+ *
+ * @thread This worker must be moved to a dedicated IO thread via
+ *         moveToThread(). All slot invocations happen on that thread.
+ *         Signals are emitted to the GUI thread via Qt::AutoConnection
+ *         (no Qt::DirectConnection allowed).
  *
  * Public slots (8 total):
  *   openTcp, openSerial, openUdp, close, write, sendFile, setDtr, setRts.

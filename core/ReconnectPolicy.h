@@ -36,8 +36,8 @@ public:
     QString statusString() const;
 
 private:
-    int maxRetries_;
-    int delayMs_;
+    int maxRetries_ = 3;
+    int delayMs_ = 3000;
     int attemptCount_ = 0;
 };
 

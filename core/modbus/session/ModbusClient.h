@@ -29,6 +29,17 @@
 
 namespace modbus::session {
 
+/**
+ * @brief Core Modbus client implementing IModbusClient with full session management.
+ *
+ * @thread Objects of this class can be called from any thread. Internal state
+ *         is protected by mutex_ (connection/response state) and pendingMutex_
+ *         (request queue). The underlying channel_/transport_ operations are
+ *         serialized through queued slot invocations or synchronous calls.
+ *
+ * @note sendRequest() uses a separate requestMutex_ to prevent concurrent
+ *       request execution, enforcing strict serialization of the submit path.
+ */
 class ModbusClient : public IModbusClient {
 public:
     using ConnectionState = ConnectionStateMachine::State;
@@ -82,6 +93,7 @@ private:
     RequestValidator requestValidator_;
 
     // 同步机制：等待响应
+    // @guarded_by mutex_ — responseReady_, lastChannelError_
     std::mutex mutex_;
     std::condition_variable cv_;
     bool responseReady_ = false;
@@ -93,6 +105,8 @@ private:
     std::atomic<bool> aborted_ {false};
     ConnectionStateMachine connectionStateMachine_;
     RequestStateMachine requestStateMachine_;
+
+    // @guarded_by pendingMutex_ — pendingRequests_, nextRequestId_
     std::mutex pendingMutex_;
     FrameExtractor frameExtractor_;
     RetryStrategy retryStrategy_;

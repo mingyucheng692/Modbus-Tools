@@ -19,6 +19,17 @@
 
 namespace modbus::dispatch {
 
+/**
+ * @brief Worker object for submitting Modbus requests from a dedicated thread.
+ *
+ * @thread This worker must be moved to a dedicated QThread via moveToThread().
+ *         All slot invocations (submit, sendRaw, requestConnect, etc.) are
+ *         queued and executed on the worker thread. Results are signaled back
+ *         to the caller via queued connections.
+ *
+ * @note The underlying IModbusClient is thread-safe; this worker serializes
+ *       access through queued connections to avoid concurrent submit() calls.
+ */
 class ModbusWorker : public QObject {
     Q_OBJECT
 public:

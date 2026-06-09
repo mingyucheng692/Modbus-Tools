@@ -9,6 +9,8 @@
 
 #include "ChannelOperationWorker.h"
 #include "AppConstants.h"
+#include "../Config.h"
+#include <spdlog/spdlog.h>
 #include "TcpChannel.h"
 #include "SerialChannel.h"
 #include "UdpChannel.h"
@@ -130,6 +132,12 @@ void ChannelOperationWorker::sendFile(const QString& filePath, int chunkSizeByte
     transferSentBytes_ = 0;
     transferInFlightBytes_ = 0;
     transferChunkSizeBytes_ = qMax(1, chunkSizeBytes);
+    if (transferChunkSizeBytes_ > config::Io::kMaxChunkSizeBytes) {
+        spdlog::warn(
+            "ChannelOperationWorker: chunk size {} exceeds limit {}, clamping",
+            transferChunkSizeBytes_, config::Io::kMaxChunkSizeBytes);
+        transferChunkSizeBytes_ = config::Io::kMaxChunkSizeBytes;
+    }
     transferAwaitingDrain_ = false;
     transferInProgress_ = true;
     emit fileTransferStarted(transferFilePath_, transferTotalBytes_);
