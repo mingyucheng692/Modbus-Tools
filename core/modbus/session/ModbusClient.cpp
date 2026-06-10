@@ -23,6 +23,14 @@
 #include <QtEndian>
 #include <QCoreApplication>
 
+namespace {
+struct RequestLockGuard {
+    std::atomic<bool>& flag;
+    explicit RequestLockGuard(std::atomic<bool>& f) : flag(f) {}
+    ~RequestLockGuard() { flag.store(false, std::memory_order_release); }
+};
+} // namespace
+
 namespace modbus::session {
 
 namespace {
@@ -416,7 +424,9 @@ bool ModbusClient::waitForEventOrTimeout(std::chrono::steady_clock::time_point d
 }
 
 ModbusResponse ModbusClient::sendRequest(const base::Pdu& request, int slaveId) {
-    std::lock_guard<std::recursive_mutex> lock(requestMutex_);
+    assert(!requestLocked_.exchange(true, std::memory_order_acquire) && "requestMutex re-entry detected in sendRequest()");
+    RequestLockGuard unlockGuard(requestLocked_);
+    std::lock_guard<std::mutex> lock(requestMutex_);
     aborted_ = false;
 
     retryStrategy_.reset();
@@ -467,7 +477,9 @@ ModbusResponse ModbusClient::sendRequest(const base::Pdu& request, int slaveId) 
 }
 
 void ModbusClient::sendRaw(const QByteArray& data) {
-    std::lock_guard<std::recursive_mutex> lock(requestMutex_);
+    assert(!requestLocked_.exchange(true, std::memory_order_acquire) && "requestMutex re-entry detected in sendRaw()");
+    RequestLockGuard unlockGuard(requestLocked_);
+    std::lock_guard<std::mutex> lock(requestMutex_);
     if (isConnected()) {
         if (!flowController_.isRtuSendWindowOpen(std::chrono::steady_clock::now())) {
             waitForAbortableDelay(flowController_.rtuSendWindowOpensAt() - std::chrono::steady_clock::now());

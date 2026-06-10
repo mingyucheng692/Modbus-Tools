@@ -20,6 +20,7 @@
 #include "FlowController.h"
 #include "../transport/ITransport.h"
 #include "../../io/IChannel.h"
+#include <cassert>
 #include <mutex>
 #include <condition_variable>
 #include <atomic>
@@ -100,8 +101,10 @@ private:
     QString lastChannelError_;
     io::IChannel::HandlerId stateHandlerId_ = 0;
     
-    // 保护 sendRequest 串行执行，避免请求路径发生重入
-    std::recursive_mutex requestMutex_;
+    // 保护 sendRequest/sendRaw 串行执行，防止请求路径发生重入
+    // 断言在 Debug 下用于检测重入调用链，Release 下被编译移除
+    std::mutex requestMutex_;
+    std::atomic<bool> requestLocked_{false};
     std::atomic<bool> aborted_ {false};
     ConnectionStateMachine connectionStateMachine_;
     RequestStateMachine requestStateMachine_;
