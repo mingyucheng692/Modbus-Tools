@@ -1,5 +1,26 @@
 cmake_minimum_required(VERSION 3.16)
 
+# ---------------------------------------------------------------------------
+# Coverage instrumentation — controlled by ENABLE_COVERAGE option
+# ---------------------------------------------------------------------------
+option(ENABLE_COVERAGE "Enable code-coverage instrumentation for tests" OFF)
+
+function(modbus_add_coverage target_name)
+    if(NOT ENABLE_COVERAGE)
+        return()
+    endif()
+
+    if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
+        target_compile_options(${target_name} PRIVATE -O0 -g --coverage)
+        target_link_options(${target_name} PRIVATE --coverage)
+    elseif(MSVC)
+        target_compile_options(${target_name} PRIVATE /Od)
+        # /PROFILE enables POGO instrumentation; used here as the MSVC
+        # nearest equivalent for line-based coverage tooling (OpenCppCoverage).
+        target_link_options(${target_name} PRIVATE /PROFILE)
+    endif()
+endfunction()
+
 include(GoogleTest)
 
 function(modbus_add_test_target target_name main_source)
@@ -19,6 +40,8 @@ function(modbus_add_test_target target_name main_source)
 
     set_property(TARGET ${target_name} PROPERTY AUTOMOC ON)
 
+    target_include_directories(${target_name} PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
+
     target_link_libraries(${target_name} PRIVATE
         GTest::gtest
         GTest::gmock
@@ -29,6 +52,8 @@ function(modbus_add_test_target target_name main_source)
     set_target_properties(${target_name} PROPERTIES
         TIMEOUT 300
     )
+
+    modbus_add_coverage(${target_name})
 
     if(NOT TEST_SKIP_DISCOVERY)
         gtest_discover_tests(${target_name}
@@ -47,6 +72,9 @@ set(TEST_CORE_LOGIC_SOURCES
     unit/PathResolverTest.cpp
     unit/analyzer/ValueFormatterSafetyTest.cpp
     unit/analyzer/ValueFormatterTest.cpp
+    unit/io/ChannelOperationWorkerTest.cpp
+    unit/io/SerialChannelTest.cpp
+    unit/io/TcpChannelTest.cpp
     unit/logging/LoggerInitTest.cpp
     unit/modbus/base/DataHelperTest.cpp
     unit/modbus/base/ModbusCrcTest.cpp
@@ -54,6 +82,7 @@ set(TEST_CORE_LOGIC_SOURCES
     unit/modbus/base/ModbusPduTest.cpp
     unit/modbus/parser/ParserRobustnessTest.cpp
     unit/modbus/parser/ParserTest.cpp
+    unit/modbus/session/ModbusClientBoundaryTest.cpp
     unit/modbus/session/ModbusStateTest.cpp
     unit/modbus/transport/TransportTest.cpp
     unit/update/UpdateManagerInstallStrategyTest.cpp
