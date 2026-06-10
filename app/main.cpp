@@ -16,7 +16,7 @@
 #include "common/SettingsService.h"
 #include "common/ThemeController.h"
 #include "infra/platform/PathResolver.h"
-#include "logging/Logger.h"
+#include "infra/logging/Logger.h"
 
 #ifndef MODBUS_TOOLS_APP_VERSION
 #error "MODBUS_TOOLS_APP_VERSION must be defined by CMake"

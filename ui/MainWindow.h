@@ -11,7 +11,6 @@
 
 #include "application/IMainWindowView.h"
 #include "application/IMainWindowPresenter.h"
-#include "application/UpdateCoordinator.h"
 #include <QMainWindow>
 #include <memory>
 
@@ -26,8 +25,6 @@ class QObject;
 class QWidget;
 class QToolButton;
 
-namespace core::update { class UpdateManager; }
-namespace core::common { class SettingsController; }
 namespace ui {
 namespace views::modbus_tcp { class ModbusTcpPage; }
 namespace views::modbus_rtu { class ModbusRtuPage; }
@@ -35,11 +32,11 @@ namespace widgets { class FrameAnalyzerWidget; }
 namespace common { class ThemeController; }
 namespace common { class ISettingsService; }
 namespace shell { class NavigationController; }
+class UpdateInteractionView;
 struct MainWindowBusinessContext;
 
 class MainWindow : public QMainWindow,
-                   public application::IMainWindowView,
-                   public application::IUpdateInteractionView {
+                   public application::IMainWindowView {
     Q_OBJECT
 
 public:
@@ -63,16 +60,6 @@ private:
     void openAboutDialog() override;
     [[nodiscard]] bool showDisclaimerDialog() override;
     void retranslateUi(const QString& effectiveLocale) override;
-
-    // Update View Interaction
-    void setUpdateCheckActionEnabled(bool enabled) override;
-    void setUpdateIndicatorVisible(bool visible) override;
-    void showUpdateInfoMessage(const QString& title, const QString& message) override;
-    void showUpdateWarningMessage(const QString& title, const QString& message) override;
-    void showUpdateCriticalMessage(const QString& title, const QString& message) override;
-    bool confirmOpenDownloadPage(const QString& latestVersion) override;
-    application::UpdatePromptChoice promptUpdateAction(const QString& currentVersion, const QString& latestVersion) override;
-    void showUpdateProgress(core::update::UpdateManager* updateManager) override;
 
     // UI Setup
     void createNavigation();
@@ -110,6 +97,7 @@ private:
     QToolButton* themeToggleButton_ = nullptr;
     
     // Services and Controllers
+    std::unique_ptr<UpdateInteractionView> updateInteractionView_;
     common::ThemeController* themeController_ = nullptr;
     std::unique_ptr<shell::NavigationController> navigationController_;
     std::unique_ptr<MainWindowBusinessContext> businessContext_;

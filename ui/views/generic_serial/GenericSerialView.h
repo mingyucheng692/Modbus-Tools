@@ -10,8 +10,8 @@
 #pragma once
 
 #include "../GenericChannelViewBase.h"
-#include "../../../core/io/IChannel.h"
-#include "../../../core/io/SerialConfig.h"
+#include "../../../infra/io/IChannel.h"
+#include "../../../infra/io/SerialConfig.h"
 
 namespace ui::widgets {
 class SerialConnectionWidget;

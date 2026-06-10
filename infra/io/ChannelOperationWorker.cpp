@@ -8,8 +8,8 @@
  */
 
 #include "ChannelOperationWorker.h"
-#include "AppConstants.h"
-#include "../Config.h"
+#include "core/AppConstants.h"
+#include "core/Config.h"
 #include <spdlog/spdlog.h>
 #include "TcpChannel.h"
 #include "SerialChannel.h"

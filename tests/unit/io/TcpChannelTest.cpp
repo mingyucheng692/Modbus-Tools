@@ -1,7 +1,7 @@
 #include <gtest/gtest.h>
 #include <gmock/gmock.h>
 
-#include "../../../core/io/TcpChannel.h"
+#include "../../../infra/io/TcpChannel.h"
 #include "../../helpers/ModbusTestHelpers.h"
 
 using namespace testing;

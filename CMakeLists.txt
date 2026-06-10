@@ -11,7 +11,7 @@ option(MODBUS_TOOLS_INCLUDE_PRERELEASE "Include pre-release when checking update
 option(MODBUS_TOOLS_BUILD_TESTS "Build unit tests" OFF)
 option(MODBUS_TOOLS_ENABLE_ASAN "Enable AddressSanitizer (ASan) for memory safety" OFF)
 # Controls kDefaultFlushLevel: ON → flush on info, OFF → flush on warn.
-# Also gates the MODBUS_TOOLS_VERBOSE_INFO macro (see core/logging/Logger.h).
+# Also gates the MODBUS_TOOLS_VERBOSE_INFO macro (see infra/logging/Logger.h).
 # Explicitly enable with:
 #   cmake -S . -B build_release -DMODBUS_TOOLS_ENABLE_VERBOSE_RUNTIME_LOGS=ON
 option(MODBUS_TOOLS_ENABLE_VERBOSE_RUNTIME_LOGS "Flush spdlog on info level (ON) or warn level (OFF)" OFF)

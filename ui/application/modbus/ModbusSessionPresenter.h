@@ -6,8 +6,7 @@
 #include <vector>
 #include "modbus/base/ModbusConfig.h"
 #include "modbus/session/IModbusClient.h"
-#include "../../../core/io/IChannel.h"
-#include "../../../core/io/SerialConfig.h"
+#include "../../../infra/io/IChannel.h"
 #include "ModbusTypes.h"
 
 class QThread;

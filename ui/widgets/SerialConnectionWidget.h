@@ -11,7 +11,7 @@
 
 #include "BaseConnectionWidget.h"
 #include <QSerialPort>
-#include "../../../core/io/SerialConfig.h" // For SerialConfig
+#include "../../../infra/io/SerialConfig.h" // For SerialConfig
 
 class QComboBox;
 class QPushButton;

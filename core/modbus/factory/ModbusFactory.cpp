@@ -11,8 +11,8 @@
 #include "../transport/ModbusRtuTransport.h"
 #include "../transport/ModbusTcpTransport.h"
 #include "../session/ModbusClient.h"
-#include "../../io/SerialChannel.h"
-#include "../../io/TcpChannel.h"
+#include "infra/io/SerialChannel.h"
+#include "infra/io/TcpChannel.h"
 #include <QMetaObject>
 #include <QSerialPort>
 #include <QThread>

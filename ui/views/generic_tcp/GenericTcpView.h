@@ -11,7 +11,7 @@
 
 #include "../GenericChannelViewBase.h"
 #include "../../widgets/TcpConnectionWidget.h"
-#include "../../../core/io/IChannel.h"
+#include "../../../infra/io/IChannel.h"
 #include <QList>
 
 namespace io {

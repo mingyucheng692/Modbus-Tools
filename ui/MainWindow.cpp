@@ -9,6 +9,7 @@
 
 #include "MainWindow.h"
 #include "AppConstants.h"
+#include "UpdateInteractionView.h"
 #include "application/AppLifecycleCoordinator.h"
 #include "application/AnalyzerLinkCoordinator.h"
 #include "application/IMainWindowPresenter.h"
@@ -76,14 +77,16 @@ protected:
 namespace ui {
 
 struct MainWindowBusinessContext {
-    MainWindowBusinessContext(MainWindow* view, common::ISettingsService* settingsService)
+    MainWindowBusinessContext(MainWindow* view,
+                              application::IUpdateInteractionView* updateView,
+                              common::ISettingsService* settingsService)
         : settingsController(std::make_unique<core::common::SettingsController>(settingsService, view)),
           updateChecker(std::make_unique<common::UpdateChecker>(view)),
           updateManager(std::make_unique<core::update::UpdateManager>(view)),
           analyzerLinkCoordinator(std::make_unique<application::AnalyzerLinkCoordinator>(view)),
           languageCoordinator(std::make_unique<application::LanguageCoordinator>(settingsController.get())),
           updateCoordinator(std::make_unique<application::UpdateCoordinator>(
-              view,
+              updateView,
               updateChecker.get(),
               updateManager.get(),
               settingsController.get(),
@@ -106,8 +109,9 @@ MainWindow::MainWindow(common::ISettingsService* settingsService,
                        common::ThemeController* themeController,
                        QWidget *parent)
     : QMainWindow(parent),
+      updateInteractionView_(std::make_unique<UpdateInteractionView>()),
       themeController_(themeController),
-      businessContext_(std::make_unique<MainWindowBusinessContext>(this, settingsService)),
+      businessContext_(std::make_unique<MainWindowBusinessContext>(this, updateInteractionView_.get(), settingsService)),
       presenter_(std::make_unique<application::MainWindowPresenter>(
         this,
         businessContext_->settingsController.get(),
@@ -160,6 +164,9 @@ void MainWindow::initializeUi() {
     setupSettingsMenu();
     setupAboutMenu();
     setupThemeToggle();
+
+    updateInteractionView_->setUpdateCheckAction(checkUpdatesAction_);
+    updateInteractionView_->setAboutMenu(aboutMenu_);
 
     parameterWheelBlocker_ = new ParameterWheelBlocker(this);
     qApp->installEventFilter(parameterWheelBlocker_);
@@ -338,72 +345,6 @@ void MainWindow::openAboutDialog() {
 bool MainWindow::showDisclaimerDialog() {
     widgets::DisclaimerDialog dialog(this);
     return dialog.exec() == QDialog::Accepted;
-}
-
-void MainWindow::setUpdateCheckActionEnabled(bool enabled) {
-    if (checkUpdatesAction_) {
-        checkUpdatesAction_->setEnabled(enabled);
-    }
-}
-
-void MainWindow::setUpdateIndicatorVisible(bool visible) {
-    if (aboutMenu_) {
-        aboutMenu_->setTitle(visible ? tr("About") + " ●" : tr("About"));
-    }
-    if (checkUpdatesAction_) {
-        checkUpdatesAction_->setText(visible ? tr("Check for Updates") + " ●" : tr("Check for Updates"));
-    }
-}
-
-void MainWindow::showUpdateInfoMessage(const QString& title, const QString& message) {
-    QMessageBox::information(this, title, message);
-}
-
-void MainWindow::showUpdateWarningMessage(const QString& title, const QString& message) {
-    QMessageBox::warning(this, title, message);
-}
-
-void MainWindow::showUpdateCriticalMessage(const QString& title, const QString& message) {
-    QMessageBox::critical(this, title, message);
-}
-
-bool MainWindow::confirmOpenDownloadPage(const QString& latestVersion) {
-    return QMessageBox::question(
-               this,
-               tr("Update Available"),
-               tr("New version v%1 available. Open download page?").arg(latestVersion))
-           == QMessageBox::Yes;
-}
-
-application::UpdatePromptChoice MainWindow::promptUpdateAction(const QString& currentVersion, const QString& latestVersion) {
-    QMessageBox mb(this);
-    mb.setWindowTitle(tr("Update Available"));
-    mb.setText(tr("Current: v%1, Latest: v%2\nChoose update method:").arg(currentVersion, latestVersion));
-    auto* btnNow = mb.addButton(tr("Update Main Program"), QMessageBox::AcceptRole);
-    auto* btnFull = mb.addButton(tr("Download Full Package"), QMessageBox::ActionRole);
-    auto* btnCancel = mb.addButton(QMessageBox::Cancel);
-    mb.exec();
-
-    if (mb.clickedButton() == btnNow) {
-        return application::UpdatePromptChoice::StartSilentUpdate;
-    }
-    if (mb.clickedButton() == btnFull) {
-        return application::UpdatePromptChoice::DownloadFullPackage;
-    }
-    Q_UNUSED(btnCancel);
-    return application::UpdatePromptChoice::Cancel;
-}
-
-void MainWindow::showUpdateProgress(core::update::UpdateManager* updateManager) {
-    auto* progress = new QProgressDialog(tr("Downloading Update..."), tr("Cancel"), 0, 100, this);
-    progress->setWindowModality(Qt::WindowModal);
-    progress->setAutoClose(true);
-    connect(updateManager, &core::update::UpdateManager::downloadProgress, progress, &QProgressDialog::setValue);
-    connect(progress, &QProgressDialog::canceled, updateManager, &core::update::UpdateManager::cancelUpdate);
-    connect(updateManager, &core::update::UpdateManager::updateReadyToInstall, progress, &QProgressDialog::close);
-    connect(updateManager, &core::update::UpdateManager::updateFailed, progress, &QProgressDialog::close);
-    connect(updateManager, &core::update::UpdateManager::updateCanceled, progress, &QProgressDialog::close);
-    progress->show();
 }
 
 void MainWindow::retranslateUi(const QString& effectiveLocale) {

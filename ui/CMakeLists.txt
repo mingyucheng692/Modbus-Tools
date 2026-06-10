@@ -51,6 +51,8 @@ target_sources(ui PRIVATE
     AnalyzerLinkageController.cpp
     AnalyzerLinkageController.h
     MainWindow.cpp
+    UpdateInteractionView.h
+    UpdateInteractionView.cpp
     application/AnalyzerLinkCoordinator.cpp
     application/AnalyzerLinkCoordinator.h
     application/IMainWindowPresenter.h

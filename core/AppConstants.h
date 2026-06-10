@@ -9,6 +9,8 @@
 
 #pragma once
 
+#include <cstddef>
+
 namespace app::constants {
 
 class Values final {

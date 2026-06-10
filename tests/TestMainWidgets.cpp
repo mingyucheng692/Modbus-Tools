@@ -5,7 +5,7 @@
 #include <QtCore/QStandardPaths>
 #include <QtWidgets/QApplication>
 
-#include "logging/Logger.h"
+#include "infra/logging/Logger.h"
 
 int main(int argc, char** argv)
 {

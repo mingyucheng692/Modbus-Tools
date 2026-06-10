@@ -14,7 +14,7 @@
 #include "../widgets/GenericInputWidget.h"
 #include "../widgets/CollapsibleSection.h"
 #include "../common/ConnectionAlert.h"
-#include "../../core/io/ChannelOperationWorker.h"
+#include "../../infra/io/ChannelOperationWorker.h"
 #include <QThread>
 #include <QEvent>
 #include <QMetaObject>

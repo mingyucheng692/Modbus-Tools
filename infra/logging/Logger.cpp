@@ -9,7 +9,7 @@
 
 #include "Logger.h"
 
-#include "AppConstants.h"
+#include "core/AppConstants.h"
 #include "infra/platform/PlatformEncoding.h"
 #include <QDateTime>
 #include <QDir>

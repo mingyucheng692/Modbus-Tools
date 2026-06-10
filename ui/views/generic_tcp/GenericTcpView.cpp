@@ -17,8 +17,8 @@
 #include "../../widgets/ServerClientPanel.h"
 #include "../../common/ConnectionAlert.h"
 #include "../../common/TcpConnectionStateCoordinator.h"
-#include "../../../core/io/ChannelOperationWorker.h"
-#include "../../../core/io/ServerChannelWorker.h"
+#include "../../../infra/io/ChannelOperationWorker.h"
+#include "../../../infra/io/ServerChannelWorker.h"
 #include <QVBoxLayout>
 #include <QHBoxLayout>
 #include <QSplitter>
@@ -27,7 +27,7 @@
 #include <QMetaObject>
 #include <QEvent>
 #include <spdlog/spdlog.h>
-#include "../../../core/io/IChannel.h"
+#include "../../../infra/io/IChannel.h"
 
 namespace ui::views::generic_tcp {
 

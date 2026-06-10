@@ -1,8 +1,8 @@
 #include <gtest/gtest.h>
 #include <gmock/gmock.h>
 
-#include "../../../core/io/SerialChannel.h"
-#include "../../../core/io/SerialConfig.h"
+#include "../../../infra/io/SerialChannel.h"
+#include "../../../infra/io/SerialConfig.h"
 #include "../../helpers/ModbusTestHelpers.h"
 
 using namespace testing;

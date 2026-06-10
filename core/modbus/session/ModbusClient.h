@@ -19,7 +19,7 @@
 #include "RequestStateMachine.h"
 #include "FlowController.h"
 #include "../transport/ITransport.h"
-#include "../../io/IChannel.h"
+#include "infra/io/IChannel.h"
 #include <cassert>
 #include <mutex>
 #include <condition_variable>

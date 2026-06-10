@@ -2,23 +2,6 @@ add_library(core STATIC)
 
 target_sources(core PRIVATE
     Config.h
-    logging/Logger.cpp
-    io/ChannelBase.h
-    io/ChannelBase.cpp
-    io/SerialChannel.h
-    io/SerialChannel.cpp
-    io/SerialConfig.h
-    io/TcpChannel.h
-    io/TcpChannel.cpp
-    io/UdpChannel.h
-    io/UdpChannel.cpp
-    io/TcpServerHandle.h
-    io/TcpServerHandle.cpp
-    io/ChannelOperationWorker.h
-    io/ChannelOperationWorker.cpp
-    io/IChannel.h
-    io/ServerChannelWorker.h
-    io/ServerChannelWorker.cpp
     # reconnect
     ReconnectPolicy.h
     ReconnectPolicy.cpp
@@ -89,7 +72,7 @@ target_link_libraries(core PUBLIC
     Qt6::Core
     Qt6::Network
     Qt6::SerialPort
-    infra_platform
+    infra
     spdlog::spdlog
 )
 

@@ -14,7 +14,7 @@
 #include "../../widgets/ByteMonitorWidget.h"
 #include "../../widgets/GenericInputWidget.h"
 #include "../../widgets/CollapsibleSection.h"
-#include "../../../core/io/ChannelOperationWorker.h"
+#include "../../../infra/io/ChannelOperationWorker.h"
 #include <QVBoxLayout>
 #include <QHBoxLayout>
 #include <QGroupBox>

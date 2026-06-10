@@ -8,7 +8,7 @@
  */
 
 #include "SerialChannel.h"
-#include "logging/Logger.h"
+#include "infra/logging/Logger.h"
 #include <spdlog/spdlog.h>
 #include <QCoreApplication>
 #include <QThread>

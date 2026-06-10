@@ -3,8 +3,8 @@
 #include <QSignalSpy>
 #include <QCoreApplication>
 
-#include "../../../core/io/ChannelOperationWorker.h"
-#include "../../../core/io/SerialConfig.h"
+#include "../../../infra/io/ChannelOperationWorker.h"
+#include "../../../infra/io/SerialConfig.h"
 #include "../../helpers/ModbusTestHelpers.h"
 
 using namespace testing;

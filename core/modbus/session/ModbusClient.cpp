@@ -11,7 +11,7 @@
 #include "ExceptionInterpreter.h"
 #include "RequestValidator.h"
 #include "AppConstants.h"
-#include "logging/Logger.h"
+#include "infra/logging/Logger.h"
 #include "../base/ModbusProtocolChecks.h"
 #include <spdlog/spdlog.h>
 #include <chrono>

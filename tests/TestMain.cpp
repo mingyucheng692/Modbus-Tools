@@ -3,7 +3,7 @@
 #include <QtWidgets/QApplication>
 #include <QtCore/QStandardPaths>
 #include <QtCore/QLoggingCategory>
-#include "logging/Logger.h" // Assuming this has access to spdlog or spdlog directly
+#include "infra/logging/Logger.h" // Assuming this has access to spdlog or spdlog directly
 
 int main(int argc, char** argv) {
     // 1. Initialize Qt Application Environment

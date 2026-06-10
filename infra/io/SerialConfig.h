@@ -9,7 +9,7 @@
 
 #pragma once
 
-#include "../AppConstants.h"
+#include "core/AppConstants.h"
 #include <QSerialPort>
 #include <QString>
 

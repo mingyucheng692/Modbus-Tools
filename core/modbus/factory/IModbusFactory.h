@@ -13,7 +13,7 @@
 #include "../dispatch/ModbusWorker.h"
 #include "../session/IModbusClient.h"
 #include "../base/ModbusConfig.h"
-#include "../../io/IChannel.h"
+#include "infra/io/IChannel.h"
 #include <QThread>
 
 namespace modbus::factory {

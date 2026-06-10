@@ -9,7 +9,7 @@
 
 #pragma once
 
-#include "AppConstants.h"
+#include "core/AppConstants.h"
 #include <QByteArrayView>
 #include <QString>
 #include <QtGlobal>

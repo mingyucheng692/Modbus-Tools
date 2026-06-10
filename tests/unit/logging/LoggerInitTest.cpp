@@ -1,6 +1,6 @@
 #include <gtest/gtest.h>
 
-#include "../../../core/logging/Logger.h"
+#include "../../../infra/logging/Logger.h"
 
 #include <QDir>
 #include <QFile>

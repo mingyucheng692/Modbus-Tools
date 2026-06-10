@@ -10,7 +10,7 @@
 #pragma once
 
 #include "IModbusFactory.h"
-#include "../../io/IChannel.h"
+#include "infra/io/IChannel.h"
 #include "../transport/ITransport.h"
 
 namespace modbus::factory {
