@@ -26,16 +26,14 @@ signals:
     void startListenClicked(const QString& ip, int port);
     void stopListenClicked();
 
-public slots:
-    void setConnected(bool connected) override;
-
 protected:
-    void applyDisplayState() override;
     void setupProtocolUi() override;
     void updateProtocolUi() override;
+    void setupButtonConnection() override;
 
-private:
-    void setupUi();
+    [[nodiscard]] StateDisplayInfo getStateDisplayInfo(DisplayState state) const override;
+    [[nodiscard]] bool isActiveState(DisplayState state) const override;
+    [[nodiscard]] DisplayState connectedState() const override;
 };
 
 } // namespace ui::widgets

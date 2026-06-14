@@ -1,6 +1,7 @@
 /**
  * @file TcpServerConnectionWidget.cpp
- * @brief Implementation of TcpServerConnectionWidget.
+ * @brief Implementation of TcpServerConnectionWidget — lean subclass providing
+ *        only protocol-specific display data and button wiring.
  *
  * Copyright (c) 2025 - present mingyucheng692
  *
@@ -10,57 +11,20 @@
 #include "TcpServerConnectionWidget.h"
 #include "../common/ISettingsService.h"
 #include <QPushButton>
-#include <QLabel>
 #include <QLineEdit>
 #include <QSpinBox>
 #include <QCheckBox>
 
 namespace ui::widgets {
 
-namespace {
-
-bool locksInputs(BaseConnectionWidget::DisplayState state) {
-    return state != BaseConnectionWidget::DisplayState::Disconnected;
-}
-
-bool usesDisconnectAction(BaseConnectionWidget::DisplayState state) {
-    switch (state) {
-    case BaseConnectionWidget::DisplayState::Connecting:
-    case BaseConnectionWidget::DisplayState::Listening:
-        return true;
-    case BaseConnectionWidget::DisplayState::Disconnected:
-    case BaseConnectionWidget::DisplayState::Disconnecting:
-    default:
-        return false;
-    }
-}
-
-} // namespace
-
 TcpServerConnectionWidget::TcpServerConnectionWidget(ui::common::ISettingsService* settingsService, QWidget* parent)
     : NetworkConnectionWidget(settingsService, parent) {
-    setupUi();
+    setupNetworkUi();
 }
 
 TcpServerConnectionWidget::~TcpServerConnectionWidget() = default;
 
-void TcpServerConnectionWidget::setupUi() {
-    setupCommonUi();
-    setupProtocolUi();
-
-    connect(connectBtn_, &QPushButton::clicked, this, [this]() {
-        if (usesDisconnectAction(displayState_)) {
-            emit stopListenClicked();
-        } else {
-            saveSettings();
-            emit startListenClicked(ipEdit_->text(), portEdit_->value());
-        }
-    });
-
-    loadSettings();
-    updateProtocolUi();
-    retranslateUi();
-}
+// ---- Protocol-specific UI ----
 
 void TcpServerConnectionWidget::setupProtocolUi() {
     hostLabel_->setText(tr("Listen:"));
@@ -69,59 +33,50 @@ void TcpServerConnectionWidget::setupProtocolUi() {
     reconnectDelaySpin_->setVisible(false);
 }
 
-void TcpServerConnectionWidget::setConnected(bool connected) {
-    if (!connected) {
-        setDisplayState(DisplayState::Disconnected);
-        return;
-    }
-    setDisplayState(DisplayState::Listening);
+void TcpServerConnectionWidget::setupButtonConnection() {
+    connect(connectBtn_, &QPushButton::clicked, this, [this]() {
+        if (isActiveState(displayState_)) {
+            emit stopListenClicked();
+        } else {
+            saveSettings();
+            emit startListenClicked(ipEdit_->text(), portEdit_->value());
+        }
+    });
 }
 
-void TcpServerConnectionWidget::applyDisplayState() {
-    QString buttonText;
-    QString statusText;
-    QString statusStyle = QStringLiteral("color: red; font-weight: bold;");
+// ---- Display State Data ----
 
-    switch (displayState_) {
+StateDisplayInfo TcpServerConnectionWidget::getStateDisplayInfo(DisplayState state) const {
+    switch (state) {
     case DisplayState::Disconnected:
-        buttonText = tr("Start Listen");
-        statusText = tr("Disconnected");
-        break;
+        return {tr("Start Listen"), tr("Disconnected"), QStringLiteral("color: red; font-weight: bold;")};
     case DisplayState::Connecting:
-        buttonText = tr("Stop");
-        statusText = tr("Starting");
-        statusStyle = QStringLiteral("color: orange; font-weight: bold;");
-        break;
+        return {tr("Stop"), tr("Starting"), QStringLiteral("color: orange; font-weight: bold;")};
     case DisplayState::Listening:
-        buttonText = tr("Stop");
-        statusText = tr("Listening");
-        statusStyle = QStringLiteral("color: green; font-weight: bold;");
-        break;
+        return {tr("Stop"), tr("Listening"), QStringLiteral("color: green; font-weight: bold;")};
     case DisplayState::Disconnecting:
-        buttonText = tr("Stopping");
-        statusText = tr("Disconnecting");
-        statusStyle = QStringLiteral("color: orange; font-weight: bold;");
-        break;
+        return {tr("Stopping"), tr("Disconnecting"), QStringLiteral("color: orange; font-weight: bold;")};
     default:
-        break;
+        return {};
     }
+}
 
-    connectBtn_->setText(buttonText);
-    statusLabel_->setText(statusText);
-    statusLabel_->setStyleSheet(statusStyle);
+bool TcpServerConnectionWidget::isActiveState(DisplayState state) const {
+    switch (state) {
+    case DisplayState::Connecting:
+    case DisplayState::Listening:
+        return true;
+    default:
+        return false;
+    }
+}
 
-    const bool inputsEnabled = !locksInputs(displayState_);
-    ipEdit_->setEnabled(inputsEnabled);
-    portEdit_->setEnabled(inputsEnabled);
-    connectBtn_->setEnabled(displayState_ != DisplayState::Disconnecting);
-
-    updateProtocolUi();
+NetworkConnectionWidget::DisplayState TcpServerConnectionWidget::connectedState() const {
+    return DisplayState::Listening;
 }
 
 void TcpServerConnectionWidget::updateProtocolUi() {
-    if (displayState_ != DisplayState::Disconnected) {
-        return;
-    }
+    if (displayState_ != DisplayState::Disconnected) return;
     hostLabel_->setText(tr("Listen:"));
     connectBtn_->setText(tr("Start Listen"));
 }

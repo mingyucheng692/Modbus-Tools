@@ -31,19 +31,18 @@ signals:
                      const QString& remoteIp, int remotePort);
     void unbindClicked();
 
-public slots:
-    void setConnected(bool connected) override;
-
 protected:
     void loadSettings() override;
     void saveSettings() override;
-    void applyDisplayState() override;
     void setupProtocolUi() override;
     void updateProtocolUi() override;
+    void setupButtonConnection() override;
+
+    [[nodiscard]] StateDisplayInfo getStateDisplayInfo(DisplayState state) const override;
+    [[nodiscard]] bool isActiveState(DisplayState state) const override;
+    [[nodiscard]] DisplayState connectedState() const override;
 
 private:
-    void setupUi();
-
     QLabel* remoteIpLabel_ = nullptr;
     QLineEdit* remoteIpEdit_ = nullptr;
     QLabel* remotePortLabel_ = nullptr;

@@ -1,6 +1,8 @@
 /**
  * @file UdpConnectionWidget.cpp
- * @brief Implementation of UdpConnectionWidget.
+ * @brief Implementation of UdpConnectionWidget — lean subclass providing
+ *        only protocol-specific display data, button wiring, and UDP-unique
+ *        remote IP/Port fields.
  *
  * Copyright (c) 2025 - present mingyucheng692
  *
@@ -23,37 +25,13 @@
 
 namespace ui::widgets {
 
-namespace {
-
-bool locksInputs(BaseConnectionWidget::DisplayState state) {
-    return state != BaseConnectionWidget::DisplayState::Disconnected;
-}
-
-bool usesDisconnectAction(BaseConnectionWidget::DisplayState state) {
-    switch (state) {
-    case BaseConnectionWidget::DisplayState::Connecting:
-    case BaseConnectionWidget::DisplayState::Bound:
-        return true;
-    case BaseConnectionWidget::DisplayState::Disconnected:
-    case BaseConnectionWidget::DisplayState::Disconnecting:
-    default:
-        return false;
-    }
-}
-
-} // namespace
-
 UdpConnectionWidget::UdpConnectionWidget(ui::common::ISettingsService* settingsService, QWidget* parent)
     : NetworkConnectionWidget(settingsService, parent) {
-    setupUi();
-}
-
-UdpConnectionWidget::~UdpConnectionWidget() = default;
-
-void UdpConnectionWidget::setupUi() {
+    // UDP needs extra remote-address controls inserted before the common
+    // widgets (autoReconnect, connectBtn, etc.). We do this before calling
+    // setupNetworkUi() so the layout is built first.
     setupCommonUi();
 
-    // Insert remote IP/Port before the common widgets (autoReconnect, etc.)
     auto* layout = section_->contentWidget()->layout();
     if (layout) {
         remoteIpLabel_ = new QLabel(this);
@@ -69,8 +47,6 @@ void UdpConnectionWidget::setupUi() {
         remotePortEdit_->setFixedWidth(76);
         remotePortEdit_->setSpecialValueText(QStringLiteral("-"));
 
-        // Insert after portEdit_ (index 4 in layout: hostLabel=0, ipEdit=1, portLabel=2, portEdit=3)
-        // Find portEdit_ index and insert after it
         auto* boxLayout = qobject_cast<QBoxLayout*>(layout);
         if (boxLayout) {
             int portIdx = boxLayout->indexOf(portEdit_);
@@ -83,25 +59,17 @@ void UdpConnectionWidget::setupUi() {
         }
     }
 
+    // Now run the template-method setup
     setupProtocolUi();
-
-    connect(connectBtn_, &QPushButton::clicked, this, [this]() {
-        if (usesDisconnectAction(displayState_)) {
-            emit unbindClicked();
-        } else {
-            saveSettings();
-            emit bindClicked(ipEdit_->text(), portEdit_->value(),
-                             remoteIpEdit_->text(), remotePortEdit_->value());
-        }
-    });
-
-    connect(remoteIpEdit_, &QLineEdit::textChanged, this, &UdpConnectionWidget::saveSettings);
-    connect(remotePortEdit_, qOverload<int>(&QSpinBox::valueChanged), this, &UdpConnectionWidget::saveSettings);
-
+    setupButtonConnection();
     loadSettings();
     updateProtocolUi();
     retranslateUi();
 }
+
+UdpConnectionWidget::~UdpConnectionWidget() = default;
+
+// ---- Protocol-specific UI ----
 
 void UdpConnectionWidget::setupProtocolUi() {
     hostLabel_->setText(tr("Local:"));
@@ -112,61 +80,54 @@ void UdpConnectionWidget::setupProtocolUi() {
     reconnectDelaySpin_->setVisible(false);
 }
 
-void UdpConnectionWidget::setConnected(bool connected) {
-    if (!connected) {
-        setDisplayState(DisplayState::Disconnected);
-        return;
-    }
-    setDisplayState(DisplayState::Bound);
+void UdpConnectionWidget::setupButtonConnection() {
+    connect(connectBtn_, &QPushButton::clicked, this, [this]() {
+        if (isActiveState(displayState_)) {
+            emit unbindClicked();
+        } else {
+            saveSettings();
+            emit bindClicked(ipEdit_->text(), portEdit_->value(),
+                             remoteIpEdit_->text(), remotePortEdit_->value());
+        }
+    });
+
+    connect(remoteIpEdit_, &QLineEdit::textChanged, this, &UdpConnectionWidget::saveSettings);
+    connect(remotePortEdit_, qOverload<int>(&QSpinBox::valueChanged), this, &UdpConnectionWidget::saveSettings);
 }
 
-void UdpConnectionWidget::applyDisplayState() {
-    QString buttonText;
-    QString statusText;
-    QString statusStyle = QStringLiteral("color: red; font-weight: bold;");
+// ---- Display State Data ----
 
-    switch (displayState_) {
+StateDisplayInfo UdpConnectionWidget::getStateDisplayInfo(DisplayState state) const {
+    switch (state) {
     case DisplayState::Disconnected:
-        buttonText = tr("Bind");
-        statusText = tr("Disconnected");
-        break;
+        return {tr("Bind"), tr("Disconnected"), QStringLiteral("color: red; font-weight: bold;")};
     case DisplayState::Connecting:
-        buttonText = tr("Unbind");
-        statusText = tr("Binding");
-        statusStyle = QStringLiteral("color: orange; font-weight: bold;");
-        break;
+        return {tr("Unbind"), tr("Binding"), QStringLiteral("color: orange; font-weight: bold;")};
     case DisplayState::Bound:
-        buttonText = tr("Unbind");
-        statusText = tr("Bound");
-        statusStyle = QStringLiteral("color: green; font-weight: bold;");
-        break;
+        return {tr("Unbind"), tr("Bound"), QStringLiteral("color: green; font-weight: bold;")};
     case DisplayState::Disconnecting:
-        buttonText = tr("Unbinding");
-        statusText = tr("Disconnecting");
-        statusStyle = QStringLiteral("color: orange; font-weight: bold;");
-        break;
+        return {tr("Unbinding"), tr("Disconnecting"), QStringLiteral("color: orange; font-weight: bold;")};
     default:
-        break;
+        return {};
     }
+}
 
-    connectBtn_->setText(buttonText);
-    statusLabel_->setText(statusText);
-    statusLabel_->setStyleSheet(statusStyle);
+bool UdpConnectionWidget::isActiveState(DisplayState state) const {
+    switch (state) {
+    case DisplayState::Connecting:
+    case DisplayState::Bound:
+        return true;
+    default:
+        return false;
+    }
+}
 
-    const bool inputsEnabled = !locksInputs(displayState_);
-    ipEdit_->setEnabled(inputsEnabled);
-    portEdit_->setEnabled(inputsEnabled);
-    if (remoteIpEdit_) remoteIpEdit_->setEnabled(inputsEnabled);
-    if (remotePortEdit_) remotePortEdit_->setEnabled(inputsEnabled);
-    connectBtn_->setEnabled(displayState_ != DisplayState::Disconnecting);
-
-    updateProtocolUi();
+NetworkConnectionWidget::DisplayState UdpConnectionWidget::connectedState() const {
+    return DisplayState::Bound;
 }
 
 void UdpConnectionWidget::updateProtocolUi() {
-    if (displayState_ != DisplayState::Disconnected) {
-        return;
-    }
+    if (displayState_ != DisplayState::Disconnected) return;
     hostLabel_->setText(tr("Local:"));
     connectBtn_->setText(tr("Bind"));
     if (remoteIpLabel_) remoteIpLabel_->setVisible(true);
@@ -174,6 +135,8 @@ void UdpConnectionWidget::updateProtocolUi() {
     if (remotePortLabel_) remotePortLabel_->setVisible(true);
     if (remotePortEdit_) remotePortEdit_->setVisible(true);
 }
+
+// ---- Settings (UDP-specific remote fields) ----
 
 void UdpConnectionWidget::loadSettings() {
     NetworkConnectionWidget::loadSettings();
