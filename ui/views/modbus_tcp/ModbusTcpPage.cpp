@@ -8,7 +8,7 @@
  */
 
 #include "ModbusTcpPage.h"
-#include "../../widgets/TcpConnectionWidget.h"
+#include "../../widgets/TcpClientConnectionWidget.h"
 #include "../../widgets/FunctionWidget.h"
 #include <spdlog/spdlog.h>
 
@@ -17,14 +17,14 @@ namespace ui::views::modbus_tcp {
 ModbusTcpPage::ModbusTcpPage(ui::common::ISettingsService* settingsService, QWidget *parent)
     : BaseModbusPage(ui::application::modbus::SessionMode::Tcp, settingsService, parent) {
     
-    auto* connWidget = new widgets::TcpConnectionWidget(settingsService_, this);
+    auto* connWidget = new widgets::TcpClientConnectionWidget(settingsService_, this);
     connWidget->setSettingsGroup(QStringLiteral("modbus/tcp"));
     
     setupUi(connWidget);
 
-    connect(connWidget, &widgets::TcpConnectionWidget::connectClicked,
+    connect(connWidget, &widgets::TcpClientConnectionWidget::connectClicked,
             this, &ModbusTcpPage::onConnectClicked);
-    connect(connWidget, &widgets::TcpConnectionWidget::disconnectClicked,
+    connect(connWidget, &widgets::TcpClientConnectionWidget::disconnectClicked,
             this, &ModbusTcpPage::onDisconnectClicked);
 }
 

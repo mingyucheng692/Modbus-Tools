@@ -10,7 +10,9 @@
 #include "GenericTcpView.h"
 #include "AppConstants.h"
 #include "../../common/ISettingsService.h"
-#include "../../widgets/TcpConnectionWidget.h"
+#include "../../widgets/TcpClientConnectionWidget.h"
+#include "../../widgets/TcpServerConnectionWidget.h"
+#include "../../widgets/UdpConnectionWidget.h"
 #include "../../widgets/ByteMonitorWidget.h"
 #include "../../widgets/GenericInputWidget.h"
 #include "../../widgets/CollapsibleSection.h"
@@ -21,6 +23,8 @@
 #include "../../../infra/io/ServerChannelWorker.h"
 #include <QVBoxLayout>
 #include <QHBoxLayout>
+#include <QComboBox>
+#include <QStackedWidget>
 #include <QSplitter>
 #include <QThread>
 #include <QTimer>
@@ -30,6 +34,30 @@
 #include "../../../infra/io/IChannel.h"
 
 namespace ui::views::generic_tcp {
+
+namespace {
+
+constexpr auto kTcpClientText = QT_TRANSLATE_NOOP("ui::views::generic_tcp::Protocol", "TCP Client");
+constexpr auto kTcpServerText = QT_TRANSLATE_NOOP("ui::views::generic_tcp::Protocol", "TCP Server");
+constexpr auto kUdpText = QT_TRANSLATE_NOOP("ui::views::generic_tcp::Protocol", "UDP");
+
+void populateProtocolOptions(QComboBox* combo) {
+    if (!combo) return;
+    const int currentValue = combo->count() > 0
+        ? combo->currentData().toInt()
+        : static_cast<int>(GenericTcpView::Protocol::TcpClient);
+    combo->clear();
+    combo->addItem(QCoreApplication::translate("ui::views::generic_tcp::Protocol", kTcpClientText),
+                   static_cast<int>(GenericTcpView::Protocol::TcpClient));
+    combo->addItem(QCoreApplication::translate("ui::views::generic_tcp::Protocol", kTcpServerText),
+                   static_cast<int>(GenericTcpView::Protocol::TcpServer));
+    combo->addItem(QCoreApplication::translate("ui::views::generic_tcp::Protocol", kUdpText),
+                   static_cast<int>(GenericTcpView::Protocol::Udp));
+    const int currentIndex = combo->findData(currentValue);
+    combo->setCurrentIndex(currentIndex >= 0 ? currentIndex : 0);
+}
+
+} // namespace
 
 GenericTcpView::GenericTcpView(ui::common::ISettingsService* settingsService, QWidget *parent)
     : GenericChannelViewBase(settingsService, parent) {
@@ -56,11 +84,38 @@ void GenericTcpView::setupUi() {
     mainLayout->setContentsMargins(6, 6, 6, 6);
     mainLayout->setSpacing(4);
 
-    // 1. Connection Section (Top)
-    connectionWidget_ = new widgets::TcpConnectionWidget(settingsService_, this);
-    connectionWidget_->setSettingsGroup(QStringLiteral("tcp_client"));
-    connectionWidget_->setDefaultPort(app::constants::Values::Network::kDefaultGenericTcpPort);
-    mainLayout->addWidget(connectionWidget_);
+    // 1. Protocol selector + Connection widgets in a stacked widget
+    auto* connGroup = new QWidget(this);
+    auto* connLayout = new QHBoxLayout(connGroup);
+    connLayout->setContentsMargins(0, 0, 0, 0);
+    connLayout->setSpacing(2);
+
+    protocolCombo_ = new QComboBox(this);
+    populateProtocolOptions(protocolCombo_);
+    protocolCombo_->setFixedWidth(104);
+    connLayout->addWidget(protocolCombo_);
+
+    connectionStack_ = new QStackedWidget(this);
+    connectionStack_->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);
+
+    tcpClientWidget_ = new widgets::TcpClientConnectionWidget(settingsService_, connectionStack_);
+    tcpClientWidget_->setSettingsGroup(QStringLiteral("tcp_client"));
+    tcpClientWidget_->setDefaultPort(app::constants::Values::Network::kDefaultGenericTcpPort);
+    connectionStack_->addWidget(tcpClientWidget_);
+
+    tcpServerWidget_ = new widgets::TcpServerConnectionWidget(settingsService_, connectionStack_);
+    tcpServerWidget_->setSettingsGroup(QStringLiteral("tcp_server"));
+    tcpServerWidget_->setDefaultPort(app::constants::Values::Network::kDefaultGenericTcpPort);
+    connectionStack_->addWidget(tcpServerWidget_);
+
+    udpWidget_ = new widgets::UdpConnectionWidget(settingsService_, connectionStack_);
+    udpWidget_->setSettingsGroup(QStringLiteral("udp"));
+    udpWidget_->setDefaultPort(app::constants::Values::Network::kDefaultGenericTcpPort);
+    connectionStack_->addWidget(udpWidget_);
+
+    connectionStack_->setCurrentIndex(0);
+    connLayout->addWidget(connectionStack_);
+    mainLayout->addWidget(connGroup);
 
     // 2. Central Area (Traffic Monitor + Server Client Panel)
     auto* centerSplitter = new QSplitter(Qt::Horizontal, this);
@@ -91,25 +146,27 @@ void GenericTcpView::setupUi() {
     mainLayout->setStretch(1, 1);
     mainLayout->setStretch(2, 0);
 
+    // Protocol combo signal
+    connect(protocolCombo_, QOverload<int>::of(&QComboBox::currentIndexChanged),
+            this, &GenericTcpView::onProtocolChanged);
+
     // Client mode connections
-    connect(connectionWidget_, &widgets::TcpConnectionWidget::connectClicked,
+    connect(tcpClientWidget_, &widgets::TcpClientConnectionWidget::connectClicked,
             this, &GenericTcpView::onConnectClicked);
-    connect(connectionWidget_, &widgets::TcpConnectionWidget::disconnectClicked,
+    connect(tcpClientWidget_, &widgets::TcpClientConnectionWidget::disconnectClicked,
             this, &GenericTcpView::onDisconnectClicked);
 
     // Server mode connections
-    connect(connectionWidget_, &widgets::TcpConnectionWidget::startListenClicked,
+    connect(tcpServerWidget_, &widgets::TcpServerConnectionWidget::startListenClicked,
             this, &GenericTcpView::onStartListenClicked);
-    connect(connectionWidget_, &widgets::TcpConnectionWidget::stopListenClicked,
+    connect(tcpServerWidget_, &widgets::TcpServerConnectionWidget::stopListenClicked,
             this, &GenericTcpView::onStopListenClicked);
 
     // UDP mode connections
-    connect(connectionWidget_, &widgets::TcpConnectionWidget::bindClicked,
+    connect(udpWidget_, &widgets::UdpConnectionWidget::bindClicked,
             this, &GenericTcpView::onBindClicked);
-    connect(connectionWidget_, &widgets::TcpConnectionWidget::unbindClicked,
+    connect(udpWidget_, &widgets::UdpConnectionWidget::unbindClicked,
             this, &GenericTcpView::onUnbindClicked);
-    connect(connectionWidget_, &widgets::TcpConnectionWidget::protocolChanged,
-            this, &GenericTcpView::onProtocolChanged);
 
     connect(inputWidget_, &widgets::GenericInputWidget::sendRequested,
             this, &GenericTcpView::onSendRequested);
@@ -126,7 +183,7 @@ void GenericTcpView::setupUi() {
     reconnectTimer_->setSingleShot(true);
     connect(reconnectTimer_, &QTimer::timeout, this, &GenericTcpView::onReconnectTimerTick);
 
-    onProtocolChanged(connectionWidget_->currentProtocol());
+    onProtocolChanged(protocolCombo_->currentIndex());
 }
 
 void GenericTcpView::startServerWorker() {
@@ -181,42 +238,46 @@ void GenericTcpView::stopServerWorker() {
     }, Qt::QueuedConnection);
 }
 
-void GenericTcpView::switchToClientMode() {
-    currentProtocol_ = widgets::TcpConnectionWidget::Protocol::TcpClient;
-    connectionWidget_->setSettingsGroup(QStringLiteral("tcp_client"));
-    connectionWidget_->setDefaultPort(app::constants::Values::Network::kDefaultGenericTcpPort);
-    monitor_->setSettingsGroup(QStringLiteral("tcp_client/traffic"));
-    inputSection_->setSettingsKey(QStringLiteral("tcp_client/ui/inputCollapsed"));
-    inputWidget_->setSettingsGroup(QStringLiteral("tcp_client/input"));
-    if (serverClientPanel_) {
-        serverClientPanel_->clearClients();
-        serverClientPanel_->hide();
+void GenericTcpView::switchToProtocol(Protocol protocol) {
+    currentProtocol_ = protocol;
+
+    switch (protocol) {
+    case Protocol::TcpClient:
+        connectionStack_->setCurrentWidget(tcpClientWidget_);
+        monitor_->setSettingsGroup(QStringLiteral("tcp_client/traffic"));
+        inputSection_->setSettingsKey(QStringLiteral("tcp_client/ui/inputCollapsed"));
+        inputWidget_->setSettingsGroup(QStringLiteral("tcp_client/input"));
+        if (serverClientPanel_) {
+            serverClientPanel_->clearClients();
+            serverClientPanel_->hide();
+        }
+        break;
+    case Protocol::TcpServer:
+        connectionStack_->setCurrentWidget(tcpServerWidget_);
+        monitor_->setSettingsGroup(QStringLiteral("tcp_server/traffic"));
+        inputSection_->setSettingsKey(QStringLiteral("tcp_server/ui/inputCollapsed"));
+        inputWidget_->setSettingsGroup(QStringLiteral("tcp_server/input"));
+        if (serverClientPanel_) {
+            serverClientPanel_->show();
+        }
+        break;
+    case Protocol::Udp:
+        connectionStack_->setCurrentWidget(udpWidget_);
+        monitor_->setSettingsGroup(QStringLiteral("udp/traffic"));
+        inputSection_->setSettingsKey(QStringLiteral("udp/ui/inputCollapsed"));
+        inputWidget_->setSettingsGroup(QStringLiteral("udp/input"));
+        if (serverClientPanel_) {
+            serverClientPanel_->clearClients();
+            serverClientPanel_->hide();
+        }
+        break;
     }
 }
 
-void GenericTcpView::switchToServerMode() {
-    currentProtocol_ = widgets::TcpConnectionWidget::Protocol::TcpServer;
-    connectionWidget_->setSettingsGroup(QStringLiteral("tcp_server"));
-    connectionWidget_->setDefaultPort(app::constants::Values::Network::kDefaultGenericTcpPort);
-    monitor_->setSettingsGroup(QStringLiteral("tcp_server/traffic"));
-    inputSection_->setSettingsKey(QStringLiteral("tcp_server/ui/inputCollapsed"));
-    inputWidget_->setSettingsGroup(QStringLiteral("tcp_server/input"));
-    if (serverClientPanel_) {
-        serverClientPanel_->show();
-    }
-}
-
-void GenericTcpView::switchToUdpMode() {
-    currentProtocol_ = widgets::TcpConnectionWidget::Protocol::Udp;
-    connectionWidget_->setSettingsGroup(QStringLiteral("udp"));
-    connectionWidget_->setDefaultPort(app::constants::Values::Network::kDefaultGenericTcpPort);
-    monitor_->setSettingsGroup(QStringLiteral("udp/traffic"));
-    inputSection_->setSettingsKey(QStringLiteral("udp/ui/inputCollapsed"));
-    inputWidget_->setSettingsGroup(QStringLiteral("udp/input"));
-    if (serverClientPanel_) {
-        serverClientPanel_->clearClients();
-        serverClientPanel_->hide();
-    }
+void GenericTcpView::onProtocolChanged(int index) {
+    if (isConnected_) return;
+    currentProtocol_ = static_cast<Protocol>(protocolCombo_->itemData(index).toInt());
+    switchToProtocol(currentProtocol_);
 }
 
 void GenericTcpView::onConnectClicked(const QString& ip, int port) {
@@ -233,7 +294,7 @@ void GenericTcpView::onConnectClicked(const QString& ip, int port) {
     if (monitor_) {
         monitor_->appendInfo(tr("Connecting to %1:%2...").arg(ip).arg(port));
     }
-    connectionWidget_->setDisplayState(widgets::TcpConnectionWidget::DisplayState::Connecting);
+    tcpClientWidget_->setDisplayState(widgets::TcpClientConnectionWidget::DisplayState::Connecting);
 
     QMetaObject::invokeMethod(worker_, "openTcp",
                               Qt::QueuedConnection,
@@ -249,7 +310,7 @@ void GenericTcpView::onStartListenClicked(const QString& ip, int port) {
     if (monitor_) {
         monitor_->appendInfo(tr("Starting TCP server on %1:%2...").arg(ip).arg(port));
     }
-    connectionWidget_->setDisplayState(widgets::TcpConnectionWidget::DisplayState::Connecting);
+    tcpServerWidget_->setDisplayState(widgets::TcpServerConnectionWidget::DisplayState::Connecting);
 
     QMetaObject::invokeMethod(serverWorker_, "openTcpServer",
                               Qt::QueuedConnection,
@@ -264,7 +325,7 @@ void GenericTcpView::onStopListenClicked() {
     if (monitor_) {
         monitor_->appendInfo(tr("Stopping TCP server..."));
     }
-    connectionWidget_->setDisplayState(widgets::TcpConnectionWidget::DisplayState::Disconnecting);
+    tcpServerWidget_->setDisplayState(widgets::TcpServerConnectionWidget::DisplayState::Disconnecting);
     QMetaObject::invokeMethod(serverWorker_, "closeAllClients", Qt::QueuedConnection);
 }
 
@@ -284,7 +345,7 @@ void GenericTcpView::onBindClicked(const QString& localIp, int localPort,
     }
 
     suppressDisconnectAlert_ = false;
-    connectionWidget_->setDisplayState(widgets::TcpConnectionWidget::DisplayState::Connecting);
+    udpWidget_->setDisplayState(widgets::UdpConnectionWidget::DisplayState::Connecting);
 
     QMetaObject::invokeMethod(worker_, "openUdp",
                               Qt::QueuedConnection,
@@ -298,24 +359,8 @@ void GenericTcpView::onUnbindClicked() {
     if (!worker_) return;
 
     suppressDisconnectAlert_ = true;
-    connectionWidget_->setDisplayState(widgets::TcpConnectionWidget::DisplayState::Disconnecting);
+    udpWidget_->setDisplayState(widgets::UdpConnectionWidget::DisplayState::Disconnecting);
     QMetaObject::invokeMethod(worker_, "close", Qt::QueuedConnection);
-}
-
-void GenericTcpView::onProtocolChanged(widgets::TcpConnectionWidget::Protocol protocol) {
-    if (isConnected_) return;
-
-    switch (protocol) {
-    case widgets::TcpConnectionWidget::Protocol::TcpClient:
-        switchToClientMode();
-        break;
-    case widgets::TcpConnectionWidget::Protocol::TcpServer:
-        switchToServerMode();
-        break;
-    case widgets::TcpConnectionWidget::Protocol::Udp:
-        switchToUdpMode();
-        break;
-    }
 }
 
 void GenericTcpView::onSendRequested(const QByteArray& data) {
@@ -325,11 +370,11 @@ void GenericTcpView::onSendRequested(const QByteArray& data) {
     }
 
     switch (currentProtocol_) {
-    case widgets::TcpConnectionWidget::Protocol::TcpClient:
-    case widgets::TcpConnectionWidget::Protocol::Udp:
+    case Protocol::TcpClient:
+    case Protocol::Udp:
         GenericChannelViewBase::onSendRequested(data);
         break;
-    case widgets::TcpConnectionWidget::Protocol::TcpServer:
+    case Protocol::TcpServer:
         if (!serverWorker_ || !serverClientPanel_) {
             return;
         }
@@ -364,11 +409,11 @@ void GenericTcpView::onFileSendRequested(const QString& filePath) {
     }
 
     switch (currentProtocol_) {
-    case widgets::TcpConnectionWidget::Protocol::TcpClient:
-    case widgets::TcpConnectionWidget::Protocol::Udp:
+    case Protocol::TcpClient:
+    case Protocol::Udp:
         GenericChannelViewBase::onFileSendRequested(filePath);
         break;
-    case widgets::TcpConnectionWidget::Protocol::TcpServer:
+    case Protocol::TcpServer:
         if (monitor_) {
             monitor_->appendWarn(tr("Server mode: file transfer not supported"));
         }
@@ -402,19 +447,37 @@ void GenericTcpView::onWorkerStateChanged(io::ChannelState state, quint64 genera
         default: stateStr = tr("Unknown"); break;
     }
 
+    using DisplayState = widgets::BaseConnectionWidget::DisplayState;
+
     switch (state) {
     case io::ChannelState::Opening:
-        connectionWidget_->setDisplayState(widgets::TcpConnectionWidget::DisplayState::Connecting);
+        if (currentProtocol_ == Protocol::TcpClient) {
+            tcpClientWidget_->setDisplayState(DisplayState::Connecting);
+        } else {
+            udpWidget_->setDisplayState(DisplayState::Connecting);
+        }
         break;
     case io::ChannelState::Open:
-        connectionWidget_->setConnected(true);
+        if (currentProtocol_ == Protocol::TcpClient) {
+            tcpClientWidget_->setConnected(true);
+        } else {
+            udpWidget_->setConnected(true);
+        }
         break;
     case io::ChannelState::Closing:
-        connectionWidget_->setDisplayState(widgets::TcpConnectionWidget::DisplayState::Disconnecting);
+        if (currentProtocol_ == Protocol::TcpClient) {
+            tcpClientWidget_->setDisplayState(DisplayState::Disconnecting);
+        } else {
+            udpWidget_->setDisplayState(DisplayState::Disconnecting);
+        }
         break;
     case io::ChannelState::Closed:
     case io::ChannelState::Error:
-        connectionWidget_->setConnected(false);
+        if (currentProtocol_ == Protocol::TcpClient) {
+            tcpClientWidget_->setConnected(false);
+        } else {
+            udpWidget_->setConnected(false);
+        }
         break;
     }
 
@@ -425,12 +488,16 @@ void GenericTcpView::onWorkerStateChanged(io::ChannelState state, quint64 genera
         ui::common::ConnectionAlert::showDisconnected(this);
     }
 
+    auto* activeWidget = (currentProtocol_ == Protocol::TcpClient)
+        ? static_cast<widgets::NetworkConnectionWidget*>(tcpClientWidget_)
+        : static_cast<widgets::NetworkConnectionWidget*>(udpWidget_);
+
     if (!isConnected_ && wasConnected
-        && currentProtocol_ == widgets::TcpConnectionWidget::Protocol::TcpClient
-        && connectionWidget_->autoReconnectEnabled()
+        && currentProtocol_ == Protocol::TcpClient
+        && activeWidget->autoReconnectEnabled()
         && !suppressDisconnectAlert_
         && !reconnectTimer_->isActive()) {
-        startReconnectTimer(connectionWidget_);
+        startReconnectTimer(activeWidget);
     }
 
     if (state == io::ChannelState::Open) {
@@ -471,22 +538,24 @@ void GenericTcpView::onServerStateChanged(io::ChannelState state) {
         default: stateStr = tr("Unknown"); break;
     }
 
+    using DisplayState = widgets::BaseConnectionWidget::DisplayState;
+
     switch (state) {
     case io::ChannelState::Opening:
-        connectionWidget_->setDisplayState(widgets::TcpConnectionWidget::DisplayState::Connecting);
+        tcpServerWidget_->setDisplayState(DisplayState::Connecting);
         break;
     case io::ChannelState::Open:
-        connectionWidget_->setConnected(true);
+        tcpServerWidget_->setConnected(true);
         break;
     case io::ChannelState::Closing:
-        connectionWidget_->setDisplayState(widgets::TcpConnectionWidget::DisplayState::Disconnecting);
+        tcpServerWidget_->setDisplayState(DisplayState::Disconnecting);
         break;
     case io::ChannelState::Closed:
     case io::ChannelState::Error:
         if (serverClientPanel_) {
             serverClientPanel_->clearClients();
         }
-        connectionWidget_->setConnected(false);
+        tcpServerWidget_->setConnected(false);
         break;
     }
 
@@ -532,12 +601,14 @@ void GenericTcpView::onDisconnectAllClientsRequested()
 
 void GenericTcpView::retranslateUi() {
     if (inputSection_) inputSection_->setTitle(tr("Send Data"));
+    populateProtocolOptions(protocolCombo_);
 }
 
 void GenericTcpView::onReconnectTimerTick() {
-    if (!connectionWidget_ || !worker_) return;
+    auto* activeWidget = tcpClientWidget_;
+    if (!activeWidget || !worker_) return;
 
-    if (!connectionWidget_->autoReconnectEnabled()) {
+    if (!activeWidget->autoReconnectEnabled()) {
         stopReconnectTimer();
         return;
     }
@@ -551,18 +622,24 @@ void GenericTcpView::onReconnectTimerTick() {
                  reconnectHost_.toStdString(), reconnectPort_,
                  reconnectPolicy_.attemptCount());
 
-    if (monitor_) {
-        monitor_->appendInfo(tr("Reconnecting to %1:%2...").arg(reconnectHost_).arg(reconnectPort_));
-    }
     suppressDisconnectAlert_ = false;
     const quint64 generation = ++connectionGeneration_;
-    connectionWidget_->setDisplayState(widgets::TcpConnectionWidget::DisplayState::Connecting);
+    if (monitor_) {
+        monitor_->appendInfo(tr("Auto-reconnecting to %1:%2 (attempt %3)...")
+                                 .arg(reconnectHost_)
+                                 .arg(reconnectPort_)
+                                 .arg(reconnectPolicy_.attemptCount()));
+    }
+    activeWidget->setDisplayState(widgets::BaseConnectionWidget::DisplayState::Connecting);
 
     QMetaObject::invokeMethod(worker_, "openTcp",
                               Qt::QueuedConnection,
                               Q_ARG(QString, reconnectHost_),
                               Q_ARG(int, reconnectPort_),
                               Q_ARG(quint64, generation));
+
+    reconnectTimer_->setInterval(reconnectPolicy_.nextDelayMs());
+    reconnectTimer_->start();
 }
 
 } // namespace ui::views::generic_tcp

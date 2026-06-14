@@ -10,16 +10,20 @@
 #pragma once
 
 #include "../GenericChannelViewBase.h"
-#include "../../widgets/TcpConnectionWidget.h"
 #include "../../../infra/io/IChannel.h"
 #include <QList>
+
+class QComboBox;
+class QStackedWidget;
 
 namespace io {
 class ServerChannelWorker;
 }
 
 namespace ui::widgets {
-class TcpConnectionWidget;
+class TcpClientConnectionWidget;
+class TcpServerConnectionWidget;
+class UdpConnectionWidget;
 class ServerClientPanel;
 }
 
@@ -31,6 +35,13 @@ class GenericTcpView : public GenericChannelViewBase {
     Q_OBJECT
 
 public:
+    enum class Protocol {
+        TcpClient = 0,
+        TcpServer,
+        Udp
+    };
+    Q_ENUM(Protocol)
+
     explicit GenericTcpView(ui::common::ISettingsService* settingsService, QWidget *parent = nullptr);
     ~GenericTcpView() noexcept override;
 
@@ -44,7 +55,7 @@ private slots:
     void onBindClicked(const QString& localIp, int localPort,
                        const QString& remoteIp, int remotePort);
     void onUnbindClicked();
-    void onProtocolChanged(widgets::TcpConnectionWidget::Protocol protocol);
+    void onProtocolChanged(int index);
     
     void onSendRequested(const QByteArray& data) override;
     void onFileSendRequested(const QString& filePath) override;
@@ -63,29 +74,31 @@ private:
     void setupUi();
     void startServerWorker();
     void stopServerWorker();
-    void switchToClientMode();
-    void switchToServerMode();
-    void switchToUdpMode();
+    void switchToProtocol(Protocol protocol);
     void retranslateUi() override;
 
-    // UI Components
-    widgets::TcpConnectionWidget* connectionWidget_ = nullptr;
+    // Protocol selector
+    QComboBox* protocolCombo_ = nullptr;
+
+    // Stacked connection widgets
+    QStackedWidget* connectionStack_ = nullptr;
+    widgets::TcpClientConnectionWidget* tcpClientWidget_ = nullptr;
+    widgets::TcpServerConnectionWidget* tcpServerWidget_ = nullptr;
+    widgets::UdpConnectionWidget* udpWidget_ = nullptr;
+
+    // Server panel
     widgets::ServerClientPanel* serverClientPanel_ = nullptr;
 
     // Backend - Server
     io::ServerChannelWorker* serverWorker_ = nullptr;
     QThread* serverThread_ = nullptr;
 
-    widgets::TcpConnectionWidget::Protocol currentProtocol_ = 
-        widgets::TcpConnectionWidget::Protocol::TcpClient;
+    Protocol currentProtocol_ = Protocol::TcpClient;
     bool suppressDisconnectAlert_ = false;
     quint64 connectionGeneration_ = 0;
 
     QString reconnectHost_;
     int reconnectPort_ = 0;
-
-private:
-    void setupUi_internal(); // For any internal setup if needed
 };
 
 } // namespace ui::views::generic_tcp

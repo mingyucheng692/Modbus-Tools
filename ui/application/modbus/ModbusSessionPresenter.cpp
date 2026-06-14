@@ -3,7 +3,7 @@
 #include "PollingController.h"
 #include "TrafficLogController.h"
 #include "../../widgets/ControlWidget.h"
-#include "../../widgets/TcpConnectionWidget.h"
+#include "../../widgets/BaseConnectionWidget.h"
 #include "../../widgets/SerialConnectionWidget.h"
 #include "../../common/ConnectionAlert.h"
 #include "modbus/factory/ModbusFactory.h"
@@ -248,11 +248,11 @@ void ModbusSessionPresenter::setConnectionWidgetConnecting() {
     }
 
     if (mode_ == SessionMode::Tcp) {
-        if (auto* tcpWidget = qobject_cast<ui::widgets::TcpConnectionWidget*>(connectionWidget_)) {
+        if (auto* connWidget = qobject_cast<ui::widgets::BaseConnectionWidget*>(connectionWidget_)) {
             QMetaObject::invokeMethod(
-                tcpWidget,
-                [tcpWidget]() {
-                    tcpWidget->setDisplayState(ui::widgets::TcpConnectionWidget::DisplayState::Connecting);
+                connWidget,
+                [connWidget]() {
+                    connWidget->setDisplayState(ui::widgets::BaseConnectionWidget::DisplayState::Connecting);
                 },
                 Qt::QueuedConnection);
         }
@@ -275,12 +275,12 @@ void ModbusSessionPresenter::setConnectionWidgetTransportConnected() {
     }
 
     if (mode_ == SessionMode::Tcp) {
-        if (auto* tcpWidget = qobject_cast<ui::widgets::TcpConnectionWidget*>(connectionWidget_)) {
+        if (auto* connWidget = qobject_cast<ui::widgets::BaseConnectionWidget*>(connectionWidget_)) {
             QMetaObject::invokeMethod(
-                tcpWidget,
-                [tcpWidget]() {
-                    tcpWidget->setDisplayState(
-                        ui::widgets::TcpConnectionWidget::DisplayState::TransportConnected);
+                connWidget,
+                [connWidget]() {
+                    connWidget->setDisplayState(
+                        ui::widgets::BaseConnectionWidget::DisplayState::TransportConnected);
                 },
                 Qt::QueuedConnection);
         }
@@ -312,11 +312,11 @@ void ModbusSessionPresenter::setConnectionWidgetDisconnecting() {
     }
 
     if (mode_ == SessionMode::Tcp) {
-        if (auto* tcpWidget = qobject_cast<ui::widgets::TcpConnectionWidget*>(connectionWidget_)) {
+        if (auto* connWidget = qobject_cast<ui::widgets::BaseConnectionWidget*>(connectionWidget_)) {
             QMetaObject::invokeMethod(
-                tcpWidget,
-                [tcpWidget]() {
-                    tcpWidget->setDisplayState(ui::widgets::TcpConnectionWidget::DisplayState::Disconnecting);
+                connWidget,
+                [connWidget]() {
+                    connWidget->setDisplayState(ui::widgets::BaseConnectionWidget::DisplayState::Disconnecting);
                 },
                 Qt::QueuedConnection);
         }
