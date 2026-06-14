@@ -18,7 +18,6 @@ public:
     PathResolver();
     PathResolver(std::shared_ptr<const IPlatformPaths> platformPaths,
                  QString applicationDirPath,
-                 QStringList arguments,
                  QString applicationName);
 
     [[nodiscard]] static PathResolver& instance();
@@ -26,7 +25,6 @@ public:
     [[nodiscard]] QString resolveLogDir() const;
     [[nodiscard]] QString resolveConfigDir() const;
     [[nodiscard]] QString resolveTempDir() const;
-    [[nodiscard]] bool isPortableMode() const;
 
 private:
     [[nodiscard]] QString resolveScopedTempDir() const;
@@ -35,16 +33,12 @@ private:
                                             const QString& secondaryDir,
                                             const QString& fallbackDir) const;
     [[nodiscard]] bool isWritableDirectory(const QString& directoryPath) const;
-    [[nodiscard]] bool hasPortableMarker() const;
-    [[nodiscard]] QString portableMarkerPath() const;
 
     [[nodiscard]] static QString currentApplicationDirPath();
-    [[nodiscard]] static QStringList currentArguments();
     [[nodiscard]] static QString currentApplicationName();
 
     std::shared_ptr<const IPlatformPaths> platformPaths_;
     QString applicationDirPath_;
-    QStringList arguments_;
     QString applicationName_;
 };
 

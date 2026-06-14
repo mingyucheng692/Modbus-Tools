@@ -15,8 +15,6 @@
 
 namespace {
 
-constexpr auto kPortableArg = "--portable";
-constexpr auto kPortableMarkerFileName = ".portable";
 constexpr auto kLogsDirectoryName = "logs";
 constexpr auto kProbeTemplate = ".path-resolver-write-test-XXXXXX";
 constexpr auto kDefaultApplicationName = "Modbus-Tools";
@@ -33,18 +31,15 @@ namespace infra::platform {
 PathResolver::PathResolver()
     : PathResolver(std::make_shared<QtStandardPlatformPaths>(),
                    currentApplicationDirPath(),
-                   currentArguments(),
                    currentApplicationName())
 {
 }
 
 PathResolver::PathResolver(std::shared_ptr<const IPlatformPaths> platformPaths,
                            QString applicationDirPath,
-                           QStringList arguments,
                            QString applicationName)
     : platformPaths_(std::move(platformPaths)),
       applicationDirPath_(normalizedPath(applicationDirPath)),
-      arguments_(std::move(arguments)),
       applicationName_(applicationName.isEmpty() ? QString::fromLatin1(kDefaultApplicationName)
                                                  : std::move(applicationName))
 {
@@ -58,10 +53,10 @@ PathResolver& PathResolver::instance()
 
 QString PathResolver::resolveLogDir() const
 {
+    const QString appLogDir = QDir(applicationDirPath_).filePath(QString::fromLatin1(kLogsDirectoryName));
     const QString standardLogDir = QDir(platformPaths_->appDataLocation()).filePath(QString::fromLatin1(kLogsDirectoryName));
-    const QString portableLogDir = QDir(applicationDirPath_).filePath(QString::fromLatin1(kLogsDirectoryName));
     return resolveWritableDir(QStringLiteral("log directory"),
-                              isPortableMode() ? portableLogDir : standardLogDir,
+                              appLogDir,
                               standardLogDir,
                               resolveScopedTempDir() + QStringLiteral("/") + QString::fromLatin1(kLogsDirectoryName));
 }
@@ -70,7 +65,7 @@ QString PathResolver::resolveConfigDir() const
 {
     const QString standardConfigDir = platformPaths_->appConfigLocation();
     return resolveWritableDir(QStringLiteral("config directory"),
-                              isPortableMode() ? applicationDirPath_ : standardConfigDir,
+                              applicationDirPath_,
                               standardConfigDir,
                               resolveScopedTempDir());
 }
@@ -81,11 +76,6 @@ QString PathResolver::resolveTempDir() const
                               resolveScopedTempDir(),
                               applicationDirPath_,
                               applicationDirPath_);
-}
-
-bool PathResolver::isPortableMode() const
-{
-    return arguments_.contains(QString::fromLatin1(kPortableArg)) || hasPortableMarker();
 }
 
 QString PathResolver::resolveScopedTempDir() const
@@ -159,26 +149,10 @@ bool PathResolver::isWritableDirectory(const QString& directoryPath) const
     return true;
 }
 
-bool PathResolver::hasPortableMarker() const
-{
-    return QFile::exists(portableMarkerPath());
-}
-
-QString PathResolver::portableMarkerPath() const
-{
-    return QDir(applicationDirPath_).filePath(QString::fromLatin1(kPortableMarkerFileName));
-}
-
 QString PathResolver::currentApplicationDirPath()
 {
     const auto* app = QCoreApplication::instance();
     return app == nullptr ? QString() : QCoreApplication::applicationDirPath();
-}
-
-QStringList PathResolver::currentArguments()
-{
-    const auto* app = QCoreApplication::instance();
-    return app == nullptr ? QStringList() : QCoreApplication::arguments();
 }
 
 QString PathResolver::currentApplicationName()
