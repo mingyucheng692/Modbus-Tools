@@ -109,6 +109,7 @@ void ModbusClient::clearRuntimeState(bool clearPendingQueue) {
     flowController_.reset();
     responseReady_ = false;
     lastChannelError_.clear();
+    dupeTracker_.clear();
     if (clearPendingQueue) {
         std::lock_guard<std::mutex> pendingLock(pendingMutex_);
         pendingRequests_.clear();
@@ -515,7 +516,7 @@ ModbusResponse ModbusClient::sendRequestInternal(const base::Pdu& request, int s
         return ModbusResponse::Error(validationResult.error);
     }
 
-    // 1. 清理旧缓冲区和状�?
+    // 1. 清理旧缓冲区和状?
     {
         std::lock_guard<std::mutex> lock(mutex_);
         if (aborted_) {
@@ -528,8 +529,8 @@ ModbusResponse ModbusClient::sendRequestInternal(const base::Pdu& request, int s
             flowController_.markWritePending();
         }
         lastChannelError_.clear();
+        transport_->resetPendingState();
     }
-    transport_->resetPendingState();
 
     // 2. 构建 ADU
     if (isRtuBroadcastRequest(targetSlaveId, request.functionCode()) &&
@@ -630,8 +631,17 @@ ModbusResponse ModbusClient::sendRequestInternal(const base::Pdu& request, int s
 
         responseReady_ = false;
 
-        static std::map<std::tuple<uint8_t, uint8_t, uint8_t>,
-                       std::chrono::steady_clock::time_point> dupeTracker;
+        // Cleanup stale dupeTracker entries to prevent unbounded growth
+        if (dupeTracker_.size() > 1000) {
+            const auto cutoff = std::chrono::steady_clock::now() - std::chrono::seconds(5);
+            for (auto it = dupeTracker_.begin(); it != dupeTracker_.end(); ) {
+                if (it->second < cutoff) {
+                    it = dupeTracker_.erase(it);
+                } else {
+                    ++it;
+                }
+            }
+        }
 
         while (true) {
             if (config_.mode == base::ModbusMode::RTU) {
@@ -651,8 +661,8 @@ ModbusResponse ModbusClient::sendRequestInternal(const base::Pdu& request, int s
                                                            static_cast<uint8_t>(request.functionCode()),
                                                            static_cast<uint8_t>(pdu.exceptionCode()));
                             auto now = std::chrono::steady_clock::now();
-                            auto it = dupeTracker.find(dupeKey);
-                            if (it != dupeTracker.end() && (now - it->second) < std::chrono::seconds(5)) {
+                            auto it = dupeTracker_.find(dupeKey);
+                            if (it != dupeTracker_.end() && (now - it->second) < std::chrono::seconds(5)) {
                                 spdlog::debug("ModbusClient: Modbus exception response. "
                                               "Slave={} FC=0x{:02X} Exception=0x{:02X} (duplicate within 5s)",
                                               slaveId, static_cast<int>(request.functionCode()),
@@ -662,7 +672,7 @@ ModbusResponse ModbusClient::sendRequestInternal(const base::Pdu& request, int s
                                               "Slave={} FC=0x{:02X} Exception=0x{:02X}",
                                               slaveId, static_cast<int>(request.functionCode()),
                                               static_cast<int>(pdu.exceptionCode()));
-                                dupeTracker[dupeKey] = now;
+                                dupeTracker_[dupeKey] = now;
                             }
                             return ModbusResponse::Error(exceptionMessage);
                         }
@@ -706,8 +716,8 @@ ModbusResponse ModbusClient::sendRequestInternal(const base::Pdu& request, int s
                                                        static_cast<uint8_t>(request.functionCode()),
                                                        static_cast<uint8_t>(pdu.exceptionCode()));
                         auto now = std::chrono::steady_clock::now();
-                        auto it = dupeTracker.find(dupeKey);
-                        if (it != dupeTracker.end() && (now - it->second) < std::chrono::seconds(5)) {
+                        auto it = dupeTracker_.find(dupeKey);
+                        if (it != dupeTracker_.end() && (now - it->second) < std::chrono::seconds(5)) {
                             spdlog::debug("ModbusClient: Modbus exception response. "
                                           "Slave={} FC=0x{:02X} Exception=0x{:02X} (duplicate within 5s)",
                                           slaveId, static_cast<int>(request.functionCode()),
@@ -717,7 +727,7 @@ ModbusResponse ModbusClient::sendRequestInternal(const base::Pdu& request, int s
                                           "Slave={} FC=0x{:02X} Exception=0x{:02X}",
                                           slaveId, static_cast<int>(request.functionCode()),
                                           static_cast<int>(pdu.exceptionCode()));
-                            dupeTracker[dupeKey] = now;
+                            dupeTracker_[dupeKey] = now;
                         }
                         return ModbusResponse::Error(exceptionMessage);
                     }

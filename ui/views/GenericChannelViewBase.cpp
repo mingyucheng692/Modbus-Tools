@@ -97,14 +97,16 @@ void GenericChannelViewBase::stopWorker() {
 
     auto* thread = workerThread_;
     auto* worker = worker_;
-    workerThread_ = nullptr;
-    worker_ = nullptr;
 
     if (!thread) {
+        workerThread_ = nullptr;
+        worker_ = nullptr;
         return;
     }
 
     if (!worker) {
+        workerThread_ = nullptr;
+        worker_ = nullptr;
         if (thread->isRunning()) {
             thread->quit();
         } else {
@@ -113,7 +115,12 @@ void GenericChannelViewBase::stopWorker() {
         return;
     }
 
+    // Disconnect before nullifying members to prevent signal loss
+    // during the stop sequence (worker may still emit signals while cleaning up).
     worker->disconnect(this);
+
+    workerThread_ = nullptr;
+    worker_ = nullptr;
 
     if (!thread->isRunning()) {
         delete worker;

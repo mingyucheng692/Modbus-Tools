@@ -25,6 +25,7 @@
 #include <condition_variable>
 #include <atomic>
 #include <deque>
+#include <map>
 #include <chrono>
 #include <optional>
 
@@ -116,6 +117,10 @@ private:
     FlowController flowController_;
     int nextRequestId_ = 1;
     std::deque<PendingRequest> pendingRequests_;
+
+    // @guarded_by mutex_ — dupeTracker_ (deduplication of Modbus exception responses)
+    std::map<std::tuple<uint8_t, uint8_t, uint8_t>,
+             std::chrono::steady_clock::time_point> dupeTracker_;
 };
 
 } // namespace modbus::session

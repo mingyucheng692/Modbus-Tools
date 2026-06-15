@@ -39,16 +39,19 @@ Timeouts ChannelBase::timeouts() const
 
 void ChannelBase::setReadHandler(std::function<void(QByteArrayView)> handler)
 {
+    std::lock_guard<std::mutex> lock(handlerMutex_);
     readHandler_ = std::move(handler);
 }
 
 void ChannelBase::setErrorHandler(std::function<void(const QString&)> handler)
 {
+    std::lock_guard<std::mutex> lock(handlerMutex_);
     errorHandler_ = std::move(handler);
 }
 
 void ChannelBase::setWriteDrainedHandler(std::function<void()> handler)
 {
+    std::lock_guard<std::mutex> lock(handlerMutex_);
     writeDrainedHandler_ = std::move(handler);
 }
 
@@ -93,6 +96,7 @@ void ChannelBase::removeStateHandler(HandlerId handlerId)
 
 void ChannelBase::setMonitor(std::function<void(bool, const QByteArray&)> monitor)
 {
+    std::lock_guard<std::mutex> lock(handlerMutex_);
     monitor_ = std::move(monitor);
 }
 
@@ -140,29 +144,49 @@ void ChannelBase::addRx(qsizetype bytes)
 
 void ChannelBase::emitRead(QByteArrayView data)
 {
-    if (readHandler_) {
-        readHandler_(data);
+    std::function<void(QByteArrayView)> handler;
+    {
+        std::lock_guard<std::mutex> lock(handlerMutex_);
+        handler = readHandler_;
+    }
+    if (handler) {
+        handler(data);
     }
 }
 
 void ChannelBase::emitError(const QString& error)
 {
-    if (errorHandler_) {
-        errorHandler_(error);
+    std::function<void(const QString&)> handler;
+    {
+        std::lock_guard<std::mutex> lock(handlerMutex_);
+        handler = errorHandler_;
+    }
+    if (handler) {
+        handler(error);
     }
 }
 
 void ChannelBase::emitWriteDrained()
 {
-    if (writeDrainedHandler_) {
-        writeDrainedHandler_();
+    std::function<void()> handler;
+    {
+        std::lock_guard<std::mutex> lock(handlerMutex_);
+        handler = writeDrainedHandler_;
+    }
+    if (handler) {
+        handler();
     }
 }
 
 void ChannelBase::emitMonitor(bool isTx, const QByteArray& data)
 {
-    if (monitor_) {
-        monitor_(isTx, data);
+    std::function<void(bool, const QByteArray&)> handler;
+    {
+        std::lock_guard<std::mutex> lock(handlerMutex_);
+        handler = monitor_;
+    }
+    if (handler) {
+        handler(isTx, data);
     }
 }
 

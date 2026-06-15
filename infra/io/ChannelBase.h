@@ -49,6 +49,7 @@ private:
     std::function<void(const QString&)> errorHandler_;
     std::function<void()> writeDrainedHandler_;
     std::function<void(bool, const QByteArray&)> monitor_;
+    std::mutex handlerMutex_;  // protects readHandler_, errorHandler_, writeDrainedHandler_, monitor_
     std::mutex stateHandlersMutex_;
     HandlerId nextStateHandlerId_ = 1;
     std::vector<std::pair<HandlerId, std::function<void(ChannelState)>>> stateHandlers_;

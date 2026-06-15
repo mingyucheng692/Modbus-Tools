@@ -17,8 +17,8 @@ namespace modbus::transport {
 
 QByteArray ModbusRtuTransport::buildRequest(const base::Pdu& pdu, uint8_t slaveId) {
     QByteArray adu;
-    expectedResponseSlaveId_ = slaveId;
-    hasPendingRequest_ = true;
+    expectedResponseSlaveId_.store(slaveId, std::memory_order_release);
+    hasPendingRequest_.store(true, std::memory_order_release);
     QDataStream stream(&adu, QIODevice::WriteOnly);
     stream << slaveId;
     stream << static_cast<uint8_t>(pdu.functionCode());
@@ -42,10 +42,10 @@ ParseResponseResult ModbusRtuTransport::parseResponse(const QByteArray& adu) {
         return {ParseResponseStatus::Invalid, std::nullopt};
     }
 
-    if (hasPendingRequest_ && fields.slaveId != expectedResponseSlaveId_) {
+    if (hasPendingRequest_.load(std::memory_order_acquire) && fields.slaveId != expectedResponseSlaveId_.load(std::memory_order_acquire)) {
         return {ParseResponseStatus::Unmatched, std::nullopt};
     }
-    hasPendingRequest_ = false;
+    hasPendingRequest_.store(false, std::memory_order_release);
     QByteArray payload = adu.mid(2, adu.size() - 4);
 
     return {ParseResponseStatus::Ok, base::Pdu(static_cast<base::FunctionCode>(fields.functionCode), payload)};
@@ -57,8 +57,8 @@ int ModbusRtuTransport::checkIntegrity(const QByteArray& data) {
 }
 
 void ModbusRtuTransport::resetPendingState() {
-    hasPendingRequest_ = false;
-    expectedResponseSlaveId_ = 0;
+    hasPendingRequest_.store(false, std::memory_order_release);
+    expectedResponseSlaveId_.store(0, std::memory_order_release);
 }
 
 } // namespace modbus::transport

@@ -11,9 +11,16 @@
 
 #include "ITransport.h"
 #include <QByteArray>
+#include <atomic>
 
 namespace modbus::transport {
 
+/**
+ * @brief Modbus RTU transport layer (ADU build/parse).
+ *
+ * @thread buildRequest() and parseResponse() are safe to call from any thread.
+ *         Internal state is protected by std::atomic members.
+ */
 class ModbusRtuTransport : public ITransport {
 public:
     QByteArray buildRequest(const base::Pdu& pdu, uint8_t slaveId) override;
@@ -22,8 +29,8 @@ public:
     void resetPendingState() override;
 
 private:
-    uint8_t expectedResponseSlaveId_ = 0;
-    bool hasPendingRequest_ = false;
+    std::atomic<uint8_t> expectedResponseSlaveId_{0};
+    std::atomic<bool> hasPendingRequest_{false};
 };
 
 } // namespace modbus::transport
