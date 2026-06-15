@@ -27,6 +27,7 @@
 #include <deque>
 #include <map>
 #include <chrono>
+#include <functional>
 #include <optional>
 
 namespace modbus::session {
@@ -82,12 +83,16 @@ private:
     bool waitForWriteDrain(std::chrono::steady_clock::time_point deadline,
                            std::chrono::steady_clock::time_point* drainedAt);
     bool waitForEventOrTimeout(std::chrono::steady_clock::time_point deadline);
+    bool waitForCondition(const std::function<bool()>& predicate,
+                          std::chrono::steady_clock::time_point deadline);
     bool isRtuBroadcastRequest(int slaveId, base::FunctionCode functionCode) const;
     bool shouldWaitForResponse(int slaveId, base::FunctionCode functionCode) const;
     bool waitForAbortableDelay(std::chrono::steady_clock::duration delay);
     int enqueuePendingRequest(const base::Pdu& request, int slaveId);
     void finishPendingRequest(int requestId, bool success, const QString& error);
     void clearRuntimeState(bool clearPendingQueue);
+    ModbusResponse handleExceptionResponse(const base::Pdu& responsePdu, int slaveId,
+                                           const base::Pdu& requestPdu);
 
     std::shared_ptr<io::IChannel> channel_;
     std::shared_ptr<transport::ITransport> transport_;

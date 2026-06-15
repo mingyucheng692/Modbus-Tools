@@ -90,8 +90,7 @@ private:
     void setupChannelMonitor(quint64 generation);
     void setupChannelStateHandler(quint64 generation);
     void setupWorkerSignals(quint64 generation);
-    void handleTcpStateTransition(io::ChannelState state, quint64 generation);
-    void handleRtuStateTransition(io::ChannelState state, quint64 generation);
+    void handleChannelStateTransition(io::ChannelState state, quint64 generation);
     void handleConnectFinished(bool ok, const QString& error, quint64 generation);
     void handleRequestFinished(int requestId, const ::modbus::session::ModbusResponse& response,
                                quint64 generation);

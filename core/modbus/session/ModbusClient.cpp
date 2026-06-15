@@ -296,6 +296,15 @@ bool ModbusClient::ensureConnected(bool allowReconnect) {
     return false;
 }
 
+bool ModbusClient::waitForCondition(const std::function<bool()>& predicate,
+                                    std::chrono::steady_clock::time_point deadline) {
+    const auto now = std::chrono::steady_clock::now();
+    const auto remaining = std::chrono::duration_cast<std::chrono::milliseconds>(deadline - now);
+    const auto slice = std::min(kQtWaitSlice, std::max(std::chrono::milliseconds(1), remaining));
+    std::unique_lock<std::mutex> lock(mutex_);
+    return cv_.wait_for(lock, slice, predicate);
+}
+
 bool ModbusClient::waitForChannelState(io::ChannelState expectedState,
                                        std::chrono::steady_clock::time_point deadline,
                                        QString* errorOut) {
@@ -326,19 +335,13 @@ bool ModbusClient::waitForChannelState(io::ChannelState expectedState,
             return false;
         }
 
-        const auto now = std::chrono::steady_clock::now();
-        const auto remaining = std::chrono::duration_cast<std::chrono::milliseconds>(deadline - now);
-        const auto slice = std::min(kQtWaitSlice, std::max(std::chrono::milliseconds(1), remaining));
-        std::unique_lock<std::mutex> lock(mutex_);
-        if (!cv_.wait_for(lock, slice, [this, expectedState]() {
-                return aborted_.load() ||
-                    !lastChannelError_.isEmpty() ||
-                    channel_->state() == io::ChannelState::Error ||
-                    channel_->state() == expectedState ||
-                    (expectedState == io::ChannelState::Open && channel_->isOpen());
-            })) {
-            continue;
-        }
+        waitForCondition([this, expectedState]() {
+            return aborted_.load() ||
+                !lastChannelError_.isEmpty() ||
+                channel_->state() == io::ChannelState::Error ||
+                channel_->state() == expectedState ||
+                (expectedState == io::ChannelState::Open && channel_->isOpen());
+        }, deadline);
     }
 
     if (channel_->state() == expectedState || (expectedState == io::ChannelState::Open && channel_->isOpen())) {
@@ -375,16 +378,10 @@ bool ModbusClient::waitForWriteDrain(std::chrono::steady_clock::time_point deadl
             return false;
         }
 
-        const auto now = std::chrono::steady_clock::now();
-        const auto remaining = std::chrono::duration_cast<std::chrono::milliseconds>(deadline - now);
-        const auto slice = std::min(kQtWaitSlice, std::max(std::chrono::milliseconds(1), remaining));
-        std::unique_lock<std::mutex> lock(mutex_);
-        if (!cv_.wait_for(lock, slice, [this]() {
-                return aborted_.load() || flowController_.isWriteDrained() || !lastChannelError_.isEmpty() ||
-                    channel_->state() == io::ChannelState::Error;
-            })) {
-            continue;
-        }
+        waitForCondition([this]() {
+            return aborted_.load() || flowController_.isWriteDrained() || !lastChannelError_.isEmpty() ||
+                channel_->state() == io::ChannelState::Error;
+        }, deadline);
     }
 
     std::lock_guard<std::mutex> lock(mutex_);
@@ -410,16 +407,10 @@ bool ModbusClient::waitForEventOrTimeout(std::chrono::steady_clock::time_point d
             }
         }
 
-        const auto now = std::chrono::steady_clock::now();
-        const auto remaining = std::chrono::duration_cast<std::chrono::milliseconds>(deadline - now);
-        const auto slice = std::min(kQtWaitSlice, std::max(std::chrono::milliseconds(1), remaining));
-        std::unique_lock<std::mutex> lock(mutex_);
-        if (cv_.wait_for(lock, slice, [this]() {
-                return aborted_.load() || responseReady_ || !lastChannelError_.isEmpty() ||
-                    channel_->state() == io::ChannelState::Error;
-            })) {
-            return true;
-        }
+        waitForCondition([this]() {
+            return aborted_.load() || responseReady_ || !lastChannelError_.isEmpty() ||
+                channel_->state() == io::ChannelState::Error;
+        }, deadline);
     }
     return false;
 }
@@ -653,28 +644,7 @@ ModbusResponse ModbusClient::sendRequestInternal(const base::Pdu& request, int s
                         const auto& pdu = *parseResult.pdu;
                         if (pdu.isException()) {
                             requestStateMachine_.tryTransition(RequestState::Failed, "modbus-exception");
-                            const QString exceptionMessage = ExceptionInterpreter::buildMessage(
-                                slaveId,
-                                request.functionCode(),
-                                pdu.exceptionCode());
-                            auto dupeKey = std::make_tuple(static_cast<uint8_t>(slaveId),
-                                                           static_cast<uint8_t>(request.functionCode()),
-                                                           static_cast<uint8_t>(pdu.exceptionCode()));
-                            auto now = std::chrono::steady_clock::now();
-                            auto it = dupeTracker_.find(dupeKey);
-                            if (it != dupeTracker_.end() && (now - it->second) < std::chrono::seconds(5)) {
-                                spdlog::debug("ModbusClient: Modbus exception response. "
-                                              "Slave={} FC=0x{:02X} Exception=0x{:02X} (duplicate within 5s)",
-                                              slaveId, static_cast<int>(request.functionCode()),
-                                              static_cast<int>(pdu.exceptionCode()));
-                            } else {
-                                spdlog::debug("ModbusClient: Modbus exception response. "
-                                              "Slave={} FC=0x{:02X} Exception=0x{:02X}",
-                                              slaveId, static_cast<int>(request.functionCode()),
-                                              static_cast<int>(pdu.exceptionCode()));
-                                dupeTracker_[dupeKey] = now;
-                            }
-                            return ModbusResponse::Error(exceptionMessage);
+                            return handleExceptionResponse(pdu, slaveId, request);
                         }
                         if (pdu.originalFunctionCode() != request.functionCode()) {
                             lock.lock();
@@ -708,28 +678,7 @@ ModbusResponse ModbusClient::sendRequestInternal(const base::Pdu& request, int s
                     const auto& pdu = *parseResult.pdu;
                     if (pdu.isException()) {
                         requestStateMachine_.tryTransition(RequestState::Failed, "modbus-exception");
-                        const QString exceptionMessage = ExceptionInterpreter::buildMessage(
-                            slaveId,
-                            request.functionCode(),
-                            pdu.exceptionCode());
-                        auto dupeKey = std::make_tuple(static_cast<uint8_t>(slaveId),
-                                                       static_cast<uint8_t>(request.functionCode()),
-                                                       static_cast<uint8_t>(pdu.exceptionCode()));
-                        auto now = std::chrono::steady_clock::now();
-                        auto it = dupeTracker_.find(dupeKey);
-                        if (it != dupeTracker_.end() && (now - it->second) < std::chrono::seconds(5)) {
-                            spdlog::debug("ModbusClient: Modbus exception response. "
-                                          "Slave={} FC=0x{:02X} Exception=0x{:02X} (duplicate within 5s)",
-                                          slaveId, static_cast<int>(request.functionCode()),
-                                          static_cast<int>(pdu.exceptionCode()));
-                        } else {
-                            spdlog::debug("ModbusClient: Modbus exception response. "
-                                          "Slave={} FC=0x{:02X} Exception=0x{:02X}",
-                                          slaveId, static_cast<int>(request.functionCode()),
-                                          static_cast<int>(pdu.exceptionCode()));
-                            dupeTracker_[dupeKey] = now;
-                        }
-                        return ModbusResponse::Error(exceptionMessage);
+                        return handleExceptionResponse(pdu, slaveId, request);
                     }
                     if (pdu.originalFunctionCode() != request.functionCode()) {
                         lock.lock();
@@ -770,6 +719,32 @@ ModbusResponse ModbusClient::sendRequestInternal(const base::Pdu& request, int s
             return ModbusResponse::Error(trClient("Timeout while waiting for full packet"));
         }
     }
+}
+
+ModbusResponse ModbusClient::handleExceptionResponse(const base::Pdu& responsePdu, int slaveId,
+                                                    const base::Pdu& requestPdu) {
+    const QString exceptionMessage = ExceptionInterpreter::buildMessage(
+        slaveId,
+        requestPdu.functionCode(),
+        responsePdu.exceptionCode());
+    auto dupeKey = std::make_tuple(static_cast<uint8_t>(slaveId),
+                                   static_cast<uint8_t>(requestPdu.functionCode()),
+                                   static_cast<uint8_t>(responsePdu.exceptionCode()));
+    auto now = std::chrono::steady_clock::now();
+    auto it = dupeTracker_.find(dupeKey);
+    if (it != dupeTracker_.end() && (now - it->second) < std::chrono::seconds(5)) {
+        spdlog::debug("ModbusClient: Modbus exception response. "
+                      "Slave={} FC=0x{:02X} Exception=0x{:02X} (duplicate within 5s)",
+                      slaveId, static_cast<int>(requestPdu.functionCode()),
+                      static_cast<int>(responsePdu.exceptionCode()));
+    } else {
+        spdlog::debug("ModbusClient: Modbus exception response. "
+                      "Slave={} FC=0x{:02X} Exception=0x{:02X}",
+                      slaveId, static_cast<int>(requestPdu.functionCode()),
+                      static_cast<int>(responsePdu.exceptionCode()));
+        dupeTracker_[dupeKey] = now;
+    }
+    return ModbusResponse::Error(exceptionMessage);
 }
 
 bool ModbusClient::isRtuBroadcastRequest(int slaveId, base::FunctionCode functionCode) const {
