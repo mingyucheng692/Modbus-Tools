@@ -177,7 +177,9 @@ void ModbusClient::disconnect() {
     }
     clearRuntimeState(true);
     aborted_ = false;
-    connectionStateMachine_.forceReset(ConnectionState::Disconnected);
+    if (!connectionStateMachine_.tryTransition(ConnectionState::Disconnected, "disconnect")) {
+        connectionStateMachine_.forceReset(ConnectionState::Disconnected);
+    }
     requestStateMachine_.tryTransition(RequestState::Idle, "disconnect");
 }
 

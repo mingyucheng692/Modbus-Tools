@@ -32,6 +32,14 @@ namespace ui::application::modbus {
 
 enum class SessionMode { Tcp, Rtu };
 
+enum class SessionConnectionState {
+    Disconnected,
+    Connecting,
+    TransportConnected,
+    Connected,
+    Disconnecting
+};
+
 /**
  * @brief Session presenter bridging the UI layer and Modbus worker thread.
  *
@@ -115,9 +123,7 @@ private:
     std::shared_ptr<QThread> workerThread_;
     ::modbus::base::ModbusConfig currentConfig_;
     quint64 connectionGeneration_ = 0;
-    bool sessionConnected_ = false;
-    bool transportConnected_ = false;
-    bool connectionAttemptInProgress_ = false;
+    SessionConnectionState connectionState_ = SessionConnectionState::Disconnected;
     bool suppressDisconnectAlert_ = false;
     bool linked_ = false;
     int timeoutMs_;

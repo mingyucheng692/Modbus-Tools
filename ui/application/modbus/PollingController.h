@@ -47,7 +47,6 @@ struct PollContext {
     bool suppressTrafficLog = false;
     PollSpec currentSpec{};
     int consecutiveErrorCount = 0;
-    bool errorEscalated = false;
     QString lastErrorText;
     std::chrono::steady_clock::time_point lastErrorLogTime{};
     std::chrono::steady_clock::time_point lastSuccessTime{};

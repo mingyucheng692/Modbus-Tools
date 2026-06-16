@@ -172,7 +172,7 @@ void PollingController::handlePollCompletion(bool success, int rttMs, int retryC
         const bool escalateToError = connectionFault
             || zeroSuccessWindowExceeded
             || context_.consecutiveErrorCount >= threshold;
-        const bool shouldLogEscalatedError = !context_.errorEscalated
+        const bool shouldLogEscalatedError = context_.state != PollState::Escalated
             || error != context_.lastErrorText
             || (now - context_.lastErrorLogTime) >= std::chrono::seconds(5);
 
@@ -187,7 +187,7 @@ void PollingController::handlePollCompletion(bool success, int rttMs, int retryC
             if (connectionFault) {
                 event.summary = tr("Poll Error: Connection unavailable during polling (%1)")
                     .arg(error);
-            } else if (!context_.errorEscalated) {
+            } else if (context_.state != PollState::Escalated) {
                 event.summary = tr("Poll Error escalated after %1 consecutive failures: %2")
                     .arg(context_.consecutiveErrorCount)
                     .arg(error);
@@ -203,7 +203,6 @@ void PollingController::handlePollCompletion(bool success, int rttMs, int retryC
                 context_.lastErrorLogTime = now;
             }
 
-            context_.errorEscalated = true;
             context_.lastErrorText = error;
 
             if (context_.state != PollState::Escalated) {
@@ -238,7 +237,6 @@ int PollingController::pollErrorThreshold() const {
 
 void PollingController::resetPollErrorTracking() {
     context_.consecutiveErrorCount = 0;
-    context_.errorEscalated = false;
     context_.lastErrorText.clear();
     context_.lastErrorLogTime = std::chrono::steady_clock::time_point{};
     context_.failureStreakStartTime = std::chrono::steady_clock::time_point{};
@@ -249,7 +247,7 @@ void PollingController::flushPollSummary(bool force) {
     if (total <= 0) {
         return;
     }
-    if (!force && context_.errorEscalated && context_.summarySuccessCount == 0) {
+    if (!force && context_.state == PollState::Escalated && context_.summarySuccessCount == 0) {
         return;
     }
     const auto now = std::chrono::steady_clock::now();

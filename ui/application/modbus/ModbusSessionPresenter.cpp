@@ -33,9 +33,7 @@ void ModbusSessionPresenter::connectTcp(const QString& ip, int port,
     spdlog::info("ModbusSessionPresenter[TCP]: Connect requested to {}:{}", ip.toStdString(), port);
     releaseStack();
     suppressDisconnectAlert_ = false;
-    sessionConnected_ = false;
-    transportConnected_ = false;
-    connectionAttemptInProgress_ = true;
+    connectionState_ = SessionConnectionState::Connecting;
     const quint64 generation = connectionGeneration_;
     setConnectionWidgetConnecting();
 
@@ -45,7 +43,7 @@ void ModbusSessionPresenter::connectTcp(const QString& ip, int port,
 
     initStack(config);
     if (!worker_ || !channel_) {
-        connectionAttemptInProgress_ = false;
+        connectionState_ = SessionConnectionState::Disconnected;
         setConnectionWidgetDisconnected();
         emit connectFinished(false, tr("Failed to create Modbus stack"));
         return;
@@ -70,9 +68,7 @@ void ModbusSessionPresenter::connectRtu(const io::SerialConfig& serialConfig,
     spdlog::info("ModbusSessionPresenter[RTU]: Connect requested to {}", serialConfig.portName.toStdString());
 
     releaseStack();
-    sessionConnected_ = false;
-    transportConnected_ = false;
-    connectionAttemptInProgress_ = true;
+    connectionState_ = SessionConnectionState::Connecting;
     setConnectionWidgetConnecting();
 
     if (trafficLogController_) {
@@ -82,7 +78,7 @@ void ModbusSessionPresenter::connectRtu(const io::SerialConfig& serialConfig,
 
     initStack(modbusConfig);
     if (!worker_ || !channel_) {
-        connectionAttemptInProgress_ = false;
+        connectionState_ = SessionConnectionState::Disconnected;
         setConnectionWidgetDisconnected();
         emit connectFinished(false, tr("Failed to create Modbus stack"));
         return;
@@ -105,9 +101,7 @@ void ModbusSessionPresenter::requestDisconnect() {
     spdlog::info("ModbusSessionPresenter[{}]: Disconnect requested",
                  mode_ == SessionMode::Tcp ? "TCP" : "RTU");
     suppressDisconnectAlert_ = true;
-    connectionAttemptInProgress_ = false;
-    transportConnected_ = false;
-    sessionConnected_ = false;
+    connectionState_ = SessionConnectionState::Disconnecting;
     setConnectionWidgetDisconnecting();
     if (trafficLogController_) {
         trafficLogController_->logConnectionInfo(tr("Disconnecting..."));
@@ -119,9 +113,7 @@ void ModbusSessionPresenter::releaseStack() {
     if (pollingController_) pollingController_->reset();
     ++connectionGeneration_;
     suppressDisconnectAlert_ = true;
-    connectionAttemptInProgress_ = false;
-    transportConnected_ = false;
-    sessionConnected_ = false;
+    connectionState_ = SessionConnectionState::Disconnected;
     const bool wasLinked = linked_;
     linked_ = false;
     if (controlWidget_) {
@@ -178,7 +170,7 @@ void ModbusSessionPresenter::updateSettings(const ModbusTimingParams& params) {
 }
 
 bool ModbusSessionPresenter::isSessionConnected() const {
-    return sessionConnected_;
+    return connectionState_ == SessionConnectionState::Connected;
 }
 
 quint64 ModbusSessionPresenter::connectionGeneration() const {
@@ -227,7 +219,7 @@ void ModbusSessionPresenter::setPollingController(PollingController* controller)
             pollingController_, &PollingController::handleSessionConnected);
     connect(this, &ModbusSessionPresenter::sessionDisconnected,
             pollingController_, &PollingController::handleSessionDisconnected);
-    pollingController_->setSessionConnected(sessionConnected_);
+    pollingController_->setSessionConnected(connectionState_ == SessionConnectionState::Connected);
 }
 
 void ModbusSessionPresenter::setRequestService(RequestSubmissionService* service) {
@@ -317,7 +309,7 @@ void ModbusSessionPresenter::finalizePendingRelease(const std::shared_ptr<Pendin
     pending->channel.reset();
     pending->thread.reset();
 
-    if (!worker_ && !channel_ && !client_ && !connectionAttemptInProgress_) {
+    if (!worker_ && !channel_ && !client_ && connectionState_ != SessionConnectionState::Connecting) {
         setConnectionWidgetDisconnected();
     }
 
@@ -400,34 +392,35 @@ void ModbusSessionPresenter::setupWorkerSignals(quint64 generation) {
 void ModbusSessionPresenter::handleChannelStateTransition(io::ChannelState state,
                                                        quint64 generation) {
     Q_UNUSED(generation);
-    const bool hadLiveTransport = connectionAttemptInProgress_ || transportConnected_ || sessionConnected_;
+    const bool hadLiveTransport = connectionState_ != SessionConnectionState::Disconnected;
     const bool isTcp = (mode_ == SessionMode::Tcp);
 
     switch (state) {
     case io::ChannelState::Opening:
-        if (!sessionConnected_) {
+        if (connectionState_ != SessionConnectionState::Connected) {
             setConnectionWidgetConnecting();
         }
         return;
-    case io::ChannelState::Open:
-        transportConnected_ = true;
-        if (!sessionConnected_) {
+    case io::ChannelState::Open: {
+        const bool wasNotConnected = (connectionState_ != SessionConnectionState::Connected);
+        connectionState_ = SessionConnectionState::TransportConnected;
+        if (wasNotConnected) {
             setConnectionWidgetTransportConnected();
             if (isTcp && trafficLogController_) {
                 trafficLogController_->logConnectionInfo(tr("Transport connected, validating session..."));
             }
         }
         return;
+    }
     case io::ChannelState::Closing:
         setConnectionWidgetDisconnecting();
         return;
     case io::ChannelState::Closed:
-    case io::ChannelState::Error:
-        transportConnected_ = false;
-        connectionAttemptInProgress_ = false;
-        if (sessionConnected_ || hadLiveTransport) {
-            const bool shouldShowDisconnectAlert = isTcp && sessionConnected_ && !suppressDisconnectAlert_;
-            sessionConnected_ = false;
+    case io::ChannelState::Error: {
+        const bool wasConnected = (connectionState_ == SessionConnectionState::Connected);
+        connectionState_ = SessionConnectionState::Disconnected;
+        if (wasConnected || hadLiveTransport) {
+            const bool shouldShowDisconnectAlert = isTcp && wasConnected && !suppressDisconnectAlert_;
             setConnectionWidgetDisconnected();
             if (controlWidget_) {
                 controlWidget_->setPollingEnabled(false);
@@ -442,17 +435,15 @@ void ModbusSessionPresenter::handleChannelStateTransition(io::ChannelState state
         }
         return;
     }
+    }
 }
 
 void ModbusSessionPresenter::handleConnectFinished(bool ok, const QString& error,
                                                     quint64 generation) {
     if (generation != connectionGeneration_) return;
 
-    connectionAttemptInProgress_ = false;
-
     if (!ok) {
-        transportConnected_ = false;
-        sessionConnected_ = false;
+        connectionState_ = SessionConnectionState::Disconnected;
         setConnectionWidgetDisconnected();
         if (controlWidget_) {
             controlWidget_->setPollingEnabled(false);
@@ -468,8 +459,7 @@ void ModbusSessionPresenter::handleConnectFinished(bool ok, const QString& error
     }
 
     suppressDisconnectAlert_ = false;
-    transportConnected_ = true;
-    sessionConnected_ = true;
+    connectionState_ = SessionConnectionState::Connected;
     setConnectionWidgetConnected();
     if (trafficLogController_) {
         trafficLogController_->logConnectionInfo(tr("Connected"));

@@ -115,7 +115,6 @@ TEST_F(PollingControllerTest, ConsecutiveFailures_DegradeThenEscalate) {
     processStateMachine();
 
     EXPECT_EQ(controller_->currentState(), PollState::Escalated);
-    EXPECT_TRUE(controller_->context().errorEscalated);
 }
 
 TEST_F(PollingControllerTest, SuccessAfterFailures_RecoversAndClearsErrorTracking) {
@@ -133,7 +132,6 @@ TEST_F(PollingControllerTest, SuccessAfterFailures_RecoversAndClearsErrorTrackin
 
     EXPECT_EQ(controller_->currentState(), PollState::Polling);
     EXPECT_EQ(controller_->context().consecutiveErrorCount, 0);
-    EXPECT_FALSE(controller_->context().errorEscalated);
 }
 
 TEST_F(PollingControllerTest, StopPoll_TransitionsToIdleAndClearsTracking) {

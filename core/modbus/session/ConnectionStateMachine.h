@@ -63,6 +63,7 @@ private:
         Transition{State::Disconnecting, State::Disconnected},
         Transition{State::Failed,        State::Reconnecting},
         Transition{State::Failed,        State::Disconnecting},
+        Transition{State::Failed,        State::Disconnected},
         Transition{State::Reconnecting,  State::Connected},
         Transition{State::Reconnecting,  State::Failed},
         Transition{State::Reconnecting,  State::Disconnecting},
