@@ -144,13 +144,8 @@ void ModbusWorker::handleSubmit(base::Pdu request, int slaveId, int requestId) {
         return;
     }
     if (!client_->isConnected()) {
-        if (!client_->connect()) {
-            const QString reason = client_->lastChannelError().isEmpty()
-                ? QStringLiteral("Failed to connect")
-                : client_->lastChannelError();
-            emit requestFinished(requestId, session::ModbusResponse::Error(reason));
-            return;
-        }
+        emit requestFinished(requestId, session::ModbusResponse::Error("Not connected"));
+        return;
     }
     auto response = client_->sendRequest(request, slaveId);
     emit requestFinished(requestId, response);
@@ -199,13 +194,8 @@ void ModbusWorker::handleSendRaw(QByteArray data) {
         return;
     }
     if (!client_->isConnected()) {
-        if (!client_->connect()) {
-            const QString reason = client_->lastChannelError().isEmpty()
-                ? QStringLiteral("Failed to connect")
-                : client_->lastChannelError();
-            spdlog::warn("ModbusWorker: sendRaw connect failed: {}", reason.toStdString());
-            return;
-        }
+        spdlog::warn("ModbusWorker: sendRaw skipped — not connected");
+        return;
     }
     client_->sendRaw(data);
 }

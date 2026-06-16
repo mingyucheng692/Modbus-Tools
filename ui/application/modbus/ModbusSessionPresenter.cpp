@@ -9,6 +9,7 @@
 #include "modbus/factory/ModbusFactory.h"
 #include <QMetaObject>
 #include <QPointer>
+#include <QTimer>
 #include <QApplication>
 #include <algorithm>
 #include <spdlog/spdlog.h>
@@ -137,6 +138,22 @@ void ModbusSessionPresenter::releaseStack() {
 
     pendingReleases_.push_back(release);
     setConnectionWidgetDisconnecting();
+
+    // 5-second safety timeout: if the worker never emits stopped, force cleanup
+    release->timeoutTimer = new QTimer(this);
+    release->timeoutTimer->setSingleShot(true);
+    QObject::connect(release->timeoutTimer, &QTimer::timeout, this, [this, release]() {
+        const auto it = std::find(pendingReleases_.begin(), pendingReleases_.end(), release);
+        if (it == pendingReleases_.end()) {
+            return;
+        }
+        spdlog::warn("ModbusSessionPresenter: PendingReleaseContext timeout — force terminating");
+        if (release->thread && release->thread->isRunning()) {
+            release->thread->terminate();
+        }
+        finalizePendingRelease(release);
+    });
+    release->timeoutTimer->start(5000);
 
     if (release->thread && release->thread->isRunning()) {
         release->thread->requestInterruption();
@@ -299,6 +316,12 @@ void ModbusSessionPresenter::finalizePendingRelease(const std::shared_ptr<Pendin
         return;
     }
     pendingReleases_.erase(it);
+
+    if (pending->timeoutTimer) {
+        pending->timeoutTimer->stop();
+        pending->timeoutTimer->deleteLater();
+        pending->timeoutTimer = nullptr;
+    }
 
     if (pending->thread && pending->thread->isRunning()) {
         pending->thread->quit();

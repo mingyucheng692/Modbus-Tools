@@ -1,6 +1,7 @@
 #pragma once
 
 #include <QObject>
+#include <QPointer>
 #include <memory>
 #include <cstdint>
 #include <vector>
@@ -10,6 +11,7 @@
 #include "ModbusTypes.h"
 
 class QThread;
+class QTimer;
 class QWidget;
 
 namespace io {
@@ -114,6 +116,7 @@ private:
         std::shared_ptr<::modbus::session::IModbusClient> client;
         std::shared_ptr<::modbus::dispatch::ModbusWorker> worker;
         std::shared_ptr<QThread> thread;
+        QTimer* timeoutTimer = nullptr;
     };
 
     SessionMode mode_;
@@ -130,11 +133,11 @@ private:
     int retries_;
     int retryIntervalMs_;
 
-    TrafficLogController* trafficLogController_ = nullptr;
-    PollingController* pollingController_ = nullptr;
-    RequestSubmissionService* requestService_ = nullptr;
-    QWidget* connectionWidget_ = nullptr;
-    ui::widgets::ControlWidget* controlWidget_ = nullptr;
+    QPointer<TrafficLogController> trafficLogController_;
+    QPointer<PollingController> pollingController_;
+    QPointer<RequestSubmissionService> requestService_;
+    QPointer<QWidget> connectionWidget_;
+    QPointer<ui::widgets::ControlWidget> controlWidget_;
     std::vector<std::shared_ptr<PendingReleaseContext>> pendingReleases_;
 };
 
