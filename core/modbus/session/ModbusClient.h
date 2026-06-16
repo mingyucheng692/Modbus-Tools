@@ -18,6 +18,9 @@
 #include "ConnectionStateMachine.h"
 #include "RequestStateMachine.h"
 #include "FlowController.h"
+#include "TimeoutController.h"
+#include "ConnectionManager.h"
+#include "RequestExecutor.h"
 #include "../transport/ITransport.h"
 #include "infra/io/IChannel.h"
 #include <cassert>
@@ -64,35 +67,13 @@ public:
     RequestState requestState() const;
 
 private:
-    struct PendingRequest {
-        int requestId = 0;
-        int slaveId = app::constants::Values::Modbus::kDefaultSlaveId;
-        int timeoutMs = app::constants::Values::Modbus::kDefaultTimeoutMs;
-        int retries = 0;
-        base::FunctionCode functionCode = base::FunctionCode::ReadHoldingRegisters;
-        std::chrono::steady_clock::time_point enqueueAt{};
-    };
+    using PendingRequest = RequestExecutor::PendingRequest;
 
-    ModbusResponse sendRequestInternal(const base::Pdu& request, int slaveId);
-    void onDataReceived(QByteArrayView data);
-    void onChannelError(const QString& error);
     bool ensureConnected(bool allowReconnect);
     bool waitForChannelState(io::ChannelState expectedState,
                              std::chrono::steady_clock::time_point deadline,
                              QString* errorOut);
-    bool waitForWriteDrain(std::chrono::steady_clock::time_point deadline,
-                           std::chrono::steady_clock::time_point* drainedAt);
-    bool waitForEventOrTimeout(std::chrono::steady_clock::time_point deadline);
-    bool waitForCondition(const std::function<bool()>& predicate,
-                          std::chrono::steady_clock::time_point deadline);
-    bool isRtuBroadcastRequest(int slaveId, base::FunctionCode functionCode) const;
-    bool shouldWaitForResponse(int slaveId, base::FunctionCode functionCode) const;
-    bool waitForAbortableDelay(std::chrono::steady_clock::duration delay);
-    int enqueuePendingRequest(const base::Pdu& request, int slaveId);
-    void finishPendingRequest(int requestId, bool success, const QString& error);
     void clearRuntimeState(bool clearPendingQueue);
-    ModbusResponse handleExceptionResponse(const base::Pdu& responsePdu, int slaveId,
-                                           const base::Pdu& requestPdu);
 
     std::shared_ptr<io::IChannel> channel_;
     std::shared_ptr<transport::ITransport> transport_;
@@ -100,19 +81,14 @@ private:
     RequestValidator requestValidator_;
 
     // 同步机制：等待响应
-    // @guarded_by mutex_ — responseReady_, lastChannelError_
     std::mutex mutex_;
     std::condition_variable cv_;
-    bool responseReady_ = false;
-    QString lastChannelError_;
     io::IChannel::HandlerId stateHandlerId_ = 0;
     
-    // 保护 sendRequest/sendRaw 串行执行，防止请求路径发生重入
-    // 断言在 Debug 下用于检测重入调用链，Release 下被编译移除
-    std::mutex requestMutex_;
-    std::atomic<bool> requestLocked_{false};
     std::atomic<bool> aborted_ {false};
+    TimeoutController timeoutController_;
     ConnectionStateMachine connectionStateMachine_;
+    ConnectionManager connectionManager_;
     RequestStateMachine requestStateMachine_;
 
     // @guarded_by pendingMutex_ — pendingRequests_, nextRequestId_
@@ -123,9 +99,7 @@ private:
     int nextRequestId_ = 1;
     std::deque<PendingRequest> pendingRequests_;
 
-    // @guarded_by mutex_ — dupeTracker_ (deduplication of Modbus exception responses)
-    std::map<std::tuple<uint8_t, uint8_t, uint8_t>,
-             std::chrono::steady_clock::time_point> dupeTracker_;
+    RequestExecutor requestExecutor_;
 };
 
 } // namespace modbus::session
