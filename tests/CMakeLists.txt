@@ -40,7 +40,10 @@ function(modbus_add_test_target target_name main_source)
 
     set_property(TARGET ${target_name} PROPERTY AUTOMOC ON)
 
-    target_include_directories(${target_name} PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
+    target_include_directories(${target_name} PRIVATE
+        ${CMAKE_CURRENT_SOURCE_DIR}
+        ${PROJECT_SOURCE_DIR}/infra
+    )
 
     target_link_libraries(${target_name} PRIVATE
         GTest::gtest
@@ -83,6 +86,7 @@ set(TEST_CORE_LOGIC_SOURCES
     unit/modbus/parser/ParserRobustnessTest.cpp
     unit/modbus/parser/ParserTest.cpp
     unit/modbus/session/ModbusClientBoundaryTest.cpp
+    unit/modbus/session/FrameExtractorTest.cpp
     unit/modbus/session/ModbusStateTest.cpp
     unit/modbus/transport/TransportTest.cpp
     unit/update/UpdateManagerInstallStrategyTest.cpp
@@ -110,6 +114,11 @@ set(TEST_INTEGRATION_SOURCES
     integration/session/ClientIntegrationTest.cpp
 )
 
+set(TEST_MODBUS_STABILITY_SOURCES
+    unit/modbus/session/FrameExtractorTest.cpp
+    unit/modbus/transport/TransportTest.cpp
+)
+
 modbus_add_test_target(test_core_logic
     ${CMAKE_CURRENT_SOURCE_DIR}/TestMainCore.cpp
     SOURCES "${TEST_CORE_LOGIC_SOURCES}"
@@ -132,5 +141,11 @@ modbus_add_test_target(test_integration
     ${CMAKE_CURRENT_SOURCE_DIR}/TestMainCore.cpp
     SKIP_DISCOVERY
     SOURCES "${TEST_INTEGRATION_SOURCES}"
+    LIBS core Qt6::Core
+)
+
+modbus_add_test_target(test_modbus_stability
+    ${CMAKE_CURRENT_SOURCE_DIR}/TestMainCore.cpp
+    SOURCES "${TEST_MODBUS_STABILITY_SOURCES}"
     LIBS core Qt6::Core
 )

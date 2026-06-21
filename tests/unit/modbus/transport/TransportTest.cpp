@@ -50,6 +50,47 @@ TEST_F(TransportTest, TcpIntegrityCheck) {
     EXPECT_EQ(tcp_->checkIntegrity(garbage), -1);
 }
 
+TEST_F(TransportTest, TcpParseResponse_MatchingTransaction_ReturnsParsedPdu) {
+    Pdu request(FunctionCode::ReadHoldingRegisters, QByteArray::fromHex("00000001"));
+    QByteArray requestAdu = tcp_->buildRequest(request, 1);
+
+    QByteArray responseAdu;
+    responseAdu.append(requestAdu.first(2));  // transaction id
+    responseAdu.append("\x00\x00", 2);        // protocol id
+    responseAdu.append("\x00\x05", 2);        // unit + fc + byteCount + 2 data bytes
+    responseAdu.append('\x01');               // unit id
+    responseAdu.append('\x03');               // function code
+    responseAdu.append('\x02');               // byte count
+    responseAdu.append('\x00');
+    responseAdu.append('\x7B');
+
+    ParseResponseResult result = tcp_->parseResponse(responseAdu);
+    ASSERT_EQ(result.status, ParseResponseStatus::Ok);
+    ASSERT_TRUE(result.pdu.has_value());
+    EXPECT_EQ(result.pdu->functionCode(), FunctionCode::ReadHoldingRegisters);
+    EXPECT_EQ(result.pdu->data(), QByteArray::fromHex("02007B"));
+}
+
+TEST_F(TransportTest, TcpResetPendingState_MakesOutstandingResponseUnmatched) {
+    Pdu request(FunctionCode::ReadHoldingRegisters, QByteArray::fromHex("00000001"));
+    QByteArray requestAdu = tcp_->buildRequest(request, 1);
+    tcp_->resetPendingState();
+
+    QByteArray responseAdu;
+    responseAdu.append(requestAdu.first(2));  // transaction id
+    responseAdu.append("\x00\x00", 2);        // protocol id
+    responseAdu.append("\x00\x05", 2);        // unit + fc + byteCount + 2 data bytes
+    responseAdu.append('\x01');               // unit id
+    responseAdu.append('\x03');               // function code
+    responseAdu.append('\x02');               // byte count
+    responseAdu.append('\x00');
+    responseAdu.append('\x7B');
+
+    ParseResponseResult result = tcp_->parseResponse(responseAdu);
+    EXPECT_EQ(result.status, ParseResponseStatus::Unmatched);
+    EXPECT_FALSE(result.pdu.has_value());
+}
+
 TEST_F(TransportTest, RtuBuildRequest) {
     Pdu pdu(FunctionCode::ReadHoldingRegisters, QByteArray::fromHex("00000001"));
     QByteArray adu = rtu_->buildRequest(pdu, 1);
