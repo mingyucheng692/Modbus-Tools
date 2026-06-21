@@ -83,6 +83,7 @@ set(TEST_CORE_LOGIC_SOURCES
     unit/modbus/base/ModbusCrcTest.cpp
     unit/modbus/base/ModbusEndianCodecTest.cpp
     unit/modbus/base/ModbusPduTest.cpp
+    unit/modbus/factory/ModbusFactoryThreadingTest.cpp
     unit/modbus/parser/ParserRobustnessTest.cpp
     unit/modbus/parser/ParserTest.cpp
     unit/modbus/session/ModbusClientBoundaryTest.cpp
@@ -115,6 +116,7 @@ set(TEST_INTEGRATION_SOURCES
 )
 
 set(TEST_MODBUS_STABILITY_SOURCES
+    unit/modbus/factory/ModbusFactoryThreadingTest.cpp
     unit/modbus/session/FrameExtractorTest.cpp
     unit/modbus/transport/TransportTest.cpp
 )

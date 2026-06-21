@@ -28,9 +28,11 @@ ModbusClient::RequestState ModbusClient::requestState() const {
 }
 
 void ModbusClient::clearRuntimeState(bool clearPendingQueue) {
-    std::lock_guard<std::mutex> lock(mutex_);
-    frameExtractor_.reset();
-    flowController_.reset();
+    {
+        std::lock_guard<std::mutex> lock(mutex_);
+        frameExtractor_.reset();
+        flowController_.reset();
+    }
     connectionManager_.clearError();
     requestExecutor_.resetState(clearPendingQueue);
     if (transport_) {

@@ -59,6 +59,9 @@ void ModbusSessionPresenter::connectTcp(const QString& ip, int port,
     setupChannelStateHandler(generation);
     setupWorkerSignals(generation);
 
+    if (ioThread_ && !ioThread_->isRunning()) {
+        ioThread_->start();
+    }
     worker_->start();
     worker_->requestConnect();
 }
@@ -94,6 +97,9 @@ void ModbusSessionPresenter::connectRtu(const io::SerialConfig& serialConfig,
     setupChannelStateHandler(generation);
     setupWorkerSignals(generation);
 
+    if (ioThread_ && !ioThread_->isRunning()) {
+        ioThread_->start();
+    }
     worker_->start();
     worker_->requestConnect();
 }
@@ -129,8 +135,10 @@ void ModbusSessionPresenter::releaseStack() {
     release->channel = std::move(channel_);
     release->client = std::move(client_);
     release->worker = std::move(worker_);
+    release->ioThread = std::move(ioThread_);
     release->thread = std::move(workerThread_);
-    if (!release->worker && !release->client && !release->channel && !release->thread) {
+    if (!release->worker && !release->client && !release->channel
+        && !release->ioThread && !release->thread) {
         setConnectionWidgetDisconnected();
         emit stackReleased();
         return;
@@ -158,6 +166,9 @@ void ModbusSessionPresenter::releaseStack() {
     if (release->thread && release->thread->isRunning()) {
         release->thread->requestInterruption();
     }
+    if (release->ioThread && release->ioThread->isRunning()) {
+        release->ioThread->requestInterruption();
+    }
 
     if (release->worker) {
         QObject::connect(release->worker.get(), &::modbus::dispatch::ModbusWorker::stopped,
@@ -170,6 +181,9 @@ void ModbusSessionPresenter::releaseStack() {
 
     if (release->thread && release->thread->isRunning()) {
         release->thread->quit();
+    }
+    if (release->ioThread && release->ioThread->isRunning()) {
+        release->ioThread->quit();
     }
     finalizePendingRelease(release);
 }
@@ -326,10 +340,14 @@ void ModbusSessionPresenter::finalizePendingRelease(const std::shared_ptr<Pendin
     if (pending->thread && pending->thread->isRunning()) {
         pending->thread->quit();
     }
+    if (pending->ioThread && pending->ioThread->isRunning()) {
+        pending->ioThread->quit();
+    }
 
     pending->worker.reset();
     pending->client.reset();
     pending->channel.reset();
+    pending->ioThread.reset();
     pending->thread.reset();
 
     if (!worker_ && !channel_ && !client_ && connectionState_ != SessionConnectionState::Connecting) {
@@ -353,7 +371,7 @@ bool ModbusSessionPresenter::isLinked() const {
 void ModbusSessionPresenter::initStack(const ::modbus::base::ModbusConfig& config) {
     ::modbus::factory::ModbusFactory factory;
     auto stack = factory.createStack(config);
-    if (!stack.worker || !stack.thread) {
+    if (!stack.worker || !stack.thread || !stack.ioThread) {
         if (trafficLogController_) {
             trafficLogController_->logError(tr("Failed to create Modbus stack"));
         }
@@ -364,6 +382,7 @@ void ModbusSessionPresenter::initStack(const ::modbus::base::ModbusConfig& confi
     channel_ = std::move(stack.channel);
     client_ = std::move(stack.client);
     worker_ = std::move(stack.worker);
+    ioThread_ = std::move(stack.ioThread);
     workerThread_ = std::move(stack.thread);
 }
 

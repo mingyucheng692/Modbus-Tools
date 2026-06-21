@@ -32,11 +32,7 @@ void cleanupThread(QThread* thread)
         return;
     }
 
-    if (thread->thread() == QThread::currentThread()) {
-        delete thread;
-    } else {
-        thread->deleteLater();
-    }
+    delete thread;
 }
 
 void cleanupWorker(dispatch::ModbusWorker* worker)
@@ -62,11 +58,13 @@ void cleanupWorker(dispatch::ModbusWorker* worker)
 
 ModbusStack ModbusFactory::createStack(const base::ModbusConfig& config) {
     ModbusStack stack;
-    QThread* threadRaw = new QThread();
-    stack.thread = std::shared_ptr<QThread>(threadRaw, &cleanupThread);
+    QThread* ioThreadRaw = new QThread();
+    QThread* workerThreadRaw = new QThread();
+    stack.ioThread = std::shared_ptr<QThread>(ioThreadRaw, &cleanupThread);
+    stack.thread = std::shared_ptr<QThread>(workerThreadRaw, &cleanupThread);
 
     // 1. 创建底层通道 (IO)
-    stack.channel = createChannel(config, threadRaw);
+    stack.channel = createChannel(config, ioThreadRaw);
     if (!stack.channel) return stack;
 
     // 2. 创建传输层策略 (Protocol)
@@ -83,7 +81,7 @@ ModbusStack ModbusFactory::createStack(const base::ModbusConfig& config) {
     return stack;
 }
 
-std::shared_ptr<io::IChannel> ModbusFactory::createChannel(const base::ModbusConfig& config, QThread* workerThread) {
+std::shared_ptr<io::IChannel> ModbusFactory::createChannel(const base::ModbusConfig& config, QThread* ioThread) {
     if (config.mode == base::ModbusMode::RTU) {
         auto serial = std::make_shared<io::SerialChannel>();
         io::SerialConfig serialConfig;
@@ -93,12 +91,12 @@ std::shared_ptr<io::IChannel> ModbusFactory::createChannel(const base::ModbusCon
         serialConfig.stopBits = static_cast<QSerialPort::StopBits>(config.stopBits);
         serialConfig.parity = static_cast<QSerialPort::Parity>(config.parity);
         serial->setConfig(serialConfig);
-        serial->moveToThread(workerThread);
+        serial->moveToThread(ioThread);
         return serial;
     } else {
         auto tcp = std::make_shared<io::TcpChannel>();
         tcp->setEndpoint(config.ipAddress, config.port);
-        tcp->moveToThread(workerThread);
+        tcp->moveToThread(ioThread);
         return tcp;
     }
 }

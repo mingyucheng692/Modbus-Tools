@@ -22,6 +22,7 @@ namespace modbus::factory {
 struct ModbusStack {
     std::shared_ptr<io::IChannel> channel;
     std::shared_ptr<session::IModbusClient> client;
+    std::shared_ptr<QThread> ioThread;
     std::shared_ptr<QThread> thread;
     std::shared_ptr<dispatch::ModbusWorker> worker;
 };
