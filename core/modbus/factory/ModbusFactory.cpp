@@ -45,8 +45,11 @@ void cleanupThread(QThread* thread)
     }
 
     if (thread->isRunning()) {
-        // Releasing a started stack does not define thread shutdown policy here.
-        // Supported callers must already have initiated quit()/wait() before release.
+        thread->quit();
+        if (QThread::currentThread() != thread && thread->wait(1000)) {
+            delete thread;
+            return;
+        }
         QObject::connect(thread, &QThread::finished, thread, &QObject::deleteLater, Qt::UniqueConnection);
         return;
     }

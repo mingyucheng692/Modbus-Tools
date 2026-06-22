@@ -95,7 +95,7 @@ TEST(ModbusFactoryThreadingTest, DestroyStoppedStartedStack_ReleasesWorkerAndThr
     EXPECT_TRUE(worker.isNull());
 }
 
-TEST(ModbusFactoryThreadingTest, ReleasingStartedStack_DoesNotOwnIoThreadShutdown) {
+TEST(ModbusFactoryThreadingTest, ReleasingStartedStack_ShutsDownWorkerAndIoThreads) {
     ModbusFactory factory;
     auto config = modbus::test::MakeModbusConfig(ModbusMode::TCP);
     ModbusStack stack = factory.createStack(config);
@@ -118,15 +118,7 @@ TEST(ModbusFactoryThreadingTest, ReleasingStartedStack_DoesNotOwnIoThreadShutdow
 
     stack = ModbusStack{};
 
-    ASSERT_FALSE(ioThread.isNull());
-    EXPECT_TRUE(ioThread->isRunning());
     ASSERT_TRUE(waitForCondition([&]() { return worker.isNull(); }));
-    ASSERT_TRUE(waitForCondition([&]() {
-        return workerThread.isNull() || !workerThread->isRunning();
-    }));
-
-    ioThread->quit();
-    ASSERT_TRUE(ioThread->wait(1000));
     ASSERT_TRUE(waitForCondition([&]() { return ioThread.isNull(); }));
     ASSERT_TRUE(waitForCondition([&]() { return workerThread.isNull(); }));
 }
