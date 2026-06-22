@@ -654,18 +654,20 @@ void ModbusSessionPresenter::handleRequestFinished(int requestId,
 
     if (kind == RequestKind::Poll) {
         if (pollingController_) {
-            pollingController_->handleResponse(response.isSuccess,
+            pollingController_->handleResponse(!response.isError(),
                                                 response.rttMs,
                                                 response.retryCount,
                                                 response.error);
         }
     }
 
-    if (response.isSuccess && response.noResponseExpected) {
+    switch (response.kind) {
+    case ::modbus::session::ModbusResponseKind::NoResponseExpected:
         if (trafficLogController_) {
             trafficLogController_->logBroadcastWriteSuccess(response.retryCount);
         }
-    } else if (response.isSuccess) {
+        break;
+    case ::modbus::session::ModbusResponseKind::Success:
         if (controlWidget_) {
             controlWidget_->recordRx(response.rttMs);
         }
@@ -675,7 +677,8 @@ void ModbusSessionPresenter::handleRequestFinished(int requestId,
         } else if (kind == RequestKind::Write && trafficLogController_) {
             trafficLogController_->logWriteSuccess(response.retryCount);
         }
-    } else {
+        break;
+    case ::modbus::session::ModbusResponseKind::Error:
         if (controlWidget_) {
             controlWidget_->recordError();
         }
@@ -683,6 +686,7 @@ void ModbusSessionPresenter::handleRequestFinished(int requestId,
         if (kind != RequestKind::Poll && trafficLogController_) {
             trafficLogController_->logRequestError(response.error, response.retryCount);
         }
+        break;
     }
 
     emit requestFinished(requestId, response);

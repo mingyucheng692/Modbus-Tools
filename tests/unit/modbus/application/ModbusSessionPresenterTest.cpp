@@ -1,7 +1,9 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
+#include <QCoreApplication>
 #include <QSignalSpy>
 
+#include "../../../core/modbus/session/IModbusClient.h"
 #include "../../../ui/application/modbus/ModbusSessionPresenter.h"
 #include "../../../ui/application/modbus/RequestSubmissionService.h"
 #include "../../../ui/application/modbus/PollingController.h"
@@ -13,6 +15,26 @@ using namespace testing;
 using namespace ui::application::modbus;
 
 namespace {
+
+class ModbusResponseRelay : public QObject {
+    Q_OBJECT
+public:
+    using QObject::QObject;
+
+signals:
+    void sendResponse(int requestId, modbus::session::ModbusResponse response);
+    void responseDelivered();
+
+public:
+    modbus::session::ModbusResponse lastResponse;
+    int lastRequestId = -1;
+
+    void accept(int requestId, modbus::session::ModbusResponse response) {
+        lastRequestId = requestId;
+        lastResponse = std::move(response);
+        emit responseDelivered();
+    }
+};
 
 class ModbusSessionPresenterTest : public Test {
 protected:
@@ -156,6 +178,30 @@ TEST_F(ModbusSessionPresenterTest, Shutdown_IncrementsConnectionGeneration) {
     EXPECT_GT(tcpPresenter_->connectionGeneration(), gen1);
 }
 
+TEST_F(ModbusSessionPresenterTest, ModbusResponse_QueuedDeliveryPreservesExplicitKind) {
+    ModbusResponseRelay relay;
+    QSignalSpy deliveredSpy(&relay, &ModbusResponseRelay::responseDelivered);
+
+    QObject::connect(&relay, &ModbusResponseRelay::sendResponse,
+                     &relay, &ModbusResponseRelay::accept,
+                     Qt::QueuedConnection);
+
+    emit relay.sendResponse(42,
+                            modbus::session::ModbusResponse::NoResponseExpected(
+                                ::modbus::base::Pdu(static_cast<::modbus::base::FunctionCode>(0x10)),
+                                1));
+
+    for (int i = 0; i < 10 && deliveredSpy.count() == 0; ++i) {
+        QCoreApplication::processEvents();
+    }
+
+    ASSERT_EQ(deliveredSpy.count(), 1);
+    EXPECT_EQ(relay.lastRequestId, 42);
+    EXPECT_EQ(relay.lastResponse.kind, modbus::session::ModbusResponseKind::NoResponseExpected);
+    EXPECT_TRUE(relay.lastResponse.isSuccess);
+    EXPECT_TRUE(relay.lastResponse.isNoResponseExpected());
+}
+
 TEST_F(ModbusSessionPresenterTest, DefaultTimingParams_AreFromConstants) {
     ModbusTimingParams defaultParams;
     defaultParams.timeout = std::chrono::milliseconds(3000);
@@ -166,3 +212,5 @@ TEST_F(ModbusSessionPresenterTest, DefaultTimingParams_AreFromConstants) {
 }
 
 } // namespace
+
+#include "ModbusSessionPresenterTest.moc"

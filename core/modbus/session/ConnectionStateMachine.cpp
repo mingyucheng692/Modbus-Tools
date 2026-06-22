@@ -30,7 +30,7 @@ bool ConnectionStateMachine::tryTransition(State newState, const char* reason) {
         }
 
         if (!isValidTransition(oldState, newState)) {
-            spdlog::warn("ConnectionStateMachine: invalid transition {} -> {} ({})",
+            spdlog::error("ConnectionStateMachine: invalid transition {} -> {} ({})",
                          toString(oldState), toString(newState),
                          reason ? reason : "");
             return false;

@@ -70,7 +70,7 @@ int ModbusTcpTransport::checkIntegrity(const QByteArray& data) {
     base::TcpAduFields fields;
     const int result = base::inspectTcpAdu(data, &fields);
     if (result > 0 && fields.length > config::Modbus::kMaxMbapLength) {
-        spdlog::warn(
+        spdlog::error(
             "ModbusTcpTransport: MBAP length {} exceeds limit {}, rejecting",
             fields.length, config::Modbus::kMaxMbapLength);
         return -1;

@@ -30,7 +30,7 @@ bool RequestStateMachine::tryTransition(State newState, const char* reason) {
         }
 
         if (!isValidTransition(oldState, newState)) {
-            spdlog::warn("RequestStateMachine: invalid transition {} -> {} ({})",
+            spdlog::error("RequestStateMachine: invalid transition {} -> {} ({})",
                          toString(oldState), toString(newState),
                          reason ? reason : "");
             return false;

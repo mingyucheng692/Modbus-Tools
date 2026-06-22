@@ -17,8 +17,15 @@
 
 namespace modbus::session {
 
+enum class ModbusResponseKind {
+    Success,
+    NoResponseExpected,
+    Error
+};
+
 // 响应结果类型：包含 Pdu 或错误信息
 struct ModbusResponse {
+    ModbusResponseKind kind = ModbusResponseKind::Error;
     base::Pdu pdu;
     bool isSuccess = false;
     QString error;
@@ -28,8 +35,13 @@ struct ModbusResponse {
     int attemptCount = 0;
     int retryCount = 0;
 
+    bool hasPdu() const { return kind != ModbusResponseKind::Error; }
+    bool isError() const { return kind == ModbusResponseKind::Error; }
+    bool isNoResponseExpected() const { return kind == ModbusResponseKind::NoResponseExpected; }
+
     static ModbusResponse Success(base::Pdu pdu, int rttMs = -1, int attemptCount = 0) {
         ModbusResponse response;
+        response.kind = ModbusResponseKind::Success;
         response.pdu = std::move(pdu);
         response.isSuccess = true;
         response.rttMs = rttMs;
@@ -42,6 +54,7 @@ struct ModbusResponse {
 
     static ModbusResponse NoResponseExpected(base::Pdu pdu, int attemptCount = 0) {
         ModbusResponse response;
+        response.kind = ModbusResponseKind::NoResponseExpected;
         response.pdu = std::move(pdu);
         response.isSuccess = true;
         response.rttMs = -1;
@@ -54,6 +67,7 @@ struct ModbusResponse {
     
     static ModbusResponse Error(QString error, int attemptCount = 0) {
         ModbusResponse response;
+        response.kind = ModbusResponseKind::Error;
         response.error = std::move(error);
         response.isSuccess = false;
         response.rttMs = -1;

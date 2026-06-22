@@ -140,7 +140,7 @@ void FrameExtractor::feed(QByteArrayView data)
         buffer_.append(data);
 
         if (buffer_.size() > app::constants::Values::Modbus::kMaxRtuBufferedBytes) {
-            spdlog::warn(
+            spdlog::error(
                 "FrameExtractor: RTU buffer exceeded {} bytes limit, clearing",
                 app::constants::Values::Modbus::kMaxRtuBufferedBytes);
             buffer_.clear();
@@ -150,7 +150,7 @@ void FrameExtractor::feed(QByteArrayView data)
     } else {
         buffer_.append(data);
         if (buffer_.size() > app::constants::Values::Modbus::kMaxTcpBufferedBytes) {
-            spdlog::warn(
+            spdlog::error(
                 "FrameExtractor: TCP buffer exceeded {} bytes limit, "
                 "dropping oldest bytes",
                 app::constants::Values::Modbus::kMaxTcpBufferedBytes);
@@ -171,7 +171,7 @@ void FrameExtractor::processTcpBuffer()
         const int integrity = base::inspectTcpAdu(buffer_);
         if (integrity > 0) {
             if (integrity > config::Modbus::kMaxAdpuSize) {
-                spdlog::warn(
+                spdlog::error(
                     "FrameExtractor: TCP frame size {} exceeds ADPU limit {}, discarding",
                     integrity, config::Modbus::kMaxAdpuSize);
                 buffer_.remove(0, integrity);
@@ -225,7 +225,7 @@ void FrameExtractor::processRtuBuffer(std::chrono::steady_clock::time_point now)
     }
 
     if (buffer_.size() > config::Modbus::kMaxAdpuSize) {
-        spdlog::warn(
+        spdlog::error(
             "FrameExtractor: RTU frame size {} exceeds ADPU limit {}, discarding",
             buffer_.size(), config::Modbus::kMaxAdpuSize);
         buffer_.clear();
