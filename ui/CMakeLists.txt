@@ -2,6 +2,64 @@ set(CMAKE_AUTOMOC ON)
 set(CMAKE_AUTOUIC ON)
 set(CMAKE_AUTORCC ON)
 
+function(modbus_target_embed_translations target_name)
+    if(NOT TARGET ${target_name})
+        message(FATAL_ERROR "Target '${target_name}' must exist before embedding translations")
+    endif()
+
+    cmake_parse_arguments(I18N "" "OUTPUT_DIR" "TS_FILES" ${ARGN})
+    if(NOT I18N_TS_FILES)
+        return()
+    endif()
+
+    if(NOT I18N_OUTPUT_DIR)
+        set(I18N_OUTPUT_DIR "${CMAKE_BINARY_DIR}/translations")
+    endif()
+
+    set(qm_files "")
+    foreach(ts_file IN LISTS I18N_TS_FILES)
+        get_filename_component(ts_basename "${ts_file}" NAME_WE)
+        set(qm_file "${I18N_OUTPUT_DIR}/${ts_basename}.qm")
+        add_custom_command(
+            OUTPUT "${qm_file}"
+            COMMAND Qt6::lrelease
+                    -silent
+                    "${ts_file}"
+                    -qm "${qm_file}"
+            DEPENDS "${ts_file}"
+            COMMENT "Generating translation: ${ts_basename}.qm"
+            VERBATIM
+        )
+        list(APPEND qm_files "${qm_file}")
+    endforeach()
+
+    set(generated_dir "${CMAKE_CURRENT_BINARY_DIR}/generated")
+    set(resource_file "${generated_dir}/${target_name}_i18n.qrc")
+    set(qm_list_file "${generated_dir}/${target_name}_i18n_qm_files.cmake")
+    file(MAKE_DIRECTORY "${generated_dir}")
+
+    set(qm_list_content "set(QM_FILES\n")
+    foreach(qm_file IN LISTS qm_files)
+        file(TO_CMAKE_PATH "${qm_file}" qm_file_path)
+        string(APPEND qm_list_content "    \"${qm_file_path}\"\n")
+    endforeach()
+    string(APPEND qm_list_content ")\n")
+    file(GENERATE OUTPUT "${qm_list_file}" CONTENT "${qm_list_content}")
+
+    add_custom_command(
+        OUTPUT "${resource_file}"
+        COMMAND ${CMAKE_COMMAND}
+                -DOUTPUT_FILE=${resource_file}
+                -DQM_FILES_CMAKE=${qm_list_file}
+                -P "${CMAKE_SOURCE_DIR}/cmake/GenerateEmbeddedI18nQrc.cmake"
+        DEPENDS ${qm_files} "${qm_list_file}"
+        COMMENT "Generating embedded i18n resource manifest for ${target_name}"
+        VERBATIM
+    )
+
+    target_sources(${target_name} PRIVATE "${resource_file}")
+endfunction()
+
 add_library(ui STATIC)
 
 target_sources(ui PRIVATE
@@ -113,50 +171,10 @@ set(ui_translation_ts
     ${CMAKE_CURRENT_SOURCE_DIR}/i18n/Modbus-Tools_zh_TW.ts
 )
 
-set(ui_translation_output_dir "${CMAKE_BINARY_DIR}/translations")
-
-set(ui_translation_qm_files "")
-foreach(ts_file IN LISTS ui_translation_ts)
-    get_filename_component(ts_basename "${ts_file}" NAME_WE)
-    set(qm_file "${ui_translation_output_dir}/${ts_basename}.qm")
-    add_custom_command(
-        OUTPUT "${qm_file}"
-        COMMAND Qt6::lrelease
-                -silent
-                "${ts_file}"
-                -qm "${qm_file}"
-        DEPENDS "${ts_file}"
-        COMMENT "Generating translation: ${ts_basename}.qm"
-        VERBATIM
-    )
-    list(APPEND ui_translation_qm_files "${qm_file}")
-endforeach()
-
-set(ui_i18n_resource_file "${CMAKE_CURRENT_BINARY_DIR}/generated/i18n.qrc")
-set(ui_embedded_i18n_qm_list_file "${CMAKE_CURRENT_BINARY_DIR}/generated/i18n_qm_files.cmake")
-file(MAKE_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/generated")
-
-set(ui_embedded_i18n_qm_list_content "set(QM_FILES\n")
-foreach(ui_translation_qm_file IN LISTS ui_translation_qm_files)
-    file(TO_CMAKE_PATH "${ui_translation_qm_file}" ui_translation_qm_path)
-    string(APPEND ui_embedded_i18n_qm_list_content "    \"${ui_translation_qm_path}\"\n")
-endforeach()
-string(APPEND ui_embedded_i18n_qm_list_content ")\n")
-file(GENERATE OUTPUT "${ui_embedded_i18n_qm_list_file}" CONTENT "${ui_embedded_i18n_qm_list_content}")
-
-add_custom_command(
-    OUTPUT "${ui_i18n_resource_file}"
-    COMMAND ${CMAKE_COMMAND}
-            -DOUTPUT_FILE=${ui_i18n_resource_file}
-            -DQM_FILES_CMAKE=${ui_embedded_i18n_qm_list_file}
-            -P "${CMAKE_SOURCE_DIR}/cmake/GenerateEmbeddedI18nQrc.cmake"
-    DEPENDS ${ui_translation_qm_files} "${ui_embedded_i18n_qm_list_file}"
-    COMMENT "Generating embedded i18n resource manifest"
-    VERBATIM
-)
-
-target_sources(ui PRIVATE
-    "${ui_i18n_resource_file}"
+modbus_target_embed_translations(ui
+    OUTPUT_DIR "${CMAKE_BINARY_DIR}/translations"
+    TS_FILES
+        ${ui_translation_ts}
 )
 
 set(modbus_tools_release_bundle_dependencies Modbus-Tools)
