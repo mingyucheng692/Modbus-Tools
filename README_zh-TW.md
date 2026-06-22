@@ -63,7 +63,7 @@ cmake --build build_release --target release_bundle --config Release --parallel
 ### 說明
 
 - 工具鏈基線：`C++20`、`Qt 6`、`CMake 3.16+`
-- 可選開關包括 `MODBUS_TOOLS_ENABLE_ASAN`、`MODBUS_TOOLS_ENABLE_CLANG_TIDY`、`MODBUS_TOOLS_ENABLE_VERBOSE_RUNTIME_LOGS`
+- 可選開關包括 `MODBUS_TOOLS_ENABLE_ASAN`、`MODBUS_TOOLS_ENABLE_UBSAN`、`MODBUS_TOOLS_ENABLE_CLANG_TIDY`、`MODBUS_TOOLS_ENABLE_VERBOSE_RUNTIME_LOGS`
 - Linux CI 會先安裝額外的 Qt/XCB 執行與構建依賴
 
 ## 品質與測試

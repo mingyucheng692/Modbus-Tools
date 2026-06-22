@@ -10,6 +10,7 @@ option(MODBUS_TOOLS_ENABLE_PCH "Enable precompiled headers" ON)
 option(MODBUS_TOOLS_INCLUDE_PRERELEASE "Include pre-release when checking updates" OFF)
 option(MODBUS_TOOLS_BUILD_TESTS "Build unit tests" OFF)
 option(MODBUS_TOOLS_ENABLE_ASAN "Enable AddressSanitizer (ASan) for memory safety" OFF)
+option(MODBUS_TOOLS_ENABLE_UBSAN "Enable UndefinedBehaviorSanitizer (UBSan) when supported" OFF)
 option(MODBUS_TOOLS_ENABLE_CLANG_TIDY "Enable clang-tidy during compilation when available" OFF)
 # Controls kDefaultFlushLevel: ON → flush on info, OFF → flush on warn.
 # Also gates the MODBUS_TOOLS_VERBOSE_INFO macro (see infra/logging/Logger.h).
@@ -46,6 +47,16 @@ if(MSVC)
         
         # Note: If LNK4044 persists, it typically means LINK.exe is used instead of CL.exe for linking.
         # In modern CMake, /fsanitize=address is the correct flag for both.
+    endif()
+endif()
+
+if(MODBUS_TOOLS_ENABLE_UBSAN)
+    if(MSVC)
+        message(WARNING "MODBUS_TOOLS_ENABLE_UBSAN=ON is not supported on MSVC; continuing without UBSan")
+    else()
+        message(STATUS "UndefinedBehaviorSanitizer (UBSan) enabled")
+        add_compile_options(-fsanitize=undefined -fno-sanitize-recover=undefined)
+        add_link_options(-fsanitize=undefined)
     endif()
 endif()
 

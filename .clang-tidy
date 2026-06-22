@@ -1,0 +1,15 @@
+Checks: >
+  -*,
+  bugprone-*,
+  performance-*,
+  readability-*,
+  modernize-use-nullptr,
+  modernize-use-override
+WarningsAsErrors: ''
+HeaderFilterRegex: '^(c:\\MyCode\\Modbus-Tools\\(core|infra|ui|tests)\\|.*(core|infra|ui|tests)/)'
+FormatStyle: none
+CheckOptions:
+  - key: readability-identifier-length.MinimumVariableNameLength
+    value: '2'
+  - key: readability-function-size.LineThreshold
+    value: '300'

@@ -25,6 +25,7 @@ on:
         options:
           - off
           - asan
+          - ubsan
       platform_set:
         description: Platform scope
         required: true
@@ -89,6 +90,7 @@ jobs:
           $buildType = 'Release'
           $runTests = 'OFF'
           $enableAsan = 'OFF'
+          $enableUbsan = 'OFF'
           $artifactSuffix = 'auto'
           $shouldRun = 'true'
 
@@ -96,6 +98,7 @@ jobs:
             $buildType = '${{ github.event.inputs.build_type }}'
             $runTests = if ('${{ github.event.inputs.run_tests }}' -eq 'true') { 'ON' } else { 'OFF' }
             $enableAsan = if ('${{ github.event.inputs.sanitizer }}' -eq 'asan') { 'ON' } else { 'OFF' }
+            $enableUbsan = if ('${{ github.event.inputs.sanitizer }}' -eq 'ubsan') { 'ON' } else { 'OFF' }
             $artifactSuffix = 'manual'
             $selectedPlatform = '${{ github.event.inputs.platform_set }}'
 
@@ -103,7 +106,7 @@ jobs:
               $shouldRun = 'false'
             }
 
-            if ($enableAsan -eq 'ON' -and $buildType -eq 'Release') {
+            if (($enableAsan -eq 'ON' -or $enableUbsan -eq 'ON') -and $buildType -eq 'Release') {
               $buildType = 'RelWithDebInfo'
             }
           }
@@ -111,6 +114,7 @@ jobs:
           "build_type=$buildType" >> $env:GITHUB_OUTPUT
           "run_tests=$runTests" >> $env:GITHUB_OUTPUT
           "enable_asan=$enableAsan" >> $env:GITHUB_OUTPUT
+          "enable_ubsan=$enableUbsan" >> $env:GITHUB_OUTPUT
           "should_run=$shouldRun" >> $env:GITHUB_OUTPUT
           "artifact_name=ci-$artifactSuffix-${{ github.run_id }}-${{ github.run_attempt }}-${{ matrix.name }}" >> $env:GITHUB_OUTPUT
 
@@ -167,7 +171,8 @@ jobs:
           & cmake -S . -B build_ci `
             -DCMAKE_BUILD_TYPE=${{ steps.ci_options.outputs.build_type }} `
             -DMODBUS_TOOLS_BUILD_TESTS=${{ steps.ci_options.outputs.run_tests }} `
-            -DMODBUS_TOOLS_ENABLE_ASAN=${{ steps.ci_options.outputs.enable_asan }} 2>&1 | Tee-Object -FilePath build_ci/configure.log
+            -DMODBUS_TOOLS_ENABLE_ASAN=${{ steps.ci_options.outputs.enable_asan }} `
+            -DMODBUS_TOOLS_ENABLE_UBSAN=${{ steps.ci_options.outputs.enable_ubsan }} 2>&1 | Tee-Object -FilePath build_ci/configure.log
           if ($LASTEXITCODE -ne 0) {
             exit $LASTEXITCODE
           }
@@ -185,6 +190,7 @@ jobs:
             -DCMAKE_BUILD_TYPE=${{ steps.ci_options.outputs.build_type }} \
             -DMODBUS_TOOLS_BUILD_TESTS=${{ steps.ci_options.outputs.run_tests }} \
             -DMODBUS_TOOLS_ENABLE_ASAN=${{ steps.ci_options.outputs.enable_asan }} \
+            -DMODBUS_TOOLS_ENABLE_UBSAN=${{ steps.ci_options.outputs.enable_ubsan }} \
             2>&1 | tee build_ci/configure.log
 
       - name: Validate platform decoupling invariants

@@ -63,7 +63,7 @@ cmake --build build_release --target release_bundle --config Release --parallel
 ### Notes
 
 - Toolchain: `C++20`, `Qt 6`, `CMake 3.16+`
-- Optional build switches include `MODBUS_TOOLS_ENABLE_ASAN`, `MODBUS_TOOLS_ENABLE_CLANG_TIDY`, and `MODBUS_TOOLS_ENABLE_VERBOSE_RUNTIME_LOGS`
+- Optional build switches include `MODBUS_TOOLS_ENABLE_ASAN`, `MODBUS_TOOLS_ENABLE_UBSAN`, `MODBUS_TOOLS_ENABLE_CLANG_TIDY`, and `MODBUS_TOOLS_ENABLE_VERBOSE_RUNTIME_LOGS`
 - Linux CI installs additional Qt/XCB dependencies before building
 
 ## Quality
