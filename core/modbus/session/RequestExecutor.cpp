@@ -29,6 +29,9 @@ namespace {
 
     constexpr std::size_t kDupeTrackerCleanupThreshold = 1000;
     constexpr auto kDupeTrackerSuppressionWindow = std::chrono::seconds(5);
+    constexpr auto kDupeTrackerSuppressionWindowSeconds =
+        std::chrono::duration_cast<std::chrono::seconds>(
+            kDupeTrackerSuppressionWindow).count();
 
     QString trReq(const char* text) {
         return QObject::tr(text);
@@ -505,9 +508,10 @@ ModbusResponse RequestExecutor::handleExceptionResponse(const base::Pdu& respons
     auto it = dupeTracker_.find(dupeKey);
     if (it != dupeTracker_.end() && (now - it->second) < kDupeTrackerSuppressionWindow) {
         spdlog::debug("ModbusClient: Modbus exception response. "
-                      "Slave={} FC=0x{:02X} Exception=0x{:02X} (duplicate within 5s)",
+                      "Slave={} FC=0x{:02X} Exception=0x{:02X} (duplicate within {}s)",
                       slaveId, static_cast<int>(requestPdu.functionCode()),
-                      static_cast<int>(responsePdu.exceptionCode()));
+                      static_cast<int>(responsePdu.exceptionCode()),
+                      kDupeTrackerSuppressionWindowSeconds);
     } else {
         spdlog::debug("ModbusClient: Modbus exception response. "
                       "Slave={} FC=0x{:02X} Exception=0x{:02X}",
