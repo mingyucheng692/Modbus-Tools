@@ -4,6 +4,7 @@
 #include <QPointer>
 #include <memory>
 #include <cstdint>
+#include <functional>
 #include <vector>
 #include "modbus/base/ModbusConfig.h"
 #include "modbus/session/IModbusClient.h"
@@ -64,6 +65,7 @@ public:
     void connectTcp(const QString& ip, int port, const ::modbus::base::ModbusConfig& config);
     void connectRtu(const io::SerialConfig& serialConfig, const ::modbus::base::ModbusConfig& modbusConfig);
     void requestDisconnect();
+    void shutdown();
     void releaseStack();
 
     void updateSettings(const ModbusTimingParams& params);
@@ -97,6 +99,8 @@ private:
     struct PendingReleaseContext;
 
     void initStack(const ::modbus::base::ModbusConfig& config);
+    void startTcpConnect(const QString& ip, int port, const ::modbus::base::ModbusConfig& config);
+    void startRtuConnect(const io::SerialConfig& serialConfig, const ::modbus::base::ModbusConfig& modbusConfig);
     void setupChannelMonitor(quint64 generation);
     void setupChannelStateHandler(quint64 generation);
     void setupWorkerSignals(quint64 generation);
@@ -109,6 +113,13 @@ private:
     void setConnectionWidgetConnected();
     void setConnectionWidgetDisconnecting();
     void setConnectionWidgetDisconnected();
+    bool hasLiveOrPendingStack() const;
+    void requestRelease(const QString& timeoutMessage);
+    void onReleaseWorkerStopped(const std::shared_ptr<PendingReleaseContext>& pending);
+    void onReleaseThreadFinished(const std::shared_ptr<PendingReleaseContext>& pending, bool ioThread);
+    void tryCompletePendingRelease(const std::shared_ptr<PendingReleaseContext>& pending);
+    void handleReleaseTimeout(const std::shared_ptr<PendingReleaseContext>& pending);
+    void maybeRunDeferredAction();
     void finalizePendingRelease(const std::shared_ptr<PendingReleaseContext>& pending);
 
     struct PendingReleaseContext {
@@ -117,6 +128,11 @@ private:
         std::shared_ptr<::modbus::dispatch::ModbusWorker> worker;
         std::shared_ptr<QThread> ioThread;
         std::shared_ptr<QThread> thread;
+        bool workerStopped = false;
+        bool ioThreadFinished = false;
+        bool threadFinished = false;
+        bool completionLogged = false;
+        QString timeoutMessage;
         QTimer* timeoutTimer = nullptr;
     };
 
@@ -141,6 +157,7 @@ private:
     QPointer<QWidget> connectionWidget_;
     QPointer<ui::widgets::ControlWidget> controlWidget_;
     std::vector<std::shared_ptr<PendingReleaseContext>> pendingReleases_;
+    std::function<void()> deferredAction_;
 };
 
 } // namespace ui::application::modbus

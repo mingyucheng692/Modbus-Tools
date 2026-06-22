@@ -25,14 +25,25 @@ ModbusSessionPresenter::ModbusSessionPresenter(SessionMode mode, QObject* parent
 }
 
 ModbusSessionPresenter::~ModbusSessionPresenter() {
-    releaseStack();
+    shutdown();
 }
 
 void ModbusSessionPresenter::connectTcp(const QString& ip, int port,
                                          const ::modbus::base::ModbusConfig& config) {
+    if (hasLiveOrPendingStack()) {
+        deferredAction_ = [this, ip, port, config]() {
+            startTcpConnect(ip, port, config);
+        };
+        shutdown();
+        return;
+    }
+    startTcpConnect(ip, port, config);
+}
+
+void ModbusSessionPresenter::startTcpConnect(const QString& ip, int port,
+                                             const ::modbus::base::ModbusConfig& config) {
     Q_ASSERT(mode_ == SessionMode::Tcp);
     spdlog::info("ModbusSessionPresenter[TCP]: Connect requested to {}:{}", ip.toStdString(), port);
-    releaseStack();
     suppressDisconnectAlert_ = false;
     connectionState_ = SessionConnectionState::Connecting;
     const quint64 generation = connectionGeneration_;
@@ -68,10 +79,20 @@ void ModbusSessionPresenter::connectTcp(const QString& ip, int port,
 
 void ModbusSessionPresenter::connectRtu(const io::SerialConfig& serialConfig,
                                          const ::modbus::base::ModbusConfig& modbusConfig) {
+    if (hasLiveOrPendingStack()) {
+        deferredAction_ = [this, serialConfig, modbusConfig]() {
+            startRtuConnect(serialConfig, modbusConfig);
+        };
+        shutdown();
+        return;
+    }
+    startRtuConnect(serialConfig, modbusConfig);
+}
+
+void ModbusSessionPresenter::startRtuConnect(const io::SerialConfig& serialConfig,
+                                             const ::modbus::base::ModbusConfig& modbusConfig) {
     Q_ASSERT(mode_ == SessionMode::Rtu);
     spdlog::info("ModbusSessionPresenter[RTU]: Connect requested to {}", serialConfig.portName.toStdString());
-
-    releaseStack();
     connectionState_ = SessionConnectionState::Connecting;
     setConnectionWidgetConnecting();
 
@@ -107,16 +128,30 @@ void ModbusSessionPresenter::connectRtu(const io::SerialConfig& serialConfig,
 void ModbusSessionPresenter::requestDisconnect() {
     spdlog::info("ModbusSessionPresenter[{}]: Disconnect requested",
                  mode_ == SessionMode::Tcp ? "TCP" : "RTU");
+    deferredAction_ = nullptr;
     suppressDisconnectAlert_ = true;
     connectionState_ = SessionConnectionState::Disconnecting;
     setConnectionWidgetDisconnecting();
     if (trafficLogController_) {
         trafficLogController_->logConnectionInfo(tr("Disconnecting..."));
     }
-    releaseStack();
+    shutdown();
+}
+
+void ModbusSessionPresenter::shutdown() {
+    requestRelease(tr("Shutdown timed out; restart recommended"));
 }
 
 void ModbusSessionPresenter::releaseStack() {
+    deferredAction_ = nullptr;
+    requestRelease(tr("Release timed out; restart recommended"));
+}
+
+bool ModbusSessionPresenter::hasLiveOrPendingStack() const {
+    return worker_ || channel_ || client_ || ioThread_ || workerThread_ || !pendingReleases_.empty();
+}
+
+void ModbusSessionPresenter::requestRelease(const QString& timeoutMessage) {
     if (pollingController_) pollingController_->reset();
     ++connectionGeneration_;
     suppressDisconnectAlert_ = true;
@@ -137,31 +172,40 @@ void ModbusSessionPresenter::releaseStack() {
     release->worker = std::move(worker_);
     release->ioThread = std::move(ioThread_);
     release->thread = std::move(workerThread_);
+    release->timeoutMessage = timeoutMessage;
+    release->workerStopped = !release->worker;
+    release->ioThreadFinished = !release->ioThread || !release->ioThread->isRunning();
+    release->threadFinished = !release->thread || !release->thread->isRunning();
     if (!release->worker && !release->client && !release->channel
         && !release->ioThread && !release->thread) {
         setConnectionWidgetDisconnected();
         emit stackReleased();
+        maybeRunDeferredAction();
         return;
     }
 
     pendingReleases_.push_back(release);
     setConnectionWidgetDisconnecting();
 
-    // 5-second safety timeout: if the worker never emits stopped, force cleanup
+    // Bounded async shutdown: if completion does not arrive in time, detach safely
+    // and surface a controlled failure instead of forcibly terminating threads.
     release->timeoutTimer = new QTimer(this);
     release->timeoutTimer->setSingleShot(true);
     QObject::connect(release->timeoutTimer, &QTimer::timeout, this, [this, release]() {
-        const auto it = std::find(pendingReleases_.begin(), pendingReleases_.end(), release);
-        if (it == pendingReleases_.end()) {
-            return;
-        }
-        spdlog::warn("ModbusSessionPresenter: PendingReleaseContext timeout — force terminating");
-        if (release->thread && release->thread->isRunning()) {
-            release->thread->terminate();
-        }
-        finalizePendingRelease(release);
+        handleReleaseTimeout(release);
     });
     release->timeoutTimer->start(5000);
+
+    if (release->thread) {
+        QObject::connect(release->thread.get(), &QThread::finished, this,
+                         [this, release]() { onReleaseThreadFinished(release, false); },
+                         Qt::QueuedConnection);
+    }
+    if (release->ioThread) {
+        QObject::connect(release->ioThread.get(), &QThread::finished, this,
+                         [this, release]() { onReleaseThreadFinished(release, true); },
+                         Qt::QueuedConnection);
+    }
 
     if (release->thread && release->thread->isRunning()) {
         release->thread->requestInterruption();
@@ -173,19 +217,17 @@ void ModbusSessionPresenter::releaseStack() {
     if (release->worker) {
         QObject::connect(release->worker.get(), &::modbus::dispatch::ModbusWorker::stopped,
                          this,
-                         [this, release]() { finalizePendingRelease(release); },
+                         [this, release]() { onReleaseWorkerStopped(release); },
                          Qt::QueuedConnection);
         release->worker->stop();
-        return;
     }
-
     if (release->thread && release->thread->isRunning()) {
         release->thread->quit();
     }
     if (release->ioThread && release->ioThread->isRunning()) {
         release->ioThread->quit();
     }
-    finalizePendingRelease(release);
+    tryCompletePendingRelease(release);
 }
 
 void ModbusSessionPresenter::updateSettings(const ModbusTimingParams& params) {
@@ -316,12 +358,93 @@ void ModbusSessionPresenter::setConnectionWidgetDisconnected() {
     QMetaObject::invokeMethod(connectionWidget_, "setConnected", Qt::QueuedConnection, Q_ARG(bool, false));
 }
 
+void ModbusSessionPresenter::onReleaseWorkerStopped(
+    const std::shared_ptr<PendingReleaseContext>& pending) {
+    if (!pending) {
+        return;
+    }
+    pending->workerStopped = true;
+    if (pending->thread && pending->thread->isRunning()) {
+        pending->thread->quit();
+    }
+    if (pending->ioThread && pending->ioThread->isRunning()) {
+        pending->ioThread->quit();
+    }
+    tryCompletePendingRelease(pending);
+}
+
+void ModbusSessionPresenter::onReleaseThreadFinished(
+    const std::shared_ptr<PendingReleaseContext>& pending, bool ioThread) {
+    if (!pending) {
+        return;
+    }
+    if (ioThread) {
+        pending->ioThreadFinished = true;
+    } else {
+        pending->threadFinished = true;
+    }
+    tryCompletePendingRelease(pending);
+}
+
+void ModbusSessionPresenter::tryCompletePendingRelease(
+    const std::shared_ptr<PendingReleaseContext>& pending) {
+    if (!pending) {
+        return;
+    }
+    const bool workerDone = pending->workerStopped;
+    const bool ioDone = pending->ioThreadFinished || !pending->ioThread || !pending->ioThread->isRunning();
+    const bool workerThreadDone = pending->threadFinished || !pending->thread || !pending->thread->isRunning();
+    if (!workerDone || !ioDone || !workerThreadDone) {
+        return;
+    }
+    finalizePendingRelease(pending);
+}
+
+void ModbusSessionPresenter::handleReleaseTimeout(
+    const std::shared_ptr<PendingReleaseContext>& pending) {
+    if (!pending) {
+        return;
+    }
+    const auto it = std::find(pendingReleases_.begin(), pendingReleases_.end(), pending);
+    if (it == pendingReleases_.end()) {
+        return;
+    }
+    if (!pending->completionLogged) {
+        pending->completionLogged = true;
+        spdlog::error("ModbusSessionPresenter: shutdown timed out; finalizing without terminate()");
+        if (trafficLogController_) {
+            trafficLogController_->logError(pending->timeoutMessage);
+        }
+        emit sessionDisconnected(pending->timeoutMessage);
+    }
+    if (pending->thread && pending->thread->isRunning()) {
+        pending->thread->quit();
+    }
+    if (pending->ioThread && pending->ioThread->isRunning()) {
+        pending->ioThread->quit();
+    }
+    finalizePendingRelease(pending);
+}
+
+void ModbusSessionPresenter::maybeRunDeferredAction() {
+    if (pendingReleases_.empty() && deferredAction_) {
+        auto action = std::move(deferredAction_);
+        deferredAction_ = nullptr;
+        QMetaObject::invokeMethod(this, [action = std::move(action)]() mutable {
+            if (action) {
+                action();
+            }
+        }, Qt::QueuedConnection);
+    }
+}
+
 void ModbusSessionPresenter::finalizePendingRelease(const std::shared_ptr<PendingReleaseContext>& pending) {
     if (!pending) {
         if (!worker_ && !channel_ && !client_) {
             setConnectionWidgetDisconnected();
         }
         emit stackReleased();
+        maybeRunDeferredAction();
         return;
     }
 
@@ -355,6 +478,7 @@ void ModbusSessionPresenter::finalizePendingRelease(const std::shared_ptr<Pendin
     }
 
     emit stackReleased();
+    maybeRunDeferredAction();
 }
 
 void ModbusSessionPresenter::setLinked(bool linked) {

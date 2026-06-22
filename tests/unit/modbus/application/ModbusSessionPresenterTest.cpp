@@ -97,6 +97,14 @@ TEST_F(ModbusSessionPresenterTest, ReleaseStack_EmitsStackReleased) {
     EXPECT_GE(spy.count(), 1);
 }
 
+TEST_F(ModbusSessionPresenterTest, Shutdown_EmitsStackReleased) {
+    QSignalSpy spy(tcpPresenter_.get(), &ModbusSessionPresenter::stackReleased);
+
+    tcpPresenter_->shutdown();
+
+    EXPECT_GE(spy.count(), 1);
+}
+
 TEST_F(ModbusSessionPresenterTest, ReleaseStack_ResetsPollingController) {
     PollSpec spec;
     spec.functionCode = 0x03;
@@ -138,6 +146,14 @@ TEST_F(ModbusSessionPresenterTest, LinkedFalse_EmitsLinkageDisconnectedWhenPrevi
     tcpPresenter_->releaseStack();
 
     EXPECT_GE(spy.count(), 1);
+}
+
+TEST_F(ModbusSessionPresenterTest, Shutdown_IncrementsConnectionGeneration) {
+    quint64 gen1 = tcpPresenter_->connectionGeneration();
+
+    tcpPresenter_->shutdown();
+
+    EXPECT_GT(tcpPresenter_->connectionGeneration(), gen1);
 }
 
 TEST_F(ModbusSessionPresenterTest, DefaultTimingParams_AreFromConstants) {
