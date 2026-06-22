@@ -121,6 +121,11 @@ set(TEST_MODBUS_STABILITY_SOURCES
     unit/modbus/transport/TransportTest.cpp
 )
 
+set(TEST_MODBUS_CONCURRENCY_SOURCES
+    unit/modbus/session/ModbusClientBoundaryTest.cpp
+    unit/modbus/transport/TransportTest.cpp
+)
+
 modbus_add_test_target(test_core_logic
     ${CMAKE_CURRENT_SOURCE_DIR}/TestMainCore.cpp
     SOURCES "${TEST_CORE_LOGIC_SOURCES}"
@@ -149,5 +154,11 @@ modbus_add_test_target(test_integration
 modbus_add_test_target(test_modbus_stability
     ${CMAKE_CURRENT_SOURCE_DIR}/TestMainCore.cpp
     SOURCES "${TEST_MODBUS_STABILITY_SOURCES}"
+    LIBS core Qt6::Core
+)
+
+modbus_add_test_target(test_modbus_concurrency
+    ${CMAKE_CURRENT_SOURCE_DIR}/TestMainCore.cpp
+    SOURCES "${TEST_MODBUS_CONCURRENCY_SOURCES}"
     LIBS core Qt6::Core
 )

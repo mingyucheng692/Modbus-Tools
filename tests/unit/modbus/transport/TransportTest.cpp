@@ -124,3 +124,19 @@ TEST_F(TransportTest, RtuIntegrityCheck) {
     QByteArray badCrc = QByteArray::fromHex("010302007B3868");
     EXPECT_EQ(rtu_->checkIntegrity(badCrc), -1);
 }
+
+TEST_F(TransportTest, RtuResetPendingState_MakesOutstandingResponseUnmatched) {
+    Pdu request(FunctionCode::ReadHoldingRegisters, QByteArray::fromHex("00000001"));
+    rtu_->buildRequest(request, 1);
+    rtu_->resetPendingState();
+
+    QByteArray pduPart = QByteArray::fromHex("010302007B");
+    uint16_t crc = calculateModbusRtuCrc(pduPart);
+    QByteArray responseAdu = pduPart;
+    responseAdu.append(static_cast<char>(crc & 0xFF));
+    responseAdu.append(static_cast<char>((crc >> 8) & 0xFF));
+
+    ParseResponseResult result = rtu_->parseResponse(responseAdu);
+    EXPECT_EQ(result.status, ParseResponseStatus::Unmatched);
+    EXPECT_FALSE(result.pdu.has_value());
+}

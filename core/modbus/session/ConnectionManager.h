@@ -53,16 +53,20 @@ public:
      * @note Thread-safe via internal mutex.
      */
     QString lastChannelError();
+    QString lastChannelErrorLocked() const;
+    bool hasChannelErrorLocked() const;
 
     /**
      * @brief Clear the last channel error.
      */
     void clearError();
+    void clearErrorLocked();
 
     /**
      * @brief Set the last channel error (called from error callback).
      */
     void setError(const QString& error);
+    void setErrorLocked(const QString& error);
 
     /**
      * @brief Wait for the channel to reach a specific state.

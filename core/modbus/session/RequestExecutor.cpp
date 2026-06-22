@@ -82,9 +82,15 @@ RequestExecutor::RequestExecutor(io::IChannel* channel,
 
 // --- Public API ---
 
+bool RequestExecutor::tryAcquireRequestLock() {
+    return !requestLocked_.exchange(true, std::memory_order_acq_rel);
+}
+
 ModbusResponse RequestExecutor::execute(const base::Pdu& request, int slaveId) {
-    assert(!requestLocked_.exchange(true, std::memory_order_acquire)
-           && "requestMutex re-entry detected in sendRequest()");
+    if (!tryAcquireRequestLock()) {
+        spdlog::warn("RequestExecutor: rejected concurrent sendRequest while another request is active");
+        return ModbusResponse::Error(trReq("Request already in progress"));
+    }
     RequestLockGuard unlockGuard(requestLocked_);
     std::lock_guard<std::mutex> lock(requestMutex_);
     aborted_ = false;
@@ -143,8 +149,10 @@ ModbusResponse RequestExecutor::execute(const base::Pdu& request, int slaveId) {
 }
 
 void RequestExecutor::sendRaw(const QByteArray& data) {
-    assert(!requestLocked_.exchange(true, std::memory_order_acquire)
-           && "requestMutex re-entry detected in sendRaw()");
+    if (!tryAcquireRequestLock()) {
+        spdlog::warn("RequestExecutor: rejected sendRaw while another request is active");
+        return;
+    }
     RequestLockGuard unlockGuard(requestLocked_);
     std::lock_guard<std::mutex> lock(requestMutex_);
     if (connectionManager_->isConnected()) {
@@ -195,7 +203,7 @@ void RequestExecutor::onDataReceived(QByteArrayView data) {
 void RequestExecutor::onChannelError(const QString& error) {
     {
         std::lock_guard<std::mutex> lock(mutex_);
-        connectionManager_->setError(error);
+        connectionManager_->setErrorLocked(error);
     }
     spdlog::warn("ModbusClient: channel error forwarded: '{}' state={} connState={}",
                  error.toStdString(),
@@ -219,11 +227,10 @@ void RequestExecutor::resetState(bool clearPendingQueue) {
 ModbusResponse RequestExecutor::sendRequestInternal(const base::Pdu& request, int slaveId) {
     if (!connectionManager_->ensureConnected(config_->autoReconnect)) {
         reqStateMachine_->tryTransition(RequestStateMachine::State::Failed, "not-connected");
-        std::lock_guard<std::mutex> lock(mutex_);
-        return ModbusResponse::Error(
-            connectionManager_->lastChannelError().isEmpty()
-                ? trReq("Not connected")
-                : connectionManager_->lastChannelError());
+        const QString channelError = connectionManager_->lastChannelError();
+        return ModbusResponse::Error(channelError.isEmpty()
+                                         ? trReq("Not connected")
+                                         : channelError);
     }
 
     const int targetSlaveId = (slaveId == -1) ? config_->slaveId : slaveId;
@@ -280,9 +287,9 @@ ModbusResponse RequestExecutor::sendRequestInternal(const base::Pdu& request, in
             reqStateMachine_->tryTransition(RequestStateMachine::State::Failed,
                                             "write-drain-timeout");
             std::lock_guard<std::mutex> lock(mutex_);
-            const QString error = connectionManager_->lastChannelError().isEmpty()
-                ? trReq("Write drain timeout")
-                : connectionManager_->lastChannelError();
+            const QString error = connectionManager_->hasChannelErrorLocked()
+                ? connectionManager_->lastChannelErrorLocked()
+                : trReq("Write drain timeout");
             return ModbusResponse::Error(error);
         }
         if (drainedAt != std::chrono::steady_clock::time_point{}) {
@@ -311,7 +318,7 @@ ModbusResponse RequestExecutor::sendRequestInternal(const base::Pdu& request, in
         const auto now = std::chrono::steady_clock::now();
         const bool rtuFrameReady = frameExtractor_->isRtuFrameReadyToParse(now);
         if (!rtuFrameReady && !responseReady_
-            && connectionManager_->lastChannelError().isEmpty() && !aborted_.load()) {
+            && !connectionManager_->hasChannelErrorLocked() && !aborted_.load()) {
             lock.unlock();
             const bool stillWaiting = waitForEventOrTimeout(deadline);
             lock.lock();
@@ -348,7 +355,7 @@ ModbusResponse RequestExecutor::sendRequestInternal(const base::Pdu& request, in
             return ModbusResponse::Error(trReq("Aborted"));
         }
         {
-            const QString chErr = connectionManager_->lastChannelError();
+            const QString chErr = connectionManager_->lastChannelErrorLocked();
             if (!chErr.isEmpty()) {
                 reqStateMachine_->tryTransition(RequestStateMachine::State::Failed,
                                                 "channel-error");
@@ -541,7 +548,7 @@ bool RequestExecutor::waitForWriteDrain(std::chrono::steady_clock::time_point de
                 }
                 return true;
             }
-            if (!connectionManager_->lastChannelError().isEmpty()) {
+            if (connectionManager_->hasChannelErrorLocked()) {
                 return false;
             }
         }
@@ -551,7 +558,7 @@ bool RequestExecutor::waitForWriteDrain(std::chrono::steady_clock::time_point de
 
         timeoutController_->waitForCondition([this]() {
             return aborted_.load() || flowController_->isWriteDrained()
-                || !connectionManager_->lastChannelError().isEmpty()
+                || connectionManager_->hasChannelErrorLocked()
                 || channel_->state() == io::ChannelState::Error;
         }, deadline);
     }
@@ -574,7 +581,7 @@ bool RequestExecutor::waitForEventOrTimeout(std::chrono::steady_clock::time_poin
         {
             std::lock_guard<std::mutex> lock(mutex_);
             if (aborted_.load() || responseReady_
-                || !connectionManager_->lastChannelError().isEmpty()
+                || connectionManager_->hasChannelErrorLocked()
                 || channel_->state() == io::ChannelState::Error) {
                 return true;
             }
@@ -582,7 +589,7 @@ bool RequestExecutor::waitForEventOrTimeout(std::chrono::steady_clock::time_poin
 
         timeoutController_->waitForCondition([this]() {
             return aborted_.load() || responseReady_
-                || !connectionManager_->lastChannelError().isEmpty()
+                || connectionManager_->hasChannelErrorLocked()
                 || channel_->state() == io::ChannelState::Error;
         }, deadline);
     }

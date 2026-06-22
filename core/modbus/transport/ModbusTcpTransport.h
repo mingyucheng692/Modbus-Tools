@@ -11,7 +11,7 @@
 
 #include "ITransport.h"
 #include <QByteArray>
-#include <unordered_map>
+#include <mutex>
 
 namespace modbus::transport {
 
@@ -27,6 +27,7 @@ public:
     void purgeStaleTransactions(uint16_t thresholdCount = 256);
 
 private:
+    mutable std::mutex pendingMutex_;
     uint16_t transactionId_ = 0;
     std::map<uint16_t, uint8_t> pendingTransactions_;
 };

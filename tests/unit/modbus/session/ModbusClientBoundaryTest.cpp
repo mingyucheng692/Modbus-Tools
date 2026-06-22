@@ -247,7 +247,35 @@ TEST_F(ModbusClientBoundaryTest, Abort_DuringSendRequest_ReturnsError) {
 }
 
 // ============================================================================
-// 7. Channel error during request
+// 7. Concurrent sendRequest rejected at runtime
+// ============================================================================
+
+TEST_F(ModbusClientBoundaryTest, SendRequest_ConcurrentCall_ReturnsInProgressError) {
+    connectClient();
+
+    EXPECT_CALL(*mockTransport_, buildRequest(_, _))
+        .WillOnce(Return(QByteArray::fromHex("010300000001840A")));
+    EXPECT_CALL(*mockChannel_, write(_)).WillOnce(Invoke([this](QByteArrayView) {
+        std::this_thread::sleep_for(std::chrono::milliseconds(80));
+        return true;
+    }));
+
+    auto first = std::async(std::launch::async, [this]() {
+        return client_->sendRequest(makeRhrPdu());
+    });
+
+    std::this_thread::sleep_for(std::chrono::milliseconds(20));
+    auto second = client_->sendRequest(makeRhrPdu());
+
+    EXPECT_FALSE(second.isSuccess);
+    EXPECT_THAT(second.error.toStdString(), HasSubstr("already in progress"));
+
+    auto firstResp = first.get();
+    EXPECT_FALSE(firstResp.isSuccess);
+}
+
+// ============================================================================
+// 8. Channel error during request
 // ============================================================================
 
 TEST_F(ModbusClientBoundaryTest, ChannelError_DuringRequest_ReturnsError) {
@@ -269,7 +297,7 @@ TEST_F(ModbusClientBoundaryTest, ChannelError_DuringRequest_ReturnsError) {
 }
 
 // ============================================================================
-// 8. Disconnect during active request
+// 9. Disconnect during active request
 // ============================================================================
 
 TEST_F(ModbusClientBoundaryTest, Disconnect_DuringActiveRequest_ReturnsError) {
@@ -293,7 +321,7 @@ TEST_F(ModbusClientBoundaryTest, Disconnect_DuringActiveRequest_ReturnsError) {
 }
 
 // ============================================================================
-// 9. RequestStateMachine — valid life cycle transitions
+// 10. RequestStateMachine — valid life cycle transitions
 // ============================================================================
 
 TEST_F(ModbusClientBoundaryTest, RequestState_TransitionsThroughLifecycle) {
@@ -312,7 +340,7 @@ TEST_F(ModbusClientBoundaryTest, RequestState_TransitionsThroughLifecycle) {
 }
 
 // ============================================================================
-// 10. RequestStateMachine — invalid transition silently rejected
+// 11. RequestStateMachine — invalid transition silently rejected
 // ============================================================================
 
 TEST_F(ModbusClientBoundaryTest, RequestState_InvalidTransition_IsRejected) {
@@ -325,7 +353,7 @@ TEST_F(ModbusClientBoundaryTest, RequestState_InvalidTransition_IsRejected) {
 }
 
 // ============================================================================
-// 11. Write failure -> error without timeout
+// 12. Write failure -> error without timeout
 // ============================================================================
 
 TEST_F(ModbusClientBoundaryTest, SendRequest_WriteFails_ReturnsError) {
@@ -340,7 +368,7 @@ TEST_F(ModbusClientBoundaryTest, SendRequest_WriteFails_ReturnsError) {
 }
 
 // ============================================================================
-// 12. Oversized PDU -> validation error
+// 13. Oversized PDU -> validation error
 // ============================================================================
 
 TEST_F(ModbusClientBoundaryTest, SendRequest_OversizedPdu_ReturnsError) {
@@ -354,7 +382,7 @@ TEST_F(ModbusClientBoundaryTest, SendRequest_OversizedPdu_ReturnsError) {
 }
 
 // ============================================================================
-// 13. ConnectionStateMachine — valid transitions
+// 14. ConnectionStateMachine — valid transitions
 // ============================================================================
 
 TEST_F(ModbusClientBoundaryTest, ConnectionState_ValidTransition_Accepted) {
@@ -370,7 +398,7 @@ TEST_F(ModbusClientBoundaryTest, ConnectionState_ValidTransition_Accepted) {
 }
 
 // ============================================================================
-// 14. ConnectionStateMachine — invalid transition silently rejected
+// 15. ConnectionStateMachine — invalid transition silently rejected
 // ============================================================================
 
 TEST_F(ModbusClientBoundaryTest, ConnectionState_InvalidTransition_Rejected) {
@@ -384,7 +412,7 @@ TEST_F(ModbusClientBoundaryTest, ConnectionState_InvalidTransition_Rejected) {
 }
 
 // ============================================================================
-// 15. lastChannelError after connection failure
+// 16. lastChannelError after connection failure
 // ============================================================================
 
 TEST_F(ModbusClientBoundaryTest, LastChannelError_AfterConnectionFailure_HasError) {
@@ -399,7 +427,7 @@ TEST_F(ModbusClientBoundaryTest, LastChannelError_AfterConnectionFailure_HasErro
 }
 
 // ============================================================================
-// 16. isConnected toggle
+// 17. isConnected toggle
 // ============================================================================
 
 TEST_F(ModbusClientBoundaryTest, IsConnected_ToggleConnectDisconnect_ReflectsState) {
@@ -415,7 +443,7 @@ TEST_F(ModbusClientBoundaryTest, IsConnected_ToggleConnectDisconnect_ReflectsSta
 }
 
 // ============================================================================
-// 17. sendRaw on disconnected channel — no crash
+// 18. sendRaw on disconnected channel — no crash
 // ============================================================================
 
 TEST_F(ModbusClientBoundaryTest, SendRaw_NotConnected_DoesNotCrash) {
@@ -424,7 +452,7 @@ TEST_F(ModbusClientBoundaryTest, SendRaw_NotConnected_DoesNotCrash) {
 }
 
 // ============================================================================
-// 18. Abort from idle state — triggers Aborted transition
+// 19. Abort from idle state — triggers Aborted transition
 // ============================================================================
 
 TEST_F(ModbusClientBoundaryTest, Abort_WhenIdle_DoesNotCrash) {

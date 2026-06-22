@@ -21,7 +21,6 @@
 #include "../transport/ITransport.h"
 #include "../base/ModbusConfig.h"
 #include "infra/io/IChannel.h"
-#include <cassert>
 #include <mutex>
 #include <condition_variable>
 #include <atomic>
@@ -110,6 +109,8 @@ private:
         explicit RequestLockGuard(std::atomic<bool>& f) : flag(f) {}
         ~RequestLockGuard() { flag.store(false, std::memory_order_release); }
     };
+
+    [[nodiscard]] bool tryAcquireRequestLock();
 
     ModbusResponse sendRequestInternal(const base::Pdu& request, int slaveId);
     ModbusResponse handleExceptionResponse(const base::Pdu& responsePdu, int slaveId,

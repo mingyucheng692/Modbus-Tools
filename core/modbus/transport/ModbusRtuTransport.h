@@ -11,7 +11,7 @@
 
 #include "ITransport.h"
 #include <QByteArray>
-#include <atomic>
+#include <mutex>
 
 namespace modbus::transport {
 
@@ -19,7 +19,7 @@ namespace modbus::transport {
  * @brief Modbus RTU transport layer (ADU build/parse).
  *
  * @thread buildRequest() and parseResponse() are safe to call from any thread.
- *         Internal state is protected by std::atomic members.
+ *         Internal pending-response state is protected by an internal mutex.
  */
 class ModbusRtuTransport : public ITransport {
 public:
@@ -29,8 +29,9 @@ public:
     void resetPendingState() override;
 
 private:
-    std::atomic<uint8_t> expectedResponseSlaveId_{0};
-    std::atomic<bool> hasPendingRequest_{false};
+    mutable std::mutex pendingMutex_;
+    uint8_t expectedResponseSlaveId_ = 0;
+    bool hasPendingRequest_ = false;
 };
 
 } // namespace modbus::transport

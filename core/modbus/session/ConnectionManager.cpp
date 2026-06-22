@@ -43,13 +43,29 @@ QString ConnectionManager::lastChannelError() {
     return lastChannelError_;
 }
 
+QString ConnectionManager::lastChannelErrorLocked() const {
+    return lastChannelError_;
+}
+
+bool ConnectionManager::hasChannelErrorLocked() const {
+    return !lastChannelError_.isEmpty();
+}
+
 void ConnectionManager::clearError() {
     std::lock_guard<std::mutex> lock(mutex_);
     lastChannelError_.clear();
 }
 
+void ConnectionManager::clearErrorLocked() {
+    lastChannelError_.clear();
+}
+
 void ConnectionManager::setError(const QString& error) {
     std::lock_guard<std::mutex> lock(mutex_);
+    lastChannelError_ = error;
+}
+
+void ConnectionManager::setErrorLocked(const QString& error) {
     lastChannelError_ = error;
 }
 
@@ -76,7 +92,7 @@ bool ConnectionManager::ensureConnected(bool allowReconnect) {
     for (int attempt = 0; attempt < attempts; ++attempt) {
         {
             std::lock_guard<std::mutex> lock(mutex_);
-            lastChannelError_.clear();
+            clearErrorLocked();
         }
 
         stateMachine_->tryTransition(
@@ -139,11 +155,11 @@ bool ConnectionManager::waitForChannelState(io::ChannelState expectedState,
         }
         {
             std::lock_guard<std::mutex> lock(mutex_);
-            if (!lastChannelError_.isEmpty()) {
+            if (hasChannelErrorLocked()) {
                 if (errorOut) {
-                    *errorOut = lastChannelError_;
+                    *errorOut = lastChannelErrorLocked();
                 }
-                lastChannelError_.clear();
+                clearErrorLocked();
                 return false;
             }
         }
