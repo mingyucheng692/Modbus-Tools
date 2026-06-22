@@ -21,6 +21,23 @@ namespace modbus::factory {
 
 namespace {
 
+void cleanupThread(QThread* thread);
+void cleanupWorker(dispatch::ModbusWorker* worker);
+
+std::shared_ptr<QThread> makeManagedThread()
+{
+    return std::shared_ptr<QThread>(new QThread(), &cleanupThread);
+}
+
+std::shared_ptr<dispatch::ModbusWorker> makeManagedWorker(
+    const std::shared_ptr<session::IModbusClient>& client,
+    QThread* workerThread)
+{
+    return std::shared_ptr<dispatch::ModbusWorker>(
+        new dispatch::ModbusWorker(client, workerThread, nullptr),
+        &cleanupWorker);
+}
+
 void cleanupThread(QThread* thread)
 {
     if (!thread) {
@@ -58,10 +75,9 @@ void cleanupWorker(dispatch::ModbusWorker* worker)
 
 ModbusStack ModbusFactory::createStack(const base::ModbusConfig& config) {
     ModbusStack stack;
-    QThread* ioThreadRaw = new QThread();
-    QThread* workerThreadRaw = new QThread();
-    stack.ioThread = std::shared_ptr<QThread>(ioThreadRaw, &cleanupThread);
-    stack.thread = std::shared_ptr<QThread>(workerThreadRaw, &cleanupThread);
+    stack.ioThread = makeManagedThread();
+    stack.thread = makeManagedThread();
+    QThread* ioThreadRaw = stack.ioThread.get();
 
     // 1. 创建底层通道 (IO)
     stack.channel = createChannel(config, ioThreadRaw);
@@ -76,8 +92,7 @@ ModbusStack ModbusFactory::createStack(const base::ModbusConfig& config) {
     stack.client->setConfig(config);
 
     // 4. 创建工作线程 (Dispatch)
-    auto workerRaw = new dispatch::ModbusWorker(stack.client, stack.thread.get(), nullptr);
-    stack.worker = std::shared_ptr<dispatch::ModbusWorker>(workerRaw, &cleanupWorker);
+    stack.worker = makeManagedWorker(stack.client, stack.thread.get());
     return stack;
 }
 
