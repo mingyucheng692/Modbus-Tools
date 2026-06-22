@@ -95,6 +95,42 @@ TEST(ModbusFactoryThreadingTest, DestroyStoppedStartedStack_ReleasesWorkerAndThr
     EXPECT_TRUE(worker.isNull());
 }
 
+TEST(ModbusFactoryThreadingTest, ReleasingStartedStack_DoesNotOwnIoThreadShutdown) {
+    ModbusFactory factory;
+    auto config = modbus::test::MakeModbusConfig(ModbusMode::TCP);
+    ModbusStack stack = factory.createStack(config);
+
+    ASSERT_TRUE(stack.ioThread);
+    ASSERT_TRUE(stack.thread);
+    ASSERT_TRUE(stack.worker);
+
+    QPointer<QThread> ioThread = stack.ioThread.get();
+    QPointer<QThread> workerThread = stack.thread.get();
+    QPointer<modbus::dispatch::ModbusWorker> worker = stack.worker.get();
+
+    stack.ioThread->start();
+    stack.worker->start();
+
+    ASSERT_TRUE(waitForCondition([&]() {
+        return ioThread && ioThread->isRunning()
+            && workerThread && workerThread->isRunning();
+    }));
+
+    stack = ModbusStack{};
+
+    ASSERT_FALSE(ioThread.isNull());
+    EXPECT_TRUE(ioThread->isRunning());
+    ASSERT_TRUE(waitForCondition([&]() { return worker.isNull(); }));
+    ASSERT_TRUE(waitForCondition([&]() {
+        return workerThread.isNull() || !workerThread->isRunning();
+    }));
+
+    ioThread->quit();
+    ASSERT_TRUE(ioThread->wait(1000));
+    ASSERT_TRUE(waitForCondition([&]() { return ioThread.isNull(); }));
+    ASSERT_TRUE(waitForCondition([&]() { return workerThread.isNull(); }));
+}
+
 TEST(ModbusFactoryThreadingTest, CreateRtuStack_UsesDedicatedIoAndWorkerThreads) {
     ModbusFactory factory;
     auto config = modbus::test::MakeModbusConfig(ModbusMode::RTU);
