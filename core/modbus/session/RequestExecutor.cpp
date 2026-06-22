@@ -27,6 +27,9 @@
 namespace modbus::session {
 namespace {
 
+    constexpr std::size_t kDupeTrackerCleanupThreshold = 1000;
+    constexpr auto kDupeTrackerSuppressionWindow = std::chrono::seconds(5);
+
     QString trReq(const char* text) {
         return QObject::tr(text);
     }
@@ -368,9 +371,9 @@ ModbusResponse RequestExecutor::sendRequestInternal(const base::Pdu& request, in
 
         responseReady_ = false;
 
-        // Cleanup stale dupeTracker entries to prevent unbounded growth
-        if (dupeTracker_.size() > 1000) {
-            const auto cutoff = std::chrono::steady_clock::now() - std::chrono::seconds(5);
+        // Bound duplicate-exception tracking state without changing response behavior.
+        if (dupeTracker_.size() > kDupeTrackerCleanupThreshold) {
+            const auto cutoff = std::chrono::steady_clock::now() - kDupeTrackerSuppressionWindow;
             for (auto it = dupeTracker_.begin(); it != dupeTracker_.end(); ) {
                 if (it->second < cutoff) {
                     it = dupeTracker_.erase(it);
@@ -500,7 +503,7 @@ ModbusResponse RequestExecutor::handleExceptionResponse(const base::Pdu& respons
                                    static_cast<uint8_t>(responsePdu.exceptionCode()));
     auto now = std::chrono::steady_clock::now();
     auto it = dupeTracker_.find(dupeKey);
-    if (it != dupeTracker_.end() && (now - it->second) < std::chrono::seconds(5)) {
+    if (it != dupeTracker_.end() && (now - it->second) < kDupeTrackerSuppressionWindow) {
         spdlog::debug("ModbusClient: Modbus exception response. "
                       "Slave={} FC=0x{:02X} Exception=0x{:02X} (duplicate within 5s)",
                       slaveId, static_cast<int>(requestPdu.functionCode()),
