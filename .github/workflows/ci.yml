@@ -119,6 +119,7 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y \
+            clang-tidy \
             ninja-build \
             libgl1-mesa-dev \
             libegl1-mesa-dev \
@@ -267,6 +268,35 @@ jobs:
         run: |
           ctest --test-dir build_ci --output-on-failure
 
+      - name: Run clang-tidy (non-blocking, Linux)
+        if: runner.os == 'Linux' && steps.ci_options.outputs.should_run == 'true'
+        continue-on-error: true
+        shell: bash
+        env:
+          CC: ${{ matrix.c_compiler }}
+          CXX: ${{ matrix.cxx_compiler }}
+        run: |
+          set -o pipefail
+          mkdir -p build_tidy
+          cmake -S . -B build_tidy -G "${{ matrix.generator }}" \
+            -DCMAKE_BUILD_TYPE=RelWithDebInfo \
+            -DMODBUS_TOOLS_BUILD_TESTS=OFF \
+            -DMODBUS_TOOLS_ENABLE_CLANG_TIDY=ON \
+            2>&1 | tee build_tidy/configure.log
+          cmake --build build_tidy --target core --parallel 2>&1 | tee build_tidy/clang-tidy.log
+
+      - name: Build fuzz target (Linux ASan)
+        if: runner.os == 'Linux' && steps.ci_options.outputs.should_run == 'true' && steps.ci_options.outputs.run_tests == 'ON' && steps.ci_options.outputs.enable_asan == 'ON'
+        shell: bash
+        run: |
+          cmake --build build_ci --target test_modbus_fuzz --parallel
+
+      - name: Run fuzz target (Linux ASan)
+        if: runner.os == 'Linux' && steps.ci_options.outputs.should_run == 'true' && steps.ci_options.outputs.run_tests == 'ON' && steps.ci_options.outputs.enable_asan == 'ON'
+        shell: bash
+        run: |
+          ./build_ci/app/test_modbus_fuzz
+
       - name: Mark matrix entry skipped
         if: steps.ci_options.outputs.should_run != 'true'
         shell: pwsh
@@ -282,5 +312,7 @@ jobs:
             build_ci/configure.log
             build_ci/CMakeCache.txt
             build_ci/CTestTestfile.cmake
+            build_tidy/configure.log
+            build_tidy/clang-tidy.log
           if-no-files-found: ignore
           retention-days: 5

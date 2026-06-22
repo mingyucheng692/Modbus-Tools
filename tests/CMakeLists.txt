@@ -126,6 +126,10 @@ set(TEST_MODBUS_CONCURRENCY_SOURCES
     unit/modbus/transport/TransportTest.cpp
 )
 
+set(TEST_MODBUS_FUZZ_SOURCES
+    unit/modbus/fuzz/ModbusParsingFuzzTest.cpp
+)
+
 modbus_add_test_target(test_core_logic
     ${CMAKE_CURRENT_SOURCE_DIR}/TestMainCore.cpp
     SOURCES "${TEST_CORE_LOGIC_SOURCES}"
@@ -160,5 +164,12 @@ modbus_add_test_target(test_modbus_stability
 modbus_add_test_target(test_modbus_concurrency
     ${CMAKE_CURRENT_SOURCE_DIR}/TestMainCore.cpp
     SOURCES "${TEST_MODBUS_CONCURRENCY_SOURCES}"
+    LIBS core Qt6::Core
+)
+
+modbus_add_test_target(test_modbus_fuzz
+    ${CMAKE_CURRENT_SOURCE_DIR}/TestMainCore.cpp
+    SKIP_DISCOVERY
+    SOURCES "${TEST_MODBUS_FUZZ_SOURCES}"
     LIBS core Qt6::Core
 )

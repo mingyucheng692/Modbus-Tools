@@ -10,6 +10,7 @@ option(MODBUS_TOOLS_ENABLE_PCH "Enable precompiled headers" ON)
 option(MODBUS_TOOLS_INCLUDE_PRERELEASE "Include pre-release when checking updates" OFF)
 option(MODBUS_TOOLS_BUILD_TESTS "Build unit tests" OFF)
 option(MODBUS_TOOLS_ENABLE_ASAN "Enable AddressSanitizer (ASan) for memory safety" OFF)
+option(MODBUS_TOOLS_ENABLE_CLANG_TIDY "Enable clang-tidy during compilation when available" OFF)
 # Controls kDefaultFlushLevel: ON → flush on info, OFF → flush on warn.
 # Also gates the MODBUS_TOOLS_VERBOSE_INFO macro (see infra/logging/Logger.h).
 # Explicitly enable with:
@@ -45,6 +46,19 @@ if(MSVC)
         
         # Note: If LNK4044 persists, it typically means LINK.exe is used instead of CL.exe for linking.
         # In modern CMake, /fsanitize=address is the correct flag for both.
+    endif()
+endif()
+
+if(MODBUS_TOOLS_ENABLE_CLANG_TIDY)
+    find_program(MODBUS_TOOLS_CLANG_TIDY_BIN NAMES clang-tidy)
+    if(MODBUS_TOOLS_CLANG_TIDY_BIN)
+        set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+        set(CMAKE_CXX_CLANG_TIDY
+            "${MODBUS_TOOLS_CLANG_TIDY_BIN};--config-file=${CMAKE_SOURCE_DIR}/.clang-tidy"
+            CACHE STRING "clang-tidy command line" FORCE)
+        message(STATUS "clang-tidy enabled: ${MODBUS_TOOLS_CLANG_TIDY_BIN}")
+    else()
+        message(WARNING "MODBUS_TOOLS_ENABLE_CLANG_TIDY=ON but clang-tidy was not found; continuing without static analysis")
     endif()
 endif()
 
