@@ -108,11 +108,9 @@ private:
     void handleConnectFinished(bool ok, const QString& error, quint64 generation);
     void handleRequestFinished(int requestId, const ::modbus::session::ModbusResponse& response,
                                quint64 generation);
-    void setConnectionWidgetConnecting();
-    void setConnectionWidgetTransportConnected();
-    void setConnectionWidgetConnected();
-    void setConnectionWidgetDisconnecting();
-    void setConnectionWidgetDisconnected();
+    void assertGuiThread(const char* context) const;
+    void applyConnectionState(SessionConnectionState state);
+    void syncConnectionWidget(SessionConnectionState state);
     bool hasLiveOrPendingStack() const;
     void requestRelease(const QString& timeoutMessage);
     void onReleaseWorkerStopped(const std::shared_ptr<PendingReleaseContext>& pending);

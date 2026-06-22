@@ -11,10 +11,48 @@
 #include <QPointer>
 #include <QTimer>
 #include <QApplication>
+#include <QThread>
 #include <algorithm>
 #include <spdlog/spdlog.h>
 
 namespace ui::application::modbus {
+
+namespace {
+
+void assertObjectThread(const QObject* object, const char* context) {
+    Q_ASSERT_X(object && QThread::currentThread() == object->thread(),
+               "ModbusSessionPresenter",
+               context);
+}
+
+void setConnectionWidgetDisplayStateImpl(QWidget* connectionWidget,
+                                         SessionMode mode,
+                                         ui::widgets::BaseConnectionWidget::DisplayState displayState) {
+    if (!connectionWidget) {
+        return;
+    }
+
+    if (mode == SessionMode::Tcp) {
+        if (auto* connWidget = qobject_cast<ui::widgets::BaseConnectionWidget*>(connectionWidget)) {
+            QMetaObject::invokeMethod(connWidget,
+                                      [connWidget, displayState]() {
+                                          connWidget->setDisplayState(displayState);
+                                      },
+                                      Qt::QueuedConnection);
+        }
+        return;
+    }
+
+    if (auto* serialWidget = qobject_cast<ui::widgets::SerialConnectionWidget*>(connectionWidget)) {
+        QMetaObject::invokeMethod(serialWidget,
+                                  [serialWidget, displayState]() {
+                                      serialWidget->setDisplayState(displayState);
+                                  },
+                                  Qt::QueuedConnection);
+    }
+}
+
+} // namespace
 
 ModbusSessionPresenter::ModbusSessionPresenter(SessionMode mode, QObject* parent)
     : QObject(parent),
@@ -30,6 +68,7 @@ ModbusSessionPresenter::~ModbusSessionPresenter() {
 
 void ModbusSessionPresenter::connectTcp(const QString& ip, int port,
                                          const ::modbus::base::ModbusConfig& config) {
+    assertGuiThread("connectTcp must be called on the GUI thread");
     if (hasLiveOrPendingStack()) {
         deferredAction_ = [this, ip, port, config]() {
             startTcpConnect(ip, port, config);
@@ -42,12 +81,12 @@ void ModbusSessionPresenter::connectTcp(const QString& ip, int port,
 
 void ModbusSessionPresenter::startTcpConnect(const QString& ip, int port,
                                              const ::modbus::base::ModbusConfig& config) {
+    assertGuiThread("startTcpConnect must run on the GUI thread");
     Q_ASSERT(mode_ == SessionMode::Tcp);
     spdlog::info("ModbusSessionPresenter[TCP]: Connect requested to {}:{}", ip.toStdString(), port);
     suppressDisconnectAlert_ = false;
-    connectionState_ = SessionConnectionState::Connecting;
+    applyConnectionState(SessionConnectionState::Connecting);
     const quint64 generation = connectionGeneration_;
-    setConnectionWidgetConnecting();
 
     if (trafficLogController_) {
         trafficLogController_->logConnectionInfo(tr("Connecting to %1:%2...").arg(ip).arg(port));
@@ -55,8 +94,7 @@ void ModbusSessionPresenter::startTcpConnect(const QString& ip, int port,
 
     initStack(config);
     if (!worker_ || !channel_) {
-        connectionState_ = SessionConnectionState::Disconnected;
-        setConnectionWidgetDisconnected();
+        applyConnectionState(SessionConnectionState::Disconnected);
         emit connectFinished(false, tr("Failed to create Modbus stack"));
         return;
     }
@@ -79,6 +117,7 @@ void ModbusSessionPresenter::startTcpConnect(const QString& ip, int port,
 
 void ModbusSessionPresenter::connectRtu(const io::SerialConfig& serialConfig,
                                          const ::modbus::base::ModbusConfig& modbusConfig) {
+    assertGuiThread("connectRtu must be called on the GUI thread");
     if (hasLiveOrPendingStack()) {
         deferredAction_ = [this, serialConfig, modbusConfig]() {
             startRtuConnect(serialConfig, modbusConfig);
@@ -91,10 +130,10 @@ void ModbusSessionPresenter::connectRtu(const io::SerialConfig& serialConfig,
 
 void ModbusSessionPresenter::startRtuConnect(const io::SerialConfig& serialConfig,
                                              const ::modbus::base::ModbusConfig& modbusConfig) {
+    assertGuiThread("startRtuConnect must run on the GUI thread");
     Q_ASSERT(mode_ == SessionMode::Rtu);
     spdlog::info("ModbusSessionPresenter[RTU]: Connect requested to {}", serialConfig.portName.toStdString());
-    connectionState_ = SessionConnectionState::Connecting;
-    setConnectionWidgetConnecting();
+    applyConnectionState(SessionConnectionState::Connecting);
 
     if (trafficLogController_) {
         trafficLogController_->logConnectionInfo(tr("Opening %1...").arg(serialConfig.portName));
@@ -103,8 +142,7 @@ void ModbusSessionPresenter::startRtuConnect(const io::SerialConfig& serialConfi
 
     initStack(modbusConfig);
     if (!worker_ || !channel_) {
-        connectionState_ = SessionConnectionState::Disconnected;
-        setConnectionWidgetDisconnected();
+        applyConnectionState(SessionConnectionState::Disconnected);
         emit connectFinished(false, tr("Failed to create Modbus stack"));
         return;
     }
@@ -126,12 +164,12 @@ void ModbusSessionPresenter::startRtuConnect(const io::SerialConfig& serialConfi
 }
 
 void ModbusSessionPresenter::requestDisconnect() {
+    assertGuiThread("requestDisconnect must be called on the GUI thread");
     spdlog::info("ModbusSessionPresenter[{}]: Disconnect requested",
                  mode_ == SessionMode::Tcp ? "TCP" : "RTU");
     deferredAction_ = nullptr;
     suppressDisconnectAlert_ = true;
-    connectionState_ = SessionConnectionState::Disconnecting;
-    setConnectionWidgetDisconnecting();
+    applyConnectionState(SessionConnectionState::Disconnecting);
     if (trafficLogController_) {
         trafficLogController_->logConnectionInfo(tr("Disconnecting..."));
     }
@@ -139,10 +177,12 @@ void ModbusSessionPresenter::requestDisconnect() {
 }
 
 void ModbusSessionPresenter::shutdown() {
+    assertGuiThread("shutdown must be called on the GUI thread");
     requestRelease(tr("Shutdown timed out; restart recommended"));
 }
 
 void ModbusSessionPresenter::releaseStack() {
+    assertGuiThread("releaseStack must be called on the GUI thread");
     deferredAction_ = nullptr;
     requestRelease(tr("Release timed out; restart recommended"));
 }
@@ -152,6 +192,7 @@ bool ModbusSessionPresenter::hasLiveOrPendingStack() const {
 }
 
 void ModbusSessionPresenter::requestRelease(const QString& timeoutMessage) {
+    assertGuiThread("requestRelease must run on the GUI thread");
     if (pollingController_) pollingController_->reset();
     ++connectionGeneration_;
     suppressDisconnectAlert_ = true;
@@ -178,14 +219,14 @@ void ModbusSessionPresenter::requestRelease(const QString& timeoutMessage) {
     release->threadFinished = !release->thread || !release->thread->isRunning();
     if (!release->worker && !release->client && !release->channel
         && !release->ioThread && !release->thread) {
-        setConnectionWidgetDisconnected();
+        syncConnectionWidget(SessionConnectionState::Disconnected);
         emit stackReleased();
         maybeRunDeferredAction();
         return;
     }
 
     pendingReleases_.push_back(release);
-    setConnectionWidgetDisconnecting();
+    syncConnectionWidget(SessionConnectionState::Disconnecting);
 
     // Bounded async shutdown: if completion does not arrive in time, detach safely
     // and surface a controlled failure instead of forcibly terminating threads.
@@ -231,6 +272,7 @@ void ModbusSessionPresenter::requestRelease(const QString& timeoutMessage) {
 }
 
 void ModbusSessionPresenter::updateSettings(const ModbusTimingParams& params) {
+    assertGuiThread("updateSettings must be called on the GUI thread");
     timeoutMs_ = static_cast<int>(params.timeout.count());
     retries_ = params.retryCount;
     retryIntervalMs_ = static_cast<int>(params.retryInterval.count());
@@ -256,22 +298,26 @@ SessionMode ModbusSessionPresenter::mode() const {
 
 void ModbusSessionPresenter::submitRequest(const ::modbus::base::Pdu& pdu, int slaveId,
                                            int requestId) {
+    assertGuiThread("submitRequest must be called on the GUI thread");
     if (worker_) {
         worker_->submit(pdu, slaveId, requestId);
     }
 }
 
 void ModbusSessionPresenter::sendRaw(const QByteArray& data) {
+    assertGuiThread("sendRaw must be called on the GUI thread");
     if (worker_) {
         worker_->sendRaw(data);
     }
 }
 
 void ModbusSessionPresenter::setTrafficLogController(TrafficLogController* controller) {
+    assertGuiThread("setTrafficLogController must be called on the GUI thread");
     trafficLogController_ = controller;
 }
 
 void ModbusSessionPresenter::setPollingController(PollingController* controller) {
+    assertGuiThread("setPollingController must be called on the GUI thread");
     if (pollingController_ == controller) {
         return;
     }
@@ -292,74 +338,67 @@ void ModbusSessionPresenter::setPollingController(PollingController* controller)
             pollingController_, &PollingController::handleSessionConnected);
     connect(this, &ModbusSessionPresenter::sessionDisconnected,
             pollingController_, &PollingController::handleSessionDisconnected);
-    pollingController_->setSessionConnected(connectionState_ == SessionConnectionState::Connected);
+    pollingController_->setSessionConnected(isSessionConnected());
 }
 
 void ModbusSessionPresenter::setRequestService(RequestSubmissionService* service) {
+    assertGuiThread("setRequestService must be called on the GUI thread");
     requestService_ = service;
 }
 
 void ModbusSessionPresenter::setConnectionWidget(QWidget* widget) {
+    assertGuiThread("setConnectionWidget must be called on the GUI thread");
     connectionWidget_ = widget;
+    syncConnectionWidget(connectionState_);
 }
 
 void ModbusSessionPresenter::setControlWidget(ui::widgets::ControlWidget* widget) {
+    assertGuiThread("setControlWidget must be called on the GUI thread");
     controlWidget_ = widget;
-}
-
-namespace {
-void setConnectionWidgetDisplayStateImpl(QWidget* connectionWidget,
-                                         SessionMode mode,
-                                         ui::widgets::BaseConnectionWidget::DisplayState displayState) {
-    if (!connectionWidget) return;
-
-    if (mode == SessionMode::Tcp) {
-        if (auto* connWidget = qobject_cast<ui::widgets::BaseConnectionWidget*>(connectionWidget)) {
-            QMetaObject::invokeMethod(connWidget,
-                [connWidget, displayState]() { connWidget->setDisplayState(displayState); },
-                Qt::QueuedConnection);
-        }
-        return;
-    }
-
-    if (auto* serialWidget = qobject_cast<ui::widgets::SerialConnectionWidget*>(connectionWidget)) {
-        QMetaObject::invokeMethod(serialWidget,
-            [serialWidget, displayState]() { serialWidget->setDisplayState(displayState); },
-            Qt::QueuedConnection);
+    if (controlWidget_) {
+        controlWidget_->setLinked(linked_);
+        controlWidget_->setPollingEnabled(isSessionConnected());
     }
 }
-} // namespace
 
-void ModbusSessionPresenter::setConnectionWidgetConnecting() {
-    setConnectionWidgetDisplayStateImpl(connectionWidget_, mode_, ui::widgets::BaseConnectionWidget::DisplayState::Connecting);
+void ModbusSessionPresenter::assertGuiThread(const char* context) const {
+    assertObjectThread(this, context);
 }
 
-void ModbusSessionPresenter::setConnectionWidgetTransportConnected() {
-    setConnectionWidgetDisplayStateImpl(connectionWidget_, mode_, ui::widgets::BaseConnectionWidget::DisplayState::TransportConnected);
+void ModbusSessionPresenter::applyConnectionState(SessionConnectionState state) {
+    assertGuiThread("applyConnectionState must run on the GUI thread");
+    connectionState_ = state;
+    syncConnectionWidget(state);
 }
 
-void ModbusSessionPresenter::setConnectionWidgetConnected() {
+void ModbusSessionPresenter::syncConnectionWidget(SessionConnectionState state) {
+    assertGuiThread("syncConnectionWidget must run on the GUI thread");
     if (!connectionWidget_) {
         return;
     }
 
-    QMetaObject::invokeMethod(connectionWidget_, "setConnected", Qt::QueuedConnection, Q_ARG(bool, true));
-}
-
-void ModbusSessionPresenter::setConnectionWidgetDisconnecting() {
-    setConnectionWidgetDisplayStateImpl(connectionWidget_, mode_, ui::widgets::BaseConnectionWidget::DisplayState::Disconnecting);
-}
-
-void ModbusSessionPresenter::setConnectionWidgetDisconnected() {
-    if (!connectionWidget_) {
+    switch (state) {
+    case SessionConnectionState::Disconnected:
+        QMetaObject::invokeMethod(connectionWidget_, "setConnected", Qt::QueuedConnection, Q_ARG(bool, false));
+        return;
+    case SessionConnectionState::Connected:
+        QMetaObject::invokeMethod(connectionWidget_, "setConnected", Qt::QueuedConnection, Q_ARG(bool, true));
+        return;
+    case SessionConnectionState::Connecting:
+        setConnectionWidgetDisplayStateImpl(connectionWidget_, mode_, ui::widgets::BaseConnectionWidget::DisplayState::Connecting);
+        return;
+    case SessionConnectionState::TransportConnected:
+        setConnectionWidgetDisplayStateImpl(connectionWidget_, mode_, ui::widgets::BaseConnectionWidget::DisplayState::TransportConnected);
+        return;
+    case SessionConnectionState::Disconnecting:
+        setConnectionWidgetDisplayStateImpl(connectionWidget_, mode_, ui::widgets::BaseConnectionWidget::DisplayState::Disconnecting);
         return;
     }
-
-    QMetaObject::invokeMethod(connectionWidget_, "setConnected", Qt::QueuedConnection, Q_ARG(bool, false));
 }
 
 void ModbusSessionPresenter::onReleaseWorkerStopped(
     const std::shared_ptr<PendingReleaseContext>& pending) {
+    assertGuiThread("onReleaseWorkerStopped must run on the GUI thread");
     if (!pending) {
         return;
     }
@@ -375,6 +414,7 @@ void ModbusSessionPresenter::onReleaseWorkerStopped(
 
 void ModbusSessionPresenter::onReleaseThreadFinished(
     const std::shared_ptr<PendingReleaseContext>& pending, bool ioThread) {
+    assertGuiThread("onReleaseThreadFinished must run on the GUI thread");
     if (!pending) {
         return;
     }
@@ -388,6 +428,7 @@ void ModbusSessionPresenter::onReleaseThreadFinished(
 
 void ModbusSessionPresenter::tryCompletePendingRelease(
     const std::shared_ptr<PendingReleaseContext>& pending) {
+    assertGuiThread("tryCompletePendingRelease must run on the GUI thread");
     if (!pending) {
         return;
     }
@@ -402,6 +443,7 @@ void ModbusSessionPresenter::tryCompletePendingRelease(
 
 void ModbusSessionPresenter::handleReleaseTimeout(
     const std::shared_ptr<PendingReleaseContext>& pending) {
+    assertGuiThread("handleReleaseTimeout must run on the GUI thread");
     if (!pending) {
         return;
     }
@@ -427,6 +469,7 @@ void ModbusSessionPresenter::handleReleaseTimeout(
 }
 
 void ModbusSessionPresenter::maybeRunDeferredAction() {
+    assertGuiThread("maybeRunDeferredAction must run on the GUI thread");
     if (pendingReleases_.empty() && deferredAction_) {
         auto action = std::move(deferredAction_);
         deferredAction_ = nullptr;
@@ -439,9 +482,10 @@ void ModbusSessionPresenter::maybeRunDeferredAction() {
 }
 
 void ModbusSessionPresenter::finalizePendingRelease(const std::shared_ptr<PendingReleaseContext>& pending) {
+    assertGuiThread("finalizePendingRelease must run on the GUI thread");
     if (!pending) {
         if (!worker_ && !channel_ && !client_) {
-            setConnectionWidgetDisconnected();
+            syncConnectionWidget(SessionConnectionState::Disconnected);
         }
         emit stackReleased();
         maybeRunDeferredAction();
@@ -474,7 +518,7 @@ void ModbusSessionPresenter::finalizePendingRelease(const std::shared_ptr<Pendin
     pending->thread.reset();
 
     if (!worker_ && !channel_ && !client_ && connectionState_ != SessionConnectionState::Connecting) {
-        setConnectionWidgetDisconnected();
+        syncConnectionWidget(SessionConnectionState::Disconnected);
     }
 
     emit stackReleased();
@@ -482,6 +526,7 @@ void ModbusSessionPresenter::finalizePendingRelease(const std::shared_ptr<Pendin
 }
 
 void ModbusSessionPresenter::setLinked(bool linked) {
+    assertGuiThread("setLinked must be called on the GUI thread");
     linked_ = linked;
     if (controlWidget_) {
         controlWidget_->setLinked(linked);
@@ -493,6 +538,7 @@ bool ModbusSessionPresenter::isLinked() const {
 }
 
 void ModbusSessionPresenter::initStack(const ::modbus::base::ModbusConfig& config) {
+    assertGuiThread("initStack must run on the GUI thread");
     ::modbus::factory::ModbusFactory factory;
     auto stack = factory.createStack(config);
     if (!stack.worker || !stack.thread || !stack.ioThread) {
@@ -511,6 +557,7 @@ void ModbusSessionPresenter::initStack(const ::modbus::base::ModbusConfig& confi
 }
 
 void ModbusSessionPresenter::setupChannelMonitor(quint64 generation) {
+    assertGuiThread("setupChannelMonitor must run on the GUI thread");
     QPointer<ModbusSessionPresenter> guard(this);
     channel_->setMonitor([guard, generation](bool isTx, const QByteArray& data) {
         if (!guard) return;
@@ -528,6 +575,7 @@ void ModbusSessionPresenter::setupChannelMonitor(quint64 generation) {
 }
 
 void ModbusSessionPresenter::setupChannelStateHandler(quint64 generation) {
+    assertGuiThread("setupChannelStateHandler must run on the GUI thread");
     QPointer<ModbusSessionPresenter> guard(this);
     channel_->addStateHandler([guard, generation](io::ChannelState state) {
         if (!guard) return;
@@ -540,6 +588,7 @@ void ModbusSessionPresenter::setupChannelStateHandler(quint64 generation) {
 }
 
 void ModbusSessionPresenter::setupWorkerSignals(quint64 generation) {
+    assertGuiThread("setupWorkerSignals must run on the GUI thread");
     QPointer<ModbusSessionPresenter> guard(this);
 
     connect(worker_.get(), &::modbus::dispatch::ModbusWorker::connectFinished, this,
@@ -557,6 +606,7 @@ void ModbusSessionPresenter::setupWorkerSignals(quint64 generation) {
 
 void ModbusSessionPresenter::handleChannelStateTransition(io::ChannelState state,
                                                        quint64 generation) {
+    assertGuiThread("handleChannelStateTransition must run on the GUI thread");
     Q_UNUSED(generation);
     const bool hadLiveTransport = connectionState_ != SessionConnectionState::Disconnected;
     const bool isTcp = (mode_ == SessionMode::Tcp);
@@ -564,14 +614,14 @@ void ModbusSessionPresenter::handleChannelStateTransition(io::ChannelState state
     switch (state) {
     case io::ChannelState::Opening:
         if (connectionState_ != SessionConnectionState::Connected) {
-            setConnectionWidgetConnecting();
+            syncConnectionWidget(SessionConnectionState::Connecting);
         }
         return;
     case io::ChannelState::Open: {
         const bool wasNotConnected = (connectionState_ != SessionConnectionState::Connected);
         connectionState_ = SessionConnectionState::TransportConnected;
         if (wasNotConnected) {
-            setConnectionWidgetTransportConnected();
+            syncConnectionWidget(connectionState_);
             if (isTcp && trafficLogController_) {
                 trafficLogController_->logConnectionInfo(tr("Transport connected, validating session..."));
             }
@@ -579,7 +629,7 @@ void ModbusSessionPresenter::handleChannelStateTransition(io::ChannelState state
         return;
     }
     case io::ChannelState::Closing:
-        setConnectionWidgetDisconnecting();
+        syncConnectionWidget(SessionConnectionState::Disconnecting);
         return;
     case io::ChannelState::Closed:
     case io::ChannelState::Error: {
@@ -587,7 +637,7 @@ void ModbusSessionPresenter::handleChannelStateTransition(io::ChannelState state
         connectionState_ = SessionConnectionState::Disconnected;
         if (wasConnected || hadLiveTransport) {
             const bool shouldShowDisconnectAlert = isTcp && wasConnected && !suppressDisconnectAlert_;
-            setConnectionWidgetDisconnected();
+            syncConnectionWidget(connectionState_);
             if (controlWidget_) {
                 controlWidget_->setPollingEnabled(false);
             }
@@ -606,11 +656,11 @@ void ModbusSessionPresenter::handleChannelStateTransition(io::ChannelState state
 
 void ModbusSessionPresenter::handleConnectFinished(bool ok, const QString& error,
                                                     quint64 generation) {
+    assertGuiThread("handleConnectFinished must run on the GUI thread");
     if (generation != connectionGeneration_) return;
 
     if (!ok) {
-        connectionState_ = SessionConnectionState::Disconnected;
-        setConnectionWidgetDisconnected();
+        applyConnectionState(SessionConnectionState::Disconnected);
         if (controlWidget_) {
             controlWidget_->setPollingEnabled(false);
         }
@@ -625,8 +675,7 @@ void ModbusSessionPresenter::handleConnectFinished(bool ok, const QString& error
     }
 
     suppressDisconnectAlert_ = false;
-    connectionState_ = SessionConnectionState::Connected;
-    setConnectionWidgetConnected();
+    applyConnectionState(SessionConnectionState::Connected);
     if (trafficLogController_) {
         trafficLogController_->logConnectionInfo(tr("Connected"));
     }
@@ -637,9 +686,7 @@ void ModbusSessionPresenter::handleConnectFinished(bool ok, const QString& error
 void ModbusSessionPresenter::handleRequestFinished(int requestId,
                                                      const ::modbus::session::ModbusResponse& response,
                                                      quint64 generation) {
-    Q_ASSERT_X(QThread::currentThread() == thread(),
-               "ModbusSessionPresenter",
-               "handleRequestFinished must be called on the main thread");
+    assertGuiThread("handleRequestFinished must run on the GUI thread");
 
     if (generation != connectionGeneration_) return;
     if (!requestService_) return;

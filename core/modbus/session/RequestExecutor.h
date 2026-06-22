@@ -51,23 +51,27 @@ public:
         std::chrono::steady_clock::time_point enqueueAt{};
     };
 
-    RequestExecutor(io::IChannel* channel,
-                    transport::ITransport* transport,
-                    FrameExtractor* frameExtractor,
-                    FlowController* flowController,
-                    RetryStrategy* retryStrategy,
-                    RequestValidator* requestValidator,
-                    ConnectionStateMachine* connStateMachine,
-                    RequestStateMachine* reqStateMachine,
-                    TimeoutController* timeoutController,
-                    ConnectionManager* connectionManager,
-                    const base::ModbusConfig* config,
-                    std::mutex& mutex,
-                    std::condition_variable& cv,
-                    std::atomic<bool>& aborted,
-                    std::mutex& pendingMutex,
-                    std::deque<PendingRequest>& pendingRequests,
-                    int& nextRequestId);
+    struct Dependencies {
+        io::IChannel* channel;
+        transport::ITransport* transport;
+        FrameExtractor* frameExtractor;
+        FlowController* flowController;
+        RetryStrategy* retryStrategy;
+        RequestValidator* requestValidator;
+        ConnectionStateMachine* connStateMachine;
+        RequestStateMachine* reqStateMachine;
+        TimeoutController* timeoutController;
+        ConnectionManager* connectionManager;
+        const base::ModbusConfig* config;
+        std::mutex& mutex;
+        std::condition_variable& cv;
+        std::atomic<bool>& aborted;
+        std::mutex& pendingMutex;
+        std::deque<PendingRequest>& pendingRequests;
+        int& nextRequestId;
+    };
+
+    explicit RequestExecutor(const Dependencies& deps);
 
     /**
      * @brief Execute a complete Modbus request with retry logic.

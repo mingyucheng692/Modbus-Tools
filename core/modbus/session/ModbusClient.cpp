@@ -49,12 +49,24 @@ ModbusClient::ModbusClient(std::shared_ptr<io::IChannel> channel,
     , timeoutController_(mutex_, cv_, aborted_)
     , connectionManager_(channel_.get(), &connectionStateMachine_,
                          &timeoutController_, &config_, mutex_, cv_)
-    , requestExecutor_(channel_.get(), transport_.get(), &frameExtractor_,
-                       &flowController_, &retryStrategy_, &requestValidator_,
-                       &connectionStateMachine_, &requestStateMachine_,
-                       &timeoutController_, &connectionManager_,
-                       &config_, mutex_, cv_, aborted_,
-                       pendingMutex_, pendingRequests_, nextRequestId_) {
+    , requestExecutor_(RequestExecutor::Dependencies{
+          channel_.get(),
+          transport_.get(),
+          &frameExtractor_,
+          &flowController_,
+          &retryStrategy_,
+          &requestValidator_,
+          &connectionStateMachine_,
+          &requestStateMachine_,
+          &timeoutController_,
+          &connectionManager_,
+          &config_,
+          mutex_,
+          cv_,
+          aborted_,
+          pendingMutex_,
+          pendingRequests_,
+          nextRequestId_}) {
     
     // Channel callbacks
     channel_->setReadHandler([this](QByteArrayView data) {

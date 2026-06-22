@@ -22,6 +22,7 @@
 #include <tuple>
 #include <QtEndian>
 #include <QCoreApplication>
+#include <QtGlobal>
 
 namespace modbus::session {
 namespace {
@@ -45,40 +46,36 @@ namespace {
 
 } // namespace
 
-RequestExecutor::RequestExecutor(io::IChannel* channel,
-                                 transport::ITransport* transport,
-                                 FrameExtractor* frameExtractor,
-                                 FlowController* flowController,
-                                 RetryStrategy* retryStrategy,
-                                 RequestValidator* requestValidator,
-                                 ConnectionStateMachine* connStateMachine,
-                                 RequestStateMachine* reqStateMachine,
-                                 TimeoutController* timeoutController,
-                                 ConnectionManager* connectionManager,
-                                 const base::ModbusConfig* config,
-                                 std::mutex& mutex,
-                                 std::condition_variable& cv,
-                                 std::atomic<bool>& aborted,
-                                 std::mutex& pendingMutex,
-                                 std::deque<PendingRequest>& pendingRequests,
-                                 int& nextRequestId)
-    : channel_(channel)
-    , transport_(transport)
-    , frameExtractor_(frameExtractor)
-    , flowController_(flowController)
-    , retryStrategy_(retryStrategy)
-    , requestValidator_(requestValidator)
-    , connStateMachine_(connStateMachine)
-    , reqStateMachine_(reqStateMachine)
-    , timeoutController_(timeoutController)
-    , connectionManager_(connectionManager)
-    , config_(config)
-    , mutex_(mutex)
-    , cv_(cv)
-    , aborted_(aborted)
-    , pendingMutex_(pendingMutex)
-    , pendingRequests_(pendingRequests)
-    , nextRequestId_(nextRequestId) {}
+RequestExecutor::RequestExecutor(const Dependencies& deps)
+    : channel_(deps.channel)
+    , transport_(deps.transport)
+    , frameExtractor_(deps.frameExtractor)
+    , flowController_(deps.flowController)
+    , retryStrategy_(deps.retryStrategy)
+    , requestValidator_(deps.requestValidator)
+    , connStateMachine_(deps.connStateMachine)
+    , reqStateMachine_(deps.reqStateMachine)
+    , timeoutController_(deps.timeoutController)
+    , connectionManager_(deps.connectionManager)
+    , config_(deps.config)
+    , mutex_(deps.mutex)
+    , cv_(deps.cv)
+    , aborted_(deps.aborted)
+    , pendingMutex_(deps.pendingMutex)
+    , pendingRequests_(deps.pendingRequests)
+    , nextRequestId_(deps.nextRequestId) {
+    Q_ASSERT(channel_);
+    Q_ASSERT(transport_);
+    Q_ASSERT(frameExtractor_);
+    Q_ASSERT(flowController_);
+    Q_ASSERT(retryStrategy_);
+    Q_ASSERT(requestValidator_);
+    Q_ASSERT(connStateMachine_);
+    Q_ASSERT(reqStateMachine_);
+    Q_ASSERT(timeoutController_);
+    Q_ASSERT(connectionManager_);
+    Q_ASSERT(config_);
+}
 
 // --- Public API ---
 
