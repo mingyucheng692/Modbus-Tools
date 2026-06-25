@@ -92,7 +92,7 @@ bool RequestExecutor::tryAcquireRequestLock() {
 ModbusResponse RequestExecutor::execute(const base::Pdu& request, int slaveId) {
     if (!tryAcquireRequestLock()) {
         spdlog::warn("RequestExecutor: rejected concurrent sendRequest while another request is active");
-        return ModbusResponse::Error(trReq("Request already in progress"));
+        return ModbusResponse::Busy(trReq("Request already in progress"));
     }
     RequestLockGuard unlockGuard(requestLocked_);
     std::lock_guard<std::mutex> lock(requestMutex_);

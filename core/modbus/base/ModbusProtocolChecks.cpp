@@ -10,6 +10,7 @@
 #include "ModbusProtocolChecks.h"
 #include "AppConstants.h"
 #include "ModbusCrc.h"
+#include "ModbusEndianCodec.h"
 #include "ModbusFrame.h"
 #include <QCoreApplication>
 #include <QtEndian>
@@ -52,17 +53,6 @@ bool copyValue(QByteArrayView data, qsizetype offset, T& value)
     return true;
 }
 
-bool readBigEndianUInt16(QByteArrayView data, qsizetype offset, uint16_t& value)
-{
-    uint16_t rawValue = 0;
-    if (!copyValue(data, offset, rawValue)) {
-        return false;
-    }
-
-    value = qFromBigEndian(rawValue);
-    return true;
-}
-
 bool readLittleEndianUInt16(QByteArrayView data, qsizetype offset, uint16_t& value)
 {
     uint16_t rawValue = 0;
@@ -97,9 +87,9 @@ int inspectTcpAdu(QByteArrayView adu, TcpAduFields* fields) {
     uint16_t transactionId = 0;
     uint16_t protocolId = 0;
     uint16_t length = 0;
-    if (!readBigEndianUInt16(adu, 0, transactionId) ||
-        !readBigEndianUInt16(adu, 2, protocolId) ||
-        !readBigEndianUInt16(adu, 4, length)) {
+    if (!readBigEndian<uint16_t>(adu, 0, transactionId) ||
+        !readBigEndian<uint16_t>(adu, 2, protocolId) ||
+        !readBigEndian<uint16_t>(adu, 4, length)) {
         return -1;
     }
 
@@ -174,7 +164,7 @@ QString validateResponsePdu(const Pdu& request, const Pdu& response)
     switch (request.functionCode()) {
     case FunctionCode::ReadCoils:
     case FunctionCode::ReadDiscreteInputs: {
-        if (!readBigEndianUInt16(requestData, 2, requestQuantity)) {
+        if (!readBigEndian<uint16_t>(requestData, 2, requestQuantity)) {
             return trProtocolCheck(kBitReadRequestQuantityMissingText);
         }
         if (responseData.size() < 1) {
@@ -192,7 +182,7 @@ QString validateResponsePdu(const Pdu& request, const Pdu& response)
     }
     case FunctionCode::ReadHoldingRegisters:
     case FunctionCode::ReadInputRegisters: {
-        if (!readBigEndianUInt16(requestData, 2, requestQuantity)) {
+        if (!readBigEndian<uint16_t>(requestData, 2, requestQuantity)) {
             return trProtocolCheck(kRegisterReadRequestQuantityMissingText);
         }
         if (responseData.size() < 1) {
@@ -222,8 +212,8 @@ QString validateResponsePdu(const Pdu& request, const Pdu& response)
         return QString();
     case FunctionCode::WriteMultipleCoils:
     case FunctionCode::WriteMultipleRegisters:
-        if (!readBigEndianUInt16(requestData, 0, requestStartAddress) ||
-            !readBigEndianUInt16(requestData, 2, requestQuantity)) {
+        if (!readBigEndian<uint16_t>(requestData, 0, requestStartAddress) ||
+            !readBigEndian<uint16_t>(requestData, 2, requestQuantity)) {
             return trProtocolCheck(kWriteMultipleRequestEchoMissingText);
         }
         if (responseData.size() != 4) {
@@ -232,8 +222,8 @@ QString validateResponsePdu(const Pdu& request, const Pdu& response)
         {
             uint16_t responseStartAddress = 0;
             uint16_t responseQuantity = 0;
-            if (!readBigEndianUInt16(responseData, 0, responseStartAddress) ||
-                !readBigEndianUInt16(responseData, 2, responseQuantity)) {
+            if (!readBigEndian<uint16_t>(responseData, 0, responseStartAddress) ||
+                !readBigEndian<uint16_t>(responseData, 2, responseQuantity)) {
                 return trProtocolCheck(kWriteMultipleEchoIncompleteText);
             }
             if (responseStartAddress != requestStartAddress || responseQuantity != requestQuantity) {

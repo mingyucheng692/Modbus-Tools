@@ -99,20 +99,7 @@ void ModbusSessionPresenter::startTcpConnect(const QString& ip, int port,
         return;
     }
 
-    currentConfig_.timeoutMs = timeoutMs_;
-    currentConfig_.retries = retries_;
-    currentConfig_.retryIntervalMs = retryIntervalMs_;
-    worker_->updateConfig(currentConfig_);
-
-    setupChannelMonitor(generation);
-    setupChannelStateHandler(generation);
-    setupWorkerSignals(generation);
-
-    if (ioThread_ && !ioThread_->isRunning()) {
-        ioThread_->start();
-    }
-    worker_->start();
-    worker_->requestConnect();
+    activateStack(generation);
 }
 
 void ModbusSessionPresenter::connectRtu(const io::SerialConfig& serialConfig,
@@ -147,6 +134,11 @@ void ModbusSessionPresenter::startRtuConnect(const io::SerialConfig& serialConfi
         return;
     }
 
+    activateStack(generation);
+}
+
+void ModbusSessionPresenter::activateStack(quint64 generation) {
+    assertGuiThread("activateStack must run on the GUI thread");
     currentConfig_.timeoutMs = timeoutMs_;
     currentConfig_.retries = retries_;
     currentConfig_.retryIntervalMs = retryIntervalMs_;
@@ -726,6 +718,15 @@ void ModbusSessionPresenter::handleRequestFinished(int requestId,
         }
         break;
     case ::modbus::session::ModbusResponseKind::Error:
+        if (response.isBusy()) {
+            // Soft-lock contention is not a protocol error: don't bump the
+            // error counter; surface a dedicated warning so the UI shows a
+            // precise "request in progress" hint instead of a generic error.
+            if (kind != RequestKind::Poll && trafficLogController_) {
+                trafficLogController_->logWarning(response.error);
+            }
+            break;
+        }
         if (controlWidget_) {
             controlWidget_->recordError();
         }

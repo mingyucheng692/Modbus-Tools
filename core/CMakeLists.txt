@@ -9,6 +9,7 @@ target_sources(core PRIVATE
     modbus/base/ModbusTypes.h
     modbus/base/ModbusFrame.h
     modbus/base/ModbusConfig.h
+    modbus/base/ModbusEndianCodec.h
     modbus/base/ModbusProtocolChecks.h
     modbus/base/ModbusProtocolChecks.cpp
     modbus/base/ModbusDataHelper.h

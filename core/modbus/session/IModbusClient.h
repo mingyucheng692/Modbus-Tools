@@ -23,9 +23,17 @@ enum class ModbusResponseKind {
     Error
 };
 
+// Structured error code so the UI can distinguish "soft lock contention"
+// (Busy) from genuine transport/protocol errors and show a precise message.
+enum class RequestError {
+    None,
+    Busy
+};
+
 // 响应结果类型：包含 Pdu 或错误信息
 struct ModbusResponse {
     ModbusResponseKind kind = ModbusResponseKind::Error;
+    RequestError errorCode = RequestError::None;
     base::Pdu pdu;
     bool isSuccess = false;
     QString error;
@@ -38,6 +46,7 @@ struct ModbusResponse {
     bool hasPdu() const { return kind != ModbusResponseKind::Error; }
     bool isError() const { return kind == ModbusResponseKind::Error; }
     bool isNoResponseExpected() const { return kind == ModbusResponseKind::NoResponseExpected; }
+    bool isBusy() const { return errorCode == RequestError::Busy; }
 
     static ModbusResponse Success(base::Pdu pdu, int rttMs = -1, int attemptCount = 0) {
         ModbusResponse response;
@@ -75,6 +84,12 @@ struct ModbusResponse {
         response.noResponseExpected = false;
         response.attemptCount = attemptCount;
         response.retryCount = attemptCount > 0 ? attemptCount - 1 : 0;
+        return response;
+    }
+
+    static ModbusResponse Busy(QString error) {
+        ModbusResponse response = Error(std::move(error));
+        response.errorCode = RequestError::Busy;
         return response;
     }
 };

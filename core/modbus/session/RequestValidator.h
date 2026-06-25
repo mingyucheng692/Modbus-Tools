@@ -30,7 +30,6 @@ public:
         base::ModbusMode mode) const;
 
 private:
-    static bool readBigEndianUInt16(const QByteArray& data, int offset, uint16_t& out);
     static bool isAddressRangeValid(uint16_t startAddress, uint16_t quantity);
 };
 

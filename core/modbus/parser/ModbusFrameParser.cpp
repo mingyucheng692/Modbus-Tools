@@ -9,6 +9,7 @@
 
 #include "ModbusFrameParser.h"
 #include "AppConstants.h"
+#include "../base/ModbusEndianCodec.h"
 #include "../base/ModbusProtocolChecks.h"
 #include <QtEndian>
 #include <QDataStream>
@@ -28,18 +29,6 @@ QString formatFunctionCodeHex(uint8_t functionCode)
 QString formatFrameHex(const QByteArray& frame)
 {
     return frame.toHex(' ').toUpper();
-}
-
-bool readBigEndianUInt16(QByteArrayView data, qsizetype offset, uint16_t& value)
-{
-    if (offset < 0 || offset + static_cast<qsizetype>(sizeof(uint16_t)) > data.size()) {
-        return false;
-    }
-
-    uint16_t rawValue = 0;
-    std::memcpy(&rawValue, data.data() + offset, sizeof(rawValue));
-    value = qFromBigEndian(rawValue);
-    return true;
 }
 
 } // namespace
@@ -605,7 +594,7 @@ uint16_t ModbusFrameParser::extractAddressFromPdu(const QByteArray& pdu)
     }
 
     uint16_t address = 0;
-    return readBigEndianUInt16(QByteArrayView(pdu), 1, address) ? address : 0;
+    return modbus::base::readBigEndian<uint16_t>(QByteArrayView(pdu), 1, address) ? address : 0;
 }
 
 uint16_t ModbusFrameParser::determineEffectiveStartAddress(modbus::base::FunctionCode functionCode,

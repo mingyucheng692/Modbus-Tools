@@ -87,6 +87,7 @@ set(TEST_CORE_LOGIC_SOURCES
     unit/modbus/parser/ParserRobustnessTest.cpp
     unit/modbus/parser/ParserTest.cpp
     unit/modbus/session/ModbusClientBoundaryTest.cpp
+    unit/modbus/session/ModbusResponseTest.cpp
     unit/modbus/session/FrameExtractorTest.cpp
     unit/modbus/session/ModbusStateTest.cpp
     unit/modbus/transport/TransportTest.cpp

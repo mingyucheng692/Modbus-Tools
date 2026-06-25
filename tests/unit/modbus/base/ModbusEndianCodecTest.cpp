@@ -1,5 +1,6 @@
 #include <gtest/gtest.h>
 
+#include "modbus/base/ModbusEndianCodec.h"
 #include "modbus/base/ModbusFrame.h"
 #include "modbus/base/ModbusPduBuilder.h"
 #include "modbus/base/ModbusProtocolChecks.h"
@@ -402,3 +403,70 @@ TEST(ModbusEndianCodecTest, ValidateResponsePdu_UnsupportedFunctionCode_ReturnsE
     const QString error = validateResponsePdu(request, response);
     EXPECT_FALSE(error.isEmpty());
 }
+
+// ============================================================================
+// readBigEndian<T> template — the consolidated big-endian reader.
+// Covers uint16/uint32 normal reads, boundary fits, out-of-range offsets,
+// empty data, and the "value unchanged on failure" contract.
+// ============================================================================
+
+TEST(ModbusEndianCodecTest, ReadBigEndian_Uint16_ReadsValueAtOffset) {
+    const QByteArray data = QByteArray::fromHex("12345678");
+    uint16_t value = 0;
+    EXPECT_TRUE(readBigEndian<uint16_t>(QByteArrayView(data), 0, value));
+    EXPECT_EQ(value, 0x1234u);
+    EXPECT_TRUE(readBigEndian<uint16_t>(QByteArrayView(data), 2, value));
+    EXPECT_EQ(value, 0x5678u);
+}
+
+TEST(ModbusEndianCodecTest, ReadBigEndian_Uint32_ReadsValueAtOffset) {
+    const QByteArray data = QByteArray::fromHex("1234567890ABCDEF");
+    uint32_t value = 0;
+    EXPECT_TRUE(readBigEndian<uint32_t>(QByteArrayView(data), 0, value));
+    EXPECT_EQ(value, 0x12345678u);
+    EXPECT_TRUE(readBigEndian<uint32_t>(QByteArrayView(data), 4, value));
+    EXPECT_EQ(value, 0x90ABCDEFu);
+}
+
+TEST(ModbusEndianCodecTest, ReadBigEndian_FitsExactlyAtEndOfBuffer) {
+    // 2-byte buffer, uint16 read at offset 0 exactly fits (offset + sizeof == size).
+    const QByteArray data = QByteArray::fromHex("ABCD");
+    uint16_t value = 0;
+    EXPECT_TRUE(readBigEndian<uint16_t>(QByteArrayView(data), 0, value));
+    EXPECT_EQ(value, 0xABCDu);
+}
+
+TEST(ModbusEndianCodecTest, ReadBigEndian_OffsetZero_NegativeOffset_Fails) {
+    const QByteArray data = QByteArray::fromHex("ABCD");
+    uint16_t value = 99;
+    EXPECT_FALSE(readBigEndian<uint16_t>(QByteArrayView(data), -1, value));
+    // Contract: value is left unchanged when bounds check fails.
+    EXPECT_EQ(value, 99u);
+}
+
+TEST(ModbusEndianCodecTest, ReadBigEndian_OffsetBeyondSize_Fails) {
+    const QByteArray data = QByteArray::fromHex("ABCD"); // size 2
+    uint16_t value = 99;
+    // offset 2 + sizeof(uint16)=2 == 4 > size 2 → fail
+    EXPECT_FALSE(readBigEndian<uint16_t>(QByteArrayView(data), 2, value));
+    EXPECT_EQ(value, 99u);
+    // offset 1 + sizeof(uint16)=2 == 3 > size 2 → fail
+    EXPECT_FALSE(readBigEndian<uint16_t>(QByteArrayView(data), 1, value));
+    EXPECT_EQ(value, 99u);
+}
+
+TEST(ModbusEndianCodecTest, ReadBigEndian_EmptyData_Fails) {
+    const QByteArray data;
+    uint16_t value = 99;
+    EXPECT_FALSE(readBigEndian<uint16_t>(QByteArrayView(data), 0, value));
+    EXPECT_EQ(value, 99u);
+}
+
+TEST(ModbusEndianCodecTest, ReadBigEndian_Uint32_TruncatedBuffer_Fails) {
+    // 3-byte buffer cannot hold a uint32 at offset 0.
+    const QByteArray data = QByteArray::fromHex("123456");
+    uint32_t value = 99;
+    EXPECT_FALSE(readBigEndian<uint32_t>(QByteArrayView(data), 0, value));
+    EXPECT_EQ(value, 99u);
+}
+
