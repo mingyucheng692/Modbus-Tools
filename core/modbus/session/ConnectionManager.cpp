@@ -15,9 +15,9 @@
 
 namespace modbus::session {
 namespace {
-    // i18n helper — delegates to the project-wide translation function
+    // i18n helper — uses explicit context so lupdate can categorize strings
     QString trConn(const char* text) {
-        return QObject::tr(text);
+        return QCoreApplication::translate("modbus::session::ConnectionManager", text);
     }
 } // namespace
 

@@ -18,14 +18,14 @@
 namespace config {
 
 struct Modbus {
-    /// Maximum ADU (Application Data Unit) size in bytes (256 data + 4 overhead).
-    /// Per Modbus spec, the maximum PDU is 253 bytes; with 7 bytes overhead
-    /// (1 slave + 2 CRC for RTU, or 7 MBAP for TCP) this safely covers either.
-    static constexpr int kMaxAdpuSize = 260;
-
-    /// Maximum MBAP Length field value per Modbus TCP spec.
-    /// Unit ID (1) + Function Code (1) + Data (253) = 255 max.
-    static constexpr int kMaxMbapLength = 255;
+    /// Maximum ADU (Application Data Unit) size in bytes.
+    /// Per Modbus spec, the maximum PDU is 253 bytes; with 7 bytes MBAP overhead
+    /// for TCP (Transaction ID 2 + Protocol ID 2 + Length 2 + Unit ID 1) the max
+    /// TCP ADU = 7 + 253 = 260. For RTU, 1 slave + 253 PDU + 2 CRC = 256.
+    /// 260 safely covers either transport.
+    /// NOTE: For the MBAP Length field limit, use
+    /// app::constants::Values::Modbus::kMaxTcpMbapLength (= 254 = Unit ID 1 + PDU 253).
+    static constexpr int kMaxAduSize = 260;
 };
 
 struct Io {

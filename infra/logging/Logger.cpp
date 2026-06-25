@@ -14,6 +14,7 @@
 #include <QDateTime>
 #include <QDir>
 #include <QFile>
+#include <QCoreApplication>
 #include <QtGlobal>
 #include <spdlog/async.h>
 #include <spdlog/common.h>
@@ -69,7 +70,7 @@ bool ensureLogDirectoryWritable(const QString& logDir, QString* errorMessage)
 {
     if (logDir.isEmpty()) {
         if (errorMessage) {
-            *errorMessage = QObject::tr("Log directory path is empty.");
+            *errorMessage = QCoreApplication::translate("logging", "Log directory path is empty.");
         }
         return false;
     }
@@ -77,7 +78,7 @@ bool ensureLogDirectoryWritable(const QString& logDir, QString* errorMessage)
     QDir dir(logDir);
     if (!dir.exists() && !dir.mkpath(QStringLiteral("."))) {
         if (errorMessage) {
-            *errorMessage = QObject::tr("Failed to create log directory: %1").arg(logDir);
+            *errorMessage = QCoreApplication::translate("logging", "Failed to create log directory: %1").arg(logDir);
         }
         return false;
     }
@@ -86,7 +87,7 @@ bool ensureLogDirectoryWritable(const QString& logDir, QString* errorMessage)
     QFile probeFile(probePath);
     if (!probeFile.open(QIODevice::WriteOnly | QIODevice::Truncate)) {
         if (errorMessage) {
-            *errorMessage = QObject::tr("Log directory is not writable: %1").arg(logDir);
+            *errorMessage = QCoreApplication::translate("logging", "Log directory is not writable: %1").arg(logDir);
         }
         return false;
     }

@@ -17,35 +17,58 @@
 namespace io {
 
 namespace {
+
 unsigned long long threadToken(QThread* thread)
 {
     return static_cast<unsigned long long>(reinterpret_cast<quintptr>(thread));
 }
-}
+
+// Verifies the caller is on the IO thread (socket_.thread()). All signal
+// handlers are connected via Qt::QueuedConnection and must execute on the IO
+// thread to avoid data races on pendingWrites_/closing_/currentWriteOffset_.
+#define ASSERT_IO_THREAD() \
+    Q_ASSERT_X(QThread::currentThread() == socket_.thread(), \
+               __func__, "must run on the IO thread (socket_.thread())")
+
+} // namespace
 
 TcpChannel::TcpChannel() {
     writeTimeoutTimer_.setSingleShot(true);
-    QObject::connect(&writeTimeoutTimer_, &QTimer::timeout, [this]() {
+    // Functor-based connect with an explicit connection type requires a context
+    // QObject (5-arg overload). TcpChannel itself is not a QObject, so the
+    // signal sender is passed as the context. Because the sender lives on the
+    // IO thread (after moveToThread), Qt::QueuedConnection guarantees the
+    // functor executes on the IO thread regardless of which thread emits.
+    QObject::connect(&writeTimeoutTimer_, &QTimer::timeout, &writeTimeoutTimer_, [this]() {
         onWriteTimeout();
-    });
-    QObject::connect(&socket_, &QTcpSocket::connected, [this]() {
+    }, Qt::QueuedConnection);
+    QObject::connect(&socket_, &QTcpSocket::connected, &socket_, [this]() {
         onConnected();
-    });
-    QObject::connect(&socket_, &QTcpSocket::bytesWritten, [this](qint64 bytes) {
+    }, Qt::QueuedConnection);
+    QObject::connect(&socket_, &QTcpSocket::bytesWritten, &socket_, [this](qint64 bytes) {
         onBytesWritten(bytes);
-    });
-    QObject::connect(&socket_, &QTcpSocket::readyRead, [this]() {
+    }, Qt::QueuedConnection);
+    QObject::connect(&socket_, &QTcpSocket::readyRead, &socket_, [this]() {
         onReadyRead();
-    });
-    QObject::connect(&socket_, &QTcpSocket::errorOccurred, [this](QAbstractSocket::SocketError error) {
+    }, Qt::QueuedConnection);
+    QObject::connect(&socket_, &QTcpSocket::errorOccurred, &socket_, [this](QAbstractSocket::SocketError error) {
         onSocketError(error);
-    });
-    QObject::connect(&socket_, &QTcpSocket::stateChanged, [this](QAbstractSocket::SocketState state) {
+    }, Qt::QueuedConnection);
+    QObject::connect(&socket_, &QTcpSocket::stateChanged, &socket_, [this](QAbstractSocket::SocketState state) {
         onStateChanged(state);
-    });
+    }, Qt::QueuedConnection);
 }
 
 TcpChannel::~TcpChannel() {
+    // UAF guard: cross-thread destruction queues a close() lambda to the IO
+    // thread and returns immediately, then destroys socket_/pendingWrites_
+    // while the IO thread may still access them. Callers must ensure the IO
+    // thread has quit()+wait() before releasing the channel.
+    Q_ASSERT_X(socket_.thread() == QThread::currentThread(),
+                "TcpChannel::~TcpChannel",
+                "TcpChannel must be destroyed on its owner (IO) thread; "
+                "cross-thread destruction is UAF. Ensure ioThread quit()+wait() "
+                "completes before releasing the channel.");
     close();
 }
 
@@ -200,6 +223,7 @@ void TcpChannel::flushPendingWrites() {
 }
 
 void TcpChannel::onReadyRead() {
+    ASSERT_IO_THREAD();
     logThreadContextOnce("TcpChannel::onReadyRead", ioThreadLogged_);
     QByteArray data = socket_.readAll();
     if (!data.isEmpty()) {
@@ -211,6 +235,7 @@ void TcpChannel::onReadyRead() {
 }
 
 void TcpChannel::onConnected() {
+    ASSERT_IO_THREAD();
     logThreadContextOnce("TcpChannel::onConnected", ioThreadLogged_);
     closing_ = false;
     setState(ChannelState::Open);
@@ -238,6 +263,7 @@ void TcpChannel::logThreadContextOnce(const char* scope, bool& loggedFlag)
 }
 
 void TcpChannel::onBytesWritten(qint64 bytes) {
+    ASSERT_IO_THREAD();
     Q_UNUSED(bytes);
     bool queueDrained = false;
     while (!pendingWrites_.empty() &&
@@ -258,6 +284,7 @@ void TcpChannel::onBytesWritten(qint64 bytes) {
 }
 
 void TcpChannel::onSocketError(QAbstractSocket::SocketError error) {
+    ASSERT_IO_THREAD();
     if (closing_) {
         return;
     }
@@ -280,6 +307,7 @@ void TcpChannel::onSocketError(QAbstractSocket::SocketError error) {
 }
 
 void TcpChannel::onStateChanged(QAbstractSocket::SocketState state) {
+    ASSERT_IO_THREAD();
     switch (state) {
         case QAbstractSocket::ConnectedState:
             setState(ChannelState::Open);

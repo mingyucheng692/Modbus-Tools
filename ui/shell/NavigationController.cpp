@@ -3,6 +3,7 @@
 #include "AppConstants.h"
 
 #include <QColor>
+#include <QCoreApplication>
 #include <QFontMetrics>
 #include <QIcon>
 #include <QImage>
@@ -139,7 +140,8 @@ void NavigationController::setCollapsed(bool collapsed) {
             item->setTextAlignment(collapsed_ ? Qt::AlignCenter : (Qt::AlignLeft | Qt::AlignVCenter));
         }
     }
-    updateToggleUi(QObject::tr("Expand Navigation"), QObject::tr("Collapse Navigation"));
+    updateToggleUi(QCoreApplication::translate("ui::shell::NavigationController", "Expand Navigation"),
+                   QCoreApplication::translate("ui::shell::NavigationController", "Collapse Navigation"));
 }
 
 bool NavigationController::isCollapsed() const {

@@ -374,7 +374,7 @@ TEST_F(ModbusClientBoundaryTest, SendRequest_WriteFails_ReturnsError) {
 TEST_F(ModbusClientBoundaryTest, SendRequest_OversizedPdu_ReturnsError) {
     connectClient();
 
-    QByteArray hugeData(config::Modbus::kMaxAdpuSize + 100, 0x00);
+    QByteArray hugeData(config::Modbus::kMaxAduSize + 100, 0x00);
     Pdu hugePdu(FunctionCode::ReadHoldingRegisters, hugeData);
 
     auto resp = client_->sendRequest(hugePdu);

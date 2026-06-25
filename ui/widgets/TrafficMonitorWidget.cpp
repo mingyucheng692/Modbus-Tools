@@ -537,7 +537,7 @@ void TrafficMonitorWidget::onSaveClicked() {
             QIODevice::OpenMode mode = QIODevice::WriteOnly | QIODevice::Text;
             mode |= firstChunk ? QIODevice::Truncate : QIODevice::Append;
             if (!file.open(mode)) {
-                *errorMessage = QObject::tr("Cannot write file: %1").arg(fileName);
+                *errorMessage = TrafficMonitorWidget::tr("Cannot write file: %1").arg(fileName);
                 return;
             }
 

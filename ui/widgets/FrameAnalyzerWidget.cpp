@@ -41,6 +41,7 @@
 #include <QSplitter>
 #include <QThread>
 #include <QPointer>
+#include <spdlog/spdlog.h>
 
 using namespace modbus::core::parser;
 using namespace modbus::analyzer;
@@ -269,8 +270,39 @@ FrameAnalyzerWidget::~FrameAnalyzerWidget()
 {
     Q_D(FrameAnalyzerWidget);
     if (d->parseThread) {
+        // 1. Disconnect parseFinished callback to prevent UAF if a parse is in flight.
+        if (d->parseWorker) {
+            disconnect(d->parseWorker.data(), &FrameParseWorker::parseFinished,
+                       this, &FrameAnalyzerWidget::onParseFinished);
+        }
+        // 2. Disconnect the finished→deleteLater connection: after quit() the
+        //    thread's event loop has stopped so deleteLater would never be
+        //    processed (worker leak). We delete explicitly below instead.
+        disconnect(d->parseThread, &QThread::finished,
+                   d->parseWorker.data(), &QObject::deleteLater);
+
+        // 3. Queue worker deletion on the worker thread (processed before the
+        //    quit event, ensuring safe deletion within the worker's own thread).
+        if (d->parseWorker) {
+            FrameParseWorker* worker = d->parseWorker.data();
+            QMetaObject::invokeMethod(worker, [worker]() {
+                delete worker;
+            }, Qt::QueuedConnection);
+        }
+
+        // 4. quit() + timed wait. We do NOT use terminate() (AGENTS.md forbids
+        //    it — deadlock risk in industrial projects). Frame parsing is
+        //    lightweight CPU work so 2000ms is ample under normal conditions.
         d->parseThread->quit();
-        d->parseThread->wait();
+        if (!d->parseThread->wait(2000)) {
+            // Rare case: worker stuck in an abnormally long parse. Accept the
+            // worker/thread leak to avoid terminate() deadlock. Reparent the
+            // QThread so it is not destroyed by the widget's Qt object tree
+            // (destroying a running QThread is fatal).
+            spdlog::error("FrameAnalyzerWidget: parse thread did not exit within 2000ms; "
+                          "worker/thread leaked to avoid terminate() deadlock");
+            d->parseThread->setParent(nullptr);
+        }
     }
 }
 

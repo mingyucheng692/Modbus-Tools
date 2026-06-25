@@ -34,7 +34,7 @@ namespace {
             kDupeTrackerSuppressionWindow).count();
 
     QString trReq(const char* text) {
-        return QObject::tr(text);
+        return QCoreApplication::translate("modbus::session::RequestExecutor", text);
     }
 
     bool isBroadcastWriteFunction(base::FunctionCode functionCode) {

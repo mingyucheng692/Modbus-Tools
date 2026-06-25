@@ -38,10 +38,10 @@ int main(int argc, char *argv[])
     if (!logging::Init(infra::platform::PathResolver::instance().resolveLogDir(), &loggingError)) {
         QMessageBox::critical(
             nullptr,
-            QObject::tr("Startup Error"),
+            QCoreApplication::translate("main", "Startup Error"),
             loggingError.isEmpty()
-                ? QObject::tr("Failed to initialize application logging.")
-                : QObject::tr("Failed to initialize application logging.\n%1").arg(loggingError));
+                ? QCoreApplication::translate("main", "Failed to initialize application logging.")
+                : QCoreApplication::translate("main", "Failed to initialize application logging.\n%1").arg(loggingError));
         return 1;
     }
 

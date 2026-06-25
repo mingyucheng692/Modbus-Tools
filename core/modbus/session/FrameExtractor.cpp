@@ -170,10 +170,10 @@ void FrameExtractor::processTcpBuffer()
     while (!buffer_.isEmpty()) {
         const int integrity = base::inspectTcpAdu(buffer_);
         if (integrity > 0) {
-            if (integrity > config::Modbus::kMaxAdpuSize) {
+            if (integrity > config::Modbus::kMaxAduSize) {
                 spdlog::error(
                     "FrameExtractor: TCP frame size {} exceeds ADPU limit {}, discarding",
-                    integrity, config::Modbus::kMaxAdpuSize);
+                    integrity, config::Modbus::kMaxAduSize);
                 buffer_.remove(0, integrity);
                 ++droppedInvalidBytes_;
                 continue;
@@ -224,10 +224,10 @@ void FrameExtractor::processRtuBuffer(std::chrono::steady_clock::time_point now)
         return;
     }
 
-    if (buffer_.size() > config::Modbus::kMaxAdpuSize) {
+    if (buffer_.size() > config::Modbus::kMaxAduSize) {
         spdlog::error(
             "FrameExtractor: RTU frame size {} exceeds ADPU limit {}, discarding",
-            buffer_.size(), config::Modbus::kMaxAdpuSize);
+            buffer_.size(), config::Modbus::kMaxAduSize);
         buffer_.clear();
         lastByteReceivedAt_ = std::chrono::steady_clock::time_point{};
         return;
