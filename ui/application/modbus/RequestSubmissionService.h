@@ -15,6 +15,7 @@
 #include <cstdint>
 #include <optional>
 #include "modbus/base/ModbusFrame.h"
+#include "modbus/request/ModbusRequestFactory.h"
 #include "ModbusTypes.h"
 
 namespace ui::application::modbus {
@@ -63,6 +64,7 @@ private:
     void trackRequest(int requestId, RequestKind kind, uint16_t addr);
 
     int requestId_ = 0;
+    ::modbus::request::ModbusRequestFactory factory_;
     std::unordered_map<int, std::chrono::steady_clock::time_point> requestStart_;
     std::unordered_map<int, RequestKind> requestKinds_;
     std::unordered_map<int, uint16_t> requestAddrs_;

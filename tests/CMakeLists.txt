@@ -91,7 +91,9 @@ set(TEST_CORE_LOGIC_SOURCES
     unit/modbus/session/FrameExtractorTest.cpp
     unit/modbus/session/ModbusStateTest.cpp
     unit/modbus/transport/TransportTest.cpp
+    unit/modbus/request/ModbusRequestFactoryTest.cpp
     unit/update/UpdateManagerInstallStrategyTest.cpp
+    unit/update/ReleaseParserTest.cpp
 )
 
 set(TEST_QT_CORE_SOURCES

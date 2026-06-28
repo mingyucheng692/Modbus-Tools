@@ -10,13 +10,14 @@
 #pragma once
 
 #include <QObject>
+#include <QJsonArray>
 
 class QNetworkAccessManager;
-class QJsonArray;
 class QString;
 
 namespace core::update {
 struct PlatformUpdateArtifactLayout;
+struct ReleaseInfo;
 }
 
 namespace ui::common {
@@ -48,9 +49,6 @@ signals:
     void checkFailed(const QString& reason);
 
 private:
-    static QString normalizeVersion(const QString& rawVersion);
-    static int compareVersions(const QString& left, const QString& right);
-
     QNetworkAccessManager* networkManager_ = nullptr;
 };
 

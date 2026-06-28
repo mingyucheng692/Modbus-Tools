@@ -10,6 +10,7 @@
 #include "UpdateChecker.h"
 
 #include "../../core/update/PlatformReleaseAssetStrategy.h"
+#include "../../core/update/ReleaseParser.h"
 
 #include <QJsonArray>
 #include <QCoreApplication>
@@ -71,56 +72,40 @@ void UpdateChecker::checkForUpdates() {
             return;
         }
 
-        const QJsonDocument document = QJsonDocument::fromJson(reply->readAll());
+        const QByteArray rawData = reply->readAll();
+        const std::string jsonStr(rawData.constData(), rawData.size());
         constexpr bool includePrerelease = MODBUS_TOOLS_INCLUDE_PRERELEASE != 0;
-        QJsonObject root;
-        if (document.isArray()) {
-            const QJsonArray releases = document.array();
-            for (const QJsonValue& releaseValue : releases) {
-                if (!releaseValue.isObject()) {
-                    continue;
-                }
-                const QJsonObject candidate = releaseValue.toObject();
-                if (candidate.value("draft").toBool()) {
-                    continue;
-                }
-                if (!includePrerelease && candidate.value("prerelease").toBool()) {
-                    continue;
-                }
-                root = candidate;
-                break;
-            }
-        } else if (document.isObject()) {
-            root = document.object();
-            if (root.value("draft").toBool()) {
-                root = QJsonObject();
-            } else if (root.value("prerelease").toBool() && !includePrerelease) {
-                root = QJsonObject();
-            }
-        }
 
-        if (root.isEmpty()) {
+        auto releases = core::update::ReleaseParser::parseReleases(jsonStr, includePrerelease);
+        if (releases.empty()) {
             emit noUpdateAvailable(currentVersion());
             return;
         }
 
-        const QString latestVersion = normalizeVersion(root.value("tag_name").toString());
+        const auto& firstRelease = releases.front();
+        const QString latestVersion = QString::fromStdString(
+            core::update::ReleaseParser::normalizeVersion(firstRelease.tagName));
         if (latestVersion.isEmpty()) {
             emit checkFailed(tr("Release tag is missing"));
             return;
         }
 
-        QString releaseUrl = root.value("html_url").toString();
+        QString releaseUrl = QString::fromStdString(firstRelease.htmlUrl);
         if (releaseUrl.isEmpty()) {
             releaseUrl = releasePageUrl();
         }
+
+        // Parse assets using Qt's JSON (more reliable for asset parsing)
+        const QJsonDocument document = QJsonDocument::fromJson(
+            QByteArray::fromStdString(firstRelease.jsonBody));
+        const QJsonObject root = document.object();
+        const QJsonArray assets = root.value("assets").toArray();
 
         QString updateOnlyUrl;
         QString updateOnlySha256;
         QString checksumsUrl;
         QString fullPackageUrl;
         const auto artifactLayout = currentArtifactLayout(latestVersion);
-        const QJsonArray assets = root.value("assets").toArray();
         const QRegularExpression digestPattern(QStringLiteral("^sha256:([a-fA-F0-9]{64})$"));
         for (const QJsonValue& assetValue : assets) {
             if (!assetValue.isObject()) {
@@ -144,9 +129,12 @@ void UpdateChecker::checkForUpdates() {
 
         fullPackageUrl = resolveFullPackageUrl(assets, artifactLayout, releaseUrl);
 
-        const int compareResult = compareVersions(latestVersion, currentVersion());
+        const std::string currentVer = currentVersion().toStdString();
+        const int compareResult = core::update::ReleaseParser::compareVersions(
+            firstRelease.tagName, currentVer);
         if (compareResult > 0) {
-            spdlog::info("UpdateChecker: New version available: v{} (Current: v{})", latestVersion.toStdString(), currentVersion().toStdString());
+            spdlog::info("UpdateChecker: New version available: v{} (Current: v{})",
+                         latestVersion.toStdString(), currentVer);
             emit updateAvailable(currentVersion(),
                                  latestVersion,
                                  updateOnlyUrl,
@@ -157,7 +145,7 @@ void UpdateChecker::checkForUpdates() {
             return;
         }
 
-        spdlog::info("UpdateChecker: No new version available (Current: v{})", currentVersion().toStdString());
+        spdlog::info("UpdateChecker: No new version available (Current: v{})", currentVer);
         emit noUpdateAvailable(currentVersion());
     });
 }
@@ -180,31 +168,6 @@ QString UpdateChecker::releasePageUrl() {
 
 core::update::PlatformUpdateArtifactLayout UpdateChecker::currentArtifactLayout(const QString& version) {
     return core::update::PlatformReleaseAssetStrategy::layoutForPackage(version, packagePlatform());
-}
-
-QString UpdateChecker::normalizeVersion(const QString& rawVersion) {
-    QString cleaned = rawVersion.trimmed();
-    if (cleaned.startsWith('v') || cleaned.startsWith('V')) {
-        cleaned = cleaned.mid(1);
-    }
-    return cleaned;
-}
-
-int UpdateChecker::compareVersions(const QString& left, const QString& right) {
-    const QStringList leftParts = normalizeVersion(left).split('.');
-    const QStringList rightParts = normalizeVersion(right).split('.');
-    const int maxParts = qMax(leftParts.size(), rightParts.size());
-    for (int i = 0; i < maxParts; ++i) {
-        const int leftValue = i < leftParts.size() ? leftParts.at(i).toInt() : 0;
-        const int rightValue = i < rightParts.size() ? rightParts.at(i).toInt() : 0;
-        if (leftValue > rightValue) {
-            return 1;
-        }
-        if (leftValue < rightValue) {
-            return -1;
-        }
-    }
-    return 0;
 }
 
 QString UpdateChecker::resolveFullPackageUrl(const QJsonArray& assets,

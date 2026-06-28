@@ -55,6 +55,9 @@ target_sources(core PRIVATE
     modbus/factory/IModbusFactory.h
     modbus/factory/ModbusFactory.h
     modbus/factory/ModbusFactory.cpp
+    # modbus request
+    modbus/request/ModbusRequestFactory.h
+    modbus/request/ModbusRequestFactory.cpp
     # modbus parser
     modbus/parser/ModbusFrameParser.h
     modbus/parser/ModbusFrameParser.cpp
@@ -71,6 +74,8 @@ target_sources(core PRIVATE
     update/PlatformUpdateInstallStrategy.cpp
     update/UpdateManager.h
     update/UpdateManager.cpp
+    update/ReleaseParser.h
+    update/ReleaseParser.cpp
     common/SettingsController.h
     common/SettingsController.cpp
 )
