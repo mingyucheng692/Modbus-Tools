@@ -18,7 +18,7 @@ public:
     void bindToStack(QStackedWidget* stackedWidget, const std::vector<int>& pageIndexByNavigationRow);
     void setCollapsed(bool collapsed);
     [[nodiscard]] bool isCollapsed() const;
-    void retranslate(const QStringList& titles, const QString& expandNavigationText, const QString& collapseNavigationText);
+    void retranslateUi(const QStringList& titles, const QString& expandNavigationText, const QString& collapseNavigationText);
 
 private:
     void updateToggleUi(const QString& expandNavigationText, const QString& collapseNavigationText);

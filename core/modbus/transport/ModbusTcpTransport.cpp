@@ -10,6 +10,7 @@
 #include "ModbusTcpTransport.h"
 #include "../base/ModbusProtocolChecks.h"
 #include "../../AppConstants.h"
+#include <QtEndian>
 #include <spdlog/spdlog.h>
 
 namespace modbus::transport {
@@ -29,12 +30,11 @@ QByteArray ModbusTcpTransport::buildRequest(const base::Pdu& pdu, uint8_t slaveI
         pendingTransactions_[transactionId] = slaveId;
     }
     uint16_t length = static_cast<uint16_t>(1 + 1 + pdu.data().size());
-    adu.append(static_cast<char>((transactionId >> 8) & 0xFF));
-    adu.append(static_cast<char>(transactionId & 0xFF));
-    adu.append(static_cast<char>(0x00));
-    adu.append(static_cast<char>(0x00));
-    adu.append(static_cast<char>((length >> 8) & 0xFF));
-    adu.append(static_cast<char>(length & 0xFF));
+    char header[6];
+    qToBigEndian(transactionId, header);
+    qToBigEndian(uint16_t(0), header + 2);
+    qToBigEndian(length, header + 4);
+    adu.append(header, 6);
     adu.append(static_cast<char>(slaveId));
     adu.append(static_cast<char>(pdu.functionCode()));
     adu.append(pdu.data());

@@ -106,8 +106,6 @@ target_sources(ui PRIVATE
     logging/LogBridge.cpp
     logging/LogBridge.h
     assets.qrc
-    AnalyzerLinkageController.cpp
-    AnalyzerLinkageController.h
     MainWindow.cpp
     UpdateInteractionView.h
     UpdateInteractionView.cpp

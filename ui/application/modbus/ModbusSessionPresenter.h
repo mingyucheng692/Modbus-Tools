@@ -130,10 +130,10 @@ private:
         std::shared_ptr<::modbus::session::IModbusClient> client;
         std::shared_ptr<::modbus::dispatch::ModbusWorker> worker;
         std::shared_ptr<QThread> ioThread;
-        std::shared_ptr<QThread> thread;
+        std::shared_ptr<QThread> workerThread;
         bool workerStopped = false;
         bool ioThreadFinished = false;
-        bool threadFinished = false;
+        bool workerThreadFinished = false;
         bool completionLogged = false;
         QString timeoutMessage;
         QTimer* timeoutTimer = nullptr;
@@ -143,8 +143,8 @@ private:
     std::shared_ptr<io::IChannel> channel_;
     std::shared_ptr<::modbus::session::IModbusClient> client_;
     std::shared_ptr<::modbus::dispatch::ModbusWorker> worker_;
-    std::shared_ptr<QThread> ioThread_;
-    std::shared_ptr<QThread> workerThread_;
+    std::shared_ptr<QThread> channelThread_;
+    std::shared_ptr<QThread> modbusWorkerThread_;
     ::modbus::base::ModbusConfig currentConfig_;
     quint64 connectionGeneration_ = 0;
     SessionConnectionState connectionState_ = SessionConnectionState::Disconnected;

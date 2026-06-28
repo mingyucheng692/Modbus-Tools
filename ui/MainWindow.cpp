@@ -352,7 +352,7 @@ void MainWindow::retranslateUi(const QString& effectiveLocale) {
     setWindowTitle(tr("Modbus Tools"));
     const QStringList titles = {tr("Modbus TCP"), tr("Modbus RTU"), tr("TCP/UDP Tool"), tr("Serial Debugger"), tr("Frame Analyzer")};
     if (navigationController_) {
-        navigationController_->retranslate(titles, tr("Expand Navigation"), tr("Collapse Navigation"));
+        navigationController_->retranslateUi(titles, tr("Expand Navigation"), tr("Collapse Navigation"));
     }
     if (languageMenu_) languageMenu_->setTitle(tr("Language"));
     if (settingsMenu_) settingsMenu_->setTitle(tr("Settings"));

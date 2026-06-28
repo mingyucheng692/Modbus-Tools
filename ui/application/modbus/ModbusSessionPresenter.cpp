@@ -148,8 +148,8 @@ void ModbusSessionPresenter::activateStack(quint64 generation) {
     setupChannelStateHandler(generation);
     setupWorkerSignals(generation);
 
-    if (ioThread_ && !ioThread_->isRunning()) {
-        ioThread_->start();
+    if (channelThread_ && !channelThread_->isRunning()) {
+        channelThread_->start();
     }
     worker_->start();
     worker_->requestConnect();
@@ -180,7 +180,7 @@ void ModbusSessionPresenter::releaseStack() {
 }
 
 bool ModbusSessionPresenter::hasLiveOrPendingStack() const {
-    return worker_ || channel_ || client_ || ioThread_ || workerThread_ || !pendingReleases_.empty();
+    return worker_ || channel_ || client_ || channelThread_ || modbusWorkerThread_ || !pendingReleases_.empty();
 }
 
 void ModbusSessionPresenter::requestRelease(const QString& timeoutMessage) {
@@ -203,14 +203,14 @@ void ModbusSessionPresenter::requestRelease(const QString& timeoutMessage) {
     release->channel = std::move(channel_);
     release->client = std::move(client_);
     release->worker = std::move(worker_);
-    release->ioThread = std::move(ioThread_);
-    release->thread = std::move(workerThread_);
+    release->ioThread = std::move(channelThread_);
+    release->workerThread = std::move(modbusWorkerThread_);
     release->timeoutMessage = timeoutMessage;
     release->workerStopped = !release->worker;
     release->ioThreadFinished = !release->ioThread || !release->ioThread->isRunning();
-    release->threadFinished = !release->thread || !release->thread->isRunning();
+    release->workerThreadFinished = !release->workerThread || !release->workerThread->isRunning();
     if (!release->worker && !release->client && !release->channel
-        && !release->ioThread && !release->thread) {
+        && !release->ioThread && !release->workerThread) {
         syncConnectionWidget(SessionConnectionState::Disconnected);
         emit stackReleased();
         maybeRunDeferredAction();
@@ -229,8 +229,8 @@ void ModbusSessionPresenter::requestRelease(const QString& timeoutMessage) {
     });
     release->timeoutTimer->start(5000);
 
-    if (release->thread) {
-        QObject::connect(release->thread.get(), &QThread::finished, this,
+    if (release->workerThread) {
+        QObject::connect(release->workerThread.get(), &QThread::finished, this,
                          [this, release]() { onReleaseThreadFinished(release, false); },
                          Qt::QueuedConnection);
     }
@@ -240,8 +240,8 @@ void ModbusSessionPresenter::requestRelease(const QString& timeoutMessage) {
                          Qt::QueuedConnection);
     }
 
-    if (release->thread && release->thread->isRunning()) {
-        release->thread->requestInterruption();
+    if (release->workerThread && release->workerThread->isRunning()) {
+        release->workerThread->requestInterruption();
     }
     if (release->ioThread && release->ioThread->isRunning()) {
         release->ioThread->requestInterruption();
@@ -254,8 +254,8 @@ void ModbusSessionPresenter::requestRelease(const QString& timeoutMessage) {
                          Qt::QueuedConnection);
         release->worker->stop();
     }
-    if (release->thread && release->thread->isRunning()) {
-        release->thread->quit();
+    if (release->workerThread && release->workerThread->isRunning()) {
+        release->workerThread->quit();
     }
     if (release->ioThread && release->ioThread->isRunning()) {
         release->ioThread->quit();
@@ -395,8 +395,8 @@ void ModbusSessionPresenter::onReleaseWorkerStopped(
         return;
     }
     pending->workerStopped = true;
-    if (pending->thread && pending->thread->isRunning()) {
-        pending->thread->quit();
+    if (pending->workerThread && pending->workerThread->isRunning()) {
+        pending->workerThread->quit();
     }
     if (pending->ioThread && pending->ioThread->isRunning()) {
         pending->ioThread->quit();
@@ -413,7 +413,7 @@ void ModbusSessionPresenter::onReleaseThreadFinished(
     if (ioThread) {
         pending->ioThreadFinished = true;
     } else {
-        pending->threadFinished = true;
+        pending->workerThreadFinished = true;
     }
     tryCompletePendingRelease(pending);
 }
@@ -426,7 +426,7 @@ void ModbusSessionPresenter::tryCompletePendingRelease(
     }
     const bool workerDone = pending->workerStopped;
     const bool ioDone = pending->ioThreadFinished || !pending->ioThread || !pending->ioThread->isRunning();
-    const bool workerThreadDone = pending->threadFinished || !pending->thread || !pending->thread->isRunning();
+    const bool workerThreadDone = pending->workerThreadFinished || !pending->workerThread || !pending->workerThread->isRunning();
     if (!workerDone || !ioDone || !workerThreadDone) {
         return;
     }
@@ -451,8 +451,8 @@ void ModbusSessionPresenter::handleReleaseTimeout(
         }
         emit sessionDisconnected(pending->timeoutMessage);
     }
-    if (pending->thread && pending->thread->isRunning()) {
-        pending->thread->quit();
+    if (pending->workerThread && pending->workerThread->isRunning()) {
+        pending->workerThread->quit();
     }
     if (pending->ioThread && pending->ioThread->isRunning()) {
         pending->ioThread->quit();
@@ -496,8 +496,8 @@ void ModbusSessionPresenter::finalizePendingRelease(const std::shared_ptr<Pendin
         pending->timeoutTimer = nullptr;
     }
 
-    if (pending->thread && pending->thread->isRunning()) {
-        pending->thread->quit();
+    if (pending->workerThread && pending->workerThread->isRunning()) {
+        pending->workerThread->quit();
     }
     if (pending->ioThread && pending->ioThread->isRunning()) {
         pending->ioThread->quit();
@@ -507,7 +507,7 @@ void ModbusSessionPresenter::finalizePendingRelease(const std::shared_ptr<Pendin
     pending->client.reset();
     pending->channel.reset();
     pending->ioThread.reset();
-    pending->thread.reset();
+    pending->workerThread.reset();
 
     if (!worker_ && !channel_ && !client_ && connectionState_ != SessionConnectionState::Connecting) {
         syncConnectionWidget(SessionConnectionState::Disconnected);
@@ -544,8 +544,8 @@ void ModbusSessionPresenter::initStack(const ::modbus::base::ModbusConfig& confi
     channel_ = std::move(stack.channel);
     client_ = std::move(stack.client);
     worker_ = std::move(stack.worker);
-    ioThread_ = std::move(stack.ioThread);
-    workerThread_ = std::move(stack.thread);
+    channelThread_ = std::move(stack.ioThread);
+    modbusWorkerThread_ = std::move(stack.thread);
 }
 
 void ModbusSessionPresenter::setupChannelMonitor(quint64 generation) {

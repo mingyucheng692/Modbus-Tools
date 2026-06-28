@@ -18,10 +18,7 @@ class RetryStrategy {
 public:
     struct Config {
         int maxRetries = 0;
-        int baseIntervalMs = 100;
-        int maxIntervalMs = 5000;
-        double backoffFactor = 2.0;
-        int jitterPercent = 20;
+        BackoffCalculator::Config backoff;
     };
 
     explicit RetryStrategy(const Config& config);

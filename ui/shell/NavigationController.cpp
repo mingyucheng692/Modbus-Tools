@@ -148,9 +148,9 @@ bool NavigationController::isCollapsed() const {
     return collapsed_;
 }
 
-void NavigationController::retranslate(const QStringList& titles,
-                                       const QString& expandNavigationText,
-                                       const QString& collapseNavigationText) {
+void NavigationController::retranslateUi(const QStringList& titles,
+                                         const QString& expandNavigationText,
+                                         const QString& collapseNavigationText) {
     if (!navigationList_) {
         return;
     }

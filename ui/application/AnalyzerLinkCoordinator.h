@@ -1,25 +1,48 @@
 #pragma once
 
 #include <QObject>
-#include <memory>
+#include <optional>
 #include <cstdint>
 
 #include "modbus/base/ModbusFrame.h"
 #include "modbus/parser/ModbusFrameParser.h"
 
-namespace ui {
-class AnalyzerLinkageController;
-namespace views::modbus_tcp { class ModbusTcpPage; }
-namespace views::modbus_rtu { class ModbusRtuPage; }
-namespace widgets { class FrameAnalyzerWidget; }
-}
+namespace ui::views::modbus_tcp { class ModbusTcpPage; }
+namespace ui::views::modbus_rtu { class ModbusRtuPage; }
+namespace ui::widgets { class FrameAnalyzerWidget; }
 
 namespace ui::application {
 
+/**
+ * @brief Owns the live-linkage state machine and wires TCP/RTU page and Frame
+ *        Analyzer signals to it.
+ *
+ * Single entry point for all live-linkage operations. The former
+ * AnalyzerLinkageController pass-through layer has been merged in: this class
+ * now holds the Idle/Live/Paused × None/Tcp/Rtu state machine directly and
+ * connects the view signals in bind().
+ */
 class AnalyzerLinkCoordinator final : public QObject {
     Q_OBJECT
 
 public:
+    enum class LinkSource {
+        None,
+        Tcp,
+        Rtu
+    };
+
+    enum class LinkState {
+        Idle,
+        Live,
+        Paused
+    };
+
+    struct State {
+        LinkState state = LinkState::Idle;
+        LinkSource source = LinkSource::None;
+    };
+
     explicit AnalyzerLinkCoordinator(QObject* parent = nullptr);
     ~AnalyzerLinkCoordinator() noexcept override;
 
@@ -27,7 +50,10 @@ public:
               views::modbus_rtu::ModbusRtuPage* rtuView,
               widgets::FrameAnalyzerWidget* frameAnalyzer);
 
+    State state() const;
+
 private:
+    // --- Signal handlers (wired in bind()) ---
     void handleTcpLinkageToggled(bool active);
     void handleRtuLinkageToggled(bool active);
     void handleLinkageStopRequested();
@@ -38,7 +64,33 @@ private:
     void handleTcpSourceDisconnected();
     void handleRtuSourceDisconnected();
 
-    std::unique_ptr<AnalyzerLinkageController> controller_;
+    // --- State machine core ---
+    void requestLinkToggle(LinkSource source, bool active);
+    void requestStop();
+    void requestPause(bool paused);
+    void handleLiveData(const ::modbus::base::Pdu& pdu,
+                        ::modbus::core::parser::ProtocolType protocol,
+                        uint16_t addr);
+    void handleSourceDisconnected(LinkSource source);
+    static LinkSource sourceFromProtocol(::modbus::core::parser::ProtocolType protocol);
+
+    void transitionTo(LinkState state, LinkSource source);
+    void applyState(const State& previousState);
+    void clearBufferedLiveData();
+    void replayBufferedLiveDataIfNeeded();
+    void stopInternal();
+
+    struct BufferedLiveData {
+        ::modbus::base::Pdu pdu;
+        ::modbus::core::parser::ProtocolType protocol = ::modbus::core::parser::ProtocolType::Tcp;
+        uint16_t addr = 0;
+    };
+
+    State state_;
+    std::optional<BufferedLiveData> bufferedLiveData_;
+    views::modbus_tcp::ModbusTcpPage* tcpView_ = nullptr;
+    views::modbus_rtu::ModbusRtuPage* rtuView_ = nullptr;
+    widgets::FrameAnalyzerWidget* frameAnalyzer_ = nullptr;
 };
 
 } // namespace ui::application

@@ -13,22 +13,14 @@ namespace modbus::session {
 
 RetryStrategy::RetryStrategy(const Config& config)
     : config_(config)
-    , backoffCalculator_(BackoffCalculator::Config{
-          config.baseIntervalMs,
-          config.maxIntervalMs,
-          config.backoffFactor,
-          config.jitterPercent})
+    , backoffCalculator_(config.backoff)
 {
 }
 
 void RetryStrategy::reconfigure(const Config& config)
 {
     config_ = config;
-    backoffCalculator_ = BackoffCalculator(BackoffCalculator::Config{
-        config.baseIntervalMs,
-        config.maxIntervalMs,
-        config.backoffFactor,
-        config.jitterPercent});
+    backoffCalculator_ = BackoffCalculator(config.backoff);
 }
 
 bool RetryStrategy::shouldRetry() const
