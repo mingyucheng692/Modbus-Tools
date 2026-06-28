@@ -9,6 +9,7 @@
 #include "modbus/session/IModbusClient.h"
 #include "../../../infra/io/IChannel.h"
 #include "ModbusTypes.h"
+#include "SessionConnectionStateMachine.h"
 
 class QThread;
 class QWidget;
@@ -34,13 +35,7 @@ namespace ui::application::modbus {
 
 enum class SessionMode { Tcp, Rtu };
 
-enum class SessionConnectionState {
-    Disconnected,
-    Connecting,
-    TransportConnected,
-    Connected,
-    Disconnecting
-};
+// SessionConnectionState is defined in SessionConnectionStateMachine.h.
 
 /**
  * @brief Session presenter bridging the UI layer and Modbus worker thread.
@@ -112,7 +107,7 @@ private:
     void handleRequestFinished(int requestId, const ::modbus::session::ModbusResponse& response,
                                quint64 generation);
     void assertGuiThread(const char* context) const;
-    void applyConnectionState(SessionConnectionState state);
+    void onConnectionStateChanged(SessionConnectionState state);
     void syncConnectionWidget(SessionConnectionState state);
     bool hasLiveOrPendingStack() const;
     // Hands the current live stack off to releaseCoordinator_ for bounded
@@ -132,7 +127,7 @@ private:
     std::shared_ptr<QThread> modbusWorkerThread_;
     ::modbus::base::ModbusConfig currentConfig_;
     quint64 connectionGeneration_ = 0;
-    SessionConnectionState connectionState_ = SessionConnectionState::Disconnected;
+    std::unique_ptr<SessionConnectionStateMachine> connectionStateMachine_;
     bool suppressDisconnectAlert_ = false;
     bool linked_ = false;
     int timeoutMs_;

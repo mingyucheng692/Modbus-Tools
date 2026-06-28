@@ -99,6 +99,7 @@ set(TEST_QT_CORE_SOURCES
     unit/modbus/application/PollingControllerTest.cpp
     unit/modbus/application/RequestSubmissionServiceTest.cpp
     unit/modbus/application/WorkerReleaseCoordinatorTest.cpp
+    unit/modbus/application/SessionConnectionStateMachineTest.cpp
     unit/ui/AppLifecycleCoordinatorTest.cpp
     unit/ui/MainWindowPresenterTest.cpp
     unit/ui/SettingsServiceTest.cpp
@@ -135,7 +136,7 @@ set(TEST_MODBUS_FUZZ_SOURCES
 modbus_add_test_target(test_core_logic
     ${CMAKE_CURRENT_SOURCE_DIR}/TestMainCore.cpp
     SOURCES "${TEST_CORE_LOGIC_SOURCES}"
-    LIBS core Qt6::Core
+    LIBS core Qt6::Core Qt6::StateMachine
 )
 
 modbus_add_test_target(test_qt_core
