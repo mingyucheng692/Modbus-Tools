@@ -111,6 +111,13 @@ void TcpChannel::moveToThread(QThread* thread) {
                               threadToken(thread));
     socket_.moveToThread(thread);
     writeTimeoutTimer_.moveToThread(thread);
+    // Invariant: socket_ and writeTimeoutTimer_ must live on the same thread so
+    // that write-timeout handling never races with socket I/O. A compile-time
+    // static_assert cannot express this (thread affinity is a runtime property),
+    // so enforce it at runtime after both moves complete.
+    Q_ASSERT_X(socket_.thread() == writeTimeoutTimer_.thread(),
+               __func__,
+               "socket_ and writeTimeoutTimer_ must live on the same thread");
     openThreadLogged_ = false;
     ioThreadLogged_ = false;
 }

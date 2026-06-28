@@ -31,6 +31,7 @@ namespace views::modbus_rtu { class ModbusRtuPage; }
 namespace widgets { class FrameAnalyzerWidget; }
 namespace common { class ThemeController; }
 namespace common { class ISettingsService; }
+namespace common { class CompactMenuBarStyle; }
 namespace shell { class NavigationController; }
 class UpdateInteractionView;
 struct MainWindowBusinessContext;
@@ -107,6 +108,11 @@ private:
     QString effectiveLocale_ = "en_US";
 
     QObject* parameterWheelBlocker_ = nullptr;
+
+    // Owns the QStyle applied to the menu bar. QWidget::setStyle does not take
+    // ownership and QStyle is not a QObject (no parent), so RAII ownership is
+    // required to avoid leaking the object (see plan.md L3).
+    std::unique_ptr<common::CompactMenuBarStyle> menuBarStyle_;
 };
 
 } // namespace ui

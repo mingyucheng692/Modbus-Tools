@@ -223,7 +223,7 @@ QString FrameAnalyzerWidget::FrameAnalyzerWidgetPrivate::historyItemText(const m
     const QString status = result.isValid ? tr("OK") : tr("ERR");
     const QString type = (result.protocol == ProtocolType::Tcp) ? "TCP" : "RTU";
     return QString("[%1] %2 %3 - %4")
-        .arg(result.timestamp.toLocalTime().toString("HH:mm:ss"))
+        .arg(tr("Local time %1").arg(result.timestamp.toLocalTime().toString("HH:mm:ss")))
         .arg(type)
         .arg(status)
         .arg(QString::fromLatin1(result.rawFrame.toHex().toUpper().left(16)) + "...");

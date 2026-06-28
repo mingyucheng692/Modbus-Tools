@@ -129,7 +129,8 @@ void MainWindow::initializeUi() {
     setWindowTitle(tr("Modbus Tools"));
     setMinimumSize(app::constants::Values::Ui::kMainWindowMinWidth, 
                    app::constants::Values::Ui::kMainWindowMinHeight);
-    menuBar()->setStyle(new common::CompactMenuBarStyle(menuBar()->style()->name()));
+    menuBarStyle_ = std::make_unique<common::CompactMenuBarStyle>(menuBar()->style()->name());
+    menuBar()->setStyle(menuBarStyle_.get());
     resize(app::constants::Values::Ui::kMainWindowDefaultWidth,
            app::constants::Values::Ui::kMainWindowDefaultHeight);
 
@@ -194,10 +195,13 @@ void MainWindow::createNavigation() {
         {tr("Modbus TCP"), tr("Modbus RTU"), tr("TCP/UDP Tool"), tr("Serial Debugger"), tr("Frame Analyzer")});
 
     common::ThemeUiHelpers::applyNavigationTheme(navigationList_->palette(), navigationPane_, navigationToggleButton_, navigationList_);
-    connect(navigationToggleButton_, &QToolButton::clicked, this, [this]() {
+    auto invoke = [this](auto fn, auto&&... args) {
         if (presenter_) {
-            presenter_->onNavigationToggleRequested();
+            (presenter_.get()->*fn)(std::forward<decltype(args)>(args)...);
         }
+    };
+    connect(navigationToggleButton_, &QToolButton::clicked, this, [invoke]() {
+        invoke(&application::IMainWindowPresenter::onNavigationToggleRequested);
     });
 }
 
@@ -237,15 +241,16 @@ void MainWindow::applyModbusSettings(int timeoutMs, int retries, int retryInterv
 
 void MainWindow::setupSettingsMenu() {
     settingsMenu_ = menuBar()->addMenu(tr("Settings"));
-    modbusSettingsAction_ = settingsMenu_->addAction(tr("Modbus Settings"), this, [this]() {
+    auto invoke = [this](auto fn, auto&&... args) {
         if (presenter_) {
-            presenter_->onModbusSettingsRequested();
+            (presenter_.get()->*fn)(std::forward<decltype(args)>(args)...);
         }
+    };
+    modbusSettingsAction_ = settingsMenu_->addAction(tr("Modbus Settings"), this, [invoke]() {
+        invoke(&application::IMainWindowPresenter::onModbusSettingsRequested);
     });
-    updateSettingsAction_ = settingsMenu_->addAction(tr("Update Settings"), this, [this]() {
-        if (presenter_) {
-            presenter_->onUpdateSettingsRequested();
-        }
+    updateSettingsAction_ = settingsMenu_->addAction(tr("Update Settings"), this, [invoke]() {
+        invoke(&application::IMainWindowPresenter::onUpdateSettingsRequested);
     });
 }
 
@@ -268,25 +273,29 @@ void MainWindow::setupLanguageMenu() {
     addLang(tr("简体中文"), app::constants::Values::App::kLocaleZhCn);
     addLang(tr("繁體中文"), app::constants::Values::App::kLocaleZhTw);
 
-    connect(languageActionGroup_, &QActionGroup::triggered, this, [this](QAction* action) {
+    auto invoke = [this](auto fn, auto&&... args) {
         if (presenter_) {
-            presenter_->onLanguageSelected(action->data().toString());
+            (presenter_.get()->*fn)(std::forward<decltype(args)>(args)...);
         }
+    };
+    connect(languageActionGroup_, &QActionGroup::triggered, this, [invoke](QAction* action) {
+        invoke(&application::IMainWindowPresenter::onLanguageSelected, action->data().toString());
     });
 }
 
 void MainWindow::setupAboutMenu() {
     aboutMenu_ = menuBar()->addMenu(tr("About"));
-    checkUpdatesAction_ = aboutMenu_->addAction(tr("Check for Updates"), this, [this]() {
+    auto invoke = [this](auto fn, auto&&... args) {
         if (presenter_) {
-            presenter_->onCheckForUpdatesRequested();
+            (presenter_.get()->*fn)(std::forward<decltype(args)>(args)...);
         }
+    };
+    checkUpdatesAction_ = aboutMenu_->addAction(tr("Check for Updates"), this, [invoke]() {
+        invoke(&application::IMainWindowPresenter::onCheckForUpdatesRequested);
     });
     aboutMenu_->addSeparator();
-    aboutAction_ = aboutMenu_->addAction(tr("About"), this, [this]() {
-        if (presenter_) {
-            presenter_->onAboutRequested();
-        }
+    aboutAction_ = aboutMenu_->addAction(tr("About"), this, [invoke]() {
+        invoke(&application::IMainWindowPresenter::onAboutRequested);
     });
 }
 

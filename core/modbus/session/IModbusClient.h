@@ -31,16 +31,26 @@ enum class RequestError {
 };
 
 // 响应结果类型：包含 Pdu 或错误信息
+//
+// Note: isSuccess / responseReceived / noResponseExpected / retryCount are
+// kept for backward compatibility but are fully derivable from `kind` and
+// `attemptCount`. New code should prefer the accessor methods below
+// (isError(), isNoResponseExpected(), hasPdu()) or derive from `attemptCount`
+// (retryCount == max(0, attemptCount - 1)) instead of reading these fields.
 struct ModbusResponse {
     ModbusResponseKind kind = ModbusResponseKind::Error;
     RequestError errorCode = RequestError::None;
     base::Pdu pdu;
+    [[deprecated("use !isError() instead (true for Success and NoResponseExpected)")]]
     bool isSuccess = false;
     QString error;
     int rttMs = -1;
+    [[deprecated("use (kind == ModbusResponseKind::Success) instead")]]
     bool responseReceived = false;
+    [[deprecated("use isNoResponseExpected() instead")]]
     bool noResponseExpected = false;
     int attemptCount = 0;
+    [[deprecated("derive from attemptCount: max(0, attemptCount - 1)")]]
     int retryCount = 0;
 
     bool hasPdu() const { return kind != ModbusResponseKind::Error; }

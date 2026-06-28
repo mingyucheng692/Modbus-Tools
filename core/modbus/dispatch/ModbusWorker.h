@@ -74,6 +74,12 @@ private:
     std::atomic_bool stopping_ {false};
     std::atomic_bool stopped_ {false};
     std::atomic_bool processing_ {false};
+    // True while a processQueue() invocation is pending on the worker thread.
+    // Prevents redundant queued invokes when several submit() calls arrive
+    // before the first processQueue() runs. All access happens on the worker
+    // thread (submit/processQueue/scheduleProcessQueue are marshalled there),
+    // so the atomic is defensive rather than strictly required.
+    std::atomic_bool processQueued_ {false};
     std::deque<QueuedRequest> queuedRequests_;
 };
 
