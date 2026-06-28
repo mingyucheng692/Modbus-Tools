@@ -10,6 +10,7 @@ target_sources(infra PRIVATE
     io/SerialChannel.h
     io/SerialChannel.cpp
     io/SerialConfig.h
+    io/SerialConfig.cpp
     io/TcpChannel.h
     io/TcpChannel.cpp
     io/UdpChannel.h

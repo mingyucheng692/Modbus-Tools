@@ -32,6 +32,7 @@ class RequestSubmissionService;
 class PollingController;
 class TrafficLogController;
 class ModbusSessionPresenter;
+class RequestCoordinator;
 }
 
 namespace ui::widgets {
@@ -104,6 +105,7 @@ protected:
     ui::application::modbus::PollingController* pollingController_ = nullptr;
     ui::application::modbus::TrafficLogController* trafficLogController_ = nullptr;
     ui::application::modbus::ModbusSessionPresenter* sessionPresenter_ = nullptr;
+    ui::application::modbus::RequestCoordinator* requestCoordinator_ = nullptr;
 
     bool linked_ = false;
     ui::common::ISettingsService* settingsService_ = nullptr;

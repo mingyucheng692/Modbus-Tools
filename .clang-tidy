@@ -6,7 +6,7 @@ Checks: >
   modernize-use-nullptr,
   modernize-use-override
 WarningsAsErrors: ''
-HeaderFilterRegex: '^(c:\\MyCode\\Modbus-Tools\\(core|infra|ui|tests)\\|.*(core|infra|ui|tests)/)'
+HeaderFilterRegex: '.*(core|infra|ui|tests)/.*'
 FormatStyle: none
 CheckOptions:
   - key: readability-identifier-length.MinimumVariableNameLength

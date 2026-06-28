@@ -22,6 +22,8 @@ struct SerialConfig {
     int stopBits = app::constants::Values::Serial::kDefaultStopBits;
     QSerialPort::Parity parity = QSerialPort::NoParity;
     QSerialPort::FlowControl flowControl = QSerialPort::NoFlowControl;
+
+    [[nodiscard]] bool isValid(QString* errorOut = nullptr) const;
 };
 
 } // namespace io

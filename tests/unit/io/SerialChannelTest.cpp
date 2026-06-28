@@ -120,4 +120,51 @@ TEST_F(SerialChannelTest, Stats_InitialZero) {
     EXPECT_EQ(s.bytesRx, 0);
 }
 
+// ---------------------------------------------------------------------------
+// SerialConfig validation
+// ---------------------------------------------------------------------------
+
+TEST_F(SerialChannelTest, SerialConfig_InvalidBaudRate_ReturnsError) {
+    SerialConfig cfg;
+    cfg.portName = QStringLiteral("COM1");
+    cfg.baudRate = 99999;
+
+    QString error;
+    EXPECT_FALSE(cfg.isValid(&error));
+    EXPECT_FALSE(error.isEmpty());
+}
+
+TEST_F(SerialChannelTest, SerialConfig_InvalidDataBits_ReturnsError) {
+    SerialConfig cfg;
+    cfg.portName = QStringLiteral("COM1");
+    cfg.baudRate = 9600;
+    cfg.dataBits = 9;
+
+    QString error;
+    EXPECT_FALSE(cfg.isValid(&error));
+    EXPECT_FALSE(error.isEmpty());
+}
+
+TEST_F(SerialChannelTest, SerialConfig_EmptyPortName_ReturnsError) {
+    SerialConfig cfg;
+    cfg.portName = QStringLiteral("   ");
+    cfg.baudRate = 9600;
+
+    QString error;
+    EXPECT_FALSE(cfg.isValid(&error));
+    EXPECT_FALSE(error.isEmpty());
+}
+
+TEST_F(SerialChannelTest, SerialConfig_ValidConfig_ReturnsTrue) {
+    SerialConfig cfg;
+    cfg.portName = QStringLiteral("COM1");
+    cfg.baudRate = 115200;
+    cfg.dataBits = 8;
+    cfg.stopBits = 1;
+
+    QString error;
+    EXPECT_TRUE(cfg.isValid(&error));
+    EXPECT_TRUE(error.isEmpty());
+}
+
 } // namespace

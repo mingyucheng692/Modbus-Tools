@@ -97,6 +97,25 @@ bool TcpChannel::open() {
 
     closing_ = false;
     resetWriteState();
+
+    QHostAddress addr(ip_);
+    if (addr.isNull() || addr.protocol() == QAbstractSocket::UnknownNetworkLayerProtocol) {
+        QString err = QCoreApplication::translate("TcpChannel",
+            "Invalid IP address: %1").arg(ip_);
+        spdlog::warn("TcpChannel: {}", err.toStdString());
+        setState(ChannelState::Error);
+        emitError(err);
+        return false;
+    }
+    if (port_ < 1 || port_ > 65535) {
+        QString err = QCoreApplication::translate("TcpChannel",
+            "Invalid port: %1 (expected 1-65535)").arg(port_);
+        spdlog::warn("TcpChannel: {}", err.toStdString());
+        setState(ChannelState::Error);
+        emitError(err);
+        return false;
+    }
+
     setState(ChannelState::Opening);
     socket_.abort();
     socket_.setSocketOption(QAbstractSocket::LowDelayOption, 1);

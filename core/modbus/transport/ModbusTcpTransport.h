@@ -11,6 +11,7 @@
 
 #include "ITransport.h"
 #include <QByteArray>
+#include <map>
 #include <mutex>
 
 namespace modbus::transport {

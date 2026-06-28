@@ -64,6 +64,15 @@ bool SerialChannel::open() {
 
     closing_ = false;
     resetWriteState();
+
+    QString errorMsg;
+    if (!config_.isValid(&errorMsg)) {
+        spdlog::warn("SerialChannel: invalid config: {}", errorMsg.toStdString());
+        setState(ChannelState::Error);
+        emitError(errorMsg);
+        return false;
+    }
+
     setState(ChannelState::Opening);
     
     serial_.setPortName(config_.portName);

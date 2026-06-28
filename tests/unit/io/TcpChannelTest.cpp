@@ -131,4 +131,44 @@ TEST_F(TcpChannelTest, RemoveStateHandler_NoCrash) {
     EXPECT_NO_FATAL_FAILURE(channel_->removeStateHandler(id));
 }
 
+// ---------------------------------------------------------------------------
+// TCP endpoint validation
+// ---------------------------------------------------------------------------
+
+TEST_F(TcpChannelTest, TcpChannel_InvalidIpAddress_ReturnsError) {
+    bool errorEmitted = false;
+    channel_->setErrorHandler([&errorEmitted](const QString&) {
+        errorEmitted = true;
+    });
+
+    channel_->setEndpoint(QStringLiteral("not.an.ip"), 502);
+    channel_->open();
+
+    EXPECT_TRUE(errorEmitted);
+}
+
+TEST_F(TcpChannelTest, TcpChannel_InvalidPort_ReturnsError) {
+    bool errorEmitted = false;
+    channel_->setErrorHandler([&errorEmitted](const QString&) {
+        errorEmitted = true;
+    });
+
+    channel_->setEndpoint(QStringLiteral("127.0.0.1"), 0);
+    channel_->open();
+
+    EXPECT_TRUE(errorEmitted);
+}
+
+TEST_F(TcpChannelTest, TcpChannel_ValidParams_OpensSuccessfully) {
+    bool errorEmitted = false;
+    channel_->setErrorHandler([&errorEmitted](const QString&) {
+        errorEmitted = true;
+    });
+
+    channel_->setEndpoint(QStringLiteral("127.0.0.1"), 1502);
+    channel_->open();
+
+    EXPECT_FALSE(errorEmitted);
+}
+
 } // namespace

@@ -97,6 +97,7 @@ set(TEST_CORE_LOGIC_SOURCES
 set(TEST_QT_CORE_SOURCES
     unit/modbus/application/ModbusSessionPresenterTest.cpp
     unit/modbus/application/PollingControllerTest.cpp
+    unit/modbus/application/RequestCoordinatorTest.cpp
     unit/modbus/application/RequestSubmissionServiceTest.cpp
     unit/modbus/application/WorkerReleaseCoordinatorTest.cpp
     unit/modbus/application/SessionConnectionStateMachineTest.cpp
