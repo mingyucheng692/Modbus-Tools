@@ -157,11 +157,11 @@ void PollingController::handlePollCompletion(bool success, int rttMs, int retryC
 
         const QString normalizedError = error.toLower();
         int threshold = pollErrorThreshold();
-        if (normalizedError.contains(QStringLiteral("timeout"))
-            || normalizedError.contains(QStringLiteral("timed out"))) {
+
+        const auto severity = strategy_.classifyError(normalizedError.toStdString());
+        if (severity == ::core::polling::ErrorSeverity::Timeout) {
             threshold = std::max(2, threshold - 1);
-        } else if (normalizedError.contains(QStringLiteral("busy"))
-            || normalizedError.contains(QStringLiteral("tempor"))) {
+        } else if (severity == ::core::polling::ErrorSeverity::Busy) {
             threshold = std::min(10, threshold + 1);
         }
 
@@ -169,9 +169,18 @@ void PollingController::handlePollCompletion(bool success, int rttMs, int retryC
             context_.failureStreakStartTime != std::chrono::steady_clock::time_point{}
             && (now - context_.failureStreakStartTime) >= std::chrono::milliseconds(3000);
         const bool connectionFault = !context_.sessionConnected;
+
+        const auto decision = strategy_.evaluateState(
+            context_.consecutiveErrorCount,
+            context_.failureStreakStartTime != std::chrono::steady_clock::time_point{}
+                ? static_cast<int>(std::chrono::duration_cast<std::chrono::milliseconds>(
+                    now - context_.failureStreakStartTime).count())
+                : 0,
+            zeroSuccessWindowExceeded,
+            threshold);
+
         const bool escalateToError = connectionFault
-            || zeroSuccessWindowExceeded
-            || context_.consecutiveErrorCount >= threshold;
+            || (decision == ::core::polling::PollingDecision::Escalated);
         const bool shouldLogEscalatedError = context_.state != PollState::Escalated
             || error != context_.lastErrorText
             || (now - context_.lastErrorLogTime) >= std::chrono::seconds(5);
@@ -226,13 +235,7 @@ void PollingController::handlePollCompletion(bool success, int rttMs, int retryC
 }
 
 int PollingController::pollErrorThreshold() const {
-    constexpr int kTargetUpgradeWindowMs = 3000;
-    constexpr int kMinThreshold = 3;
-    constexpr int kMaxThreshold = 10;
-
-    const int intervalMs = std::max(pollingIntervalMs_, 1);
-    const int roundedThreshold = (kTargetUpgradeWindowMs + intervalMs / 2) / intervalMs;
-    return std::clamp(roundedThreshold, kMinThreshold, kMaxThreshold);
+    return strategy_.calculateThreshold(pollingIntervalMs_);
 }
 
 void PollingController::resetPollErrorTracking() {

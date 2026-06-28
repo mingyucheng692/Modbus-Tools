@@ -76,6 +76,8 @@ target_sources(core PRIVATE
     update/UpdateManager.cpp
     update/ReleaseParser.h
     update/ReleaseParser.cpp
+    polling/PollingStrategy.h
+    polling/PollingStrategy.cpp
     common/SettingsController.h
     common/SettingsController.cpp
 )

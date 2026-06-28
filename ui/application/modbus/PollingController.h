@@ -17,6 +17,7 @@
 #include "modbus/base/ModbusFrame.h"
 #include "../../common/TrafficEvent.h"
 #include "ModbusTypes.h"
+#include "polling/PollingStrategy.h"
 
 namespace ui::application::modbus {
 
@@ -109,6 +110,7 @@ private:
     QState* escalatedState_ = nullptr;
     int pollingIntervalMs_ = 1000;
     PollContext context_{};
+    ::core::polling::PollingStrategy strategy_{};
 };
 
 } // namespace ui::application::modbus

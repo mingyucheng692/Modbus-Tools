@@ -94,6 +94,7 @@ set(TEST_CORE_LOGIC_SOURCES
     unit/modbus/request/ModbusRequestFactoryTest.cpp
     unit/update/UpdateManagerInstallStrategyTest.cpp
     unit/update/ReleaseParserTest.cpp
+        unit/polling/PollingStrategyTest.cpp
 )
 
 set(TEST_QT_CORE_SOURCES
