@@ -103,6 +103,8 @@ target_sources(ui PRIVATE
     application/modbus/ModbusSessionPresenter.cpp
     application/modbus/ModbusSessionPresenter.h
     application/modbus/ModbusTypes.h
+    application/modbus/WorkerReleaseCoordinator.cpp
+    application/modbus/WorkerReleaseCoordinator.h
     logging/LogBridge.cpp
     logging/LogBridge.h
     assets.qrc

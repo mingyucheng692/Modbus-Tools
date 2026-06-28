@@ -98,6 +98,7 @@ set(TEST_QT_CORE_SOURCES
     unit/modbus/application/ModbusSessionPresenterTest.cpp
     unit/modbus/application/PollingControllerTest.cpp
     unit/modbus/application/RequestSubmissionServiceTest.cpp
+    unit/modbus/application/WorkerReleaseCoordinatorTest.cpp
     unit/ui/AppLifecycleCoordinatorTest.cpp
     unit/ui/MainWindowPresenterTest.cpp
     unit/ui/SettingsServiceTest.cpp
