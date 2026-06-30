@@ -121,9 +121,11 @@ public:
 private:
     static bool detectTcp(const QByteArray& frame);
     static bool detectRtu(const QByteArray& frame);
+    static bool detectAscii(const QByteArray& frame);
     
     static ParseResult parseTcp(const QByteArray& frame, uint16_t startAddress, uint16_t expectedQuantity, bool force, modbus::base::RegisterOrder order);
     static ParseResult parseRtu(const QByteArray& frame, uint16_t startAddress, uint16_t expectedQuantity, bool force, modbus::base::RegisterOrder order);
+    static ParseResult parseAscii(const QByteArray& frame, uint16_t startAddress, uint16_t expectedQuantity, bool force, modbus::base::RegisterOrder order);
 
     static bool hasAddressInPdu(modbus::base::FunctionCode functionCode, const QByteArray& pdu);
     static uint16_t extractAddressFromPdu(const QByteArray& pdu);

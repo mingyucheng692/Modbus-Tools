@@ -1,4 +1,5 @@
 #include <gtest/gtest.h>
+#include "modbus/transport/ModbusAsciiTransport.h"
 #include "modbus/transport/ModbusTcpTransport.h"
 #include "modbus/transport/ModbusRtuTransport.h"
 #include "modbus/base/ModbusCrc.h"
@@ -14,10 +15,12 @@ protected:
         tcp_ = std::make_unique<ModbusTcpTransport>();
         // RTU Transport instance
         rtu_ = std::make_unique<ModbusRtuTransport>();
+        ascii_ = std::make_unique<ModbusAsciiTransport>();
     }
 
     std::unique_ptr<ModbusTcpTransport> tcp_;
     std::unique_ptr<ModbusRtuTransport> rtu_;
+    std::unique_ptr<ModbusAsciiTransport> ascii_;
 };
 
 TEST_F(TransportTest, TcpBuildRequest) {
@@ -139,4 +142,29 @@ TEST_F(TransportTest, RtuResetPendingState_MakesOutstandingResponseUnmatched) {
     ParseResponseResult result = rtu_->parseResponse(responseAdu);
     EXPECT_EQ(result.status, ParseResponseStatus::Unmatched);
     EXPECT_FALSE(result.pdu.has_value());
+}
+
+TEST_F(TransportTest, AsciiBuildRequest) {
+    Pdu pdu(FunctionCode::ReadHoldingRegisters, QByteArray::fromHex("00000001"));
+    QByteArray adu = ascii_->buildRequest(pdu, 1);
+
+    EXPECT_EQ(adu, QByteArray(":010300000001FB\r\n"));
+}
+
+TEST_F(TransportTest, AsciiIntegrityCheck) {
+    const QByteArray fullAdu(":010302007BFD\r\n");
+    EXPECT_EQ(ascii_->checkIntegrity(fullAdu), fullAdu.size());
+    EXPECT_EQ(ascii_->checkIntegrity(QByteArray(":010302007BFD")), 0);
+    EXPECT_EQ(ascii_->checkIntegrity(QByteArray(":010302007BFC\r\n")), -1);
+}
+
+TEST_F(TransportTest, AsciiParseResponse_MatchingSlave_ReturnsParsedPdu) {
+    Pdu request(FunctionCode::ReadHoldingRegisters, QByteArray::fromHex("00000001"));
+    ascii_->buildRequest(request, 1);
+
+    ParseResponseResult result = ascii_->parseResponse(QByteArray(":010302007BFD\r\n"));
+    ASSERT_EQ(result.status, ParseResponseStatus::Ok);
+    ASSERT_TRUE(result.pdu.has_value());
+    EXPECT_EQ(result.pdu->functionCode(), FunctionCode::ReadHoldingRegisters);
+    EXPECT_EQ(result.pdu->data(), QByteArray::fromHex("02007B"));
 }

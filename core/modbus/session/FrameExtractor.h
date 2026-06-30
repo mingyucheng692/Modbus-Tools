@@ -51,6 +51,7 @@ private:
     static int bitsPerCharacter(const base::ModbusConfig& config);
 
     void processTcpBuffer();
+    void processAsciiBuffer();
     void processRtuBuffer(std::chrono::steady_clock::time_point now);
 
     modbus::base::ModbusMode mode_;

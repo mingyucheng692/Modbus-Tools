@@ -147,6 +147,15 @@ void FrameExtractor::feed(QByteArrayView data)
         }
 
         lastByteReceivedAt_ = now;
+    } else if (mode_ == base::ModbusMode::ASCII) {
+        buffer_.append(data);
+        if (buffer_.size() > config::Modbus::kMaxAduSize * 2) {
+            spdlog::error(
+                "FrameExtractor: ASCII buffer exceeded {} bytes limit, dropping oldest bytes",
+                config::Modbus::kMaxAduSize * 2);
+            buffer_.remove(0, buffer_.size() - config::Modbus::kMaxAduSize * 2);
+        }
+        processAsciiBuffer();
     } else {
         buffer_.append(data);
         if (buffer_.size() > app::constants::Values::Modbus::kMaxTcpBufferedBytes) {
@@ -200,6 +209,49 @@ void FrameExtractor::processTcpBuffer()
                 break;
             }
         } else {
+            break;
+        }
+    }
+}
+
+void FrameExtractor::processAsciiBuffer()
+{
+    while (!buffer_.isEmpty()) {
+        const int startIndex = buffer_.indexOf(':');
+        if (startIndex < 0) {
+            droppedInvalidBytes_ += buffer_.size();
+            buffer_.clear();
+            break;
+        }
+        if (startIndex > 0) {
+            droppedInvalidBytes_ += startIndex;
+            buffer_.remove(0, startIndex);
+        }
+
+        const qsizetype terminatorIndex = buffer_.indexOf("\r\n");
+        if (terminatorIndex < 0) {
+            break;
+        }
+
+        const int frameLength = static_cast<int>(terminatorIndex + 2);
+        const QByteArray candidate = buffer_.left(frameLength);
+        const int integrity = base::inspectAsciiAdu(candidate);
+        if (integrity > 0) {
+            completedFrames_.push_back(candidate);
+            buffer_.remove(0, frameLength);
+            droppedInvalidBytes_ = 0;
+            continue;
+        }
+
+        spdlog::warn(
+            "FrameExtractor: invalid ASCII frame header/body, dropping start delimiter");
+        buffer_.remove(0, 1);
+        ++droppedInvalidBytes_;
+        if (droppedInvalidBytes_ > app::constants::Values::Modbus::kMaxDroppedInvalidBytes) {
+            spdlog::error(
+                "FrameExtractor: ASCII invalid byte limit exceeded ({}), clearing buffer",
+                droppedInvalidBytes_);
+            buffer_.clear();
             break;
         }
     }
@@ -294,7 +346,7 @@ int FrameExtractor::droppedInvalidBytes() const
 bool FrameExtractor::isRtuFrameReadyToParse(
     std::chrono::steady_clock::time_point now) const
 {
-    if (mode_ != base::ModbusMode::RTU) {
+    if (mode_ != base::ModbusMode::RTU && mode_ != base::ModbusMode::ASCII) {
         return false;
     }
     if (!completedFrames_.empty()) {
@@ -320,7 +372,7 @@ std::chrono::steady_clock::time_point FrameExtractor::nextRtuFrameBoundary() con
 std::optional<QByteArray> FrameExtractor::tryPopRtuResponseFrame(
     std::chrono::steady_clock::time_point now)
 {
-    if (mode_ != base::ModbusMode::RTU) {
+    if (mode_ != base::ModbusMode::RTU && mode_ != base::ModbusMode::ASCII) {
         return std::nullopt;
     }
 
@@ -330,7 +382,9 @@ std::optional<QByteArray> FrameExtractor::tryPopRtuResponseFrame(
         return frame;
     }
 
-    processRtuBuffer(now);
+    if (mode_ == base::ModbusMode::RTU) {
+        processRtuBuffer(now);
+    }
 
     if (!completedFrames_.empty()) {
         QByteArray frame = completedFrames_.front();

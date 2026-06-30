@@ -10,6 +10,7 @@
 #include "ModbusProtocolChecks.h"
 #include "AppConstants.h"
 #include "ModbusCrc.h"
+#include "ModbusLrc.h"
 #include "ModbusEndianCodec.h"
 #include "ModbusFrame.h"
 #include <QCoreApplication>
@@ -61,6 +62,43 @@ bool readLittleEndianUInt16(QByteArrayView data, qsizetype offset, uint16_t& val
     }
 
     value = qFromLittleEndian(rawValue);
+    return true;
+}
+
+int decodeAsciiNibble(char ch)
+{
+    if (ch >= '0' && ch <= '9') {
+        return ch - '0';
+    }
+    if (ch >= 'A' && ch <= 'F') {
+        return ch - 'A' + 10;
+    }
+    if (ch >= 'a' && ch <= 'f') {
+        return ch - 'a' + 10;
+    }
+    return -1;
+}
+
+bool decodeAsciiHex(QByteArrayView asciiPayload, QByteArray* binaryOut)
+{
+    if ((asciiPayload.size() % 2) != 0) {
+        return false;
+    }
+
+    QByteArray binary;
+    binary.reserve(asciiPayload.size() / 2);
+    for (qsizetype i = 0; i < asciiPayload.size(); i += 2) {
+        const int high = decodeAsciiNibble(asciiPayload[i]);
+        const int low = decodeAsciiNibble(asciiPayload[i + 1]);
+        if (high < 0 || low < 0) {
+            return false;
+        }
+        binary.append(static_cast<char>((high << 4) | low));
+    }
+
+    if (binaryOut) {
+        *binaryOut = binary;
+    }
     return true;
 }
 
@@ -138,6 +176,54 @@ int inspectRtuAdu(QByteArrayView adu, RtuAduFields* fields) {
     }
 
     return adu.size();
+}
+
+int inspectAsciiAdu(QByteArrayView adu, AsciiAduFields* fields)
+{
+    if (adu.isEmpty()) {
+        return 0;
+    }
+
+    if (adu[0] != ':') {
+        return -1;
+    }
+
+    const qsizetype terminatorIndex = adu.indexOf("\r\n");
+    if (terminatorIndex < 0) {
+        return 0;
+    }
+
+    const qsizetype frameLength = terminatorIndex + 2;
+    const QByteArrayView asciiPayload = adu.sliced(1, terminatorIndex - 1);
+    if (asciiPayload.size() < 4 || (asciiPayload.size() % 2) != 0) {
+        return -1;
+    }
+
+    QByteArray binaryAdu;
+    if (!decodeAsciiHex(asciiPayload, &binaryAdu)) {
+        return -1;
+    }
+    if (binaryAdu.size() < 3) {
+        return -1;
+    }
+
+    const uint8_t receivedLrc = static_cast<uint8_t>(binaryAdu.back());
+    const uint8_t calculatedLrc =
+        calculateModbusAsciiLrc(QByteArrayView(binaryAdu).first(binaryAdu.size() - 1));
+
+    if (fields) {
+        fields->slaveId = static_cast<uint8_t>(binaryAdu[0]);
+        fields->functionCode = static_cast<uint8_t>(binaryAdu[1]);
+        fields->receivedLrc = receivedLrc;
+        fields->calculatedLrc = calculatedLrc;
+        fields->binaryAdu = binaryAdu;
+    }
+
+    if (receivedLrc != calculatedLrc) {
+        return -1;
+    }
+
+    return static_cast<int>(frameLength);
 }
 
 QString validateResponsePdu(const Pdu& request, const Pdu& response)

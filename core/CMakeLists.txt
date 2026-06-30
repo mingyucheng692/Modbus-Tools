@@ -12,6 +12,8 @@ target_sources(core PRIVATE
     modbus/base/ModbusEndianCodec.h
     modbus/base/ModbusProtocolChecks.h
     modbus/base/ModbusProtocolChecks.cpp
+    modbus/base/ModbusLrc.h
+    modbus/base/ModbusLrc.cpp
     modbus/base/ModbusDataHelper.h
     modbus/base/ModbusDataHelper.cpp
     modbus/base/ModbusPduBuilder.h
@@ -20,6 +22,8 @@ target_sources(core PRIVATE
     modbus/transport/ITransport.h
     modbus/transport/ModbusRtuTransport.h
     modbus/transport/ModbusRtuTransport.cpp
+    modbus/transport/ModbusAsciiTransport.h
+    modbus/transport/ModbusAsciiTransport.cpp
     modbus/transport/ModbusTcpTransport.h
     modbus/transport/ModbusTcpTransport.cpp
     # modbus session

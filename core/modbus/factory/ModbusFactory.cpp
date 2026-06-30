@@ -11,6 +11,7 @@
 #include "../transport/ModbusRtuTransport.h"
 #include "../transport/ModbusTcpTransport.h"
 #include "../session/ModbusClient.h"
+#include "../transport/ModbusAsciiTransport.h"
 #include "infra/io/SerialChannel.h"
 #include "infra/io/TcpChannel.h"
 #include <QMetaObject>
@@ -132,7 +133,7 @@ std::shared_ptr<transport::ITransport> ModbusFactory::createTransport(const base
     case base::ModbusMode::RTU:
         return std::make_shared<transport::ModbusRtuTransport>();
     case base::ModbusMode::ASCII:
-        return nullptr;
+        return std::make_shared<transport::ModbusAsciiTransport>();
     case base::ModbusMode::TCP:
         return std::make_shared<transport::ModbusTcpTransport>();
     }

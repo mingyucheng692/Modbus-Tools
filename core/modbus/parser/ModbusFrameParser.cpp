@@ -85,6 +85,8 @@ ParseResult ModbusFrameParser::parse(const QByteArray& frame,
     if (type == ProtocolType::Unknown) {
         if (detectTcp(frame)) {
             type = ProtocolType::Tcp;
+        } else if (detectAscii(frame)) {
+            type = ProtocolType::Ascii;
         } else if (detectRtu(frame)) {
             type = ProtocolType::Rtu;
         } else {
@@ -103,6 +105,8 @@ ParseResult ModbusFrameParser::parse(const QByteArray& frame,
     // 2. 根据协议解析头部
     if (type == ProtocolType::Tcp) {
         result = parseTcp(frame, startAddress, expectedQuantity, force, order);
+    } else if (type == ProtocolType::Ascii) {
+        result = parseAscii(frame, startAddress, expectedQuantity, force, order);
     } else {
         result = parseRtu(frame, startAddress, expectedQuantity, force, order);
     }
@@ -123,6 +127,11 @@ bool ModbusFrameParser::detectTcp(const QByteArray& frame)
 bool ModbusFrameParser::detectRtu(const QByteArray& frame)
 {
     return base::inspectRtuAdu(frame) == frame.size();
+}
+
+bool ModbusFrameParser::detectAscii(const QByteArray& frame)
+{
+    return base::inspectAsciiAdu(frame) == frame.size();
 }
 
 ParseResult ModbusFrameParser::parseTcp(const QByteArray& frame, uint16_t startAddress, uint16_t expectedQuantity, bool force, modbus::base::RegisterOrder order)
@@ -258,6 +267,61 @@ ParseResult ModbusFrameParser::parseRtu(const QByteArray& frame, uint16_t startA
     QByteArray pdu = frame.mid(1, pduLen);
     parsePdu(result, pdu, startAddress, expectedQuantity, order);
 
+    return result;
+}
+
+ParseResult ModbusFrameParser::parseAscii(const QByteArray& frame,
+                                          uint16_t startAddress,
+                                          uint16_t expectedQuantity,
+                                          bool force,
+                                          modbus::base::RegisterOrder order)
+{
+    ParseResult result;
+    result.timestamp = QDateTime::currentDateTimeUtc();
+    result.protocol = ProtocolType::Ascii;
+    result.rawFrame = frame;
+    result.expectedQuantity = expectedQuantity;
+    result.isForced = force;
+
+    base::AsciiAduFields fields;
+    const int integrity = base::inspectAsciiAdu(frame, &fields);
+    if (!force) {
+        if (integrity == 0) {
+            result.isValid = false;
+            result.error = QCoreApplication::translate(
+                "ModbusFrameParser",
+                "Frame incomplete for Modbus ASCII. Missing CRLF terminator or full payload");
+            return result;
+        }
+        if (integrity < 0) {
+            result.isValid = false;
+            result.error = QCoreApplication::translate(
+                "ModbusFrameParser",
+                "Invalid Modbus ASCII frame or LRC mismatch");
+            return result;
+        }
+        if (integrity != frame.size()) {
+            result.isValid = false;
+            result.error = QCoreApplication::translate(
+                "ModbusFrameParser",
+                "ASCII frame contains trailing bytes. Expected %1 bytes, got %2")
+                .arg(integrity)
+                .arg(frame.size());
+            return result;
+        }
+    } else if (integrity < 0) {
+        result.warnings << QCoreApplication::translate(
+            "ModbusFrameParser", "Warning: Invalid Modbus ASCII frame or LRC mismatch (Forced)");
+    }
+
+    result.slaveId = fields.slaveId;
+    result.checksum = fields.receivedLrc;
+    result.calculatedChecksum = fields.calculatedLrc;
+    result.checksumValid = (integrity > 0);
+
+    const int pduLen = qMax(0, fields.binaryAdu.size() - 3);
+    const QByteArray pdu = fields.binaryAdu.mid(1, pduLen);
+    parsePdu(result, pdu, startAddress, expectedQuantity, order);
     return result;
 }
 

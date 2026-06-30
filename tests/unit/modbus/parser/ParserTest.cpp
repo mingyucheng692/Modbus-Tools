@@ -69,6 +69,21 @@ TEST_F(FrameParserTest, ParseExceptionResponse) {
     EXPECT_EQ(result.exceptionCode, ExceptionCode::IllegalDataAddress);
 }
 
+TEST_F(FrameParserTest, ParseAsciiResponseSuccess) {
+    QByteArray frame(":010304007B01C855\r\n");
+
+    ParseResult result = ModbusFrameParser::parse(frame, ProtocolType::Ascii, 40001, 2);
+
+    EXPECT_TRUE(result.isValid) << "Error: " << result.error.toStdString();
+    EXPECT_EQ(result.protocol, ProtocolType::Ascii);
+    EXPECT_EQ(result.type, FrameType::Response);
+    EXPECT_EQ(result.slaveId, 1);
+    EXPECT_TRUE(result.checksumValid);
+    ASSERT_EQ(result.dataItems.size(), 2);
+    EXPECT_EQ(result.dataItems[0].value.toUInt(), 123);
+    EXPECT_EQ(result.dataItems[1].value.toUInt(), 456);
+}
+
 TEST_F(FrameParserTest, ParsePduLinkToAnalyzer) {
     // Simulated PDU from Link to Analyzer: FC 3, ByteCount 2, Data 0x007B
     QByteArray pdu = QByteArray::fromHex("0302007B");

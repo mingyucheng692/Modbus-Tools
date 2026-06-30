@@ -31,11 +31,22 @@ struct RtuAduFields {
     uint16_t calculatedCrc = 0;
 };
 
+struct AsciiAduFields {
+    uint8_t slaveId = 0;
+    uint8_t functionCode = 0;
+    uint8_t receivedLrc = 0;
+    uint8_t calculatedLrc = 0;
+    QByteArray binaryAdu;
+};
+
 // Returns 0 for incomplete, >0 for a complete frame length, and -1 for invalid data.
 int inspectTcpAdu(QByteArrayView adu, TcpAduFields* fields = nullptr);
 
 // Returns 0 for incomplete, >0 for a complete frame length, and -1 for invalid data.
 int inspectRtuAdu(QByteArrayView adu, RtuAduFields* fields = nullptr);
+
+// Returns 0 for incomplete, >0 for a complete frame length, and -1 for invalid data.
+int inspectAsciiAdu(QByteArrayView adu, AsciiAduFields* fields = nullptr);
 
 // Returns an empty string when the response PDU matches the request semantics.
 QString validateResponsePdu(const Pdu& request, const Pdu& response);

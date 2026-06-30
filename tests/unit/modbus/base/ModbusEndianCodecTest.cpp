@@ -2,6 +2,7 @@
 
 #include "modbus/base/ModbusEndianCodec.h"
 #include "modbus/base/ModbusFrame.h"
+#include "modbus/base/ModbusLrc.h"
 #include "modbus/base/ModbusPduBuilder.h"
 #include "modbus/base/ModbusProtocolChecks.h"
 #include "modbus/parser/ModbusFrameParser.h"
@@ -170,6 +171,30 @@ TEST(ModbusEndianCodecTest, InspectRtuAdu_CrcMismatch_ReturnsMinusOne) {
 TEST(ModbusEndianCodecTest, InspectRtuAdu_NullFields_ReturnsSize) {
     const QByteArray adu = QByteArray::fromHex("010304007B01C88A2C");
     EXPECT_EQ(inspectRtuAdu(QByteArrayView(adu), nullptr), adu.size());
+}
+
+TEST(ModbusEndianCodecTest, CalculateAsciiLrc_ComputesExpectedChecksum) {
+    const QByteArray aduWithoutLrc = QByteArray::fromHex("010300000001");
+    EXPECT_EQ(calculateModbusAsciiLrc(aduWithoutLrc), 0xFB);
+}
+
+TEST(ModbusEndianCodecTest, InspectAsciiAdu_ReadsDecodedFields) {
+    AsciiAduFields fields;
+    const QByteArray frame(":010302007BFD\r\n");
+
+    const int fullLength = inspectAsciiAdu(QByteArrayView(frame), &fields);
+
+    EXPECT_EQ(fullLength, frame.size());
+    EXPECT_EQ(fields.slaveId, 0x01);
+    EXPECT_EQ(fields.functionCode, 0x03);
+    EXPECT_EQ(fields.receivedLrc, 0xFD);
+    EXPECT_EQ(fields.calculatedLrc, 0xFD);
+    EXPECT_EQ(fields.binaryAdu, QByteArray::fromHex("010302007BFD"));
+}
+
+TEST(ModbusEndianCodecTest, InspectAsciiAdu_InvalidLrc_ReturnsMinusOne) {
+    const QByteArray frame(":010302007BFC\r\n");
+    EXPECT_EQ(inspectAsciiAdu(QByteArrayView(frame)), -1);
 }
 
 // ============================================================================
@@ -469,4 +494,3 @@ TEST(ModbusEndianCodecTest, ReadBigEndian_Uint32_TruncatedBuffer_Fails) {
     EXPECT_FALSE(readBigEndian<uint32_t>(QByteArrayView(data), 0, value));
     EXPECT_EQ(value, 99u);
 }
-

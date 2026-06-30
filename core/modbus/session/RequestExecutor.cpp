@@ -319,8 +319,8 @@ ModbusResponse RequestExecutor::sendRequestInternal(const base::Pdu& request, in
     while (true) {
         std::unique_lock<std::mutex> lock(mutex_);
         const auto now = std::chrono::steady_clock::now();
-        const bool rtuFrameReady = frameExtractor_->isRtuFrameReadyToParse(now);
-        if (!rtuFrameReady && !responseReady_
+        const bool serialFrameReady = frameExtractor_->isRtuFrameReadyToParse(now);
+        if (!serialFrameReady && !responseReady_
             && !connectionManager_->hasChannelErrorLocked() && !aborted_.load()) {
             lock.unlock();
             const bool stillWaiting = waitForEventOrTimeout(deadline);
@@ -334,7 +334,7 @@ ModbusResponse RequestExecutor::sendRequestInternal(const base::Pdu& request, in
             }
             continue;
         }
-        if (!rtuFrameReady && config_->mode == base::ModbusMode::RTU
+        if (!serialFrameReady && config_->mode == base::ModbusMode::RTU
             && frameExtractor_->bufferSize() > 0) {
             responseReady_ = false;
             const auto frameDeadline = std::min(deadline,
@@ -387,7 +387,8 @@ ModbusResponse RequestExecutor::sendRequestInternal(const base::Pdu& request, in
         }
 
         while (true) {
-            if (config_->mode == base::ModbusMode::RTU) {
+            if (config_->mode == base::ModbusMode::RTU
+                || config_->mode == base::ModbusMode::ASCII) {
                 auto frameOpt = frameExtractor_->tryPopRtuResponseFrame(now);
                 if (frameOpt) {
                     lock.unlock();
