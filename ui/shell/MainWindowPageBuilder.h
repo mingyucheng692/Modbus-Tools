@@ -18,6 +18,10 @@ namespace ui::views::modbus_rtu {
 class ModbusRtuPage;
 }
 
+namespace ui::views::modbus_ascii {
+class ModbusAsciiPage;
+}
+
 namespace ui::widgets {
 class FrameAnalyzerWidget;
 }
@@ -27,6 +31,7 @@ namespace ui {
 enum class MainPage : std::size_t {
     ModbusTcp = 0,
     ModbusRtu,
+    ModbusAscii,
     GenericTcp,
     GenericSerial,
     FrameAnalyzer,
@@ -38,6 +43,7 @@ constexpr std::size_t kMainPageCount = static_cast<std::size_t>(MainPage::Count)
 struct MainWindowPages {
     views::modbus_tcp::ModbusTcpPage* modbusTcpView = nullptr;
     views::modbus_rtu::ModbusRtuPage* modbusRtuView = nullptr;
+    views::modbus_ascii::ModbusAsciiPage* modbusAsciiView = nullptr;
     widgets::FrameAnalyzerWidget* frameAnalyzer = nullptr;
     std::array<int, kMainPageCount> pageIndexByNavigationRow = {};
 

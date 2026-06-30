@@ -12,6 +12,7 @@
 #include "CollapsibleSection.h"
 #include "modbus/base/ModbusDataHelper.h"
 #include "modbus/base/ModbusCrc.h"
+#include "modbus/base/ModbusLrc.h"
 #include "../common/ISettingsService.h"
 #include <QVBoxLayout>
 #include <QHBoxLayout>
@@ -462,15 +463,21 @@ void FunctionWidget::retranslateUi() {
         writeBtn10_->setText(tr("Write Multiple Registers (0x10)"));
     }
     if (rawDataLabel_) {
-        rawDataLabel_->setText(transportMode_ == ui::application::modbus::TransportUiMode::Tcp
-                               ? tr("Raw Hex Data (e.g., 00 00 00 00 00 06 01 03 00 00 00 01):")
-                               : tr("Raw Hex Data (e.g., 01 03 00 00 00 01 84 0A):"));
+        rawDataLabel_->setText(
+            transportMode_ == ui::application::modbus::TransportUiMode::Tcp
+                ? tr("Raw Hex Data (e.g., 00 00 00 00 00 06 01 03 00 00 00 01):")
+                : transportMode_ == ui::application::modbus::TransportUiMode::Ascii
+                    ? tr("Raw Hex Data (ASCII bytes, e.g., 3A 30 31 30 33 30 30 30 30 30 30 30 31 46 42 0D 0A):")
+                    : tr("Raw Hex Data (e.g., 01 03 00 00 00 01 84 0A):"));
     }
     if (rawSendBtn_) {
         rawSendBtn_->setText(tr("Send Raw"));
     }
     if (appendCrcBtn_) {
-        appendCrcBtn_->setText(tr("Append CRC"));
+        appendCrcBtn_->setText(
+            transportMode_ == ui::application::modbus::TransportUiMode::Ascii
+                ? tr("Add LRC + Encode ASCII")
+                : tr("Append CRC"));
     }
     if (addMbapBtn_) {
         addMbapBtn_->setText(tr("Add MBAP"));
@@ -489,11 +496,20 @@ void FunctionWidget::onAppendCrcClicked() {
     QString input = rawDataEdit_->toPlainText();
     QByteArray data = modbus::base::ModbusDataHelper::parseHex(input);
     if (data.isEmpty()) return;
-    
+
+    if (transportMode_ == ui::application::modbus::TransportUiMode::Ascii) {
+        data.append(static_cast<char>(modbus::base::calculateModbusAsciiLrc(data)));
+        QByteArray asciiFrame(":");
+        asciiFrame.append(data.toHex().toUpper());
+        asciiFrame.append("\r\n");
+        rawDataEdit_->setPlainText(asciiFrame.toHex(' ').toUpper());
+        return;
+    }
+
     uint16_t crc = modbus::base::calculateModbusRtuCrc(data);
-    data.append(static_cast<char>(crc & 0xFF));        // Low byte first
-    data.append(static_cast<char>((crc >> 8) & 0xFF)); // High byte second
-    
+    data.append(static_cast<char>(crc & 0xFF));
+    data.append(static_cast<char>((crc >> 8) & 0xFF));
+
     rawDataEdit_->setPlainText(data.toHex(' ').toUpper());
 }
 

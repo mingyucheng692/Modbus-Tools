@@ -126,6 +126,8 @@ target_sources(ui PRIVATE
     views/modbus_tcp/ModbusTcpPage.h
     views/modbus_rtu/ModbusRtuPage.cpp
     views/modbus_rtu/ModbusRtuPage.h
+    views/modbus_ascii/ModbusAsciiPage.cpp
+    views/modbus_ascii/ModbusAsciiPage.h
     views/BaseModbusPage.cpp
     views/BaseModbusPage.h
     views/GenericChannelViewBase.cpp

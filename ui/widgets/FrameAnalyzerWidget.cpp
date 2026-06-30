@@ -12,6 +12,7 @@
 #include "../common/ISettingsService.h"
 #include "../common/SettingsKeys.h"
 #include "modbus/base/ModbusDataHelper.h"
+#include "modbus/base/ModbusProtocolChecks.h"
 #include "modbus/parser/ModbusFrameParser.h"
 #include "modbus/parser/FrameParseWorker.h"
 #include "analyzer/AnalyzerCommon.h"
@@ -347,6 +348,7 @@ void FrameAnalyzerWidget::FrameAnalyzerWidgetPrivate::createInputGroup()
     protocolCombo->addItem(tr("Auto Detect"), QVariant::fromValue(ProtocolType::Unknown));
     protocolCombo->addItem(tr("Modbus TCP"), QVariant::fromValue(ProtocolType::Tcp));
     protocolCombo->addItem(tr("Modbus RTU"), QVariant::fromValue(ProtocolType::Rtu));
+    protocolCombo->addItem(tr("Modbus ASCII"), QVariant::fromValue(ProtocolType::Ascii));
     controlsLayout->addWidget(protocolCombo);
 
     controlsLayout->addSpacing(20);
@@ -786,6 +788,11 @@ void FrameAnalyzerWidget::renderResult(const ParseResult& result)
         return data.isEmpty() ? QStringLiteral("(empty)") : QString::fromLatin1(data.toHex(' ').toUpper());
     };
 
+    modbus::base::AsciiAduFields asciiFields;
+    const bool hasAsciiFields =
+        result.protocol == ProtocolType::Ascii
+        && modbus::base::inspectAsciiAdu(result.rawFrame, &asciiFields) == result.rawFrame.size();
+
     auto buildDescription = [](std::initializer_list<QString> parts) {
         QStringList uniqueParts;
         for (const QString& part : parts) {
@@ -849,6 +856,22 @@ void FrameAnalyzerWidget::renderResult(const ParseResult& result)
                     tr("Unit ID"),
                     QString("%1 (%2)").arg(result.slaveId).arg(byteHex(result.rawFrame.mid(6, 1))),
                     tr("Target slave / unit address"));
+            } else if (result.protocol == ProtocolType::Ascii) {
+                addTreeItem(
+                    root,
+                    tr("Slave ID"),
+                    QString("%1 (%2)").arg(result.slaveId).arg(byteHex(asciiFields.binaryAdu.mid(0, 1))),
+                    tr("Target slave address"));
+                addTreeItem(
+                    root,
+                    tr("ASCII Start"),
+                    byteHex(result.rawFrame.left(1)),
+                    tr("Start delimiter ':'"));
+                addTreeItem(
+                    root,
+                    tr("ASCII Payload"),
+                    QString::fromLatin1(result.rawFrame.mid(1, result.rawFrame.size() - 3)),
+                    tr("ASCII hex payload before CRLF"));
             } else {
                 addTreeItem(
                     root,
@@ -858,14 +881,18 @@ void FrameAnalyzerWidget::renderResult(const ParseResult& result)
             }
 
             const bool isTcp = result.protocol == ProtocolType::Tcp;
-            const bool hasRtuStyleChecksum = result.protocol == ProtocolType::Rtu
-                                             || result.protocol == ProtocolType::Ascii;
-            const int pduOffset = isTcp ? 7 : 1;
-            const int pduLength = isTcp
-                ? qMax(0, result.rawFrame.size() - 7)
-                : qMax(0, result.rawFrame.size() - (hasRtuStyleChecksum ? 3 : 1));
-            const QByteArray pduBytes = result.rawFrame.mid(pduOffset, pduLength);
-            const QByteArray payloadBytes = pduBytes.size() > 1 ? pduBytes.mid(1) : QByteArray();
+            const QByteArray pduBytes =
+                isTcp ? result.rawFrame.mid(7, qMax(0, result.rawFrame.size() - 7)) :
+                result.protocol == ProtocolType::Ascii && hasAsciiFields
+                    ? asciiFields.binaryAdu.mid(1, qMax(0, asciiFields.binaryAdu.size() - 2))
+                    : result.rawFrame.mid(1, qMax(0, result.rawFrame.size() - 3));
+            const QByteArray payloadBytes =
+                pduBytes.size() > 1 ? pduBytes.mid(1) : QByteArray();
+            const QByteArray functionCodeBytes =
+                isTcp ? result.rawFrame.mid(7, 1) :
+                result.protocol == ProtocolType::Ascii && hasAsciiFields
+                    ? asciiFields.binaryAdu.mid(1, 1)
+                    : result.rawFrame.mid(1, 1);
 
             auto* pdu = addTreeItem(
                 root,
@@ -876,7 +903,7 @@ void FrameAnalyzerWidget::renderResult(const ParseResult& result)
             addTreeItem(
                 pdu,
                 tr("Function Code"),
-                QString("%1 (%2)").arg(fcHex).arg(byteHex(result.rawFrame.mid(pduOffset, 1))),
+                    QString("%1 (%2)").arg(fcHex).arg(byteHex(functionCodeBytes)),
                 buildDescription({typeText, result.isException ? tr("Exception response") : tr("Normal response")}));
             addTreeItem(
                 pdu,
@@ -911,9 +938,16 @@ void FrameAnalyzerWidget::renderResult(const ParseResult& result)
             if (result.protocol == ProtocolType::Ascii) {
                 addTreeItem(
                     root,
-                    tr("ASCII Trailer"),
+                    tr("LRC"),
+                    QString("%1 (%2)")
+                        .arg(QStringLiteral("0x%1").arg(result.checksum, 2, 16, QChar('0')).toUpper())
+                        .arg(hasAsciiFields ? byteHex(asciiFields.binaryAdu.right(1)) : QStringLiteral("(n/a)")),
+                    result.checksumValid ? tr("LRC valid") : tr("LRC invalid"));
+                addTreeItem(
+                    root,
+                    tr("CRLF"),
                     byteHex(result.rawFrame.right(2)),
-                    tr("ASCII framing details are not available in T0"));
+                    tr("ASCII frame terminator"));
             }
             
             d->overviewTree->expandAll();
@@ -1117,6 +1151,7 @@ void FrameAnalyzerWidget::retranslateUi()
         d->protocolCombo->setItemText(0, tr("Auto Detect"));
         d->protocolCombo->setItemText(1, tr("Modbus TCP"));
         d->protocolCombo->setItemText(2, tr("Modbus RTU"));
+        d->protocolCombo->setItemText(3, tr("Modbus ASCII"));
     }
     if (d->startAddrLabel) d->startAddrLabel->setText(tr("Start Address (for Response):"));
     if (d->startAddrEdit) {
@@ -1164,7 +1199,8 @@ void FrameAnalyzerWidget::retranslateUi()
     if (d->parseBtn) d->parseBtn->setText(tr("Parse"));
     if (d->clearBtn) d->clearBtn->setText(tr("Clear"));
     if (d->inputEditor) {
-        d->inputEditor->setPlaceholderText(tr("Enter Hex string (e.g., 01 03 00 00 00 01 84 0A)"));
+        d->inputEditor->setPlaceholderText(
+            tr("Enter Hex string (e.g., RTU: 01 03 00 00 00 01 84 0A, ASCII bytes: 3A 30 31 30 33 ... 0D 0A)"));
     }
 
     if (d->resultGroup) d->resultGroup->setTitle(tr("Analysis Result"));

@@ -7,8 +7,7 @@
 #include "modbus/base/ModbusFrame.h"
 #include "modbus/parser/ModbusFrameParser.h"
 
-namespace ui::views::modbus_tcp { class ModbusTcpPage; }
-namespace ui::views::modbus_rtu { class ModbusRtuPage; }
+namespace ui::views { class BaseModbusPage; }
 namespace ui::widgets { class FrameAnalyzerWidget; }
 
 namespace ui::application {
@@ -47,8 +46,9 @@ public:
     explicit AnalyzerLinkCoordinator(QObject* parent = nullptr);
     ~AnalyzerLinkCoordinator() noexcept override;
 
-    void bind(views::modbus_tcp::ModbusTcpPage* tcpView,
-              views::modbus_rtu::ModbusRtuPage* rtuView,
+    void bind(views::BaseModbusPage* tcpView,
+              views::BaseModbusPage* rtuView,
+              views::BaseModbusPage* asciiView,
               widgets::FrameAnalyzerWidget* frameAnalyzer);
 
     State state() const;
@@ -89,8 +89,9 @@ private:
 
     State state_;
     std::optional<BufferedLiveData> bufferedLiveData_;
-    views::modbus_tcp::ModbusTcpPage* tcpView_ = nullptr;
-    views::modbus_rtu::ModbusRtuPage* rtuView_ = nullptr;
+    views::BaseModbusPage* tcpView_ = nullptr;
+    views::BaseModbusPage* rtuView_ = nullptr;
+    views::BaseModbusPage* asciiView_ = nullptr;
     widgets::FrameAnalyzerWidget* frameAnalyzer_ = nullptr;
 };
 

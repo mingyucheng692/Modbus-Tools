@@ -2,6 +2,7 @@
 
 #include "common/ISettingsService.h"
 #include "views/generic_serial/GenericSerialView.h"
+#include "views/modbus_ascii/ModbusAsciiPage.h"
 #include "views/generic_tcp/GenericTcpView.h"
 #include "views/modbus_rtu/ModbusRtuPage.h"
 #include "views/modbus_tcp/ModbusTcpPage.h"
@@ -44,6 +45,10 @@ MainWindowPages MainWindowPageBuilder::build(QStackedWidget* stackedWidget, QWid
     pages.modbusRtuView = new views::modbus_rtu::ModbusRtuPage(settingsService_, owner);
     pages.pageIndexByNavigationRow[static_cast<std::size_t>(MainPage::ModbusRtu)] =
         stackedWidget->addWidget(createScrollablePage(pages.modbusRtuView, stackedWidget));
+
+    pages.modbusAsciiView = new views::modbus_ascii::ModbusAsciiPage(settingsService_, owner);
+    pages.pageIndexByNavigationRow[static_cast<std::size_t>(MainPage::ModbusAscii)] =
+        stackedWidget->addWidget(createScrollablePage(pages.modbusAsciiView, stackedWidget));
 
     auto* genericTcpView = new views::generic_tcp::GenericTcpView(settingsService_, owner);
     pages.pageIndexByNavigationRow[static_cast<std::size_t>(MainPage::GenericTcp)] =
