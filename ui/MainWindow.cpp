@@ -110,7 +110,7 @@ MainWindow::MainWindow(common::ISettingsService* settingsService,
                        common::ThemeController* themeController,
                        QWidget *parent)
     : QMainWindow(parent),
-      updateInteractionView_(std::make_unique<UpdateInteractionView>()),
+      updateInteractionView_(std::make_unique<UpdateInteractionView>(this)),
       themeController_(themeController),
       businessContext_(std::make_unique<MainWindowBusinessContext>(this, updateInteractionView_.get(), settingsService)),
       presenter_(std::make_unique<application::MainWindowPresenter>(
