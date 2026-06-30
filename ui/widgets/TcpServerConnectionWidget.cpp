@@ -10,6 +10,7 @@
 
 #include "TcpServerConnectionWidget.h"
 #include "../common/ISettingsService.h"
+#include <QLabel>
 #include <QPushButton>
 #include <QLineEdit>
 #include <QSpinBox>

@@ -113,6 +113,7 @@ set(TEST_QT_CORE_SOURCES
 
 set(TEST_UI_WIDGETS_SOURCES
     unit/modbus/application/TrafficLogControllerTest.cpp
+    unit/ui/FunctionWidgetAsciiTest.cpp
     unit/ui/I18nWidgetTest.cpp
     unit/ui/NavigationControllerTest.cpp
     unit/ui/ServerClientPanelTest.cpp

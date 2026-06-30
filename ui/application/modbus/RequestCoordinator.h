@@ -59,7 +59,7 @@ public:
 
 signals:
     void linkageDataReceived(const ::modbus::base::Pdu& pdu,
-                             modbus::core::parser::ProtocolType protocol,
+                             ::modbus::core::parser::ProtocolType protocol,
                              uint16_t addr);
 
 private:

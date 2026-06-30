@@ -9,7 +9,7 @@
 
 #pragma once
 
-#include <QObject>
+#include <QCoreApplication>
 #include <QMessageBox>
 
 class QWidget;

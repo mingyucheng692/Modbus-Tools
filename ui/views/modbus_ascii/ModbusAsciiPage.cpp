@@ -1,5 +1,6 @@
 #include "ModbusAsciiPage.h"
 
+#include "../../common/ISettingsService.h"
 #include "../../widgets/FunctionWidget.h"
 #include "../../widgets/SerialConnectionWidget.h"
 #include <spdlog/spdlog.h>

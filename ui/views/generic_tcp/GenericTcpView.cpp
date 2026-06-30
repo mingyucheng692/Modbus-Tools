@@ -22,6 +22,7 @@
 #include "../../../infra/io/ChannelOperationWorker.h"
 #include "../../../infra/io/ServerChannelWorker.h"
 #include <QVBoxLayout>
+#include <QCoreApplication>
 #include <QHBoxLayout>
 #include <QComboBox>
 #include <QStackedWidget>

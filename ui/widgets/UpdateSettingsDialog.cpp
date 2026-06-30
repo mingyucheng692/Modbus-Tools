@@ -11,6 +11,7 @@
 
 #include "../../core/AppConstants.h"
 
+#include <QCoreApplication>
 #include <QComboBox>
 #include <QDialogButtonBox>
 #include <QFormLayout>

@@ -12,7 +12,7 @@
 #include "PollingController.h"
 #include "TrafficLogController.h"
 #include "ModbusTypes.h"
-#include "../common/ConnectionAlert.h"
+#include "../../common/ConnectionAlert.h"
 #include <QWidget>
 #include <spdlog/spdlog.h>
 
@@ -139,7 +139,7 @@ void RequestCoordinator::handleRequestFinished(int requestId,
     uint16_t addr = trackingInfo->address;
 
     if (response.isSuccess) {
-        const modbus::core::parser::ProtocolType protocolType =
+        const ::modbus::core::parser::ProtocolType protocolType =
             modeDescriptor(sessionMode_).protocolType;
         emit linkageDataReceived(response.pdu, protocolType, addr);
     }

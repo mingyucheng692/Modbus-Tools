@@ -9,6 +9,7 @@
 
 #include "ModbusSettingsDialog.h"
 #include "../../core/AppConstants.h"
+#include <QCoreApplication>
 #include <QVBoxLayout>
 #include <QFormLayout>
 #include <QSpinBox>

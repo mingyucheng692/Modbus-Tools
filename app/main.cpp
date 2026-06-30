@@ -25,7 +25,7 @@
 int main(int argc, char *argv[])
 {
     QApplication app(argc, argv);
-    Q_INIT_RESOURCE(i18n);
+    Q_INIT_RESOURCE(ui_i18n);
     Q_INIT_RESOURCE(assets);
     app.setApplicationName("Modbus-Tools");
     app.setApplicationVersion(QStringLiteral(MODBUS_TOOLS_APP_VERSION));

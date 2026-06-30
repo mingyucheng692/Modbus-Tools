@@ -744,6 +744,12 @@
         <translation>Modbus RTU</translation>
     </message>
     <message>
+        <location filename="../MainWindow.cpp" line="194"/>
+        <location filename="../MainWindow.cpp" line="353"/>
+        <source>Modbus ASCII</source>
+        <translation>Modbus ASCII</translation>
+    </message>
+    <message>
         <source>TCP Client</source>
         <translation type="vanished">TCP 用戶端</translation>
     </message>
@@ -2150,6 +2156,12 @@ Choose update method:</source>
         <translation>Modbus RTU</translation>
     </message>
     <message>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="346"/>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="1101"/>
+        <source>Modbus ASCII</source>
+        <translation>Modbus ASCII</translation>
+    </message>
+    <message>
         <location filename="../widgets/FrameAnalyzerWidget.cpp" line="349"/>
         <location filename="../widgets/FrameAnalyzerWidget.cpp" line="1102"/>
         <source>Start Address (for Response):</source>
@@ -2178,6 +2190,11 @@ Choose update method:</source>
         <location filename="../widgets/FrameAnalyzerWidget.cpp" line="1144"/>
         <source>Enter Hex string (e.g., 01 03 00 00 00 01 84 0A)</source>
         <translation>輸入十六進位字串（如 01 03 00 00 00 01 84 0A）</translation>
+    </message>
+    <message>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="1144"/>
+        <source>Enter Hex string (e.g., RTU: 01 03 00 00 00 01 84 0A, ASCII bytes: 3A 30 31 30 33 ... 0D 0A)</source>
+        <translation>輸入十六進位字串（如 RTU: 01 03 00 00 00 01 84 0A，ASCII 位元組: 3A 30 31 30 33 ... 0D 0A）</translation>
     </message>
     <message>
         <location filename="../widgets/FrameAnalyzerWidget.cpp" line="394"/>
@@ -2760,6 +2777,16 @@ Choose update method:</source>
         <location filename="../widgets/FunctionWidget.cpp" line="372"/>
         <source>Bit string (e.g., 1 1 0 1)</source>
         <translation>二進位位元字串 (如 1 1 0 1)</translation>
+    </message>
+    <message>
+        <location filename="../widgets/FunctionWidget.cpp" line="469"/>
+        <source>Raw Hex Data (ASCII bytes, e.g., 3A 30 31 30 33 30 30 30 30 30 30 30 31 46 42 0D 0A):</source>
+        <translation>原始十六進位資料（ASCII 位元組，例如 3A 30 31 30 33 30 30 30 30 30 30 30 31 46 42 0D 0A）：</translation>
+    </message>
+    <message>
+        <location filename="../widgets/FunctionWidget.cpp" line="478"/>
+        <source>Add LRC + Encode ASCII</source>
+        <translation>加入 LRC 並編碼為 ASCII</translation>
     </message>
     <message>
         <location filename="../widgets/FunctionWidget.cpp" line="397"/>

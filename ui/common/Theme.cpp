@@ -8,6 +8,8 @@
  */
 
 #include "Theme.h"
+#include <QString>
+
 namespace ui::common {
 
 Theme::Mode Theme::modeFromSetting(const QString& value) {

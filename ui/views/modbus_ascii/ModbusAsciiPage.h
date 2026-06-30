@@ -5,13 +5,11 @@
 namespace ui::views::modbus_ascii {
 
 class ModbusAsciiPage : public BaseModbusPage {
-    Q_OBJECT
-
 public:
     explicit ModbusAsciiPage(ui::common::ISettingsService* settingsService, QWidget* parent = nullptr);
     ~ModbusAsciiPage() noexcept override;
 
-private slots:
+private:
     void onConnectClicked(const io::SerialConfig& config);
     void onDisconnectClicked();
 };
