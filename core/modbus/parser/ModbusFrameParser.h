@@ -25,7 +25,8 @@ namespace modbus::core::parser {
 enum class ProtocolType {
     Unknown,
     Tcp,
-    Rtu
+    Rtu,
+    Ascii
 };
 
 // 帧类型

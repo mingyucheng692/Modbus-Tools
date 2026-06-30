@@ -72,6 +72,13 @@ TEST_F(ModbusSessionPresenterTest, RtuMode_CreatesRtuPresenter) {
     EXPECT_EQ(rtuPresenter_->mode(), SessionMode::Rtu);
 }
 
+TEST_F(ModbusSessionPresenterTest, ModeDescriptor_MapsAsciiSessionMode) {
+    const auto descriptor = modeDescriptor(SessionMode::Ascii);
+    EXPECT_EQ(descriptor.modbusMode, ::modbus::base::ModbusMode::ASCII);
+    EXPECT_EQ(descriptor.protocolType, ::modbus::core::parser::ProtocolType::Ascii);
+    EXPECT_TRUE(descriptor.usesSerialConnection);
+}
+
 TEST_F(ModbusSessionPresenterTest, Initially_NotConnected) {
     EXPECT_FALSE(tcpPresenter_->isSessionConnected());
     EXPECT_FALSE(rtuPresenter_->isSessionConnected());

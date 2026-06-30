@@ -70,4 +70,9 @@ TEST_F(RequestCoordinatorTest, LinkageDataReceived_EmittedOnSuccess) {
         coordinator_->handleRequestFinished(99999, response));
 }
 
+TEST_F(RequestCoordinatorTest, ModeDescriptor_MapsAsciiProtocolType) {
+    EXPECT_EQ(modeDescriptor(SessionMode::Ascii).protocolType,
+              modbus::core::parser::ProtocolType::Ascii);
+}
+
 } // namespace

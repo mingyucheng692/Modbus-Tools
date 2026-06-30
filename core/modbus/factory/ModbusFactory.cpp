@@ -102,7 +102,9 @@ ModbusStack ModbusFactory::createStack(const base::ModbusConfig& config) {
 }
 
 std::shared_ptr<io::IChannel> ModbusFactory::createChannel(const base::ModbusConfig& config, QThread* ioThread) {
-    if (config.mode == base::ModbusMode::RTU) {
+    switch (config.mode) {
+    case base::ModbusMode::RTU:
+    case base::ModbusMode::ASCII: {
         auto serial = std::make_shared<io::SerialChannel>();
         io::SerialConfig serialConfig;
         serialConfig.portName = config.portName;
@@ -113,20 +115,29 @@ std::shared_ptr<io::IChannel> ModbusFactory::createChannel(const base::ModbusCon
         serial->setConfig(serialConfig);
         serial->moveToThread(ioThread);
         return serial;
-    } else {
+    }
+    case base::ModbusMode::TCP: {
         auto tcp = std::make_shared<io::TcpChannel>();
         tcp->setEndpoint(config.ipAddress, config.port);
         tcp->moveToThread(ioThread);
         return tcp;
     }
+    }
+
+    return nullptr;
 }
 
 std::shared_ptr<transport::ITransport> ModbusFactory::createTransport(const base::ModbusConfig& config) {
-    if (config.mode == base::ModbusMode::RTU) {
+    switch (config.mode) {
+    case base::ModbusMode::RTU:
         return std::make_shared<transport::ModbusRtuTransport>();
-    } else {
+    case base::ModbusMode::ASCII:
+        return nullptr;
+    case base::ModbusMode::TCP:
         return std::make_shared<transport::ModbusTcpTransport>();
     }
+
+    return nullptr;
 }
 
 } // namespace modbus::factory

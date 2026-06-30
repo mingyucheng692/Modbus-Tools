@@ -11,6 +11,7 @@
 
 #include <QWidget>
 #include <cstdint>
+#include "../application/modbus/ModbusTypes.h"
 
 class QSpinBox;
 class QLineEdit;
@@ -40,7 +41,7 @@ public:
     int getQuantity() const;
     int getFormatIndex() const;
     void setSettingsGroup(const QString& group);
-    void setTcpMode(bool tcp);
+    void setTransportMode(ui::application::modbus::TransportUiMode mode);
 
 signals:
     // Read: Function Code, Address, Quantity
@@ -102,7 +103,8 @@ private:
 
     QString settingsGroup_;
     ui::common::ISettingsService* settingsService_ = nullptr;
-    bool isTcp_ = false;
+    ui::application::modbus::TransportUiMode transportMode_ =
+        ui::application::modbus::TransportUiMode::Rtu;
 };
 
 } // namespace ui::widgets

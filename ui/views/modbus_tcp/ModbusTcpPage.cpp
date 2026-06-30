@@ -42,7 +42,9 @@ void ModbusTcpPage::onConnectClicked(const QString& ip, int port) {
     config.retries = 0;
     config.retryIntervalMs = 200;
 
-    sessionPresenter_->connectTcp(ip, port, config);
+    ui::application::modbus::ModbusConnectionSpec spec;
+    spec.config = config;
+    sessionPresenter_->requestConnect(spec);
 }
 
 void ModbusTcpPage::onDisconnectClicked() {

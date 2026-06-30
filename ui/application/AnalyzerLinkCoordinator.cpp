@@ -133,6 +133,8 @@ AnalyzerLinkCoordinator::LinkSource AnalyzerLinkCoordinator::sourceFromProtocol(
         return LinkSource::Tcp;
     case ::modbus::core::parser::ProtocolType::Rtu:
         return LinkSource::Rtu;
+    case ::modbus::core::parser::ProtocolType::Ascii:
+        return LinkSource::Ascii;
     default:
         return LinkSource::None;
     }

@@ -29,7 +29,8 @@ public:
     enum class LinkSource {
         None,
         Tcp,
-        Rtu
+        Rtu,
+        Ascii
     };
 
     enum class LinkState {

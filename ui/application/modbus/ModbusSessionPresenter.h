@@ -14,10 +14,6 @@
 class QThread;
 class QWidget;
 
-namespace io {
-struct SerialConfig;
-}
-
 namespace ui::widgets {
 class ControlWidget;
 }
@@ -32,8 +28,6 @@ class WorkerReleaseCoordinator;
 namespace modbus::dispatch { class ModbusWorker; }
 
 namespace ui::application::modbus {
-
-enum class SessionMode { Tcp, Rtu };
 
 // SessionConnectionState is defined in SessionConnectionStateMachine.h.
 
@@ -57,6 +51,7 @@ public:
     explicit ModbusSessionPresenter(SessionMode mode, QObject* parent = nullptr);
     ~ModbusSessionPresenter() noexcept override;
 
+    void requestConnect(const ModbusConnectionSpec& spec);
     void connectTcp(const QString& ip, int port, const ::modbus::base::ModbusConfig& config);
     void connectRtu(const io::SerialConfig& serialConfig, const ::modbus::base::ModbusConfig& modbusConfig);
     void requestDisconnect();
@@ -92,12 +87,13 @@ signals:
 
 private:
     void initStack(const ::modbus::base::ModbusConfig& config);
+    void startConnect(const ModbusConnectionSpec& spec);
     void startTcpConnect(const QString& ip, int port, const ::modbus::base::ModbusConfig& config);
-    void startRtuConnect(const io::SerialConfig& serialConfig, const ::modbus::base::ModbusConfig& modbusConfig);
+    void startSerialConnect(const io::SerialConfig& serialConfig, const ::modbus::base::ModbusConfig& modbusConfig);
     void setupChannelMonitor(quint64 generation);
     void setupChannelStateHandler(quint64 generation);
     void setupWorkerSignals(quint64 generation);
-    // Common tail of startTcpConnect/startRtuConnect: applies timing config to the
+    // Common tail of startTcpConnect/startSerialConnect: applies timing config to the
     // worker, wires channel/worker signal handlers for this generation, and starts
     // the IO thread + worker before requesting a connect. Deduped so the two
     // transport paths cannot drift.

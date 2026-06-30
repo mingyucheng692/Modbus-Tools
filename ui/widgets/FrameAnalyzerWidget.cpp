@@ -221,7 +221,11 @@ void FrameAnalyzerWidget::FrameAnalyzerWidgetPrivate::refreshHistoryList()
 QString FrameAnalyzerWidget::FrameAnalyzerWidgetPrivate::historyItemText(const modbus::core::parser::ParseResult& result) const
 {
     const QString status = result.isValid ? tr("OK") : tr("ERR");
-    const QString type = (result.protocol == ProtocolType::Tcp) ? "TCP" : "RTU";
+    const QString type =
+        result.protocol == ProtocolType::Tcp ? QStringLiteral("TCP") :
+        result.protocol == ProtocolType::Rtu ? QStringLiteral("RTU") :
+        result.protocol == ProtocolType::Ascii ? QStringLiteral("ASCII") :
+        QStringLiteral("Unknown");
     return QString("[%1] %2 %3 - %4")
         .arg(tr("Local time %1").arg(result.timestamp.toLocalTime().toString("HH:mm:ss")))
         .arg(type)
@@ -770,6 +774,7 @@ void FrameAnalyzerWidget::renderResult(const ParseResult& result)
     const QString protocolText =
         result.protocol == ProtocolType::Tcp ? tr("TCP") :
         result.protocol == ProtocolType::Rtu ? tr("RTU") :
+        result.protocol == ProtocolType::Ascii ? tr("ASCII") :
         tr("Unknown");
     const QString typeText =
         result.type == FrameType::Request ? tr("Request") :
@@ -852,10 +857,13 @@ void FrameAnalyzerWidget::renderResult(const ParseResult& result)
                     tr("Target slave address"));
             }
 
-            const int pduOffset = result.protocol == ProtocolType::Tcp ? 7 : 1;
-            const int pduLength = result.protocol == ProtocolType::Tcp
+            const bool isTcp = result.protocol == ProtocolType::Tcp;
+            const bool hasRtuStyleChecksum = result.protocol == ProtocolType::Rtu
+                                             || result.protocol == ProtocolType::Ascii;
+            const int pduOffset = isTcp ? 7 : 1;
+            const int pduLength = isTcp
                 ? qMax(0, result.rawFrame.size() - 7)
-                : qMax(0, result.rawFrame.size() - 3);
+                : qMax(0, result.rawFrame.size() - (hasRtuStyleChecksum ? 3 : 1));
             const QByteArray pduBytes = result.rawFrame.mid(pduOffset, pduLength);
             const QByteArray payloadBytes = pduBytes.size() > 1 ? pduBytes.mid(1) : QByteArray();
 
@@ -899,6 +907,13 @@ void FrameAnalyzerWidget::renderResult(const ParseResult& result)
                         .arg(QStringLiteral("0x%1").arg(result.checksum, 4, 16, QChar('0')).toUpper())
                         .arg(byteHex(result.rawFrame.right(2))),
                     crcDescription);
+            }
+            if (result.protocol == ProtocolType::Ascii) {
+                addTreeItem(
+                    root,
+                    tr("ASCII Trailer"),
+                    byteHex(result.rawFrame.right(2)),
+                    tr("ASCII framing details are not available in T0"));
             }
             
             d->overviewTree->expandAll();
@@ -1003,7 +1018,11 @@ void FrameAnalyzerWidget::processLivePdu(const modbus::base::Pdu& pdu, modbus::c
     
     modbus::core::parser::ModbusFrameParser::parsePdu(result, result.pduData, addr, 0);
     
-    QString protocolStr = (protocol == ProtocolType::Tcp) ? QStringLiteral("TCP") : QStringLiteral("RTU");
+    QString protocolStr =
+        protocol == ProtocolType::Tcp ? QStringLiteral("TCP") :
+        protocol == ProtocolType::Rtu ? QStringLiteral("RTU") :
+        protocol == ProtocolType::Ascii ? QStringLiteral("ASCII") :
+        QStringLiteral("Unknown");
     if (d->liveLabel) {
         d->liveLabel->setText(tr("LIVE: %1").arg(protocolStr));
         d->liveLabel->setVisible(true);
@@ -1128,7 +1147,11 @@ void FrameAnalyzerWidget::retranslateUi()
     }
     if (d->statusTitleLabel) d->statusTitleLabel->setText(tr("Status:"));
     if (d->isLiveMode) {
-        QString protocolStr = (d->lastLiveResult.protocol == ProtocolType::Tcp) ? tr("TCP") : tr("RTU");
+        QString protocolStr =
+            d->lastLiveResult.protocol == ProtocolType::Tcp ? tr("TCP") :
+            d->lastLiveResult.protocol == ProtocolType::Rtu ? tr("RTU") :
+            d->lastLiveResult.protocol == ProtocolType::Ascii ? tr("ASCII") :
+            tr("Unknown");
         if (d->liveLabel) d->liveLabel->setText(tr("LIVE: %1").arg(protocolStr));
         if (d->statusLabel && d->lastLiveResult.isValid) {
             d->statusLabel->setText(tr("Live Data Received at %1").arg(d->lastLiveResult.timestamp.toLocalTime().toString("HH:mm:ss.zzz")));

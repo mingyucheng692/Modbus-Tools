@@ -68,6 +68,7 @@ bool BaseModbusPage::isLinked() const {
 
 void BaseModbusPage::setupUi(ui::widgets::BaseConnectionWidget* connWidget) {
     connectionWidget_ = connWidget;
+    const auto descriptor = ui::application::modbus::modeDescriptor(sessionMode_);
 
     mainLayout_ = new QVBoxLayout(this);
     mainLayout_->setContentsMargins(2, 2, 2, 2);
@@ -75,14 +76,11 @@ void BaseModbusPage::setupUi(ui::widgets::BaseConnectionWidget* connWidget) {
 
     mainLayout_->addWidget(connectionWidget_);
 
-    QString prefix = (sessionMode_ == ui::application::modbus::SessionMode::Rtu)
-                     ? QStringLiteral("modbus/rtu")
-                     : QStringLiteral("modbus/tcp");
-    bool isTcp = (sessionMode_ == ui::application::modbus::SessionMode::Tcp);
+    const QString prefix = QString::fromLatin1(descriptor.settingsPrefix);
 
     functionWidget_ = new widgets::FunctionWidget(settingsService_, this);
     functionWidget_->setSettingsGroup(prefix + QStringLiteral("/standard"));
-    functionWidget_->setTcpMode(isTcp);
+    functionWidget_->setTransportMode(descriptor.transportUiMode);
     mainLayout_->addWidget(functionWidget_);
 
     dataGroup_ = new widgets::CollapsibleSection(settingsService_, this);

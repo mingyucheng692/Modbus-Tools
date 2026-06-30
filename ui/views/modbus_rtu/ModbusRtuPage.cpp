@@ -45,7 +45,10 @@ void ModbusRtuPage::onConnectClicked(const io::SerialConfig& config) {
     modbusConfig.retries = 0;
     modbusConfig.retryIntervalMs = 200;
 
-    sessionPresenter_->connectRtu(config, modbusConfig);
+    ui::application::modbus::ModbusConnectionSpec spec;
+    spec.config = modbusConfig;
+    spec.serialConfig = config;
+    sessionPresenter_->requestConnect(spec);
 }
 
 void ModbusRtuPage::onDisconnectClicked() {

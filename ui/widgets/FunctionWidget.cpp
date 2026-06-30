@@ -30,6 +30,22 @@
 
 namespace ui::widgets {
 
+namespace {
+
+bool usesUnitIdLabel(ui::application::modbus::TransportUiMode mode) {
+    return mode == ui::application::modbus::TransportUiMode::Tcp;
+}
+
+bool showsCrcHelper(ui::application::modbus::TransportUiMode mode) {
+    return mode != ui::application::modbus::TransportUiMode::Tcp;
+}
+
+bool showsMbapHelper(ui::application::modbus::TransportUiMode mode) {
+    return mode == ui::application::modbus::TransportUiMode::Tcp;
+}
+
+} // namespace
+
 FunctionWidget::FunctionWidget(ui::common::ISettingsService* settingsService, QWidget *parent)
     : QWidget(parent),
       settingsService_(settingsService) {
@@ -202,11 +218,11 @@ void FunctionWidget::setupRawUi(QWidget* parent) {
     auto btnLayout = new QHBoxLayout();
     
     appendCrcBtn_ = new QPushButton(parent);
-    appendCrcBtn_->setVisible(!isTcp_);
+    appendCrcBtn_->setVisible(showsCrcHelper(transportMode_));
     connect(appendCrcBtn_, &QPushButton::clicked, this, &FunctionWidget::onAppendCrcClicked);
     
     addMbapBtn_ = new QPushButton(parent);
-    addMbapBtn_->setVisible(isTcp_);
+    addMbapBtn_->setVisible(showsMbapHelper(transportMode_));
     connect(addMbapBtn_, &QPushButton::clicked, this, &FunctionWidget::onAddMbapClicked);
 
     rawSendBtn_ = new QPushButton(parent);
@@ -253,10 +269,10 @@ void FunctionWidget::setSettingsGroup(const QString& group) {
     loadSettings();
 }
 
-void FunctionWidget::setTcpMode(bool tcp) {
-    isTcp_ = tcp;
-    if (appendCrcBtn_) appendCrcBtn_->setVisible(!isTcp_);
-    if (addMbapBtn_) addMbapBtn_->setVisible(isTcp_);
+void FunctionWidget::setTransportMode(ui::application::modbus::TransportUiMode mode) {
+    transportMode_ = mode;
+    if (appendCrcBtn_) appendCrcBtn_->setVisible(showsCrcHelper(transportMode_));
+    if (addMbapBtn_) addMbapBtn_->setVisible(showsMbapHelper(transportMode_));
     retranslateUi();
 }
 
@@ -314,7 +330,7 @@ void FunctionWidget::onReadClicked(uint8_t functionCode) {
     int address = modbus::base::ModbusDataHelper::parseSmartInt(addressEdit_->text(), &addrOk);
 
     if (!slaveOk || slaveId < app::constants::Values::Modbus::kMinSlaveId || slaveId > 255) {
-        emit logMessageRequested(isTcp_
+        emit logMessageRequested(usesUnitIdLabel(transportMode_)
                                  ? tr("Invalid Unit ID format or range (0-255): %1").arg(slaveIdEdit_->text())
                                  : tr("Invalid Slave ID format or range (0-255): %1").arg(slaveIdEdit_->text()), true);
         return;
@@ -333,7 +349,7 @@ void FunctionWidget::onWriteClicked(uint8_t functionCode) {
     int address = modbus::base::ModbusDataHelper::parseSmartInt(addressEdit_->text(), &addrOk);
 
     if (!slaveOk || slaveId < app::constants::Values::Modbus::kMinSlaveId || slaveId > 255) {
-        emit logMessageRequested(isTcp_
+        emit logMessageRequested(usesUnitIdLabel(transportMode_)
                                  ? tr("Invalid Unit ID format or range (0-255): %1").arg(slaveIdEdit_->text())
                                  : tr("Invalid Slave ID format or range (0-255): %1").arg(slaveIdEdit_->text()), true);
         return;
@@ -394,13 +410,13 @@ void FunctionWidget::retranslateUi() {
         rawSection_->setTitle(tr("Raw"));
     }
     if (slaveIdLabel_) {
-        slaveIdLabel_->setText(isTcp_ ? tr("Unit ID:") : tr("Slave ID:"));
+        slaveIdLabel_->setText(usesUnitIdLabel(transportMode_) ? tr("Unit ID:") : tr("Slave ID:"));
     }
     if (addressLabel_) {
         addressLabel_->setText(tr("Start Addr:"));
     }
     if (slaveIdEdit_) {
-        slaveIdEdit_->setToolTip(isTcp_
+        slaveIdEdit_->setToolTip(usesUnitIdLabel(transportMode_)
                                  ? tr("Unit ID (0-255). Supports HEX (0x10 or 10H) and DEC (16).")
                                  : tr("Slave ID (0-255). Supports HEX (0x10 or 10H) and DEC (16)."));
     }
@@ -446,7 +462,7 @@ void FunctionWidget::retranslateUi() {
         writeBtn10_->setText(tr("Write Multiple Registers (0x10)"));
     }
     if (rawDataLabel_) {
-        rawDataLabel_->setText(isTcp_
+        rawDataLabel_->setText(transportMode_ == ui::application::modbus::TransportUiMode::Tcp
                                ? tr("Raw Hex Data (e.g., 00 00 00 00 00 06 01 03 00 00 00 01):")
                                : tr("Raw Hex Data (e.g., 01 03 00 00 00 01 84 0A):"));
     }

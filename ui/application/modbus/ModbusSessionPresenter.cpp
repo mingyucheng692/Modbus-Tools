@@ -79,15 +79,9 @@ ModbusSessionPresenter::~ModbusSessionPresenter() {
 
 void ModbusSessionPresenter::connectTcp(const QString& ip, int port,
                                          const ::modbus::base::ModbusConfig& config) {
-    assertGuiThread("connectTcp must be called on the GUI thread");
-    if (hasLiveOrPendingStack()) {
-        deferredAction_ = [this, ip, port, config]() {
-            startTcpConnect(ip, port, config);
-        };
-        shutdown();
-        return;
-    }
-    startTcpConnect(ip, port, config);
+    ModbusConnectionSpec spec;
+    spec.config = config;
+    requestConnect(spec);
 }
 
 void ModbusSessionPresenter::startTcpConnect(const QString& ip, int port,
@@ -113,24 +107,48 @@ void ModbusSessionPresenter::startTcpConnect(const QString& ip, int port,
     activateStack(generation);
 }
 
-void ModbusSessionPresenter::connectRtu(const io::SerialConfig& serialConfig,
-                                         const ::modbus::base::ModbusConfig& modbusConfig) {
-    assertGuiThread("connectRtu must be called on the GUI thread");
+void ModbusSessionPresenter::requestConnect(const ModbusConnectionSpec& spec) {
+    assertGuiThread("requestConnect must be called on the GUI thread");
     if (hasLiveOrPendingStack()) {
-        deferredAction_ = [this, serialConfig, modbusConfig]() {
-            startRtuConnect(serialConfig, modbusConfig);
+        deferredAction_ = [this, spec]() {
+            startConnect(spec);
         };
         shutdown();
         return;
     }
-    startRtuConnect(serialConfig, modbusConfig);
+    startConnect(spec);
 }
 
-void ModbusSessionPresenter::startRtuConnect(const io::SerialConfig& serialConfig,
-                                             const ::modbus::base::ModbusConfig& modbusConfig) {
-    assertGuiThread("startRtuConnect must run on the GUI thread");
-    Q_ASSERT(mode_ == SessionMode::Rtu);
-    spdlog::info("ModbusSessionPresenter[RTU]: Connect requested to {}", serialConfig.portName.toStdString());
+void ModbusSessionPresenter::startConnect(const ModbusConnectionSpec& spec) {
+    assertGuiThread("startConnect must run on the GUI thread");
+    const ModbusModeDescriptor descriptor = modeDescriptor(spec.config.mode);
+    Q_ASSERT(descriptor.sessionMode == mode_);
+
+    if (descriptor.usesSerialConnection) {
+        Q_ASSERT(spec.serialConfig.has_value());
+        startSerialConnect(*spec.serialConfig, spec.config);
+        return;
+    }
+
+    startTcpConnect(spec.config.ipAddress, spec.config.port, spec.config);
+}
+
+void ModbusSessionPresenter::connectRtu(const io::SerialConfig& serialConfig,
+                                         const ::modbus::base::ModbusConfig& modbusConfig) {
+    ModbusConnectionSpec spec;
+    spec.config = modbusConfig;
+    spec.serialConfig = serialConfig;
+    requestConnect(spec);
+}
+
+void ModbusSessionPresenter::startSerialConnect(const io::SerialConfig& serialConfig,
+                                                const ::modbus::base::ModbusConfig& modbusConfig) {
+    assertGuiThread("startSerialConnect must run on the GUI thread");
+    const ModbusModeDescriptor descriptor = modeDescriptor(modbusConfig.mode);
+    Q_ASSERT(descriptor.sessionMode == mode_);
+    spdlog::info("ModbusSessionPresenter[{}]: Connect requested to {}",
+                 descriptor.logName,
+                 serialConfig.portName.toStdString());
     connectionStateMachine_->transitionTo(SessionConnectionState::Connecting);
 
     if (trafficLogController_) {
@@ -168,8 +186,9 @@ void ModbusSessionPresenter::activateStack(quint64 generation) {
 
 void ModbusSessionPresenter::requestDisconnect() {
     assertGuiThread("requestDisconnect must be called on the GUI thread");
+    const ModbusModeDescriptor descriptor = modeDescriptor(mode_);
     spdlog::info("ModbusSessionPresenter[{}]: Disconnect requested",
-                 mode_ == SessionMode::Tcp ? "TCP" : "RTU");
+                 descriptor.logName);
     deferredAction_ = nullptr;
     // suppressDisconnectAlert_ is set by the Disconnecting state-entry handler.
     connectionStateMachine_->transitionTo(SessionConnectionState::Disconnecting);
@@ -494,7 +513,7 @@ void ModbusSessionPresenter::handleChannelStateTransition(io::ChannelState state
     assertGuiThread("handleChannelStateTransition must run on the GUI thread");
     Q_UNUSED(generation);
     const bool hadLiveTransport = connectionStateMachine_->currentState() != SessionConnectionState::Disconnected;
-    const bool isTcp = (mode_ == SessionMode::Tcp);
+    const bool isTcp = modeDescriptor(mode_).transportUiMode == TransportUiMode::Tcp;
 
     switch (state) {
     case io::ChannelState::Opening:
