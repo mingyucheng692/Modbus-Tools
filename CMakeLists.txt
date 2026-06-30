@@ -1,6 +1,10 @@
 cmake_minimum_required(VERSION 3.16)
 
-project(ModbusTools VERSION 1.0.7 LANGUAGES CXX)
+if(WIN32 AND CMAKE_GENERATOR MATCHES "Ninja")
+    set(CMAKE_NINJA_CMCLDEPS_RC 0)
+endif()
+
+project(ModbusTools VERSION 1.0.7 LANGUAGES CXX RC)
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -32,6 +36,21 @@ function(modbus_tools_disable_exceptions target_name)
 endfunction()
 
 if(MSVC)
+    foreach(modbus_tools_flag_var
+            CMAKE_CXX_FLAGS
+            CMAKE_CXX_FLAGS_DEBUG
+            CMAKE_CXX_FLAGS_RELEASE
+            CMAKE_CXX_FLAGS_RELWITHDEBINFO
+            CMAKE_CXX_FLAGS_MINSIZEREL)
+        if(DEFINED ${modbus_tools_flag_var})
+            foreach(modbus_tools_eh_flag /EHsc /EHs /EHc)
+                string(REPLACE "${modbus_tools_eh_flag}" "" ${modbus_tools_flag_var} "${${modbus_tools_flag_var}}")
+            endforeach()
+            string(REGEX REPLACE "  +" " " ${modbus_tools_flag_var} "${${modbus_tools_flag_var}}")
+            string(STRIP "${${modbus_tools_flag_var}}" ${modbus_tools_flag_var})
+        endif()
+    endforeach()
+
     if(MODBUS_TOOLS_ENABLE_PARALLEL_COMPILE)
         add_compile_options(/utf-8 /MP)
     else()
@@ -137,6 +156,7 @@ if(MODBUS_TOOLS_BUILD_TESTS)
         FetchContent_Declare(
           googletest
           URL https://github.com/google/googletest/archive/refs/tags/v1.14.0.zip
+          DOWNLOAD_EXTRACT_TIMESTAMP TRUE
         )
         set(FETCHCONTENT_QUIET OFF)
         FetchContent_MakeAvailable(googletest)
@@ -208,16 +228,13 @@ else()
 endif()
 set(MODBUS_TOOLS_RELEASES_PAGE_URL "https://github.com/mingyucheng692/Modbus-Tools/releases")
 
-target_compile_definitions(core PUBLIC
-    MODBUS_TOOLS_APP_VERSION="${PROJECT_VERSION}"
-    MODBUS_TOOLS_RELEASES_API_URL="${MODBUS_TOOLS_RELEASES_API_URL}"
+target_compile_definitions(core PRIVATE
     MODBUS_TOOLS_RELEASES_PAGE_URL="${MODBUS_TOOLS_RELEASES_PAGE_URL}"
     MODBUS_TOOLS_PLATFORM="${MODBUS_TOOLS_PLATFORM}"
-    MODBUS_TOOLS_INCLUDE_PRERELEASE=${MODBUS_TOOLS_INCLUDE_PRERELEASE_VALUE}
     MODBUS_TOOLS_ENABLE_VERBOSE_RUNTIME_LOGS=$<IF:$<BOOL:${MODBUS_TOOLS_ENABLE_VERBOSE_RUNTIME_LOGS}>,1,0>
 )
 
-target_compile_definitions(ui PUBLIC
+target_compile_definitions(ui PRIVATE
     MODBUS_TOOLS_APP_VERSION="${PROJECT_VERSION}"
     MODBUS_TOOLS_RELEASES_API_URL="${MODBUS_TOOLS_RELEASES_API_URL}"
     MODBUS_TOOLS_RELEASES_PAGE_URL="${MODBUS_TOOLS_RELEASES_PAGE_URL}"
@@ -227,10 +244,6 @@ target_compile_definitions(ui PUBLIC
 
 target_compile_definitions(Modbus-Tools PRIVATE
     MODBUS_TOOLS_APP_VERSION="${PROJECT_VERSION}"
-    MODBUS_TOOLS_RELEASES_API_URL="${MODBUS_TOOLS_RELEASES_API_URL}"
-    MODBUS_TOOLS_RELEASES_PAGE_URL="${MODBUS_TOOLS_RELEASES_PAGE_URL}"
-    MODBUS_TOOLS_PLATFORM="${MODBUS_TOOLS_PLATFORM}"
-    MODBUS_TOOLS_INCLUDE_PRERELEASE=${MODBUS_TOOLS_INCLUDE_PRERELEASE_VALUE}
 )
 
 # Ensure updater is built along with the main application when supported.

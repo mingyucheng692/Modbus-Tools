@@ -9,9 +9,9 @@
 
 #include "ReleaseParser.h"
 #include <algorithm>
+#include <charconv>
 #include <cctype>
 #include <sstream>
-#include <stdexcept>
 
 namespace core::update {
 
@@ -38,9 +38,13 @@ int ReleaseParser::compareVersions(const std::string& a, const std::string& b) {
         std::stringstream ss(normalized);
         std::string token;
         while (std::getline(ss, token, '.')) {
-            try {
-                parts.push_back(std::stoi(token));
-            } catch (const std::invalid_argument&) {
+            int value = 0;
+            const auto* begin = token.data();
+            const auto* end = begin + token.size();
+            const auto result = std::from_chars(begin, end, value);
+            if (result.ec == std::errc() && result.ptr == end) {
+                parts.push_back(value);
+            } else {
                 parts.push_back(0);
             }
         }

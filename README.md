@@ -46,17 +46,37 @@ The project is intended for debugging, validation, and lab or field troubleshoot
 
 ### Build From Source
 
+Single-config generators, such as `Ninja`:
+
 ```bash
 git clone --recursive https://github.com/mingyucheng692/Modbus-Tools.git
 cd Modbus-Tools
-cmake -S . -B build -DMODBUS_TOOLS_BUILD_TESTS=ON
+cmake -S . -B build -DMODBUS_TOOLS_BUILD_TESTS=ON -DCMAKE_BUILD_TYPE=Release
+cmake --build build --target Modbus-Tools --parallel
+```
+
+Multi-config generators, such as `Visual Studio 17 2022`:
+
+```bash
+git clone --recursive https://github.com/mingyucheng692/Modbus-Tools.git
+cd Modbus-Tools
+cmake -S . -B build -G "Visual Studio 17 2022" -DMODBUS_TOOLS_BUILD_TESTS=ON
 cmake --build build --target Modbus-Tools --config Release --parallel
 ```
 
 ### Release Bundle
 
+Single-config generators, such as `Ninja`:
+
 ```bash
-cmake -S . -B build_release -DMODBUS_TOOLS_BUILD_TESTS=OFF
+cmake -S . -B build_release -DMODBUS_TOOLS_BUILD_TESTS=OFF -DCMAKE_BUILD_TYPE=Release
+cmake --build build_release --target release_bundle --parallel
+```
+
+Multi-config generators, such as `Visual Studio 17 2022`:
+
+```bash
+cmake -S . -B build_release -G "Visual Studio 17 2022" -DMODBUS_TOOLS_BUILD_TESTS=OFF
 cmake --build build_release --target release_bundle --config Release --parallel
 ```
 

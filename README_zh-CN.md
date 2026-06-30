@@ -46,17 +46,37 @@
 
 ### 从源码构建
 
+单配置生成器，例如 `Ninja`：
+
 ```bash
 git clone --recursive https://github.com/mingyucheng692/Modbus-Tools.git
 cd Modbus-Tools
-cmake -S . -B build -DMODBUS_TOOLS_BUILD_TESTS=ON
+cmake -S . -B build -DMODBUS_TOOLS_BUILD_TESTS=ON -DCMAKE_BUILD_TYPE=Release
+cmake --build build --target Modbus-Tools --parallel
+```
+
+多配置生成器，例如 `Visual Studio 17 2022`：
+
+```bash
+git clone --recursive https://github.com/mingyucheng692/Modbus-Tools.git
+cd Modbus-Tools
+cmake -S . -B build -G "Visual Studio 17 2022" -DMODBUS_TOOLS_BUILD_TESTS=ON
 cmake --build build --target Modbus-Tools --config Release --parallel
 ```
 
 ### 生成发布包
 
+单配置生成器，例如 `Ninja`：
+
 ```bash
-cmake -S . -B build_release -DMODBUS_TOOLS_BUILD_TESTS=OFF
+cmake -S . -B build_release -DMODBUS_TOOLS_BUILD_TESTS=OFF -DCMAKE_BUILD_TYPE=Release
+cmake --build build_release --target release_bundle --parallel
+```
+
+多配置生成器，例如 `Visual Studio 17 2022`：
+
+```bash
+cmake -S . -B build_release -G "Visual Studio 17 2022" -DMODBUS_TOOLS_BUILD_TESTS=OFF
 cmake --build build_release --target release_bundle --config Release --parallel
 ```
 
