@@ -16,15 +16,20 @@ namespace io {
 
 UdpChannel::UdpChannel()
 {
-    QObject::connect(&socket_, &QUdpSocket::readyRead, [this]() {
+    // Functor-based connect with an explicit connection type requires a context
+    // QObject (5-arg overload). UdpChannel itself is not a QObject, so the
+    // signal sender is passed as the context. Because the sender lives on the
+    // IO thread (after moveToThread), Qt::QueuedConnection guarantees the
+    // functor executes on the IO thread regardless of which thread emits.
+    QObject::connect(&socket_, &QUdpSocket::readyRead, &socket_, [this]() {
         onReadyRead();
-    });
-    QObject::connect(&socket_, &QUdpSocket::errorOccurred, [this](QAbstractSocket::SocketError error) {
+    }, Qt::QueuedConnection);
+    QObject::connect(&socket_, &QUdpSocket::errorOccurred, &socket_, [this](QAbstractSocket::SocketError error) {
         onSocketError(error);
-    });
-    QObject::connect(&socket_, &QUdpSocket::stateChanged, [this](QAbstractSocket::SocketState state) {
+    }, Qt::QueuedConnection);
+    QObject::connect(&socket_, &QUdpSocket::stateChanged, &socket_, [this](QAbstractSocket::SocketState state) {
         onStateChanged(state);
-    });
+    }, Qt::QueuedConnection);
 }
 
 UdpChannel::~UdpChannel()

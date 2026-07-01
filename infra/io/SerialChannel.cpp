@@ -25,18 +25,23 @@ unsigned long long threadToken(QThread* thread)
 
 SerialChannel::SerialChannel() {
     writeTimeoutTimer_.setSingleShot(true);
-    QObject::connect(&writeTimeoutTimer_, &QTimer::timeout, [this]() {
+    // Functor-based connect with an explicit connection type requires a context
+    // QObject (5-arg overload). SerialChannel itself is not a QObject, so the
+    // signal sender is passed as the context. Because the sender lives on the
+    // IO thread (after moveToThread), Qt::QueuedConnection guarantees the
+    // functor executes on the IO thread regardless of which thread emits.
+    QObject::connect(&writeTimeoutTimer_, &QTimer::timeout, &writeTimeoutTimer_, [this]() {
         onWriteTimeout();
-    });
-    QObject::connect(&serial_, &QSerialPort::bytesWritten, [this](qint64 bytes) {
+    }, Qt::QueuedConnection);
+    QObject::connect(&serial_, &QSerialPort::bytesWritten, &serial_, [this](qint64 bytes) {
         onBytesWritten(bytes);
-    });
-    QObject::connect(&serial_, &QSerialPort::readyRead, [this]() {
+    }, Qt::QueuedConnection);
+    QObject::connect(&serial_, &QSerialPort::readyRead, &serial_, [this]() {
         onReadyRead();
-    });
-    QObject::connect(&serial_, &QSerialPort::errorOccurred, [this](QSerialPort::SerialPortError error) {
+    }, Qt::QueuedConnection);
+    QObject::connect(&serial_, &QSerialPort::errorOccurred, &serial_, [this](QSerialPort::SerialPortError error) {
         onErrorOccurred(error);
-    });
+    }, Qt::QueuedConnection);
 }
 
 SerialChannel::~SerialChannel() {

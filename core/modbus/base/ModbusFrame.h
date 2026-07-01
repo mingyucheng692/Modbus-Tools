@@ -29,19 +29,19 @@ public:
         data_.append(static_cast<char>(exceptionCode));
     }
 
-    FunctionCode functionCode() const {
+    [[nodiscard]] FunctionCode functionCode() const noexcept {
         return functionCode_;
     }
 
-    QByteArray data() const {
+    [[nodiscard]] QByteArray data() const {
         return data_;
     }
 
-    bool isException() const {
+    [[nodiscard]] bool isException() const noexcept {
         return (static_cast<uint8_t>(functionCode_) & static_cast<uint8_t>(FunctionCode::ErrorMask)) != 0;
     }
 
-    ExceptionCode exceptionCode() const {
+    [[nodiscard]] ExceptionCode exceptionCode() const noexcept {
         if (!isException() || data_.isEmpty()) {
             return ExceptionCode::None;
         }
@@ -49,12 +49,12 @@ public:
     }
 
     // 获取原始的功能码（去除异常位）
-    FunctionCode originalFunctionCode() const {
+    [[nodiscard]] FunctionCode originalFunctionCode() const noexcept {
         return static_cast<FunctionCode>(static_cast<uint8_t>(functionCode_) & 0x7F);
     }
 
     // 序列化为字节流（不含 CRC/MBAP）
-    QByteArray toByteArray() const {
+    [[nodiscard]] QByteArray toByteArray() const {
         QByteArray buffer;
         buffer.append(static_cast<char>(functionCode_));
         buffer.append(data_);

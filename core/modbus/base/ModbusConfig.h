@@ -36,7 +36,7 @@ struct ModbusConfig {
     int parity = app::constants::Values::Serial::kDefaultParityValue; // 0:No, 2:Even, 3:Odd (QSerialPort::Parity)
 
     // TCP
-    QString ipAddress = QString::fromLatin1(app::constants::Values::Network::kLoopbackAddress);
+    QString ipAddress = QString::fromLatin1(app::constants::Values::Network::kDefaultDeviceAddress);
     int port = app::constants::Values::Network::kDefaultModbusTcpPort;
     // ----------------
 

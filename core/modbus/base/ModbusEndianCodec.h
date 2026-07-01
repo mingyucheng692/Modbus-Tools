@@ -28,7 +28,7 @@ namespace modbus::base {
  *         from @p offset; false otherwise.
  */
 template <typename T>
-bool readBigEndian(QByteArrayView data, qsizetype offset, T& value)
+[[nodiscard]] bool readBigEndian(QByteArrayView data, qsizetype offset, T& value) noexcept
 {
     if (offset < 0 || offset + static_cast<qsizetype>(sizeof(T)) > data.size()) {
         return false;

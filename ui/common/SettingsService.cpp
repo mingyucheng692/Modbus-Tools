@@ -96,7 +96,7 @@ void SettingsService::initializeDefaults() {
     defaults_.insert(kFrameAnalyzerDecodeMode, app::constants::Values::Modbus::kDefaultStandardFormatIndex);
     defaults_.insert(kFrameAnalyzerHistoryCollapsed, false);
 
-    defaults_.insert(kModbusTcpIp, QString::fromLatin1(app::constants::Values::Network::kLoopbackAddress));
+    defaults_.insert(kModbusTcpIp, QString::fromLatin1(app::constants::Values::Network::kDefaultDeviceAddress));
     defaults_.insert(kModbusTcpPort, app::constants::Values::Network::kDefaultModbusTcpPort);
     defaults_.insert(kModbusTcpConnectionCollapsed, false);
     defaults_.insert(kModbusTcpStandardSlaveId, app::constants::Values::Modbus::kDefaultSlaveId);
@@ -145,7 +145,7 @@ void SettingsService::initializeDefaults() {
     defaults_.insert(QString(kModbusRtuStandardSlaveId) + "Str", QString::number(app::constants::Values::Modbus::kDefaultSlaveId));
     defaults_.insert(QString(kModbusRtuStandardStartAddr) + "Str", QString::number(app::constants::Values::Modbus::kDefaultStandardStartAddress));
 
-    defaults_.insert(kTcpClientIp, QString::fromLatin1(app::constants::Values::Network::kLoopbackAddress));
+    defaults_.insert(kTcpClientIp, QString::fromLatin1(app::constants::Values::Network::kDefaultDeviceAddress));
     defaults_.insert(kTcpClientPort, app::constants::Values::Network::kDefaultGenericTcpPort);
     defaults_.insert(kTcpClientConnectionCollapsed, false);
     defaults_.insert(kTcpClientTrafficAutoScroll, true);

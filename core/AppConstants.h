@@ -30,7 +30,7 @@ public:
     };
 
     struct Network {
-        inline static constexpr char kLoopbackAddress[] = "192.168.10.1";
+        inline static constexpr char kDefaultDeviceAddress[] = "192.168.10.1";
         inline static constexpr int kDefaultModbusTcpPort = 502;
         inline static constexpr int kDefaultGenericTcpPort = 8080;
         inline static constexpr int kMinTcpPort = 1;

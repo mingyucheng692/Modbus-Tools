@@ -14,7 +14,7 @@
 
 namespace modbus::base {
 
-inline uint16_t calculateModbusRtuCrc(QByteArrayView data) {
+[[nodiscard]] inline uint16_t calculateModbusRtuCrc(QByteArrayView data) noexcept {
     uint16_t crc = 0xFFFF;
     for (char c : data) {
         crc ^= static_cast<uint8_t>(c);

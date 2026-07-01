@@ -40,15 +40,15 @@ struct AsciiAduFields {
 };
 
 // Returns 0 for incomplete, >0 for a complete frame length, and -1 for invalid data.
-int inspectTcpAdu(QByteArrayView adu, TcpAduFields* fields = nullptr);
+[[nodiscard]] int inspectTcpAdu(QByteArrayView adu, TcpAduFields* fields = nullptr);
 
 // Returns 0 for incomplete, >0 for a complete frame length, and -1 for invalid data.
-int inspectRtuAdu(QByteArrayView adu, RtuAduFields* fields = nullptr);
+[[nodiscard]] int inspectRtuAdu(QByteArrayView adu, RtuAduFields* fields = nullptr);
 
 // Returns 0 for incomplete, >0 for a complete frame length, and -1 for invalid data.
-int inspectAsciiAdu(QByteArrayView adu, AsciiAduFields* fields = nullptr);
+[[nodiscard]] int inspectAsciiAdu(QByteArrayView adu, AsciiAduFields* fields = nullptr);
 
 // Returns an empty string when the response PDU matches the request semantics.
-QString validateResponsePdu(const Pdu& request, const Pdu& response);
+[[nodiscard]] QString validateResponsePdu(const Pdu& request, const Pdu& response);
 
 } // namespace modbus::base

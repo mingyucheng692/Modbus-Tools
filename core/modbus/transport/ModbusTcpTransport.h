@@ -23,11 +23,12 @@ public:
     ParseResponseResult parseResponse(const QByteArray& adu) override;
     int checkIntegrity(const QByteArray& data) override;
     void resetPendingState() override;
-    
-    // 清理过期或悬挂的事务表项，避免长期超时积压导致内存泄漏与 ID 冲突
-    void purgeStaleTransactions(uint16_t thresholdCount = 256);
 
 private:
+    // 清理过期或悬挂的事务表项，避免长期超时积压导致内存泄漏与 ID 冲突。
+    // 调用者必须持有 pendingMutex_（仅在 buildRequest 内部锁内调用）。
+    void purgeStaleTransactions(uint16_t thresholdCount = 256);
+
     mutable std::mutex pendingMutex_;
     uint16_t transactionId_ = 0;
     std::map<uint16_t, uint8_t> pendingTransactions_;

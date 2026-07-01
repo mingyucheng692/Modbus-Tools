@@ -39,7 +39,7 @@ jobs:
           # Start-Process -Wait -FilePath "C:\Program Files (x86)\Microsoft Visual Studio\Installer\setup.exe" -ArgumentList "modify", "--installPath", "`"$vsPath`"", "--add", "Microsoft.VisualStudio.Component.VC.ASAN", "--passive", "--norestart"
 
       - name: Install Qt
-        uses: jurplel/install-qt-action@v3
+        uses: jurplel/install-qt-action@v4
         with:
           version: '6.10.1' # Qt6, specific version can be adjusted
           host: 'windows'
