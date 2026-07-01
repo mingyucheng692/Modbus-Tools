@@ -21,7 +21,7 @@ class QTimer;
 
 namespace ui::common {
 
-class SettingsService : public QObject, public ISettingsService {
+class SettingsService : public QObject, public ui::common::ISettingsService {
     Q_OBJECT
 
 public:

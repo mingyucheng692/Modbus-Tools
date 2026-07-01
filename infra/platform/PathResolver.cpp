@@ -10,12 +10,16 @@
 #include <QCoreApplication>
 #include <QDir>
 #include <QFile>
+#include <QFileInfo>
 #include <QTemporaryFile>
+#include <algorithm>
 #include <spdlog/spdlog.h>
 
 namespace {
 
 constexpr auto kLogsDirectoryName = "logs";
+constexpr auto kPortableMarkerFileName = ".portable";
+constexpr auto kPortableCliArgument = "--portable";
 constexpr auto kProbeTemplate = ".path-resolver-write-test-XXXXXX";
 constexpr auto kDefaultApplicationName = "Modbus-Tools";
 
@@ -31,18 +35,21 @@ namespace infra::platform {
 PathResolver::PathResolver()
     : PathResolver(std::make_shared<QtStandardPlatformPaths>(),
                    currentApplicationDirPath(),
+                   currentApplicationArguments(),
                    currentApplicationName())
 {
 }
 
 PathResolver::PathResolver(std::shared_ptr<const IPlatformPaths> platformPaths,
                            QString applicationDirPath,
+                           QStringList arguments,
                            QString applicationName)
     : platformPaths_(std::move(platformPaths)),
       applicationDirPath_(normalizedPath(applicationDirPath)),
       applicationName_(applicationName.isEmpty() ? QString::fromLatin1(kDefaultApplicationName)
                                                  : std::move(applicationName))
 {
+    detectPortableMode(arguments);
 }
 
 PathResolver& PathResolver::instance()
@@ -51,22 +58,55 @@ PathResolver& PathResolver::instance()
     return resolver;
 }
 
+void PathResolver::detectPortableMode(const QStringList& arguments)
+{
+    // Per AGENTS.md §21.7: portable mode MUST be explicit opt-in.
+    // Never infer from "exe dir happens to be writable".
+    const QString markerPath = QDir(applicationDirPath_).filePath(QString::fromLatin1(kPortableMarkerFileName));
+    if (QFileInfo::exists(markerPath)) {
+        portableMode_ = true;
+    }
+
+    if (!portableMode_) {
+        const auto end = arguments.end();
+        const auto it = std::find(arguments.begin(), end, QString::fromLatin1(kPortableCliArgument));
+        if (it != end) {
+            portableMode_ = true;
+        }
+    }
+
+    spdlog::info("PathResolver: portable mode = {}", portableMode_);
+}
+
 QString PathResolver::resolveLogDir() const
 {
-    const QString appLogDir = QDir(applicationDirPath_).filePath(QString::fromLatin1(kLogsDirectoryName));
+    // Preferred: portable → exe/logs; installed → AppDataLocation/logs.
+    // Secondary (portable only): standard log location as fallback before temp.
+    // Installed mode never falls back to applicationDirPath_/logs (per
+    // AGENTS.md §21.7).
+    const QString portableLogDir = QDir(applicationDirPath_).filePath(QString::fromLatin1(kLogsDirectoryName));
     const QString standardLogDir = QDir(platformPaths_->appDataLocation()).filePath(QString::fromLatin1(kLogsDirectoryName));
+    const QString preferred = portableMode_ ? portableLogDir : standardLogDir;
+    const QString secondary = portableMode_ ? standardLogDir : QString();
     return resolveWritableDir(QStringLiteral("log directory"),
-                              appLogDir,
-                              standardLogDir,
+                              preferred,
+                              secondary,
                               resolveScopedTempDir() + QStringLiteral("/") + QString::fromLatin1(kLogsDirectoryName));
 }
 
 QString PathResolver::resolveConfigDir() const
 {
+    // Preferred: portable → exe dir; installed → AppConfigLocation.
+    // Secondary (portable only): standard config location as fallback before temp.
+    // Installed mode never falls back to applicationDirPath_ (per AGENTS.md §21.7:
+    // fallback chain is portable → QStandardPaths → TempLocation, never exe-dir
+    // without explicit opt-in).
     const QString standardConfigDir = platformPaths_->appConfigLocation();
+    const QString preferred = portableMode_ ? applicationDirPath_ : standardConfigDir;
+    const QString secondary = portableMode_ ? standardConfigDir : QString();
     return resolveWritableDir(QStringLiteral("config directory"),
-                              applicationDirPath_,
-                              standardConfigDir,
+                              preferred,
+                              secondary,
                               resolveScopedTempDir());
 }
 
@@ -161,6 +201,12 @@ QString PathResolver::currentApplicationName()
     return (app == nullptr || app->applicationName().isEmpty())
                ? QString::fromLatin1(kDefaultApplicationName)
                : app->applicationName();
+}
+
+QStringList PathResolver::currentApplicationArguments()
+{
+    const auto* app = QCoreApplication::instance();
+    return app == nullptr ? QStringList() : QCoreApplication::arguments();
 }
 
 } // namespace infra::platform

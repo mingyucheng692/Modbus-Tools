@@ -15,7 +15,7 @@ namespace core::common {
 
 using namespace ui::common::settings_keys;
 
-SettingsController::SettingsController(ui::common::ISettingsService* settingsService, QObject* parent)
+SettingsController::SettingsController(ISettingsService* settingsService, QObject* parent)
     : QObject(parent), settingsService_(settingsService) {
     Q_ASSERT(settingsService_ != nullptr);
 }

@@ -85,7 +85,8 @@ public:
         inline static constexpr int kMaxRetryIntervalMs = 10000;
         inline static constexpr int kRetryIntervalStepMs = 10;
         inline static constexpr int kMaxDroppedInvalidBytes = 256;
-        inline static constexpr int kMaxRtuBufferedBytes = 260;
+        // Deprecated: use config::Modbus::kMaxAduSize (same value, canonical name).
+        [[deprecated("Use config::Modbus::kMaxAduSize instead")]] inline static constexpr int kMaxRtuBufferedBytes = 260;
         inline static constexpr int kMaxTcpBufferedBytes = 1024;
         inline static constexpr int kMaxTcpMbapLength = 254;
         inline static constexpr int kMaxPduDataLength = 252;

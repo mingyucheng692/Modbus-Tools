@@ -89,6 +89,7 @@ jobs:
         run: |
           $buildType = 'Release'
           $runTests = 'OFF'
+          $runLiteTests = 'false'
           $enableAsan = 'OFF'
           $enableUbsan = 'OFF'
           $artifactSuffix = 'auto'
@@ -109,10 +110,15 @@ jobs:
             if (($enableAsan -eq 'ON' -or $enableUbsan -eq 'ON') -and $buildType -eq 'Release') {
               $buildType = 'RelWithDebInfo'
             }
+          } elseif ('${{ github.event_name }}' -eq 'pull_request') {
+            # PR events run lite tests (core+qt_core targets) by default to catch
+            # regressions without the full cost of ui_widgets/ASan/fuzz targets.
+            $runLiteTests = 'true'
           }
 
           "build_type=$buildType" >> $env:GITHUB_OUTPUT
           "run_tests=$runTests" >> $env:GITHUB_OUTPUT
+          "run_tests_lite=$runLiteTests" >> $env:GITHUB_OUTPUT
           "enable_asan=$enableAsan" >> $env:GITHUB_OUTPUT
           "enable_ubsan=$enableUbsan" >> $env:GITHUB_OUTPUT
           "should_run=$shouldRun" >> $env:GITHUB_OUTPUT
@@ -248,6 +254,21 @@ jobs:
           --config "${{ steps.ci_options.outputs.build_type }}"
           --parallel
 
+      - name: Reconfigure with tests (lite)
+        if: steps.ci_options.outputs.should_run == 'true' && (steps.ci_options.outputs.run_tests == 'ON' || steps.ci_options.outputs.run_tests_lite == 'true')
+        shell: pwsh
+        run: |
+          # Reconfigure with tests enabled so test targets exist. Lite path runs
+          # only test_core_logic + test_qt_core; full path builds all targets.
+          & cmake -S . -B build_ci `
+            -DCMAKE_BUILD_TYPE=${{ steps.ci_options.outputs.build_type }} `
+            -DMODBUS_TOOLS_BUILD_TESTS=ON `
+            -DMODBUS_TOOLS_ENABLE_ASAN=${{ steps.ci_options.outputs.enable_asan }} `
+            -DMODBUS_TOOLS_ENABLE_UBSAN=${{ steps.ci_options.outputs.enable_ubsan }} 2>&1 | Tee-Object -FilePath build_ci/configure-tests.log
+          if ($LASTEXITCODE -ne 0) {
+            exit $LASTEXITCODE
+          }
+
       - name: Build tests (Windows)
         if: runner.os == 'Windows' && steps.ci_options.outputs.should_run == 'true' && steps.ci_options.outputs.run_tests == 'ON'
         run: >
@@ -261,6 +282,20 @@ jobs:
         run: |
           cmake --build build_ci --parallel
 
+      - name: Build lite tests (Windows)
+        if: runner.os == 'Windows' && steps.ci_options.outputs.should_run == 'true' && steps.ci_options.outputs.run_tests_lite == 'true'
+        run: >
+          cmake --build build_ci
+          --target test_core_logic test_qt_core
+          --config "${{ steps.ci_options.outputs.build_type }}"
+          --parallel
+
+      - name: Build lite tests (POSIX)
+        if: runner.os != 'Windows' && steps.ci_options.outputs.should_run == 'true' && steps.ci_options.outputs.run_tests_lite == 'true'
+        shell: bash
+        run: |
+          cmake --build build_ci --target test_core_logic test_qt_core --parallel
+
       - name: Run tests (Windows)
         if: runner.os == 'Windows' && steps.ci_options.outputs.should_run == 'true' && steps.ci_options.outputs.run_tests == 'ON'
         run: >
@@ -273,6 +308,20 @@ jobs:
         shell: bash
         run: |
           ctest --test-dir build_ci --output-on-failure
+
+      - name: Run lite tests (Windows)
+        if: runner.os == 'Windows' && steps.ci_options.outputs.should_run == 'true' && steps.ci_options.outputs.run_tests_lite == 'true'
+        run: >
+          ctest --test-dir build_ci
+          -C "${{ steps.ci_options.outputs.build_type }}"
+          -R "test_core_logic|test_qt_core"
+          --output-on-failure
+
+      - name: Run lite tests (POSIX)
+        if: runner.os != 'Windows' && steps.ci_options.outputs.should_run == 'true' && steps.ci_options.outputs.run_tests_lite == 'true'
+        shell: bash
+        run: |
+          ctest --test-dir build_ci -R "test_core_logic|test_qt_core" --output-on-failure
 
       - name: Run clang-tidy (non-blocking, Linux)
         if: runner.os == 'Linux' && steps.ci_options.outputs.should_run == 'true'
@@ -289,7 +338,7 @@ jobs:
             -DMODBUS_TOOLS_BUILD_TESTS=OFF \
             -DMODBUS_TOOLS_ENABLE_CLANG_TIDY=ON \
             2>&1 | tee build_tidy/configure.log
-          cmake --build build_tidy --target core --parallel 2>&1 | tee build_tidy/clang-tidy.log
+          cmake --build build_tidy --target core infra ui --parallel 2>&1 | tee build_tidy/clang-tidy.log
 
       - name: Build fuzz target (Linux ASan)
         if: runner.os == 'Linux' && steps.ci_options.outputs.should_run == 'true' && steps.ci_options.outputs.run_tests == 'ON' && steps.ci_options.outputs.enable_asan == 'ON'

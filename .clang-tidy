@@ -4,7 +4,11 @@ Checks: >
   performance-*,
   readability-*,
   modernize-use-nullptr,
-  modernize-use-override
+  modernize-use-override,
+  cert-*,
+  clang-analyzer-*,
+  cppcoreguidelines-pro-type-cstyle-cast,
+  cppcoreguidelines-pro-type-static-cast-downcast
 WarningsAsErrors: ''
 HeaderFilterRegex: '.*(core|infra|ui|tests)/.*'
 FormatStyle: none

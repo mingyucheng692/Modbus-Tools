@@ -95,7 +95,8 @@ struct MainWindowBusinessContext {
           appLifecycleCoordinator(std::make_unique<application::AppLifecycleCoordinator>(
               view,
               settingsController.get(),
-              updateCoordinator.get())) {}
+              updateCoordinator.get())),
+          settingsService(settingsService) {}
 
     std::unique_ptr<core::common::SettingsController> settingsController;
     std::unique_ptr<common::UpdateChecker> updateChecker;
@@ -104,6 +105,9 @@ struct MainWindowBusinessContext {
     std::unique_ptr<application::LanguageCoordinator> languageCoordinator;
     std::unique_ptr<application::UpdateCoordinator> updateCoordinator;
     std::unique_ptr<application::AppLifecycleCoordinator> appLifecycleCoordinator;
+    // Original UI-layer pointer retained for UI-side builders that expect
+    // ui::common::ISettingsService* (a subclass of core::common::ISettingsService).
+    common::ISettingsService* settingsService = nullptr;
 };
 
 MainWindow::MainWindow(common::ISettingsService* settingsService,
@@ -147,7 +151,7 @@ void MainWindow::initializeUi() {
     stackedWidget_ = new QStackedWidget(this);
     mainLayout->addWidget(stackedWidget_, 5);
 
-    MainWindowPageBuilder pageBuilder(businessContext_->settingsController->settingsService());
+    MainWindowPageBuilder pageBuilder(businessContext_->settingsService);
     const MainWindowPages pages = pageBuilder.build(stackedWidget_, this);
     modbusTcpView_ = pages.modbusTcpView;
     modbusRtuView_ = pages.modbusRtuView;

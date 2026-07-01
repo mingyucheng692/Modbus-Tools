@@ -139,10 +139,10 @@ void FrameExtractor::feed(QByteArrayView data)
 
         buffer_.append(data);
 
-        if (buffer_.size() > app::constants::Values::Modbus::kMaxRtuBufferedBytes) {
+        if (buffer_.size() > config::Modbus::kMaxAduSize) {
             spdlog::error(
                 "FrameExtractor: RTU buffer exceeded {} bytes limit, clearing",
-                app::constants::Values::Modbus::kMaxRtuBufferedBytes);
+                config::Modbus::kMaxAduSize);
             buffer_.clear();
         }
 
