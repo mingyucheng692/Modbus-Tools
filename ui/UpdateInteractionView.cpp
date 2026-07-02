@@ -85,17 +85,33 @@ application::UpdatePromptChoice UpdateInteractionView::promptUpdateAction(const 
     return application::UpdatePromptChoice::Cancel;
 }
 
-void UpdateInteractionView::showUpdateProgress(core::update::UpdateManager* updateManager) {
+void UpdateInteractionView::showUpdateProgress(std::function<void()> onCancel) {
+    hideUpdateProgress();
     auto* parentWidget = qobject_cast<QWidget*>(parent());
-    auto* progress = new QProgressDialog(tr("Downloading Update..."), tr("Cancel"), 0, 100, parentWidget);
-    progress->setWindowModality(Qt::WindowModal);
-    progress->setAutoClose(true);
-    connect(updateManager, &core::update::UpdateManager::downloadProgress, progress, &QProgressDialog::setValue);
-    connect(progress, &QProgressDialog::canceled, updateManager, &core::update::UpdateManager::cancelUpdate);
-    connect(updateManager, &core::update::UpdateManager::updateReadyToInstall, this, [progress] { progress->close(); });
-    connect(updateManager, &core::update::UpdateManager::updateFailed, this, [progress] { progress->close(); });
-    connect(updateManager, &core::update::UpdateManager::updateCanceled, this, [progress] { progress->close(); });
-    progress->show();
+    progressDialog_ = new QProgressDialog(tr("Downloading Update..."), tr("Cancel"), 0, 100, parentWidget);
+    progressDialog_->setWindowModality(Qt::WindowModal);
+    progressDialog_->setAutoClose(true);
+    if (onCancel) {
+        connect(progressDialog_, &QProgressDialog::canceled, this, [onCancel] { onCancel(); });
+    }
+    progressDialog_->show();
+}
+
+void UpdateInteractionView::updateProgress(int percent, const QString& message) {
+    if (progressDialog_) {
+        progressDialog_->setValue(percent);
+        if (!message.isEmpty()) {
+            progressDialog_->setLabelText(message);
+        }
+    }
+}
+
+void UpdateInteractionView::hideUpdateProgress() {
+    if (progressDialog_) {
+        progressDialog_->close();
+        progressDialog_->deleteLater();
+        progressDialog_ = nullptr;
+    }
 }
 
 } // namespace ui

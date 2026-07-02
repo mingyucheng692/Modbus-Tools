@@ -167,3 +167,22 @@ TEST(ReleaseParser, ParseReleasesPreservesJsonBody) {
     EXPECT_FALSE(results[0].jsonBody.empty());
     EXPECT_NE(results[0].jsonBody.find("\"assets\""), std::string::npos);
 }
+
+TEST(ReleaseParser, ParseReleasesHandlesEscapedCharacters) {
+    // tag_name and html_url contain escaped quotes and backslashes — the old
+    // handwritten findString parser would truncate at the first escaped quote.
+    const char* json = R"([
+        {
+            "tag_name": "v1.0.0-\"rc\"",
+            "html_url": "https://github.com/test/releases/tag/v1.0.0-\"rc\"",
+            "draft": false,
+            "prerelease": false,
+            "assets": []
+        }
+    ])";
+
+    auto results = ReleaseParser::parseReleases(json, false);
+    ASSERT_EQ(results.size(), 1u);
+    EXPECT_EQ(results[0].tagName, "v1.0.0-\"rc\"");
+    EXPECT_EQ(results[0].htmlUrl, "https://github.com/test/releases/tag/v1.0.0-\"rc\"");
+}

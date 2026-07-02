@@ -1,0 +1,94 @@
+/**
+ * @file ModbusPagePresenter.h
+ * @brief Presenter for BaseModbusPage — owns backend services and signal routing.
+ *
+ * Copyright (c) 2025 - present mingyucheng692
+ *
+ * Licensed under the MIT License. See LICENSE file in the project root for full license information.
+ */
+
+#pragma once
+
+#include <QObject>
+#include "IModbusPageView.h"
+#include "ModbusTypes.h"
+
+namespace ui::widgets {
+class IConnectionWidget;
+class ControlWidget;
+class FunctionWidget;
+class TrafficMonitorWidget;
+}
+
+namespace ui::application::modbus {
+
+class ModbusSessionPresenter;
+class RequestSubmissionService;
+class PollingController;
+class TrafficLogController;
+class RequestCoordinator;
+
+/**
+ * @brief Composition root for a Modbus page — owns backend services and
+ *        orchestrates signal routing between them and the View.
+ *
+ * Replaces BaseModbusPage's former role as composition root (ADR 0004).
+ * The View (BaseModbusPage) creates UI widgets, then delegates service
+ * creation and wiring to this Presenter via setup().
+ *
+ * @thread Lives on the GUI thread. All methods must be called from the
+ *         GUI thread.
+ */
+class ModbusPagePresenter : public QObject {
+    Q_OBJECT
+
+public:
+    explicit ModbusPagePresenter(IModbusPageView* view,
+                                 SessionMode mode,
+                                 QObject* parent = nullptr);
+    ~ModbusPagePresenter() noexcept override;
+
+    /// Creates backend services and wires them to the provided widgets.
+    /// Must be called exactly once after the View has created its widgets.
+    void setup(ui::widgets::IConnectionWidget* connectionWidget,
+               ui::widgets::ControlWidget* controlWidget,
+               ui::widgets::FunctionWidget* functionWidget,
+               ui::widgets::TrafficMonitorWidget* trafficMonitor);
+
+    // --- Delegating API for the View and subclasses ---
+    void requestConnect(const ModbusConnectionSpec& spec);
+    void requestDisconnect();
+    void updateSettings(const ModbusTimingParams& params);
+    void setLinked(bool linked);
+    [[nodiscard]] bool isSessionConnected() const;
+    [[nodiscard]] bool isLinked() const;
+    [[nodiscard]] ModbusSessionPresenter* sessionPresenter() const;
+
+signals:
+    /// Forwarded from RequestCoordinator (gated by linked_ state).
+    void linkageDataReceived(const ::modbus::base::Pdu& pdu,
+                             ::modbus::core::parser::ProtocolType protocol,
+                             uint16_t addr);
+    /// Forwarded from ControlWidget link toggle.
+    void linkageToggled(bool active);
+    /// Forwarded from ModbusSessionPresenter.
+    void linkageSourceDisconnected();
+
+private:
+    void wireConnections();
+
+    IModbusPageView* view_ = nullptr;
+    SessionMode mode_;
+
+    ModbusSessionPresenter* sessionPresenter_ = nullptr;
+    RequestSubmissionService* requestService_ = nullptr;
+    PollingController* pollingController_ = nullptr;
+    TrafficLogController* trafficLogController_ = nullptr;
+    RequestCoordinator* requestCoordinator_ = nullptr;
+
+    ui::widgets::ControlWidget* controlWidget_ = nullptr;
+    ui::widgets::FunctionWidget* functionWidget_ = nullptr;
+    bool linked_ = false;
+};
+
+} // namespace ui::application::modbus

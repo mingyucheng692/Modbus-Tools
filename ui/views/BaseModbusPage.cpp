@@ -10,11 +10,7 @@
 #include "BaseModbusPage.h"
 #include "AppConstants.h"
 #include "../common/ISettingsService.h"
-#include "../application/modbus/RequestCoordinator.h"
-#include "../application/modbus/RequestSubmissionService.h"
-#include "../application/modbus/PollingController.h"
-#include "../application/modbus/TrafficLogController.h"
-#include "../application/modbus/ModbusSessionPresenter.h"
+#include "../application/modbus/ModbusPagePresenter.h"
 #include "../widgets/BaseConnectionWidget.h"
 #include "../widgets/FunctionWidget.h"
 #include "../widgets/TrafficMonitorWidget.h"
@@ -40,30 +36,36 @@ BaseModbusPage::BaseModbusPage(ui::application::modbus::SessionMode mode,
     : QWidget(parent),
       settingsService_(settingsService),
       sessionMode_(mode) {
-    sessionPresenter_ = new ui::application::modbus::ModbusSessionPresenter(mode, this);
 }
 
 BaseModbusPage::~BaseModbusPage() noexcept = default;
 
 void BaseModbusPage::updateModbusSettings(int timeoutMs, int retries, int retryIntervalMs) {
-    if (sessionPresenter_) {
+    if (pagePresenter_) {
         ui::application::modbus::ModbusTimingParams params;
         params.timeout = std::chrono::milliseconds(timeoutMs);
         params.retryCount = retries;
         params.retryInterval = std::chrono::milliseconds(retryIntervalMs);
-        sessionPresenter_->updateSettings(params);
+        pagePresenter_->updateSettings(params);
     }
 }
 
 void BaseModbusPage::setLinked(bool linked) {
-    linked_ = linked;
-    if (sessionPresenter_) {
-        sessionPresenter_->setLinked(linked);
+    if (pagePresenter_) {
+        pagePresenter_->setLinked(linked);
     }
 }
 
 bool BaseModbusPage::isLinked() const {
-    return linked_;
+    return pagePresenter_ && pagePresenter_->isLinked();
+}
+
+void BaseModbusPage::appendTrafficData(bool isTx, const QByteArray& data) {
+    if (isTx) {
+        appendSendData(data);
+    } else {
+        appendReceiveData(data);
+    }
 }
 
 void BaseModbusPage::setupUi(ui::widgets::BaseConnectionWidget* connWidget) {
@@ -131,145 +133,39 @@ void BaseModbusPage::setupUi(ui::widgets::BaseConnectionWidget* connWidget) {
     controlWidget_->setSettingsGroup(prefix + QStringLiteral("/control"));
     mainLayout_->addWidget(controlWidget_);
 
-    // Initialize services once to unify lifecycle
-    requestService_ = new ui::application::modbus::RequestSubmissionService(this);
-    pollingController_ = new ui::application::modbus::PollingController(requestService_, this);
-    trafficLogController_ = new ui::application::modbus::TrafficLogController(
-        trafficMonitor_, pollingController_, this);
+    // Create the Presenter (composition root) and wire backend services.
+    pagePresenter_ = new ui::application::modbus::ModbusPagePresenter(
+        this, sessionMode_, this);
+    pagePresenter_->setup(connectionWidget_, controlWidget_,
+                          functionWidget_, trafficMonitor_);
+    sessionPresenter_ = pagePresenter_->sessionPresenter();
 
-    requestCoordinator_ = new ui::application::modbus::RequestCoordinator(
-        sessionPresenter_, requestService_, pollingController_,
-        trafficLogController_, sessionMode_, this);
+    // Forward Presenter linkage signals to our own (consumed by
+    // AnalyzerLinkCoordinator and other external consumers).
+    connect(pagePresenter_, &ui::application::modbus::ModbusPagePresenter::linkageDataReceived,
+            this, &BaseModbusPage::linkageDataReceived);
+    connect(pagePresenter_, &ui::application::modbus::ModbusPagePresenter::linkageToggled,
+            this, &BaseModbusPage::linkageToggled);
+    connect(pagePresenter_, &ui::application::modbus::ModbusPagePresenter::linkageSourceDisconnected,
+            this, &BaseModbusPage::linkageSourceDisconnected);
 
-    sessionPresenter_->setConnectionWidget(connectionWidget_);
-    sessionPresenter_->setControlWidget(controlWidget_);
-    sessionPresenter_->setRequestService(requestService_);
-    sessionPresenter_->setPollingController(pollingController_);
-    sessionPresenter_->setTrafficLogController(trafficLogController_);
-
-    setupCommonConnections();
+    setupViewOnlyConnections();
 
     mainLayout_->addStretch();
 
     retranslateUi();
 }
 
-void BaseModbusPage::setupCommonConnections() {
-    connect(requestService_, &ui::application::modbus::RequestSubmissionService::txCountUpdated,
-            controlWidget_, &ui::widgets::ControlWidget::recordTx);
-
-    connect(pollingController_, &ui::application::modbus::PollingController::submitPollRequest,
-            this, [this](const ::modbus::base::Pdu& pdu, int slaveId, int requestId) {
-                if (sessionPresenter_) {
-                    sessionPresenter_->submitRequest(pdu, slaveId, requestId);
-                }
-            });
-    connect(pollingController_, &ui::application::modbus::PollingController::trafficEvent,
-            trafficMonitor_, &ui::widgets::TrafficMonitorWidget::appendEvent);
-    connect(pollingController_, &ui::application::modbus::PollingController::summaryReady,
-            trafficLogController_, &ui::application::modbus::TrafficLogController::logPollSummary);
-
-    if (functionWidget_) {
-        connect(functionWidget_, &widgets::FunctionWidget::logMessageRequested,
-            this, [this](const QString& message, bool isError) {
-                if (!trafficLogController_) return;
-                if (isError) {
-                    trafficLogController_->logWarning(message);
-                } else {
-                    trafficLogController_->logInfo(message);
-                }
-            });
-    }
-
+void BaseModbusPage::setupViewOnlyConnections() {
     if (controlWidget_) {
-        connect(controlWidget_, &widgets::ControlWidget::logMessageRequested,
-            this, [this](const QString& message, bool isError) {
-                if (!trafficLogController_) return;
-                if (isError) {
-                    trafficLogController_->logWarning(message);
-                } else {
-                    trafficLogController_->logInfo(message);
-                }
-            });
-
-        connect(controlWidget_, &widgets::ControlWidget::linkToggled, this, [this](bool active) {
-            linked_ = active;
-            emit linkageToggled(active);
-        });
-
         auto ensureConnected = [this]() {
-            if (sessionPresenter_ && sessionPresenter_->isSessionConnected()) {
+            if (pagePresenter_ && pagePresenter_->isSessionConnected()) {
                 return true;
             }
             ui::common::ConnectionAlert::showNotConnected(this);
             return false;
         };
         controlWidget_->setConnectionValidator(ensureConnected);
-
-        connect(controlWidget_, &widgets::ControlWidget::pollRequested,
-            this, [this](uint8_t fc, int addr, int qty) {
-                if (!requestCoordinator_) return;
-                requestCoordinator_->handlePollRequest(fc, addr, qty,
-                    controlWidget_->pollingIntervalMs());
-            });
-    }
-
-    if (sessionPresenter_) {
-        connect(sessionPresenter_,
-                &ui::application::modbus::ModbusSessionPresenter::linkageSourceDisconnected,
-                this, &BaseModbusPage::linkageSourceDisconnected);
-
-        connect(sessionPresenter_,
-                &ui::application::modbus::ModbusSessionPresenter::rawFrameReceived,
-                this, [this](bool isTx, const QByteArray& data) {
-                    if (isTx) {
-                        appendSendData(data);
-                    } else {
-                        appendReceiveData(data);
-                    }
-                });
-
-        connect(sessionPresenter_,
-                &ui::application::modbus::ModbusSessionPresenter::requestFinished,
-                this, [this](int requestId, const ::modbus::session::ModbusResponse& response) {
-                    if (!requestCoordinator_) return;
-                    requestCoordinator_->handleRequestFinished(requestId, response);
-                });
-    }
-
-    // RequestCoordinator → linkage data forwarding
-    if (requestCoordinator_) {
-        connect(requestCoordinator_,
-                &ui::application::modbus::RequestCoordinator::linkageDataReceived,
-                this, [this](const ::modbus::base::Pdu& pdu,
-                             modbus::core::parser::ProtocolType protocol,
-                             uint16_t addr) {
-                    if (linked_) {
-                        emit linkageDataReceived(pdu, protocol, addr);
-                    }
-                });
-    }
-
-    if (functionWidget_) {
-        connect(functionWidget_, &widgets::FunctionWidget::readRequested,
-            this, [this](uint8_t fc, int addr, int qty, int slaveId) {
-                if (!requestCoordinator_) return;
-                requestCoordinator_->handleReadRequest(fc, addr, qty, slaveId);
-            });
-
-        connect(functionWidget_, &widgets::FunctionWidget::writeRequested,
-            this, [this](uint8_t fc, int addr, const QString& dataStr,
-                         const QString& fmt, int slaveId) {
-                if (!requestCoordinator_) return;
-                requestCoordinator_->handleWriteRequest(fc, addr, dataStr, fmt, slaveId,
-                                                        functionWidget_->getQuantity());
-            });
-
-        connect(functionWidget_, &widgets::FunctionWidget::rawSendRequested,
-            this, [this](const QByteArray& data) {
-                if (!requestCoordinator_) return;
-                requestCoordinator_->handleRawSendRequest(data);
-            });
     }
 
     connect(clearReceiveButton_, &QPushButton::clicked, this, [this]() {

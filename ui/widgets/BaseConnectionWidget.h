@@ -11,6 +11,7 @@
 
 #include <QWidget>
 #include <QString>
+#include "IConnectionWidget.h"
 
 class QCheckBox;
 class QSpinBox;
@@ -32,20 +33,11 @@ class CollapsibleSection;
  * Handles common behaviors such as collapsible section logic, auto-reconnect configurations,
  * settings group and settings loading/saving.
  */
-class BaseConnectionWidget : public QWidget {
+class BaseConnectionWidget : public QWidget, public IConnectionWidget {
     Q_OBJECT
 
 public:
-    enum class DisplayState {
-        Disconnected = 0,
-        Connecting,
-        TransportConnected,
-        Connected,
-        Disconnecting,
-        Listening,
-        Bound
-    };
-    Q_ENUM(DisplayState)
+    using DisplayState = ui::widgets::DisplayState;
 
     explicit BaseConnectionWidget(ui::common::ISettingsService* settingsService, QWidget* parent = nullptr);
     ~BaseConnectionWidget() override;
@@ -73,7 +65,7 @@ signals:
 
 public slots:
     virtual void setConnected(bool connected) = 0;
-    virtual void setDisplayState(DisplayState state);
+    void setDisplayState(DisplayState state) override;
 
 protected:
     virtual void loadSettings() = 0;

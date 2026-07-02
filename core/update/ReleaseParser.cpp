@@ -10,8 +10,12 @@
 #include "ReleaseParser.h"
 #include <algorithm>
 #include <charconv>
-#include <cctype>
 #include <sstream>
+#include <QJsonDocument>
+#include <QJsonArray>
+#include <QJsonObject>
+#include <QJsonValue>
+#include <QByteArray>
 
 namespace core::update {
 
@@ -68,77 +72,25 @@ std::vector<ReleaseInfo> ReleaseParser::parseReleases(const std::string& json,
                                                      bool includePrerelease) {
     std::vector<ReleaseInfo> results;
 
-    // Minimal JSON parsing for GitHub Releases API
-    // We look for the first non-draft, non-prerelease (if filtered) entry
-    auto findString = [](const std::string& src, const std::string& key) -> std::string {
-        auto pos = src.find(key);
-        if (pos == std::string::npos) return {};
-        pos = src.find('"', pos + key.length());
-        if (pos == std::string::npos) return {};
-        auto end = src.find('"', pos + 1);
-        if (end == std::string::npos) return {};
-        return src.substr(pos + 1, end - pos - 1);
-    };
+    const QJsonDocument doc = QJsonDocument::fromJson(QByteArray::fromStdString(json));
+    if (!doc.isArray()) return results;
 
-    auto findBool = [](const std::string& src, const std::string& key) -> bool {
-        auto pos = src.find(key);
-        if (pos == std::string::npos) return false;
-        pos = src.find(':', pos + key.length());
-        if (pos == std::string::npos) return false;
-        // skip whitespace
-        while (pos + 1 < src.length() && std::isspace(static_cast<unsigned char>(src[pos + 1]))) {
-            ++pos;
-        }
-        return pos + 1 < src.length() && src[pos + 1] == 't';
-    };
-
-    // Find array start
-    auto arrayStart = json.find('[');
-    if (arrayStart == std::string::npos) return results;
-
-    size_t pos = arrayStart + 1;
-    while (pos < json.length()) {
-        // Find next '{' (object start)
-        auto objStart = json.find('{', pos);
-        if (objStart == std::string::npos) break;
-
-        // Find matching '}' 
-        int depth = 0;
-        auto objEnd = objStart;
-        for (size_t i = objStart; i < json.length(); ++i) {
-            if (json[i] == '{') ++depth;
-            else if (json[i] == '}') {
-                --depth;
-                if (depth == 0) {
-                    objEnd = i;
-                    break;
-                }
-            }
-        }
-
-        std::string objStr = json.substr(objStart, objEnd - objStart + 1);
-
-        bool isDraft = findBool(objStr, "\"draft\"");
-        bool isPrerelease = findBool(objStr, "\"prerelease\"");
-
-        if (isDraft) {
-            pos = objEnd + 1;
-            continue;
-        }
-        if (!includePrerelease && isPrerelease) {
-            pos = objEnd + 1;
-            continue;
-        }
+    const QJsonArray array = doc.array();
+    for (const QJsonValue& value : array) {
+        if (!value.isObject()) continue;
+        const QJsonObject obj = value.toObject();
+        const bool isDraft = obj.value("draft").toBool();
+        const bool isPrerelease = obj.value("prerelease").toBool();
+        if (isDraft) continue;
+        if (!includePrerelease && isPrerelease) continue;
 
         ReleaseInfo info;
-        info.tagName = findString(objStr, "\"tag_name\"");
-        info.htmlUrl = findString(objStr, "\"html_url\"");
+        info.tagName = obj.value("tag_name").toString().toUtf8().toStdString();
+        info.htmlUrl = obj.value("html_url").toString().toUtf8().toStdString();
         info.draft = isDraft;
         info.prerelease = isPrerelease;
-        info.jsonBody = objStr;
+        info.jsonBody = QJsonDocument(obj).toJson(QJsonDocument::Compact).toStdString();
         results.push_back(std::move(info));
-
-        pos = objEnd + 1;
     }
 
     return results;

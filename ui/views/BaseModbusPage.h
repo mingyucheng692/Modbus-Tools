@@ -15,6 +15,8 @@
 #include <cstdint>
 #include "modbus/base/ModbusFrame.h"
 #include "modbus/parser/ModbusFrameParser.h"
+#include "../application/modbus/IModbusPageView.h"
+#include "../application/modbus/ModbusTypes.h"
 #include "../application/modbus/ModbusSessionPresenter.h"
 
 class QVBoxLayout;
@@ -28,11 +30,7 @@ class ISettingsService;
 }
 
 namespace ui::application::modbus {
-class RequestSubmissionService;
-class PollingController;
-class TrafficLogController;
-class ModbusSessionPresenter;
-class RequestCoordinator;
+class ModbusPagePresenter;
 }
 
 namespace ui::widgets {
@@ -49,9 +47,12 @@ namespace ui::views {
  * @class BaseModbusPage
  * @brief Common base class for ModbusRtuPage and ModbusTcpPage.
  *
- * Consolidates the common UI layout, control logic, traffic logging, and service objects lifecycle.
+ * Implements IModbusPageView and delegates backend service ownership and
+ * signal routing to ModbusPagePresenter (ADR 0004 MVP pattern). The View
+ * is responsible only for UI layout, rendering, and user input.
  */
-class BaseModbusPage : public QWidget {
+class BaseModbusPage : public QWidget,
+                      public ui::application::modbus::IModbusPageView {
     Q_OBJECT
 
 public:
@@ -63,6 +64,9 @@ public:
     void updateModbusSettings(int timeoutMs, int retries, int retryIntervalMs);
     void setLinked(bool linked);
     [[nodiscard]] bool isLinked() const;
+
+    // IModbusPageView
+    void appendTrafficData(bool isTx, const QByteArray& data) override;
 
 signals:
 
@@ -100,19 +104,17 @@ protected:
     QByteArray lastReceiveFrame_;
     QByteArray lastSendFrame_;
 
-    // Backend Services
-    ui::application::modbus::RequestSubmissionService* requestService_ = nullptr;
-    ui::application::modbus::PollingController* pollingController_ = nullptr;
-    ui::application::modbus::TrafficLogController* trafficLogController_ = nullptr;
+    // Non-owning reference to the session presenter (owned by pagePresenter_).
+    // Kept for subclass access (requestConnect / requestDisconnect).
     ui::application::modbus::ModbusSessionPresenter* sessionPresenter_ = nullptr;
-    ui::application::modbus::RequestCoordinator* requestCoordinator_ = nullptr;
 
-    bool linked_ = false;
     ui::common::ISettingsService* settingsService_ = nullptr;
     ui::application::modbus::SessionMode sessionMode_;
 
 private:
-    void setupCommonConnections();
+    void setupViewOnlyConnections();
+
+    ui::application::modbus::ModbusPagePresenter* pagePresenter_ = nullptr;
 };
 
 } // namespace ui::views

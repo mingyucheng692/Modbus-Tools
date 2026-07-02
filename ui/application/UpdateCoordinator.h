@@ -2,6 +2,7 @@
 
 #include <QObject>
 #include <QString>
+#include <functional>
 
 class QUrl;
 
@@ -37,7 +38,9 @@ public:
     virtual void showUpdateCriticalMessage(const QString& title, const QString& message) = 0;
     virtual bool confirmOpenDownloadPage(const QString& latestVersion) = 0;
     virtual UpdatePromptChoice promptUpdateAction(const QString& currentVersion, const QString& latestVersion) = 0;
-    virtual void showUpdateProgress(core::update::UpdateManager* updateManager) = 0;
+    virtual void showUpdateProgress(std::function<void()> onCancel) = 0;
+    virtual void updateProgress(int percent, const QString& message) = 0;
+    virtual void hideUpdateProgress() = 0;
 };
 
 class UpdateCoordinator : public QObject {

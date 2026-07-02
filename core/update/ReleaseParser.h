@@ -25,8 +25,9 @@ struct ReleaseInfo {
 };
 
 /**
- * @brief Pure-logic release parser. Extracted from ui::common::UpdateChecker
- * so that version comparison and release filtering can be tested without Qt.
+ * @brief Release parser. Extracted from ui::common::UpdateChecker so that
+ * version comparison and release filtering can be unit-tested in isolation.
+ * parseReleases uses QJsonDocument (Qt6::Core) for RFC 8259-compliant parsing.
  */
 class ReleaseParser {
 public:

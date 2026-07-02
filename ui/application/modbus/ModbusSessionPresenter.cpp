@@ -4,10 +4,10 @@
 #include "PollingController.h"
 #include "TrafficLogController.h"
 #include "../../widgets/ControlWidget.h"
-#include "../../widgets/BaseConnectionWidget.h"
-#include "../../widgets/SerialConnectionWidget.h"
+#include "../../widgets/IConnectionWidget.h"
 #include "../../common/ConnectionAlert.h"
 #include "modbus/factory/ModbusFactory.h"
+#include "modbus/factory/IModbusFactory.h"
 #include <QMetaObject>
 #include <QPointer>
 #include <QApplication>
@@ -24,38 +24,14 @@ void assertObjectThread(const QObject* object, const char* context) {
                context);
 }
 
-void setConnectionWidgetDisplayStateImpl(QWidget* connectionWidget,
-                                         SessionMode mode,
-                                         ui::widgets::BaseConnectionWidget::DisplayState displayState) {
-    if (!connectionWidget) {
-        return;
-    }
-
-    if (mode == SessionMode::Tcp) {
-        if (auto* connWidget = qobject_cast<ui::widgets::BaseConnectionWidget*>(connectionWidget)) {
-            QMetaObject::invokeMethod(connWidget,
-                                      [connWidget, displayState]() {
-                                          connWidget->setDisplayState(displayState);
-                                      },
-                                      Qt::QueuedConnection);
-        }
-        return;
-    }
-
-    if (auto* serialWidget = qobject_cast<ui::widgets::SerialConnectionWidget*>(connectionWidget)) {
-        QMetaObject::invokeMethod(serialWidget,
-                                  [serialWidget, displayState]() {
-                                      serialWidget->setDisplayState(displayState);
-                                  },
-                                  Qt::QueuedConnection);
-    }
-}
-
 } // namespace
 
-ModbusSessionPresenter::ModbusSessionPresenter(SessionMode mode, QObject* parent)
+ModbusSessionPresenter::ModbusSessionPresenter(SessionMode mode,
+                                               ::modbus::factory::IModbusFactory* factory,
+                                               QObject* parent)
     : QObject(parent),
       mode_(mode),
+      factory_(factory),
       timeoutMs_(app::constants::Values::Modbus::kDefaultTimeoutMs),
       retries_(0),
       retryIntervalMs_(app::constants::Values::Modbus::kDefaultRetryIntervalMs) {
@@ -330,7 +306,7 @@ void ModbusSessionPresenter::setRequestService(RequestSubmissionService* service
     requestService_ = service;
 }
 
-void ModbusSessionPresenter::setConnectionWidget(QWidget* widget) {
+void ModbusSessionPresenter::setConnectionWidget(ui::widgets::IConnectionWidget* widget) {
     assertGuiThread("setConnectionWidget must be called on the GUI thread");
     connectionWidget_ = widget;
     syncConnectionWidget(connectionStateMachine_->currentState());
@@ -381,19 +357,19 @@ void ModbusSessionPresenter::syncConnectionWidget(SessionConnectionState state) 
 
     switch (state) {
     case SessionConnectionState::Disconnected:
-        QMetaObject::invokeMethod(connectionWidget_, "setConnected", Qt::QueuedConnection, Q_ARG(bool, false));
+        connectionWidget_->setConnected(false);
         return;
     case SessionConnectionState::Connected:
-        QMetaObject::invokeMethod(connectionWidget_, "setConnected", Qt::QueuedConnection, Q_ARG(bool, true));
+        connectionWidget_->setConnected(true);
         return;
     case SessionConnectionState::Connecting:
-        setConnectionWidgetDisplayStateImpl(connectionWidget_, mode_, ui::widgets::BaseConnectionWidget::DisplayState::Connecting);
+        connectionWidget_->setDisplayState(ui::widgets::DisplayState::Connecting);
         return;
     case SessionConnectionState::TransportConnected:
-        setConnectionWidgetDisplayStateImpl(connectionWidget_, mode_, ui::widgets::BaseConnectionWidget::DisplayState::TransportConnected);
+        connectionWidget_->setDisplayState(ui::widgets::DisplayState::TransportConnected);
         return;
     case SessionConnectionState::Disconnecting:
-        setConnectionWidgetDisplayStateImpl(connectionWidget_, mode_, ui::widgets::BaseConnectionWidget::DisplayState::Disconnecting);
+        connectionWidget_->setDisplayState(ui::widgets::DisplayState::Disconnecting);
         return;
     }
 }
@@ -443,8 +419,13 @@ bool ModbusSessionPresenter::isLinked() const {
 
 void ModbusSessionPresenter::initStack(const ::modbus::base::ModbusConfig& config) {
     assertGuiThread("initStack must run on the GUI thread");
-    ::modbus::factory::ModbusFactory factory;
-    auto stack = factory.createStack(config);
+    ::modbus::factory::IModbusFactory* factory = factory_;
+    std::unique_ptr<::modbus::factory::IModbusFactory> tempFactory;
+    if (!factory) {
+        tempFactory = std::make_unique<::modbus::factory::ModbusFactory>();
+        factory = tempFactory.get();
+    }
+    auto stack = factory->createStack(config);
     if (!stack.worker || !stack.thread || !stack.ioThread) {
         if (trafficLogController_) {
             trafficLogController_->logError(tr("Failed to create Modbus stack"));

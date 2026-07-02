@@ -392,40 +392,10 @@ ModbusResponse RequestExecutor::sendRequestInternal(const base::Pdu& request, in
                 auto frameOpt = frameExtractor_->tryPopRtuResponseFrame(now);
                 if (frameOpt) {
                     lock.unlock();
-                    auto parseResult = transport_->parseResponse(*frameOpt);
-                    if (parseResult.status == transport::ParseResponseStatus::Ok
-                        && parseResult.pdu) {
-                        const auto& pdu = *parseResult.pdu;
-                        if (pdu.isException()) {
-                            reqStateMachine_->tryTransition(
-                                RequestStateMachine::State::Failed, "modbus-exception");
-                            return handleExceptionResponse(pdu, slaveId, request);
-                        }
-                        if (pdu.originalFunctionCode() != request.functionCode()) {
-                            lock.lock();
-                            continue;
-                        }
-                        const QString responseValidationError = base::validateResponsePdu(
-                            request, pdu);
-                        if (!responseValidationError.isEmpty()) {
-                            reqStateMachine_->tryTransition(
-                                RequestStateMachine::State::Failed,
-                                "response-validation-failed");
-                            return ModbusResponse::Error(responseValidationError);
-                        }
-                        auto rttMs = std::chrono::duration_cast<std::chrono::milliseconds>(
-                            std::chrono::steady_clock::now() - start).count();
-                        reqStateMachine_->tryTransition(
-                            RequestStateMachine::State::Completed, "response-parsed");
-                        return ModbusResponse::Success(pdu, static_cast<int>(rttMs));
-                    }
-                    if (parseResult.status == transport::ParseResponseStatus::Unmatched) {
-                        lock.lock();
-                        continue;
-                    }
-                    reqStateMachine_->tryTransition(
-                        RequestStateMachine::State::Failed, "response-parse-failed");
-                    return ModbusResponse::Error(trReq("Response parsing failed"));
+                    auto result = handleParsedFrame(*frameOpt, request, slaveId, start);
+                    if (result) return *result;
+                    lock.lock();
+                    continue;
                 }
                 break;
             }
@@ -433,42 +403,8 @@ ModbusResponse RequestExecutor::sendRequestInternal(const base::Pdu& request, in
             auto frameOpt = frameExtractor_->popFrame();
             if (frameOpt) {
                 lock.unlock();
-                auto parseResult = transport_->parseResponse(*frameOpt);
-                if (parseResult.status == transport::ParseResponseStatus::Ok
-                    && parseResult.pdu) {
-                    const auto& pdu = *parseResult.pdu;
-                    if (pdu.isException()) {
-                        reqStateMachine_->tryTransition(
-                            RequestStateMachine::State::Failed, "modbus-exception");
-                        return handleExceptionResponse(pdu, slaveId, request);
-                    }
-                    if (pdu.originalFunctionCode() != request.functionCode()) {
-                        lock.lock();
-                        continue;
-                    }
-                    const QString responseValidationError = base::validateResponsePdu(
-                        request, pdu);
-                    if (!responseValidationError.isEmpty()) {
-                        reqStateMachine_->tryTransition(
-                            RequestStateMachine::State::Failed,
-                            "response-validation-failed");
-                        return ModbusResponse::Error(responseValidationError);
-                    }
-                    auto rttMs = std::chrono::duration_cast<std::chrono::milliseconds>(
-                        std::chrono::steady_clock::now() - start).count();
-                    reqStateMachine_->tryTransition(
-                        RequestStateMachine::State::Completed, "response-parsed");
-                    return ModbusResponse::Success(pdu, static_cast<int>(rttMs));
-                }
-                if (parseResult.status == transport::ParseResponseStatus::Unmatched) {
-                    lock.lock();
-                    continue;
-                }
-                if (parseResult.status == transport::ParseResponseStatus::Invalid) {
-                    reqStateMachine_->tryTransition(
-                        RequestStateMachine::State::Failed, "response-parse-failed");
-                    return ModbusResponse::Error(trReq("Response parsing failed"));
-                }
+                auto result = handleParsedFrame(*frameOpt, request, slaveId, start);
+                if (result) return *result;
                 lock.lock();
                 continue;
             }
@@ -494,6 +430,43 @@ ModbusResponse RequestExecutor::sendRequestInternal(const base::Pdu& request, in
             return ModbusResponse::Error(trReq("Timeout while waiting for full packet"));
         }
     }
+}
+
+std::optional<ModbusResponse> RequestExecutor::handleParsedFrame(
+    const QByteArray& frame,
+    const base::Pdu& request,
+    int slaveId,
+    std::chrono::steady_clock::time_point start) {
+    auto parseResult = transport_->parseResponse(frame);
+    if (parseResult.status == transport::ParseResponseStatus::Ok && parseResult.pdu) {
+        const auto& pdu = *parseResult.pdu;
+        if (pdu.isException()) {
+            reqStateMachine_->tryTransition(
+                RequestStateMachine::State::Failed, "modbus-exception");
+            return handleExceptionResponse(pdu, slaveId, request);
+        }
+        if (pdu.originalFunctionCode() != request.functionCode()) {
+            return std::nullopt; // unmatched slave/function — keep waiting
+        }
+        const QString responseValidationError = base::validateResponsePdu(request, pdu);
+        if (!responseValidationError.isEmpty()) {
+            reqStateMachine_->tryTransition(
+                RequestStateMachine::State::Failed, "response-validation-failed");
+            return ModbusResponse::Error(responseValidationError);
+        }
+        auto rttMs = std::chrono::duration_cast<std::chrono::milliseconds>(
+            std::chrono::steady_clock::now() - start).count();
+        reqStateMachine_->tryTransition(
+            RequestStateMachine::State::Completed, "response-parsed");
+        return ModbusResponse::Success(pdu, static_cast<int>(rttMs));
+    }
+    if (parseResult.status == transport::ParseResponseStatus::Unmatched) {
+        return std::nullopt; // frame belongs to another transaction — keep waiting
+    }
+    // Invalid, or Ok without pdu (transport contract violation — treat as failure).
+    reqStateMachine_->tryTransition(
+        RequestStateMachine::State::Failed, "response-parse-failed");
+    return ModbusResponse::Error(trReq("Response parsing failed"));
 }
 
 ModbusResponse RequestExecutor::handleExceptionResponse(const base::Pdu& responsePdu, int slaveId,

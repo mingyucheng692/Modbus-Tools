@@ -49,6 +49,14 @@ UpdateCoordinator::UpdateCoordinator(IUpdateInteractionView* view,
             this, &UpdateCoordinator::handleUpdateReadyToInstall);
     connect(updateManager_, &core::update::UpdateManager::updateFailed,
             this, &UpdateCoordinator::handleUpdateFailed);
+    connect(updateManager_, &core::update::UpdateManager::downloadProgress,
+            this, [this](int progress) {
+                if (view_) view_->updateProgress(progress, {});
+            });
+    connect(updateManager_, &core::update::UpdateManager::updateCanceled,
+            this, [this] {
+                if (view_) view_->hideUpdateProgress();
+            });
 }
 
 void UpdateCoordinator::setCurrentLocale(const QString& locale) {
@@ -167,6 +175,7 @@ void UpdateCoordinator::handleCheckFailed(const QString& reason) {
 }
 
 void UpdateCoordinator::handleUpdateReadyToInstall(const QString& taskFile) {
+    if (view_) view_->hideUpdateProgress();
     QString error;
     if (updateManager_ != nullptr && updateManager_->launchInstaller(taskFile, currentLocale_, error)) {
         spdlog::info("UpdateCoordinator: Updater launched successfully, terminating application to apply update.");
@@ -184,6 +193,7 @@ void UpdateCoordinator::handleUpdateReadyToInstall(const QString& taskFile) {
 }
 
 void UpdateCoordinator::handleUpdateFailed(const QString& error) {
+    if (view_) view_->hideUpdateProgress();
     if (checkingUpdateManually_ && view_) {
         view_->showUpdateWarningMessage(trMainWindow("Update Failed"), error);
     }
@@ -246,7 +256,7 @@ void UpdateCoordinator::startSilentUpdate() {
                                 pendingUpdateInfo_.latestVersion);
 
     if (view_) {
-        view_->showUpdateProgress(updateManager_);
+        view_->showUpdateProgress([this] { updateManager_->cancelUpdate(); });
     }
 }
 

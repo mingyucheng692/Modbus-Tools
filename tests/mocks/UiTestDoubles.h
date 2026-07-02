@@ -93,9 +93,17 @@ public:
         ++promptUpdateActionCallCount;
         return promptChoice;
     }
-    void showUpdateProgress(core::update::UpdateManager* updateManager) override {
-        lastProgressUpdateManager = updateManager;
+    void showUpdateProgress(std::function<void()> onCancel) override {
+        lastCancelCallback = std::move(onCancel);
         ++showUpdateProgressCallCount;
+    }
+    void updateProgress(int percent, const QString& message) override {
+        lastProgressPercent = percent;
+        lastProgressMessage = message;
+        ++updateProgressCallCount;
+    }
+    void hideUpdateProgress() override {
+        ++hideUpdateProgressCallCount;
     }
 
     bool navigationCollapsed = false;
@@ -113,6 +121,9 @@ public:
     bool confirmOpenDownloadPageResult = false;
     ui::application::UpdatePromptChoice promptChoice = ui::application::UpdatePromptChoice::Cancel;
     core::update::UpdateManager* lastProgressUpdateManager = nullptr;
+    std::function<void()> lastCancelCallback;
+    int lastProgressPercent = -1;
+    QString lastProgressMessage;
     QString lastInfoTitle;
     QString lastInfoMessage;
     QString lastWarningTitle;
@@ -139,6 +150,8 @@ public:
     int confirmOpenDownloadPageCallCount = 0;
     int promptUpdateActionCallCount = 0;
     int showUpdateProgressCallCount = 0;
+    int updateProgressCallCount = 0;
+    int hideUpdateProgressCallCount = 0;
 };
 
 class FakeUpdateChecker : public ui::common::UpdateChecker {

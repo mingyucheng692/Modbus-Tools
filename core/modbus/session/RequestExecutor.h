@@ -27,6 +27,7 @@
 #include <deque>
 #include <map>
 #include <chrono>
+#include <optional>
 
 namespace modbus::session {
 
@@ -117,6 +118,15 @@ private:
     [[nodiscard]] bool tryAcquireRequestLock();
 
     ModbusResponse sendRequestInternal(const base::Pdu& request, int slaveId);
+    // Handles an already-extracted frame: parseResponse -> validate -> return.
+    // Returns std::nullopt to signal "continue waiting" (Unmatched frame or
+    // originalFunctionCode mismatch); returns ModbusResponse for terminal outcomes.
+    // Caller must release mutex_ before invoking (parsing may block).
+    std::optional<ModbusResponse> handleParsedFrame(
+        const QByteArray& frame,
+        const base::Pdu& request,
+        int slaveId,
+        std::chrono::steady_clock::time_point start);
     ModbusResponse handleExceptionResponse(const base::Pdu& responsePdu, int slaveId,
                                            const base::Pdu& requestPdu);
     bool isRtuBroadcastRequest(int slaveId, base::FunctionCode functionCode) const;

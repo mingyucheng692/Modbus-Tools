@@ -16,6 +16,7 @@ class QWidget;
 
 namespace ui::widgets {
 class ControlWidget;
+class IConnectionWidget;
 }
 
 namespace ui::application::modbus {
@@ -26,6 +27,7 @@ class WorkerReleaseCoordinator;
 }
 
 namespace modbus::dispatch { class ModbusWorker; }
+namespace modbus::factory { class IModbusFactory; }
 
 namespace ui::application::modbus {
 
@@ -48,7 +50,9 @@ class ModbusSessionPresenter : public QObject {
     Q_OBJECT
 
 public:
-    explicit ModbusSessionPresenter(SessionMode mode, QObject* parent = nullptr);
+    explicit ModbusSessionPresenter(SessionMode mode,
+                                    ::modbus::factory::IModbusFactory* factory = nullptr,
+                                    QObject* parent = nullptr);
     ~ModbusSessionPresenter() noexcept override;
 
     void requestConnect(const ModbusConnectionSpec& spec);
@@ -70,7 +74,7 @@ public:
     void setTrafficLogController(TrafficLogController* controller);
     void setPollingController(PollingController* controller);
     void setRequestService(RequestSubmissionService* service);
-    void setConnectionWidget(QWidget* widget);
+    void setConnectionWidget(ui::widgets::IConnectionWidget* widget);
     void setControlWidget(ui::widgets::ControlWidget* widget);
 
     void setLinked(bool linked);
@@ -116,6 +120,7 @@ private:
     void maybeRunDeferredAction();
 
     SessionMode mode_;
+    ::modbus::factory::IModbusFactory* factory_ = nullptr; // optional injected factory; nullptr → create concrete ModbusFactory in initStack
     std::shared_ptr<io::IChannel> channel_;
     std::shared_ptr<::modbus::session::IModbusClient> client_;
     std::shared_ptr<::modbus::dispatch::ModbusWorker> worker_;
@@ -133,7 +138,7 @@ private:
     QPointer<TrafficLogController> trafficLogController_;
     QPointer<PollingController> pollingController_;
     QPointer<RequestSubmissionService> requestService_;
-    QPointer<QWidget> connectionWidget_;
+    ui::widgets::IConnectionWidget* connectionWidget_ = nullptr;
     QPointer<ui::widgets::ControlWidget> controlWidget_;
     std::unique_ptr<WorkerReleaseCoordinator> releaseCoordinator_;
     std::function<void()> deferredAction_;

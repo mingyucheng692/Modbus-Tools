@@ -104,6 +104,9 @@ target_sources(ui PRIVATE
     application/modbus/TrafficLogController.h
     application/modbus/ModbusSessionPresenter.cpp
     application/modbus/ModbusSessionPresenter.h
+    application/modbus/IModbusPageView.h
+    application/modbus/ModbusPagePresenter.cpp
+    application/modbus/ModbusPagePresenter.h
     application/modbus/ModbusTypes.h
     application/modbus/WorkerReleaseCoordinator.cpp
     application/modbus/WorkerReleaseCoordinator.h

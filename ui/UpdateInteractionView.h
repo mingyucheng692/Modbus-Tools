@@ -11,11 +11,11 @@
 
 #include "application/UpdateCoordinator.h"
 #include <QObject>
+#include <functional>
 
 class QAction;
 class QMenu;
-
-namespace core::update { class UpdateManager; }
+class QProgressDialog;
 
 namespace ui {
 
@@ -37,11 +37,14 @@ public:
     void showUpdateCriticalMessage(const QString& title, const QString& message) override;
     bool confirmOpenDownloadPage(const QString& latestVersion) override;
     application::UpdatePromptChoice promptUpdateAction(const QString& currentVersion, const QString& latestVersion) override;
-    void showUpdateProgress(core::update::UpdateManager* updateManager) override;
+    void showUpdateProgress(std::function<void()> onCancel) override;
+    void updateProgress(int percent, const QString& message) override;
+    void hideUpdateProgress() override;
 
 private:
     QAction* updateCheckAction_ = nullptr;
     QMenu* aboutMenu_ = nullptr;
+    QProgressDialog* progressDialog_ = nullptr;
 };
 
 } // namespace ui
