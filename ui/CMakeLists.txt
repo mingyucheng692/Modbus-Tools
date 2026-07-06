@@ -145,7 +145,6 @@ target_sources(ui PRIVATE
     widgets/TcpClientConnectionWidget.cpp
     widgets/TcpServerConnectionWidget.cpp
     widgets/UdpConnectionWidget.cpp
-    widgets/TcpConnectionWidget.cpp
     widgets/SerialConnectionWidget.cpp
     widgets/FunctionWidget.cpp
     widgets/ControlWidget.cpp

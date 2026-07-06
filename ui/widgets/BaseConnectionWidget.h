@@ -28,7 +28,7 @@ class CollapsibleSection;
 
 /**
  * @class BaseConnectionWidget
- * @brief Common base class for SerialConnectionWidget and TcpConnectionWidget.
+ * @brief Common base class for SerialConnectionWidget and NetworkConnectionWidget.
  *
  * Handles common behaviors such as collapsible section logic, auto-reconnect configurations,
  * settings group and settings loading/saving.
