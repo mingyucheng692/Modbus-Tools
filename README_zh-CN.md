@@ -120,6 +120,7 @@ app/    桌面程序入口
 - 当前 Modbus 协议能力仅覆盖 `master` 侧：`Modbus TCP master（client）` 与 `Modbus RTU master`
 - 通用网络调试能力与 Modbus 角色是两套功能：另有独立的 `TCP client`、`TCP server`、`UDP` 助手页面
 - 自动更新当前仅支持 `Windows`
+- 同时调试多条链路时，启动多个应用实例 —— 一实例一会话
 - 仓库优先关注运行时正确性、稳定性和可调试性，而不是功能堆叠
 - 软件按 `MIT` 许可证提供，定位仍然是开发与排障工具
 

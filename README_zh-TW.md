@@ -120,6 +120,7 @@ app/    桌面程式入口
 - 目前 Modbus 協定能力僅涵蓋 `master` 端：`Modbus TCP master（client）` 與 `Modbus RTU master`
 - 通用網路調試能力與 Modbus 角色是兩套功能：另有獨立的 `TCP client`、`TCP server`、`UDP` 助手頁面
 - 自動更新目前僅支援 `Windows`
+- 同時調試多條鏈路時，啟動多個應用實例 —— 一實例一工作階段
 - 倉庫優先關注執行期正確性、穩定性與可調試性，而不是功能堆疊
 - 軟體按 `MIT` 許可證提供，定位仍然是開發與排障工具
 

@@ -120,6 +120,7 @@ app/    desktop application entry point
 - Modbus protocol support is limited to `master` workflows: `Modbus TCP master (client)` and `Modbus RTU master`
 - Generic network tooling is separate from Modbus roles and supports `TCP client`, `TCP server`, and `UDP`
 - Auto-update is currently available only on `Windows`
+- To debug multiple links simultaneously, launch additional application instances — one session per process
 - This repository prioritizes runtime correctness, stability, and debuggability over feature breadth
 - The software is provided under the `MIT` license and remains intended for development and troubleshooting use
 
