@@ -4,7 +4,7 @@
 #include "PollingController.h"
 #include "TrafficLogController.h"
 #include "../../widgets/ControlWidget.h"
-#include "../../widgets/IConnectionWidget.h"
+#include "../../widgets/BaseConnectionWidget.h"
 #include "../../common/ConnectionAlert.h"
 #include "modbus/factory/ModbusFactory.h"
 #include "modbus/factory/IModbusFactory.h"
@@ -306,7 +306,7 @@ void ModbusSessionPresenter::setRequestService(RequestSubmissionService* service
     requestService_ = service;
 }
 
-void ModbusSessionPresenter::setConnectionWidget(ui::widgets::IConnectionWidget* widget) {
+void ModbusSessionPresenter::setConnectionWidget(ui::widgets::BaseConnectionWidget* widget) {
     assertGuiThread("setConnectionWidget must be called on the GUI thread");
     connectionWidget_ = widget;
     syncConnectionWidget(connectionStateMachine_->currentState());

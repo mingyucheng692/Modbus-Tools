@@ -16,7 +16,7 @@ class QWidget;
 
 namespace ui::widgets {
 class ControlWidget;
-class IConnectionWidget;
+class BaseConnectionWidget;
 }
 
 namespace ui::application::modbus {
@@ -74,7 +74,7 @@ public:
     void setTrafficLogController(TrafficLogController* controller);
     void setPollingController(PollingController* controller);
     void setRequestService(RequestSubmissionService* service);
-    void setConnectionWidget(ui::widgets::IConnectionWidget* widget);
+    void setConnectionWidget(ui::widgets::BaseConnectionWidget* widget);
     void setControlWidget(ui::widgets::ControlWidget* widget);
 
     void setLinked(bool linked);
@@ -138,7 +138,7 @@ private:
     QPointer<TrafficLogController> trafficLogController_;
     QPointer<PollingController> pollingController_;
     QPointer<RequestSubmissionService> requestService_;
-    ui::widgets::IConnectionWidget* connectionWidget_ = nullptr;
+    ui::widgets::BaseConnectionWidget* connectionWidget_ = nullptr;
     QPointer<ui::widgets::ControlWidget> controlWidget_;
     std::unique_ptr<WorkerReleaseCoordinator> releaseCoordinator_;
     std::function<void()> deferredAction_;

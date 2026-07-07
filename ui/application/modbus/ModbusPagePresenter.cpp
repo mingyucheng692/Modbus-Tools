@@ -13,14 +13,15 @@
 #include "PollingController.h"
 #include "TrafficLogController.h"
 #include "RequestCoordinator.h"
-#include "../../widgets/IConnectionWidget.h"
+#include "../../widgets/BaseConnectionWidget.h"
 #include "../../widgets/ControlWidget.h"
 #include "../../widgets/FunctionWidget.h"
 #include "../../widgets/TrafficMonitorWidget.h"
+#include "../../views/BaseModbusPage.h"
 
 namespace ui::application::modbus {
 
-ModbusPagePresenter::ModbusPagePresenter(IModbusPageView* view,
+ModbusPagePresenter::ModbusPagePresenter(ui::views::BaseModbusPage* view,
                                          SessionMode mode,
                                          QObject* parent)
     : QObject(parent),
@@ -30,7 +31,7 @@ ModbusPagePresenter::ModbusPagePresenter(IModbusPageView* view,
 
 ModbusPagePresenter::~ModbusPagePresenter() noexcept = default;
 
-void ModbusPagePresenter::setup(ui::widgets::IConnectionWidget* connectionWidget,
+void ModbusPagePresenter::setup(ui::widgets::BaseConnectionWidget* connectionWidget,
                                 ui::widgets::ControlWidget* controlWidget,
                                 ui::widgets::FunctionWidget* functionWidget,
                                 ui::widgets::TrafficMonitorWidget* trafficMonitor) {

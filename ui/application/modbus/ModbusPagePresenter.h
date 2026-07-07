@@ -10,15 +10,16 @@
 #pragma once
 
 #include <QObject>
-#include "IModbusPageView.h"
 #include "ModbusTypes.h"
 
 namespace ui::widgets {
-class IConnectionWidget;
+class BaseConnectionWidget;
 class ControlWidget;
 class FunctionWidget;
 class TrafficMonitorWidget;
 }
+
+namespace ui::views { class BaseModbusPage; }
 
 namespace ui::application::modbus {
 
@@ -43,14 +44,14 @@ class ModbusPagePresenter : public QObject {
     Q_OBJECT
 
 public:
-    explicit ModbusPagePresenter(IModbusPageView* view,
+    explicit ModbusPagePresenter(ui::views::BaseModbusPage* view,
                                  SessionMode mode,
                                  QObject* parent = nullptr);
     ~ModbusPagePresenter() noexcept override;
 
     /// Creates backend services and wires them to the provided widgets.
     /// Must be called exactly once after the View has created its widgets.
-    void setup(ui::widgets::IConnectionWidget* connectionWidget,
+    void setup(ui::widgets::BaseConnectionWidget* connectionWidget,
                ui::widgets::ControlWidget* controlWidget,
                ui::widgets::FunctionWidget* functionWidget,
                ui::widgets::TrafficMonitorWidget* trafficMonitor);
@@ -77,7 +78,7 @@ signals:
 private:
     void wireConnections();
 
-    IModbusPageView* view_ = nullptr;
+    ui::views::BaseModbusPage* view_ = nullptr;
     SessionMode mode_;
 
     ModbusSessionPresenter* sessionPresenter_ = nullptr;

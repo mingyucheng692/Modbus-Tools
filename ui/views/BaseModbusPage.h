@@ -15,7 +15,6 @@
 #include <cstdint>
 #include "modbus/base/ModbusFrame.h"
 #include "modbus/parser/ModbusFrameParser.h"
-#include "../application/modbus/IModbusPageView.h"
 #include "../application/modbus/ModbusTypes.h"
 #include "../application/modbus/ModbusSessionPresenter.h"
 
@@ -47,12 +46,11 @@ namespace ui::views {
  * @class BaseModbusPage
  * @brief Common base class for ModbusRtuPage and ModbusTcpPage.
  *
- * Implements IModbusPageView and delegates backend service ownership and
- * signal routing to ModbusPagePresenter (ADR 0004 MVP pattern). The View
- * is responsible only for UI layout, rendering, and user input.
+ * Delegates backend service ownership and signal routing to
+ * ModbusPagePresenter (ADR 0004 MVP pattern). The View is responsible
+ * only for UI layout, rendering, and user input.
  */
-class BaseModbusPage : public QWidget,
-                      public ui::application::modbus::IModbusPageView {
+class BaseModbusPage : public QWidget {
     Q_OBJECT
 
 public:
@@ -65,8 +63,7 @@ public:
     void setLinked(bool linked);
     [[nodiscard]] bool isLinked() const;
 
-    // IModbusPageView
-    void appendTrafficData(bool isTx, const QByteArray& data) override;
+    void appendTrafficData(bool isTx, const QByteArray& data);
 
 signals:
 

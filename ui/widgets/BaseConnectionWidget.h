@@ -11,7 +11,6 @@
 
 #include <QWidget>
 #include <QString>
-#include "IConnectionWidget.h"
 
 class QCheckBox;
 class QSpinBox;
@@ -27,13 +26,26 @@ namespace ui::widgets {
 class CollapsibleSection;
 
 /**
+ * @brief Connection display states shared by all connection widget implementations.
+ */
+enum class DisplayState {
+    Disconnected = 0,
+    Connecting,
+    TransportConnected,
+    Connected,
+    Disconnecting,
+    Listening,
+    Bound
+};
+
+/**
  * @class BaseConnectionWidget
  * @brief Common base class for SerialConnectionWidget and NetworkConnectionWidget.
  *
  * Handles common behaviors such as collapsible section logic, auto-reconnect configurations,
  * settings group and settings loading/saving.
  */
-class BaseConnectionWidget : public QWidget, public IConnectionWidget {
+class BaseConnectionWidget : public QWidget {
     Q_OBJECT
 
 public:
@@ -65,7 +77,7 @@ signals:
 
 public slots:
     virtual void setConnected(bool connected) = 0;
-    void setDisplayState(DisplayState state) override;
+    void setDisplayState(DisplayState state);
 
 protected:
     virtual void loadSettings() = 0;
