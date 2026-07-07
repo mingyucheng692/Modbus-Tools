@@ -20,13 +20,17 @@ class SerialConnectionWidget;
 class QCheckBox;
 class QGroupBox;
 
+namespace core::common {
+class ISettingsService;
+}
+
 namespace ui::views::generic_serial {
 
 class GenericSerialView : public GenericChannelViewBase {
     Q_OBJECT
 
 public:
-    explicit GenericSerialView(ui::common::ISettingsService* settingsService, QWidget *parent = nullptr);
+    explicit GenericSerialView(core::common::ISettingsService* settingsService, QWidget *parent = nullptr);
     ~GenericSerialView() noexcept override;
 
 private slots:

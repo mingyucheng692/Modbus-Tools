@@ -17,7 +17,7 @@ class QGroupBox;
 class QEvent;
 class QString;
 
-namespace ui::common {
+namespace core::common {
 class ISettingsService;
 }
 
@@ -27,7 +27,7 @@ class CollapsibleSection : public QWidget {
     Q_OBJECT
 
 public:
-    explicit CollapsibleSection(ui::common::ISettingsService* settingsService, QWidget* parent = nullptr);
+    explicit CollapsibleSection(core::common::ISettingsService* settingsService, QWidget* parent = nullptr);
     QWidget* contentWidget() const;
     void setTitle(const QString& title);
     void setExpanded(bool expanded);
@@ -50,7 +50,7 @@ private:
     QGroupBox* bodyGroup_ = nullptr;
     QWidget* contentContainer_ = nullptr;
     QString settingsKey_;
-    ui::common::ISettingsService* settingsService_ = nullptr;
+    core::common::ISettingsService* settingsService_ = nullptr;
     bool expanded_ = true;
 };
 

@@ -29,6 +29,10 @@ class ServerClientPanel;
 
 class QThread;
 
+namespace core::common {
+class ISettingsService;
+}
+
 namespace ui::views::generic_tcp {
 
 class GenericTcpView : public GenericChannelViewBase {
@@ -42,7 +46,7 @@ public:
     };
     Q_ENUM(Protocol)
 
-    explicit GenericTcpView(ui::common::ISettingsService* settingsService, QWidget *parent = nullptr);
+    explicit GenericTcpView(core::common::ISettingsService* settingsService, QWidget *parent = nullptr);
     ~GenericTcpView() noexcept override;
 
 protected:

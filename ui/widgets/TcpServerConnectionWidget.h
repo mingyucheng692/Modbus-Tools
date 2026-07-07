@@ -11,6 +11,10 @@
 
 #include "NetworkConnectionWidget.h"
 
+namespace core::common {
+class ISettingsService;
+}
+
 namespace ui::widgets {
 
 class TcpServerConnectionWidget : public NetworkConnectionWidget {
@@ -19,7 +23,7 @@ class TcpServerConnectionWidget : public NetworkConnectionWidget {
 public:
     using DisplayState = BaseConnectionWidget::DisplayState;
 
-    explicit TcpServerConnectionWidget(ui::common::ISettingsService* settingsService, QWidget* parent = nullptr);
+    explicit TcpServerConnectionWidget(core::common::ISettingsService* settingsService, QWidget* parent = nullptr);
     ~TcpServerConnectionWidget() override;
 
 signals:

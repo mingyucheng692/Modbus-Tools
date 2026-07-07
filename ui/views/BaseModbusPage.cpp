@@ -9,7 +9,7 @@
 
 #include "BaseModbusPage.h"
 #include "AppConstants.h"
-#include "../common/ISettingsService.h"
+#include "../../core/common/ISettingsService.h"
 #include "../application/modbus/ModbusPagePresenter.h"
 #include "../widgets/BaseConnectionWidget.h"
 #include "../widgets/FunctionWidget.h"
@@ -31,7 +31,7 @@
 namespace ui::views {
 
 BaseModbusPage::BaseModbusPage(ui::application::modbus::SessionMode mode,
-                               ui::common::ISettingsService* settingsService,
+                               core::common::ISettingsService* settingsService,
                                QWidget* parent)
     : QWidget(parent),
       settingsService_(settingsService),

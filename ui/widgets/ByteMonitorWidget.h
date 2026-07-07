@@ -28,7 +28,7 @@ class QButtonGroup;
 class QTimer;
 class QEvent;
 
-namespace ui::common {
+namespace core::common {
 class ISettingsService;
 }
 
@@ -43,7 +43,7 @@ class ByteMonitorWidget : public QWidget {
     Q_OBJECT
 
 public:
-    explicit ByteMonitorWidget(ui::common::ISettingsService* settingsService, QWidget* parent = nullptr);
+    explicit ByteMonitorWidget(core::common::ISettingsService* settingsService, QWidget* parent = nullptr);
     ~ByteMonitorWidget() override;
 
     void appendTx(const QByteArray& data);
@@ -133,7 +133,7 @@ private:
     TimestampFormat timestampFormat_ = TimestampFormat::Absolute;
     bool paused_ = false;
     QString settingsGroup_;
-    ui::common::ISettingsService* settingsService_ = nullptr;
+    core::common::ISettingsService* settingsService_ = nullptr;
 };
 
 } // namespace ui::widgets

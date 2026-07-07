@@ -9,7 +9,7 @@
 
 #include "GenericSerialView.h"
 #include "AppConstants.h"
-#include "../../common/ISettingsService.h"
+#include "../../../core/common/ISettingsService.h"
 #include "../../widgets/SerialConnectionWidget.h"
 #include "../../widgets/ByteMonitorWidget.h"
 #include "../../widgets/GenericInputWidget.h"
@@ -27,7 +27,7 @@
 
 namespace ui::views::generic_serial {
 
-GenericSerialView::GenericSerialView(ui::common::ISettingsService* settingsService, QWidget *parent)
+GenericSerialView::GenericSerialView(core::common::ISettingsService* settingsService, QWidget *parent)
     : GenericChannelViewBase(settingsService, parent) {
     setupUi();
     startWorker();

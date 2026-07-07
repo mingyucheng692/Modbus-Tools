@@ -9,7 +9,7 @@
 
 #include "GenericTcpView.h"
 #include "AppConstants.h"
-#include "../../common/ISettingsService.h"
+#include "../../../core/common/ISettingsService.h"
 #include "../../widgets/TcpClientConnectionWidget.h"
 #include "../../widgets/TcpServerConnectionWidget.h"
 #include "../../widgets/UdpConnectionWidget.h"
@@ -60,7 +60,7 @@ void populateProtocolOptions(QComboBox* combo) {
 
 } // namespace
 
-GenericTcpView::GenericTcpView(ui::common::ISettingsService* settingsService, QWidget *parent)
+GenericTcpView::GenericTcpView(core::common::ISettingsService* settingsService, QWidget *parent)
     : GenericChannelViewBase(settingsService, parent) {
     setupUi();
     startWorker();

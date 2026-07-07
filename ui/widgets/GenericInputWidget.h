@@ -22,7 +22,7 @@ class QProgressBar;
 class QEvent;
 class QString;
 
-namespace ui::common {
+namespace core::common {
 class ISettingsService;
 }
 
@@ -32,7 +32,7 @@ class GenericInputWidget : public QWidget {
     Q_OBJECT
 
 public:
-    explicit GenericInputWidget(ui::common::ISettingsService* settingsService, QWidget *parent = nullptr);
+    explicit GenericInputWidget(core::common::ISettingsService* settingsService, QWidget *parent = nullptr);
     ~GenericInputWidget() override;
 
     void setSettingsGroup(const QString& group);
@@ -81,7 +81,7 @@ private:
 
     QTimer* autoSendTimer_ = nullptr;
     QString settingsGroup_;
-    ui::common::ISettingsService* settingsService_ = nullptr;
+    core::common::ISettingsService* settingsService_ = nullptr;
 };
 
 } // namespace ui::widgets

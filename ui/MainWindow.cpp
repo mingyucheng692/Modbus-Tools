@@ -30,7 +30,7 @@
 #include "common/SettingsKeys.h"
 #include "common/ThemeController.h"
 #include "common/UpdateChecker.h"
-#include "common/ISettingsService.h"
+#include "../core/common/ISettingsService.h"
 #include "../core/update/UpdateManager.h"
 #include "../core/common/SettingsController.h"
 #include <QStackedWidget>
@@ -79,7 +79,7 @@ namespace ui {
 struct MainWindowBusinessContext {
     MainWindowBusinessContext(MainWindow* view,
                               application::IUpdateInteractionView* updateView,
-                              common::ISettingsService* settingsService)
+                              core::common::ISettingsService* settingsService)
         : settingsController(std::make_unique<core::common::SettingsController>(settingsService, view)),
           updateChecker(std::make_unique<common::UpdateChecker>(view)),
           updateManager(std::make_unique<core::update::UpdateManager>(view)),
@@ -105,11 +105,11 @@ struct MainWindowBusinessContext {
     std::unique_ptr<application::UpdateCoordinator> updateCoordinator;
     std::unique_ptr<application::AppLifecycleCoordinator> appLifecycleCoordinator;
     // Original UI-layer pointer retained for UI-side builders that expect
-    // ui::common::ISettingsService* (a subclass of core::common::ISettingsService).
-    common::ISettingsService* settingsService = nullptr;
+    // the settings service interface.
+    core::common::ISettingsService* settingsService = nullptr;
 };
 
-MainWindow::MainWindow(common::ISettingsService* settingsService,
+MainWindow::MainWindow(core::common::ISettingsService* settingsService,
                        common::ThemeController* themeController,
                        QWidget *parent)
     : QMainWindow(parent),

@@ -14,7 +14,7 @@
 
 namespace ui::views::modbus_tcp {
 
-ModbusTcpPage::ModbusTcpPage(ui::common::ISettingsService* settingsService, QWidget *parent)
+ModbusTcpPage::ModbusTcpPage(core::common::ISettingsService* settingsService, QWidget *parent)
     : BaseModbusPage(ui::application::modbus::SessionMode::Tcp, settingsService, parent) {
     
     auto* connWidget = new widgets::TcpClientConnectionWidget(settingsService_, this);

@@ -11,13 +11,17 @@
 
 #include "../BaseModbusPage.h"
 
+namespace core::common {
+class ISettingsService;
+}
+
 namespace ui::views::modbus_tcp {
 
 class ModbusTcpPage : public BaseModbusPage {
     Q_OBJECT
 
 public:
-    explicit ModbusTcpPage(ui::common::ISettingsService* settingsService, QWidget *parent = nullptr);
+    explicit ModbusTcpPage(core::common::ISettingsService* settingsService, QWidget *parent = nullptr);
     ~ModbusTcpPage() noexcept override;
 
 private slots:

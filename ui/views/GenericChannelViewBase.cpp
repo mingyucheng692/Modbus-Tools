@@ -8,7 +8,7 @@
  */
 
 #include "GenericChannelViewBase.h"
-#include "../common/ISettingsService.h"
+#include "../../core/common/ISettingsService.h"
 #include "../widgets/BaseConnectionWidget.h"
 #include "../widgets/ByteMonitorWidget.h"
 #include "../widgets/GenericInputWidget.h"
@@ -22,7 +22,7 @@
 
 namespace ui::views {
 
-GenericChannelViewBase::GenericChannelViewBase(ui::common::ISettingsService* settingsService, QWidget* parent)
+GenericChannelViewBase::GenericChannelViewBase(core::common::ISettingsService* settingsService, QWidget* parent)
     : QWidget(parent),
       settingsService_(settingsService) {
 }

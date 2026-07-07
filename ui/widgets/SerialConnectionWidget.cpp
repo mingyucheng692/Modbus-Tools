@@ -10,7 +10,7 @@
 #include "SerialConnectionWidget.h"
 #include "AppConstants.h"
 #include "CollapsibleSection.h"
-#include "../common/ISettingsService.h"
+#include "../../core/common/ISettingsService.h"
 #include <QCoreApplication>
 #include <QHBoxLayout>
 #include <QVBoxLayout>
@@ -107,7 +107,7 @@ bool usesDisconnectAction(SerialConnectionWidget::DisplayState state)
 
 } // namespace
 
-SerialConnectionWidget::SerialConnectionWidget(ui::common::ISettingsService* settingsService, QWidget *parent)
+SerialConnectionWidget::SerialConnectionWidget(core::common::ISettingsService* settingsService, QWidget *parent)
     : BaseConnectionWidget(settingsService, parent) {
     settingsGroup_ = QStringLiteral("serial");
     setupUi();

@@ -9,7 +9,7 @@
 
 #include "FrameAnalyzerWidget.h"
 #include "AppConstants.h"
-#include "../common/ISettingsService.h"
+#include "../../core/common/ISettingsService.h"
 #include "../common/SettingsKeys.h"
 #include "modbus/base/ModbusDataHelper.h"
 #include "modbus/base/ModbusProtocolChecks.h"
@@ -131,7 +131,7 @@ public:
     modbus::base::RegisterOrder registerOrder = modbus::base::RegisterOrder::ABCD;
 
     // Service
-    ui::common::ISettingsService* settingsService = nullptr;
+    core::common::ISettingsService* settingsService = nullptr;
     
     // Live Link UI
     QLabel* liveLabel = nullptr;
@@ -245,7 +245,7 @@ void FrameAnalyzerWidget::FrameAnalyzerWidgetPrivate::addToHistory(const modbus:
 
 // --- FrameAnalyzerWidget Implementation ---
 
-FrameAnalyzerWidget::FrameAnalyzerWidget(ui::common::ISettingsService* settingsService, QWidget* parent)
+FrameAnalyzerWidget::FrameAnalyzerWidget(core::common::ISettingsService* settingsService, QWidget* parent)
     : QWidget(parent)
     , d_ptr(new FrameAnalyzerWidgetPrivate(this))
 {

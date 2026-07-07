@@ -15,6 +15,10 @@ class QLineEdit;
 class QSpinBox;
 class QLabel;
 
+namespace core::common {
+class ISettingsService;
+}
+
 namespace ui::widgets {
 
 class UdpConnectionWidget : public NetworkConnectionWidget {
@@ -23,7 +27,7 @@ class UdpConnectionWidget : public NetworkConnectionWidget {
 public:
     using DisplayState = BaseConnectionWidget::DisplayState;
 
-    explicit UdpConnectionWidget(ui::common::ISettingsService* settingsService, QWidget* parent = nullptr);
+    explicit UdpConnectionWidget(core::common::ISettingsService* settingsService, QWidget* parent = nullptr);
     ~UdpConnectionWidget() override;
 
 signals:

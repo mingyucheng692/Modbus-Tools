@@ -25,7 +25,7 @@ class QTextEdit;
 class QPushButton;
 class QEvent;
 
-namespace ui::common {
+namespace core::common {
 class ISettingsService;
 }
 
@@ -57,7 +57,7 @@ class BaseModbusPage : public QWidget,
 
 public:
     explicit BaseModbusPage(ui::application::modbus::SessionMode mode,
-                            ui::common::ISettingsService* settingsService,
+                            core::common::ISettingsService* settingsService,
                             QWidget* parent = nullptr);
     ~BaseModbusPage() noexcept override;
 
@@ -108,7 +108,7 @@ protected:
     // Kept for subclass access (requestConnect / requestDisconnect).
     ui::application::modbus::ModbusSessionPresenter* sessionPresenter_ = nullptr;
 
-    ui::common::ISettingsService* settingsService_ = nullptr;
+    core::common::ISettingsService* settingsService_ = nullptr;
     ui::application::modbus::SessionMode sessionMode_;
 
 private:

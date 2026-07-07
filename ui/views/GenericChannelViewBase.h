@@ -29,7 +29,7 @@ class BaseConnectionWidget;
 class QThread;
 class QEvent;
 
-namespace ui::common {
+namespace core::common {
 class ISettingsService;
 }
 
@@ -46,7 +46,7 @@ class GenericChannelViewBase : public QWidget {
     Q_OBJECT
 
 public:
-    explicit GenericChannelViewBase(ui::common::ISettingsService* settingsService, QWidget* parent = nullptr);
+    explicit GenericChannelViewBase(core::common::ISettingsService* settingsService, QWidget* parent = nullptr);
     ~GenericChannelViewBase() noexcept override;
 
 protected slots:
@@ -77,7 +77,7 @@ protected:
     QThread* workerThread_ = nullptr;
     bool isConnected_ = false;
     int lastLoggedFileTransferPct_ = -1;
-    ui::common::ISettingsService* settingsService_ = nullptr;
+    core::common::ISettingsService* settingsService_ = nullptr;
 
     io::ReconnectPolicy reconnectPolicy_;
     QTimer* reconnectTimer_ = nullptr;

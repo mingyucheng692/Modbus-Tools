@@ -9,7 +9,7 @@
  */
 
 #include "TcpServerConnectionWidget.h"
-#include "../common/ISettingsService.h"
+#include "../../core/common/ISettingsService.h"
 #include <QLabel>
 #include <QPushButton>
 #include <QLineEdit>
@@ -18,7 +18,7 @@
 
 namespace ui::widgets {
 
-TcpServerConnectionWidget::TcpServerConnectionWidget(ui::common::ISettingsService* settingsService, QWidget* parent)
+TcpServerConnectionWidget::TcpServerConnectionWidget(core::common::ISettingsService* settingsService, QWidget* parent)
     : NetworkConnectionWidget(settingsService, parent) {
     setupNetworkUi();
 }

@@ -9,7 +9,7 @@
 
 #include "ByteMonitorWidget.h"
 #include "AppConstants.h"
-#include "../common/ISettingsService.h"
+#include "../../core/common/ISettingsService.h"
 #include <QVBoxLayout>
 #include <QHBoxLayout>
 #include <QListView>
@@ -44,7 +44,7 @@ QColor colorForWarn() { return QColor(255, 140, 0); }
 
 } // anonymous namespace
 
-ByteMonitorWidget::ByteMonitorWidget(ui::common::ISettingsService* settingsService, QWidget* parent)
+ByteMonitorWidget::ByteMonitorWidget(core::common::ISettingsService* settingsService, QWidget* parent)
     : QWidget(parent),
       settingsService_(settingsService) {
     elapsedTimer_.start();

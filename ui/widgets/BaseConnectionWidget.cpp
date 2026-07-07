@@ -9,7 +9,7 @@
 
 #include "BaseConnectionWidget.h"
 #include "CollapsibleSection.h"
-#include "../common/ISettingsService.h"
+#include "../../core/common/ISettingsService.h"
 #include <QCheckBox>
 #include <QSpinBox>
 #include <QPushButton>
@@ -18,7 +18,7 @@
 
 namespace ui::widgets {
 
-BaseConnectionWidget::BaseConnectionWidget(ui::common::ISettingsService* settingsService, QWidget* parent)
+BaseConnectionWidget::BaseConnectionWidget(core::common::ISettingsService* settingsService, QWidget* parent)
     : QWidget(parent),
       settingsService_(settingsService) {
 }

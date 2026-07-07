@@ -12,7 +12,7 @@
 #include "UdpConnectionWidget.h"
 #include "AppConstants.h"
 #include "CollapsibleSection.h"
-#include "../common/ISettingsService.h"
+#include "../../core/common/ISettingsService.h"
 #include <QHBoxLayout>
 #include <QBoxLayout>
 #include <QLabel>
@@ -25,7 +25,7 @@
 
 namespace ui::widgets {
 
-UdpConnectionWidget::UdpConnectionWidget(ui::common::ISettingsService* settingsService, QWidget* parent)
+UdpConnectionWidget::UdpConnectionWidget(core::common::ISettingsService* settingsService, QWidget* parent)
     : NetworkConnectionWidget(settingsService, parent) {
     // UDP needs extra remote-address controls inserted before the common
     // widgets (autoReconnect, connectBtn, etc.). We do this before calling

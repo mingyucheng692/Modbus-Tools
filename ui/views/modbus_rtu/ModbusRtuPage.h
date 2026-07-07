@@ -11,13 +11,17 @@
 
 #include "../BaseModbusPage.h"
 
+namespace core::common {
+class ISettingsService;
+}
+
 namespace ui::views::modbus_rtu {
 
 class ModbusRtuPage : public BaseModbusPage {
     Q_OBJECT
 
 public:
-    explicit ModbusRtuPage(ui::common::ISettingsService* settingsService, QWidget *parent = nullptr);
+    explicit ModbusRtuPage(core::common::ISettingsService* settingsService, QWidget *parent = nullptr);
     ~ModbusRtuPage() noexcept override;
 
 private slots:

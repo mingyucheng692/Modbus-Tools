@@ -9,7 +9,7 @@
 
 #include "ControlWidget.h"
 #include "AppConstants.h"
-#include "../common/ISettingsService.h"
+#include "../../core/common/ISettingsService.h"
 #include <QHBoxLayout>
 #include <QLabel>
 #include <QCheckBox>
@@ -28,7 +28,7 @@
 
 namespace ui::widgets {
 
-ControlWidget::ControlWidget(ui::common::ISettingsService* settingsService, QWidget *parent)
+ControlWidget::ControlWidget(core::common::ISettingsService* settingsService, QWidget *parent)
     : QWidget(parent),
       settingsService_(settingsService) {
     setupUi();

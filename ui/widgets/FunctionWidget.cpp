@@ -13,7 +13,7 @@
 #include "modbus/base/ModbusDataHelper.h"
 #include "modbus/base/ModbusCrc.h"
 #include "modbus/base/ModbusLrc.h"
-#include "../common/ISettingsService.h"
+#include "../../core/common/ISettingsService.h"
 #include <QVBoxLayout>
 #include <QHBoxLayout>
 #include <QGridLayout>
@@ -47,7 +47,7 @@ bool showsMbapHelper(ui::application::modbus::TransportUiMode mode) {
 
 } // namespace
 
-FunctionWidget::FunctionWidget(ui::common::ISettingsService* settingsService, QWidget *parent)
+FunctionWidget::FunctionWidget(core::common::ISettingsService* settingsService, QWidget *parent)
     : QWidget(parent),
       settingsService_(settingsService) {
     setupUi();

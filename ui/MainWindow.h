@@ -25,13 +25,14 @@ class QObject;
 class QWidget;
 class QToolButton;
 
+namespace core::common { class ISettingsService; }
+
 namespace ui {
 namespace views::modbus_tcp { class ModbusTcpPage; }
 namespace views::modbus_rtu { class ModbusRtuPage; }
 namespace views::modbus_ascii { class ModbusAsciiPage; }
 namespace widgets { class FrameAnalyzerWidget; }
 namespace common { class ThemeController; }
-namespace common { class ISettingsService; }
 namespace common { class CompactMenuBarStyle; }
 namespace shell { class NavigationController; }
 class UpdateInteractionView;
@@ -42,7 +43,7 @@ class MainWindow : public QMainWindow,
     Q_OBJECT
 
 public:
-    explicit MainWindow(common::ISettingsService* settingsService,
+    explicit MainWindow(core::common::ISettingsService* settingsService,
                         common::ThemeController* themeController,
                         QWidget *parent = nullptr);
     ~MainWindow() override;

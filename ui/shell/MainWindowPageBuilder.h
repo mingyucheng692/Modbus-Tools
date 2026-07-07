@@ -6,7 +6,7 @@
 class QStackedWidget;
 class QWidget;
 
-namespace ui::common {
+namespace core::common {
 class ISettingsService;
 }
 
@@ -52,12 +52,12 @@ struct MainWindowPages {
 
 class MainWindowPageBuilder final {
 public:
-    explicit MainWindowPageBuilder(common::ISettingsService* settingsService);
+    explicit MainWindowPageBuilder(core::common::ISettingsService* settingsService);
 
     [[nodiscard]] MainWindowPages build(QStackedWidget* stackedWidget, QWidget* owner) const;
 
 private:
-    common::ISettingsService* settingsService_ = nullptr;
+    core::common::ISettingsService* settingsService_ = nullptr;
 };
 
 } // namespace ui

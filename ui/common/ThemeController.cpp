@@ -78,7 +78,7 @@ namespace ui::common {
 
 // --- Constructor & state management (formerly ThemeController.cpp + QtThemeRuntime.cpp) ---
 
-ThemeController::ThemeController(ISettingsService& settingsService, QObject* parent)
+ThemeController::ThemeController(::core::common::ISettingsService& settingsService, QObject* parent)
     : QObject(parent),
       settingsService_(settingsService),
       currentMode_(Theme::modeFromSetting(settingsService_.value(settings_keys::kAppThemeMode).toString())) {

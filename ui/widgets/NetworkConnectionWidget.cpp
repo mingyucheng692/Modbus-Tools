@@ -9,7 +9,7 @@
 
 #include "NetworkConnectionWidget.h"
 #include "CollapsibleSection.h"
-#include "../common/ISettingsService.h"
+#include "../../core/common/ISettingsService.h"
 #include <QHBoxLayout>
 #include <QLabel>
 #include <QLineEdit>
@@ -22,7 +22,7 @@
 
 namespace ui::widgets {
 
-NetworkConnectionWidget::NetworkConnectionWidget(ui::common::ISettingsService* settingsService, QWidget* parent)
+NetworkConnectionWidget::NetworkConnectionWidget(core::common::ISettingsService* settingsService, QWidget* parent)
     : BaseConnectionWidget(settingsService, parent) {
 }
 

@@ -14,7 +14,7 @@
 
 namespace ui::views::modbus_rtu {
 
-ModbusRtuPage::ModbusRtuPage(ui::common::ISettingsService* settingsService, QWidget *parent)
+ModbusRtuPage::ModbusRtuPage(core::common::ISettingsService* settingsService, QWidget *parent)
     : BaseModbusPage(ui::application::modbus::SessionMode::Rtu, settingsService, parent) {
     
     auto* connWidget = new widgets::SerialConnectionWidget(settingsService_, this);

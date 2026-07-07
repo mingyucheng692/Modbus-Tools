@@ -1,13 +1,13 @@
 #include "ModbusAsciiPage.h"
 
-#include "../../common/ISettingsService.h"
+#include "../../../core/common/ISettingsService.h"
 #include "../../widgets/FunctionWidget.h"
 #include "../../widgets/SerialConnectionWidget.h"
 #include <spdlog/spdlog.h>
 
 namespace {
 
-void initializeAsciiSerialDefaults(ui::common::ISettingsService* settingsService)
+void initializeAsciiSerialDefaults(core::common::ISettingsService* settingsService)
 {
     if (!settingsService) {
         return;
@@ -30,7 +30,7 @@ void initializeAsciiSerialDefaults(ui::common::ISettingsService* settingsService
 
 namespace ui::views::modbus_ascii {
 
-ModbusAsciiPage::ModbusAsciiPage(ui::common::ISettingsService* settingsService, QWidget* parent)
+ModbusAsciiPage::ModbusAsciiPage(core::common::ISettingsService* settingsService, QWidget* parent)
     : BaseModbusPage(ui::application::modbus::SessionMode::Ascii, settingsService, parent)
 {
     initializeAsciiSerialDefaults(settingsService_);

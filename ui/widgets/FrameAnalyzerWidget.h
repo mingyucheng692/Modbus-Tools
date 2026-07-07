@@ -15,7 +15,7 @@
 #include "modbus/base/ModbusFrame.h"
 #include "modbus/parser/ModbusFrameParser.h"
 
-namespace ui::common {
+namespace core::common {
 class ISettingsService;
 }
 
@@ -27,7 +27,7 @@ class FrameAnalyzerWidget : public QWidget {
     Q_DECLARE_PRIVATE(FrameAnalyzerWidget)
 
 public:
-    explicit FrameAnalyzerWidget(ui::common::ISettingsService* settingsService, QWidget* parent = nullptr);
+    explicit FrameAnalyzerWidget(core::common::ISettingsService* settingsService, QWidget* parent = nullptr);
     ~FrameAnalyzerWidget() override;
 
     /**

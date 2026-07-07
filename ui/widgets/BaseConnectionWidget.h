@@ -19,7 +19,7 @@ class QLabel;
 class QPushButton;
 class QEvent;
 
-namespace ui::common {
+namespace core::common {
 class ISettingsService;
 }
 
@@ -39,7 +39,7 @@ class BaseConnectionWidget : public QWidget, public IConnectionWidget {
 public:
     using DisplayState = ui::widgets::DisplayState;
 
-    explicit BaseConnectionWidget(ui::common::ISettingsService* settingsService, QWidget* parent = nullptr);
+    explicit BaseConnectionWidget(core::common::ISettingsService* settingsService, QWidget* parent = nullptr);
     ~BaseConnectionWidget() override;
 
     /**
@@ -79,7 +79,7 @@ protected:
 
     virtual void applyDisplayState() = 0;
 
-    ui::common::ISettingsService* settingsService_ = nullptr;
+    core::common::ISettingsService* settingsService_ = nullptr;
     QString settingsGroup_;
 
     CollapsibleSection* section_ = nullptr;

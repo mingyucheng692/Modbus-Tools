@@ -10,7 +10,7 @@
 #pragma once
 
 #include "IAppConfig.h"
-#include "ISettingsService.h"
+#include "../../core/common/ISettingsService.h"
 
 #include <QObject>
 #include <QHash>
@@ -21,7 +21,7 @@ class QTimer;
 
 namespace ui::common {
 
-class SettingsService : public QObject, public ui::common::ISettingsService {
+class SettingsService : public QObject, public ::core::common::ISettingsService {
     Q_OBJECT
 
 public:
