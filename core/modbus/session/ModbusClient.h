@@ -13,7 +13,6 @@
 #include "IModbusClient.h"
 #include "RequestValidator.h"
 #include "FrameExtractor.h"
-#include "BackoffCalculator.h"
 #include "RetryStrategy.h"
 #include "ConnectionStateMachine.h"
 #include "RequestStateMachine.h"

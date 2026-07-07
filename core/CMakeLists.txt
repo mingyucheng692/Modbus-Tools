@@ -36,8 +36,6 @@ target_sources(core PRIVATE
     modbus/session/RequestValidator.cpp
     modbus/session/FrameExtractor.h
     modbus/session/FrameExtractor.cpp
-    modbus/session/BackoffCalculator.h
-    modbus/session/BackoffCalculator.cpp
     modbus/session/RetryStrategy.h
     modbus/session/RetryStrategy.cpp
     modbus/session/ConnectionStateMachine.h

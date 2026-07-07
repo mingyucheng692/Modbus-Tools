@@ -143,11 +143,10 @@ void ModbusClient::setConfig(const base::ModbusConfig& config) {
     flowController_.setMode(config.mode);
     retryStrategy_.reconfigure(RetryStrategy::Config{
         config.retries,
-        BackoffCalculator::Config{
-            config.retryIntervalMs,
-            config.maxRetryIntervalMs,
-            config.retryBackoffFactor,
-            config.retryJitterPercent}});
+        config.retryIntervalMs,
+        config.maxRetryIntervalMs,
+        config.retryBackoffFactor,
+        config.retryJitterPercent});
     if (isConnected()) {
         io::Timeouts timeouts;
         timeouts.readMs = config_.timeoutMs;

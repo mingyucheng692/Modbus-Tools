@@ -8,7 +8,7 @@
  */
 
 #include "ConnectionManager.h"
-#include "BackoffCalculator.h"
+#include "RetryStrategy.h"
 #include <spdlog/spdlog.h>
 #include <QCoreApplication>
 #include <algorithm>
@@ -118,13 +118,12 @@ bool ConnectionManager::ensureConnected(bool allowReconnect) {
             break;
         }
 
-        BackoffCalculator::Config reconnectBackoffCfg;
+        RetryStrategy::Config reconnectBackoffCfg;
         reconnectBackoffCfg.baseIntervalMs = config_->reconnectBaseMs;
         reconnectBackoffCfg.maxIntervalMs = config_->reconnectMaxMs;
         reconnectBackoffCfg.backoffFactor = config_->retryBackoffFactor;
         reconnectBackoffCfg.jitterPercent = config_->retryJitterPercent;
-        BackoffCalculator reconnectBackoff(reconnectBackoffCfg);
-        const int reconnectDelayMs = reconnectBackoff.calculateMs(attempt);
+        const int reconnectDelayMs = RetryStrategy::calculateBackoffMs(reconnectBackoffCfg, attempt);
         if (!timeoutController_->waitForAbortableDelay(
                 std::chrono::milliseconds(reconnectDelayMs))) {
             std::lock_guard<std::mutex> lock(mutex_);
