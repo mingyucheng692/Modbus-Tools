@@ -21,9 +21,6 @@ struct TransitionRule {
 
 // Legal cross-state transitions. Self-transitions (re-entering the current
 // state) are always allowed for idempotent re-entry and are not listed here.
-// This table is the single source of truth for both validation
-// (`isLegalTransition`) and the decorative QStateMachine's transition graph,
-// so the two cannot drift.
 constexpr TransitionRule kLegalTransitions[] = {
     {SessionConnectionState::Disconnected, SessionConnectionState::Connecting},
 
@@ -60,8 +57,6 @@ constexpr const char* stateName(SessionConnectionState s) {
 
 SessionConnectionStateMachine::SessionConnectionStateMachine(QObject* parent)
     : QObject(parent) {
-    buildMachine();
-    machine_->start();
 }
 
 bool SessionConnectionStateMachine::isLegalTransition(SessionConnectionState from,
@@ -92,67 +87,7 @@ bool SessionConnectionStateMachine::transitionTo(SessionConnectionState target) 
     state_ = target;
     emit stateChanged(target); // synchronous (direct connection): side effects inline
 
-    // Drive the decorative QStateMachine mirror (queued; fires entered/logging
-    // on the next event-loop iteration in production).
-    emit (this->*signalFor(target))();
-
     return true;
-}
-
-auto SessionConnectionStateMachine::signalFor(SessionConnectionState target)
-    -> void (SessionConnectionStateMachine::*)() {
-    switch (target) {
-    case SessionConnectionState::Disconnected: return &SessionConnectionStateMachine::gotoDisconnected;
-    case SessionConnectionState::Connecting: return &SessionConnectionStateMachine::gotoConnecting;
-    case SessionConnectionState::TransportConnected: return &SessionConnectionStateMachine::gotoTransportConnected;
-    case SessionConnectionState::Connected: return &SessionConnectionStateMachine::gotoConnected;
-    case SessionConnectionState::Disconnecting: return &SessionConnectionStateMachine::gotoDisconnecting;
-    }
-    return &SessionConnectionStateMachine::gotoDisconnected; // unreachable
-}
-
-void SessionConnectionStateMachine::buildMachine() {
-    machine_ = new QStateMachine(this);
-    disconnectedState_ = new QState(machine_);
-    connectingState_ = new QState(machine_);
-    transportConnectedState_ = new QState(machine_);
-    connectedState_ = new QState(machine_);
-    disconnectingState_ = new QState(machine_);
-    machine_->setInitialState(disconnectedState_);
-
-    QState* states[] = {
-        disconnectedState_,
-        connectingState_,
-        transportConnectedState_,
-        connectedState_,
-        disconnectingState_,
-    };
-
-    // Wire the decorative mirror from the same legal-transition table used by
-    // isLegalTransition, so the documented graph and validation agree.
-    for (int from = 0; from < 5; ++from) {
-        for (int to = 0; to < 5; ++to) {
-            if (from == to) {
-                continue;
-            }
-            const auto f = static_cast<SessionConnectionState>(from);
-            const auto t = static_cast<SessionConnectionState>(to);
-            if (isLegalTransition(f, t)) {
-                states[from]->addTransition(this, signalFor(t), states[to]);
-            }
-        }
-    }
-
-    connect(disconnectedState_, &QState::entered, this,
-            [] { spdlog::debug("SessionConnectionStateMachine: entered Disconnected"); });
-    connect(connectingState_, &QState::entered, this,
-            [] { spdlog::debug("SessionConnectionStateMachine: entered Connecting"); });
-    connect(transportConnectedState_, &QState::entered, this,
-            [] { spdlog::debug("SessionConnectionStateMachine: entered TransportConnected"); });
-    connect(connectedState_, &QState::entered, this,
-            [] { spdlog::debug("SessionConnectionStateMachine: entered Connected"); });
-    connect(disconnectingState_, &QState::entered, this,
-            [] { spdlog::debug("SessionConnectionStateMachine: entered Disconnecting"); });
 }
 
 } // namespace ui::application::modbus

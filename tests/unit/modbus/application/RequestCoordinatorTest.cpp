@@ -62,7 +62,7 @@ TEST_F(RequestCoordinatorTest, LinkageDataReceived_EmittedOnSuccess) {
     // Build a request and immediately check with a simulated success response
     ::modbus::session::ModbusResponse response;
     response.isSuccess = true;
-    response.pdu = ::modbus::base::Pdu::fromFunctionCode(0x03);
+    response.pdu = ::modbus::base::Pdu{::modbus::base::FunctionCode::ReadHoldingRegisters};
 
     // This won't match any tracked request, so linkageDataReceived won't be emitted
     // But we verify the signal connection works

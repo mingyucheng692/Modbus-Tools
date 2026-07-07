@@ -10,8 +10,6 @@
 #pragma once
 
 #include <QObject>
-#include <QStateMachine>
-#include <QState>
 
 namespace ui::application::modbus {
 
@@ -29,10 +27,7 @@ enum class SessionConnectionState {
  * Replaces the scattered `connectionState_` writes that previously lived in
  * ModbusSessionPresenter. A synchronous cache (`state_`) is the authoritative
  * source of truth so callers can read the current state synchronously
- * (`currentState()`); a QStateMachine mirrors the cache for architectural
- * consistency with PollingController and provides state-entry logging in
- * production (its transitions are driven asynchronously via the Qt event
- * queue, mirroring the PollingController pattern).
+ * (`currentState()`).
  *
  * `transitionTo()` validates every transition against a legal-transition
  * table and rejects illegal ones (returning false, leaving the state
@@ -55,10 +50,9 @@ public:
      * @brief Apply a validated transition to @p target.
      *
      * Illegal transitions are rejected (state unchanged, returns false) and
-     * logged as a warning. Legal transitions update the synchronous cache,
-     * emit `stateChanged` (synchronous, so observers run their side effects
-     * inline), and emit the internal goto signal that drives the decorative
-     * QStateMachine mirror.
+     * logged as a warning. Legal transitions update the synchronous cache
+     * and emit `stateChanged` (synchronous, so observers run their side
+     * effects inline).
      *
      * A no-op transition to the current state is a success and does not emit
      * `stateChanged` (idempotent re-entry).
@@ -76,32 +70,9 @@ signals:
      *        synchronous side effects inline.
      */
     void stateChanged(SessionConnectionState newState);
-    // Internal triggers that drive the decorative QStateMachine mirror.
-    // Public only because Qt signals cannot be made private; callers must
-    // never emit these directly — use `transitionTo()`.
-    void gotoDisconnected();
-    void gotoConnecting();
-    void gotoTransportConnected();
-    void gotoConnected();
-    void gotoDisconnecting();
 
 private:
-    void buildMachine();
-    static auto signalFor(SessionConnectionState target)
-        -> void (SessionConnectionStateMachine::*)();
-
     SessionConnectionState state_ = SessionConnectionState::Disconnected;
-
-    // Decorative mirror; `state_` is authoritative. Matches the
-    // PollingController pattern where a synchronous context/cache is the
-    // source of truth and the QStateMachine provides logging + a documented
-    // transition graph.
-    QStateMachine* machine_ = nullptr;
-    QState* disconnectedState_ = nullptr;
-    QState* connectingState_ = nullptr;
-    QState* transportConnectedState_ = nullptr;
-    QState* connectedState_ = nullptr;
-    QState* disconnectingState_ = nullptr;
 };
 
 } // namespace ui::application::modbus
