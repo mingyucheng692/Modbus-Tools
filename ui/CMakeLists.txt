@@ -69,19 +69,12 @@ target_sources(ui PRIVATE
     common/CompactMenuBarStyle.h
     common/IAppConfig.h
     common/ISettingsService.h
-    common/QtThemeRuntime.cpp
-    common/QtThemeRuntime.h
     common/SettingsKeys.h
     common/SettingsService.cpp
     common/SettingsService.h
     common/Theme.cpp
     common/ThemeController.cpp
     common/ThemeController.h
-    common/ThemeRuntime.h
-    common/ThemeUiHelpers.cpp
-    common/ThemeUiHelpers.h
-    common/ThemeVisuals.cpp
-    common/ThemeVisuals.h
     common/TrafficEvent.h
     common/UpdateChecker.cpp
     common/UpdateChecker.h

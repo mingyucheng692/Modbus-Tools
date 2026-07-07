@@ -29,7 +29,6 @@
 #include "common/CompactMenuBarStyle.h"
 #include "common/SettingsKeys.h"
 #include "common/ThemeController.h"
-#include "common/ThemeUiHelpers.h"
 #include "common/UpdateChecker.h"
 #include "common/ISettingsService.h"
 #include "../core/update/UpdateManager.h"
@@ -200,7 +199,7 @@ void MainWindow::createNavigation() {
     navigationController_->initialize(
         {tr("Modbus TCP"), tr("Modbus RTU"), tr("Modbus ASCII"), tr("TCP/UDP Tool"), tr("Serial Debugger"), tr("Frame Analyzer")});
 
-    common::ThemeUiHelpers::applyNavigationTheme(navigationList_->palette(), navigationPane_, navigationToggleButton_, navigationList_);
+    common::ThemeController::applyNavigationTheme(navigationList_->palette(), navigationPane_, navigationToggleButton_, navigationList_);
     auto invoke = [this](auto fn, auto&&... args) {
         if (presenter_) {
             (presenter_.get()->*fn)(std::forward<decltype(args)>(args)...);
@@ -315,13 +314,13 @@ void MainWindow::setupThemeToggle() {
 }
 
 void MainWindow::updateThemeUi() {
-    common::ThemeUiHelpers::applyNavigationTheme(palette(), navigationPane_, navigationToggleButton_, navigationList_);
+    common::ThemeController::applyNavigationTheme(palette(), navigationPane_, navigationToggleButton_, navigationList_);
     updateThemeToggleUi();
 }
 
 void MainWindow::updateThemeToggleUi() {
     if (!themeToggleButton_) return;
-    common::ThemeUiHelpers::applyThemeToggleAppearance(themeToggleButton_->palette(), menuBar(), style(), themeToggleButton_, themeController_->currentMode());
+    common::ThemeController::applyThemeToggleAppearance(themeToggleButton_->palette(), menuBar(), style(), themeToggleButton_, themeController_->currentMode());
     QString tooltip = (themeController_->currentMode() == common::Theme::Mode::Auto) ? tr("Theme: Auto") : 
                       (themeController_->currentMode() == common::Theme::Mode::Light) ? tr("Theme: Light") : tr("Theme: Dark");
     themeToggleButton_->setToolTip(tooltip);

@@ -12,7 +12,6 @@
 #include <QMessageBox>
 #include <QResource>
 #include "MainWindow.h"
-#include "common/QtThemeRuntime.h"
 #include "common/SettingsService.h"
 #include "common/ThemeController.h"
 #include "infra/platform/PathResolver.h"
@@ -31,8 +30,7 @@ int main(int argc, char *argv[])
     app.setApplicationVersion(QStringLiteral(MODBUS_TOOLS_APP_VERSION));
 
     ui::common::SettingsService settingsService;
-    ui::common::QtThemeRuntime themeRuntime(app);
-    ui::common::ThemeController themeController(themeRuntime, settingsService);
+    ui::common::ThemeController themeController(settingsService);
 
     QString loggingError;
     if (!logging::Init(infra::platform::PathResolver::instance().resolveLogDir(), &loggingError)) {
