@@ -1,6 +1,6 @@
 #include "application/AnalyzerLinkCoordinator.h"
 
-#include "views/BaseModbusPage.h"
+#include "views/modbus/ModbusPage.h"
 #include "widgets/FrameAnalyzerWidget.h"
 
 namespace ui::application {
@@ -10,34 +10,18 @@ AnalyzerLinkCoordinator::AnalyzerLinkCoordinator(QObject* parent)
 
 AnalyzerLinkCoordinator::~AnalyzerLinkCoordinator() = default;
 
-void AnalyzerLinkCoordinator::bind(views::BaseModbusPage* tcpView,
-                                   views::BaseModbusPage* rtuView,
-                                   views::BaseModbusPage* asciiView,
+void AnalyzerLinkCoordinator::bind(views::modbus::ModbusPage* modbusView,
                                    widgets::FrameAnalyzerWidget* frameAnalyzer) {
-    tcpView_ = tcpView;
-    rtuView_ = rtuView;
-    asciiView_ = asciiView;
+    modbusView_ = modbusView;
     frameAnalyzer_ = frameAnalyzer;
     applyState(State{});
 
-    QObject::connect(tcpView, &views::BaseModbusPage::linkageToggled,
-                     this, &AnalyzerLinkCoordinator::handleTcpLinkageToggled);
-    QObject::connect(rtuView, &views::BaseModbusPage::linkageToggled,
-                     this, &AnalyzerLinkCoordinator::handleRtuLinkageToggled);
-    QObject::connect(asciiView, &views::BaseModbusPage::linkageToggled, this,
-                     [this](bool active) { requestLinkToggle(LinkSource::Ascii, active); });
-    QObject::connect(tcpView, &views::BaseModbusPage::linkageDataReceived,
+    QObject::connect(modbusView, &views::modbus::ModbusPage::linkageToggled,
+                     this, &AnalyzerLinkCoordinator::handleLinkageToggled);
+    QObject::connect(modbusView, &views::modbus::ModbusPage::linkageDataReceived,
                      this, &AnalyzerLinkCoordinator::handleLinkageData);
-    QObject::connect(rtuView, &views::BaseModbusPage::linkageDataReceived,
-                     this, &AnalyzerLinkCoordinator::handleLinkageData);
-    QObject::connect(asciiView, &views::BaseModbusPage::linkageDataReceived,
-                     this, &AnalyzerLinkCoordinator::handleLinkageData);
-    QObject::connect(tcpView, &views::BaseModbusPage::linkageSourceDisconnected,
-                     this, &AnalyzerLinkCoordinator::handleTcpSourceDisconnected);
-    QObject::connect(rtuView, &views::BaseModbusPage::linkageSourceDisconnected,
-                     this, &AnalyzerLinkCoordinator::handleRtuSourceDisconnected);
-    QObject::connect(asciiView, &views::BaseModbusPage::linkageSourceDisconnected, this,
-                     [this]() { handleSourceDisconnected(LinkSource::Ascii); });
+    QObject::connect(modbusView, &views::modbus::ModbusPage::linkageSourceDisconnected,
+                     this, static_cast<void (AnalyzerLinkCoordinator::*)()>(&AnalyzerLinkCoordinator::handleSourceDisconnected));
     QObject::connect(frameAnalyzer, &widgets::FrameAnalyzerWidget::linkagePauseToggled,
                      this, &AnalyzerLinkCoordinator::handleLinkagePauseToggled);
     QObject::connect(frameAnalyzer, &widgets::FrameAnalyzerWidget::linkageStopRequested,
@@ -50,12 +34,11 @@ AnalyzerLinkCoordinator::State AnalyzerLinkCoordinator::state() const {
 
 // --- Signal handlers ---
 
-void AnalyzerLinkCoordinator::handleTcpLinkageToggled(bool active) {
-    requestLinkToggle(LinkSource::Tcp, active);
-}
-
-void AnalyzerLinkCoordinator::handleRtuLinkageToggled(bool active) {
-    requestLinkToggle(LinkSource::Rtu, active);
+void AnalyzerLinkCoordinator::handleLinkageToggled(bool active) {
+    const LinkSource source = modbusView_
+        ? sourceFromMode(modbusView_->currentMode())
+        : LinkSource::None;
+    requestLinkToggle(source, active);
 }
 
 void AnalyzerLinkCoordinator::handleLinkageStopRequested() {
@@ -72,12 +55,11 @@ void AnalyzerLinkCoordinator::handleLinkageData(const ::modbus::base::Pdu& pdu,
     handleLiveData(pdu, protocol, addr);
 }
 
-void AnalyzerLinkCoordinator::handleTcpSourceDisconnected() {
-    handleSourceDisconnected(LinkSource::Tcp);
-}
-
-void AnalyzerLinkCoordinator::handleRtuSourceDisconnected() {
-    handleSourceDisconnected(LinkSource::Rtu);
+void AnalyzerLinkCoordinator::handleSourceDisconnected() {
+    const LinkSource source = modbusView_
+        ? sourceFromMode(modbusView_->currentMode())
+        : LinkSource::None;
+    handleSourceDisconnected(source);
 }
 
 // --- State machine core ---
@@ -147,6 +129,18 @@ AnalyzerLinkCoordinator::LinkSource AnalyzerLinkCoordinator::sourceFromProtocol(
     }
 }
 
+AnalyzerLinkCoordinator::LinkSource AnalyzerLinkCoordinator::sourceFromMode(::ui::application::modbus::SessionMode mode) {
+    switch (mode) {
+    case ::ui::application::modbus::SessionMode::Tcp:
+        return LinkSource::Tcp;
+    case ::ui::application::modbus::SessionMode::Rtu:
+        return LinkSource::Rtu;
+    case ::ui::application::modbus::SessionMode::Ascii:
+        return LinkSource::Ascii;
+    }
+    return LinkSource::None;
+}
+
 void AnalyzerLinkCoordinator::transitionTo(LinkState state, LinkSource source) {
     const State previousState = state_;
     state_.state = state;
@@ -158,19 +152,11 @@ void AnalyzerLinkCoordinator::transitionTo(LinkState state, LinkSource source) {
 }
 
 void AnalyzerLinkCoordinator::applyState(const State& previousState) {
-    const bool tcpLinked = state_.source == LinkSource::Tcp && state_.state != LinkState::Idle;
-    const bool rtuLinked = state_.source == LinkSource::Rtu && state_.state != LinkState::Idle;
-    const bool asciiLinked = state_.source == LinkSource::Ascii && state_.state != LinkState::Idle;
+    const bool linked = state_.state != LinkState::Idle;
     const bool paused = state_.state == LinkState::Paused;
 
-    if (tcpView_) {
-        tcpView_->setLinked(tcpLinked);
-    }
-    if (rtuView_) {
-        rtuView_->setLinked(rtuLinked);
-    }
-    if (asciiView_) {
-        asciiView_->setLinked(asciiLinked);
+    if (modbusView_) {
+        modbusView_->setLinked(linked);
     }
 
     if (!frameAnalyzer_) {

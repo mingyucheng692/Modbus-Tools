@@ -10,16 +10,8 @@ namespace core::common {
 class ISettingsService;
 }
 
-namespace ui::views::modbus_tcp {
-class ModbusTcpPage;
-}
-
-namespace ui::views::modbus_rtu {
-class ModbusRtuPage;
-}
-
-namespace ui::views::modbus_ascii {
-class ModbusAsciiPage;
+namespace ui::views::modbus {
+class ModbusPage;
 }
 
 namespace ui::widgets {
@@ -29,9 +21,7 @@ class FrameAnalyzerWidget;
 namespace ui {
 
 enum class MainPage : std::size_t {
-    ModbusTcp = 0,
-    ModbusRtu,
-    ModbusAscii,
+    Modbus = 0,
     GenericTcp,
     GenericSerial,
     FrameAnalyzer,
@@ -41,9 +31,7 @@ enum class MainPage : std::size_t {
 constexpr std::size_t kMainPageCount = static_cast<std::size_t>(MainPage::Count);
 
 struct MainWindowPages {
-    views::modbus_tcp::ModbusTcpPage* modbusTcpView = nullptr;
-    views::modbus_rtu::ModbusRtuPage* modbusRtuView = nullptr;
-    views::modbus_ascii::ModbusAsciiPage* modbusAsciiView = nullptr;
+    views::modbus::ModbusPage* modbusView = nullptr;
     widgets::FrameAnalyzerWidget* frameAnalyzer = nullptr;
     std::array<int, kMainPageCount> pageIndexByNavigationRow = {};
 

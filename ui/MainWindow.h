@@ -28,9 +28,7 @@ class QToolButton;
 namespace core::common { class ISettingsService; }
 
 namespace ui {
-namespace views::modbus_tcp { class ModbusTcpPage; }
-namespace views::modbus_rtu { class ModbusRtuPage; }
-namespace views::modbus_ascii { class ModbusAsciiPage; }
+namespace views::modbus { class ModbusPage; }
 namespace widgets { class FrameAnalyzerWidget; }
 namespace common { class ThemeController; }
 namespace common { class CompactMenuBarStyle; }
@@ -83,9 +81,7 @@ private:
     QWidget* navigationPane_ = nullptr;
     QToolButton* navigationToggleButton_ = nullptr;
     QStackedWidget* stackedWidget_ = nullptr;
-    views::modbus_tcp::ModbusTcpPage* modbusTcpView_ = nullptr;
-    views::modbus_rtu::ModbusRtuPage* modbusRtuView_ = nullptr;
-    views::modbus_ascii::ModbusAsciiPage* modbusAsciiView_ = nullptr;
+    views::modbus::ModbusPage* modbusView_ = nullptr;
     widgets::FrameAnalyzerWidget* frameAnalyzer_ = nullptr;
     QMenu* settingsMenu_ = nullptr;
     QAction* modbusSettingsAction_ = nullptr;

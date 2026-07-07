@@ -116,14 +116,8 @@ target_sources(ui PRIVATE
     shell/NavigationController.h
     shell/MainWindowPageBuilder.cpp
     shell/MainWindowPageBuilder.h
-    views/modbus_tcp/ModbusTcpPage.cpp
-    views/modbus_tcp/ModbusTcpPage.h
-    views/modbus_rtu/ModbusRtuPage.cpp
-    views/modbus_rtu/ModbusRtuPage.h
-    views/modbus_ascii/ModbusAsciiPage.cpp
-    views/modbus_ascii/ModbusAsciiPage.h
-    views/BaseModbusPage.cpp
-    views/BaseModbusPage.h
+    views/modbus/ModbusPage.cpp
+    views/modbus/ModbusPage.h
     views/GenericChannelViewBase.cpp
     views/GenericChannelViewBase.h
     views/generic_tcp/GenericTcpView.cpp

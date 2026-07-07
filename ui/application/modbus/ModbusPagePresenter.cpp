@@ -17,11 +17,11 @@
 #include "../../widgets/ControlWidget.h"
 #include "../../widgets/FunctionWidget.h"
 #include "../../widgets/TrafficMonitorWidget.h"
-#include "../../views/BaseModbusPage.h"
+#include "../../views/modbus/ModbusPage.h"
 
 namespace ui::application::modbus {
 
-ModbusPagePresenter::ModbusPagePresenter(ui::views::BaseModbusPage* view,
+ModbusPagePresenter::ModbusPagePresenter(ui::views::modbus::ModbusPage* view,
                                          SessionMode mode,
                                          QObject* parent)
     : QObject(parent),
@@ -35,20 +35,26 @@ void ModbusPagePresenter::setup(ui::widgets::BaseConnectionWidget* connectionWid
                                 ui::widgets::ControlWidget* controlWidget,
                                 ui::widgets::FunctionWidget* functionWidget,
                                 ui::widgets::TrafficMonitorWidget* trafficMonitor) {
+    connectionWidget_ = connectionWidget;
     controlWidget_ = controlWidget;
     functionWidget_ = functionWidget;
+    trafficMonitor_ = trafficMonitor;
+    createServices();
+    wireConnections();
+}
 
+void ModbusPagePresenter::createServices() {
     sessionPresenter_ = new ModbusSessionPresenter(mode_, nullptr, this);
     requestService_ = new RequestSubmissionService(this);
     pollingController_ = new PollingController(requestService_, this);
     trafficLogController_ = new TrafficLogController(
-        trafficMonitor, pollingController_, this);
+        trafficMonitor_, pollingController_, this);
     requestCoordinator_ = new RequestCoordinator(
         sessionPresenter_, requestService_, pollingController_,
         trafficLogController_, mode_, this);
 
-    sessionPresenter_->setConnectionWidget(connectionWidget);
-    sessionPresenter_->setControlWidget(controlWidget);
+    sessionPresenter_->setConnectionWidget(connectionWidget_);
+    sessionPresenter_->setControlWidget(controlWidget_);
     sessionPresenter_->setRequestService(requestService_);
     sessionPresenter_->setPollingController(pollingController_);
     sessionPresenter_->setTrafficLogController(trafficLogController_);
@@ -56,9 +62,7 @@ void ModbusPagePresenter::setup(ui::widgets::BaseConnectionWidget* connectionWid
     // trafficEvent → trafficMonitor (needs the monitor pointer, so wire here
     // rather than in wireConnections() which does not retain it).
     connect(pollingController_, &PollingController::trafficEvent,
-            trafficMonitor, &ui::widgets::TrafficMonitorWidget::appendEvent);
-
-    wireConnections();
+            trafficMonitor_, &ui::widgets::TrafficMonitorWidget::appendEvent);
 }
 
 void ModbusPagePresenter::wireConnections() {
@@ -165,6 +169,39 @@ void ModbusPagePresenter::wireConnections() {
                     requestCoordinator_->handleRawSendRequest(data);
                 });
     }
+}
+
+void ModbusPagePresenter::teardownServices() {
+    // Delete in reverse construction order. All are QObject children of this,
+    // so synchronous delete is safe; ~QObject() removes pending queued
+    // connections automatically. Using delete (not deleteLater()) ensures the
+    // old services are fully gone before createServices() runs.
+    if (requestCoordinator_) { delete requestCoordinator_; requestCoordinator_ = nullptr; }
+    if (trafficLogController_) { delete trafficLogController_; trafficLogController_ = nullptr; }
+    if (pollingController_) { delete pollingController_; pollingController_ = nullptr; }
+    if (requestService_) { delete requestService_; requestService_ = nullptr; }
+    if (sessionPresenter_) { delete sessionPresenter_; sessionPresenter_ = nullptr; }
+}
+
+void ModbusPagePresenter::switchMode(SessionMode newMode,
+                                      ui::widgets::BaseConnectionWidget* newConnectionWidget) {
+    if (newMode == mode_ && newConnectionWidget == connectionWidget_) {
+        return;
+    }
+
+    // Disconnect first if a session is active.
+    if (sessionPresenter_ && sessionPresenter_->isSessionConnected()) {
+        sessionPresenter_->requestDisconnect();
+    }
+
+    teardownServices();
+
+    mode_ = newMode;
+    connectionWidget_ = newConnectionWidget;
+    linked_ = false;
+
+    createServices();
+    wireConnections();
 }
 
 void ModbusPagePresenter::requestConnect(const ModbusConnectionSpec& spec) {

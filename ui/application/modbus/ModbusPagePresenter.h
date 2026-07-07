@@ -1,6 +1,6 @@
 /**
  * @file ModbusPagePresenter.h
- * @brief Presenter for BaseModbusPage — owns backend services and signal routing.
+ * @brief Presenter for ModbusPage — owns backend services and signal routing.
  *
  * Copyright (c) 2025 - present mingyucheng692
  *
@@ -19,7 +19,7 @@ class FunctionWidget;
 class TrafficMonitorWidget;
 }
 
-namespace ui::views { class BaseModbusPage; }
+namespace ui::views::modbus { class ModbusPage; }
 
 namespace ui::application::modbus {
 
@@ -30,12 +30,15 @@ class TrafficLogController;
 class RequestCoordinator;
 
 /**
- * @brief Composition root for a Modbus page — owns backend services and
+ * @brief Composition root for the Modbus page — owns backend services and
  *        orchestrates signal routing between them and the View.
  *
- * Replaces BaseModbusPage's former role as composition root (ADR 0004).
- * The View (BaseModbusPage) creates UI widgets, then delegates service
+ * Replaces the former BaseModbusPage's role as composition root (ADR 0004).
+ * The View (ModbusPage) creates UI widgets, then delegates service
  * creation and wiring to this Presenter via setup().
+ *
+ * Supports in-place protocol switching via switchMode(): tears down the
+ * current services and rebuilds them with the new SessionMode.
  *
  * @thread Lives on the GUI thread. All methods must be called from the
  *         GUI thread.
@@ -44,7 +47,7 @@ class ModbusPagePresenter : public QObject {
     Q_OBJECT
 
 public:
-    explicit ModbusPagePresenter(ui::views::BaseModbusPage* view,
+    explicit ModbusPagePresenter(ui::views::modbus::ModbusPage* view,
                                  SessionMode mode,
                                  QObject* parent = nullptr);
     ~ModbusPagePresenter() noexcept override;
@@ -56,7 +59,15 @@ public:
                ui::widgets::FunctionWidget* functionWidget,
                ui::widgets::TrafficMonitorWidget* trafficMonitor);
 
-    // --- Delegating API for the View and subclasses ---
+    /// Switches the active protocol. Disconnects first if connected, then
+    /// tears down the old services and rebuilds them with the new mode.
+    /// @param newMode The target protocol mode.
+    /// @param newConnectionWidget The connection widget for the new mode
+    ///        (TCP widget for Tcp, serial widget for Rtu/Ascii).
+    void switchMode(SessionMode newMode,
+                    ui::widgets::BaseConnectionWidget* newConnectionWidget);
+
+    // --- Delegating API for the View ---
     void requestConnect(const ModbusConnectionSpec& spec);
     void requestDisconnect();
     void updateSettings(const ModbusTimingParams& params);
@@ -76,9 +87,11 @@ signals:
     void linkageSourceDisconnected();
 
 private:
+    void createServices();
     void wireConnections();
+    void teardownServices();
 
-    ui::views::BaseModbusPage* view_ = nullptr;
+    ui::views::modbus::ModbusPage* view_ = nullptr;
     SessionMode mode_;
 
     ModbusSessionPresenter* sessionPresenter_ = nullptr;
@@ -87,8 +100,10 @@ private:
     TrafficLogController* trafficLogController_ = nullptr;
     RequestCoordinator* requestCoordinator_ = nullptr;
 
+    ui::widgets::BaseConnectionWidget* connectionWidget_ = nullptr;
     ui::widgets::ControlWidget* controlWidget_ = nullptr;
     ui::widgets::FunctionWidget* functionWidget_ = nullptr;
+    ui::widgets::TrafficMonitorWidget* trafficMonitor_ = nullptr;
     bool linked_ = false;
 };
 

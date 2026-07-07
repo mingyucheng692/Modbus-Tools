@@ -27,7 +27,6 @@ struct NavigationItemMetadata {
 
 constexpr NavigationItemMetadata kNavigationItems[] = {
     {":/assets/Modbus-TCP.ico", "#3B82F6"},
-    {":/assets/Modbus-RTU.ico", "#8B5CF6"},
     {":/assets/TCP-Client.ico", "#06B6D4"},
     {":/assets/Serial-Port.ico", "#F59E0B"},
     {":/assets/Frame-Analyzer.ico", "#10B981"},

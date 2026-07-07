@@ -6,20 +6,23 @@
 
 #include "modbus/base/ModbusFrame.h"
 #include "modbus/parser/ModbusFrameParser.h"
+#include "../application/modbus/ModbusTypes.h"
 
-namespace ui::views { class BaseModbusPage; }
+namespace ui::views::modbus { class ModbusPage; }
 namespace ui::widgets { class FrameAnalyzerWidget; }
 
 namespace ui::application {
 
 /**
- * @brief Owns the live-linkage state machine and wires TCP/RTU page and Frame
- *        Analyzer signals to it.
+ * @brief Owns the live-linkage state machine and wires the Modbus page and
+ *        Frame Analyzer signals to it.
  *
- * Single entry point for all live-linkage operations. The former
- * AnalyzerLinkageController pass-through layer has been merged in: this class
- * now holds the Idle/Live/Paused × None/Tcp/Rtu state machine directly and
- * connects the view signals in bind().
+ * Single entry point for all live-linkage operations. With T9, the three
+ * former Modbus pages (TCP/RTU/ASCII) are merged into one ModbusPage that
+ * supports in-page protocol switching. The active link source is determined
+ * by querying the page's currentMode() at signal delivery time.
+ *
+ * T10 will further simplify this coordinator (single-source model).
  */
 class AnalyzerLinkCoordinator final : public QObject {
     Q_OBJECT
@@ -46,24 +49,20 @@ public:
     explicit AnalyzerLinkCoordinator(QObject* parent = nullptr);
     ~AnalyzerLinkCoordinator() noexcept override;
 
-    void bind(views::BaseModbusPage* tcpView,
-              views::BaseModbusPage* rtuView,
-              views::BaseModbusPage* asciiView,
+    void bind(views::modbus::ModbusPage* modbusView,
               widgets::FrameAnalyzerWidget* frameAnalyzer);
 
     State state() const;
 
 private:
     // --- Signal handlers (wired in bind()) ---
-    void handleTcpLinkageToggled(bool active);
-    void handleRtuLinkageToggled(bool active);
+    void handleLinkageToggled(bool active);
     void handleLinkageStopRequested();
     void handleLinkagePauseToggled(bool paused);
     void handleLinkageData(const ::modbus::base::Pdu& pdu,
                            ::modbus::core::parser::ProtocolType protocol,
                            uint16_t addr);
-    void handleTcpSourceDisconnected();
-    void handleRtuSourceDisconnected();
+    void handleSourceDisconnected();
 
     // --- State machine core ---
     void requestLinkToggle(LinkSource source, bool active);
@@ -74,6 +73,7 @@ private:
                         uint16_t addr);
     void handleSourceDisconnected(LinkSource source);
     static LinkSource sourceFromProtocol(::modbus::core::parser::ProtocolType protocol);
+    static LinkSource sourceFromMode(::ui::application::modbus::SessionMode mode);
 
     void transitionTo(LinkState state, LinkSource source);
     void applyState(const State& previousState);
@@ -89,9 +89,7 @@ private:
 
     State state_;
     std::optional<BufferedLiveData> bufferedLiveData_;
-    views::BaseModbusPage* tcpView_ = nullptr;
-    views::BaseModbusPage* rtuView_ = nullptr;
-    views::BaseModbusPage* asciiView_ = nullptr;
+    views::modbus::ModbusPage* modbusView_ = nullptr;
     widgets::FrameAnalyzerWidget* frameAnalyzer_ = nullptr;
 };
 

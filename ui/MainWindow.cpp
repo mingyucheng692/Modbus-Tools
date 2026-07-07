@@ -18,9 +18,7 @@
 #include "application/UpdateCoordinator.h"
 #include "shell/NavigationController.h"
 #include "shell/MainWindowPageBuilder.h"
-#include "views/modbus_ascii/ModbusAsciiPage.h"
-#include "views/modbus_tcp/ModbusTcpPage.h"
-#include "views/modbus_rtu/ModbusRtuPage.h"
+#include "views/modbus/ModbusPage.h"
 #include "widgets/FrameAnalyzerWidget.h"
 #include "widgets/DisclaimerDialog.h"
 #include "widgets/UpdateSettingsDialog.h"
@@ -152,12 +150,10 @@ void MainWindow::initializeUi() {
 
     MainWindowPageBuilder pageBuilder(businessContext_->settingsService);
     const MainWindowPages pages = pageBuilder.build(stackedWidget_, this);
-    modbusTcpView_ = pages.modbusTcpView;
-    modbusRtuView_ = pages.modbusRtuView;
-    modbusAsciiView_ = pages.modbusAsciiView;
+    modbusView_ = pages.modbusView;
     frameAnalyzer_ = pages.frameAnalyzer;
     if (businessContext_->analyzerLinkCoordinator) {
-        businessContext_->analyzerLinkCoordinator->bind(modbusTcpView_, modbusRtuView_, modbusAsciiView_, frameAnalyzer_);
+        businessContext_->analyzerLinkCoordinator->bind(modbusView_, frameAnalyzer_);
     }
 
     if (navigationController_) {
@@ -197,7 +193,7 @@ void MainWindow::createNavigation() {
 
     navigationController_ = std::make_unique<shell::NavigationController>(navigationList_, navigationPane_, navigationToggleButton_);
     navigationController_->initialize(
-        {tr("Modbus TCP"), tr("Modbus RTU"), tr("Modbus ASCII"), tr("TCP/UDP Tool"), tr("Serial Debugger"), tr("Frame Analyzer")});
+        {tr("Modbus"), tr("TCP/UDP Tool"), tr("Serial Debugger"), tr("Frame Analyzer")});
 
     common::ThemeController::applyNavigationTheme(navigationList_->palette(), navigationPane_, navigationToggleButton_, navigationList_);
     auto invoke = [this](auto fn, auto&&... args) {
@@ -327,9 +323,7 @@ void MainWindow::updateThemeToggleUi() {
 }
 
 void MainWindow::applyModbusSettingsToViews(int timeoutMs, int retries, int retryIntervalMs) {
-    if (modbusTcpView_) modbusTcpView_->updateModbusSettings(timeoutMs, retries, retryIntervalMs);
-    if (modbusRtuView_) modbusRtuView_->updateModbusSettings(timeoutMs, retries, retryIntervalMs);
-    if (modbusAsciiView_) modbusAsciiView_->updateModbusSettings(timeoutMs, retries, retryIntervalMs);
+    if (modbusView_) modbusView_->updateModbusSettings(timeoutMs, retries, retryIntervalMs);
 }
 
 void MainWindow::openModbusSettingsDialog() {
@@ -366,9 +360,7 @@ void MainWindow::retranslateUi(const QString& effectiveLocale) {
     effectiveLocale_ = effectiveLocale;
     setWindowTitle(tr("Modbus Tools"));
     const QStringList titles = {
-        tr("Modbus TCP"),
-        tr("Modbus RTU"),
-        tr("Modbus ASCII"),
+        tr("Modbus"),
         tr("TCP/UDP Tool"),
         tr("Serial Debugger"),
         tr("Frame Analyzer")
