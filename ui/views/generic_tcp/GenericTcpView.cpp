@@ -18,7 +18,7 @@
 #include "../../widgets/CollapsibleSection.h"
 #include "../../widgets/ServerClientPanel.h"
 #include "../../common/ConnectionAlert.h"
-#include "../../common/TcpConnectionStateCoordinator.h"
+#include "../../common/TcpStateTransition.h"
 #include "../../../infra/io/ChannelOperationWorker.h"
 #include "../../../infra/io/ServerChannelWorker.h"
 #include <QVBoxLayout>
@@ -428,7 +428,7 @@ void GenericTcpView::onWorkerStateChanged(io::ChannelState state, quint64 genera
     }
 
     const bool wasConnected = isConnected_;
-    const auto transition = ui::common::TcpConnectionStateCoordinator::transition(
+    const auto transition = ui::common::computeTcpStateTransition(
         state,
         wasConnected,
         suppressDisconnectAlert_);

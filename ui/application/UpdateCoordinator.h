@@ -53,10 +53,10 @@ public:
                                core::common::SettingsController* settingsController,
                                QObject* parent = nullptr);
 
-    virtual void setCurrentLocale(const QString& locale);
-    virtual void checkForUpdates();
-    virtual void triggerAutoCheckIfNeeded();
-    virtual void refreshIndicators();
+    void setCurrentLocale(const QString& locale);
+    void checkForUpdates();
+    void triggerAutoCheckIfNeeded();
+    void refreshIndicators();
 
     [[nodiscard]] bool updateAvailable() const;
 

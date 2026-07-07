@@ -71,7 +71,7 @@ public:
      */
     void cancelUpdate();
 
-    [[nodiscard]] virtual UpdateInstallMode installMode() const noexcept;
+    [[nodiscard]] UpdateInstallMode installMode() const noexcept;
 
     /**
      * @brief Launches the external updater tool.
