@@ -9,7 +9,7 @@
 
 #pragma once
 
-#include "AppConstants.h"
+#include "Config.h"
 #include "IModbusClient.h"
 #include "RequestValidator.h"
 #include "FrameExtractor.h"

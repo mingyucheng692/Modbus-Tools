@@ -8,7 +8,7 @@
  */
 
 #include "ByteMonitorWidget.h"
-#include "AppConstants.h"
+#include "Config.h"
 #include "../../core/common/ISettingsService.h"
 #include <QVBoxLayout>
 #include <QHBoxLayout>
@@ -173,7 +173,7 @@ void ByteMonitorWidget::setupUi() {
     mainLayout->addWidget(statsBar_);
 
     logView_ = new QListView(this);
-    logModel_ = new LogListModel(app::constants::Values::Ui::kByteMonitorMaxBlockCount, this);
+    logModel_ = new LogListModel(config::Ui::kByteMonitorMaxBlockCount, this);
     logView_->setModel(logModel_);
     logView_->setAlternatingRowColors(true);
     logView_->setSelectionMode(QAbstractItemView::ExtendedSelection);

@@ -1,6 +1,6 @@
 #include <gtest/gtest.h>
 
-#include "../../../core/AppConstants.h"
+#include "../../../core/Config.h"
 #include "../../../core/common/SettingsController.h"
 #include "../../../ui/application/UpdateCoordinator.h"
 #include "../../mocks/UiTestDoubles.h"
@@ -32,7 +32,7 @@ TEST_F(UpdateCoordinatorTest, ManualCheckDisablesActionAndStartsCheck) {
 }
 
 TEST_F(UpdateCoordinatorTest, AutoCheckSkipsWhenFrequencyIsNever) {
-    settingsController_->setUpdateCheckFrequency(app::constants::Values::App::kUpdateCheckNever);
+    settingsController_->setUpdateCheckFrequency(config::App::kUpdateCheckNever);
 
     coordinator_->triggerAutoCheckIfNeeded();
 

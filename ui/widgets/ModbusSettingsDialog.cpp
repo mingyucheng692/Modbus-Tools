@@ -8,7 +8,7 @@
  */
 
 #include "ModbusSettingsDialog.h"
-#include "../../core/AppConstants.h"
+#include "../../core/Config.h"
 #include <QCoreApplication>
 #include <QVBoxLayout>
 #include <QFormLayout>
@@ -24,15 +24,13 @@ ModbusSettingsDialog::ModbusSettingsDialog(const Settings& current, QWidget* par
 }
 
 void ModbusSettingsDialog::setupUi() {
-    using namespace app::constants;
-
     setWindowTitle(QCoreApplication::translate("ui::MainWindow", "Modbus Settings"));
     auto* layout = new QVBoxLayout(this);
     auto* formLayout = new QFormLayout();
 
     timeoutSpin_ = new QSpinBox(this);
-    timeoutSpin_->setRange(Values::Modbus::kMinTimeoutMs, Values::Modbus::kMaxTimeoutMs);
-    timeoutSpin_->setSingleStep(Values::Modbus::kTimeoutStepMs);
+    timeoutSpin_->setRange(config::Modbus::kMinTimeoutMs, config::Modbus::kMaxTimeoutMs);
+    timeoutSpin_->setSingleStep(config::Modbus::kTimeoutStepMs);
     timeoutSpin_->setValue(initialSettings_.timeoutMs);
     formLayout->addRow(QCoreApplication::translate("ui::MainWindow", "Request Timeout (ms):"), timeoutSpin_);
 
@@ -41,13 +39,13 @@ void ModbusSettingsDialog::setupUi() {
     formLayout->addRow(QCoreApplication::translate("ui::MainWindow", "Enable Retry:"), retryEnableCheck_);
 
     retryCountSpin_ = new QSpinBox(this);
-    retryCountSpin_->setRange(Values::Modbus::kMinRetryCount, Values::Modbus::kMaxRetryCount);
+    retryCountSpin_->setRange(config::Modbus::kMinRetryCount, config::Modbus::kMaxRetryCount);
     retryCountSpin_->setValue(initialSettings_.retries);
     formLayout->addRow(QCoreApplication::translate("ui::MainWindow", "Retry Count:"), retryCountSpin_);
 
     retryIntervalSpin_ = new QSpinBox(this);
-    retryIntervalSpin_->setRange(Values::Modbus::kMinRetryIntervalMs, Values::Modbus::kMaxRetryIntervalMs);
-    retryIntervalSpin_->setSingleStep(Values::Modbus::kRetryIntervalStepMs);
+    retryIntervalSpin_->setRange(config::Modbus::kMinRetryIntervalMs, config::Modbus::kMaxRetryIntervalMs);
+    retryIntervalSpin_->setSingleStep(config::Modbus::kRetryIntervalStepMs);
     retryIntervalSpin_->setValue(initialSettings_.retryIntervalMs);
     formLayout->addRow(QCoreApplication::translate("ui::MainWindow", "Retry Interval (ms):"), retryIntervalSpin_);
 

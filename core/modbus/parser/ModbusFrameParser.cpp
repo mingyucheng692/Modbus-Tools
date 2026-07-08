@@ -8,7 +8,7 @@
  */
 
 #include "ModbusFrameParser.h"
-#include "AppConstants.h"
+#include "Config.h"
 #include "../base/ModbusEndianCodec.h"
 #include "../base/ModbusProtocolChecks.h"
 #include <QtEndian>

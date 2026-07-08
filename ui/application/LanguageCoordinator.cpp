@@ -1,6 +1,6 @@
 #include "application/LanguageCoordinator.h"
 
-#include "AppConstants.h"
+#include "Config.h"
 #include "../core/common/SettingsController.h"
 
 #include <QApplication>
@@ -27,7 +27,7 @@ void LanguageCoordinator::applyLanguage(const QString& locale) {
     effectiveLocale_ = effectiveAppLocale(currentLocale_);
     settingsController_->setLanguage(currentLocale_);
 
-    if (effectiveLocale_ == app::constants::Values::App::kLocaleZhCn) {
+    if (effectiveLocale_ == config::App::kLocaleZhCn) {
         if (qtTranslator_.load(QStringLiteral("qtbase_zh_CN"), QLibraryInfo::path(QLibraryInfo::TranslationsPath))) {
             qApp->installTranslator(&qtTranslator_);
         }
@@ -37,7 +37,7 @@ void LanguageCoordinator::applyLanguage(const QString& locale) {
         return;
     }
 
-    if (effectiveLocale_ == app::constants::Values::App::kLocaleZhTw) {
+    if (effectiveLocale_ == config::App::kLocaleZhTw) {
         if (qtTranslator_.load(QStringLiteral("qtbase_zh_TW"), QLibraryInfo::path(QLibraryInfo::TranslationsPath))) {
             qApp->installTranslator(&qtTranslator_);
         }
@@ -57,9 +57,9 @@ QString LanguageCoordinator::effectiveLocale() const {
 
 QString LanguageCoordinator::normalizedAppLocale(QString locale) {
     locale = locale.trimmed();
-    if (locale == QLatin1String(app::constants::Values::App::kLocaleEn) ||
-        locale == QLatin1String(app::constants::Values::App::kLocaleZhCn) ||
-        locale == QLatin1String(app::constants::Values::App::kLocaleZhTw) ||
+    if (locale == QLatin1String(config::App::kLocaleEn) ||
+        locale == QLatin1String(config::App::kLocaleZhCn) ||
+        locale == QLatin1String(config::App::kLocaleZhTw) ||
         locale == QStringLiteral("system")) {
         return locale;
     }
@@ -77,19 +77,19 @@ QString LanguageCoordinator::effectiveAppLocale(const QString& locale) {
             systemLocale.country() == QLocale::Taiwan ||
             systemLocale.country() == QLocale::HongKong ||
             systemLocale.country() == QLocale::Macau) {
-            return QLatin1String(app::constants::Values::App::kLocaleZhTw);
+            return QLatin1String(config::App::kLocaleZhTw);
         }
-        return QLatin1String(app::constants::Values::App::kLocaleZhCn);
+        return QLatin1String(config::App::kLocaleZhCn);
     }
 
-    return QLatin1String(app::constants::Values::App::kLocaleEn);
+    return QLatin1String(config::App::kLocaleEn);
 }
 
 QString LanguageCoordinator::translationFileNameForLocale(const QString& locale) {
-    if (locale == QLatin1String(app::constants::Values::App::kLocaleZhCn)) {
+    if (locale == QLatin1String(config::App::kLocaleZhCn)) {
         return QStringLiteral("Modbus-Tools_zh_CN.qm");
     }
-    if (locale == QLatin1String(app::constants::Values::App::kLocaleZhTw)) {
+    if (locale == QLatin1String(config::App::kLocaleZhTw)) {
         return QStringLiteral("Modbus-Tools_zh_TW.qm");
     }
     return {};

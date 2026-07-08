@@ -8,7 +8,7 @@
  */
 
 #include "ModbusProtocolChecks.h"
-#include "AppConstants.h"
+#include "Config.h"
 #include "ModbusCrc.h"
 #include "ModbusLrc.h"
 #include "ModbusEndianCodec.h"
@@ -134,7 +134,7 @@ int inspectTcpAdu(QByteArrayView adu, TcpAduFields* fields) {
     if (protocolId != 0) {
         return -1;
     }
-    if (length < 2 || length > app::constants::Values::Modbus::kMaxTcpMbapLength) {
+    if (length < 2 || length > config::Modbus::kMaxTcpMbapLength) {
         return -1;
     }
 

@@ -8,7 +8,7 @@
  */
 
 #include "AboutDialog.h"
-#include "../../core/AppConstants.h"
+#include "../../core/Config.h"
 #include <QVBoxLayout>
 #include <QLabel>
 #include <QDialogButtonBox>
@@ -22,7 +22,7 @@ AboutDialog::AboutDialog(QWidget* parent) : QDialog(parent) {
 
 void AboutDialog::setupUi() {
     setWindowTitle(QCoreApplication::translate("ui::MainWindow", "About"));
-    setMinimumWidth(app::constants::Values::Ui::kAboutDialogMinWidth);
+    setMinimumWidth(config::Ui::kAboutDialogMinWidth);
 
     auto* layout = new QVBoxLayout(this);
     auto* aboutLabel = new QLabel(this);

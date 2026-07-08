@@ -8,7 +8,7 @@
  */
 
 #include "SerialConnectionWidget.h"
-#include "AppConstants.h"
+#include "Config.h"
 #include "CollapsibleSection.h"
 #include "../../core/common/ISettingsService.h"
 #include <QCoreApplication>
@@ -125,7 +125,7 @@ io::SerialConfig SerialConnectionWidget::getConfig() const {
     
     bool ok;
     config.baudRate = baudCombo_->currentText().toInt(&ok);
-    if (!ok) config.baudRate = app::constants::Values::Serial::kDefaultBaudRate;
+    if (!ok) config.baudRate = config::Serial::kDefaultBaudRate;
     config.dataBits = dataBitsCombo_->currentText().toInt();
     
     // Stop Bits
@@ -257,20 +257,20 @@ void SerialConnectionWidget::setupUi() {
     baudLabel_ = new QLabel(this);
     layout->addWidget(baudLabel_);
     baudCombo_ = new QComboBox(this);
-    baudCombo_->addItems({QString::fromLatin1(app::constants::Values::Serial::kDefaultBaudRateText),
+    baudCombo_->addItems({QString::fromLatin1(config::Serial::kDefaultBaudRateText),
                           QStringLiteral("19200"),
                           QStringLiteral("38400"),
                           QStringLiteral("57600"),
                           QStringLiteral("115200")});
-    baudCombo_->setCurrentText(QString::fromLatin1(app::constants::Values::Serial::kDefaultBaudRateText));
+    baudCombo_->setCurrentText(QString::fromLatin1(config::Serial::kDefaultBaudRateText));
     layout->addWidget(baudCombo_);
 
     // Data Bits
     dataBitsLabel_ = new QLabel(this);
     layout->addWidget(dataBitsLabel_);
     dataBitsCombo_ = new QComboBox(this);
-    dataBitsCombo_->addItems({QString::fromLatin1(app::constants::Values::Serial::kDefaultDataBitsText), QStringLiteral("7")});
-    dataBitsCombo_->setCurrentText(QString::fromLatin1(app::constants::Values::Serial::kDefaultDataBitsText));
+    dataBitsCombo_->addItems({QString::fromLatin1(config::Serial::kDefaultDataBitsText), QStringLiteral("7")});
+    dataBitsCombo_->setCurrentText(QString::fromLatin1(config::Serial::kDefaultDataBitsText));
     dataBitsCombo_->setMinimumWidth(40);
     layout->addWidget(dataBitsCombo_);
 
@@ -285,7 +285,7 @@ void SerialConnectionWidget::setupUi() {
     stopBitsLabel_ = new QLabel(this);
     layout->addWidget(stopBitsLabel_);
     stopBitsCombo_ = new QComboBox(this);
-    stopBitsCombo_->addItems({QString::fromLatin1(app::constants::Values::Serial::kDefaultStopBitsText),
+    stopBitsCombo_->addItems({QString::fromLatin1(config::Serial::kDefaultStopBitsText),
                               QStringLiteral("1.5"),
                               QStringLiteral("2")});
     stopBitsCombo_->setMinimumWidth(40);

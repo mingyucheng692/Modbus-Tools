@@ -9,7 +9,7 @@
 
 #pragma once
 
-#include "core/AppConstants.h"
+#include "core/Config.h"
 #include <QSerialPort>
 #include <QString>
 
@@ -17,9 +17,9 @@ namespace io {
 
 struct SerialConfig {
     QString portName;
-    qint32 baudRate = app::constants::Values::Serial::kDefaultBaudRate;
-    int dataBits = app::constants::Values::Serial::kDefaultDataBits;
-    int stopBits = app::constants::Values::Serial::kDefaultStopBits;
+    qint32 baudRate = config::Serial::kDefaultBaudRate;
+    int dataBits = config::Serial::kDefaultDataBits;
+    int stopBits = config::Serial::kDefaultStopBits;
     QSerialPort::Parity parity = QSerialPort::NoParity;
     QSerialPort::FlowControl flowControl = QSerialPort::NoFlowControl;
 

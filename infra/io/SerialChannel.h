@@ -8,7 +8,7 @@
  */
 
 #pragma once
-#include "core/AppConstants.h"
+#include "core/Config.h"
 #include "ChannelBase.h"
 #include "SerialConfig.h"
 #include <QSerialPort>

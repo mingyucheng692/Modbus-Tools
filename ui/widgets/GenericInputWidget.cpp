@@ -8,7 +8,7 @@
  */
 
 #include "GenericInputWidget.h"
-#include "AppConstants.h"
+#include "Config.h"
 #include "../../core/common/ISettingsService.h"
 #include <QVBoxLayout>
 #include <QHBoxLayout>
@@ -83,9 +83,9 @@ void GenericInputWidget::setupUi() {
     controlLayout->addWidget(autoSendCheck_);
     
     intervalSpin_ = new QSpinBox(this);
-    intervalSpin_->setRange(app::constants::Values::GenericIo::kMinInputIntervalMs,
-                            app::constants::Values::GenericIo::kMaxInputIntervalMs);
-    intervalSpin_->setValue(app::constants::Values::GenericIo::kDefaultInputIntervalMs);
+    intervalSpin_->setRange(config::GenericIo::kMinInputIntervalMs,
+                            config::GenericIo::kMaxInputIntervalMs);
+    intervalSpin_->setValue(config::GenericIo::kDefaultInputIntervalMs);
     intervalSpin_->setSuffix(" ms");
     intervalSpin_->setEnabled(false); // Enabled when checked
     controlLayout->addWidget(intervalSpin_);

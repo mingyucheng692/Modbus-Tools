@@ -8,7 +8,7 @@
  */
 
 #include "GenericSerialView.h"
-#include "AppConstants.h"
+#include "Config.h"
 #include "../../../core/common/ISettingsService.h"
 #include "../../widgets/SerialConnectionWidget.h"
 #include "../../widgets/ByteMonitorWidget.h"

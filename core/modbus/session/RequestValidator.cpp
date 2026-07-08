@@ -10,7 +10,7 @@
 #include "RequestValidator.h"
 #include "../base/ModbusEndianCodec.h"
 #include "../base/ModbusFrame.h"
-#include "AppConstants.h"
+#include "Config.h"
 #include <QCoreApplication>
 #include <QtEndian>
 #include <cstring>
@@ -23,20 +23,20 @@ bool RequestValidator::isAddressRangeValid(uint16_t startAddress, uint16_t quant
         return false;
     }
     const uint32_t endAddress = static_cast<uint32_t>(startAddress) + static_cast<uint32_t>(quantity) - 1U;
-    return endAddress <= static_cast<uint32_t>(app::constants::Values::Modbus::kMaxAddress);
+    return endAddress <= static_cast<uint32_t>(config::Modbus::kMaxAddress);
 }
 
 RequestValidator::Result RequestValidator::validate(const base::Pdu& request,
     int slaveId, base::ModbusMode mode) const
 {
     if (mode == base::ModbusMode::RTU &&
-        (slaveId < app::constants::Values::Modbus::kMinSlaveId ||
-         slaveId > app::constants::Values::Modbus::kMaxSlaveId)) {
+        (slaveId < config::Modbus::kMinSlaveId ||
+         slaveId > config::Modbus::kMaxSlaveId)) {
         return {false, QCoreApplication::translate("modbus::session::RequestValidator", "Invalid RTU slave id: %1").arg(slaveId)};
     }
 
     const QByteArray data = request.data();
-    if (data.size() > app::constants::Values::Modbus::kMaxPduDataLength) {
+    if (data.size() > config::Modbus::kMaxPduDataLength) {
         return {false, QCoreApplication::translate("modbus::session::RequestValidator", "PDU data too long: %1 bytes").arg(data.size())};
     }
 
@@ -54,9 +54,9 @@ RequestValidator::Result RequestValidator::validate(const base::Pdu& request,
             !modbus::base::readBigEndian<uint16_t>(data, 2, quantity)) {
             return {false, QCoreApplication::translate("modbus::session::RequestValidator", "Invalid read request payload length: %1").arg(data.size())};
         }
-        if (quantity < app::constants::Values::Modbus::kMinQuantity) {
+        if (quantity < config::Modbus::kMinQuantity) {
             return {false, QCoreApplication::translate("modbus::session::RequestValidator", "Read quantity must be at least %1")
-                .arg(app::constants::Values::Modbus::kMinQuantity)};
+                .arg(config::Modbus::kMinQuantity)};
         }
         if (!isAddressRangeValid(startAddress, quantity)) {
             return {false, QCoreApplication::translate("modbus::session::RequestValidator", "Read address range exceeds limit: start=%1 quantity=%2")
@@ -65,12 +65,12 @@ RequestValidator::Result RequestValidator::validate(const base::Pdu& request,
         }
         if ((request.functionCode() == base::FunctionCode::ReadCoils ||
              request.functionCode() == base::FunctionCode::ReadDiscreteInputs) &&
-            quantity > app::constants::Values::Modbus::kMaxReadBitsQuantity) {
+            quantity > config::Modbus::kMaxReadBitsQuantity) {
             return {false, QCoreApplication::translate("modbus::session::RequestValidator", "Read bit quantity exceeds limit: %1").arg(quantity)};
         }
         if ((request.functionCode() == base::FunctionCode::ReadHoldingRegisters ||
              request.functionCode() == base::FunctionCode::ReadInputRegisters) &&
-            quantity > app::constants::Values::Modbus::kMaxReadQuantity) {
+            quantity > config::Modbus::kMaxReadQuantity) {
             return {false, QCoreApplication::translate("modbus::session::RequestValidator", "Read register quantity exceeds limit: %1").arg(quantity)};
         }
         break;
@@ -99,9 +99,9 @@ RequestValidator::Result RequestValidator::validate(const base::Pdu& request,
             return {false, QCoreApplication::translate("modbus::session::RequestValidator", "Invalid write-multiple request payload length: %1").arg(data.size())};
         }
         declaredByteCount = static_cast<uint8_t>(data[4]);
-        if (quantity < app::constants::Values::Modbus::kMinQuantity) {
+        if (quantity < config::Modbus::kMinQuantity) {
             return {false, QCoreApplication::translate("modbus::session::RequestValidator", "Write quantity must be at least %1")
-                .arg(app::constants::Values::Modbus::kMinQuantity)};
+                .arg(config::Modbus::kMinQuantity)};
         }
         if (!isAddressRangeValid(startAddress, quantity)) {
             return {false, QCoreApplication::translate("modbus::session::RequestValidator", "Write address range exceeds limit: start=%1 quantity=%2")
@@ -114,7 +114,7 @@ RequestValidator::Result RequestValidator::validate(const base::Pdu& request,
                 .arg(data.size() - 5)};
         }
         if (request.functionCode() == base::FunctionCode::WriteMultipleCoils) {
-            if (quantity > app::constants::Values::Modbus::kMaxWriteCoilsQuantity) {
+            if (quantity > config::Modbus::kMaxWriteCoilsQuantity) {
                 return {false, QCoreApplication::translate("modbus::session::RequestValidator", "Write coil quantity exceeds limit: %1").arg(quantity)};
             }
             const int expectedByteCount = (static_cast<int>(quantity) + 7) / 8;
@@ -124,7 +124,7 @@ RequestValidator::Result RequestValidator::validate(const base::Pdu& request,
                     .arg(expectedByteCount)};
             }
         } else {
-            if (quantity > app::constants::Values::Modbus::kMaxWriteRegistersQuantity) {
+            if (quantity > config::Modbus::kMaxWriteRegistersQuantity) {
                 return {false, QCoreApplication::translate("modbus::session::RequestValidator", "Write register quantity exceeds limit: %1").arg(quantity)};
             }
             const int expectedByteCount = static_cast<int>(quantity) * 2;
@@ -142,7 +142,7 @@ RequestValidator::Result RequestValidator::validate(const base::Pdu& request,
     }
 
     const int tcpMbapLength = 2 + data.size();
-    if (tcpMbapLength > app::constants::Values::Modbus::kMaxTcpMbapLength) {
+    if (tcpMbapLength > config::Modbus::kMaxTcpMbapLength) {
         return {false, QCoreApplication::translate("modbus::session::RequestValidator", "TCP MBAP length exceeds limit: %1").arg(tcpMbapLength)};
     }
 

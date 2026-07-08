@@ -9,7 +9,7 @@
 
 #include "SettingsController.h"
 #include "../../ui/common/SettingsKeys.h"
-#include "../AppConstants.h"
+#include "../Config.h"
 
 namespace core::common {
 
@@ -28,26 +28,25 @@ void SettingsController::setModbusSettings(int timeoutMs, int retries, int retry
 }
 
 void SettingsController::loadModbusSettings(int& timeoutMs, int& retries, int& retryIntervalMs, bool& retryEnabled) {
-    using namespace app::constants;
-    timeoutMs = qBound(Values::Modbus::kMinTimeoutMs,
+    timeoutMs = qBound(config::Modbus::kMinTimeoutMs,
                        settingsService_->value(kModbusTimeoutMs).toInt(),
-                       Values::Modbus::kMaxTimeoutMs);
-    retries = qBound(Values::Modbus::kMinRetryCount,
+                       config::Modbus::kMaxTimeoutMs);
+    retries = qBound(config::Modbus::kMinRetryCount,
                      settingsService_->value(kModbusRetryCount).toInt(),
-                     Values::Modbus::kMaxRetryCount);
-    retryIntervalMs = qBound(Values::Modbus::kMinRetryIntervalMs,
+                     config::Modbus::kMaxRetryCount);
+    retryIntervalMs = qBound(config::Modbus::kMinRetryIntervalMs,
                              settingsService_->value(kModbusRetryIntervalMs).toInt(),
-                             Values::Modbus::kMaxRetryIntervalMs);
+                             config::Modbus::kMaxRetryIntervalMs);
     retryEnabled = settingsService_->value(kModbusRetryEnabled).toBool();
 }
 
 QString SettingsController::updateCheckFrequency() const {
     QString freq = settingsService_->value(kAppUpdateCheckFrequency).toString();
     if (freq.isEmpty()) {
-        return QLatin1String(app::constants::Values::App::kUpdateCheckStartup);
+        return QLatin1String(config::App::kUpdateCheckStartup);
     }
     if (freq == QLatin1String("off")) {
-        return QLatin1String(app::constants::Values::App::kUpdateCheckNever);
+        return QLatin1String(config::App::kUpdateCheckNever);
     }
     return freq;
 }
@@ -55,7 +54,7 @@ QString SettingsController::updateCheckFrequency() const {
 void SettingsController::setUpdateCheckFrequency(const QString& frequency) {
     const QString normalizedFrequency =
         (frequency == QLatin1String("off"))
-            ? QLatin1String(app::constants::Values::App::kUpdateCheckNever)
+            ? QLatin1String(config::App::kUpdateCheckNever)
             : frequency;
     settingsService_->setValue(kAppUpdateCheckFrequency, normalizedFrequency);
 }

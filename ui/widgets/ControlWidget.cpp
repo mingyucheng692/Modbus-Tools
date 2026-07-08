@@ -8,7 +8,7 @@
  */
 
 #include "ControlWidget.h"
-#include "AppConstants.h"
+#include "Config.h"
 #include "../../core/common/ISettingsService.h"
 #include <QHBoxLayout>
 #include <QLabel>
@@ -108,7 +108,7 @@ void ControlWidget::onTimer() {
     bool ok = false;
     int addr = modbus::base::ModbusDataHelper::parseSmartInt(addrEdit_->text(), &ok);
     
-    if (!ok || addr < app::constants::Values::Modbus::kMinAddress || addr > app::constants::Values::Modbus::kMaxAddress) {
+    if (!ok || addr < config::Modbus::kMinAddress || addr > config::Modbus::kMaxAddress) {
         emit logMessageRequested(tr("Invalid Address format or range (0-65535): %1").arg(addrEdit_->text()), true);
         return;
     }
@@ -210,7 +210,7 @@ void ControlWidget::setConnectionValidator(const std::function<bool()>& validato
 }
 
 int ControlWidget::pollingIntervalMs() const {
-    return intervalSpin_ ? intervalSpin_->value() : app::constants::Values::Polling::kDefaultIntervalMs;
+    return intervalSpin_ ? intervalSpin_->value() : config::Polling::kDefaultIntervalMs;
 }
 
 void ControlWidget::loadSettings() {
@@ -234,14 +234,14 @@ void ControlWidget::loadSettings() {
         return v.isValid() ? v : defaultVal;
     };
 
-    const int interval = getVal(intervalKey, app::constants::Values::Polling::kDefaultIntervalMs).toInt();
-    const int fcIndex = getVal(fcKey, app::constants::Values::Modbus::kDefaultControlFunctionIndex).toInt();
-    const int qty = getVal(qtyKey, app::constants::Values::Modbus::kDefaultControlQuantity).toInt();
+    const int interval = getVal(intervalKey, config::Polling::kDefaultIntervalMs).toInt();
+    const int fcIndex = getVal(fcKey, config::Modbus::kDefaultControlFunctionIndex).toInt();
+    const int qty = getVal(qtyKey, config::Modbus::kDefaultControlQuantity).toInt();
     
     // Load Address: Priority to pollAddrStr, fallback to addr (int)
     QString addrStr = getVal(addrStrKey, QString()).toString();
     if (addrStr.isEmpty()) {
-        int oldAddr = getVal(addrKey, app::constants::Values::Modbus::kDefaultControlAddress).toInt();
+        int oldAddr = getVal(addrKey, config::Modbus::kDefaultControlAddress).toInt();
         addrStr = QString::number(oldAddr);
     }
 
@@ -294,10 +294,10 @@ void ControlWidget::setupUi() {
     intervalLabel_ = new QLabel(this);
     layout->addWidget(intervalLabel_);
     intervalSpin_ = new QSpinBox(this);
-    intervalSpin_->setRange(app::constants::Values::Polling::kMinIntervalMs,
-                            app::constants::Values::Polling::kMaxIntervalMs);
-    intervalSpin_->setValue(app::constants::Values::Polling::kDefaultIntervalMs);
-    intervalSpin_->setSingleStep(app::constants::Values::Polling::kIntervalStepMs);
+    intervalSpin_->setRange(config::Polling::kMinIntervalMs,
+                            config::Polling::kMaxIntervalMs);
+    intervalSpin_->setValue(config::Polling::kDefaultIntervalMs);
+    intervalSpin_->setSingleStep(config::Polling::kIntervalStepMs);
     intervalSpin_->setFixedWidth(78);
     layout->addWidget(intervalSpin_);
     
@@ -306,7 +306,7 @@ void ControlWidget::setupUi() {
     layout->addWidget(fcLabel_);
     fcCombo_ = new QComboBox(this);
     fcCombo_->addItems({"", "", "", ""});
-    fcCombo_->setCurrentIndex(app::constants::Values::Modbus::kDefaultControlFunctionIndex);
+    fcCombo_->setCurrentIndex(config::Modbus::kDefaultControlFunctionIndex);
     fcCombo_->setMinimumContentsLength(11);
     fcCombo_->setSizeAdjustPolicy(QComboBox::AdjustToMinimumContentsLengthWithIcon);
     layout->addWidget(fcCombo_);
@@ -326,9 +326,9 @@ void ControlWidget::setupUi() {
     qtyLabel_ = new QLabel(this);
     layout->addWidget(qtyLabel_);
     qtySpin_ = new QSpinBox(this);
-    qtySpin_->setRange(app::constants::Values::Modbus::kMinQuantity,
-                       app::constants::Values::Modbus::kMaxAddress);
-    qtySpin_->setValue(app::constants::Values::Modbus::kDefaultControlQuantity);
+    qtySpin_->setRange(config::Modbus::kMinQuantity,
+                       config::Modbus::kMaxAddress);
+    qtySpin_->setValue(config::Modbus::kDefaultControlQuantity);
     qtySpin_->setFixedWidth(60);
     layout->addWidget(qtySpin_);
     

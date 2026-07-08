@@ -8,7 +8,7 @@
  */
 
 #include "FunctionWidget.h"
-#include "AppConstants.h"
+#include "Config.h"
 #include "CollapsibleSection.h"
 #include "modbus/base/ModbusDataHelper.h"
 #include "modbus/base/ModbusCrc.h"
@@ -96,9 +96,9 @@ void FunctionWidget::setupStandardUi(QWidget* parent) {
     quantityLabel_ = new QLabel(parent);
     paramLayout->addWidget(quantityLabel_);
     quantityEdit_ = new QSpinBox(parent);
-    quantityEdit_->setRange(app::constants::Values::Modbus::kMinQuantity,
-                            app::constants::Values::Modbus::kMaxAddress);
-    quantityEdit_->setValue(app::constants::Values::Modbus::kDefaultStandardQuantity);
+    quantityEdit_->setRange(config::Modbus::kMinQuantity,
+                            config::Modbus::kMaxAddress);
+    quantityEdit_->setValue(config::Modbus::kDefaultStandardQuantity);
     quantityEdit_->setFixedWidth(72);
     paramLayout->addWidget(quantityEdit_);
     
@@ -297,16 +297,16 @@ void FunctionWidget::loadSettings() {
     // Try new string keys first, fallback to old int keys
     QString slaveIdStr = getVal(slaveKey, QString()).toString();
     if (slaveIdStr.isEmpty()) {
-        slaveIdStr = QString::number(getVal(settingsGroup_ + "/slaveId", app::constants::Values::Modbus::kDefaultSlaveId).toInt());
+        slaveIdStr = QString::number(getVal(settingsGroup_ + "/slaveId", config::Modbus::kDefaultSlaveId).toInt());
     }
 
     QString startAddrStr = getVal(addrKey, QString()).toString();
     if (startAddrStr.isEmpty()) {
-        startAddrStr = QString::number(getVal(settingsGroup_ + "/startAddr", app::constants::Values::Modbus::kDefaultStandardStartAddress).toInt());
+        startAddrStr = QString::number(getVal(settingsGroup_ + "/startAddr", config::Modbus::kDefaultStandardStartAddress).toInt());
     }
 
-    const int quantity = getVal(qtyKey, app::constants::Values::Modbus::kDefaultStandardQuantity).toInt();
-    const int formatIndex = getVal(formatKey, app::constants::Values::Modbus::kDefaultStandardFormatIndex).toInt();
+    const int quantity = getVal(qtyKey, config::Modbus::kDefaultStandardQuantity).toInt();
+    const int formatIndex = getVal(formatKey, config::Modbus::kDefaultStandardFormatIndex).toInt();
 
     slaveIdEdit_->setText(slaveIdStr);
     addressEdit_->setText(startAddrStr);
@@ -330,13 +330,13 @@ void FunctionWidget::onReadClicked(uint8_t functionCode) {
     int slaveId = modbus::base::ModbusDataHelper::parseSmartInt(slaveIdEdit_->text(), &slaveOk);
     int address = modbus::base::ModbusDataHelper::parseSmartInt(addressEdit_->text(), &addrOk);
 
-    if (!slaveOk || slaveId < app::constants::Values::Modbus::kMinSlaveId || slaveId > 255) {
+    if (!slaveOk || slaveId < config::Modbus::kMinSlaveId || slaveId > 255) {
         emit logMessageRequested(usesUnitIdLabel(transportMode_)
                                  ? tr("Invalid Unit ID format or range (0-255): %1").arg(slaveIdEdit_->text())
                                  : tr("Invalid Slave ID format or range (0-255): %1").arg(slaveIdEdit_->text()), true);
         return;
     }
-    if (!addrOk || address < app::constants::Values::Modbus::kMinAddress || address > app::constants::Values::Modbus::kMaxAddress) {
+    if (!addrOk || address < config::Modbus::kMinAddress || address > config::Modbus::kMaxAddress) {
         emit logMessageRequested(tr("Invalid Address format or range (0-65535): %1").arg(addressEdit_->text()), true);
         return;
     }
@@ -349,13 +349,13 @@ void FunctionWidget::onWriteClicked(uint8_t functionCode) {
     int slaveId = modbus::base::ModbusDataHelper::parseSmartInt(slaveIdEdit_->text(), &slaveOk);
     int address = modbus::base::ModbusDataHelper::parseSmartInt(addressEdit_->text(), &addrOk);
 
-    if (!slaveOk || slaveId < app::constants::Values::Modbus::kMinSlaveId || slaveId > 255) {
+    if (!slaveOk || slaveId < config::Modbus::kMinSlaveId || slaveId > 255) {
         emit logMessageRequested(usesUnitIdLabel(transportMode_)
                                  ? tr("Invalid Unit ID format or range (0-255): %1").arg(slaveIdEdit_->text())
                                  : tr("Invalid Slave ID format or range (0-255): %1").arg(slaveIdEdit_->text()), true);
         return;
     }
-    if (!addrOk || address < app::constants::Values::Modbus::kMinAddress || address > app::constants::Values::Modbus::kMaxAddress) {
+    if (!addrOk || address < config::Modbus::kMinAddress || address > config::Modbus::kMaxAddress) {
         emit logMessageRequested(tr("Invalid Address format or range (0-65535): %1").arg(addressEdit_->text()), true);
         return;
     }

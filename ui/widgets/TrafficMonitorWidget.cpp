@@ -8,7 +8,7 @@
  */
 
 #include "TrafficMonitorWidget.h"
-#include "AppConstants.h"
+#include "Config.h"
 #include "CollapsibleSection.h"
 #include "../../core/common/ISettingsService.h"
 #include <QVBoxLayout>
@@ -273,7 +273,7 @@ void TrafficMonitorWidget::syncPauseUi() {
 
 void TrafficMonitorWidget::appendEventToHistory(const ui::common::TrafficEvent& event) {
     eventHistory_.append(event);
-    const int maxRows = app::constants::Values::Ui::kTrafficMonitorMaxBlockCount;
+    const int maxRows = config::Ui::kTrafficMonitorMaxBlockCount;
     while (eventHistory_.size() > maxRows) {
         eventHistory_.removeFirst();
     }
@@ -497,7 +497,7 @@ void TrafficMonitorWidget::onSaveClicked() {
     };
     auto state = std::make_shared<SaveState>();
     const int totalCount = exportLines.size();
-    const int chunkSize = app::constants::Values::Ui::kTrafficLogExportChunkRows;
+    const int chunkSize = config::Ui::kTrafficLogExportChunkRows;
     auto scheduleNextChunk = std::make_shared<std::function<void()>>();
 
     *scheduleNextChunk = [this, fileName, totalCount, chunkSize, state, errorMessage, scheduleNextChunk, exportLines]() {

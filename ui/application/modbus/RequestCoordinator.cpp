@@ -122,7 +122,7 @@ void RequestCoordinator::handlePollRequest(uint8_t fc, int addr, int qty, int in
     spec.functionCode = fc;
     spec.startAddress = static_cast<uint16_t>(addr);
     spec.quantity = static_cast<uint16_t>(qty);
-    spec.slaveId = static_cast<uint8_t>(app::constants::Values::Modbus::kDefaultSlaveId);
+    spec.slaveId = static_cast<uint8_t>(config::Modbus::kDefaultSlaveId);
 
     pollingController_->handlePollRequest(spec);
 }

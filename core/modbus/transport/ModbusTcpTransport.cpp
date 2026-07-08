@@ -9,7 +9,7 @@
 
 #include "ModbusTcpTransport.h"
 #include "../base/ModbusProtocolChecks.h"
-#include "../../AppConstants.h"
+#include "../../Config.h"
 #include <QtEndian>
 #include <spdlog/spdlog.h>
 
@@ -69,10 +69,10 @@ ParseResponseResult ModbusTcpTransport::parseResponse(const QByteArray& adu) {
 int ModbusTcpTransport::checkIntegrity(const QByteArray& data) {
     base::TcpAduFields fields;
     const int result = base::inspectTcpAdu(data, &fields);
-    if (result > 0 && fields.length > app::constants::Values::Modbus::kMaxTcpMbapLength) {
+    if (result > 0 && fields.length > config::Modbus::kMaxTcpMbapLength) {
         spdlog::error(
             "ModbusTcpTransport: MBAP length {} exceeds limit {}, rejecting",
-            fields.length, app::constants::Values::Modbus::kMaxTcpMbapLength);
+            fields.length, config::Modbus::kMaxTcpMbapLength);
         return -1;
     }
     return result;

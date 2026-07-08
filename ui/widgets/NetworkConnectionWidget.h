@@ -15,7 +15,7 @@
 #pragma once
 
 #include "BaseConnectionWidget.h"
-#include "AppConstants.h"
+#include "Config.h"
 
 class QLineEdit;
 class QSpinBox;
@@ -114,7 +114,7 @@ protected:
     QLabel* portLabel_ = nullptr;
     QLineEdit* ipEdit_ = nullptr;
     QSpinBox* portEdit_ = nullptr;
-    int defaultPort_ = app::constants::Values::Network::kDefaultModbusTcpPort;
+    int defaultPort_ = config::Network::kDefaultModbusTcpPort;
 };
 
 } // namespace ui::widgets

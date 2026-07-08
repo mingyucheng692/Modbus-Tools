@@ -1,6 +1,6 @@
 #include <gtest/gtest.h>
 
-#include "../../../core/AppConstants.h"
+#include "../../../core/Config.h"
 #include "../../../ui/shell/NavigationController.h"
 
 #include <QListWidget>
@@ -39,7 +39,7 @@ TEST(NavigationControllerTest, CollapseStateToggleUpdatesPaneAndLabels) {
 
     controller.setCollapsed(true);
     EXPECT_TRUE(controller.isCollapsed());
-    EXPECT_EQ(navigationPane.width(), app::constants::Values::Ui::kNavigationCollapsedWidth);
+    EXPECT_EQ(navigationPane.width(), config::Ui::kNavigationCollapsedWidth);
     ASSERT_NE(navigationList.item(0), nullptr);
     EXPECT_TRUE(navigationList.item(0)->text().isEmpty());
     EXPECT_EQ(navigationToggleButton.text(), QStringLiteral("≫"));

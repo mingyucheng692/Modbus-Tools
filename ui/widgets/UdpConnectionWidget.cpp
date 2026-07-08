@@ -10,7 +10,7 @@
  */
 
 #include "UdpConnectionWidget.h"
-#include "AppConstants.h"
+#include "Config.h"
 #include "CollapsibleSection.h"
 #include "../../core/common/ISettingsService.h"
 #include <QHBoxLayout>
@@ -41,8 +41,8 @@ UdpConnectionWidget::UdpConnectionWidget(core::common::ISettingsService* setting
 
         remotePortLabel_ = new QLabel(this);
         remotePortEdit_ = new QSpinBox(this);
-        remotePortEdit_->setRange(app::constants::Values::Network::kMinTcpPort,
-                                  app::constants::Values::Network::kMaxTcpPort);
+        remotePortEdit_->setRange(config::Network::kMinTcpPort,
+                                  config::Network::kMaxTcpPort);
         remotePortEdit_->setValue(0);
         remotePortEdit_->setFixedWidth(76);
         remotePortEdit_->setSpecialValueText(QStringLiteral("-"));

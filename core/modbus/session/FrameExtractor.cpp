@@ -8,7 +8,6 @@
  */
 
 #include "FrameExtractor.h"
-#include "AppConstants.h"
 #include "../../Config.h"
 #include "../base/ModbusProtocolChecks.h"
 #include <spdlog/spdlog.h>
@@ -158,13 +157,13 @@ void FrameExtractor::feed(QByteArrayView data)
         processAsciiBuffer();
     } else {
         buffer_.append(data);
-        if (buffer_.size() > app::constants::Values::Modbus::kMaxTcpBufferedBytes) {
+        if (buffer_.size() > config::Modbus::kMaxTcpBufferedBytes) {
             spdlog::error(
                 "FrameExtractor: TCP buffer exceeded {} bytes limit, "
                 "dropping oldest bytes",
-                app::constants::Values::Modbus::kMaxTcpBufferedBytes);
+                config::Modbus::kMaxTcpBufferedBytes);
             buffer_.remove(0,
-                buffer_.size() - app::constants::Values::Modbus::kMaxTcpBufferedBytes);
+                buffer_.size() - config::Modbus::kMaxTcpBufferedBytes);
         }
         processTcpBuffer();
     }
@@ -200,7 +199,7 @@ void FrameExtractor::processTcpBuffer()
                 droppedInvalidBytes_ + 1);
             buffer_.remove(0, 1);
             ++droppedInvalidBytes_;
-            if (droppedInvalidBytes_ > app::constants::Values::Modbus::kMaxDroppedInvalidBytes) {
+            if (droppedInvalidBytes_ > config::Modbus::kMaxDroppedInvalidBytes) {
                 spdlog::error(
                     "FrameExtractor: TCP invalid byte limit exceeded ({}), "
                     "clearing buffer",
@@ -247,7 +246,7 @@ void FrameExtractor::processAsciiBuffer()
             "FrameExtractor: invalid ASCII frame header/body, dropping start delimiter");
         buffer_.remove(0, 1);
         ++droppedInvalidBytes_;
-        if (droppedInvalidBytes_ > app::constants::Values::Modbus::kMaxDroppedInvalidBytes) {
+        if (droppedInvalidBytes_ > config::Modbus::kMaxDroppedInvalidBytes) {
             spdlog::error(
                 "FrameExtractor: ASCII invalid byte limit exceeded ({}), clearing buffer",
                 droppedInvalidBytes_);
@@ -331,7 +330,7 @@ qsizetype FrameExtractor::bufferSize() const
 
 bool FrameExtractor::hasExceededDropLimit() const
 {
-    return droppedInvalidBytes_ > app::constants::Values::Modbus::kMaxDroppedInvalidBytes;
+    return droppedInvalidBytes_ > config::Modbus::kMaxDroppedInvalidBytes;
 }
 
 int FrameExtractor::droppedInvalidBytes() const

@@ -17,7 +17,7 @@
 #include "modbus/base/ModbusConfig.h"
 #include "modbus/parser/ModbusFrameParser.h"
 #include "infra/io/SerialConfig.h"
-#include "../../../../core/AppConstants.h"
+#include "../../../../core/Config.h"
 
 namespace ui::application::modbus {
 
@@ -25,13 +25,13 @@ struct PollSpec {
     uint8_t functionCode = 0;
     uint16_t startAddress = 0;
     uint16_t quantity = 0;
-    uint8_t slaveId = static_cast<uint8_t>(app::constants::Values::Modbus::kDefaultSlaveId);
+    uint8_t slaveId = static_cast<uint8_t>(config::Modbus::kDefaultSlaveId);
 };
 
 struct ModbusTimingParams {
-    std::chrono::milliseconds timeout{app::constants::Values::Modbus::kDefaultTimeoutMs};
-    int retryCount = app::constants::Values::Modbus::kDefaultRetryCount;
-    std::chrono::milliseconds retryInterval{app::constants::Values::Modbus::kDefaultRetryIntervalMs};
+    std::chrono::milliseconds timeout{config::Modbus::kDefaultTimeoutMs};
+    int retryCount = config::Modbus::kDefaultRetryCount;
+    std::chrono::milliseconds retryInterval{config::Modbus::kDefaultRetryIntervalMs};
 };
 
 enum class RequestKind {

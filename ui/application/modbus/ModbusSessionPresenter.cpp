@@ -32,9 +32,9 @@ ModbusSessionPresenter::ModbusSessionPresenter(SessionMode mode,
     : QObject(parent),
       mode_(mode),
       factory_(factory),
-      timeoutMs_(app::constants::Values::Modbus::kDefaultTimeoutMs),
+      timeoutMs_(config::Modbus::kDefaultTimeoutMs),
       retries_(0),
-      retryIntervalMs_(app::constants::Values::Modbus::kDefaultRetryIntervalMs) {
+      retryIntervalMs_(config::Modbus::kDefaultRetryIntervalMs) {
     releaseCoordinator_ = std::make_unique<WorkerReleaseCoordinator>(this);
     connect(releaseCoordinator_.get(), &WorkerReleaseCoordinator::releaseCompleted,
             this, &ModbusSessionPresenter::onReleaseCompleted);

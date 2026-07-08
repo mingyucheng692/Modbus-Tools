@@ -1,6 +1,6 @@
 #include "shell/NavigationController.h"
 
-#include "AppConstants.h"
+#include "Config.h"
 
 #include <QColor>
 #include <QCoreApplication>
@@ -89,8 +89,8 @@ NavigationController::NavigationController(QListWidget* navigationList, QWidget*
     : navigationList_(navigationList),
       navigationPane_(navigationPane),
       navigationToggleButton_(navigationToggleButton),
-      expandedWidth_(app::constants::Values::Ui::kNavigationExpandedWidth),
-      collapsedWidth_(app::constants::Values::Ui::kNavigationCollapsedWidth) {}
+      expandedWidth_(config::Ui::kNavigationExpandedWidth),
+      collapsedWidth_(config::Ui::kNavigationCollapsedWidth) {}
 
 void NavigationController::initialize(const QStringList& titles) {
     if (!navigationList_) {
@@ -178,7 +178,7 @@ void NavigationController::updateToggleUi(const QString& expandNavigationText, c
 
 void NavigationController::recalculateExpandedWidth() {
     if (!navigationList_) {
-        expandedWidth_ = app::constants::Values::Ui::kNavigationExpandedWidth;
+        expandedWidth_ = config::Ui::kNavigationExpandedWidth;
         return;
     }
 
@@ -187,7 +187,7 @@ void NavigationController::recalculateExpandedWidth() {
     for (int i = 0; i < navigationList_->count(); ++i) {
         maxTextWidth = qMax(maxTextWidth, metrics.horizontalAdvance(navigationList_->item(i)->toolTip()));
     }
-    expandedWidth_ = qMax(app::constants::Values::Ui::kNavigationExpandedWidth, maxTextWidth + 60);
+    expandedWidth_ = qMax(config::Ui::kNavigationExpandedWidth, maxTextWidth + 60);
 }
 
 } // namespace ui::shell

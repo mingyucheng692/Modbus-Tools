@@ -8,7 +8,7 @@
  */
 
 #include "MainWindow.h"
-#include "AppConstants.h"
+#include "Config.h"
 #include "UpdateInteractionView.h"
 #include "application/AppLifecycleCoordinator.h"
 #include "application/AnalyzerLinkCoordinator.h"
@@ -129,12 +129,12 @@ MainWindow::~MainWindow() {
 
 void MainWindow::initializeUi() {
     setWindowTitle(tr("Modbus Tools"));
-    setMinimumSize(app::constants::Values::Ui::kMainWindowMinWidth, 
-                   app::constants::Values::Ui::kMainWindowMinHeight);
+    setMinimumSize(config::Ui::kMainWindowMinWidth, 
+                   config::Ui::kMainWindowMinHeight);
     menuBarStyle_ = std::make_unique<common::CompactMenuBarStyle>(menuBar()->style()->name());
     menuBar()->setStyle(menuBarStyle_.get());
-    resize(app::constants::Values::Ui::kMainWindowDefaultWidth,
-           app::constants::Values::Ui::kMainWindowDefaultHeight);
+    resize(config::Ui::kMainWindowDefaultWidth,
+           config::Ui::kMainWindowDefaultHeight);
 
     auto centralWidget = new QWidget(this);
     setCentralWidget(centralWidget);
@@ -265,14 +265,14 @@ void MainWindow::setupLanguageMenu() {
         action->setCheckable(true);
         action->setData(code);
         languageActionGroup_->addAction(action);
-        if (code == QLatin1String(app::constants::Values::App::kLocaleEn)) langEnAction_ = action;
-        else if (code == QLatin1String(app::constants::Values::App::kLocaleZhCn)) langZhCnAction_ = action;
-        else if (code == QLatin1String(app::constants::Values::App::kLocaleZhTw)) langZhTwAction_ = action;
+        if (code == QLatin1String(config::App::kLocaleEn)) langEnAction_ = action;
+        else if (code == QLatin1String(config::App::kLocaleZhCn)) langZhCnAction_ = action;
+        else if (code == QLatin1String(config::App::kLocaleZhTw)) langZhTwAction_ = action;
     };
 
-    addLang(tr("English (US)"), app::constants::Values::App::kLocaleEn);
-    addLang(tr("简体中文"), app::constants::Values::App::kLocaleZhCn);
-    addLang(tr("繁體中文"), app::constants::Values::App::kLocaleZhTw);
+    addLang(tr("English (US)"), config::App::kLocaleEn);
+    addLang(tr("简体中文"), config::App::kLocaleZhCn);
+    addLang(tr("繁體中文"), config::App::kLocaleZhTw);
 
     auto invoke = [this](auto fn, auto&&... args) {
         if (presenter_) {
@@ -380,9 +380,9 @@ void MainWindow::retranslateUi(const QString& effectiveLocale) {
     if (langZhCnAction_) langZhCnAction_->setText(tr("简体中文"));
     if (langZhTwAction_) langZhTwAction_->setText(tr("繁體中文"));
     
-    if (langEnAction_) langEnAction_->setChecked(effectiveLocale_ == app::constants::Values::App::kLocaleEn);
-    if (langZhCnAction_) langZhCnAction_->setChecked(effectiveLocale_ == app::constants::Values::App::kLocaleZhCn);
-    if (langZhTwAction_) langZhTwAction_->setChecked(effectiveLocale_ == app::constants::Values::App::kLocaleZhTw);
+    if (langEnAction_) langEnAction_->setChecked(effectiveLocale_ == config::App::kLocaleEn);
+    if (langZhCnAction_) langZhCnAction_->setChecked(effectiveLocale_ == config::App::kLocaleZhCn);
+    if (langZhTwAction_) langZhTwAction_->setChecked(effectiveLocale_ == config::App::kLocaleZhTw);
     
     if (businessContext_->updateCoordinator) {
         businessContext_->updateCoordinator->refreshIndicators();

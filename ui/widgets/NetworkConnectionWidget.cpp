@@ -50,8 +50,8 @@ void NetworkConnectionWidget::setupCommonUi() {
     portLabel_ = new QLabel(this);
     layout->addWidget(portLabel_);
     portEdit_ = new QSpinBox(this);
-    portEdit_->setRange(app::constants::Values::Network::kMinTcpPort,
-                        app::constants::Values::Network::kMaxTcpPort);
+    portEdit_->setRange(config::Network::kMinTcpPort,
+                        config::Network::kMaxTcpPort);
     portEdit_->setValue(defaultPort_);
     portEdit_->setFixedWidth(76);
     layout->addWidget(portEdit_);

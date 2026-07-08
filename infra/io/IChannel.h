@@ -9,7 +9,7 @@
 
 #pragma once
 
-#include "core/AppConstants.h"
+#include "core/Config.h"
 #include <QByteArrayView>
 #include <QString>
 #include <QtGlobal>
@@ -53,8 +53,8 @@ struct ChannelStats {
 };
 
 struct Timeouts {
-    int readMs = app::constants::Values::Modbus::kDefaultTimeoutMs;
-    int writeMs = app::constants::Values::Modbus::kDefaultTimeoutMs;
+    int readMs = config::Modbus::kDefaultTimeoutMs;
+    int writeMs = config::Modbus::kDefaultTimeoutMs;
 };
 
 class IChannel {

@@ -8,7 +8,7 @@
  */
 
 #include "UpdateManager.h"
-#include "../AppConstants.h"
+#include "../Config.h"
 #include "infra/platform/PlatformProcessRunnerFactory.h"
 #include "PlatformUpdateInstallStrategy.h"
 #include <QNetworkAccessManager>

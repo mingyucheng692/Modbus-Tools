@@ -8,7 +8,7 @@
  */
 
 #pragma once
-#include "core/AppConstants.h"
+#include "core/Config.h"
 #include "ChannelBase.h"
 #include <QTcpSocket>
 #include <QHostAddress>
@@ -66,7 +66,7 @@ private:
     QTcpSocket socket_;
     QTimer writeTimeoutTimer_;
     QString ip_;
-    int port_ = app::constants::Values::Network::kDefaultModbusTcpPort;
+    int port_ = config::Network::kDefaultModbusTcpPort;
     std::deque<QByteArray> pendingWrites_;
     qsizetype currentWriteOffset_ = 0;
     bool closing_ = false;

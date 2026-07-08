@@ -10,7 +10,7 @@
 #include "RequestExecutor.h"
 #include "ExceptionInterpreter.h"
 #include "RequestValidator.h"
-#include "AppConstants.h"
+#include "Config.h"
 #include "infra/logging/Logger.h"
 #include "../base/ModbusProtocolChecks.h"
 #include <spdlog/spdlog.h>

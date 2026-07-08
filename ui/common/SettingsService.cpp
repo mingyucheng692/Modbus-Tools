@@ -10,7 +10,7 @@
 #include "SettingsService.h"
 #include "AppConfig.h"
 #include "SettingsKeys.h"
-#include "AppConstants.h"
+#include "Config.h"
 #include <QCoreApplication>
 #include <QTimer>
 
@@ -21,7 +21,7 @@ SettingsService::SettingsService(QObject* parent, std::unique_ptr<IAppConfig> ap
       appConfig_(appConfig ? std::move(appConfig) : std::make_unique<AppConfig>()),
       syncTimer_(new QTimer(this)) {
     syncTimer_->setSingleShot(true);
-    syncTimer_->setInterval(app::constants::Values::Settings::kSyncDebounceMs);
+    syncTimer_->setInterval(config::Settings::kSyncDebounceMs);
     connect(syncTimer_, &QTimer::timeout, this, &SettingsService::sync);
 
     initializeDefaults();
@@ -87,22 +87,22 @@ void SettingsService::initializeDefaults() {
     defaults_.insert(kAppMainWindowGeometry, QByteArray());
     defaults_.insert(kAppMainWindowState, QByteArray());
 
-    defaults_.insert(kModbusTimeoutMs, app::constants::Values::Modbus::kDefaultTimeoutMs);
-    defaults_.insert(kModbusRetryCount, app::constants::Values::Modbus::kDefaultRetryCount);
-    defaults_.insert(kModbusRetryIntervalMs, app::constants::Values::Modbus::kDefaultRetryIntervalMs);
-    defaults_.insert(kModbusRetryEnabled, app::constants::Values::Modbus::kDefaultRetryEnabled);
+    defaults_.insert(kModbusTimeoutMs, config::Modbus::kDefaultTimeoutMs);
+    defaults_.insert(kModbusRetryCount, config::Modbus::kDefaultRetryCount);
+    defaults_.insert(kModbusRetryIntervalMs, config::Modbus::kDefaultRetryIntervalMs);
+    defaults_.insert(kModbusRetryEnabled, config::Modbus::kDefaultRetryEnabled);
 
-    defaults_.insert(kFrameAnalyzerStartAddr, app::constants::Values::Modbus::kDefaultStandardStartAddress);
-    defaults_.insert(kFrameAnalyzerDecodeMode, app::constants::Values::Modbus::kDefaultStandardFormatIndex);
+    defaults_.insert(kFrameAnalyzerStartAddr, config::Modbus::kDefaultStandardStartAddress);
+    defaults_.insert(kFrameAnalyzerDecodeMode, config::Modbus::kDefaultStandardFormatIndex);
     defaults_.insert(kFrameAnalyzerHistoryCollapsed, false);
 
-    defaults_.insert(kModbusTcpIp, QString::fromLatin1(app::constants::Values::Network::kDefaultDeviceAddress));
-    defaults_.insert(kModbusTcpPort, app::constants::Values::Network::kDefaultModbusTcpPort);
+    defaults_.insert(kModbusTcpIp, QString::fromLatin1(config::Network::kDefaultDeviceAddress));
+    defaults_.insert(kModbusTcpPort, config::Network::kDefaultModbusTcpPort);
     defaults_.insert(kModbusTcpConnectionCollapsed, false);
-    defaults_.insert(kModbusTcpStandardSlaveId, app::constants::Values::Modbus::kDefaultSlaveId);
-    defaults_.insert(kModbusTcpStandardStartAddr, app::constants::Values::Modbus::kDefaultStandardStartAddress);
-    defaults_.insert(kModbusTcpStandardQuantity, app::constants::Values::Modbus::kDefaultStandardQuantity);
-    defaults_.insert(kModbusTcpStandardFormatIndex, app::constants::Values::Modbus::kDefaultStandardFormatIndex);
+    defaults_.insert(kModbusTcpStandardSlaveId, config::Modbus::kDefaultSlaveId);
+    defaults_.insert(kModbusTcpStandardStartAddr, config::Modbus::kDefaultStandardStartAddress);
+    defaults_.insert(kModbusTcpStandardQuantity, config::Modbus::kDefaultStandardQuantity);
+    defaults_.insert(kModbusTcpStandardFormatIndex, config::Modbus::kDefaultStandardFormatIndex);
     defaults_.insert(kModbusTcpStandardCollapsed, false);
     defaults_.insert(kModbusTcpRawCollapsed, true);
     defaults_.insert(kModbusTcpTrafficAutoScroll, true);
@@ -110,22 +110,22 @@ void SettingsService::initializeDefaults() {
     defaults_.insert(kModbusTcpTrafficShowRx, true);
     defaults_.insert(kModbusTcpTrafficCollapsed, false);
     defaults_.insert(kModbusTcpControlEnablePoll, false);
-    defaults_.insert(kModbusTcpControlIntervalMs, app::constants::Values::Modbus::kDefaultControlIntervalMs);
-    defaults_.insert(kModbusTcpControlFcIndex, app::constants::Values::Modbus::kDefaultControlFunctionIndex);
-    defaults_.insert(kModbusTcpControlAddr, app::constants::Values::Modbus::kDefaultControlAddress);
-    defaults_.insert(kModbusTcpControlQty, app::constants::Values::Modbus::kDefaultControlQuantity);
+    defaults_.insert(kModbusTcpControlIntervalMs, config::Modbus::kDefaultControlIntervalMs);
+    defaults_.insert(kModbusTcpControlFcIndex, config::Modbus::kDefaultControlFunctionIndex);
+    defaults_.insert(kModbusTcpControlAddr, config::Modbus::kDefaultControlAddress);
+    defaults_.insert(kModbusTcpControlQty, config::Modbus::kDefaultControlQuantity);
     defaults_.insert(kModbusTcpDataMonitorCollapsed, false);
 
-    defaults_.insert(kModbusRtuBaudRate, QString::fromLatin1(app::constants::Values::Serial::kDefaultBaudRateText));
-    defaults_.insert(kModbusRtuDataBits, QString::fromLatin1(app::constants::Values::Serial::kDefaultDataBitsText));
-    defaults_.insert(kModbusRtuParity, QString::fromLatin1(app::constants::Values::Serial::kDefaultParityText));
-    defaults_.insert(kModbusRtuStopBits, QString::fromLatin1(app::constants::Values::Serial::kDefaultStopBitsText));
+    defaults_.insert(kModbusRtuBaudRate, QString::fromLatin1(config::Serial::kDefaultBaudRateText));
+    defaults_.insert(kModbusRtuDataBits, QString::fromLatin1(config::Serial::kDefaultDataBitsText));
+    defaults_.insert(kModbusRtuParity, QString::fromLatin1(config::Serial::kDefaultParityText));
+    defaults_.insert(kModbusRtuStopBits, QString::fromLatin1(config::Serial::kDefaultStopBitsText));
     defaults_.insert(kModbusRtuPortName, QString());
     defaults_.insert(kModbusRtuConnectionCollapsed, false);
-    defaults_.insert(kModbusRtuStandardSlaveId, app::constants::Values::Modbus::kDefaultSlaveId);
-    defaults_.insert(kModbusRtuStandardStartAddr, app::constants::Values::Modbus::kDefaultStandardStartAddress);
-    defaults_.insert(kModbusRtuStandardQuantity, app::constants::Values::Modbus::kDefaultStandardQuantity);
-    defaults_.insert(kModbusRtuStandardFormatIndex, app::constants::Values::Modbus::kDefaultStandardFormatIndex);
+    defaults_.insert(kModbusRtuStandardSlaveId, config::Modbus::kDefaultSlaveId);
+    defaults_.insert(kModbusRtuStandardStartAddr, config::Modbus::kDefaultStandardStartAddress);
+    defaults_.insert(kModbusRtuStandardQuantity, config::Modbus::kDefaultStandardQuantity);
+    defaults_.insert(kModbusRtuStandardFormatIndex, config::Modbus::kDefaultStandardFormatIndex);
     defaults_.insert(kModbusRtuStandardCollapsed, false);
     defaults_.insert(kModbusRtuRawCollapsed, true);
     defaults_.insert(kModbusRtuTrafficAutoScroll, true);
@@ -133,20 +133,20 @@ void SettingsService::initializeDefaults() {
     defaults_.insert(kModbusRtuTrafficShowRx, true);
     defaults_.insert(kModbusRtuTrafficCollapsed, false);
     defaults_.insert(kModbusRtuControlEnablePoll, false);
-    defaults_.insert(kModbusRtuControlIntervalMs, app::constants::Values::Modbus::kDefaultControlIntervalMs);
-    defaults_.insert(kModbusRtuControlFcIndex, app::constants::Values::Modbus::kDefaultControlFunctionIndex);
-    defaults_.insert(kModbusRtuControlAddr, app::constants::Values::Modbus::kDefaultControlAddress);
-    defaults_.insert(kModbusRtuControlQty, app::constants::Values::Modbus::kDefaultControlQuantity);
+    defaults_.insert(kModbusRtuControlIntervalMs, config::Modbus::kDefaultControlIntervalMs);
+    defaults_.insert(kModbusRtuControlFcIndex, config::Modbus::kDefaultControlFunctionIndex);
+    defaults_.insert(kModbusRtuControlAddr, config::Modbus::kDefaultControlAddress);
+    defaults_.insert(kModbusRtuControlQty, config::Modbus::kDefaultControlQuantity);
     defaults_.insert(kModbusRtuDataMonitorCollapsed, false);
 
     // New string-based keys for smart hex/dec input support
-    defaults_.insert(QString(kModbusTcpStandardSlaveId) + "Str", QString::number(app::constants::Values::Modbus::kDefaultSlaveId));
-    defaults_.insert(QString(kModbusTcpStandardStartAddr) + "Str", QString::number(app::constants::Values::Modbus::kDefaultStandardStartAddress));
-    defaults_.insert(QString(kModbusRtuStandardSlaveId) + "Str", QString::number(app::constants::Values::Modbus::kDefaultSlaveId));
-    defaults_.insert(QString(kModbusRtuStandardStartAddr) + "Str", QString::number(app::constants::Values::Modbus::kDefaultStandardStartAddress));
+    defaults_.insert(QString(kModbusTcpStandardSlaveId) + "Str", QString::number(config::Modbus::kDefaultSlaveId));
+    defaults_.insert(QString(kModbusTcpStandardStartAddr) + "Str", QString::number(config::Modbus::kDefaultStandardStartAddress));
+    defaults_.insert(QString(kModbusRtuStandardSlaveId) + "Str", QString::number(config::Modbus::kDefaultSlaveId));
+    defaults_.insert(QString(kModbusRtuStandardStartAddr) + "Str", QString::number(config::Modbus::kDefaultStandardStartAddress));
 
-    defaults_.insert(kTcpClientIp, QString::fromLatin1(app::constants::Values::Network::kDefaultDeviceAddress));
-    defaults_.insert(kTcpClientPort, app::constants::Values::Network::kDefaultGenericTcpPort);
+    defaults_.insert(kTcpClientIp, QString::fromLatin1(config::Network::kDefaultDeviceAddress));
+    defaults_.insert(kTcpClientPort, config::Network::kDefaultGenericTcpPort);
     defaults_.insert(kTcpClientConnectionCollapsed, false);
     defaults_.insert(kTcpClientTrafficAutoScroll, true);
     defaults_.insert(kTcpClientTrafficShowTx, true);
@@ -154,13 +154,13 @@ void SettingsService::initializeDefaults() {
     defaults_.insert(kTcpClientTrafficCollapsed, false);
     defaults_.insert(kTcpClientInputFormat, QStringLiteral("hex"));
     defaults_.insert(kTcpClientInputAutoSend, false);
-    defaults_.insert(kTcpClientInputIntervalMs, app::constants::Values::GenericIo::kDefaultInputIntervalMs);
+    defaults_.insert(kTcpClientInputIntervalMs, config::GenericIo::kDefaultInputIntervalMs);
     defaults_.insert(kTcpClientInputCollapsed, false);
 
-    defaults_.insert(kSerialPortBaudRate, QString::fromLatin1(app::constants::Values::Serial::kDefaultBaudRateText));
-    defaults_.insert(kSerialPortDataBits, QString::fromLatin1(app::constants::Values::Serial::kDefaultDataBitsText));
-    defaults_.insert(kSerialPortParity, QString::fromLatin1(app::constants::Values::Serial::kDefaultParityText));
-    defaults_.insert(kSerialPortStopBits, QString::fromLatin1(app::constants::Values::Serial::kDefaultStopBitsText));
+    defaults_.insert(kSerialPortBaudRate, QString::fromLatin1(config::Serial::kDefaultBaudRateText));
+    defaults_.insert(kSerialPortDataBits, QString::fromLatin1(config::Serial::kDefaultDataBitsText));
+    defaults_.insert(kSerialPortParity, QString::fromLatin1(config::Serial::kDefaultParityText));
+    defaults_.insert(kSerialPortStopBits, QString::fromLatin1(config::Serial::kDefaultStopBitsText));
     defaults_.insert(kSerialPortPortName, QString());
     defaults_.insert(kSerialPortConnectionCollapsed, false);
     defaults_.insert(kSerialPortTrafficAutoScroll, true);
@@ -169,7 +169,7 @@ void SettingsService::initializeDefaults() {
     defaults_.insert(kSerialPortTrafficCollapsed, false);
     defaults_.insert(kSerialPortInputFormat, QStringLiteral("hex"));
     defaults_.insert(kSerialPortInputAutoSend, false);
-    defaults_.insert(kSerialPortInputIntervalMs, app::constants::Values::GenericIo::kDefaultInputIntervalMs);
+    defaults_.insert(kSerialPortInputIntervalMs, config::GenericIo::kDefaultInputIntervalMs);
     defaults_.insert(kSerialPortInputCollapsed, false);
     defaults_.insert(kSerialPortDtr, false);
     defaults_.insert(kSerialPortRts, false);

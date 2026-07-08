@@ -8,7 +8,7 @@
  */
 
 #include "LogListModel.h"
-#include "AppConstants.h"
+#include "Config.h"
 
 namespace ui::widgets {
 
@@ -17,7 +17,7 @@ LogListModel::LogListModel(int maxBlockCount, QObject* parent)
       maxBlockCount_(qMax(1, maxBlockCount)) {}
 
 LogListModel::LogListModel(QObject* parent)
-    : LogListModel(app::constants::Values::Ui::kTrafficMonitorMaxBlockCount, parent) {}
+    : LogListModel(config::Ui::kTrafficMonitorMaxBlockCount, parent) {}
 
 int LogListModel::rowCount(const QModelIndex& parent) const {
     return parent.isValid() ? 0 : entries_.size();

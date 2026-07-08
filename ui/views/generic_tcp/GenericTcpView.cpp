@@ -8,7 +8,7 @@
  */
 
 #include "GenericTcpView.h"
-#include "AppConstants.h"
+#include "Config.h"
 #include "../../../core/common/ISettingsService.h"
 #include "../../widgets/TcpClientConnectionWidget.h"
 #include "../../widgets/TcpServerConnectionWidget.h"
@@ -101,17 +101,17 @@ void GenericTcpView::setupUi() {
 
     tcpClientWidget_ = new widgets::TcpClientConnectionWidget(settingsService_, connectionStack_);
     tcpClientWidget_->setSettingsGroup(QStringLiteral("tcp_client"));
-    tcpClientWidget_->setDefaultPort(app::constants::Values::Network::kDefaultGenericTcpPort);
+    tcpClientWidget_->setDefaultPort(config::Network::kDefaultGenericTcpPort);
     connectionStack_->addWidget(tcpClientWidget_);
 
     tcpServerWidget_ = new widgets::TcpServerConnectionWidget(settingsService_, connectionStack_);
     tcpServerWidget_->setSettingsGroup(QStringLiteral("tcp_server"));
-    tcpServerWidget_->setDefaultPort(app::constants::Values::Network::kDefaultGenericTcpPort);
+    tcpServerWidget_->setDefaultPort(config::Network::kDefaultGenericTcpPort);
     connectionStack_->addWidget(tcpServerWidget_);
 
     udpWidget_ = new widgets::UdpConnectionWidget(settingsService_, connectionStack_);
     udpWidget_->setSettingsGroup(QStringLiteral("udp"));
-    udpWidget_->setDefaultPort(app::constants::Values::Network::kDefaultGenericTcpPort);
+    udpWidget_->setDefaultPort(config::Network::kDefaultGenericTcpPort);
     connectionStack_->addWidget(udpWidget_);
 
     connectionStack_->setCurrentIndex(0);

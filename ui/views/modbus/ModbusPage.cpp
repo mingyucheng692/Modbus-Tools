@@ -8,7 +8,7 @@
  */
 
 #include "ModbusPage.h"
-#include "AppConstants.h"
+#include "Config.h"
 #include "../../../core/common/ISettingsService.h"
 #include "../../application/modbus/ModbusPagePresenter.h"
 #include "../../application/modbus/ModbusSessionPresenter.h"
@@ -127,7 +127,7 @@ void ModbusPage::setupUi() {
     receiveToolbar->addWidget(clearReceiveButton_);
     receiveTextEdit_ = new QTextEdit(receiveGroup_);
     receiveTextEdit_->setReadOnly(true);
-    receiveTextEdit_->document()->setMaximumBlockCount(app::constants::Values::Ui::kTrafficMonitorMaxBlockCount);
+    receiveTextEdit_->document()->setMaximumBlockCount(config::Ui::kTrafficMonitorMaxBlockCount);
     receiveLayout->addLayout(receiveToolbar);
     receiveLayout->addWidget(receiveTextEdit_);
 
@@ -141,7 +141,7 @@ void ModbusPage::setupUi() {
     sendToolbar->addWidget(clearSendButton_);
     sendTextEdit_ = new QTextEdit(sendGroup_);
     sendTextEdit_->setReadOnly(true);
-    sendTextEdit_->document()->setMaximumBlockCount(app::constants::Values::Ui::kTrafficMonitorMaxBlockCount);
+    sendTextEdit_->document()->setMaximumBlockCount(config::Ui::kTrafficMonitorMaxBlockCount);
     sendLayout->addLayout(sendToolbar);
     sendLayout->addWidget(sendTextEdit_);
 

@@ -9,7 +9,7 @@
 
 #include "PollingController.h"
 #include "RequestSubmissionService.h"
-#include "AppConstants.h"
+#include "Config.h"
 #include "../../logging/LogBridge.h"
 #include <QCoreApplication>
 #include <algorithm>

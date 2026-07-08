@@ -8,7 +8,7 @@
  */
 
 #include "ModbusClient.h"
-#include "AppConstants.h"
+#include "Config.h"
 #include "infra/logging/Logger.h"
 #include <spdlog/spdlog.h>
 #include <chrono>

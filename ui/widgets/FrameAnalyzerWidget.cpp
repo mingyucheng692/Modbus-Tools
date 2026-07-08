@@ -8,7 +8,7 @@
  */
 
 #include "FrameAnalyzerWidget.h"
-#include "AppConstants.h"
+#include "Config.h"
 #include "../../core/common/ISettingsService.h"
 #include "../common/SettingsKeys.h"
 #include "modbus/base/ModbusDataHelper.h"
@@ -111,7 +111,7 @@ public:
     // State
     bool historyCollapsed = false;
     bool historyAutoCollapsed = false;
-    int lastHistoryPanelWidth = app::constants::Values::Ui::kFrameAnalyzerDefaultHistoryWidth;
+    int lastHistoryPanelWidth = config::Ui::kFrameAnalyzerDefaultHistoryWidth;
     NumberDisplayMode displayMode = NumberDisplayMode::Unsigned;
     QMap<uint16_t, DataMetadata> metadataByAddress;
     QList<modbus::core::parser::ParseResult> historyResults;
@@ -197,7 +197,7 @@ void FrameAnalyzerWidget::FrameAnalyzerWidgetPrivate::setHistoryCollapsed(bool c
             totalWidth = 1000; // Ensure a sane default if parent width is also unavailable
         }
 
-        int hWidth = qMax(app::constants::Values::Ui::kFrameAnalyzerMinHistoryWidth, lastHistoryPanelWidth);
+        int hWidth = qMax(config::Ui::kFrameAnalyzerMinHistoryWidth, lastHistoryPanelWidth);
         contentSplitter->setSizes({qMax(0, totalWidth - hWidth), hWidth});
     }
     updateHistoryToggleText();
@@ -237,7 +237,7 @@ QString FrameAnalyzerWidget::FrameAnalyzerWidgetPrivate::historyItemText(const m
 void FrameAnalyzerWidget::FrameAnalyzerWidgetPrivate::addToHistory(const modbus::core::parser::ParseResult& result)
 {
     historyResults.prepend(result);
-    while (historyResults.size() > app::constants::Values::Ui::kFrameAnalyzerMaxHistoryItems) {
+    while (historyResults.size() > config::Ui::kFrameAnalyzerMaxHistoryItems) {
         historyResults.removeLast();
     }
     refreshHistoryList();
@@ -328,8 +328,8 @@ void FrameAnalyzerWidget::setupUi()
     d->mainSplitter->addWidget(d->resultGroup);
     d->mainSplitter->setStretchFactor(0, 0);
     d->mainSplitter->setStretchFactor(1, 1);
-    d->mainSplitter->setSizes({app::constants::Values::Ui::kFrameAnalyzerDefaultInputHeight, 
-                               app::constants::Values::Ui::kFrameAnalyzerDefaultResultsHeight});
+    d->mainSplitter->setSizes({config::Ui::kFrameAnalyzerDefaultInputHeight, 
+                               config::Ui::kFrameAnalyzerDefaultResultsHeight});
     mainLayout->addWidget(d->mainSplitter, 1);
     retranslateUi();
 }
@@ -579,7 +579,7 @@ void FrameAnalyzerWidget::FrameAnalyzerWidgetPrivate::createResultGroup()
     contentSplitter->addWidget(historyGroup);
     contentSplitter->setStretchFactor(0, 1);
     contentSplitter->setStretchFactor(1, 0);
-    contentSplitter->setSizes({800, app::constants::Values::Ui::kFrameAnalyzerDefaultHistoryWidth}); 
+    contentSplitter->setSizes({800, config::Ui::kFrameAnalyzerDefaultHistoryWidth}); 
     groupLayout->addWidget(contentSplitter);
 
     updateAdaptiveLayout();
@@ -1103,7 +1103,7 @@ void FrameAnalyzerWidget::FrameAnalyzerWidgetPrivate::loadSettings()
     if (!startAddr.isEmpty()) {
         startAddrEdit->setText(startAddr);
     } else {
-        startAddrEdit->setText(QString::number(app::constants::Values::Modbus::kDefaultStandardStartAddress));
+        startAddrEdit->setText(QString::number(config::Modbus::kDefaultStandardStartAddress));
     }
 
     const int mode = settingsService->value(ui::common::settings_keys::kFrameAnalyzerDecodeMode).toInt();
