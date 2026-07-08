@@ -12,7 +12,6 @@
 #include <QString>
 #include <QMap>
 #include <QStringList>
-#include <QScopedPointer>
 #include "AnalyzerCommon.h"
 
 namespace modbus::analyzer {
@@ -29,9 +28,9 @@ struct ImportResult {
 };
 
 /**
- * @brief Utility for CSV and JSON data handling.
- * 
- * Follows PIMPL to hide implementation details and Qt JSON dependencies from headers.
+ * @brief Static utility class for CSV and JSON data handling.
+ *
+ * Qt JSON dependencies are kept in the .cpp via static methods.
  */
 class AnalyzerExporter {
 public:

@@ -32,11 +32,11 @@ enum class RequestError {
 
 // 响应结果类型：包含 Pdu 或错误信息
 //
-// Note: isSuccess / responseReceived / noResponseExpected / retryCount are
-// kept for backward compatibility but are fully derivable from `kind` and
-// `attemptCount`. New code should prefer the accessor methods below
-// (isError(), isNoResponseExpected(), hasPdu()) or derive from `attemptCount`
-// (retryCount == max(0, attemptCount - 1)) instead of reading these fields.
+// Note: isSuccess / retryCount are kept for backward compatibility but are
+// fully derivable from `kind` and `attemptCount`. New code should prefer the
+// accessor methods below (isError(), isNoResponseExpected(), hasPdu()) or
+// derive from `attemptCount` (retryCount == max(0, attemptCount - 1)) instead
+// of reading these fields.
 struct ModbusResponse {
     ModbusResponseKind kind = ModbusResponseKind::Error;
     RequestError errorCode = RequestError::None;
@@ -45,10 +45,6 @@ struct ModbusResponse {
     bool isSuccess = false;
     QString error;
     int rttMs = -1;
-    [[deprecated("use (kind == ModbusResponseKind::Success) instead")]]
-    bool responseReceived = false;
-    [[deprecated("use isNoResponseExpected() instead")]]
-    bool noResponseExpected = false;
     int attemptCount = 0;
     [[deprecated("derive from attemptCount: max(0, attemptCount - 1)")]]
     int retryCount = 0;
@@ -64,8 +60,6 @@ struct ModbusResponse {
         response.pdu = std::move(pdu);
         response.isSuccess = true;
         response.rttMs = rttMs;
-        response.responseReceived = true;
-        response.noResponseExpected = false;
         response.attemptCount = attemptCount;
         response.retryCount = attemptCount > 0 ? attemptCount - 1 : 0;
         return response;
@@ -77,8 +71,6 @@ struct ModbusResponse {
         response.pdu = std::move(pdu);
         response.isSuccess = true;
         response.rttMs = -1;
-        response.responseReceived = false;
-        response.noResponseExpected = true;
         response.attemptCount = attemptCount;
         response.retryCount = attemptCount > 0 ? attemptCount - 1 : 0;
         return response;
@@ -90,8 +82,6 @@ struct ModbusResponse {
         response.error = std::move(error);
         response.isSuccess = false;
         response.rttMs = -1;
-        response.responseReceived = false;
-        response.noResponseExpected = false;
         response.attemptCount = attemptCount;
         response.retryCount = attemptCount > 0 ? attemptCount - 1 : 0;
         return response;

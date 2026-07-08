@@ -3,9 +3,7 @@
  * @brief Application-wide typed configuration constants.
  *
  * Single source of truth for compile-time configuration constants, hosted in
- * the `config::` namespace. Unified per T11 (abstract.md §9.3, task.md T11):
- * the former AppConstants class and Config.h are merged here; AppConstants.h
- * has been removed.
+ * the `config::` namespace.
  *
  * Copyright (c) 2025 - present mingyucheng692
  *

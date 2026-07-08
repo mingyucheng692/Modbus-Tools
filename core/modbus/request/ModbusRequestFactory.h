@@ -1,6 +1,6 @@
 /**
  * @file ModbusRequestFactory.h
- * @brief Pure PDU-builder factory — no Qt dependency.
+ * @brief PDU-builder factory. Public API is Qt-free; implementation uses QByteArray/QString via ModbusPduBuilder.
  *
  * Copyright (c) 2025 - present mingyucheng692
  *

@@ -11,7 +11,6 @@
 #include "../base/ModbusProtocolChecks.h"
 #include "../../Config.h"
 #include <QtEndian>
-#include <spdlog/spdlog.h>
 
 namespace modbus::transport {
 
@@ -67,15 +66,10 @@ ParseResponseResult ModbusTcpTransport::parseResponse(const QByteArray& adu) {
 }
 
 int ModbusTcpTransport::checkIntegrity(const QByteArray& data) {
+    // fields is an output parameter of inspectTcpAdu; its members are validated
+    // internally and not re-checked here, so it is declared but not read.
     base::TcpAduFields fields;
-    const int result = base::inspectTcpAdu(data, &fields);
-    if (result > 0 && fields.length > config::Modbus::kMaxTcpMbapLength) {
-        spdlog::error(
-            "ModbusTcpTransport: MBAP length {} exceeds limit {}, rejecting",
-            fields.length, config::Modbus::kMaxTcpMbapLength);
-        return -1;
-    }
-    return result;
+    return base::inspectTcpAdu(data, &fields);
 }
 
 void ModbusTcpTransport::resetPendingState() {

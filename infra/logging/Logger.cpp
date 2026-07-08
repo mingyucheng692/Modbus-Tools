@@ -45,25 +45,27 @@ static void QtMessageHandler(QtMsgType type, const QMessageLogContext& context, 
     QByteArray utf8 = message.toUtf8();
     std::string text(utf8.constData(), utf8.size());
 
+    const char* file = context.file ? context.file : "?";
+    const int line = context.line;
+    const char* category = context.category ? context.category : "default";
+
     switch (type) {
     case QtDebugMsg:
-        logger->debug(text);
+        logger->debug("Qt [{}:{}:{}] {}", file, line, category, text);
         break;
     case QtInfoMsg:
-        logger->info(text);
+        logger->info("Qt [{}:{}:{}] {}", file, line, category, text);
         break;
     case QtWarningMsg:
-        logger->warn(text);
+        logger->warn("Qt [{}:{}:{}] {}", file, line, category, text);
         break;
     case QtCriticalMsg:
-        logger->error(text);
+        logger->error("Qt [{}:{}:{}] {}", file, line, category, text);
         break;
     case QtFatalMsg:
-        logger->critical(text);
+        logger->critical("Qt [{}:{}:{}] {}", file, line, category, text);
         abort();
     }
-
-    Q_UNUSED(context);
 }
 
 bool ensureLogDirectoryWritable(const QString& logDir, QString* errorMessage)
