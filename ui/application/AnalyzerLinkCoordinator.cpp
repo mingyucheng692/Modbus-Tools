@@ -14,31 +14,28 @@ void AnalyzerLinkCoordinator::bind(views::modbus::ModbusPage* modbusView,
                                    widgets::FrameAnalyzerWidget* frameAnalyzer) {
     modbusView_ = modbusView;
     frameAnalyzer_ = frameAnalyzer;
-    applyState(State{});
+    applyState();
 
     QObject::connect(modbusView, &views::modbus::ModbusPage::linkageToggled,
                      this, &AnalyzerLinkCoordinator::handleLinkageToggled);
     QObject::connect(modbusView, &views::modbus::ModbusPage::linkageDataReceived,
                      this, &AnalyzerLinkCoordinator::handleLinkageData);
     QObject::connect(modbusView, &views::modbus::ModbusPage::linkageSourceDisconnected,
-                     this, static_cast<void (AnalyzerLinkCoordinator::*)()>(&AnalyzerLinkCoordinator::handleSourceDisconnected));
+                     this, &AnalyzerLinkCoordinator::handleSourceDisconnected);
     QObject::connect(frameAnalyzer, &widgets::FrameAnalyzerWidget::linkagePauseToggled,
                      this, &AnalyzerLinkCoordinator::handleLinkagePauseToggled);
     QObject::connect(frameAnalyzer, &widgets::FrameAnalyzerWidget::linkageStopRequested,
                      this, &AnalyzerLinkCoordinator::handleLinkageStopRequested);
 }
 
-AnalyzerLinkCoordinator::State AnalyzerLinkCoordinator::state() const {
+AnalyzerLinkCoordinator::LinkState AnalyzerLinkCoordinator::state() const {
     return state_;
 }
 
 // --- Signal handlers ---
 
 void AnalyzerLinkCoordinator::handleLinkageToggled(bool active) {
-    const LinkSource source = modbusView_
-        ? sourceFromMode(modbusView_->currentMode())
-        : LinkSource::None;
-    requestLinkToggle(source, active);
+    requestLinkToggle(active);
 }
 
 void AnalyzerLinkCoordinator::handleLinkageStopRequested() {
@@ -56,23 +53,20 @@ void AnalyzerLinkCoordinator::handleLinkageData(const ::modbus::base::Pdu& pdu,
 }
 
 void AnalyzerLinkCoordinator::handleSourceDisconnected() {
-    const LinkSource source = modbusView_
-        ? sourceFromMode(modbusView_->currentMode())
-        : LinkSource::None;
-    handleSourceDisconnected(source);
+    if (state_ == LinkState::Idle) {
+        return;
+    }
+    stopInternal();
 }
 
 // --- State machine core ---
 
-void AnalyzerLinkCoordinator::requestLinkToggle(LinkSource source, bool active) {
+void AnalyzerLinkCoordinator::requestLinkToggle(bool active) {
     if (!active) {
-        if (state_.source == source) {
-            stopInternal();
-        }
+        stopInternal();
         return;
     }
-
-    transitionTo(LinkState::Live, source);
+    transitionTo(LinkState::Live);
 }
 
 void AnalyzerLinkCoordinator::requestStop() {
@@ -80,11 +74,11 @@ void AnalyzerLinkCoordinator::requestStop() {
 }
 
 void AnalyzerLinkCoordinator::requestPause(bool paused) {
-    if (state_.state == LinkState::Idle || state_.source == LinkSource::None) {
+    if (state_ == LinkState::Idle) {
         return;
     }
 
-    transitionTo(paused ? LinkState::Paused : LinkState::Live, state_.source);
+    transitionTo(paused ? LinkState::Paused : LinkState::Live);
     if (!paused) {
         replayBufferedLiveDataIfNeeded();
     }
@@ -93,12 +87,11 @@ void AnalyzerLinkCoordinator::requestPause(bool paused) {
 void AnalyzerLinkCoordinator::handleLiveData(const ::modbus::base::Pdu& pdu,
                                              ::modbus::core::parser::ProtocolType protocol,
                                              uint16_t addr) {
-    const LinkSource dataSource = sourceFromProtocol(protocol);
-    if (state_.state == LinkState::Idle || state_.source == LinkSource::None || dataSource != state_.source) {
+    if (state_ == LinkState::Idle) {
         return;
     }
 
-    if (state_.state == LinkState::Paused) {
+    if (state_ == LinkState::Paused) {
         bufferedLiveData_ = BufferedLiveData{pdu, protocol, addr};
         return;
     }
@@ -110,50 +103,17 @@ void AnalyzerLinkCoordinator::handleLiveData(const ::modbus::base::Pdu& pdu,
     clearBufferedLiveData();
 }
 
-void AnalyzerLinkCoordinator::handleSourceDisconnected(LinkSource source) {
-    if (state_.source == source) {
-        stopInternal();
-    }
-}
-
-AnalyzerLinkCoordinator::LinkSource AnalyzerLinkCoordinator::sourceFromProtocol(::modbus::core::parser::ProtocolType protocol) {
-    switch (protocol) {
-    case ::modbus::core::parser::ProtocolType::Tcp:
-        return LinkSource::Tcp;
-    case ::modbus::core::parser::ProtocolType::Rtu:
-        return LinkSource::Rtu;
-    case ::modbus::core::parser::ProtocolType::Ascii:
-        return LinkSource::Ascii;
-    default:
-        return LinkSource::None;
-    }
-}
-
-AnalyzerLinkCoordinator::LinkSource AnalyzerLinkCoordinator::sourceFromMode(::ui::application::modbus::SessionMode mode) {
-    switch (mode) {
-    case ::ui::application::modbus::SessionMode::Tcp:
-        return LinkSource::Tcp;
-    case ::ui::application::modbus::SessionMode::Rtu:
-        return LinkSource::Rtu;
-    case ::ui::application::modbus::SessionMode::Ascii:
-        return LinkSource::Ascii;
-    }
-    return LinkSource::None;
-}
-
-void AnalyzerLinkCoordinator::transitionTo(LinkState state, LinkSource source) {
-    const State previousState = state_;
-    state_.state = state;
-    state_.source = source;
-    if (state_.state == LinkState::Idle || previousState.source != state_.source) {
+void AnalyzerLinkCoordinator::transitionTo(LinkState state) {
+    state_ = state;
+    if (state_ == LinkState::Idle) {
         clearBufferedLiveData();
     }
-    applyState(previousState);
+    applyState();
 }
 
-void AnalyzerLinkCoordinator::applyState(const State& previousState) {
-    const bool linked = state_.state != LinkState::Idle;
-    const bool paused = state_.state == LinkState::Paused;
+void AnalyzerLinkCoordinator::applyState() {
+    const bool linked = state_ != LinkState::Idle;
+    const bool paused = state_ == LinkState::Paused;
 
     if (modbusView_) {
         modbusView_->setLinked(linked);
@@ -163,12 +123,8 @@ void AnalyzerLinkCoordinator::applyState(const State& previousState) {
         return;
     }
 
-    const bool sourceChanged = previousState.source != LinkSource::None && previousState.source != state_.source;
-    if (sourceChanged || state_.state == LinkState::Idle) {
+    if (state_ == LinkState::Idle) {
         frameAnalyzer_->exitLiveMode();
-    }
-
-    if (state_.state == LinkState::Idle) {
         return;
     }
 
@@ -180,12 +136,7 @@ void AnalyzerLinkCoordinator::clearBufferedLiveData() {
 }
 
 void AnalyzerLinkCoordinator::replayBufferedLiveDataIfNeeded() {
-    if (!bufferedLiveData_ || !frameAnalyzer_ || state_.state != LinkState::Live) {
-        return;
-    }
-
-    if (sourceFromProtocol(bufferedLiveData_->protocol) != state_.source) {
-        clearBufferedLiveData();
+    if (!bufferedLiveData_ || !frameAnalyzer_ || state_ != LinkState::Live) {
         return;
     }
 
@@ -195,12 +146,11 @@ void AnalyzerLinkCoordinator::replayBufferedLiveDataIfNeeded() {
 }
 
 void AnalyzerLinkCoordinator::stopInternal() {
-    if (state_.state == LinkState::Idle && state_.source == LinkSource::None) {
-        applyState(state_);
+    if (state_ == LinkState::Idle) {
+        applyState();
         return;
     }
-
-    transitionTo(LinkState::Idle, LinkSource::None);
+    transitionTo(LinkState::Idle);
 }
 
 } // namespace ui::application

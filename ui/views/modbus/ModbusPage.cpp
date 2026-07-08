@@ -275,14 +275,13 @@ void ModbusPage::switchToProtocol(ui::application::modbus::SessionMode mode) {
     applyProtocolSettingsGroup(mode);
 
     // Rebuild backend services with the new mode and connection widget.
-    // NOTE: currentMode_ is intentionally updated AFTER switchMode() completes.
-    // During switchMode(), teardownServices() deletes the old SessionPresenter,
-    // whose destructor emits linkageSourceDisconnected (if was linked). The
-    // AnalyzerLinkCoordinator::handleSourceDisconnected() queries currentMode()
-    // to compute the disconnecting source — it must see the OLD mode so that
-    // state_.source matches and stopInternal() is called. Updating currentMode_
-    // before teardown would cause a source mismatch and leave the coordinator
-    // stuck in Live state.
+    // NOTE: currentMode_ is updated AFTER switchMode() completes. During
+    // switchMode(), teardownServices() deletes the old SessionPresenter,
+    // whose destructor emits linkageSourceDisconnected (if was linked).
+    // Since T10 (single-source coordinator), handleSourceDisconnected()
+    // no longer queries currentMode() — it just calls stopInternal() when
+    // not Idle. The after-switch ordering is preserved for safety but is
+    // no longer load-bearing for the coordinator's state machine.
     if (pagePresenter_) {
         pagePresenter_->switchMode(mode, connectionWidget_);
         sessionPresenter_ = pagePresenter_->sessionPresenter();
