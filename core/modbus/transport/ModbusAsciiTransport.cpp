@@ -14,11 +14,7 @@ QByteArray ModbusAsciiTransport::buildRequest(const base::Pdu& pdu, uint8_t slav
     binaryAdu.append(pdu.data());
     binaryAdu.append(static_cast<char>(base::calculateModbusAsciiLrc(binaryAdu)));
 
-    {
-        std::lock_guard<std::mutex> lock(pendingMutex_);
-        expectedResponseSlaveId_ = slaveId;
-        hasPendingRequest_ = true;
-    }
+    tracker_.setPending(slaveId);
 
     QByteArray asciiFrame(":");
     asciiFrame.append(binaryAdu.toHex().toUpper());
@@ -34,17 +30,14 @@ ParseResponseResult ModbusAsciiTransport::parseResponse(const QByteArray& adu)
         return {ParseResponseStatus::Invalid, std::nullopt};
     }
 
-    {
-        std::lock_guard<std::mutex> lock(pendingMutex_);
-        if (!hasPendingRequest_) {
-            return {ParseResponseStatus::Unmatched, std::nullopt};
-        }
-        if (fields.slaveId != expectedResponseSlaveId_) {
-            spdlog::debug("AsciiTransport: reject reason=slave_mismatch expected={} actual={}", expectedResponseSlaveId_, fields.slaveId);
-            return {ParseResponseStatus::Unmatched, std::nullopt};
-        }
-        hasPendingRequest_ = false;
-        expectedResponseSlaveId_ = 0;
+    const auto outcome = tracker_.check(fields.slaveId);
+    if (outcome == PendingSlaveTracker::Outcome::NoPending) {
+        return {ParseResponseStatus::Unmatched, std::nullopt};
+    }
+    if (outcome == PendingSlaveTracker::Outcome::SlaveMismatch) {
+        spdlog::debug("AsciiTransport: reject reason=slave_mismatch expected={} actual={}",
+                      tracker_.expectedSlaveId(), fields.slaveId);
+        return {ParseResponseStatus::Unmatched, std::nullopt};
     }
 
     const QByteArray payload = fields.binaryAdu.mid(2, fields.binaryAdu.size() - 3);
@@ -61,9 +54,7 @@ int ModbusAsciiTransport::checkIntegrity(const QByteArray& data)
 
 void ModbusAsciiTransport::resetPendingState()
 {
-    std::lock_guard<std::mutex> lock(pendingMutex_);
-    hasPendingRequest_ = false;
-    expectedResponseSlaveId_ = 0;
+    tracker_.reset();
 }
 
 } // namespace modbus::transport

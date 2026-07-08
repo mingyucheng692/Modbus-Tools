@@ -1,7 +1,7 @@
 #pragma once
 
 #include "ITransport.h"
-#include <mutex>
+#include "PendingSlaveTracker.h"
 
 namespace modbus::transport {
 
@@ -13,9 +13,7 @@ public:
     void resetPendingState() override;
 
 private:
-    mutable std::mutex pendingMutex_;
-    uint8_t expectedResponseSlaveId_ = 0;
-    bool hasPendingRequest_ = false;
+    PendingSlaveTracker tracker_;
 };
 
 } // namespace modbus::transport

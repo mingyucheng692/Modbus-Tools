@@ -1,9 +1,9 @@
 /**
  * @file ModbusRtuTransport.cpp
  * @brief Implementation of ModbusRtuTransport.
- * 
+ *
  * Copyright (c) 2025 - present mingyucheng692
- * 
+ *
  * Licensed under the MIT License. See LICENSE file in the project root for full license information.
  */
 
@@ -17,22 +17,19 @@
 namespace modbus::transport {
 
 QByteArray ModbusRtuTransport::buildRequest(const base::Pdu& pdu, uint8_t slaveId) {
+    tracker_.setPending(slaveId);
+
     QByteArray adu;
-    {
-        std::lock_guard<std::mutex> lock(pendingMutex_);
-        expectedResponseSlaveId_ = slaveId;
-        hasPendingRequest_ = true;
-    }
     QDataStream stream(&adu, QIODevice::WriteOnly);
     stream << slaveId;
     stream << static_cast<uint8_t>(pdu.functionCode());
-    
+
     // 写入数据负载
     adu.append(pdu.data());
 
     // 计算 CRC
     uint16_t crc = base::calculateModbusRtuCrc(adu);
-    
+
     // CRC 低字节在前
     adu.append(static_cast<char>(crc & 0xFF));
     adu.append(static_cast<char>((crc >> 8) & 0xFF));
@@ -47,18 +44,16 @@ ParseResponseResult ModbusRtuTransport::parseResponse(const QByteArray& adu) {
         return {ParseResponseStatus::Invalid, std::nullopt};
     }
 
-    {
-        std::lock_guard<std::mutex> lock(pendingMutex_);
-        if (!hasPendingRequest_) {
-            return {ParseResponseStatus::Unmatched, std::nullopt};
-        }
-        if (fields.slaveId != expectedResponseSlaveId_) {
-            spdlog::debug("RtuTransport: reject reason=slave_mismatch expected={} actual={}", expectedResponseSlaveId_, fields.slaveId);
-            return {ParseResponseStatus::Unmatched, std::nullopt};
-        }
-        hasPendingRequest_ = false;
-        expectedResponseSlaveId_ = 0;
+    const auto outcome = tracker_.check(fields.slaveId);
+    if (outcome == PendingSlaveTracker::Outcome::NoPending) {
+        return {ParseResponseStatus::Unmatched, std::nullopt};
     }
+    if (outcome == PendingSlaveTracker::Outcome::SlaveMismatch) {
+        spdlog::debug("RtuTransport: reject reason=slave_mismatch expected={} actual={}",
+                      tracker_.expectedSlaveId(), fields.slaveId);
+        return {ParseResponseStatus::Unmatched, std::nullopt};
+    }
+
     QByteArray payload = adu.mid(2, adu.size() - 4);
 
     return {ParseResponseStatus::Ok, base::Pdu(static_cast<base::FunctionCode>(fields.functionCode), payload)};
@@ -70,9 +65,7 @@ int ModbusRtuTransport::checkIntegrity(const QByteArray& data) {
 }
 
 void ModbusRtuTransport::resetPendingState() {
-    std::lock_guard<std::mutex> lock(pendingMutex_);
-    hasPendingRequest_ = false;
-    expectedResponseSlaveId_ = 0;
+    tracker_.reset();
 }
 
 } // namespace modbus::transport

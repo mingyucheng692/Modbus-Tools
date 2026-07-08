@@ -1,16 +1,15 @@
 /**
  * @file SerialChannel.cpp
  * @brief Implementation of SerialChannel.
- * 
+ *
  * Copyright (c) 2025 - present mingyucheng692
- * 
+ *
  * Licensed under the MIT License. See LICENSE file in the project root for full license information.
  */
 
 #include "SerialChannel.h"
 #include "infra/logging/Logger.h"
 #include <spdlog/spdlog.h>
-#include <QCoreApplication>
 #include <QThread>
 #include <QMetaObject>
 
@@ -24,15 +23,6 @@ unsigned long long threadToken(QThread* thread)
 }
 
 SerialChannel::SerialChannel() {
-    writeTimeoutTimer_.setSingleShot(true);
-    // Functor-based connect with an explicit connection type requires a context
-    // QObject (5-arg overload). SerialChannel itself is not a QObject, so the
-    // signal sender is passed as the context. Because the sender lives on the
-    // IO thread (after moveToThread), Qt::QueuedConnection guarantees the
-    // functor executes on the IO thread regardless of which thread emits.
-    QObject::connect(&writeTimeoutTimer_, &QTimer::timeout, &writeTimeoutTimer_, [this]() {
-        onWriteTimeout();
-    }, Qt::QueuedConnection);
     QObject::connect(&serial_, &QSerialPort::bytesWritten, &serial_, [this](qint64 bytes) {
         onBytesWritten(bytes);
     }, Qt::QueuedConnection);
@@ -48,6 +38,10 @@ SerialChannel::~SerialChannel() {
     close();
 }
 
+QString SerialChannel::logContext() const {
+    return QStringLiteral("port=%1").arg(config_.portName);
+}
+
 bool SerialChannel::open() {
     if (QThread::currentThread() != serial_.thread()) {
         QThread* ownerThread = serial_.thread();
@@ -59,7 +53,7 @@ bool SerialChannel::open() {
         }, Qt::QueuedConnection);
     }
 
-    logThreadContextOnce("SerialChannel::open", openThreadLogged_);
+    logThreadContextOnce("SerialChannel::open", openThreadLoggedFlag());
 
     if (serial_.isOpen()) {
         setState(ChannelState::Open);
@@ -67,7 +61,7 @@ bool SerialChannel::open() {
         return true;
     }
 
-    closing_ = false;
+    setClosing(false);
     resetWriteState();
 
     QString errorMsg;
@@ -79,7 +73,7 @@ bool SerialChannel::open() {
     }
 
     setState(ChannelState::Opening);
-    
+
     serial_.setPortName(config_.portName);
     serial_.setBaudRate(config_.baudRate);
     serial_.setDataBits(static_cast<QSerialPort::DataBits>(config_.dataBits));
@@ -88,7 +82,7 @@ bool SerialChannel::open() {
     serial_.setFlowControl(config_.flowControl);
     // 移除 setReadBufferSize(1)，恢复系统级块读取，极大降低高波特率下的 CPU 开销。
     // 在非 RTOS 系统上，块内字符间隙已由驱动保证，无需应用层逐字节判断 t1.5。
-    
+
     if (serial_.open(QIODevice::ReadWrite)) {
         setState(ChannelState::Open);
         return true;
@@ -107,16 +101,14 @@ void SerialChannel::moveToThread(QThread* thread) {
                               threadToken(serial_.thread()),
                               threadToken(thread));
     serial_.moveToThread(thread);
-    writeTimeoutTimer_.moveToThread(thread);
-    openThreadLogged_ = false;
-    ioThreadLogged_ = false;
+    moveWriteInfrastructureToThread(thread);
 }
 
 void SerialChannel::close() {
     if (QThread::currentThread() != serial_.thread()) {
         QThread* ownerThread = serial_.thread();
         if (!ownerThread || !ownerThread->isRunning()) {
-            closing_ = false;
+            setClosing(false);
             resetWriteState();
             setState(ChannelState::Closed);
             return;
@@ -130,40 +122,12 @@ void SerialChannel::close() {
     resetWriteState();
     disarmWriteTimeout();
     setState(ChannelState::Closing);
-    closing_ = true;
+    setClosing(true);
     if (serial_.isOpen()) {
         serial_.close();
     }
-    closing_ = false;
+    setClosing(false);
     setState(ChannelState::Closed);
-}
-
-bool SerialChannel::write(QByteArrayView data) {
-    if (QThread::currentThread() != serial_.thread()) {
-        QThread* ownerThread = serial_.thread();
-        if (!ownerThread || !ownerThread->isRunning()) {
-            return false;
-        }
-        QByteArray dataCopy(data.data(), data.size());
-        return QMetaObject::invokeMethod(&serial_, [this, dataCopy]() {
-            write(dataCopy);
-        }, Qt::QueuedConnection);
-    }
-
-    if (!serial_.isOpen()) {
-        return false;
-    }
-
-    QByteArray dataBuffer(data.data(), data.size());
-    if (dataBuffer.isEmpty()) {
-        return true;
-    }
-
-    pendingWrites_.push_back(dataBuffer);
-    emitMonitor(true, dataBuffer);
-    armWriteTimeout();
-    flushPendingWrites();
-    return true;
 }
 
 void SerialChannel::setConfig(const SerialConfig& config) {
@@ -177,7 +141,7 @@ void SerialChannel::setDtr(bool set) {
         }, Qt::QueuedConnection);
         return;
     }
-    
+
     if (isOpen()) {
         serial_.setDataTerminalReady(set);
     }
@@ -190,54 +154,16 @@ void SerialChannel::setRts(bool set) {
         }, Qt::QueuedConnection);
         return;
     }
-    
+
     if (isOpen()) {
         serial_.setRequestToSend(set);
     }
 }
 
-void SerialChannel::flushPendingWrites() {
-    if (QThread::currentThread() != serial_.thread()) {
-        QMetaObject::invokeMethod(&serial_, [this]() {
-            flushPendingWrites();
-        }, Qt::QueuedConnection);
-        return;
-    }
-
-    if (!serial_.isOpen() || pendingWrites_.empty()) {
-        if (pendingWrites_.empty() && serial_.bytesToWrite() == 0) {
-            disarmWriteTimeout();
-        }
-        return;
-    }
-
-    auto& frame = pendingWrites_.front();
-    while (currentWriteOffset_ < frame.size()) {
-        const char* dataPtr = frame.constData() + currentWriteOffset_;
-        const qint64 remaining = static_cast<qint64>(frame.size() - currentWriteOffset_);
-        const qint64 accepted = serial_.write(dataPtr, remaining);
-        if (accepted < 0) {
-            const QString err = serial_.errorString().isEmpty() ? QStringLiteral("Serial write failed") : serial_.errorString();
-            spdlog::error("SerialChannel: write failed port={} error={}",
-                         config_.portName.toStdString(), err.toStdString());
-            resetWriteState();
-            disarmWriteTimeout();
-            setState(ChannelState::Error);
-            emitError(err);
-            return;
-        }
-        if (accepted == 0) {
-            break;
-        }
-        currentWriteOffset_ += static_cast<qsizetype>(accepted);
-        armWriteTimeout();
-    }
-}
-
 void SerialChannel::onReadyRead() {
-    if (closing_) return;
+    if (isClosing()) return;
 
-    logThreadContextOnce("SerialChannel::onReadyRead", ioThreadLogged_);
+    logThreadContextOnce("SerialChannel::onReadyRead", ioThreadLoggedFlag());
 
     QByteArray data = serial_.readAll();
     if (!data.isEmpty()) {
@@ -250,49 +176,9 @@ void SerialChannel::onReadyRead() {
     }
 }
 
-void SerialChannel::logThreadContextOnce(const char* scope, bool& loggedFlag)
-{
-    if (loggedFlag) {
-        return;
-    }
-    loggedFlag = true;
-    QThread* currentThread = QThread::currentThread();
-    QThread* ownerThread = serial_.thread();
-    QThread* uiThread = QCoreApplication::instance() ? QCoreApplication::instance()->thread() : nullptr;
-    MODBUS_TOOLS_VERBOSE_INFO("{} current={} owner={}",
-                              scope,
-                              threadToken(currentThread),
-                              threadToken(ownerThread));
-    MODBUS_TOOLS_VERBOSE_INFO("{} ui_thread={} current_is_ui={} owner_is_ui={}",
-                              scope,
-                              threadToken(uiThread),
-                              currentThread == uiThread,
-                              ownerThread == uiThread);
-}
-
-void SerialChannel::onBytesWritten(qint64 bytes) {
-    Q_UNUSED(bytes);
-    bool queueDrained = false;
-    while (!pendingWrites_.empty() &&
-           currentWriteOffset_ >= pendingWrites_.front().size() &&
-           serial_.bytesToWrite() == 0) {
-        addTx(pendingWrites_.front().size());
-        pendingWrites_.pop_front();
-        currentWriteOffset_ = 0;
-        queueDrained = pendingWrites_.empty();
-    }
-    if (queueDrained && serial_.bytesToWrite() == 0) {
-        disarmWriteTimeout();
-        emitWriteDrained();
-    } else if (!pendingWrites_.empty() || serial_.bytesToWrite() > 0) {
-        armWriteTimeout();
-    }
-    flushPendingWrites();
-}
-
 void SerialChannel::onErrorOccurred(QSerialPort::SerialPortError error) {
     if (error != QSerialPort::NoError) {
-        if (closing_) {
+        if (isClosing()) {
             return;
         }
         const QString errorText = serial_.errorString().isEmpty()
@@ -307,54 +193,6 @@ void SerialChannel::onErrorOccurred(QSerialPort::SerialPortError error) {
         setState(ChannelState::Error);
         emitError(errorText);
     }
-}
-
-void SerialChannel::onWriteTimeout() {
-    if (QThread::currentThread() != serial_.thread()) {
-        QMetaObject::invokeMethod(&serial_, [this]() {
-            onWriteTimeout();
-        }, Qt::QueuedConnection);
-        return;
-    }
-
-    if (closing_ || !serial_.isOpen()) {
-        disarmWriteTimeout();
-        return;
-    }
-
-    if (pendingWrites_.empty() && serial_.bytesToWrite() == 0) {
-        disarmWriteTimeout();
-        return;
-    }
-
-    const bool draining = serial_.bytesToWrite() > 0;
-    spdlog::warn("SerialChannel: write timeout port={} draining={} pendingWrites={}",
-                 config_.portName.toStdString(), draining, pendingWrites_.size());
-    resetWriteState();
-    disarmWriteTimeout();
-    setState(ChannelState::Error);
-    emitError(draining
-        ? QStringLiteral("Serial write drain timeout")
-        : QStringLiteral("Serial write timeout"));
-}
-
-void SerialChannel::armWriteTimeout() {
-    const int timeoutMs = timeouts().writeMs;
-    if (timeoutMs <= 0) {
-        return;
-    }
-    writeTimeoutTimer_.start(timeoutMs);
-}
-
-void SerialChannel::disarmWriteTimeout() {
-    if (writeTimeoutTimer_.isActive()) {
-        writeTimeoutTimer_.stop();
-    }
-}
-
-void SerialChannel::resetWriteState() {
-    pendingWrites_.clear();
-    currentWriteOffset_ = 0;
 }
 
 }

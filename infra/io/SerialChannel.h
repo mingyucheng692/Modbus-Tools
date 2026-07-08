@@ -1,23 +1,23 @@
 /**
  * @file SerialChannel.h
  * @brief Header file for SerialChannel.
- * 
+ *
  * Copyright (c) 2025 - present mingyucheng692
- * 
+ *
  * Licensed under the MIT License. See LICENSE file in the project root for full license information.
  */
 
 #pragma once
 #include "core/Config.h"
-#include "ChannelBase.h"
+#include "BufferedWritingChannel.h"
 #include "SerialConfig.h"
 #include <QSerialPort>
-#include <QTimer>
-#include <deque>
+
+class QIODevice;
 
 namespace io {
 
-class SerialChannel : public ChannelBase {
+class SerialChannel : public BufferedWritingChannel {
 public:
     SerialChannel();
     ~SerialChannel() noexcept override;
@@ -26,33 +26,25 @@ public:
     bool open() override;
     void moveToThread(QThread* thread) override;
     void close() override;
-    bool write(QByteArrayView data) override;
-    
+
     void setConfig(const SerialConfig& config);
-    
+
     // Control signals
     void setDtr(bool set);
     void setRts(bool set);
 
+protected:
+    QIODevice* device() override { return &serial_; }
+    bool isWritable() const override { return serial_.isOpen(); }
+    QString logContext() const override;
+    QString errorPrefix() const override { return QStringLiteral("Serial"); }
+
 private:
-    void logThreadContextOnce(const char* scope, bool& loggedFlag);
-    void flushPendingWrites();
     void onReadyRead();
-    void onBytesWritten(qint64 bytes);
     void onErrorOccurred(QSerialPort::SerialPortError error);
-    void onWriteTimeout();
-    void armWriteTimeout();
-    void disarmWriteTimeout();
-    void resetWriteState();
 
     QSerialPort serial_;
-    QTimer writeTimeoutTimer_;
     SerialConfig config_;
-    std::deque<QByteArray> pendingWrites_;
-    qsizetype currentWriteOffset_ = 0;
-    bool closing_ = false;
-    bool openThreadLogged_ = false;
-    bool ioThreadLogged_ = false;
 };
 
 }

@@ -22,6 +22,8 @@ target_sources(core PRIVATE
     modbus/base/ModbusPduBuilder.cpp
     # modbus transport
     modbus/transport/ITransport.h
+    modbus/transport/PendingSlaveTracker.h
+    modbus/transport/PendingSlaveTracker.cpp
     modbus/transport/ModbusRtuTransport.h
     modbus/transport/ModbusRtuTransport.cpp
     modbus/transport/ModbusAsciiTransport.h

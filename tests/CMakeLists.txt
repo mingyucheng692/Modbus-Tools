@@ -83,14 +83,10 @@ set(TEST_CORE_LOGIC_SOURCES
     unit/modbus/base/ModbusCrcTest.cpp
     unit/modbus/base/ModbusEndianCodecTest.cpp
     unit/modbus/base/ModbusPduTest.cpp
-    unit/modbus/factory/ModbusFactoryThreadingTest.cpp
     unit/modbus/parser/ParserRobustnessTest.cpp
     unit/modbus/parser/ParserTest.cpp
-    unit/modbus/session/ModbusClientBoundaryTest.cpp
     unit/modbus/session/ModbusResponseTest.cpp
-    unit/modbus/session/FrameExtractorTest.cpp
     unit/modbus/session/ModbusStateTest.cpp
-    unit/modbus/transport/TransportTest.cpp
     unit/modbus/request/ModbusRequestFactoryTest.cpp
     unit/update/UpdateManagerInstallStrategyTest.cpp
     unit/update/ReleaseParserTest.cpp
@@ -124,24 +120,41 @@ set(TEST_INTEGRATION_SOURCES
 )
 
 set(TEST_MODBUS_STABILITY_SOURCES
-    unit/modbus/factory/ModbusFactoryThreadingTest.cpp
-    unit/modbus/session/FrameExtractorTest.cpp
-    unit/modbus/transport/TransportTest.cpp
 )
 
 set(TEST_MODBUS_CONCURRENCY_SOURCES
-    unit/modbus/session/ModbusClientBoundaryTest.cpp
-    unit/modbus/transport/TransportTest.cpp
 )
 
 set(TEST_MODBUS_FUZZ_SOURCES
     unit/modbus/fuzz/ModbusParsingFuzzTest.cpp
 )
 
+# ---------------------------------------------------------------------------
+# Shared test objects — compiled once, linked into multiple test targets.
+# These 4 files were previously compiled 2-3 times each (test_core_logic,
+# test_modbus_stability, test_modbus_concurrency). The OBJECT library compiles
+# them once; targets link the objects via test_modbus_common_objects in LIBS.
+# ---------------------------------------------------------------------------
+add_library(test_modbus_common_objects OBJECT
+    unit/modbus/factory/ModbusFactoryThreadingTest.cpp
+    unit/modbus/session/ModbusClientBoundaryTest.cpp
+    unit/modbus/session/FrameExtractorTest.cpp
+    unit/modbus/transport/TransportTest.cpp
+)
+target_include_directories(test_modbus_common_objects PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}
+    ${PROJECT_SOURCE_DIR}/infra
+)
+target_link_libraries(test_modbus_common_objects PUBLIC core GTest::gtest GTest::gmock)
+if(MSVC)
+    target_compile_options(test_modbus_common_objects PRIVATE /utf-8)
+endif()
+set_property(TARGET test_modbus_common_objects PROPERTY AUTOMOC ON)
+
 modbus_add_test_target(test_core_logic
     ${CMAKE_CURRENT_SOURCE_DIR}/TestMainCore.cpp
     SOURCES "${TEST_CORE_LOGIC_SOURCES}"
-    LIBS core Qt6::Core Qt6::StateMachine
+    LIBS core Qt6::Core Qt6::StateMachine test_modbus_common_objects
 )
 
 modbus_add_test_target(test_qt_core
@@ -165,13 +178,13 @@ modbus_add_test_target(test_integration
 
 modbus_add_test_target(test_modbus_stability
     ${CMAKE_CURRENT_SOURCE_DIR}/TestMainCore.cpp
-    SOURCES "${TEST_MODBUS_STABILITY_SOURCES}"
+    SOURCES "$<TARGET_OBJECTS:test_modbus_common_objects>"
     LIBS core Qt6::Core
 )
 
 modbus_add_test_target(test_modbus_concurrency
     ${CMAKE_CURRENT_SOURCE_DIR}/TestMainCore.cpp
-    SOURCES "${TEST_MODBUS_CONCURRENCY_SOURCES}"
+    SOURCES "$<TARGET_OBJECTS:test_modbus_common_objects>"
     LIBS core Qt6::Core
 )
 

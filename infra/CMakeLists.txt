@@ -5,6 +5,8 @@ set_property(TARGET infra PROPERTY AUTOMOC ON)
 
 target_sources(infra PRIVATE
     # io
+    io/BufferedWritingChannel.h
+    io/BufferedWritingChannel.cpp
     io/ChannelBase.h
     io/ChannelBase.cpp
     io/SerialChannel.h
