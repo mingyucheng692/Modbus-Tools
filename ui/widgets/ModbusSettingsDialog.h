@@ -13,6 +13,7 @@
 
 class QSpinBox;
 class QCheckBox;
+class QComboBox;
 
 namespace ui::widgets {
 
@@ -28,6 +29,7 @@ public:
         int retries;
         int retryIntervalMs;
         bool retryEnabled;
+        int logLevel;  // 0=Debug, 1=Info, 2=Warning, 3=Error
     };
 
     explicit ModbusSettingsDialog(const Settings& current, QWidget* parent = nullptr);
@@ -42,6 +44,7 @@ private:
     QSpinBox* retryCountSpin_ = nullptr;
     QSpinBox* retryIntervalSpin_ = nullptr;
     QCheckBox* retryEnableCheck_ = nullptr;
+    QComboBox* logLevelCombo_ = nullptr;
 };
 
 } // namespace ui::widgets

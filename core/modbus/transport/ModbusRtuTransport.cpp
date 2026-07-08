@@ -12,6 +12,7 @@
 #include "../base/ModbusProtocolChecks.h"
 #include <QDataStream>
 #include <QIODevice>
+#include <spdlog/spdlog.h>
 
 namespace modbus::transport {
 
@@ -42,6 +43,7 @@ QByteArray ModbusRtuTransport::buildRequest(const base::Pdu& pdu, uint8_t slaveI
 ParseResponseResult ModbusRtuTransport::parseResponse(const QByteArray& adu) {
     base::RtuAduFields fields;
     if (base::inspectRtuAdu(adu, &fields) != adu.size()) {
+        spdlog::debug("RtuTransport: reject reason=crc_mismatch frameLen={}", adu.size());
         return {ParseResponseStatus::Invalid, std::nullopt};
     }
 
@@ -51,6 +53,7 @@ ParseResponseResult ModbusRtuTransport::parseResponse(const QByteArray& adu) {
             return {ParseResponseStatus::Unmatched, std::nullopt};
         }
         if (fields.slaveId != expectedResponseSlaveId_) {
+            spdlog::debug("RtuTransport: reject reason=slave_mismatch expected={} actual={}", expectedResponseSlaveId_, fields.slaveId);
             return {ParseResponseStatus::Unmatched, std::nullopt};
         }
         hasPendingRequest_ = false;

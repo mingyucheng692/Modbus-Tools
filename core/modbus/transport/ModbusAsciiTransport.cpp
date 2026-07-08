@@ -2,6 +2,7 @@
 
 #include "../base/ModbusLrc.h"
 #include "../base/ModbusProtocolChecks.h"
+#include <spdlog/spdlog.h>
 
 namespace modbus::transport {
 
@@ -29,6 +30,7 @@ ParseResponseResult ModbusAsciiTransport::parseResponse(const QByteArray& adu)
 {
     base::AsciiAduFields fields;
     if (base::inspectAsciiAdu(adu, &fields) != adu.size()) {
+        spdlog::debug("AsciiTransport: reject reason=lrc_mismatch frameLen={}", adu.size());
         return {ParseResponseStatus::Invalid, std::nullopt};
     }
 
@@ -38,6 +40,7 @@ ParseResponseResult ModbusAsciiTransport::parseResponse(const QByteArray& adu)
             return {ParseResponseStatus::Unmatched, std::nullopt};
         }
         if (fields.slaveId != expectedResponseSlaveId_) {
+            spdlog::debug("AsciiTransport: reject reason=slave_mismatch expected={} actual={}", expectedResponseSlaveId_, fields.slaveId);
             return {ParseResponseStatus::Unmatched, std::nullopt};
         }
         hasPendingRequest_ = false;

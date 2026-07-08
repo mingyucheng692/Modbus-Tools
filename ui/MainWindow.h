@@ -86,6 +86,7 @@ private:
     QMenu* settingsMenu_ = nullptr;
     QAction* modbusSettingsAction_ = nullptr;
     QAction* updateSettingsAction_ = nullptr;
+    QAction* openLogFolderAction_ = nullptr;
     QMenu* aboutMenu_ = nullptr;
     QAction* checkUpdatesAction_ = nullptr;
     QAction* aboutAction_ = nullptr;

@@ -31,6 +31,8 @@
 #include "../core/common/ISettingsService.h"
 #include "../core/update/UpdateManager.h"
 #include "../core/common/SettingsController.h"
+#include "../infra/logging/Logger.h"
+#include "../infra/platform/PathResolver.h"
 #include <QStackedWidget>
 #include <QListWidget>
 #include <QHBoxLayout>
@@ -49,6 +51,8 @@
 #include <QPointer>
 #include <QStandardPaths>
 #include <QDir>
+#include <QDesktopServices>
+#include <QUrl>
 #include <QStyle>
 #include <vector>
 #include <spdlog/spdlog.h>
@@ -253,6 +257,11 @@ void MainWindow::setupSettingsMenu() {
     updateSettingsAction_ = settingsMenu_->addAction(tr("Update Settings"), this, [invoke]() {
         invoke(&application::IMainWindowPresenter::onUpdateSettingsRequested);
     });
+    settingsMenu_->addSeparator();
+    openLogFolderAction_ = settingsMenu_->addAction(tr("Open Log Folder"), this, [this]() {
+        const QString logDir = infra::platform::PathResolver::instance().resolveLogDir();
+        QDesktopServices::openUrl(QUrl::fromLocalFile(logDir));
+    });
 }
 
 void MainWindow::setupLanguageMenu() {
@@ -329,13 +338,17 @@ void MainWindow::applyModbusSettingsToViews(int timeoutMs, int retries, int retr
 void MainWindow::openModbusSettingsDialog() {
     int t, r, i; bool e;
     businessContext_->settingsController->loadModbusSettings(t, r, i, e);
-    widgets::ModbusSettingsDialog::Settings current{t, r, i, e};
-    
+    const auto currentLevel = spdlog::default_logger()->level();
+    const int currentLogLevel = static_cast<int>(currentLevel);
+    widgets::ModbusSettingsDialog::Settings current{t, r, i, e, currentLogLevel};
+
     widgets::ModbusSettingsDialog dialog(current, this);
     if (dialog.exec() == QDialog::Accepted) {
         auto s = dialog.settings();
         businessContext_->settingsController->setModbusSettings(s.timeoutMs, s.retries, s.retryIntervalMs, s.retryEnabled);
         applyModbusSettingsToViews(s.timeoutMs, s.retryEnabled ? s.retries : 0, s.retryIntervalMs);
+        const auto newLevel = static_cast<spdlog::level::level_enum>(s.logLevel);
+        logging::SetLevel(newLevel);
     }
 }
 
@@ -373,6 +386,7 @@ void MainWindow::retranslateUi(const QString& effectiveLocale) {
     if (aboutMenu_) aboutMenu_->setTitle(tr("About"));
     if (modbusSettingsAction_) modbusSettingsAction_->setText(tr("Modbus Settings"));
     if (updateSettingsAction_) updateSettingsAction_->setText(tr("Update Settings"));
+    if (openLogFolderAction_) openLogFolderAction_->setText(tr("Open Log Folder"));
     if (checkUpdatesAction_) checkUpdatesAction_->setText(tr("Check for Updates"));
     if (aboutAction_) aboutAction_->setText(tr("About"));
     

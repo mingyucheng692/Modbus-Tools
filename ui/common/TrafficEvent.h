@@ -36,6 +36,25 @@ enum class TrafficRequestType {
     Connection
 };
 
+inline const char* toString(TrafficDirection d) {
+    switch (d) {
+    case TrafficDirection::Tx: return "Tx";
+    case TrafficDirection::Rx: return "Rx";
+    default: return "None";
+    }
+}
+
+inline const char* toString(TrafficRequestType t) {
+    switch (t) {
+    case TrafficRequestType::ManualRead:  return "ManualRead";
+    case TrafficRequestType::ManualWrite: return "ManualWrite";
+    case TrafficRequestType::Poll:        return "Poll";
+    case TrafficRequestType::RawSend:     return "RawSend";
+    case TrafficRequestType::Connection:  return "Connection";
+    default: return "Unknown";
+    }
+}
+
 struct TrafficEvent {
     QDateTime timestamp = QDateTime::currentDateTimeUtc();
     TrafficDirection direction = TrafficDirection::None;

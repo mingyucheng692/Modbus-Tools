@@ -14,7 +14,9 @@
 #include <QFormLayout>
 #include <QSpinBox>
 #include <QCheckBox>
+#include <QComboBox>
 #include <QDialogButtonBox>
+#include <spdlog/spdlog.h>
 
 namespace ui::widgets {
 
@@ -56,6 +58,15 @@ void ModbusSettingsDialog::setupUi() {
     updateRetryControls(initialSettings_.retryEnabled);
     connect(retryEnableCheck_, &QCheckBox::toggled, updateRetryControls);
 
+    logLevelCombo_ = new QComboBox(this);
+    logLevelCombo_->addItem(QCoreApplication::translate("ui::MainWindow", "Debug"), static_cast<int>(spdlog::level::debug));
+    logLevelCombo_->addItem(QCoreApplication::translate("ui::MainWindow", "Info"), static_cast<int>(spdlog::level::info));
+    logLevelCombo_->addItem(QCoreApplication::translate("ui::MainWindow", "Warning"), static_cast<int>(spdlog::level::warn));
+    logLevelCombo_->addItem(QCoreApplication::translate("ui::MainWindow", "Error"), static_cast<int>(spdlog::level::err));
+    const int logIdx = logLevelCombo_->findData(initialSettings_.logLevel);
+    logLevelCombo_->setCurrentIndex(logIdx >= 0 ? logIdx : static_cast<int>(spdlog::level::info));
+    formLayout->addRow(QCoreApplication::translate("ui::MainWindow", "Log Level:"), logLevelCombo_);
+
     layout->addLayout(formLayout);
 
     auto* buttonBox = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel, this);
@@ -69,7 +80,8 @@ ModbusSettingsDialog::Settings ModbusSettingsDialog::settings() const {
         timeoutSpin_->value(),
         retryCountSpin_->value(),
         retryIntervalSpin_->value(),
-        retryEnableCheck_->isChecked()
+        retryEnableCheck_->isChecked(),
+        logLevelCombo_->currentData().toInt()
     };
 }
 
