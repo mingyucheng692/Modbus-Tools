@@ -53,6 +53,7 @@ public:
     };
 
     struct Dependencies {
+        // 1. Protocol stack references (non-owning)
         io::IChannel* channel;
         transport::ITransport* transport;
         FrameExtractor* frameExtractor;
@@ -64,9 +65,13 @@ public:
         TimeoutController* timeoutController;
         ConnectionManager* connectionManager;
         const base::ModbusConfig* config;
+
+        // 2. Synchronization primitives (owned by ModbusClient)
         std::mutex& mutex;
         std::condition_variable& cv;
         std::atomic<bool>& aborted;
+
+        // 3. Request queue (owned by ModbusClient)
         std::mutex& pendingMutex;
         std::deque<PendingRequest>& pendingRequests;
         int& nextRequestId;
@@ -138,6 +143,7 @@ private:
     void finishPendingRequest(int requestId, bool success, const QString& error);
 
     // --- Non-owning references to ModbusClient-owned resources ---
+    // 1. Protocol stack
     io::IChannel* channel_;
     transport::ITransport* transport_;
     FrameExtractor* frameExtractor_;
@@ -149,9 +155,11 @@ private:
     TimeoutController* timeoutController_;
     ConnectionManager* connectionManager_;
     const base::ModbusConfig* config_;
+    // 2. Synchronization primitives
     std::mutex& mutex_;
     std::condition_variable& cv_;
     std::atomic<bool>& aborted_;
+    // 3. Request queue
     std::mutex& pendingMutex_;
     std::deque<PendingRequest>& pendingRequests_;
     int& nextRequestId_;

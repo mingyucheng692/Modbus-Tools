@@ -8,7 +8,6 @@
  */
 
 #include "RequestExecutor.h"
-#include "ExceptionInterpreter.h"
 #include "RequestValidator.h"
 #include "Config.h"
 #include "infra/logging/Logger.h"
@@ -48,6 +47,44 @@ namespace {
         default:
             return false;
         }
+    }
+
+    QString exceptionName(base::ExceptionCode code) {
+        using base::ExceptionCode;
+        switch (code) {
+        case ExceptionCode::IllegalFunction:
+            return trReq("Illegal Function");
+        case ExceptionCode::IllegalDataAddress:
+            return trReq("Illegal Data Address");
+        case ExceptionCode::IllegalDataValue:
+            return trReq("Illegal Data Value");
+        case ExceptionCode::ServerDeviceFailure:
+            return trReq("Server Device Failure");
+        case ExceptionCode::Acknowledge:
+            return trReq("Acknowledge");
+        case ExceptionCode::ServerDeviceBusy:
+            return trReq("Server Device Busy");
+        case ExceptionCode::NegativeAcknowledge:
+            return trReq("Negative Acknowledge");
+        case ExceptionCode::MemoryParityError:
+            return trReq("Memory Parity Error");
+        case ExceptionCode::GatewayPathUnavailable:
+            return trReq("Gateway Path Unavailable");
+        case ExceptionCode::GatewayTargetDeviceFailed:
+            return trReq("Gateway Target Device Failed To Respond");
+        default:
+            return trReq("Unknown Exception");
+        }
+    }
+
+    QString buildExceptionMessage(int slaveId,
+                                  base::FunctionCode requestFc,
+                                  base::ExceptionCode exceptionCode) {
+        return trReq("Modbus exception response. Slave=%1 FC=0x%2 Exception=0x%3 (%4)")
+            .arg(slaveId)
+            .arg(static_cast<int>(requestFc), 2, 16, QChar('0'))
+            .arg(static_cast<int>(exceptionCode), 2, 16, QChar('0'))
+            .arg(exceptionName(exceptionCode));
     }
 
 } // namespace
@@ -113,8 +150,7 @@ ModbusResponse RequestExecutor::execute(const base::Pdu& request, int slaveId) {
 
         lastResponse = sendRequestInternal(request, slaveId);
         lastResponse.attemptCount = retryStrategy_->attemptCount() + 1;
-        lastResponse.retryCount = retryStrategy_->attemptCount();
-        if (lastResponse.isSuccess) {
+        if (!lastResponse.isError()) {
             reqStateMachine_->tryTransition(RequestStateMachine::State::Completed,
                                             "request-success");
             finishPendingRequest(requestId, true, QString());
@@ -471,7 +507,7 @@ std::optional<ModbusResponse> RequestExecutor::handleParsedFrame(
 
 ModbusResponse RequestExecutor::handleExceptionResponse(const base::Pdu& responsePdu, int slaveId,
                                                         const base::Pdu& requestPdu) {
-    const QString exceptionMessage = ExceptionInterpreter::buildMessage(
+    const QString exceptionMessage = buildExceptionMessage(
         slaveId,
         requestPdu.functionCode(),
         responsePdu.exceptionCode());

@@ -17,49 +17,24 @@
 
 namespace ui::application::modbus {
 
+namespace {
+
+const char* toString(PollState s) {
+    switch (s) {
+    case PollState::Idle:      return "Idle";
+    case PollState::Polling:   return "Polling";
+    case PollState::Degraded:  return "Degraded";
+    case PollState::Escalated: return "Escalated";
+    default: return "Unknown";
+    }
+}
+
+} // namespace
+
 PollingController::PollingController(RequestSubmissionService* requestService,
                                      QObject* parent)
     : QObject(parent)
     , requestService_(requestService) {
-
-    machine_ = new QStateMachine(this);
-
-    idleState_ = new QState(machine_);
-    pollingState_ = new QState(machine_);
-    degradedState_ = new QState(machine_);
-    escalatedState_ = new QState(machine_);
-
-    machine_->setInitialState(idleState_);
-
-    idleState_->addTransition(this, &PollingController::submitPollRequest, pollingState_);
-
-    pollingState_->addTransition(this, &PollingController::escalated, escalatedState_);
-    pollingState_->addTransition(this, &PollingController::degraded, degradedState_);
-
-    degradedState_->addTransition(this, &PollingController::escalated, escalatedState_);
-    degradedState_->addTransition(this, &PollingController::recovered, pollingState_);
-
-    escalatedState_->addTransition(this, &PollingController::recovered, pollingState_);
-
-    idleState_->addTransition(this, &PollingController::stopRequested, idleState_);
-    pollingState_->addTransition(this, &PollingController::stopRequested, idleState_);
-    degradedState_->addTransition(this, &PollingController::stopRequested, idleState_);
-    escalatedState_->addTransition(this, &PollingController::stopRequested, idleState_);
-
-    connect(pollingState_, &QState::entered, this, [this]() {
-        spdlog::debug("PollingController: entered Polling state");
-    });
-    connect(degradedState_, &QState::entered, this, [this]() {
-        spdlog::debug("PollingController: entered Degraded state");
-    });
-    connect(escalatedState_, &QState::entered, this, [this]() {
-        spdlog::debug("PollingController: entered Escalated state");
-    });
-    connect(idleState_, &QState::entered, this, [this]() {
-        spdlog::debug("PollingController: entered Idle state");
-    });
-
-    machine_->start();
 }
 
 void PollingController::setSessionConnected(bool connected) {
@@ -145,7 +120,6 @@ void PollingController::handlePollCompletion(bool success, int rttMs, int retryC
         }
         resetPollErrorTracking();
         if (context_.state == PollState::Degraded || context_.state == PollState::Escalated) {
-            emit recovered();
             transitionTo(PollState::Polling);
         }
     } else {
@@ -215,8 +189,6 @@ void PollingController::handlePollCompletion(bool success, int rttMs, int retryC
             context_.lastErrorText = error;
 
             if (context_.state != PollState::Escalated) {
-                emit escalated(
-                    tr("Poll escalated after %1 consecutive failures").arg(context_.consecutiveErrorCount));
                 transitionTo(PollState::Escalated);
             }
         } else {
@@ -226,7 +198,6 @@ void PollingController::handlePollCompletion(bool success, int rttMs, int retryC
             emit trafficEvent(event);
             context_.lastErrorText = error;
             if (context_.state == PollState::Polling) {
-                emit degraded();
                 transitionTo(PollState::Degraded);
             }
         }
@@ -321,6 +292,7 @@ void PollingController::transitionTo(PollState newState) {
 
     const auto oldState = context_.state;
     context_.state = newState;
+    spdlog::debug("PollingController: {} -> {}", toString(oldState), toString(newState));
     emit stateChanged(oldState, newState);
 }
 

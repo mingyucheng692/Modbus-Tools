@@ -91,7 +91,7 @@ TEST_F(ClientIntegrationTest, SuccessfulRequestAsync) {
     Pdu request(FunctionCode::ReadHoldingRegisters, QByteArray::fromHex("00000001"));
     ModbusResponse response = client_->sendRequest(request, 1);
     
-    EXPECT_TRUE(response.isSuccess);
+    EXPECT_FALSE(response.isError());
     EXPECT_EQ(response.pdu.functionCode(), FunctionCode::ReadHoldingRegisters);
 }
 
@@ -103,8 +103,8 @@ TEST_F(ClientIntegrationTest, TimeoutHandlingAsync) {
     
     Pdu request(FunctionCode::ReadHoldingRegisters, QByteArray::fromHex("00000001"));
     ModbusResponse response = client_->sendRequest(request, 1);
-    
-    EXPECT_FALSE(response.isSuccess);
+
+    EXPECT_TRUE(response.isError());
 }
 
 TEST_F(ClientIntegrationTest, RetryLogicAsync) {
@@ -132,6 +132,6 @@ TEST_F(ClientIntegrationTest, RetryLogicAsync) {
     
     Pdu request(FunctionCode::ReadHoldingRegisters, QByteArray::fromHex("00000001"));
     ModbusResponse response = client_->sendRequest(request, 1);
-    
-    EXPECT_TRUE(response.isSuccess);
+
+    EXPECT_FALSE(response.isError());
 }

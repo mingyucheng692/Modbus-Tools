@@ -10,24 +10,14 @@
 #pragma once
 
 #include "ModbusFrame.h"
+#include "result/Result.h"
 #include <QString>
 #include <variant>
 #include <optional>
 
 namespace modbus::base {
 
-/**
- * @brief Result of a PDU build operation.
- * Contains either the built PDU or an error message.
- */
-struct PduBuildResult {
-    std::optional<Pdu> pdu;
-    QString error;
-
-    bool isOk() const { return pdu.has_value(); }
-    static PduBuildResult ok(const Pdu& pdu) { return {pdu, QString()}; }
-    static PduBuildResult fail(const QString& error) { return {std::nullopt, error}; }
-};
+using PduBuildResult = ::core::result::Result<Pdu, QString>;
 
 /**
  * @brief Helper class to build Modbus PDUs from raw parameters.

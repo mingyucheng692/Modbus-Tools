@@ -10,6 +10,7 @@
 #pragma once
 
 #include "modbus/base/ModbusFrame.h"
+#include "result/Result.h"
 #include <cstdint>
 #include <optional>
 #include <string>
@@ -30,14 +31,7 @@ struct ReadRequestSpec {
     uint16_t quantity = 0;
 };
 
-struct BuildResult {
-    std::optional<modbus::base::Pdu> pdu;
-    std::string error;
-
-    bool ok() const { return pdu.has_value(); }
-    static BuildResult success(modbus::base::Pdu p) { return {std::move(p), {}}; }
-    static BuildResult failure(std::string e) { return {std::nullopt, std::move(e)}; }
-};
+using BuildResult = ::core::result::Result<modbus::base::Pdu, std::string>;
 
 /**
  * @brief Pure PDU-builder factory. Delegates to ModbusPduBuilder for the actual

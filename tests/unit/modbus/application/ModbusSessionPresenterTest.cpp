@@ -205,7 +205,7 @@ TEST_F(ModbusSessionPresenterTest, ModbusResponse_QueuedDeliveryPreservesExplici
     ASSERT_EQ(deliveredSpy.count(), 1);
     EXPECT_EQ(relay.lastRequestId, 42);
     EXPECT_EQ(relay.lastResponse.kind, modbus::session::ModbusResponseKind::NoResponseExpected);
-    EXPECT_TRUE(relay.lastResponse.isSuccess);
+    EXPECT_FALSE(relay.lastResponse.isError());
     EXPECT_TRUE(relay.lastResponse.isNoResponseExpected());
 }
 

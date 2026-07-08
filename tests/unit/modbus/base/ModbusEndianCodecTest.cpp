@@ -44,7 +44,7 @@ TEST(ModbusEndianCodecTest, BuildReadRequestEncodesBigEndianPayload)
         FunctionCode::ReadHoldingRegisters, 0x1234, 0x0002);
 
     ASSERT_TRUE(result.isOk());
-    EXPECT_EQ(result.pdu->toByteArray().toHex().toUpper(), QByteArray("0312340002"));
+    EXPECT_EQ(result.value().toByteArray().toHex().toUpper(), QByteArray("0312340002"));
 }
 
 TEST(ModbusEndianCodecTest, BuildWriteSingleRegisterEncodesBigEndianPayload)
@@ -52,7 +52,7 @@ TEST(ModbusEndianCodecTest, BuildWriteSingleRegisterEncodesBigEndianPayload)
     const auto result = ModbusPduBuilder::buildWriteSingleRegister(0x0010, 0xABCD);
 
     ASSERT_TRUE(result.isOk());
-    EXPECT_EQ(result.pdu->toByteArray().toHex().toUpper(), QByteArray("060010ABCD"));
+    EXPECT_EQ(result.value().toByteArray().toHex().toUpper(), QByteArray("060010ABCD"));
 }
 
 TEST(ModbusEndianCodecTest, ValidateResponsePduAcceptsMatchingWriteMultipleEcho)

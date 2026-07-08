@@ -2,6 +2,8 @@ add_library(core STATIC)
 
 target_sources(core PRIVATE
     Config.h
+    # result
+    result/Result.h
     # reconnect
     ReconnectPolicy.h
     ReconnectPolicy.cpp
@@ -30,8 +32,6 @@ target_sources(core PRIVATE
     modbus/session/IModbusClient.h
     modbus/session/ModbusClient.h
     modbus/session/ModbusClient.cpp
-    modbus/session/ExceptionInterpreter.h
-    modbus/session/ExceptionInterpreter.cpp
     modbus/session/RequestValidator.h
     modbus/session/RequestValidator.cpp
     modbus/session/FrameExtractor.h

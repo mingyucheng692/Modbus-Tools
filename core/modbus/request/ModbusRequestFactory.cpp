@@ -21,10 +21,10 @@ BuildResult ModbusRequestFactory::buildReadRequest(const ReadRequestSpec& spec) 
         static_cast<int>(spec.quantity));
 
     if (!result.isOk()) {
-        return BuildResult::failure(result.error.toStdString());
+        return BuildResult::fail(result.error().toStdString());
     }
 
-    return BuildResult::success(std::move(*result.pdu));
+    return BuildResult::ok(std::move(result.value()));
 }
 
 BuildResult ModbusRequestFactory::buildWriteRequest(const WriteRequestSpec& spec) {
@@ -69,10 +69,10 @@ BuildResult ModbusRequestFactory::buildWriteRequest(const WriteRequestSpec& spec
     }
 
     if (!result.isOk()) {
-        return BuildResult::failure(result.error.toStdString());
+        return BuildResult::fail(result.error().toStdString());
     }
 
-    return BuildResult::success(std::move(*result.pdu));
+    return BuildResult::ok(std::move(result.value()));
 }
 
 } // namespace modbus::request

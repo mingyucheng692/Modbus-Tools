@@ -138,7 +138,7 @@ void RequestCoordinator::handleRequestFinished(int requestId,
 
     uint16_t addr = trackingInfo->address;
 
-    if (response.isSuccess) {
+    if (!response.isError()) {
         const ::modbus::core::parser::ProtocolType protocolType =
             modeDescriptor(sessionMode_).protocolType;
         emit linkageDataReceived(response.pdu, protocolType, addr);

@@ -31,37 +31,26 @@ enum class RequestError {
 };
 
 // 响应结果类型：包含 Pdu 或错误信息
-//
-// Note: isSuccess / retryCount are kept for backward compatibility but are
-// fully derivable from `kind` and `attemptCount`. New code should prefer the
-// accessor methods below (isError(), isNoResponseExpected(), hasPdu()) or
-// derive from `attemptCount` (retryCount == max(0, attemptCount - 1)) instead
-// of reading these fields.
 struct ModbusResponse {
     ModbusResponseKind kind = ModbusResponseKind::Error;
     RequestError errorCode = RequestError::None;
     base::Pdu pdu;
-    [[deprecated("use !isError() instead (true for Success and NoResponseExpected)")]]
-    bool isSuccess = false;
     QString error;
     int rttMs = -1;
     int attemptCount = 0;
-    [[deprecated("derive from attemptCount: max(0, attemptCount - 1)")]]
-    int retryCount = 0;
 
     bool hasPdu() const { return kind != ModbusResponseKind::Error; }
     bool isError() const { return kind == ModbusResponseKind::Error; }
     bool isNoResponseExpected() const { return kind == ModbusResponseKind::NoResponseExpected; }
     bool isBusy() const { return errorCode == RequestError::Busy; }
+    int retryCount() const { return attemptCount > 0 ? attemptCount - 1 : 0; }
 
     static ModbusResponse Success(base::Pdu pdu, int rttMs = -1, int attemptCount = 0) {
         ModbusResponse response;
         response.kind = ModbusResponseKind::Success;
         response.pdu = std::move(pdu);
-        response.isSuccess = true;
         response.rttMs = rttMs;
         response.attemptCount = attemptCount;
-        response.retryCount = attemptCount > 0 ? attemptCount - 1 : 0;
         return response;
     }
 
@@ -69,21 +58,17 @@ struct ModbusResponse {
         ModbusResponse response;
         response.kind = ModbusResponseKind::NoResponseExpected;
         response.pdu = std::move(pdu);
-        response.isSuccess = true;
         response.rttMs = -1;
         response.attemptCount = attemptCount;
-        response.retryCount = attemptCount > 0 ? attemptCount - 1 : 0;
         return response;
     }
-    
+
     static ModbusResponse Error(QString error, int attemptCount = 0) {
         ModbusResponse response;
         response.kind = ModbusResponseKind::Error;
         response.error = std::move(error);
-        response.isSuccess = false;
         response.rttMs = -1;
         response.attemptCount = attemptCount;
-        response.retryCount = attemptCount > 0 ? attemptCount - 1 : 0;
         return response;
     }
 

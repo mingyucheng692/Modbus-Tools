@@ -10,8 +10,6 @@
 #pragma once
 
 #include <QObject>
-#include <QStateMachine>
-#include <QState>
 #include <chrono>
 #include <cstdint>
 #include "modbus/base/ModbusFrame.h"
@@ -83,9 +81,6 @@ signals:
     void trafficEvent(const ui::common::TrafficEvent& event);
     void stateChanged(PollState oldState, PollState newState);
     void summaryReady(const PollSummary& summary);
-    void escalated(const QString& message);
-    void degraded();
-    void recovered();
     void stopRequested();
 
 public slots:
@@ -103,11 +98,6 @@ private:
 
     RequestSubmissionService* requestService_ = nullptr;
 
-    QStateMachine* machine_ = nullptr;
-    QState* idleState_ = nullptr;
-    QState* pollingState_ = nullptr;
-    QState* degradedState_ = nullptr;
-    QState* escalatedState_ = nullptr;
     int pollingIntervalMs_ = 1000;
     PollContext context_{};
     ::core::polling::PollingStrategy strategy_{};

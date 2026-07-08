@@ -112,7 +112,7 @@ protected:
 TEST_F(ModbusClientBoundaryTest, SendRequest_NotConnected_ReturnsError) {
     // sendRequest internally calls ensureConnected, which calls open() -> false
     auto response = client_->sendRequest(makeRhrPdu());
-    EXPECT_FALSE(response.isSuccess);
+    EXPECT_TRUE(response.isError());
     EXPECT_THAT(response.error.toStdString(), AnyOf(HasSubstr("dispatch"), HasSubstr("connected")));
 }
 
@@ -129,7 +129,7 @@ TEST_F(ModbusClientBoundaryTest, SendRequest_Timeout_ReturnsError) {
 
     // Never call readHandler -> timeout triggers
     auto resp = client_->sendRequest(makeRhrPdu());
-    EXPECT_FALSE(resp.isSuccess);
+    EXPECT_TRUE(resp.isError());
 }
 
 // ============================================================================
@@ -159,7 +159,7 @@ TEST_F(ModbusClientBoundaryTest, SendRequest_ParseFailureNoRetry_ReturnsError) {
 
     auto resp = client_->sendRequest(makeRhrPdu());
     responder.join();
-    EXPECT_FALSE(resp.isSuccess);
+    EXPECT_TRUE(resp.isError());
 }
 
 // ============================================================================
@@ -194,7 +194,7 @@ TEST_F(ModbusClientBoundaryTest, SendRequest_RetryReflectsInResponseCount) {
 
     auto resp = client_->sendRequest(makeRhrPdu());
     responder.join();
-    EXPECT_FALSE(resp.isSuccess);
+    EXPECT_TRUE(resp.isError());
     EXPECT_GT(resp.attemptCount, 1) << "Should have attempted at least once more after retry";
 }
 
@@ -216,7 +216,7 @@ TEST_F(ModbusClientBoundaryTest, SendRequest_RtuBroadcast_ReturnsEmptySuccess) {
     }));
 
     auto resp = client_->sendRequest(makeWmrPdu(), 0);
-    EXPECT_TRUE(resp.isSuccess);
+    EXPECT_FALSE(resp.isError());
 }
 
 // ============================================================================
@@ -243,7 +243,7 @@ TEST_F(ModbusClientBoundaryTest, Abort_DuringSendRequest_ReturnsError) {
     client_->abort();
 
     auto resp = future.get();
-    EXPECT_FALSE(resp.isSuccess);
+    EXPECT_TRUE(resp.isError());
 }
 
 // ============================================================================
@@ -267,7 +267,7 @@ TEST_F(ModbusClientBoundaryTest, SendRequest_ConcurrentCall_ReturnsInProgressErr
     std::this_thread::sleep_for(std::chrono::milliseconds(20));
     auto second = client_->sendRequest(makeRhrPdu());
 
-    EXPECT_FALSE(second.isSuccess);
+    EXPECT_TRUE(second.isError());
     EXPECT_THAT(second.error.toStdString(), HasSubstr("already in progress"));
     // Soft-lock contention must surface as a structured Busy error code so the
     // UI can distinguish it from genuine protocol/transport errors.
@@ -275,7 +275,7 @@ TEST_F(ModbusClientBoundaryTest, SendRequest_ConcurrentCall_ReturnsInProgressErr
     EXPECT_TRUE(second.isBusy());
 
     auto firstResp = first.get();
-    EXPECT_FALSE(firstResp.isSuccess);
+    EXPECT_TRUE(firstResp.isError());
 }
 
 // ============================================================================
@@ -297,7 +297,7 @@ TEST_F(ModbusClientBoundaryTest, ChannelError_DuringRequest_ReturnsError) {
     if (errorHandler_) errorHandler_("Connection reset by peer");
 
     auto resp = future.get();
-    EXPECT_FALSE(resp.isSuccess);
+    EXPECT_TRUE(resp.isError());
 }
 
 // ============================================================================
@@ -321,7 +321,7 @@ TEST_F(ModbusClientBoundaryTest, Disconnect_DuringActiveRequest_ReturnsError) {
     client_->disconnect();
 
     auto resp = future.get();
-    EXPECT_FALSE(resp.isSuccess);
+    EXPECT_TRUE(resp.isError());
 }
 
 // ============================================================================
@@ -368,7 +368,7 @@ TEST_F(ModbusClientBoundaryTest, SendRequest_WriteFails_ReturnsError) {
     EXPECT_CALL(*mockChannel_, write(_)).WillOnce(Return(false));
 
     auto resp = client_->sendRequest(makeRhrPdu());
-    EXPECT_FALSE(resp.isSuccess);
+    EXPECT_TRUE(resp.isError());
 }
 
 // ============================================================================
@@ -382,7 +382,7 @@ TEST_F(ModbusClientBoundaryTest, SendRequest_OversizedPdu_ReturnsError) {
     Pdu hugePdu(FunctionCode::ReadHoldingRegisters, hugeData);
 
     auto resp = client_->sendRequest(hugePdu);
-    EXPECT_FALSE(resp.isSuccess);
+    EXPECT_TRUE(resp.isError());
 }
 
 // ============================================================================

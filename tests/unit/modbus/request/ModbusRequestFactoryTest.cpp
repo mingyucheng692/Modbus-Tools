@@ -22,10 +22,10 @@ TEST(ModbusRequestFactory, ReadRequestBasic) {
     spec.quantity = 3;
 
     auto result = factory.buildReadRequest(spec);
-    ASSERT_TRUE(result.ok()) << "Read request should succeed";
-    ASSERT_TRUE(result.pdu.has_value());
-    EXPECT_EQ(result.pdu->functionCode(), FunctionCode::ReadHoldingRegisters);
-    ASSERT_EQ(result.pdu->data().size(), 4);
+    ASSERT_TRUE(result.isOk()) << "Read request should succeed";
+    ASSERT_TRUE(result.isOk());
+    EXPECT_EQ(result.value().functionCode(), FunctionCode::ReadHoldingRegisters);
+    ASSERT_EQ(result.value().data().size(), 4);
 }
 
 TEST(ModbusRequestFactory, ReadRequestInvalidAddress) {
@@ -37,7 +37,7 @@ TEST(ModbusRequestFactory, ReadRequestInvalidAddress) {
 
     auto result = factory.buildReadRequest(spec);
     // The PduBuilder will fail on invalid address (negative after cast)
-    EXPECT_TRUE(result.ok()) << "Address wrapping may still produce a PDU";
+    EXPECT_TRUE(result.isOk()) << "Address wrapping may still produce a PDU";
 }
 
 TEST(ModbusRequestFactory, WriteSingleCoilOn) {
@@ -50,16 +50,16 @@ TEST(ModbusRequestFactory, WriteSingleCoilOn) {
     spec.quantity = 1;
 
     auto result = factory.buildWriteRequest(spec);
-    ASSERT_TRUE(result.ok());
-    ASSERT_TRUE(result.pdu.has_value());
-    EXPECT_EQ(result.pdu->functionCode(), FunctionCode::WriteSingleCoil);
-    EXPECT_EQ(result.pdu->data().size(), 4);
+    ASSERT_TRUE(result.isOk());
+    ASSERT_TRUE(result.isOk());
+    EXPECT_EQ(result.value().functionCode(), FunctionCode::WriteSingleCoil);
+    EXPECT_EQ(result.value().data().size(), 4);
     // Address: 0x00AC
-    EXPECT_EQ(static_cast<uint8_t>(result.pdu->data()[0]), 0x00);
-    EXPECT_EQ(static_cast<uint8_t>(result.pdu->data()[1]), 0xAC);
+    EXPECT_EQ(static_cast<uint8_t>(result.value().data()[0]), 0x00);
+    EXPECT_EQ(static_cast<uint8_t>(result.value().data()[1]), 0xAC);
     // Value: 0xFF00
-    EXPECT_EQ(static_cast<uint8_t>(result.pdu->data()[2]), 0xFF);
-    EXPECT_EQ(static_cast<uint8_t>(result.pdu->data()[3]), 0x00);
+    EXPECT_EQ(static_cast<uint8_t>(result.value().data()[2]), 0xFF);
+    EXPECT_EQ(static_cast<uint8_t>(result.value().data()[3]), 0x00);
 }
 
 TEST(ModbusRequestFactory, WriteSingleCoilOff) {
@@ -72,11 +72,11 @@ TEST(ModbusRequestFactory, WriteSingleCoilOff) {
     spec.quantity = 1;
 
     auto result = factory.buildWriteRequest(spec);
-    ASSERT_TRUE(result.ok());
-    EXPECT_EQ(result.pdu->functionCode(), FunctionCode::WriteSingleCoil);
+    ASSERT_TRUE(result.isOk());
+    EXPECT_EQ(result.value().functionCode(), FunctionCode::WriteSingleCoil);
     // Value should be 0x0000
-    EXPECT_EQ(static_cast<uint8_t>(result.pdu->data()[2]), 0x00);
-    EXPECT_EQ(static_cast<uint8_t>(result.pdu->data()[3]), 0x00);
+    EXPECT_EQ(static_cast<uint8_t>(result.value().data()[2]), 0x00);
+    EXPECT_EQ(static_cast<uint8_t>(result.value().data()[3]), 0x00);
 }
 
 TEST(ModbusRequestFactory, WriteSingleRegister) {
@@ -89,13 +89,13 @@ TEST(ModbusRequestFactory, WriteSingleRegister) {
     spec.quantity = 1;
 
     auto result = factory.buildWriteRequest(spec);
-    ASSERT_TRUE(result.ok());
-    EXPECT_EQ(result.pdu->functionCode(), FunctionCode::WriteSingleRegister);
-    EXPECT_EQ(result.pdu->data().size(), 4);
-    EXPECT_EQ(static_cast<uint8_t>(result.pdu->data()[0]), 0x00);
-    EXPECT_EQ(static_cast<uint8_t>(result.pdu->data()[1]), 0x01);
-    EXPECT_EQ(static_cast<uint8_t>(result.pdu->data()[2]), 0x02);
-    EXPECT_EQ(static_cast<uint8_t>(result.pdu->data()[3]), 0x58);
+    ASSERT_TRUE(result.isOk());
+    EXPECT_EQ(result.value().functionCode(), FunctionCode::WriteSingleRegister);
+    EXPECT_EQ(result.value().data().size(), 4);
+    EXPECT_EQ(static_cast<uint8_t>(result.value().data()[0]), 0x00);
+    EXPECT_EQ(static_cast<uint8_t>(result.value().data()[1]), 0x01);
+    EXPECT_EQ(static_cast<uint8_t>(result.value().data()[2]), 0x02);
+    EXPECT_EQ(static_cast<uint8_t>(result.value().data()[3]), 0x58);
 }
 
 TEST(ModbusRequestFactory, WriteMultipleCoils) {
@@ -109,16 +109,16 @@ TEST(ModbusRequestFactory, WriteMultipleCoils) {
     spec.quantity = 10;
 
     auto result = factory.buildWriteRequest(spec);
-    ASSERT_TRUE(result.ok());
-    EXPECT_EQ(result.pdu->functionCode(), FunctionCode::WriteMultipleCoils);
+    ASSERT_TRUE(result.isOk());
+    EXPECT_EQ(result.value().functionCode(), FunctionCode::WriteMultipleCoils);
     // Address 0x0013, quantity 10, byte count 2, data
-    EXPECT_EQ(static_cast<uint8_t>(result.pdu->data()[0]), 0x00);
-    EXPECT_EQ(static_cast<uint8_t>(result.pdu->data()[1]), 0x13);
-    EXPECT_EQ(static_cast<uint8_t>(result.pdu->data()[2]), 0x00);
-    EXPECT_EQ(static_cast<uint8_t>(result.pdu->data()[3]), 0x0A);
-    EXPECT_EQ(static_cast<uint8_t>(result.pdu->data()[4]), 0x02);
-    EXPECT_EQ(static_cast<uint8_t>(result.pdu->data()[5]), 0xCD);
-    EXPECT_EQ(static_cast<uint8_t>(result.pdu->data()[6]), 0x01);
+    EXPECT_EQ(static_cast<uint8_t>(result.value().data()[0]), 0x00);
+    EXPECT_EQ(static_cast<uint8_t>(result.value().data()[1]), 0x13);
+    EXPECT_EQ(static_cast<uint8_t>(result.value().data()[2]), 0x00);
+    EXPECT_EQ(static_cast<uint8_t>(result.value().data()[3]), 0x0A);
+    EXPECT_EQ(static_cast<uint8_t>(result.value().data()[4]), 0x02);
+    EXPECT_EQ(static_cast<uint8_t>(result.value().data()[5]), 0xCD);
+    EXPECT_EQ(static_cast<uint8_t>(result.value().data()[6]), 0x01);
 }
 
 TEST(ModbusRequestFactory, WriteMultipleRegisters) {
@@ -132,18 +132,18 @@ TEST(ModbusRequestFactory, WriteMultipleRegisters) {
     spec.quantity = 2;
 
     auto result = factory.buildWriteRequest(spec);
-    ASSERT_TRUE(result.ok());
-    EXPECT_EQ(result.pdu->functionCode(), FunctionCode::WriteMultipleRegisters);
+    ASSERT_TRUE(result.isOk());
+    EXPECT_EQ(result.value().functionCode(), FunctionCode::WriteMultipleRegisters);
     // Address 0x0001, quantity 2, byte count 4, data
-    EXPECT_EQ(static_cast<uint8_t>(result.pdu->data()[0]), 0x00);
-    EXPECT_EQ(static_cast<uint8_t>(result.pdu->data()[1]), 0x01);
-    EXPECT_EQ(static_cast<uint8_t>(result.pdu->data()[2]), 0x00);
-    EXPECT_EQ(static_cast<uint8_t>(result.pdu->data()[3]), 0x02);
-    EXPECT_EQ(static_cast<uint8_t>(result.pdu->data()[4]), 0x04);
-    EXPECT_EQ(static_cast<uint8_t>(result.pdu->data()[5]), 0x02);
-    EXPECT_EQ(static_cast<uint8_t>(result.pdu->data()[6]), 0x2B);
-    EXPECT_EQ(static_cast<uint8_t>(result.pdu->data()[7]), 0x00);
-    EXPECT_EQ(static_cast<uint8_t>(result.pdu->data()[8]), 0x01);
+    EXPECT_EQ(static_cast<uint8_t>(result.value().data()[0]), 0x00);
+    EXPECT_EQ(static_cast<uint8_t>(result.value().data()[1]), 0x01);
+    EXPECT_EQ(static_cast<uint8_t>(result.value().data()[2]), 0x00);
+    EXPECT_EQ(static_cast<uint8_t>(result.value().data()[3]), 0x02);
+    EXPECT_EQ(static_cast<uint8_t>(result.value().data()[4]), 0x04);
+    EXPECT_EQ(static_cast<uint8_t>(result.value().data()[5]), 0x02);
+    EXPECT_EQ(static_cast<uint8_t>(result.value().data()[6]), 0x2B);
+    EXPECT_EQ(static_cast<uint8_t>(result.value().data()[7]), 0x00);
+    EXPECT_EQ(static_cast<uint8_t>(result.value().data()[8]), 0x01);
 }
 
 TEST(ModbusRequestFactory, WriteUnsupportedFunctionCode) {
@@ -156,6 +156,6 @@ TEST(ModbusRequestFactory, WriteUnsupportedFunctionCode) {
     spec.quantity = 1;
 
     auto result = factory.buildWriteRequest(spec);
-    EXPECT_FALSE(result.ok());
-    EXPECT_FALSE(result.error.empty());
+    EXPECT_FALSE(result.isOk());
+    EXPECT_FALSE(result.error().empty());
 }

@@ -31,13 +31,13 @@ RequestSubmissionService::ReadRequestResult RequestSubmissionService::buildReadR
     factorySpec.quantity = spec.quantity;
 
     auto buildResult = factory_.buildReadRequest(factorySpec);
-    if (!buildResult.ok()) {
+    if (!buildResult.isOk()) {
         result.ok = false;
-        result.error = QString::fromStdString(buildResult.error);
+        result.error = QString::fromStdString(buildResult.error());
         return result;
     }
 
-    result.pdu = std::move(*buildResult.pdu);
+    result.pdu = std::move(buildResult.value());
     result.requestId = nextRequestId();
     trackRequest(result.requestId, kind, spec.startAddress);
     result.ok = true;
@@ -211,13 +211,13 @@ RequestSubmissionService::WriteRequestResult RequestSubmissionService::buildWrit
     spec.quantity = static_cast<uint16_t>(quantity);
 
     auto buildResult = factory_.buildWriteRequest(spec);
-    if (!buildResult.ok()) {
+    if (!buildResult.isOk()) {
         result.ok = false;
-        result.error = QString::fromStdString(buildResult.error);
+        result.error = QString::fromStdString(buildResult.error());
         return result;
     }
 
-    result.pdu = std::move(*buildResult.pdu);
+    result.pdu = std::move(buildResult.value());
     result.requestId = nextRequestId();
     trackRequest(result.requestId, RequestKind::Write, static_cast<uint16_t>(addr));
     result.ok = true;

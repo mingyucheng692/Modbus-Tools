@@ -72,14 +72,14 @@ inline modbus::base::Pdu MakeWriteMultipleRegistersPdu(uint16_t addr = 0,
 
 #define ASSERT_RESPONSE_SUCCESS(response)                                      \
     do {                                                                       \
-        ASSERT_TRUE(response.isSuccess)                                        \
+        ASSERT_FALSE((response).isError())                                     \
             << "Expected success but got error: "                              \
             << (response).error.toStdString();                                 \
     } while (false)
 
 #define ASSERT_RESPONSE_ERROR(response, msgContains)                           \
     do {                                                                       \
-        ASSERT_FALSE(response.isSuccess)                                       \
+        ASSERT_TRUE((response).isError())                                      \
             << "Expected error but response was successful";                   \
         ASSERT_TRUE((response).error.contains(msgContains))                    \
             << "Expected error containing \"" << (msgContains) << "\" "       \

@@ -589,7 +589,7 @@ void ModbusSessionPresenter::handleRequestFinished(int requestId,
         if (pollingController_) {
             pollingController_->handleResponse(!response.isError(),
                                                 response.rttMs,
-                                                response.retryCount,
+                                                response.retryCount(),
                                                 response.error);
         }
     }
@@ -597,7 +597,7 @@ void ModbusSessionPresenter::handleRequestFinished(int requestId,
     switch (response.kind) {
     case ::modbus::session::ModbusResponseKind::NoResponseExpected:
         if (trafficLogController_) {
-            trafficLogController_->logBroadcastWriteSuccess(response.retryCount);
+            trafficLogController_->logBroadcastWriteSuccess(response.retryCount());
         }
         break;
     case ::modbus::session::ModbusResponseKind::Success:
@@ -606,9 +606,9 @@ void ModbusSessionPresenter::handleRequestFinished(int requestId,
         }
 
         if (kind == RequestKind::Read && trafficLogController_) {
-            trafficLogController_->logReadSuccess(response.retryCount);
+            trafficLogController_->logReadSuccess(response.retryCount());
         } else if (kind == RequestKind::Write && trafficLogController_) {
-            trafficLogController_->logWriteSuccess(response.retryCount);
+            trafficLogController_->logWriteSuccess(response.retryCount());
         }
         break;
     case ::modbus::session::ModbusResponseKind::Error:
@@ -626,7 +626,7 @@ void ModbusSessionPresenter::handleRequestFinished(int requestId,
         }
 
         if (kind != RequestKind::Poll && trafficLogController_) {
-            trafficLogController_->logRequestError(response.error, response.retryCount);
+            trafficLogController_->logRequestError(response.error, response.retryCount());
         }
         break;
     }
