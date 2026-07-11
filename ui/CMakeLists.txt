@@ -71,7 +71,6 @@ target_sources(ui PRIVATE
     common/SettingsKeys.h
     common/SettingsService.cpp
     common/SettingsService.h
-    common/Theme.cpp
     common/ThemeController.cpp
     common/ThemeController.h
     common/TrafficEvent.h
