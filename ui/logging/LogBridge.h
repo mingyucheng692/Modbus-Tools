@@ -3,10 +3,9 @@
  * @brief Strategic bridge from TrafficEvent to spdlog.
  *
  * Encapsulates TrafficEventLevel to spdlog::level mapping.
- * Error and Warning-level events cross the bridge with full context
- * (type, direction, summary); Info events remain in TrafficMonitor.
- * Poll Warning events are deduplicated at 1-second granularity to
- * prevent log flooding during high-frequency polling failures.
+ * Error-level events cross the bridge with full context
+ * (type, direction, summary); Info/Warning events remain
+ * in TrafficMonitor.
  *
  * Copyright (c) 2025 - present mingyucheng692
  *

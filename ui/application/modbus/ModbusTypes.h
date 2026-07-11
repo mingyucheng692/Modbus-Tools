@@ -126,11 +126,4 @@ struct ModbusConnectionSpec {
     return modeDescriptor(sessionModeFor(mode));
 }
 
-class IRequestDispatcher {
-public:
-    virtual ~IRequestDispatcher() = default;
-    virtual void dispatch(const ::modbus::base::Pdu& request, int slaveId, int requestId) = 0;
-    virtual void dispatchRaw(const QByteArray& data) = 0;
-};
-
 } // namespace ui::application::modbus

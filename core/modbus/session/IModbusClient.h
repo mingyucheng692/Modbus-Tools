@@ -39,7 +39,6 @@ struct ModbusResponse {
     int rttMs = -1;
     int attemptCount = 0;
 
-    bool hasPdu() const { return kind != ModbusResponseKind::Error; }
     bool isError() const { return kind == ModbusResponseKind::Error; }
     bool isNoResponseExpected() const { return kind == ModbusResponseKind::NoResponseExpected; }
     bool isBusy() const { return errorCode == RequestError::Busy; }

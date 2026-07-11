@@ -55,17 +55,6 @@ void ChannelBase::setWriteDrainedHandler(std::function<void()> handler)
     writeDrainedHandler_ = std::move(handler);
 }
 
-void ChannelBase::setStateHandler(std::function<void(ChannelState)> handler)
-{
-    // Keep legacy behavior for older callers, but prefer add/removeStateHandler
-    // so independent subscribers do not accidentally clear each other.
-    std::lock_guard<std::mutex> lock(stateHandlersMutex_);
-    stateHandlers_.clear();
-    if (handler) {
-        stateHandlers_.emplace_back(nextStateHandlerId_++, std::move(handler));
-    }
-}
-
 IChannel::HandlerId ChannelBase::addStateHandler(std::function<void(ChannelState)> handler)
 {
     if (!handler) {

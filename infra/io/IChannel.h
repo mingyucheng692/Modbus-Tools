@@ -38,11 +38,10 @@ enum class ChannelErrorCode {
 struct ChannelError {
     ChannelErrorCode code = ChannelErrorCode::None;
     QString message;
-    QString deviceHint;
 
     ChannelError() = default;
-    ChannelError(ChannelErrorCode c, QString msg, QString hint = {})
-        : code(c), message(std::move(msg)), deviceHint(std::move(hint)) {}
+    ChannelError(ChannelErrorCode c, QString msg)
+        : code(c), message(std::move(msg)) {}
 
     explicit operator bool() const { return code != ChannelErrorCode::None; }
 };
@@ -74,8 +73,6 @@ public:
     virtual void setReadHandler(std::function<void(QByteArrayView)> handler) = 0;
     virtual void setErrorHandler(std::function<void(const QString&)> handler) = 0;
     virtual void setWriteDrainedHandler(std::function<void()> handler) = 0;
-    // Compatibility-only API: replaces all current state subscribers.
-    virtual void setStateHandler(std::function<void(ChannelState)> handler) = 0;
     virtual HandlerId addStateHandler(std::function<void(ChannelState)> handler) = 0;
     virtual void removeStateHandler(HandlerId handlerId) = 0;
     // isTx: true=TX, false=RX

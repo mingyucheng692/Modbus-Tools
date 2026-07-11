@@ -19,7 +19,6 @@ public:
     MOCK_METHOD(void, setReadHandler, (std::function<void(QByteArrayView)>), (override));
     MOCK_METHOD(void, setErrorHandler, (std::function<void(const QString&)>), (override));
     MOCK_METHOD(void, setWriteDrainedHandler, (std::function<void()>), (override));
-    MOCK_METHOD(void, setStateHandler, (std::function<void(ChannelState)>), (override));
     MOCK_METHOD(HandlerId, addStateHandler, (std::function<void(ChannelState)>), (override));
     MOCK_METHOD(void, removeStateHandler, (HandlerId), (override));
     MOCK_METHOD(void, setMonitor, ((std::function<void(bool, const QByteArray&)>)), (override));

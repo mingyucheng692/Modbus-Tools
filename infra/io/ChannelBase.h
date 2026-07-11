@@ -26,7 +26,6 @@ public:
     void setReadHandler(std::function<void(QByteArrayView)> handler) override;
     void setErrorHandler(std::function<void(const QString&)> handler) override;
     void setWriteDrainedHandler(std::function<void()> handler) override;
-    void setStateHandler(std::function<void(ChannelState)> handler) override;
     HandlerId addStateHandler(std::function<void(ChannelState)> handler) override;
     void removeStateHandler(HandlerId handlerId) override;
     void setMonitor(std::function<void(bool isTx, const QByteArray&)> monitor) override;

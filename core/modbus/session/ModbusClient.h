@@ -22,15 +22,11 @@
 #include "RequestExecutor.h"
 #include "../transport/ITransport.h"
 #include "infra/io/IChannel.h"
-#include <cassert>
 #include <mutex>
 #include <condition_variable>
 #include <atomic>
 #include <deque>
-#include <map>
 #include <chrono>
-#include <functional>
-#include <optional>
 
 namespace modbus::session {
 
