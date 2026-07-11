@@ -133,6 +133,12 @@ ModbusResponse RequestExecutor::execute(const base::Pdu& request, int slaveId) {
     }
     RequestLockGuard unlockGuard(requestLocked_);
     std::lock_guard<std::mutex> lock(requestMutex_);
+    if (aborted_.load(std::memory_order_acquire)) {
+        // Abort was requested before we acquired the lock; don't reset it.
+        reqStateMachine_->tryTransition(RequestStateMachine::State::Aborted,
+                                        "request-aborted-before-lock");
+        return ModbusResponse::Error(trReq("Aborted"), retryStrategy_->attemptCount());
+    }
     aborted_ = false;
 
     retryStrategy_->reset();

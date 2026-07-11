@@ -4,7 +4,8 @@
  *
  * Replaces the ad-hoc result structs (PduBuildResult, BuildResult, etc.)
  * with a single template. In a -fno-exceptions project, callers must check
- * isOk() before calling value(); an assert guards against misuse.
+ * isOk() before calling value(); misuse triggers std::terminate to avoid
+ * undefined behavior from dereferencing an empty optional.
  *
  * Copyright (c) 2025 - present mingyucheng692
  *
@@ -14,7 +15,7 @@
 #pragma once
 
 #include <optional>
-#include <cassert>
+#include <exception>
 #include <utility>
 
 namespace core::result {
@@ -37,12 +38,16 @@ public:
     [[nodiscard]] bool isOk() const { return value_.has_value(); }
 
     [[nodiscard]] const T& value() const {
-        assert(value_.has_value() && "Result::value() called on error result");
+        if (!value_.has_value()) {
+            std::terminate();
+        }
         return *value_;
     }
 
     [[nodiscard]] T& value() {
-        assert(value_.has_value() && "Result::value() called on error result");
+        if (!value_.has_value()) {
+            std::terminate();
+        }
         return *value_;
     }
 

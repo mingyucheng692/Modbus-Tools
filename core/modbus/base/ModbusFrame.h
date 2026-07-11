@@ -33,7 +33,7 @@ public:
         return functionCode_;
     }
 
-    [[nodiscard]] QByteArray data() const {
+    [[nodiscard]] const QByteArray& data() const noexcept {
         return data_;
     }
 
