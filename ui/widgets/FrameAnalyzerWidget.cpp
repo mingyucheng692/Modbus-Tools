@@ -41,13 +41,59 @@
 #include <QFutureWatcher>
 #include <QSplitter>
 #include <QThread>
-#include <QPointer>
+#include <memory>
 #include <spdlog/spdlog.h>
 
 using namespace modbus::core::parser;
 using namespace modbus::analyzer;
 
 namespace ui::widgets {
+
+namespace {
+
+// RAII deleter for QThread: quits + waits (with fallback to async cleanup).
+// Same pattern as ModbusFactory::cleanupThread.
+void cleanupThread(QThread* thread)
+{
+    if (!thread) {
+        return;
+    }
+
+    if (thread->isRunning()) {
+        thread->quit();
+        if (QThread::currentThread() != thread && thread->wait(1000)) {
+            delete thread;
+            return;
+        }
+        // Fallback: let the thread self-delete when finished.
+        QObject::connect(thread, &QThread::finished, thread, &QObject::deleteLater, Qt::UniqueConnection);
+        return;
+    }
+
+    delete thread;
+}
+
+// RAII deleter for FrameParseWorker: queues deleteLater on the worker thread.
+// Same pattern as ModbusFactory::cleanupWorker (without stop() since FrameParseWorker has none).
+void cleanupWorker(FrameParseWorker* worker)
+{
+    if (!worker) {
+        return;
+    }
+
+    QThread* objectThread = worker->thread();
+    if (objectThread && objectThread->isRunning()) {
+        QMetaObject::invokeMethod(worker, [worker, objectThread]() {
+            QObject::connect(worker, &QObject::destroyed, objectThread, &QThread::quit, Qt::UniqueConnection);
+            worker->deleteLater();
+        }, Qt::QueuedConnection);
+        return;
+    }
+
+    delete worker;
+}
+
+} // namespace
 
 class FrameAnalyzerWidget::FrameAnalyzerWidgetPrivate {
 public:
@@ -118,8 +164,8 @@ public:
     modbus::core::parser::ParseResult currentResult;
     
     // Threading
-    QThread* parseThread = nullptr;
-    QPointer<FrameParseWorker> parseWorker;
+    std::shared_ptr<QThread> parseThread;
+    std::shared_ptr<FrameParseWorker> parseWorker;
     quint64 latestParseRequestId = 0;
     bool parseInProgress = false;
     bool isUpdatingDataTable = false;
@@ -256,15 +302,15 @@ FrameAnalyzerWidget::FrameAnalyzerWidget(core::common::ISettingsService* setting
     qRegisterMetaType<modbus::core::parser::ParseResult>();
     qRegisterMetaType<modbus::base::RegisterOrder>();
 
-    d->parseThread = new QThread(this);
-    d->parseWorker = new FrameParseWorker();
-    d->parseWorker->moveToThread(d->parseThread);
-    
-    connect(d->parseWorker.data(), &FrameParseWorker::parseFinished, this, &FrameAnalyzerWidget::onParseFinished);
-    
-    // Lifecycle management according to CodingRole.md
-    connect(d->parseThread, &QThread::finished, d->parseWorker.data(), &QObject::deleteLater);
-    
+    d->parseThread = std::shared_ptr<QThread>(new QThread(), &cleanupThread);
+    d->parseWorker = std::shared_ptr<FrameParseWorker>(new FrameParseWorker(), &cleanupWorker);
+    d->parseWorker->moveToThread(d->parseThread.get());
+
+    connect(d->parseWorker.get(), &FrameParseWorker::parseFinished, this, &FrameAnalyzerWidget::onParseFinished);
+
+    // Note: worker/thread lifecycle is managed by shared_ptr deleters (RAII).
+    // No finished→deleteLater connection needed here.
+
     d->parseThread->start();
 
     setupUi();
@@ -274,40 +320,13 @@ FrameAnalyzerWidget::FrameAnalyzerWidget(core::common::ISettingsService* setting
 FrameAnalyzerWidget::~FrameAnalyzerWidget()
 {
     Q_D(FrameAnalyzerWidget);
-    if (d->parseThread) {
-        // 1. Disconnect parseFinished callback to prevent UAF if a parse is in flight.
-        if (d->parseWorker) {
-            disconnect(d->parseWorker.data(), &FrameParseWorker::parseFinished,
-                       this, &FrameAnalyzerWidget::onParseFinished);
-        }
-        // 2. Disconnect the finished→deleteLater connection: after quit() the
-        //    thread's event loop has stopped so deleteLater would never be
-        //    processed (worker leak). We delete explicitly below instead.
-        disconnect(d->parseThread, &QThread::finished,
-                   d->parseWorker.data(), &QObject::deleteLater);
-
-        // 3. Queue worker deletion on the worker thread (processed before the
-        //    quit event, ensuring safe deletion within the worker's own thread).
-        if (d->parseWorker) {
-            FrameParseWorker* worker = d->parseWorker.data();
-            QMetaObject::invokeMethod(worker, [worker]() {
-                delete worker;
-            }, Qt::QueuedConnection);
-        }
-
-        // 4. quit() + timed wait. We do NOT use terminate() (AGENTS.md forbids
-        //    it — deadlock risk in industrial projects). Frame parsing is
-        //    lightweight CPU work so 2000ms is ample under normal conditions.
-        d->parseThread->quit();
-        if (!d->parseThread->wait(2000)) {
-            // Rare case: worker stuck in an abnormally long parse. Accept the
-            // worker/thread leak to avoid terminate() deadlock. Reparent the
-            // QThread so it is not destroyed by the widget's Qt object tree
-            // (destroying a running QThread is fatal).
-            spdlog::error("FrameAnalyzerWidget: parse thread did not exit within 2000ms; "
-                          "worker/thread leaked to avoid terminate() deadlock");
-            d->parseThread->setParent(nullptr);
-        }
+    // Disconnect parseFinished to prevent UAF if a parse is in flight.
+    // Worker and thread cleanup is handled by shared_ptr deleters (RAII):
+    //   - parseWorker deleter queues deleteLater on the worker thread
+    //   - parseThread deleter quits + waits (with async fallback)
+    if (d->parseWorker) {
+        disconnect(d->parseWorker.get(), &FrameParseWorker::parseFinished,
+                   this, &FrameAnalyzerWidget::onParseFinished);
     }
 }
 
