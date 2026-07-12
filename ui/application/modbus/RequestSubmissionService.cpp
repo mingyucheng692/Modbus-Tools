@@ -19,9 +19,9 @@ RequestSubmissionService::RequestSubmissionService(QObject* parent)
     : QObject(parent) {
 }
 
-RequestSubmissionService::ReadRequestResult RequestSubmissionService::buildReadRequest(
+RequestSubmissionService::RequestBuildResult RequestSubmissionService::buildReadRequest(
     const PollSpec& spec, RequestKind kind) {
-    ReadRequestResult result;
+    RequestBuildResult result;
 
     using namespace ::modbus::request;
 
@@ -44,9 +44,9 @@ RequestSubmissionService::ReadRequestResult RequestSubmissionService::buildReadR
     return result;
 }
 
-RequestSubmissionService::WriteRequestResult RequestSubmissionService::buildWriteRequest(
+RequestSubmissionService::RequestBuildResult RequestSubmissionService::buildWriteRequest(
     uint8_t fc, int addr, const QString& dataStr, const QString& fmt, int slaveId, int quantity) {
-    WriteRequestResult result;
+    RequestBuildResult result;
 
     using namespace ::modbus::base;
     using namespace ::modbus::request;

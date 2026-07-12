@@ -52,7 +52,7 @@ public:
      * @brief Get the last channel error message.
      * @note Thread-safe via internal mutex.
      */
-    QString lastChannelError();
+    QString lastChannelError() const;
     QString lastChannelErrorLocked() const;
     bool hasChannelErrorLocked() const;
 

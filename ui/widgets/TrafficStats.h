@@ -16,7 +16,7 @@
 namespace ui::widgets {
 
 struct TrafficStats {
-    enum Direction { Tx, Rx };
+    enum class Direction { Tx, Rx };
 
     qint64 txBytes = 0;
     qint64 rxBytes = 0;
@@ -29,7 +29,7 @@ struct TrafficStats {
         if (byteCount <= 0) {
             return;
         }
-        if (dir == Tx) {
+        if (dir == Direction::Tx) {
             txBytes += byteCount;
             ++txPackets;
         } else {

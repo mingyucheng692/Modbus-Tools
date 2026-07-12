@@ -38,7 +38,7 @@ bool ConnectionManager::isConnected() const {
     return channel_ && channel_->isOpen();
 }
 
-QString ConnectionManager::lastChannelError() {
+QString ConnectionManager::lastChannelError() const {
     std::lock_guard<std::mutex> lock(mutex_);
     return lastChannelError_;
 }

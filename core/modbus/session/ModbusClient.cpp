@@ -133,7 +133,7 @@ bool ModbusClient::isConnected() const {
     return connectionManager_.isConnected();
 }
 
-QString ModbusClient::lastChannelError() {
+QString ModbusClient::lastChannelError() const {
     return connectionManager_.lastChannelError();
 }
 

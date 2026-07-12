@@ -89,7 +89,7 @@ void ModbusWorker::submit(const base::Pdu& request, int slaveId, int requestId) 
             emit requestFinished(requestId, session::ModbusResponse::Error("Worker is stopping"));
             return;
         }
-        queuedRequests_.push_back(QueuedRequest{request, slaveId, requestId});
+        queuedRequests_.push_back(QueuedRequest{std::move(request), slaveId, requestId});
         scheduleProcessQueue();
     }, Qt::QueuedConnection);
 }

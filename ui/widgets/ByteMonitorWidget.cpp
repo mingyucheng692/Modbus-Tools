@@ -244,7 +244,7 @@ void ByteMonitorWidget::onTxData(QByteArray data) {
     if (!data.isEmpty() && !showTxCheck_->isChecked()) {
         return;
     }
-    stats_.update(TrafficStats::Tx, data.size());
+    stats_.update(TrafficStats::Direction::Tx, data.size());
     const QString text = tr("[%1] [TX] %2").arg(formatTimestamp(), formatData(data));
     appendLogLine(text, colorForTx());
 }
@@ -253,7 +253,7 @@ void ByteMonitorWidget::onRxData(QByteArray data) {
     if (!data.isEmpty() && !showRxCheck_->isChecked()) {
         return;
     }
-    stats_.update(TrafficStats::Rx, data.size());
+    stats_.update(TrafficStats::Direction::Rx, data.size());
     const QString text = tr("[%1] [RX] %2").arg(formatTimestamp(), formatData(data));
     appendLogLine(text, colorForRx());
 }
