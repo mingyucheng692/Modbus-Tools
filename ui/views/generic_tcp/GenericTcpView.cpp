@@ -213,30 +213,7 @@ void GenericTcpView::stopServerWorker() {
     auto* serverWorker = serverWorker_;
     serverThread_ = nullptr;
     serverWorker_ = nullptr;
-
-    if (!thread) return;
-
-    if (!serverWorker) {
-        if (thread->isRunning()) {
-            thread->quit();
-        } else {
-            delete thread;
-        }
-        return;
-    }
-
-    serverWorker->disconnect(this);
-
-    if (!thread->isRunning()) {
-        delete serverWorker;
-        delete thread;
-        return;
-    }
-
-    QMetaObject::invokeMethod(serverWorker, [serverWorker, thread]() {
-        QObject::connect(serverWorker, &QObject::destroyed, thread, &QThread::quit, Qt::UniqueConnection);
-        serverWorker->deleteLater();
-    }, Qt::QueuedConnection);
+    stopWorkerPair(thread, serverWorker);
 }
 
 void GenericTcpView::switchToProtocol(Protocol protocol) {

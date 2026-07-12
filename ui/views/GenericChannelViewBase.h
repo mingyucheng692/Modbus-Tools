@@ -13,6 +13,7 @@
 #include <QTimer>
 #include <QString>
 #include <QByteArray>
+#include <functional>
 #include "../../../core/ReconnectPolicy.h"
 
 namespace io {
@@ -60,6 +61,16 @@ protected slots:
 protected:
     void startWorker();
     void stopWorker();
+
+    // Stops a (worker, thread) pair using deleteLater + quit pattern.
+    // Caller must nullify its member pointers before calling.
+    // onPreStop: invoked before shutdown logic (e.g., stop timers).
+    // onCloseInThread: invoked on the worker thread before deleteLater
+    //                   (e.g., to call worker->close()).
+    void stopWorkerPair(QThread* thread, QObject* worker,
+                        const std::function<void()>& onPreStop = {},
+                        const std::function<void(QObject*)>& onCloseInThread = {});
+
     void setupCommonWorkerConnections(io::ChannelOperationWorker* worker);
     void startReconnectTimer(widgets::BaseConnectionWidget* connectionWidget);
     void stopReconnectTimer();

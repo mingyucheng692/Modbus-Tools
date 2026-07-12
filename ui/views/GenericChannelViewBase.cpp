@@ -93,20 +93,29 @@ void GenericChannelViewBase::startWorker() {
 }
 
 void GenericChannelViewBase::stopWorker() {
-    stopReconnectTimer();
-
     auto* thread = workerThread_;
     auto* worker = worker_;
+    workerThread_ = nullptr;
+    worker_ = nullptr;
+    stopWorkerPair(thread, worker,
+                   [this] { stopReconnectTimer(); },
+                   [](QObject* w) {
+                       static_cast<io::ChannelOperationWorker*>(w)->close();
+                   });
+}
+
+void GenericChannelViewBase::stopWorkerPair(QThread* thread, QObject* worker,
+                                            const std::function<void()>& onPreStop,
+                                            const std::function<void(QObject*)>& onCloseInThread) {
+    if (onPreStop) {
+        onPreStop();
+    }
 
     if (!thread) {
-        workerThread_ = nullptr;
-        worker_ = nullptr;
         return;
     }
 
     if (!worker) {
-        workerThread_ = nullptr;
-        worker_ = nullptr;
         if (thread->isRunning()) {
             thread->quit();
         } else {
@@ -115,12 +124,9 @@ void GenericChannelViewBase::stopWorker() {
         return;
     }
 
-    // Disconnect before nullifying members to prevent signal loss
+    // Disconnect before shutdown to prevent signal loss
     // during the stop sequence (worker may still emit signals while cleaning up).
     worker->disconnect(this);
-
-    workerThread_ = nullptr;
-    worker_ = nullptr;
 
     if (!thread->isRunning()) {
         delete worker;
@@ -128,9 +134,11 @@ void GenericChannelViewBase::stopWorker() {
         return;
     }
 
-    QMetaObject::invokeMethod(worker, [worker, thread]() {
+    QMetaObject::invokeMethod(worker, [worker, thread, onCloseInThread]() {
         QObject::connect(worker, &QObject::destroyed, thread, &QThread::quit, Qt::UniqueConnection);
-        worker->close();
+        if (onCloseInThread) {
+            onCloseInThread(worker);
+        }
         worker->deleteLater();
     }, Qt::QueuedConnection);
 }
