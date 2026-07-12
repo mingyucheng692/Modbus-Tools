@@ -17,6 +17,7 @@
 #include <QMetaObject>
 #include <QSerialPort>
 #include <QThread>
+#include <spdlog/spdlog.h>
 
 namespace modbus::factory {
 
@@ -87,11 +88,19 @@ ModbusStack ModbusFactory::createStack(const base::ModbusConfig& config) {
 
     // 1. 创建底层通道 (IO)
     stack.channel = createChannel(config, ioThreadRaw);
-    if (!stack.channel) return stack;
+    if (!stack.channel) {
+        spdlog::error("ModbusFactory: failed to create channel for mode={}",
+                      static_cast<int>(config.mode));
+        return stack;
+    }
 
     // 2. 创建传输层策略 (Protocol)
     auto transport = createTransport(config);
-    if (!transport) return stack;
+    if (!transport) {
+        spdlog::error("ModbusFactory: failed to create transport for mode={}",
+                      static_cast<int>(config.mode));
+        return stack;
+    }
 
     // 3. 创建客户端会话 (Session)
     stack.client = std::make_shared<session::ModbusClient>(stack.channel, transport);
@@ -99,6 +108,7 @@ ModbusStack ModbusFactory::createStack(const base::ModbusConfig& config) {
 
     // 4. 创建工作线程 (Dispatch)
     stack.worker = makeManagedWorker(stack.client, stack.thread.get());
+    spdlog::info("ModbusFactory: stack created mode={}", static_cast<int>(config.mode));
     return stack;
 }
 

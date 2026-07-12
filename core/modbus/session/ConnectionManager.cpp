@@ -135,7 +135,12 @@ bool ConnectionManager::ensureConnected(bool allowReconnect) {
     }
 
     std::lock_guard<std::mutex> lock(mutex_);
-    lastChannelError_ = connectError.isEmpty() ? trConn("Connect timeout") : connectError;
+    // Preserve the most specific error already captured by waitForChannelState()
+    // (e.g. "Aborted", channel error). Only synthesize a generic timeout message
+    // when no specific reason was recorded, and never overwrite an existing error.
+    if (lastChannelError_.isEmpty()) {
+        lastChannelError_ = connectError.isEmpty() ? trConn("Connect timeout") : connectError;
+    }
     spdlog::warn("ModbusClient: connect failed target={}:{} reason={} channelState={}",
                  config_->ipAddress.toStdString(),
                  config_->port,

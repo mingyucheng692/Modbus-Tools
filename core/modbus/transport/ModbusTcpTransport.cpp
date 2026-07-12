@@ -11,6 +11,7 @@
 #include "../base/ModbusProtocolChecks.h"
 #include "../../Config.h"
 #include <QtEndian>
+#include <spdlog/spdlog.h>
 
 namespace modbus::transport {
 
@@ -44,6 +45,8 @@ QByteArray ModbusTcpTransport::buildRequest(const base::Pdu& pdu, uint8_t slaveI
 ParseResponseResult ModbusTcpTransport::parseResponse(const QByteArray& adu) {
     base::TcpAduFields fields;
     if (base::inspectTcpAdu(adu, &fields) != adu.size()) {
+        spdlog::warn("ModbusTcpTransport: invalid TCP ADU, size={}, expected header=6",
+                     adu.size());
         return {ParseResponseStatus::Invalid, std::nullopt};
     }
 
@@ -51,9 +54,13 @@ ParseResponseResult ModbusTcpTransport::parseResponse(const QByteArray& adu) {
         std::lock_guard<std::mutex> lock(pendingMutex_);
         const auto pendingIt = pendingTransactions_.find(fields.transactionId);
         if (pendingIt == pendingTransactions_.end()) {
+            spdlog::debug("ModbusTcpTransport: unmatched transactionId={}, no pending entry",
+                          fields.transactionId);
             return {ParseResponseStatus::Unmatched, std::nullopt};
         }
         if (fields.unitId != pendingIt->second) {
+            spdlog::debug("ModbusTcpTransport: unmatched unitId={}, expected={}",
+                          fields.unitId, pendingIt->second);
             return {ParseResponseStatus::Unmatched, std::nullopt};
         }
 
