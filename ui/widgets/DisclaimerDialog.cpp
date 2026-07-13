@@ -23,10 +23,10 @@ namespace {
 QString systemDisclaimerLocale() {
     QLocale locale = QLocale::system();
     if (locale.language() == QLocale::Chinese) {
-        if (locale.script() == QLocale::TraditionalChineseScript || 
-            locale.country() == QLocale::Taiwan || 
-            locale.country() == QLocale::HongKong || 
-            locale.country() == QLocale::Macau) {
+        if (locale.script() == QLocale::TraditionalChineseScript ||
+            locale.territory() == QLocale::Taiwan ||
+            locale.territory() == QLocale::HongKong ||
+            locale.territory() == QLocale::Macau) {
             return QStringLiteral("zh_TW");
         }
         return QStringLiteral("zh_CN");
