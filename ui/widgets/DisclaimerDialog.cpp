@@ -42,7 +42,7 @@ DisclaimerDialog::DisclaimerDialog(QWidget* parent)
 }
 
 void DisclaimerDialog::setupUi() {
-    setWindowTitle("⚠️ WARRING");
+    setWindowTitle("⚠️ WARNING");
     setMinimumWidth(560);
 
     auto layout = new QVBoxLayout(this);

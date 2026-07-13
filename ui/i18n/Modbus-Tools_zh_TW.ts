@@ -35,198 +35,218 @@
 <context>
     <name>ModbusFrameParser</name>
     <message>
-        <location filename="../../core/modbus/parser/ModbusFrameParser.cpp" line="41"/>
+        <location filename="../../core/modbus/parser/ModbusFrameParser.cpp" line="42"/>
         <source>Illegal Function</source>
         <translation>非法功能碼</translation>
     </message>
     <message>
-        <location filename="../../core/modbus/parser/ModbusFrameParser.cpp" line="43"/>
+        <location filename="../../core/modbus/parser/ModbusFrameParser.cpp" line="44"/>
         <source>Illegal Data Address</source>
         <translation>非法資料位址</translation>
     </message>
     <message>
-        <location filename="../../core/modbus/parser/ModbusFrameParser.cpp" line="45"/>
+        <location filename="../../core/modbus/parser/ModbusFrameParser.cpp" line="46"/>
         <source>Illegal Data Value</source>
         <translation>非法資料值</translation>
     </message>
     <message>
-        <location filename="../../core/modbus/parser/ModbusFrameParser.cpp" line="47"/>
+        <location filename="../../core/modbus/parser/ModbusFrameParser.cpp" line="48"/>
         <source>Server Device Failure</source>
         <translation>伺服器設備故障</translation>
     </message>
     <message>
-        <location filename="../../core/modbus/parser/ModbusFrameParser.cpp" line="49"/>
+        <location filename="../../core/modbus/parser/ModbusFrameParser.cpp" line="50"/>
         <source>Acknowledge</source>
         <translation>確認</translation>
     </message>
     <message>
-        <location filename="../../core/modbus/parser/ModbusFrameParser.cpp" line="51"/>
+        <location filename="../../core/modbus/parser/ModbusFrameParser.cpp" line="52"/>
         <source>Server Device Busy</source>
         <translation>伺服器設備忙碌</translation>
     </message>
     <message>
-        <location filename="../../core/modbus/parser/ModbusFrameParser.cpp" line="53"/>
+        <location filename="../../core/modbus/parser/ModbusFrameParser.cpp" line="54"/>
         <source>Negative Acknowledge</source>
         <translation>否定確認</translation>
     </message>
     <message>
-        <location filename="../../core/modbus/parser/ModbusFrameParser.cpp" line="55"/>
+        <location filename="../../core/modbus/parser/ModbusFrameParser.cpp" line="56"/>
         <source>Memory Parity Error</source>
         <translation>記憶體同位檢查錯誤</translation>
     </message>
     <message>
-        <location filename="../../core/modbus/parser/ModbusFrameParser.cpp" line="57"/>
+        <location filename="../../core/modbus/parser/ModbusFrameParser.cpp" line="58"/>
         <source>Gateway Path Unavailable</source>
         <translation>閘道路徑無法使用</translation>
     </message>
     <message>
-        <location filename="../../core/modbus/parser/ModbusFrameParser.cpp" line="59"/>
+        <location filename="../../core/modbus/parser/ModbusFrameParser.cpp" line="60"/>
         <source>Gateway Target Device Failed To Respond</source>
         <translation>閘道目標設備無回應</translation>
     </message>
     <message>
-        <location filename="../../core/modbus/parser/ModbusFrameParser.cpp" line="61"/>
+        <location filename="../../core/modbus/parser/ModbusFrameParser.cpp" line="62"/>
         <source>Unknown Exception</source>
         <translation>未知異常</translation>
     </message>
     <message>
-        <location filename="../../core/modbus/parser/ModbusFrameParser.cpp" line="80"/>
+        <location filename="../../core/modbus/parser/ModbusFrameParser.cpp" line="81"/>
         <source>Empty frame data</source>
         <translation>幀資料為空</translation>
     </message>
     <message>
-        <location filename="../../core/modbus/parser/ModbusFrameParser.cpp" line="92"/>
+        <location filename="../../core/modbus/parser/ModbusFrameParser.cpp" line="95"/>
         <source>Unable to identify protocol. Frame length: %1 bytes, data: %2</source>
         <translation>無法識別通訊協定。幀長度：%1 位元組，資料：%2</translation>
     </message>
     <message>
-        <location filename="../../core/modbus/parser/ModbusFrameParser.cpp" line="142"/>
+        <location filename="../../core/modbus/parser/ModbusFrameParser.cpp" line="153"/>
         <source>Frame too short for Modbus TCP. Expected a complete MBAP + PDU, got %1 bytes</source>
         <translation>Modbus TCP 幀太短。預期完整的 MBAP + PDU，實際 %1 字節</translation>
     </message>
     <message>
-        <location filename="../../core/modbus/parser/ModbusFrameParser.cpp" line="150"/>
+        <location filename="../../core/modbus/parser/ModbusFrameParser.cpp" line="162"/>
         <source>Invalid TCP MBAP header or length</source>
         <translation>無効的 TCP MBAP 報頭或長度</translation>
     </message>
     <message>
-        <location filename="../../core/modbus/parser/ModbusFrameParser.cpp" line="155"/>
+        <location filename="../../core/modbus/parser/ModbusFrameParser.cpp" line="168"/>
         <source>TCP frame contains trailing bytes. Expected %1 bytes, got %2</source>
         <translation>TCP 幀包含多餘字節。預期 %1 字節，實際 %2 字節</translation>
     </message>
     <message>
-        <location filename="../../core/modbus/parser/ModbusFrameParser.cpp" line="163"/>
+        <location filename="../../core/modbus/parser/ModbusFrameParser.cpp" line="176"/>
         <source>Frame too short for TCP MBAP</source>
         <translation>幀長度對於 TCP MBAP 來說太短</translation>
     </message>
     <message>
-        <location filename="../../core/modbus/parser/ModbusFrameParser.cpp" line="167"/>
+        <location filename="../../core/modbus/parser/ModbusFrameParser.cpp" line="180"/>
         <source>Warning: Invalid TCP MBAP header or length (Forced)</source>
         <translation>警告：TCP MBAP 報頭或長度無效（強制解析）</translation>
     </message>
     <message>
-        <location filename="../../core/modbus/parser/ModbusFrameParser.cpp" line="170"/>
+        <location filename="../../core/modbus/parser/ModbusFrameParser.cpp" line="183"/>
         <source>Warning: TCP frame contains trailing bytes (Forced)</source>
         <translation>警告：TCP 幀包含多餘字節（強制解析）</translation>
     </message>
     <message>
-        <location filename="../../core/modbus/parser/ModbusFrameParser.cpp" line="210"/>
+        <location filename="../../core/modbus/parser/ModbusFrameParser.cpp" line="223"/>
         <source>Frame too short for Modbus RTU. Expected at least 5 bytes, got %1</source>
         <translation>Modbus RTU 幀太短。預期至少 5 字節，實際 %1 字節</translation>
     </message>
     <message>
-        <location filename="../../core/modbus/parser/ModbusFrameParser.cpp" line="234"/>
+        <location filename="../../core/modbus/parser/ModbusFrameParser.cpp" line="247"/>
         <source>RTU frame contains trailing bytes. Expected %1 bytes, got %2</source>
         <translation>RTU 幀包含多餘字節。預期 %1 字節，實際 %2 字節</translation>
     </message>
     <message>
-        <location filename="../../core/modbus/parser/ModbusFrameParser.cpp" line="242"/>
+        <location filename="../../core/modbus/parser/ModbusFrameParser.cpp" line="255"/>
         <source>Frame too short for RTU</source>
         <translation>幀長度對於 RTU 來說太短</translation>
     </message>
     <message>
-        <location filename="../../core/modbus/parser/ModbusFrameParser.cpp" line="246"/>
+        <location filename="../../core/modbus/parser/ModbusFrameParser.cpp" line="259"/>
         <source>Warning: CRC Mismatch. Expected %1, Got %2 (Forced)</source>
         <translation>警告：CRC 校驗不匹配。預期 %1，實際 %2（強制解析）</translation>
     </message>
     <message>
-        <location filename="../../core/modbus/parser/ModbusFrameParser.cpp" line="252"/>
+        <location filename="../../core/modbus/parser/ModbusFrameParser.cpp" line="265"/>
         <source>Warning: RTU frame contains trailing bytes (Forced)</source>
         <translation>警告：RTU 幀包含多餘字節（強制解析）</translation>
     </message>
     <message>
-        <location filename="../../core/modbus/parser/ModbusFrameParser.cpp" line="226"/>
+        <location filename="../../core/modbus/parser/ModbusFrameParser.cpp" line="239"/>
         <source>CRC Mismatch. Expected %1, Got %2</source>
         <translation>CRC 檢查失敗。預期 %1，實際 %2</translation>
     </message>
     <message>
-        <location filename="../../core/modbus/parser/ModbusFrameParser.cpp" line="183"/>
+        <location filename="../../core/modbus/parser/ModbusFrameParser.cpp" line="196"/>
         <source>Invalid TCP PDU length. MBAP length field is %1, so PDU length is %2</source>
         <translation>無效的 TCP PDU 長度。MBAP 長度欄位為 %1，因此 PDU 長度為 %2</translation>
     </message>
     <message>
-        <location filename="../../core/modbus/parser/ModbusFrameParser.cpp" line="273"/>
+        <location filename="../../core/modbus/parser/ModbusFrameParser.cpp" line="296"/>
+        <source>Frame incomplete for Modbus ASCII. Missing CRLF terminator or full payload</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../../core/modbus/parser/ModbusFrameParser.cpp" line="304"/>
+        <source>Invalid Modbus ASCII frame or LRC mismatch</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../../core/modbus/parser/ModbusFrameParser.cpp" line="312"/>
+        <source>ASCII frame contains trailing bytes. Expected %1 bytes, got %2</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../../core/modbus/parser/ModbusFrameParser.cpp" line="320"/>
+        <source>Warning: Invalid Modbus ASCII frame or LRC mismatch (Forced)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../../core/modbus/parser/ModbusFrameParser.cpp" line="344"/>
         <source>Empty PDU. Function code is missing from the frame</source>
         <translation>PDU 為空。幀中缺少功能碼</translation>
     </message>
     <message>
-        <location filename="../../core/modbus/parser/ModbusFrameParser.cpp" line="287"/>
+        <location filename="../../core/modbus/parser/ModbusFrameParser.cpp" line="358"/>
         <source>Exception PDU too short for function 0x%1. Expected 2 bytes, got %2</source>
         <translation>功能碼 0x%1 的例外 PDU 太短。預期 2 位元組，實際 %2 位元組</translation>
     </message>
     <message>
-        <location filename="../../core/modbus/parser/ModbusFrameParser.cpp" line="296"/>
+        <location filename="../../core/modbus/parser/ModbusFrameParser.cpp" line="367"/>
         <source>Modbus exception: %1 (code %2)</source>
         <translation>Modbus 例外：%1（代碼 %2）</translation>
     </message>
     <message>
-        <location filename="../../core/modbus/parser/ModbusFrameParser.cpp" line="334"/>
+        <location filename="../../core/modbus/parser/ModbusFrameParser.cpp" line="405"/>
         <source>Response PDU too short for function 0x%1. Expected at least 2 bytes, got %2</source>
         <translation>功能碼 0x%1 的回應 PDU 太短。預期至少 2 位元組，實際 %2 位元組</translation>
     </message>
     <message>
-        <location filename="../../core/modbus/parser/ModbusFrameParser.cpp" line="346"/>
+        <location filename="../../core/modbus/parser/ModbusFrameParser.cpp" line="417"/>
         <source>Byte count mismatch for function 0x%1. Declared %2, actual %3</source>
         <translation>功能碼 0x%1 的位元組數不符。宣告 %2，實際 %3</translation>
     </message>
     <message>
-        <location filename="../../core/modbus/parser/ModbusFrameParser.cpp" line="360"/>
+        <location filename="../../core/modbus/parser/ModbusFrameParser.cpp" line="431"/>
         <source>Register response byte count does not match expected quantity. Declared %1, expected %2</source>
         <translation>寄存器響應字節數與預期數量不符。聲明 %1，預期 %2</translation>
     </message>
     <message>
-        <location filename="../../core/modbus/parser/ModbusFrameParser.cpp" line="369"/>
-        <location filename="../../core/modbus/parser/ModbusFrameParser.cpp" line="503"/>
+        <location filename="../../core/modbus/parser/ModbusFrameParser.cpp" line="440"/>
+        <location filename="../../core/modbus/parser/ModbusFrameParser.cpp" line="574"/>
         <source>Register byte count must be even, got %1</source>
         <translation>暫存器位元組數必須為偶數，實際 %1</translation>
     </message>
     <message>
-        <location filename="../../core/modbus/parser/ModbusFrameParser.cpp" line="401"/>
+        <location filename="../../core/modbus/parser/ModbusFrameParser.cpp" line="472"/>
         <source>Coil response bit count does not match expected quantity. Byte count %1 cannot represent %2 bits</source>
         <translation>線圈響應位計數與預期數量不符。位元組數 %1 無法表示 %2 位</translation>
     </message>
     <message>
-        <location filename="../../core/modbus/parser/ModbusFrameParser.cpp" line="436"/>
+        <location filename="../../core/modbus/parser/ModbusFrameParser.cpp" line="507"/>
         <source>Write single PDU length mismatch for function 0x%1. Expected 4 bytes, got %2</source>
         <translation>功能碼 0x%1 的單次寫入 PDU 長度不匹配。預期 4 位元組，實際 %2 位元組</translation>
     </message>
     <message>
-        <location filename="../../core/modbus/parser/ModbusFrameParser.cpp" line="483"/>
+        <location filename="../../core/modbus/parser/ModbusFrameParser.cpp" line="554"/>
         <source>Write request byte count mismatch. Declared %1, actual %2</source>
         <translation>寫入請求位元組數不匹配。宣告 %1，實際 %2</translation>
     </message>
     <message>
-        <location filename="../../core/modbus/parser/ModbusFrameParser.cpp" line="494"/>
+        <location filename="../../core/modbus/parser/ModbusFrameParser.cpp" line="565"/>
         <source>Register write byte count does not match quantity. Declared %1, expected %2</source>
         <translation>暫存器寫入位元組數與數量不符。宣告 %1，預期 %2</translation>
     </message>
     <message>
-        <location filename="../../core/modbus/parser/ModbusFrameParser.cpp" line="528"/>
+        <location filename="../../core/modbus/parser/ModbusFrameParser.cpp" line="599"/>
         <source>Coil write byte count does not match quantity. Declared %1, expected %2</source>
         <translation>線圈寫入位元組數與數量不符。宣告 %1，預期 %2</translation>
     </message>
     <message>
-        <location filename="../../core/modbus/parser/ModbusFrameParser.cpp" line="559"/>
+        <location filename="../../core/modbus/parser/ModbusFrameParser.cpp" line="631"/>
         <source>Unsupported function code 0x%1 for deep parsing</source>
         <translation>不支援對功能碼 0x%1 進行深度解析</translation>
     </message>
@@ -271,102 +291,102 @@
 <context>
     <name>ModbusProtocolChecks</name>
     <message>
-        <location filename="../../core/modbus/base/ModbusProtocolChecks.cpp" line="24"/>
+        <location filename="../../core/modbus/base/ModbusProtocolChecks.cpp" line="25"/>
         <source>Exception</source>
         <translation>例外</translation>
     </message>
     <message>
-        <location filename="../../core/modbus/base/ModbusProtocolChecks.cpp" line="25"/>
+        <location filename="../../core/modbus/base/ModbusProtocolChecks.cpp" line="26"/>
         <source>Bit read</source>
         <translation>位元讀取</translation>
     </message>
     <message>
-        <location filename="../../core/modbus/base/ModbusProtocolChecks.cpp" line="26"/>
+        <location filename="../../core/modbus/base/ModbusProtocolChecks.cpp" line="27"/>
         <source>Register read</source>
         <translation>暫存器讀取</translation>
     </message>
     <message>
-        <location filename="../../core/modbus/base/ModbusProtocolChecks.cpp" line="27"/>
+        <location filename="../../core/modbus/base/ModbusProtocolChecks.cpp" line="28"/>
         <source>Write single</source>
         <translation>單筆寫入</translation>
     </message>
     <message>
-        <location filename="../../core/modbus/base/ModbusProtocolChecks.cpp" line="28"/>
+        <location filename="../../core/modbus/base/ModbusProtocolChecks.cpp" line="29"/>
         <source>Write multiple</source>
         <translation>多筆寫入</translation>
     </message>
     <message>
-        <location filename="../../core/modbus/base/ModbusProtocolChecks.cpp" line="29"/>
+        <location filename="../../core/modbus/base/ModbusProtocolChecks.cpp" line="30"/>
         <source>%1 response payload length mismatch: expected %2, got %3</source>
         <translation>%1 回應負載長度不符。預期 %2，實際 %3</translation>
     </message>
     <message>
-        <location filename="../../core/modbus/base/ModbusProtocolChecks.cpp" line="30"/>
+        <location filename="../../core/modbus/base/ModbusProtocolChecks.cpp" line="31"/>
         <source>Exception function code does not match request</source>
         <translation>例外功能碼與請求不符</translation>
     </message>
     <message>
-        <location filename="../../core/modbus/base/ModbusProtocolChecks.cpp" line="31"/>
+        <location filename="../../core/modbus/base/ModbusProtocolChecks.cpp" line="32"/>
         <source>Response function code does not match request</source>
         <translation>回應功能碼與請求不符</translation>
     </message>
     <message>
-        <location filename="../../core/modbus/base/ModbusProtocolChecks.cpp" line="32"/>
+        <location filename="../../core/modbus/base/ModbusProtocolChecks.cpp" line="33"/>
         <source>Request quantity missing for bit-read validation</source>
         <translation>位元讀取校驗缺少請求數量</translation>
     </message>
     <message>
-        <location filename="../../core/modbus/base/ModbusProtocolChecks.cpp" line="33"/>
+        <location filename="../../core/modbus/base/ModbusProtocolChecks.cpp" line="34"/>
         <source>Bit-read response byte count does not match payload length</source>
         <translation>位元讀取回應位元組數與負載長度不符</translation>
     </message>
     <message>
-        <location filename="../../core/modbus/base/ModbusProtocolChecks.cpp" line="34"/>
+        <location filename="../../core/modbus/base/ModbusProtocolChecks.cpp" line="35"/>
         <source>Bit-read response byte count does not match requested quantity</source>
         <translation>位元讀取回應位元組數與請求數量不符</translation>
     </message>
     <message>
-        <location filename="../../core/modbus/base/ModbusProtocolChecks.cpp" line="35"/>
+        <location filename="../../core/modbus/base/ModbusProtocolChecks.cpp" line="36"/>
         <source>Request quantity missing for register-read validation</source>
         <translation>暫存器讀取校驗缺少請求數量</translation>
     </message>
     <message>
-        <location filename="../../core/modbus/base/ModbusProtocolChecks.cpp" line="36"/>
+        <location filename="../../core/modbus/base/ModbusProtocolChecks.cpp" line="37"/>
         <source>Register-read response byte count does not match payload length</source>
         <translation>暫存器讀取回應位元組數與負載長度不符</translation>
     </message>
     <message>
-        <location filename="../../core/modbus/base/ModbusProtocolChecks.cpp" line="37"/>
+        <location filename="../../core/modbus/base/ModbusProtocolChecks.cpp" line="38"/>
         <source>Register-read response byte count does not match requested quantity</source>
         <translation>暫存器讀取回應位元組數與請求數量不符</translation>
     </message>
     <message>
-        <location filename="../../core/modbus/base/ModbusProtocolChecks.cpp" line="38"/>
+        <location filename="../../core/modbus/base/ModbusProtocolChecks.cpp" line="39"/>
         <source>Register-read response byte count must be even</source>
         <translation>暫存器讀取回應位元組數必須為偶數</translation>
     </message>
     <message>
-        <location filename="../../core/modbus/base/ModbusProtocolChecks.cpp" line="39"/>
+        <location filename="../../core/modbus/base/ModbusProtocolChecks.cpp" line="40"/>
         <source>Write-single response echo does not match request</source>
         <translation>單筆寫入回應回顯與請求不符</translation>
     </message>
     <message>
-        <location filename="../../core/modbus/base/ModbusProtocolChecks.cpp" line="40"/>
+        <location filename="../../core/modbus/base/ModbusProtocolChecks.cpp" line="41"/>
         <source>Request echo fields missing for write-multiple validation</source>
         <translation>多筆寫入校驗缺少請求回顯欄位</translation>
     </message>
     <message>
-        <location filename="../../core/modbus/base/ModbusProtocolChecks.cpp" line="41"/>
+        <location filename="../../core/modbus/base/ModbusProtocolChecks.cpp" line="42"/>
         <source>Write-multiple response echo fields are incomplete</source>
         <translation>多筆寫入回應回顯欄位不完整</translation>
     </message>
     <message>
-        <location filename="../../core/modbus/base/ModbusProtocolChecks.cpp" line="42"/>
+        <location filename="../../core/modbus/base/ModbusProtocolChecks.cpp" line="43"/>
         <source>Write-multiple response echo does not match request</source>
         <translation>多筆寫入回應回顯與請求不符</translation>
     </message>
     <message>
-        <location filename="../../core/modbus/base/ModbusProtocolChecks.cpp" line="43"/>
+        <location filename="../../core/modbus/base/ModbusProtocolChecks.cpp" line="44"/>
         <source>Unsupported function code for response validation</source>
         <translation>回應校驗不支援該功能碼</translation>
     </message>
@@ -397,85 +417,120 @@
 <context>
     <name>RequestSubmissionService</name>
     <message>
-        <location filename="../application/modbus/RequestSubmissionService.cpp" line="50"/>
         <source>Unsupported function code</source>
-        <translation type="unfinished">不支援的功能碼</translation>
+        <translation type="obsolete">不支援的功能碼</translation>
     </message>
     <message>
-        <location filename="../application/modbus/RequestSubmissionService.cpp" line="60"/>
+        <location filename="../application/modbus/RequestSubmissionService.cpp" line="64"/>
         <source>Invalid decimal value for 0x05</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../application/modbus/RequestSubmissionService.cpp" line="70"/>
+        <location filename="../application/modbus/RequestSubmissionService.cpp" line="74"/>
         <source>Invalid binary value for 0x05 (expected 0 or 1)</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../application/modbus/RequestSubmissionService.cpp" line="79"/>
-        <location filename="../application/modbus/RequestSubmissionService.cpp" line="87"/>
-        <location filename="../application/modbus/RequestSubmissionService.cpp" line="96"/>
+        <location filename="../application/modbus/RequestSubmissionService.cpp" line="83"/>
+        <location filename="../application/modbus/RequestSubmissionService.cpp" line="91"/>
+        <location filename="../application/modbus/RequestSubmissionService.cpp" line="100"/>
         <source>Invalid hex value for 0x05</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../application/modbus/RequestSubmissionService.cpp" line="107"/>
+        <location filename="../application/modbus/RequestSubmissionService.cpp" line="114"/>
         <source>Empty value for 0x06</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../application/modbus/RequestSubmissionService.cpp" line="116"/>
+        <location filename="../application/modbus/RequestSubmissionService.cpp" line="123"/>
         <source>Invalid decimal value for 0x06</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../application/modbus/RequestSubmissionService.cpp" line="123"/>
+        <location filename="../application/modbus/RequestSubmissionService.cpp" line="131"/>
         <source>Binary format not supported for registers (0x06)</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../application/modbus/RequestSubmissionService.cpp" line="130"/>
+        <location filename="../application/modbus/RequestSubmissionService.cpp" line="138"/>
         <source>Invalid hex value for 0x06</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../application/modbus/RequestSubmissionService.cpp" line="143"/>
+        <location filename="../application/modbus/RequestSubmissionService.cpp" line="147"/>
         <source>Invalid quantity for 0x0F</source>
         <translation type="unfinished">0x0F 數量無效</translation>
     </message>
     <message>
-        <location filename="../application/modbus/RequestSubmissionService.cpp" line="153"/>
+        <location filename="../application/modbus/RequestSubmissionService.cpp" line="157"/>
         <source>Binary bit count (%1) does not match Quantity (%2)</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../application/modbus/RequestSubmissionService.cpp" line="163"/>
+        <location filename="../application/modbus/RequestSubmissionService.cpp" line="167"/>
         <source>0x0F requires Hex or Binary data</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../application/modbus/RequestSubmissionService.cpp" line="171"/>
+        <location filename="../application/modbus/RequestSubmissionService.cpp" line="174"/>
         <source>Empty value for 0x10</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../application/modbus/RequestSubmissionService.cpp" line="177"/>
+        <location filename="../application/modbus/RequestSubmissionService.cpp" line="180"/>
         <source>Invalid quantity for 0x10</source>
         <translation type="unfinished">0x10 數量無效</translation>
     </message>
     <message>
-        <location filename="../application/modbus/RequestSubmissionService.cpp" line="187"/>
+        <location filename="../application/modbus/RequestSubmissionService.cpp" line="189"/>
         <source>Invalid decimal list for 0x10</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../application/modbus/RequestSubmissionService.cpp" line="195"/>
+        <location filename="../application/modbus/RequestSubmissionService.cpp" line="197"/>
         <source>Invalid hex value for 0x10</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../application/modbus/RequestSubmissionService.cpp" line="219"/>
+        <location filename="../application/modbus/RequestSubmissionService.cpp" line="230"/>
         <source>Raw data is empty</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
+    <name>SerialConfig</name>
+    <message>
+        <location filename="../../infra/io/SerialConfig.cpp" line="25"/>
+        <source>Port name is empty</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../../infra/io/SerialConfig.cpp" line="33"/>
+        <source>Unsupported baud rate: %1</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../../infra/io/SerialConfig.cpp" line="41"/>
+        <source>Invalid data bits: %1 (expected 5, 6, 7, or 8)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../../infra/io/SerialConfig.cpp" line="54"/>
+        <source>Invalid stop bits: %1 (expected 1, 1.5, or 2)</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
+    <name>TcpChannel</name>
+    <message>
+        <location filename="../../infra/io/TcpChannel.cpp" line="98"/>
+        <source>Invalid IP address: %1</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../../infra/io/TcpChannel.cpp" line="106"/>
+        <source>Invalid port: %1 (expected 1-65535)</source>
         <translation type="unfinished"></translation>
     </message>
 </context>
@@ -581,17 +636,17 @@
 <context>
     <name>logging</name>
     <message>
-        <location filename="../../infra/logging/Logger.cpp" line="73"/>
+        <location filename="../../infra/logging/Logger.cpp" line="75"/>
         <source>Log directory path is empty.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../../infra/logging/Logger.cpp" line="81"/>
+        <location filename="../../infra/logging/Logger.cpp" line="83"/>
         <source>Failed to create log directory: %1</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../../infra/logging/Logger.cpp" line="90"/>
+        <location filename="../../infra/logging/Logger.cpp" line="92"/>
         <source>Log directory is not writable: %1</source>
         <translation type="unfinished"></translation>
     </message>
@@ -599,17 +654,17 @@
 <context>
     <name>main</name>
     <message>
-        <location filename="../../app/main.cpp" line="41"/>
+        <location filename="../../app/main.cpp" line="39"/>
         <source>Startup Error</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../../app/main.cpp" line="43"/>
+        <location filename="../../app/main.cpp" line="41"/>
         <source>Failed to initialize application logging.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../../app/main.cpp" line="44"/>
+        <location filename="../../app/main.cpp" line="42"/>
         <source>Failed to initialize application logging.
 %1</source>
         <translation type="unfinished"></translation>
@@ -726,28 +781,22 @@
 <context>
     <name>ui::MainWindow</name>
     <message>
-        <location filename="../MainWindow.cpp" line="129"/>
-        <location filename="../MainWindow.cpp" line="352"/>
+        <location filename="../MainWindow.cpp" line="135"/>
+        <location filename="../MainWindow.cpp" line="374"/>
         <source>Modbus Tools</source>
         <translation>Modbus 工具</translation>
     </message>
     <message>
-        <location filename="../MainWindow.cpp" line="194"/>
-        <location filename="../MainWindow.cpp" line="353"/>
         <source>Modbus TCP</source>
-        <translation>Modbus TCP</translation>
+        <translation type="vanished">Modbus TCP</translation>
     </message>
     <message>
-        <location filename="../MainWindow.cpp" line="194"/>
-        <location filename="../MainWindow.cpp" line="353"/>
         <source>Modbus RTU</source>
-        <translation>Modbus RTU</translation>
+        <translation type="vanished">Modbus RTU</translation>
     </message>
     <message>
-        <location filename="../MainWindow.cpp" line="194"/>
-        <location filename="../MainWindow.cpp" line="353"/>
         <source>Modbus ASCII</source>
-        <translation>Modbus ASCII</translation>
+        <translation type="vanished">Modbus ASCII</translation>
     </message>
     <message>
         <source>TCP Client</source>
@@ -758,20 +807,20 @@
         <translation type="vanished">序列埠</translation>
     </message>
     <message>
-        <location filename="../MainWindow.cpp" line="194"/>
-        <location filename="../MainWindow.cpp" line="353"/>
+        <location filename="../MainWindow.cpp" line="200"/>
+        <location filename="../MainWindow.cpp" line="379"/>
         <source>Frame Analyzer</source>
         <translation>報文分析</translation>
     </message>
     <message>
-        <location filename="../MainWindow.cpp" line="253"/>
-        <location filename="../MainWindow.cpp" line="357"/>
+        <location filename="../MainWindow.cpp" line="268"/>
+        <location filename="../MainWindow.cpp" line="384"/>
         <source>Language</source>
         <translation>語言</translation>
     </message>
     <message>
-        <location filename="../MainWindow.cpp" line="239"/>
-        <location filename="../MainWindow.cpp" line="358"/>
+        <location filename="../MainWindow.cpp" line="248"/>
+        <location filename="../MainWindow.cpp" line="385"/>
         <source>Settings</source>
         <translation>設定</translation>
     </message>
@@ -784,62 +833,74 @@
         <translation type="vanished">更新失敗</translation>
     </message>
     <message>
-        <location filename="../MainWindow.cpp" line="355"/>
+        <location filename="../MainWindow.cpp" line="382"/>
         <source>Expand Navigation</source>
         <translation>展開導覽</translation>
     </message>
     <message>
-        <location filename="../MainWindow.cpp" line="355"/>
+        <location filename="../MainWindow.cpp" line="382"/>
         <source>Collapse Navigation</source>
         <translation>摺疊導覽</translation>
     </message>
     <message>
-        <location filename="../MainWindow.cpp" line="240"/>
-        <location filename="../MainWindow.cpp" line="360"/>
-        <location filename="../widgets/ModbusSettingsDialog.cpp" line="28"/>
+        <location filename="../MainWindow.cpp" line="254"/>
+        <location filename="../MainWindow.cpp" line="387"/>
+        <location filename="../widgets/ModbusSettingsDialog.cpp" line="29"/>
         <source>Modbus Settings</source>
         <translation>Modbus設定</translation>
     </message>
     <message>
-        <location filename="../MainWindow.cpp" line="194"/>
-        <location filename="../MainWindow.cpp" line="353"/>
+        <location filename="../MainWindow.cpp" line="200"/>
+        <location filename="../MainWindow.cpp" line="377"/>
         <source>TCP/UDP Tool</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../MainWindow.cpp" line="194"/>
-        <location filename="../MainWindow.cpp" line="353"/>
+        <location filename="../MainWindow.cpp" line="200"/>
+        <location filename="../MainWindow.cpp" line="378"/>
         <source>Serial Debugger</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../MainWindow.cpp" line="245"/>
-        <location filename="../MainWindow.cpp" line="361"/>
-        <location filename="../widgets/UpdateSettingsDialog.cpp" line="32"/>
+        <location filename="../MainWindow.cpp" line="200"/>
+        <location filename="../MainWindow.cpp" line="376"/>
+        <source>Modbus</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../MainWindow.cpp" line="257"/>
+        <location filename="../MainWindow.cpp" line="388"/>
+        <location filename="../widgets/UpdateSettingsDialog.cpp" line="33"/>
         <source>Update Settings</source>
         <translation>更新設定</translation>
     </message>
     <message>
-        <location filename="../MainWindow.cpp" line="267"/>
-        <location filename="../MainWindow.cpp" line="365"/>
+        <location filename="../MainWindow.cpp" line="261"/>
+        <location filename="../MainWindow.cpp" line="389"/>
+        <source>Open Log Folder</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../MainWindow.cpp" line="282"/>
+        <location filename="../MainWindow.cpp" line="393"/>
         <source>English (US)</source>
         <translation>英語（美國）</translation>
     </message>
     <message>
-        <location filename="../MainWindow.cpp" line="268"/>
-        <location filename="../MainWindow.cpp" line="366"/>
+        <location filename="../MainWindow.cpp" line="283"/>
+        <location filename="../MainWindow.cpp" line="394"/>
         <source>简体中文</source>
         <translation>簡體中文</translation>
     </message>
     <message>
-        <location filename="../MainWindow.cpp" line="269"/>
-        <location filename="../MainWindow.cpp" line="367"/>
+        <location filename="../MainWindow.cpp" line="284"/>
+        <location filename="../MainWindow.cpp" line="395"/>
         <source>繁體中文</source>
         <translation>繁體中文</translation>
     </message>
     <message>
-        <location filename="../MainWindow.cpp" line="280"/>
-        <location filename="../MainWindow.cpp" line="362"/>
+        <location filename="../MainWindow.cpp" line="303"/>
+        <location filename="../MainWindow.cpp" line="390"/>
         <source>Check for Updates</source>
         <translation>檢查更新</translation>
     </message>
@@ -858,24 +919,49 @@ Choose update method:</source>
         <translation type="vanished">正在下載更新...</translation>
     </message>
     <message>
-        <location filename="../widgets/ModbusSettingsDialog.cpp" line="36"/>
+        <location filename="../widgets/ModbusSettingsDialog.cpp" line="37"/>
         <source>Request Timeout (ms):</source>
         <translation>請求逾時(ms)：</translation>
     </message>
     <message>
-        <location filename="../widgets/ModbusSettingsDialog.cpp" line="40"/>
+        <location filename="../widgets/ModbusSettingsDialog.cpp" line="41"/>
         <source>Enable Retry:</source>
         <translation>啟用重試：</translation>
     </message>
     <message>
-        <location filename="../widgets/ModbusSettingsDialog.cpp" line="45"/>
+        <location filename="../widgets/ModbusSettingsDialog.cpp" line="46"/>
         <source>Retry Count:</source>
         <translation>重試次數：</translation>
     </message>
     <message>
-        <location filename="../widgets/ModbusSettingsDialog.cpp" line="51"/>
+        <location filename="../widgets/ModbusSettingsDialog.cpp" line="52"/>
         <source>Retry Interval (ms):</source>
         <translation>重試間隔(ms)：</translation>
+    </message>
+    <message>
+        <location filename="../widgets/ModbusSettingsDialog.cpp" line="62"/>
+        <source>Debug</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../widgets/ModbusSettingsDialog.cpp" line="63"/>
+        <source>Info</source>
+        <translation type="unfinished">資訊</translation>
+    </message>
+    <message>
+        <location filename="../widgets/ModbusSettingsDialog.cpp" line="64"/>
+        <source>Warning</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../widgets/ModbusSettingsDialog.cpp" line="65"/>
+        <source>Error</source>
+        <translation type="unfinished">錯誤</translation>
+    </message>
+    <message>
+        <location filename="../widgets/ModbusSettingsDialog.cpp" line="68"/>
+        <source>Log Level:</source>
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Update Available</source>
@@ -902,26 +988,26 @@ Choose update method:</source>
         <translation type="vanished">下載完整安裝包</translation>
     </message>
     <message>
-        <location filename="../MainWindow.cpp" line="279"/>
-        <location filename="../MainWindow.cpp" line="286"/>
-        <location filename="../MainWindow.cpp" line="359"/>
-        <location filename="../MainWindow.cpp" line="363"/>
+        <location filename="../MainWindow.cpp" line="297"/>
+        <location filename="../MainWindow.cpp" line="307"/>
+        <location filename="../MainWindow.cpp" line="386"/>
+        <location filename="../MainWindow.cpp" line="391"/>
         <location filename="../widgets/AboutDialog.cpp" line="24"/>
         <source>About</source>
         <translation>關於</translation>
     </message>
     <message>
-        <location filename="../MainWindow.cpp" line="310"/>
+        <location filename="../MainWindow.cpp" line="329"/>
         <source>Theme: Auto</source>
         <translation>主題：自動</translation>
     </message>
     <message>
-        <location filename="../MainWindow.cpp" line="311"/>
+        <location filename="../MainWindow.cpp" line="330"/>
         <source>Theme: Light</source>
         <translation>主題：淺色</translation>
     </message>
     <message>
-        <location filename="../MainWindow.cpp" line="311"/>
+        <location filename="../MainWindow.cpp" line="330"/>
         <source>Theme: Dark</source>
         <translation>主題：深色</translation>
     </message>
@@ -931,27 +1017,27 @@ Choose update method:</source>
         <translation>歡迎使用 Modbus-Tools&lt;br&gt;版本：v%1&lt;br&gt;&lt;br&gt;一款開源的 Modbus 通訊除錯助手。&lt;br&gt;開發者：mingyucheng692&lt;br&gt;授權條款：MIT License&lt;br&gt;&lt;br&gt;本專案由個人業餘開發，完全免費且開源。&lt;br&gt;歡迎在 GitHub 上 Star ⭐ 或提交 Issue。&lt;br&gt;您的回饋是專案持續改進的動力！&lt;br&gt;&lt;br&gt;&lt;a href=&quot;https://github.com/mingyucheng692/Modbus-Tools&quot;&gt;🌐 造訪 GitHub 倉庫&lt;/a&gt;&amp;nbsp;&amp;nbsp;&amp;nbsp;&lt;a href=&quot;https://github.com/mingyucheng692/Modbus-Tools/issues&quot;&gt;🐛 問題回報&lt;/a&gt;&lt;br&gt;&lt;br&gt;--------------------------&lt;br&gt;本軟體按&amp;quot;原樣&amp;quot;提供，無任何形式的保證。</translation>
     </message>
     <message>
-        <location filename="../widgets/UpdateSettingsDialog.cpp" line="37"/>
+        <location filename="../widgets/UpdateSettingsDialog.cpp" line="38"/>
         <source>Every Startup</source>
         <translation>每次啟動</translation>
     </message>
     <message>
-        <location filename="../widgets/UpdateSettingsDialog.cpp" line="39"/>
+        <location filename="../widgets/UpdateSettingsDialog.cpp" line="40"/>
         <source>Weekly</source>
         <translation>每週</translation>
     </message>
     <message>
-        <location filename="../widgets/UpdateSettingsDialog.cpp" line="41"/>
+        <location filename="../widgets/UpdateSettingsDialog.cpp" line="42"/>
         <source>Monthly</source>
         <translation>每月</translation>
     </message>
     <message>
-        <location filename="../widgets/UpdateSettingsDialog.cpp" line="43"/>
+        <location filename="../widgets/UpdateSettingsDialog.cpp" line="44"/>
         <source>Disable Update Check</source>
         <translation>關閉更新檢查</translation>
     </message>
     <message>
-        <location filename="../widgets/UpdateSettingsDialog.cpp" line="45"/>
+        <location filename="../widgets/UpdateSettingsDialog.cpp" line="46"/>
         <source>Update Check Frequency:</source>
         <translation>更新檢查頻率：</translation>
     </message>
@@ -997,12 +1083,12 @@ Choose update method:</source>
         <translation type="unfinished">下載完整安裝包</translation>
     </message>
     <message>
-        <location filename="../UpdateInteractionView.cpp" line="90"/>
+        <location filename="../UpdateInteractionView.cpp" line="91"/>
         <source>Downloading Update...</source>
         <translation type="unfinished">正在下載更新...</translation>
     </message>
     <message>
-        <location filename="../UpdateInteractionView.cpp" line="90"/>
+        <location filename="../UpdateInteractionView.cpp" line="91"/>
         <source>Cancel</source>
         <translation type="unfinished">取消</translation>
     </message>
@@ -1010,54 +1096,54 @@ Choose update method:</source>
 <context>
     <name>ui::application::modbus::ModbusSessionPresenter</name>
     <message>
-        <location filename="../application/modbus/ModbusSessionPresenter.cpp" line="92"/>
+        <location filename="../application/modbus/ModbusSessionPresenter.cpp" line="73"/>
         <source>Connecting to %1:%2...</source>
         <translation type="unfinished">正在連線 %1:%2...</translation>
     </message>
     <message>
-        <location filename="../application/modbus/ModbusSessionPresenter.cpp" line="126"/>
+        <location filename="../application/modbus/ModbusSessionPresenter.cpp" line="131"/>
         <source>Opening %1...</source>
         <translation type="unfinished">正在開啟 %1...</translation>
     </message>
     <message>
-        <location filename="../application/modbus/ModbusSessionPresenter.cpp" line="166"/>
+        <location filename="../application/modbus/ModbusSessionPresenter.cpp" line="172"/>
         <source>Disconnecting...</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../application/modbus/ModbusSessionPresenter.cpp" line="173"/>
+        <location filename="../application/modbus/ModbusSessionPresenter.cpp" line="179"/>
         <source>Shutdown timed out; restart recommended</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../application/modbus/ModbusSessionPresenter.cpp" line="179"/>
+        <location filename="../application/modbus/ModbusSessionPresenter.cpp" line="185"/>
         <source>Release timed out; restart recommended</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../application/modbus/ModbusSessionPresenter.cpp" line="618"/>
+        <location filename="../application/modbus/ModbusSessionPresenter.cpp" line="511"/>
         <source>Transport connected, validating session...</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../application/modbus/ModbusSessionPresenter.cpp" line="637"/>
+        <location filename="../application/modbus/ModbusSessionPresenter.cpp" line="531"/>
         <source>Disconnected</source>
         <translation type="unfinished">已斷線</translation>
     </message>
     <message>
-        <location filename="../application/modbus/ModbusSessionPresenter.cpp" line="98"/>
-        <location filename="../application/modbus/ModbusSessionPresenter.cpp" line="133"/>
-        <location filename="../application/modbus/ModbusSessionPresenter.cpp" line="538"/>
+        <location filename="../application/modbus/ModbusSessionPresenter.cpp" line="79"/>
+        <location filename="../application/modbus/ModbusSessionPresenter.cpp" line="138"/>
+        <location filename="../application/modbus/ModbusSessionPresenter.cpp" line="431"/>
         <source>Failed to create Modbus stack</source>
         <translation type="unfinished">建立 Modbus 堆疊失敗</translation>
     </message>
     <message>
-        <location filename="../application/modbus/ModbusSessionPresenter.cpp" line="672"/>
+        <location filename="../application/modbus/ModbusSessionPresenter.cpp" line="566"/>
         <source>Connected</source>
         <translation type="unfinished">已連線</translation>
     </message>
     <message>
-        <location filename="../application/modbus/ModbusSessionPresenter.cpp" line="663"/>
+        <location filename="../application/modbus/ModbusSessionPresenter.cpp" line="557"/>
         <source>Connection failed: %1</source>
         <translation type="unfinished">連線失敗：%1</translation>
     </message>
@@ -1065,39 +1151,49 @@ Choose update method:</source>
 <context>
     <name>ui::application::modbus::PollingController</name>
     <message>
-        <location filename="../application/modbus/PollingController.cpp" line="104"/>
+        <location filename="../application/modbus/PollingController.cpp" line="79"/>
         <source>Error: %1</source>
         <translation type="unfinished">錯誤：%1</translation>
     </message>
     <message>
-        <location filename="../application/modbus/PollingController.cpp" line="142"/>
+        <location filename="../application/modbus/PollingController.cpp" line="117"/>
         <source>Poll recovered after %1 consecutive failures</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../application/modbus/PollingController.cpp" line="188"/>
+        <location filename="../application/modbus/PollingController.cpp" line="171"/>
         <source>Poll Error: Connection unavailable during polling (%1)</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../application/modbus/PollingController.cpp" line="191"/>
+        <location filename="../application/modbus/PollingController.cpp" line="174"/>
         <source>Poll Error escalated after %1 consecutive failures: %2</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../application/modbus/PollingController.cpp" line="195"/>
+        <location filename="../application/modbus/PollingController.cpp" line="178"/>
         <source>Poll Error persists (%1 consecutive failures): %2</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../application/modbus/PollingController.cpp" line="210"/>
-        <source>Poll escalated after %1 consecutive failures</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../application/modbus/PollingController.cpp" line="214"/>
+        <location filename="../application/modbus/PollingController.cpp" line="195"/>
         <source>Poll Warning: %1 consecutive failure(s): %2</source>
         <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
+    <name>ui::application::modbus::RequestCoordinator</name>
+    <message>
+        <location filename="../application/modbus/RequestCoordinator.cpp" line="50"/>
+        <location filename="../application/modbus/RequestCoordinator.cpp" line="84"/>
+        <source>Error: Request service not available</source>
+        <translation type="unfinished">錯誤：請求服務不可用</translation>
+    </message>
+    <message>
+        <location filename="../application/modbus/RequestCoordinator.cpp" line="64"/>
+        <location filename="../application/modbus/RequestCoordinator.cpp" line="92"/>
+        <source>Error: %1</source>
+        <translation type="unfinished">錯誤：%1</translation>
     </message>
 </context>
 <context>
@@ -1166,7 +1262,7 @@ Choose update method:</source>
 <context>
     <name>ui::common::UpdateChecker</name>
     <message>
-        <location filename="../common/UpdateChecker.cpp" line="109"/>
+        <location filename="../common/UpdateChecker.cpp" line="89"/>
         <source>Release tag is missing</source>
         <translation>發布標籤缺失</translation>
     </message>
@@ -1174,12 +1270,12 @@ Choose update method:</source>
 <context>
     <name>ui::shell::NavigationController</name>
     <message>
-        <location filename="../shell/NavigationController.cpp" line="143"/>
+        <location filename="../shell/NavigationController.cpp" line="142"/>
         <source>Expand Navigation</source>
         <translation type="unfinished">展開導覽</translation>
     </message>
     <message>
-        <location filename="../shell/NavigationController.cpp" line="144"/>
+        <location filename="../shell/NavigationController.cpp" line="143"/>
         <source>Collapse Navigation</source>
         <translation type="unfinished">摺疊導覽</translation>
     </message>
@@ -1187,59 +1283,44 @@ Choose update method:</source>
 <context>
     <name>ui::views::BaseModbusPage</name>
     <message>
-        <location filename="../views/BaseModbusPage.cpp" line="272"/>
-        <location filename="../views/BaseModbusPage.cpp" line="298"/>
         <source>Error: Request service not available</source>
-        <translation type="unfinished">錯誤：請求服務不可用</translation>
+        <translation type="obsolete">錯誤：請求服務不可用</translation>
     </message>
     <message>
-        <location filename="../views/BaseModbusPage.cpp" line="284"/>
-        <location filename="../views/BaseModbusPage.cpp" line="306"/>
         <source>Error: %1</source>
-        <translation type="unfinished">錯誤：%1</translation>
+        <translation type="obsolete">錯誤：%1</translation>
     </message>
     <message>
-        <location filename="../views/BaseModbusPage.cpp" line="372"/>
-        <location filename="../views/BaseModbusPage.cpp" line="384"/>
         <source>[%1] %2</source>
-        <translation type="unfinished">[%1] %2</translation>
+        <translation type="obsolete">[%1] %2</translation>
     </message>
     <message>
-        <location filename="../views/BaseModbusPage.cpp" line="373"/>
         <source>RX</source>
-        <translation type="unfinished">接收</translation>
+        <translation type="obsolete">接收</translation>
     </message>
     <message>
-        <location filename="../views/BaseModbusPage.cpp" line="385"/>
         <source>TX</source>
-        <translation type="unfinished">傳送</translation>
+        <translation type="obsolete">傳送</translation>
     </message>
     <message>
-        <location filename="../views/BaseModbusPage.cpp" line="390"/>
         <source>Data Monitor</source>
-        <translation type="unfinished">資料監視</translation>
+        <translation type="obsolete">資料監視</translation>
     </message>
     <message>
-        <location filename="../views/BaseModbusPage.cpp" line="391"/>
         <source>Receive Data</source>
-        <translation type="unfinished">接收資料</translation>
+        <translation type="obsolete">接收資料</translation>
     </message>
     <message>
-        <location filename="../views/BaseModbusPage.cpp" line="392"/>
         <source>Send Data</source>
-        <translation type="unfinished">發送資料</translation>
+        <translation type="obsolete">發送資料</translation>
     </message>
     <message>
-        <location filename="../views/BaseModbusPage.cpp" line="393"/>
-        <location filename="../views/BaseModbusPage.cpp" line="394"/>
         <source>Copy</source>
-        <translation type="unfinished">複製</translation>
+        <translation type="obsolete">複製</translation>
     </message>
     <message>
-        <location filename="../views/BaseModbusPage.cpp" line="395"/>
-        <location filename="../views/BaseModbusPage.cpp" line="396"/>
         <source>Clear</source>
-        <translation type="unfinished">清除</translation>
+        <translation type="obsolete">清除</translation>
     </message>
 </context>
 <context>
@@ -1250,37 +1331,37 @@ Choose update method:</source>
         <translation type="unfinished">錯誤：%1</translation>
     </message>
     <message>
-        <location filename="../views/GenericChannelViewBase.cpp" line="144"/>
+        <location filename="../views/GenericChannelViewBase.cpp" line="152"/>
         <source>File transfer started: %1 (%2 bytes)</source>
         <translation type="unfinished">檔案傳輸已開始：%1 (%2 位元組)</translation>
     </message>
     <message>
-        <location filename="../views/GenericChannelViewBase.cpp" line="157"/>
+        <location filename="../views/GenericChannelViewBase.cpp" line="165"/>
         <source>File transfer progress: %1 %2/%3</source>
         <translation type="unfinished">檔案傳輸進度：%1 %2/%3</translation>
     </message>
     <message>
-        <location filename="../views/GenericChannelViewBase.cpp" line="165"/>
+        <location filename="../views/GenericChannelViewBase.cpp" line="173"/>
         <source>File transfer finished: %1</source>
         <translation type="unfinished">檔案傳輸完成：%1</translation>
     </message>
     <message>
-        <location filename="../views/GenericChannelViewBase.cpp" line="170"/>
+        <location filename="../views/GenericChannelViewBase.cpp" line="178"/>
         <source>File transfer failed: %1 (%2)</source>
         <translation type="unfinished">檔案傳輸失敗：%1 (%2)</translation>
     </message>
     <message>
-        <location filename="../views/GenericChannelViewBase.cpp" line="175"/>
+        <location filename="../views/GenericChannelViewBase.cpp" line="183"/>
         <source>File transfer canceled: %1</source>
         <translation type="unfinished">檔案傳輸已取消：%1</translation>
     </message>
     <message>
-        <location filename="../views/GenericChannelViewBase.cpp" line="187"/>
+        <location filename="../views/GenericChannelViewBase.cpp" line="195"/>
         <source>Auto-reconnect exhausted (%1 attempts)</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../views/GenericChannelViewBase.cpp" line="199"/>
+        <location filename="../views/GenericChannelViewBase.cpp" line="207"/>
         <source>Auto-reconnect in %1ms (%2)</source>
         <translation type="unfinished"></translation>
     </message>
@@ -1400,84 +1481,84 @@ Choose update method:</source>
         <translation type="vanished">檔案傳輸已取消：%1</translation>
     </message>
     <message>
-        <location filename="../views/generic_tcp/GenericTcpView.cpp" line="295"/>
+        <location filename="../views/generic_tcp/GenericTcpView.cpp" line="273"/>
         <source>Connecting to %1:%2...</source>
         <translation>正在連線 %1:%2...</translation>
     </message>
     <message>
-        <location filename="../views/generic_tcp/GenericTcpView.cpp" line="311"/>
+        <location filename="../views/generic_tcp/GenericTcpView.cpp" line="289"/>
         <source>Starting TCP server on %1:%2...</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../views/generic_tcp/GenericTcpView.cpp" line="326"/>
+        <location filename="../views/generic_tcp/GenericTcpView.cpp" line="304"/>
         <source>Stopping TCP server...</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../views/generic_tcp/GenericTcpView.cpp" line="339"/>
+        <location filename="../views/generic_tcp/GenericTcpView.cpp" line="317"/>
         <source>Binding UDP %1:%2 -&gt; %3:%4...</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../views/generic_tcp/GenericTcpView.cpp" line="343"/>
+        <location filename="../views/generic_tcp/GenericTcpView.cpp" line="321"/>
         <source>Binding UDP %1:%2...</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../views/generic_tcp/GenericTcpView.cpp" line="388"/>
+        <location filename="../views/generic_tcp/GenericTcpView.cpp" line="366"/>
         <source>Server mode: no connected clients available</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../views/generic_tcp/GenericTcpView.cpp" line="389"/>
+        <location filename="../views/generic_tcp/GenericTcpView.cpp" line="367"/>
         <source>Server mode: select at least one client</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../views/generic_tcp/GenericTcpView.cpp" line="418"/>
+        <location filename="../views/generic_tcp/GenericTcpView.cpp" line="396"/>
         <source>Server mode: file transfer not supported</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../views/generic_tcp/GenericTcpView.cpp" line="442"/>
+        <location filename="../views/generic_tcp/GenericTcpView.cpp" line="420"/>
         <source>Closed</source>
         <translation>已關閉</translation>
     </message>
     <message>
-        <location filename="../views/generic_tcp/GenericTcpView.cpp" line="443"/>
+        <location filename="../views/generic_tcp/GenericTcpView.cpp" line="421"/>
         <source>Opening</source>
         <translation>正在開啟</translation>
     </message>
     <message>
-        <location filename="../views/generic_tcp/GenericTcpView.cpp" line="444"/>
+        <location filename="../views/generic_tcp/GenericTcpView.cpp" line="422"/>
         <source>Connected</source>
         <translation>已連線</translation>
     </message>
     <message>
-        <location filename="../views/generic_tcp/GenericTcpView.cpp" line="445"/>
+        <location filename="../views/generic_tcp/GenericTcpView.cpp" line="423"/>
         <source>Closing</source>
         <translation>正在關閉</translation>
     </message>
     <message>
-        <location filename="../views/generic_tcp/GenericTcpView.cpp" line="446"/>
-        <location filename="../views/generic_tcp/GenericTcpView.cpp" line="537"/>
+        <location filename="../views/generic_tcp/GenericTcpView.cpp" line="424"/>
+        <location filename="../views/generic_tcp/GenericTcpView.cpp" line="515"/>
         <source>Error</source>
         <translation>錯誤</translation>
     </message>
     <message>
-        <location filename="../views/generic_tcp/GenericTcpView.cpp" line="447"/>
-        <location filename="../views/generic_tcp/GenericTcpView.cpp" line="538"/>
+        <location filename="../views/generic_tcp/GenericTcpView.cpp" line="425"/>
+        <location filename="../views/generic_tcp/GenericTcpView.cpp" line="516"/>
         <source>Unknown</source>
         <translation>未知</translation>
     </message>
     <message>
-        <location filename="../views/generic_tcp/GenericTcpView.cpp" line="485"/>
+        <location filename="../views/generic_tcp/GenericTcpView.cpp" line="463"/>
         <source>State changed: %1</source>
         <translation>狀態已變更：%1</translation>
     </message>
     <message>
-        <location filename="../views/generic_tcp/GenericTcpView.cpp" line="628"/>
+        <location filename="../views/generic_tcp/GenericTcpView.cpp" line="606"/>
         <source>Auto-reconnecting to %1:%2 (attempt %3)...</source>
         <translation type="unfinished"></translation>
     </message>
@@ -1486,37 +1567,37 @@ Choose update method:</source>
         <translation type="vanished">錯誤：%1</translation>
     </message>
     <message>
-        <location filename="../views/generic_tcp/GenericTcpView.cpp" line="513"/>
+        <location filename="../views/generic_tcp/GenericTcpView.cpp" line="491"/>
         <source>Client #%1 connected: %2</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../views/generic_tcp/GenericTcpView.cpp" line="520"/>
+        <location filename="../views/generic_tcp/GenericTcpView.cpp" line="498"/>
         <source>Client #%1 disconnected</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../views/generic_tcp/GenericTcpView.cpp" line="535"/>
+        <location filename="../views/generic_tcp/GenericTcpView.cpp" line="513"/>
         <source>Listening</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../views/generic_tcp/GenericTcpView.cpp" line="536"/>
+        <location filename="../views/generic_tcp/GenericTcpView.cpp" line="514"/>
         <source>Stopped</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../views/generic_tcp/GenericTcpView.cpp" line="563"/>
+        <location filename="../views/generic_tcp/GenericTcpView.cpp" line="541"/>
         <source>Server state: %1</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../views/generic_tcp/GenericTcpView.cpp" line="570"/>
+        <location filename="../views/generic_tcp/GenericTcpView.cpp" line="548"/>
         <source>Server Error: %1</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../views/generic_tcp/GenericTcpView.cpp" line="603"/>
+        <location filename="../views/generic_tcp/GenericTcpView.cpp" line="581"/>
         <source>Send Data</source>
         <translation>發送資料</translation>
     </message>
@@ -1524,19 +1605,80 @@ Choose update method:</source>
 <context>
     <name>ui::views::generic_tcp::Protocol</name>
     <message>
-        <location filename="../views/generic_tcp/GenericTcpView.cpp" line="40"/>
+        <location filename="../views/generic_tcp/GenericTcpView.cpp" line="41"/>
         <source>TCP Client</source>
         <translation type="unfinished">TCP 用戶端</translation>
     </message>
     <message>
-        <location filename="../views/generic_tcp/GenericTcpView.cpp" line="41"/>
+        <location filename="../views/generic_tcp/GenericTcpView.cpp" line="42"/>
         <source>TCP Server</source>
         <translation type="unfinished">TCP 伺服端</translation>
     </message>
     <message>
-        <location filename="../views/generic_tcp/GenericTcpView.cpp" line="42"/>
+        <location filename="../views/generic_tcp/GenericTcpView.cpp" line="43"/>
         <source>UDP</source>
         <translation type="unfinished">UDP</translation>
+    </message>
+</context>
+<context>
+    <name>ui::views::modbus::ModbusPage</name>
+    <message>
+        <location filename="../views/modbus/ModbusPage.cpp" line="83"/>
+        <source>TCP</source>
+        <translation type="unfinished">TCP</translation>
+    </message>
+    <message>
+        <location filename="../views/modbus/ModbusPage.cpp" line="85"/>
+        <source>RTU</source>
+        <translation type="unfinished">RTU</translation>
+    </message>
+    <message>
+        <location filename="../views/modbus/ModbusPage.cpp" line="87"/>
+        <source>ASCII</source>
+        <translation type="unfinished">ASCII</translation>
+    </message>
+    <message>
+        <location filename="../views/modbus/ModbusPage.cpp" line="407"/>
+        <location filename="../views/modbus/ModbusPage.cpp" line="419"/>
+        <source>[%1] %2</source>
+        <translation type="unfinished">[%1] %2</translation>
+    </message>
+    <message>
+        <location filename="../views/modbus/ModbusPage.cpp" line="408"/>
+        <source>RX</source>
+        <translation type="unfinished">接收</translation>
+    </message>
+    <message>
+        <location filename="../views/modbus/ModbusPage.cpp" line="420"/>
+        <source>TX</source>
+        <translation type="unfinished">傳送</translation>
+    </message>
+    <message>
+        <location filename="../views/modbus/ModbusPage.cpp" line="425"/>
+        <source>Data Monitor</source>
+        <translation type="unfinished">資料監視</translation>
+    </message>
+    <message>
+        <location filename="../views/modbus/ModbusPage.cpp" line="426"/>
+        <source>Receive Data</source>
+        <translation type="unfinished">接收資料</translation>
+    </message>
+    <message>
+        <location filename="../views/modbus/ModbusPage.cpp" line="427"/>
+        <source>Send Data</source>
+        <translation type="unfinished">發送資料</translation>
+    </message>
+    <message>
+        <location filename="../views/modbus/ModbusPage.cpp" line="428"/>
+        <location filename="../views/modbus/ModbusPage.cpp" line="429"/>
+        <source>Copy</source>
+        <translation type="unfinished">複製</translation>
+    </message>
+    <message>
+        <location filename="../views/modbus/ModbusPage.cpp" line="430"/>
+        <location filename="../views/modbus/ModbusPage.cpp" line="431"/>
+        <source>Clear</source>
+        <translation type="unfinished">清除</translation>
     </message>
 </context>
 <context>
@@ -2126,221 +2268,220 @@ Choose update method:</source>
 <context>
     <name>ui::widgets::FrameAnalyzerWidget</name>
     <message>
-        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="334"/>
-        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="1095"/>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="358"/>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="1167"/>
         <source>Frame Input</source>
         <translation>報文輸入</translation>
     </message>
     <message>
-        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="340"/>
-        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="1096"/>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="364"/>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="1168"/>
         <source>Protocol:</source>
         <translation>通訊協定：</translation>
     </message>
     <message>
-        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="343"/>
-        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="1098"/>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="367"/>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="1170"/>
         <source>Auto Detect</source>
         <translation>自動偵測</translation>
     </message>
     <message>
-        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="344"/>
-        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="1099"/>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="368"/>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="1171"/>
         <source>Modbus TCP</source>
         <translation>Modbus TCP</translation>
     </message>
     <message>
-        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="345"/>
-        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="1100"/>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="369"/>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="1172"/>
         <source>Modbus RTU</source>
         <translation>Modbus RTU</translation>
     </message>
     <message>
-        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="346"/>
-        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="1101"/>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="370"/>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="1173"/>
         <source>Modbus ASCII</source>
         <translation>Modbus ASCII</translation>
     </message>
     <message>
-        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="349"/>
-        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="1102"/>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="374"/>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="1175"/>
         <source>Start Address (for Response):</source>
         <translation>起始位址（用於回應）：</translation>
     </message>
     <message>
-        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="363"/>
-        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="1118"/>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="388"/>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="1191"/>
         <source>Format Hex</source>
         <translation>格式化 Hex</translation>
     </message>
     <message>
-        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="368"/>
-        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="1141"/>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="393"/>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="1218"/>
         <source>Parse</source>
         <translation>解析</translation>
     </message>
     <message>
-        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="373"/>
-        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="1142"/>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="398"/>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="1219"/>
         <source>Clear</source>
         <translation>清除</translation>
     </message>
     <message>
-        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="383"/>
-        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="1144"/>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="408"/>
         <source>Enter Hex string (e.g., 01 03 00 00 00 01 84 0A)</source>
         <translation>輸入十六進位字串（如 01 03 00 00 00 01 84 0A）</translation>
     </message>
     <message>
-        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="1144"/>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="1222"/>
         <source>Enter Hex string (e.g., RTU: 01 03 00 00 00 01 84 0A, ASCII bytes: 3A 30 31 30 33 ... 0D 0A)</source>
         <translation>輸入十六進位字串（如 RTU: 01 03 00 00 00 01 84 0A，ASCII 位元組: 3A 30 31 30 33 ... 0D 0A）</translation>
     </message>
     <message>
-        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="394"/>
-        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="1147"/>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="419"/>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="1225"/>
         <source>Analysis Result</source>
         <translation>分析結果</translation>
     </message>
     <message>
-        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="410"/>
-        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="1129"/>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="435"/>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="1202"/>
         <source>Status:</source>
         <translation>狀態：</translation>
     </message>
     <message>
-        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="414"/>
-        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="964"/>
-        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="1138"/>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="439"/>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="1032"/>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="1215"/>
         <source>Ready</source>
         <translation>就緒</translation>
     </message>
     <message>
-        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="423"/>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="448"/>
         <source>Tip: &quot;Pause&quot; to edit description</source>
         <translation>提示：&quot;暫停&quot;以編輯描述</translation>
     </message>
     <message>
-        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="440"/>
-        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="976"/>
-        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="1035"/>
-        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="1127"/>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="465"/>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="1044"/>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="1107"/>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="1200"/>
         <source>Pause Refresh</source>
         <translation>暫停重新整理</translation>
     </message>
     <message>
-        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="1035"/>
-        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="1127"/>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="1107"/>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="1200"/>
         <source>Resume Refresh</source>
         <translation>恢復重新整理</translation>
     </message>
     <message>
-        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="448"/>
-        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="1125"/>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="473"/>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="1198"/>
         <source>Stop Link</source>
         <translation>停止連動</translation>
     </message>
     <message>
-        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="460"/>
-        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="1106"/>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="485"/>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="1179"/>
         <source>Decode Mode:</source>
         <translation>解碼模式：</translation>
     </message>
     <message>
-        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="462"/>
-        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="1108"/>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="487"/>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="1181"/>
         <source>Unsigned</source>
         <translation>無符號</translation>
     </message>
     <message>
-        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="463"/>
-        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="1109"/>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="488"/>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="1182"/>
         <source>Signed</source>
         <translation>有符號</translation>
     </message>
     <message>
-        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="497"/>
-        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="692"/>
-        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="1119"/>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="522"/>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="717"/>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="1192"/>
         <source>Import Config</source>
         <translation>匯入設定</translation>
     </message>
     <message>
-        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="499"/>
-        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="675"/>
-        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="1120"/>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="524"/>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="700"/>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="1193"/>
         <source>Export Config</source>
         <translation>匯出設定</translation>
     </message>
     <message>
-        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="501"/>
-        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="723"/>
-        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="1121"/>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="526"/>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="748"/>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="1194"/>
         <source>Export CSV</source>
         <translation>匯出 CSV</translation>
     </message>
     <message>
-        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="525"/>
-        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="1155"/>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="550"/>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="1233"/>
         <source>Field</source>
         <translation>欄位</translation>
     </message>
     <message>
-        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="525"/>
-        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="533"/>
-        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="1156"/>
-        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="1160"/>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="550"/>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="558"/>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="1234"/>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="1238"/>
         <source>Value</source>
         <translation>值</translation>
     </message>
     <message>
-        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="525"/>
-        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="533"/>
-        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="1157"/>
-        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="1160"/>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="550"/>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="558"/>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="1235"/>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="1238"/>
         <source>Description</source>
         <translation>描述</translation>
     </message>
     <message>
-        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="529"/>
-        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="809"/>
-        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="985"/>
-        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="1150"/>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="554"/>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="840"/>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="1053"/>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="1228"/>
         <source>Structure</source>
         <translation>結構</translation>
     </message>
     <message>
-        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="533"/>
-        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="1160"/>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="558"/>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="1238"/>
         <source>Address</source>
         <translation>位址</translation>
     </message>
     <message>
-        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="533"/>
-        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="1160"/>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="558"/>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="1238"/>
         <source>Hex</source>
         <translation>十六進位</translation>
     </message>
     <message>
-        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="533"/>
-        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="1160"/>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="558"/>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="1238"/>
         <source>Decimal</source>
         <translation>十進位</translation>
     </message>
     <message>
-        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="533"/>
-        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="1160"/>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="558"/>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="1238"/>
         <source>Binary</source>
         <translation>二進位</translation>
     </message>
     <message>
-        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="533"/>
-        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="1160"/>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="558"/>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="1238"/>
         <source>Scale</source>
         <translation>倍率</translation>
     </message>
     <message>
-        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="719"/>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="744"/>
         <source>There is no data to export.</source>
         <translation>沒有可導出的資料。</translation>
     </message>
@@ -2369,331 +2510,390 @@ Choose update method:</source>
         <translation type="vanished">結構（連動模式）</translation>
     </message>
     <message>
-        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="1104"/>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="1177"/>
         <source>Start Address (0-65535). Supports HEX (0x10 or 10H) and DEC (16).</source>
         <translation>起始位址 (0-65535)。支援 HEX (0x10 或 10H) 和 DEC (16)。</translation>
     </message>
     <message>
-        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="564"/>
-        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="1148"/>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="589"/>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="1226"/>
         <source>History</source>
         <translation>歷史記錄</translation>
     </message>
     <message>
-        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="568"/>
-        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="1162"/>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="593"/>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="1240"/>
         <source>Clear History</source>
         <translation>清除歷史</translation>
     </message>
     <message>
-        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="675"/>
-        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="692"/>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="700"/>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="717"/>
         <source>JSON Files (*.json)</source>
         <translation>JSON 檔案 (*.json)</translation>
     </message>
     <message>
-        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="719"/>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="744"/>
         <source>No Data</source>
         <translation>無資料</translation>
     </message>
     <message>
-        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="725"/>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="750"/>
         <source>CSV Files (*.csv)</source>
         <translation>CSV 檔案 (*.csv)</translation>
     </message>
     <message>
-        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="685"/>
-        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="745"/>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="710"/>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="770"/>
         <source>Export Failed</source>
         <translation>匯出失敗</translation>
     </message>
     <message>
-        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="223"/>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="270"/>
         <source>OK</source>
         <translation>確定</translation>
     </message>
     <message>
-        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="223"/>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="270"/>
         <source>ERR</source>
         <translation>錯誤</translation>
     </message>
     <message>
-        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="559"/>
-        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="1151"/>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="584"/>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="1229"/>
         <source>Decoded Data</source>
         <translation>解析資料</translation>
     </message>
     <message>
-        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="623"/>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="648"/>
         <source>Invalid Address (0-65535): %1</source>
         <translation>無效位址 (0-65535): %1</translation>
     </message>
     <message>
-        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="652"/>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="677"/>
         <source>Parse Failed</source>
         <translation>解析失敗</translation>
     </message>
     <message>
-        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="697"/>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="722"/>
         <source>Import Failed</source>
         <translation>匯入失敗</translation>
     </message>
     <message>
-        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="1008"/>
-        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="1132"/>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="1080"/>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="1209"/>
         <source>LIVE: %1</source>
         <translation>連動中: %1</translation>
     </message>
     <message>
-        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="1012"/>
-        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="1134"/>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="1084"/>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="1211"/>
         <source>Live Data Received at %1</source>
         <translation>即時資料接收於 %1</translation>
     </message>
     <message>
-        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="614"/>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="639"/>
         <source>Error: Empty input</source>
         <translation>錯誤：輸入為空</translation>
     </message>
     <message>
-        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="630"/>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="655"/>
         <source>Parsing...</source>
         <translation>解析中...</translation>
     </message>
     <message>
-        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="764"/>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="789"/>
         <source>Parse Failed: %1</source>
         <translation>解析失敗：%1</translation>
     </message>
     <message>
-        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="771"/>
-        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="1131"/>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="796"/>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="1205"/>
         <source>TCP</source>
         <translation>TCP</translation>
     </message>
     <message>
-        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="772"/>
-        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="1131"/>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="797"/>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="1206"/>
         <source>RTU</source>
         <translation>RTU</translation>
     </message>
     <message>
-        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="815"/>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="846"/>
         <source>Frame</source>
         <translation>幀</translation>
     </message>
     <message>
-        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="816"/>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="847"/>
         <source>%1 bytes</source>
         <translation>%1 位元組</translation>
     </message>
     <message>
-        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="824"/>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="855"/>
         <source>MBAP Header</source>
         <translation>MBAP 標頭</translation>
     </message>
     <message>
-        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="829"/>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="860"/>
         <source>Transaction ID</source>
         <translation>交易識別碼</translation>
     </message>
     <message>
-        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="834"/>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="865"/>
         <source>Protocol ID</source>
         <translation>協定識別碼</translation>
     </message>
     <message>
-        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="839"/>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="870"/>
         <source>Length</source>
         <translation>長度</translation>
     </message>
     <message>
-        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="844"/>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="875"/>
         <source>Unit ID</source>
         <translation>單元識別碼</translation>
     </message>
     <message>
-        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="850"/>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="881"/>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="897"/>
         <source>Slave ID</source>
         <translation>從站識別碼</translation>
     </message>
     <message>
-        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="864"/>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="918"/>
         <source>PDU</source>
         <translation>PDU</translation>
     </message>
     <message>
-        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="870"/>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="924"/>
         <source>Function Code</source>
         <translation>功能碼</translation>
     </message>
     <message>
-        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="882"/>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="936"/>
         <source>Exception Code</source>
         <translation>例外碼</translation>
     </message>
     <message>
-        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="897"/>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="951"/>
         <source>CRC16</source>
         <translation>CRC16</translation>
     </message>
     <message>
-        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="208"/>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="255"/>
         <source>Show History</source>
         <translation>顯示歷史</translation>
     </message>
     <message>
-        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="208"/>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="255"/>
         <source>Hide History</source>
         <translation>隱藏歷史</translation>
     </message>
     <message>
-        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="476"/>
-        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="1111"/>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="277"/>
+        <source>Local time %1</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="501"/>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="1184"/>
         <source>Byte Order:</source>
         <translation>位元組順序：</translation>
     </message>
     <message>
-        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="478"/>
-        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="1113"/>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="503"/>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="1186"/>
         <source>ABCD(default)</source>
         <translation>ABCD(預設)</translation>
     </message>
     <message>
-        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="810"/>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="798"/>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="1207"/>
+        <source>ASCII</source>
+        <translation type="unfinished">ASCII</translation>
+    </message>
+    <message>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="841"/>
         <source>(Unavailable in Live Mode)</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="811"/>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="842"/>
         <source>Logical parsing is disabled for high-frequency linkage</source>
         <translation>高頻聯動下已停用邏輯解析</translation>
     </message>
     <message>
-        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="819"/>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="850"/>
         <source>Frame Bytes</source>
         <translation>幀位元組</translation>
     </message>
     <message>
-        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="819"/>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="850"/>
         <source>Complete raw frame</source>
         <translation>完整原始幀</translation>
     </message>
     <message>
-        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="826"/>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="857"/>
         <source>Transaction + Protocol + Length + Unit ID</source>
         <translation>交易 + 協定 + 長度 + 單元識別碼</translation>
     </message>
     <message>
-        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="831"/>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="862"/>
         <source>Request/response correlation ID</source>
         <translation>請求/回應關聯識別碼</translation>
     </message>
     <message>
-        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="836"/>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="867"/>
         <source>Modbus TCP protocol identifier</source>
         <translation>Modbus TCP 協定識別碼</translation>
     </message>
     <message>
-        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="841"/>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="872"/>
         <source>Remaining bytes after this field</source>
         <translation>此欄位之後的剩餘位元組數</translation>
     </message>
     <message>
-        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="846"/>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="877"/>
         <source>Target slave / unit address</source>
         <translation>目標從站 / 單元位址</translation>
     </message>
     <message>
-        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="852"/>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="883"/>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="899"/>
         <source>Target slave address</source>
         <translation>目標從站位址</translation>
     </message>
     <message>
-        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="866"/>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="886"/>
+        <source>ASCII Start</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="888"/>
+        <source>Start delimiter &apos;:&apos;</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="891"/>
+        <source>ASCII Payload</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="893"/>
+        <source>ASCII hex payload before CRLF</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="920"/>
         <source>Function code + payload</source>
         <translation>功能碼 + 負載</translation>
     </message>
     <message>
-        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="872"/>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="926"/>
         <source>Normal response</source>
         <translation>正常回應</translation>
     </message>
     <message>
-        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="872"/>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="926"/>
         <source>Exception response</source>
         <translation>例外回應</translation>
     </message>
     <message>
-        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="875"/>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="929"/>
         <source>Payload</source>
         <translation>負載</translation>
     </message>
     <message>
-        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="877"/>
-        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="884"/>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="931"/>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="938"/>
         <source>Exception detail payload</source>
         <translation>例外詳細負載</translation>
     </message>
     <message>
-        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="877"/>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="931"/>
         <source>Application data payload</source>
         <translation>應用資料負載</translation>
     </message>
     <message>
-        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="888"/>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="942"/>
         <source>CRC valid</source>
         <translation>CRC 有效</translation>
     </message>
     <message>
-        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="888"/>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="942"/>
         <source>CRC invalid</source>
         <translation>CRC 無效</translation>
     </message>
     <message>
-        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="892"/>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="946"/>
         <source>Expected 0x%1</source>
         <translation>預期 0x%1</translation>
     </message>
     <message>
-        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="947"/>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="960"/>
+        <source>LRC</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="964"/>
+        <source>LRC valid</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="964"/>
+        <source>LRC invalid</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="967"/>
+        <source>CRLF</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="969"/>
+        <source>ASCII frame terminator</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="1015"/>
         <source>Success (%1)</source>
         <translation>成功（%1）</translation>
     </message>
     <message>
-        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="949"/>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="1017"/>
         <source>Forced Parsing</source>
         <translation>強制解析</translation>
     </message>
     <message>
-        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="952"/>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="1020"/>
         <source>Warnings</source>
         <translation>警告</translation>
     </message>
     <message>
-        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="992"/>
-        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="1150"/>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="1060"/>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="1228"/>
         <source>Structure (Unavailable in Live Mode)</source>
         <translation>結構（聯動模式不可用）</translation>
     </message>
     <message>
-        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="775"/>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="801"/>
         <source>Request</source>
         <translation>請求</translation>
     </message>
     <message>
-        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="776"/>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="802"/>
         <source>Response</source>
         <translation>回應</translation>
     </message>
     <message>
-        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="777"/>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="803"/>
         <source>Exception</source>
         <translation>例外</translation>
     </message>
     <message>
-        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="773"/>
-        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="778"/>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="799"/>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="804"/>
+        <location filename="../widgets/FrameAnalyzerWidget.cpp" line="1208"/>
         <source>Unknown</source>
         <translation>未知</translation>
     </message>
@@ -2701,180 +2901,180 @@ Choose update method:</source>
 <context>
     <name>ui::widgets::FunctionWidget</name>
     <message>
-        <location filename="../widgets/FunctionWidget.cpp" line="391"/>
+        <location filename="../widgets/FunctionWidget.cpp" line="408"/>
         <source>Standard</source>
         <translation>標準</translation>
     </message>
     <message>
-        <location filename="../widgets/FunctionWidget.cpp" line="394"/>
+        <location filename="../widgets/FunctionWidget.cpp" line="411"/>
         <source>Raw</source>
         <translation>原始</translation>
     </message>
     <message>
-        <location filename="../widgets/FunctionWidget.cpp" line="397"/>
+        <location filename="../widgets/FunctionWidget.cpp" line="414"/>
         <source>Slave ID:</source>
         <translation>從站ID：</translation>
     </message>
     <message>
-        <location filename="../widgets/FunctionWidget.cpp" line="400"/>
+        <location filename="../widgets/FunctionWidget.cpp" line="417"/>
         <source>Start Addr:</source>
         <translation>起始位址：</translation>
     </message>
     <message>
-        <location filename="../widgets/FunctionWidget.cpp" line="411"/>
+        <location filename="../widgets/FunctionWidget.cpp" line="428"/>
         <source>Quantity:</source>
         <translation>數量：</translation>
     </message>
     <message>
-        <location filename="../widgets/FunctionWidget.cpp" line="413"/>
+        <location filename="../widgets/FunctionWidget.cpp" line="430"/>
         <source>Write Data:</source>
         <translation>寫入資料：</translation>
     </message>
     <message>
-        <location filename="../widgets/FunctionWidget.cpp" line="414"/>
+        <location filename="../widgets/FunctionWidget.cpp" line="431"/>
         <source>Format:</source>
         <translation>格式：</translation>
     </message>
     <message>
-        <location filename="../widgets/FunctionWidget.cpp" line="420"/>
+        <location filename="../widgets/FunctionWidget.cpp" line="437"/>
         <source>Hex</source>
         <translation>十六進位</translation>
     </message>
     <message>
-        <location filename="../widgets/FunctionWidget.cpp" line="422"/>
+        <location filename="../widgets/FunctionWidget.cpp" line="439"/>
         <source>Binary</source>
         <translation>二進位</translation>
     </message>
     <message>
-        <location filename="../widgets/FunctionWidget.cpp" line="368"/>
+        <location filename="../widgets/FunctionWidget.cpp" line="385"/>
         <source>Space separated hex (e.g., 01 02)</source>
         <translation>空格分隔的十六進位 (如 01 02)</translation>
     </message>
     <message>
-        <location filename="../widgets/FunctionWidget.cpp" line="318"/>
-        <location filename="../widgets/FunctionWidget.cpp" line="337"/>
+        <location filename="../widgets/FunctionWidget.cpp" line="335"/>
+        <location filename="../widgets/FunctionWidget.cpp" line="354"/>
         <source>Invalid Unit ID format or range (0-255): %1</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/FunctionWidget.cpp" line="319"/>
-        <location filename="../widgets/FunctionWidget.cpp" line="338"/>
+        <location filename="../widgets/FunctionWidget.cpp" line="336"/>
+        <location filename="../widgets/FunctionWidget.cpp" line="355"/>
         <source>Invalid Slave ID format or range (0-255): %1</source>
         <translation>無效的 Slave ID 格式或範圍 (0-255): %1</translation>
     </message>
     <message>
-        <location filename="../widgets/FunctionWidget.cpp" line="323"/>
-        <location filename="../widgets/FunctionWidget.cpp" line="342"/>
+        <location filename="../widgets/FunctionWidget.cpp" line="340"/>
+        <location filename="../widgets/FunctionWidget.cpp" line="359"/>
         <source>Invalid Address format or range (0-65535): %1</source>
         <translation>無效的位址格式或範圍 (0-65535): %1</translation>
     </message>
     <message>
-        <location filename="../widgets/FunctionWidget.cpp" line="370"/>
+        <location filename="../widgets/FunctionWidget.cpp" line="387"/>
         <source>Space separated decimal (e.g., 100 200)</source>
         <translation>空格分隔的十進位 (如 100 200)</translation>
     </message>
     <message>
-        <location filename="../widgets/FunctionWidget.cpp" line="372"/>
+        <location filename="../widgets/FunctionWidget.cpp" line="389"/>
         <source>Bit string (e.g., 1 1 0 1)</source>
         <translation>二進位位元字串 (如 1 1 0 1)</translation>
     </message>
     <message>
-        <location filename="../widgets/FunctionWidget.cpp" line="469"/>
+        <location filename="../widgets/FunctionWidget.cpp" line="470"/>
         <source>Raw Hex Data (ASCII bytes, e.g., 3A 30 31 30 33 30 30 30 30 30 30 30 31 46 42 0D 0A):</source>
         <translation>原始十六進位資料（ASCII 位元組，例如 3A 30 31 30 33 30 30 30 30 30 30 30 31 46 42 0D 0A）：</translation>
     </message>
     <message>
-        <location filename="../widgets/FunctionWidget.cpp" line="478"/>
+        <location filename="../widgets/FunctionWidget.cpp" line="479"/>
         <source>Add LRC + Encode ASCII</source>
         <translation>加入 LRC 並編碼為 ASCII</translation>
     </message>
     <message>
-        <location filename="../widgets/FunctionWidget.cpp" line="397"/>
+        <location filename="../widgets/FunctionWidget.cpp" line="414"/>
         <source>Unit ID:</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/FunctionWidget.cpp" line="404"/>
+        <location filename="../widgets/FunctionWidget.cpp" line="421"/>
         <source>Unit ID (0-255). Supports HEX (0x10 or 10H) and DEC (16).</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/FunctionWidget.cpp" line="405"/>
+        <location filename="../widgets/FunctionWidget.cpp" line="422"/>
         <source>Slave ID (0-255). Supports HEX (0x10 or 10H) and DEC (16).</source>
         <translation>Slave ID (0-255)。支援 HEX (0x10 或 10H) 和 DEC (16)。</translation>
     </message>
     <message>
-        <location filename="../widgets/FunctionWidget.cpp" line="408"/>
+        <location filename="../widgets/FunctionWidget.cpp" line="425"/>
         <source>Start Address (0-65535). Supports HEX (0x10 or 10H) and DEC (16).</source>
         <translation>起始位址 (0-65535)。支援 HEX (0x10 或 10H) 和 DEC (16)。</translation>
     </message>
     <message>
-        <location filename="../widgets/FunctionWidget.cpp" line="421"/>
+        <location filename="../widgets/FunctionWidget.cpp" line="438"/>
         <source>Decimal</source>
         <translation>十進位</translation>
     </message>
     <message>
-        <location filename="../widgets/FunctionWidget.cpp" line="425"/>
+        <location filename="../widgets/FunctionWidget.cpp" line="442"/>
         <source>Read Coils (0x01)</source>
         <translation>讀取線圈 (0x01)</translation>
     </message>
     <message>
-        <location filename="../widgets/FunctionWidget.cpp" line="428"/>
+        <location filename="../widgets/FunctionWidget.cpp" line="445"/>
         <source>Read Discrete Inputs (0x02)</source>
         <translation>讀取離散輸入 (0x02)</translation>
     </message>
     <message>
-        <location filename="../widgets/FunctionWidget.cpp" line="431"/>
+        <location filename="../widgets/FunctionWidget.cpp" line="448"/>
         <source>Read Holding Registers (0x03)</source>
         <translation>讀取保持暫存器 (0x03)</translation>
     </message>
     <message>
-        <location filename="../widgets/FunctionWidget.cpp" line="434"/>
+        <location filename="../widgets/FunctionWidget.cpp" line="451"/>
         <source>Read Input Registers (0x04)</source>
         <translation>讀取輸入暫存器 (0x04)</translation>
     </message>
     <message>
-        <location filename="../widgets/FunctionWidget.cpp" line="437"/>
+        <location filename="../widgets/FunctionWidget.cpp" line="454"/>
         <source>Write Single Coil (0x05)</source>
         <translation>寫入單線圈 (0x05)</translation>
     </message>
     <message>
-        <location filename="../widgets/FunctionWidget.cpp" line="440"/>
+        <location filename="../widgets/FunctionWidget.cpp" line="457"/>
         <source>Write Single Register (0x06)</source>
         <translation>寫入單暫存器 (0x06)</translation>
     </message>
     <message>
-        <location filename="../widgets/FunctionWidget.cpp" line="443"/>
+        <location filename="../widgets/FunctionWidget.cpp" line="460"/>
         <source>Write Multiple Coils (0x0F)</source>
         <translation>寫入多線圈 (0x0F)</translation>
     </message>
     <message>
-        <location filename="../widgets/FunctionWidget.cpp" line="446"/>
+        <location filename="../widgets/FunctionWidget.cpp" line="463"/>
         <source>Write Multiple Registers (0x10)</source>
         <translation>寫入多暫存器 (0x10)</translation>
     </message>
     <message>
-        <location filename="../widgets/FunctionWidget.cpp" line="450"/>
+        <location filename="../widgets/FunctionWidget.cpp" line="468"/>
         <source>Raw Hex Data (e.g., 00 00 00 00 00 06 01 03 00 00 00 01):</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/FunctionWidget.cpp" line="451"/>
+        <location filename="../widgets/FunctionWidget.cpp" line="471"/>
         <source>Raw Hex Data (e.g., 01 03 00 00 00 01 84 0A):</source>
         <translation>原始十六進位資料(如 01 03 00 00 00 01 84 0A)：</translation>
     </message>
     <message>
-        <location filename="../widgets/FunctionWidget.cpp" line="454"/>
+        <location filename="../widgets/FunctionWidget.cpp" line="474"/>
         <source>Send Raw</source>
         <translation>發送原始資料</translation>
     </message>
     <message>
-        <location filename="../widgets/FunctionWidget.cpp" line="457"/>
+        <location filename="../widgets/FunctionWidget.cpp" line="480"/>
         <source>Append CRC</source>
         <translation>計算并追加 CRC</translation>
     </message>
     <message>
-        <location filename="../widgets/FunctionWidget.cpp" line="460"/>
+        <location filename="../widgets/FunctionWidget.cpp" line="483"/>
         <source>Add MBAP</source>
         <translation>添加 MBAP 頭</translation>
     </message>
@@ -3116,47 +3316,47 @@ Choose update method:</source>
 <context>
     <name>ui::widgets::TcpClientConnectionWidget</name>
     <message>
-        <location filename="../widgets/TcpClientConnectionWidget.cpp" line="30"/>
-        <location filename="../widgets/TcpClientConnectionWidget.cpp" line="81"/>
+        <location filename="../widgets/TcpClientConnectionWidget.cpp" line="31"/>
+        <location filename="../widgets/TcpClientConnectionWidget.cpp" line="82"/>
         <source>Host:</source>
         <translation type="unfinished">主機：</translation>
     </message>
     <message>
-        <location filename="../widgets/TcpClientConnectionWidget.cpp" line="31"/>
-        <location filename="../widgets/TcpClientConnectionWidget.cpp" line="50"/>
-        <location filename="../widgets/TcpClientConnectionWidget.cpp" line="82"/>
+        <location filename="../widgets/TcpClientConnectionWidget.cpp" line="32"/>
+        <location filename="../widgets/TcpClientConnectionWidget.cpp" line="51"/>
+        <location filename="../widgets/TcpClientConnectionWidget.cpp" line="83"/>
         <source>Connect</source>
         <translation type="unfinished">連線</translation>
     </message>
     <message>
-        <location filename="../widgets/TcpClientConnectionWidget.cpp" line="50"/>
+        <location filename="../widgets/TcpClientConnectionWidget.cpp" line="51"/>
         <source>Disconnected</source>
         <translation type="unfinished">已斷線</translation>
     </message>
     <message>
-        <location filename="../widgets/TcpClientConnectionWidget.cpp" line="52"/>
-        <location filename="../widgets/TcpClientConnectionWidget.cpp" line="54"/>
-        <location filename="../widgets/TcpClientConnectionWidget.cpp" line="56"/>
+        <location filename="../widgets/TcpClientConnectionWidget.cpp" line="53"/>
+        <location filename="../widgets/TcpClientConnectionWidget.cpp" line="55"/>
+        <location filename="../widgets/TcpClientConnectionWidget.cpp" line="57"/>
         <source>Disconnect</source>
         <translation type="unfinished">中斷連線</translation>
     </message>
     <message>
-        <location filename="../widgets/TcpClientConnectionWidget.cpp" line="52"/>
+        <location filename="../widgets/TcpClientConnectionWidget.cpp" line="53"/>
         <source>Connecting</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/TcpClientConnectionWidget.cpp" line="54"/>
+        <location filename="../widgets/TcpClientConnectionWidget.cpp" line="55"/>
         <source>Transport Connected</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/TcpClientConnectionWidget.cpp" line="56"/>
+        <location filename="../widgets/TcpClientConnectionWidget.cpp" line="57"/>
         <source>Connected</source>
         <translation type="unfinished">已連線</translation>
     </message>
     <message>
-        <location filename="../widgets/TcpClientConnectionWidget.cpp" line="58"/>
+        <location filename="../widgets/TcpClientConnectionWidget.cpp" line="59"/>
         <source>Disconnecting</source>
         <translation type="unfinished"></translation>
     </message>
@@ -3164,193 +3364,89 @@ Choose update method:</source>
 <context>
     <name>ui::widgets::TcpConnectionWidget</name>
     <message>
-        <location filename="../widgets/TcpConnectionWidget.cpp" line="331"/>
-        <location filename="../widgets/TcpConnectionWidget.cpp" line="338"/>
-        <location filename="../widgets/TcpConnectionWidget.cpp" line="343"/>
         <source>Disconnect</source>
-        <translation>中斷連線</translation>
+        <translation type="vanished">中斷連線</translation>
     </message>
     <message>
-        <location filename="../widgets/TcpConnectionWidget.cpp" line="344"/>
         <source>Connected</source>
-        <translation>已連線</translation>
+        <translation type="vanished">已連線</translation>
     </message>
     <message>
-        <location filename="../widgets/TcpConnectionWidget.cpp" line="315"/>
-        <location filename="../widgets/TcpConnectionWidget.cpp" line="400"/>
         <source>Connect</source>
-        <translation>連線</translation>
+        <translation type="vanished">連線</translation>
     </message>
     <message>
-        <location filename="../widgets/TcpConnectionWidget.cpp" line="318"/>
         <source>Disconnected</source>
-        <translation>已斷線</translation>
-    </message>
-    <message>
-        <location filename="../widgets/TcpConnectionWidget.cpp" line="409"/>
-        <source>Listen:</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../widgets/TcpConnectionWidget.cpp" line="420"/>
-        <source>Local:</source>
-        <translation type="unfinished"></translation>
+        <translation type="vanished">已斷線</translation>
     </message>
     <message>
         <source>Connection Settings</source>
         <translation type="vanished">連線設定</translation>
     </message>
     <message>
-        <location filename="../widgets/TcpConnectionWidget.cpp" line="398"/>
         <source>Host:</source>
-        <translation>主機：</translation>
+        <translation type="vanished">主機：</translation>
     </message>
     <message>
-        <location filename="../widgets/TcpConnectionWidget.cpp" line="31"/>
         <source>TCP Client</source>
-        <translation>TCP 用戶端</translation>
+        <translation type="vanished">TCP 用戶端</translation>
     </message>
     <message>
-        <location filename="../widgets/TcpConnectionWidget.cpp" line="32"/>
         <source>TCP Server</source>
-        <translation>TCP 伺服端</translation>
+        <translation type="vanished">TCP 伺服端</translation>
     </message>
     <message>
-        <location filename="../widgets/TcpConnectionWidget.cpp" line="33"/>
         <source>UDP</source>
-        <translation>UDP</translation>
+        <translation type="vanished">UDP</translation>
     </message>
     <message>
-        <location filename="../widgets/TcpConnectionWidget.cpp" line="323"/>
-        <location filename="../widgets/TcpConnectionWidget.cpp" line="363"/>
-        <source>Stop</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../widgets/TcpConnectionWidget.cpp" line="324"/>
-        <source>Starting</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../widgets/TcpConnectionWidget.cpp" line="328"/>
-        <source>Binding</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../widgets/TcpConnectionWidget.cpp" line="332"/>
-        <source>Connecting</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../widgets/TcpConnectionWidget.cpp" line="339"/>
-        <source>Transport Connected</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../widgets/TcpConnectionWidget.cpp" line="350"/>
-        <source>Stopping</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../widgets/TcpConnectionWidget.cpp" line="353"/>
-        <source>Unbinding</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../widgets/TcpConnectionWidget.cpp" line="356"/>
-        <location filename="../widgets/TcpConnectionWidget.cpp" line="359"/>
-        <source>Disconnecting</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../widgets/TcpConnectionWidget.cpp" line="364"/>
-        <source>Listening</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../widgets/TcpConnectionWidget.cpp" line="327"/>
-        <location filename="../widgets/TcpConnectionWidget.cpp" line="368"/>
-        <source>Unbind</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../widgets/TcpConnectionWidget.cpp" line="369"/>
-        <source>Bound</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../widgets/TcpConnectionWidget.cpp" line="309"/>
-        <location filename="../widgets/TcpConnectionWidget.cpp" line="411"/>
-        <source>Start Listen</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../widgets/TcpConnectionWidget.cpp" line="312"/>
-        <location filename="../widgets/TcpConnectionWidget.cpp" line="422"/>
-        <source>Bind</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../widgets/TcpConnectionWidget.cpp" line="399"/>
-        <location filename="../widgets/TcpConnectionWidget.cpp" line="410"/>
-        <location filename="../widgets/TcpConnectionWidget.cpp" line="421"/>
         <source>Port:</source>
-        <translation>埠：</translation>
-    </message>
-    <message>
-        <location filename="../widgets/TcpConnectionWidget.cpp" line="437"/>
-        <source>Remote:</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../widgets/TcpConnectionWidget.cpp" line="440"/>
-        <source>Remote Port:</source>
-        <translation type="unfinished"></translation>
+        <translation type="vanished">埠：</translation>
     </message>
 </context>
 <context>
     <name>ui::widgets::TcpServerConnectionWidget</name>
     <message>
-        <location filename="../widgets/TcpServerConnectionWidget.cpp" line="30"/>
-        <location filename="../widgets/TcpServerConnectionWidget.cpp" line="80"/>
+        <location filename="../widgets/TcpServerConnectionWidget.cpp" line="31"/>
+        <location filename="../widgets/TcpServerConnectionWidget.cpp" line="81"/>
         <source>Listen:</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/TcpServerConnectionWidget.cpp" line="31"/>
-        <location filename="../widgets/TcpServerConnectionWidget.cpp" line="52"/>
-        <location filename="../widgets/TcpServerConnectionWidget.cpp" line="81"/>
+        <location filename="../widgets/TcpServerConnectionWidget.cpp" line="32"/>
+        <location filename="../widgets/TcpServerConnectionWidget.cpp" line="53"/>
+        <location filename="../widgets/TcpServerConnectionWidget.cpp" line="82"/>
         <source>Start Listen</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/TcpServerConnectionWidget.cpp" line="52"/>
+        <location filename="../widgets/TcpServerConnectionWidget.cpp" line="53"/>
         <source>Disconnected</source>
         <translation type="unfinished">已斷線</translation>
     </message>
     <message>
-        <location filename="../widgets/TcpServerConnectionWidget.cpp" line="54"/>
-        <location filename="../widgets/TcpServerConnectionWidget.cpp" line="56"/>
+        <location filename="../widgets/TcpServerConnectionWidget.cpp" line="55"/>
+        <location filename="../widgets/TcpServerConnectionWidget.cpp" line="57"/>
         <source>Stop</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/TcpServerConnectionWidget.cpp" line="54"/>
+        <location filename="../widgets/TcpServerConnectionWidget.cpp" line="55"/>
         <source>Starting</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/TcpServerConnectionWidget.cpp" line="56"/>
+        <location filename="../widgets/TcpServerConnectionWidget.cpp" line="57"/>
         <source>Listening</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/TcpServerConnectionWidget.cpp" line="58"/>
+        <location filename="../widgets/TcpServerConnectionWidget.cpp" line="59"/>
         <source>Stopping</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/TcpServerConnectionWidget.cpp" line="58"/>
+        <location filename="../widgets/TcpServerConnectionWidget.cpp" line="59"/>
         <source>Disconnecting</source>
         <translation type="unfinished"></translation>
     </message>
