@@ -9,7 +9,7 @@
 
 #include "SettingsService.h"
 #include "AppConfig.h"
-#include "SettingsKeys.h"
+#include "common/SettingsKeys.h"
 #include "Config.h"
 #include <QCoreApplication>
 #include <QTimer>
@@ -76,7 +76,7 @@ void SettingsService::sync() {
 }
 
 void SettingsService::initializeDefaults() {
-    using namespace settings_keys;
+    using namespace core::common::settings_keys;
 
     defaults_.insert(kAppLanguage, QStringLiteral("system"));
     defaults_.insert(kAppThemeMode, QStringLiteral("auto"));
@@ -190,7 +190,7 @@ void SettingsService::load() {
         loadedKeys_.insert(key);
     }
 
-    using namespace settings_keys;
+    using namespace core::common::settings_keys;
     if (appConfig_->contains(kLegacySerialBaudRate) && !appConfig_->contains(kModbusRtuBaudRate)) {
         values_.insert(kModbusRtuBaudRate, appConfig_->value(kLegacySerialBaudRate));
         dirtyKeys_.insert(kModbusRtuBaudRate);

@@ -1,7 +1,7 @@
-﻿#include <gtest/gtest.h>
+#include <gtest/gtest.h>
 
 #include "../../../ui/common/IAppConfig.h"
-#include "../../../ui/common/SettingsKeys.h"
+#include "common/SettingsKeys.h"
 #include "../../../ui/common/SettingsService.h"
 
 #include <QHash>
@@ -61,13 +61,13 @@ TEST(SettingsService, LoadsValuesThroughAppConfigFacade)
 {
     auto fakeAppConfig = std::make_unique<FakeAppConfig>();
     fakeAppConfig->configFilePath_ = QStringLiteral("settings-under-test.ini");
-    fakeAppConfig->values_.insert(QString::fromLatin1(ui::common::settings_keys::kAppThemeMode), QStringLiteral("dark"));
+    fakeAppConfig->values_.insert(QString::fromLatin1(core::common::settings_keys::kAppThemeMode), QStringLiteral("dark"));
     FakeAppConfig* fakeAppConfigPtr = fakeAppConfig.get();
 
     ui::common::SettingsService service(nullptr, std::move(fakeAppConfig));
 
     EXPECT_EQ(service.configFilePath().toStdString(), std::string("settings-under-test.ini"));
-    EXPECT_EQ(service.value(QString::fromLatin1(ui::common::settings_keys::kAppThemeMode)).toString().toStdString(),
+    EXPECT_EQ(service.value(QString::fromLatin1(core::common::settings_keys::kAppThemeMode)).toString().toStdString(),
               std::string("dark"));
     EXPECT_TRUE(fakeAppConfigPtr->writtenKeys_.isEmpty());
 }
@@ -78,28 +78,28 @@ TEST(SettingsService, SyncPersistsDirtyValuesThroughAppConfigFacade)
     FakeAppConfig* fakeAppConfigPtr = fakeAppConfig.get();
 
     ui::common::SettingsService service(nullptr, std::move(fakeAppConfig));
-    service.setValue(QString::fromLatin1(ui::common::settings_keys::kAppThemeMode), QStringLiteral("dark"));
+    service.setValue(QString::fromLatin1(core::common::settings_keys::kAppThemeMode), QStringLiteral("dark"));
     service.sync();
 
-    EXPECT_EQ(fakeAppConfigPtr->values_.value(QString::fromLatin1(ui::common::settings_keys::kAppThemeMode)).toString().toStdString(),
+    EXPECT_EQ(fakeAppConfigPtr->values_.value(QString::fromLatin1(core::common::settings_keys::kAppThemeMode)).toString().toStdString(),
               std::string("dark"));
     EXPECT_EQ(fakeAppConfigPtr->syncCount_, 1);
-    EXPECT_TRUE(fakeAppConfigPtr->writtenKeys_.contains(QString::fromLatin1(ui::common::settings_keys::kAppThemeMode)));
+    EXPECT_TRUE(fakeAppConfigPtr->writtenKeys_.contains(QString::fromLatin1(core::common::settings_keys::kAppThemeMode)));
 }
 
 TEST(SettingsService, LegacySerialBaudRateMigratesThroughAppConfigFacade)
 {
     auto fakeAppConfig = std::make_unique<FakeAppConfig>();
-    fakeAppConfig->values_.insert(QString::fromLatin1(ui::common::settings_keys::kLegacySerialBaudRate), QStringLiteral("115200"));
+    fakeAppConfig->values_.insert(QString::fromLatin1(core::common::settings_keys::kLegacySerialBaudRate), QStringLiteral("115200"));
     FakeAppConfig* fakeAppConfigPtr = fakeAppConfig.get();
 
     ui::common::SettingsService service(nullptr, std::move(fakeAppConfig));
     service.sync();
 
-    EXPECT_EQ(service.value(QString::fromLatin1(ui::common::settings_keys::kModbusRtuBaudRate)).toString().toStdString(),
+    EXPECT_EQ(service.value(QString::fromLatin1(core::common::settings_keys::kModbusRtuBaudRate)).toString().toStdString(),
               std::string("115200"));
-    EXPECT_FALSE(fakeAppConfigPtr->values_.contains(QString::fromLatin1(ui::common::settings_keys::kLegacySerialBaudRate)));
-    EXPECT_EQ(fakeAppConfigPtr->values_.value(QString::fromLatin1(ui::common::settings_keys::kModbusRtuBaudRate)).toString().toStdString(),
+    EXPECT_FALSE(fakeAppConfigPtr->values_.contains(QString::fromLatin1(core::common::settings_keys::kLegacySerialBaudRate)));
+    EXPECT_EQ(fakeAppConfigPtr->values_.value(QString::fromLatin1(core::common::settings_keys::kModbusRtuBaudRate)).toString().toStdString(),
               std::string("115200"));
-    EXPECT_TRUE(fakeAppConfigPtr->removedKeys_.contains(QString::fromLatin1(ui::common::settings_keys::kLegacySerialBaudRate)));
+    EXPECT_TRUE(fakeAppConfigPtr->removedKeys_.contains(QString::fromLatin1(core::common::settings_keys::kLegacySerialBaudRate)));
 }

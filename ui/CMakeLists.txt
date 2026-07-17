@@ -68,7 +68,6 @@ target_sources(ui PRIVATE
     common/CompactMenuBarStyle.cpp
     common/CompactMenuBarStyle.h
     common/IAppConfig.h
-    common/SettingsKeys.h
     common/SettingsService.cpp
     common/SettingsService.h
     common/ThemeController.cpp

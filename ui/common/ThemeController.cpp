@@ -8,7 +8,7 @@
  */
 
 #include "ThemeController.h"
-#include "SettingsKeys.h"
+#include "common/SettingsKeys.h"
 
 #include <QApplication>
 #include <QFrame>
@@ -81,7 +81,7 @@ namespace ui::common {
 ThemeController::ThemeController(::core::common::ISettingsService& settingsService, QObject* parent)
     : QObject(parent),
       settingsService_(settingsService),
-      currentMode_(Theme::modeFromSetting(settingsService_.value(settings_keys::kAppThemeMode).toString())) {
+      currentMode_(Theme::modeFromSetting(settingsService_.value(core::common::settings_keys::kAppThemeMode).toString())) {
     QGuiApplication::styleHints()->setColorScheme(Theme::colorSchemeForMode(currentMode_));
 
     connect(QGuiApplication::styleHints(), &QStyleHints::colorSchemeChanged, this, [this](Qt::ColorScheme) {
@@ -121,7 +121,7 @@ void ThemeController::applyMode(Theme::Mode mode, bool persist) {
     QGuiApplication::styleHints()->setColorScheme(Theme::colorSchemeForMode(currentMode_));
 
     if (persist) {
-        settingsService_.setValue(settings_keys::kAppThemeMode, Theme::modeToSetting(currentMode_));
+        settingsService_.setValue(core::common::settings_keys::kAppThemeMode, Theme::modeToSetting(currentMode_));
     }
 
     emit themeChanged();

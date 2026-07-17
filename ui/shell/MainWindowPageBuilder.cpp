@@ -30,25 +30,24 @@ int MainWindowPages::indexFor(MainPage page) const {
     return pageIndexByNavigationRow[static_cast<std::size_t>(page)];
 }
 
-MainWindowPageBuilder::MainWindowPageBuilder(core::common::ISettingsService* settingsService)
-    : settingsService_(settingsService) {}
-
-MainWindowPages MainWindowPageBuilder::build(QStackedWidget* stackedWidget, QWidget* owner) const {
+MainWindowPages buildMainWindowPages(core::common::ISettingsService* settingsService,
+                                     QStackedWidget* stackedWidget,
+                                     QWidget* owner) {
     MainWindowPages pages;
 
-    pages.modbusView = new views::modbus::ModbusPage(settingsService_, owner);
+    pages.modbusView = new views::modbus::ModbusPage(settingsService, owner);
     pages.pageIndexByNavigationRow[static_cast<std::size_t>(MainPage::Modbus)] =
         stackedWidget->addWidget(createScrollablePage(pages.modbusView, stackedWidget));
 
-    auto* genericTcpView = new views::generic_tcp::GenericTcpView(settingsService_, owner);
+    auto* genericTcpView = new views::generic_tcp::GenericTcpView(settingsService, owner);
     pages.pageIndexByNavigationRow[static_cast<std::size_t>(MainPage::GenericTcp)] =
         stackedWidget->addWidget(createScrollablePage(genericTcpView, stackedWidget));
 
-    auto* genericSerialView = new views::generic_serial::GenericSerialView(settingsService_, owner);
+    auto* genericSerialView = new views::generic_serial::GenericSerialView(settingsService, owner);
     pages.pageIndexByNavigationRow[static_cast<std::size_t>(MainPage::GenericSerial)] =
         stackedWidget->addWidget(createScrollablePage(genericSerialView, stackedWidget));
 
-    pages.frameAnalyzer = new widgets::FrameAnalyzerWidget(settingsService_, owner);
+    pages.frameAnalyzer = new widgets::FrameAnalyzerWidget(settingsService, owner);
     pages.pageIndexByNavigationRow[static_cast<std::size_t>(MainPage::FrameAnalyzer)] =
         stackedWidget->addWidget(createScrollablePage(pages.frameAnalyzer, stackedWidget));
 

@@ -8,12 +8,12 @@
  */
 
 #include "SettingsController.h"
-#include "../../ui/common/SettingsKeys.h"
+#include "SettingsKeys.h"
 #include "../Config.h"
 
 namespace core::common {
 
-using namespace ui::common::settings_keys;
+using namespace core::common::settings_keys;
 
 SettingsController::SettingsController(ISettingsService* settingsService, QObject* parent)
     : QObject(parent), settingsService_(settingsService) {

@@ -152,8 +152,8 @@ void MainWindow::initializeUi() {
     stackedWidget_ = new QStackedWidget(this);
     mainLayout->addWidget(stackedWidget_, 5);
 
-    MainWindowPageBuilder pageBuilder(businessContext_->settingsService);
-    const MainWindowPages pages = pageBuilder.build(stackedWidget_, this);
+    const MainWindowPages pages = buildMainWindowPages(businessContext_->settingsService,
+                                                        stackedWidget_, this);
     modbusView_ = pages.modbusView;
     frameAnalyzer_ = pages.frameAnalyzer;
     if (businessContext_->analyzerLinkCoordinator) {

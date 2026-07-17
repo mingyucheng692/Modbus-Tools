@@ -10,7 +10,7 @@
 #include "FrameAnalyzerWidget.h"
 #include "Config.h"
 #include "../../core/common/ISettingsService.h"
-#include "../common/SettingsKeys.h"
+#include "common/SettingsKeys.h"
 #include "modbus/base/ModbusDataHelper.h"
 #include "modbus/base/ModbusProtocolChecks.h"
 #include "modbus/parser/ModbusFrameParser.h"
@@ -1118,22 +1118,22 @@ void FrameAnalyzerWidget::FrameAnalyzerWidgetPrivate::loadSettings()
     if (!settingsService) return;
     
     QSignalBlocker blocker(startAddrEdit);
-    const QString startAddr = settingsService->value(ui::common::settings_keys::kFrameAnalyzerStartAddr).toString();
+    const QString startAddr = settingsService->value(core::common::settings_keys::kFrameAnalyzerStartAddr).toString();
     if (!startAddr.isEmpty()) {
         startAddrEdit->setText(startAddr);
     } else {
         startAddrEdit->setText(QString::number(config::Modbus::kDefaultStandardStartAddress));
     }
 
-    const int mode = settingsService->value(ui::common::settings_keys::kFrameAnalyzerDecodeMode).toInt();
+    const int mode = settingsService->value(core::common::settings_keys::kFrameAnalyzerDecodeMode).toInt();
     if (displayModeCombo) displayModeCombo->setCurrentIndex(mode);
 }
 
 void FrameAnalyzerWidget::FrameAnalyzerWidgetPrivate::saveSettings()
 {
     if (!settingsService) return;
-    settingsService->setValue(ui::common::settings_keys::kFrameAnalyzerStartAddr, startAddrEdit->text());
-    settingsService->setValue(ui::common::settings_keys::kFrameAnalyzerDecodeMode, displayModeCombo->currentIndex());
+    settingsService->setValue(core::common::settings_keys::kFrameAnalyzerStartAddr, startAddrEdit->text());
+    settingsService->setValue(core::common::settings_keys::kFrameAnalyzerDecodeMode, displayModeCombo->currentIndex());
 }
 
 void FrameAnalyzerWidget::FrameAnalyzerWidgetPrivate::updateAdaptiveLayout()

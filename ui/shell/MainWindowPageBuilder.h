@@ -38,14 +38,20 @@ struct MainWindowPages {
     [[nodiscard]] int indexFor(MainPage page) const;
 };
 
-class MainWindowPageBuilder final {
-public:
-    explicit MainWindowPageBuilder(core::common::ISettingsService* settingsService);
-
-    [[nodiscard]] MainWindowPages build(QStackedWidget* stackedWidget, QWidget* owner) const;
-
-private:
-    core::common::ISettingsService* settingsService_ = nullptr;
-};
+/**
+ * @brief Builds the main window's stacked pages (Modbus, GenericTcp,
+ *        GenericSerial, FrameAnalyzer) and registers them with @p stackedWidget.
+ *
+ * Replaces the former MainWindowPageBuilder class — a stateless 20-LOC factory
+ * that did not earn its existence as a class.
+ *
+ * @param settingsService Settings service passed to each page constructor.
+ * @param stackedWidget   Parent for scroll-area wrappers and page widgets.
+ * @param owner           QObject parent for the created pages.
+ * @return MainWindowPages with pointers and navigation-row indices.
+ */
+[[nodiscard]] MainWindowPages buildMainWindowPages(core::common::ISettingsService* settingsService,
+                                                    QStackedWidget* stackedWidget,
+                                                    QWidget* owner);
 
 } // namespace ui

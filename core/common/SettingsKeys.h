@@ -1,15 +1,19 @@
 /**
  * @file SettingsKeys.h
- * @brief Header file for SettingsKeys.
- * 
+ * @brief Centralized settings key constants shared by core and ui layers.
+ *
+ * Lives in core/common so that core-layer controllers (e.g. SettingsController)
+ * can use these constants without creating a reverse dependency from core to
+ * ui. Pure constexpr char[] — no Qt includes, no link-time dependencies.
+ *
  * Copyright (c) 2025 - present mingyucheng692
- * 
+ *
  * Licensed under the MIT License. See LICENSE file in the project root for full license information.
  */
 
 #pragma once
 
-namespace ui::common::settings_keys {
+namespace core::common::settings_keys {
 
 inline constexpr char kAppLanguage[] = "app/language";
 inline constexpr char kAppThemeMode[] = "app/themeMode";

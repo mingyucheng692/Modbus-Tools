@@ -81,6 +81,7 @@ target_sources(core PRIVATE
     polling/PollingStrategy.h
     polling/PollingStrategy.cpp
     common/ISettingsService.h
+    common/SettingsKeys.h
     common/SettingsController.h
     common/SettingsController.cpp
 )
