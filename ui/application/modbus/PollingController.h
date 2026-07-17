@@ -100,7 +100,6 @@ private:
 
     int pollingIntervalMs_ = 1000;
     PollContext context_{};
-    ::core::polling::PollingStrategy strategy_{};
 };
 
 } // namespace ui::application::modbus

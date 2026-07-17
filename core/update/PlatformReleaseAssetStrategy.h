@@ -30,17 +30,15 @@ struct PlatformUpdateArtifactLayout {
     }
 };
 
-class PlatformReleaseAssetStrategy {
-public:
-    [[nodiscard]] static PlatformUpdateArtifactLayout currentLayout(const QString& version);
-    [[nodiscard]] static PlatformUpdateArtifactLayout layoutForPackage(const QString& version,
-                                                                      const QString& packagePlatform);
-    [[nodiscard]] static QString resolveFullPackageUrl(const QJsonArray& assets,
-                                                       const PlatformUpdateArtifactLayout& layout,
-                                                       const QString& releaseUrl);
+namespace release_asset {
 
-private:
-    [[nodiscard]] static UpdatePlatformFamily familyFromPackagePlatform(const QString& packagePlatform);
-};
+[[nodiscard]] PlatformUpdateArtifactLayout currentLayout(const QString& version);
+[[nodiscard]] PlatformUpdateArtifactLayout layoutForPackage(const QString& version,
+                                                            const QString& packagePlatform);
+[[nodiscard]] QString resolveFullPackageUrl(const QJsonArray& assets,
+                                            const PlatformUpdateArtifactLayout& layout,
+                                            const QString& releaseUrl);
+
+} // namespace release_asset
 
 } // namespace core::update

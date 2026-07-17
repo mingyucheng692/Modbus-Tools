@@ -40,7 +40,7 @@ TEST(ModbusEndianCodecTest, InspectRtuAduReadsLittleEndianCrc)
 
 TEST(ModbusEndianCodecTest, BuildReadRequestEncodesBigEndianPayload)
 {
-    const auto result = ModbusPduBuilder::buildReadRequest(
+    const auto result = pdu_builder::buildReadRequest(
         FunctionCode::ReadHoldingRegisters, 0x1234, 0x0002);
 
     ASSERT_TRUE(result.has_value());
@@ -49,7 +49,7 @@ TEST(ModbusEndianCodecTest, BuildReadRequestEncodesBigEndianPayload)
 
 TEST(ModbusEndianCodecTest, BuildWriteSingleRegisterEncodesBigEndianPayload)
 {
-    const auto result = ModbusPduBuilder::buildWriteSingleRegister(0x0010, 0xABCD);
+    const auto result = pdu_builder::buildWriteSingleRegister(0x0010, 0xABCD);
 
     ASSERT_TRUE(result.has_value());
     EXPECT_EQ(result->toByteArray().toHex().toUpper(), QByteArray("060010ABCD"));

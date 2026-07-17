@@ -24,10 +24,9 @@ bool waitForCondition(const std::function<bool()>& predicate, int timeoutMs = 10
 } // namespace
 
 TEST(ModbusFactoryThreadingTest, CreateTcpStack_UsesDedicatedIoAndWorkerThreads) {
-    ModbusFactory factory;
     auto config = modbus::test::MakeModbusConfig(ModbusMode::TCP);
 
-    ModbusStack stack = factory.createStack(config);
+    ModbusStack stack = createStack(config);
 
     ASSERT_TRUE(stack.channel);
     ASSERT_TRUE(stack.client);
@@ -43,9 +42,8 @@ TEST(ModbusFactoryThreadingTest, DestroyUnstartedStack_DeletesWorkerAndThreadsSy
     QPointer<modbus::dispatch::ModbusWorker> worker;
 
     {
-        ModbusFactory factory;
         auto config = modbus::test::MakeModbusConfig(ModbusMode::TCP);
-        ModbusStack stack = factory.createStack(config);
+        ModbusStack stack = createStack(config);
 
         ASSERT_TRUE(stack.ioThread);
         ASSERT_TRUE(stack.thread);
@@ -62,9 +60,8 @@ TEST(ModbusFactoryThreadingTest, DestroyUnstartedStack_DeletesWorkerAndThreadsSy
 }
 
 TEST(ModbusFactoryThreadingTest, DestroyStoppedStartedStack_ReleasesWorkerAndThreads) {
-    ModbusFactory factory;
     auto config = modbus::test::MakeModbusConfig(ModbusMode::TCP);
-    ModbusStack stack = factory.createStack(config);
+    ModbusStack stack = createStack(config);
 
     ASSERT_TRUE(stack.ioThread);
     ASSERT_TRUE(stack.thread);
@@ -96,9 +93,8 @@ TEST(ModbusFactoryThreadingTest, DestroyStoppedStartedStack_ReleasesWorkerAndThr
 }
 
 TEST(ModbusFactoryThreadingTest, ReleasingStartedStack_ShutsDownWorkerAndIoThreads) {
-    ModbusFactory factory;
     auto config = modbus::test::MakeModbusConfig(ModbusMode::TCP);
-    ModbusStack stack = factory.createStack(config);
+    ModbusStack stack = createStack(config);
 
     ASSERT_TRUE(stack.ioThread);
     ASSERT_TRUE(stack.thread);
@@ -124,11 +120,10 @@ TEST(ModbusFactoryThreadingTest, ReleasingStartedStack_ShutsDownWorkerAndIoThrea
 }
 
 TEST(ModbusFactoryThreadingTest, CreateRtuStack_UsesDedicatedIoAndWorkerThreads) {
-    ModbusFactory factory;
     auto config = modbus::test::MakeModbusConfig(ModbusMode::RTU);
     config.portName = "COM1";
 
-    ModbusStack stack = factory.createStack(config);
+    ModbusStack stack = createStack(config);
 
     ASSERT_TRUE(stack.channel);
     ASSERT_TRUE(stack.client);

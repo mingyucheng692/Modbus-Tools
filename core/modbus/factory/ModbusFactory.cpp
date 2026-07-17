@@ -78,9 +78,48 @@ void cleanupWorker(dispatch::ModbusWorker* worker)
     delete worker;
 }
 
+std::shared_ptr<io::IChannel> createChannel(const base::ModbusConfig& config, QThread* ioThread) {
+    switch (config.mode) {
+    case base::ModbusMode::RTU:
+    case base::ModbusMode::ASCII: {
+        auto serial = std::make_shared<io::SerialChannel>();
+        io::SerialConfig serialConfig;
+        serialConfig.portName = config.portName;
+        serialConfig.baudRate = config.baudRate;
+        serialConfig.dataBits = static_cast<QSerialPort::DataBits>(config.dataBits);
+        serialConfig.stopBits = static_cast<QSerialPort::StopBits>(config.stopBits);
+        serialConfig.parity = static_cast<QSerialPort::Parity>(config.parity);
+        serial->setConfig(serialConfig);
+        serial->moveToThread(ioThread);
+        return serial;
+    }
+    case base::ModbusMode::TCP: {
+        auto tcp = std::make_shared<io::TcpChannel>();
+        tcp->setEndpoint(config.ipAddress, config.port);
+        tcp->moveToThread(ioThread);
+        return tcp;
+    }
+    }
+
+    return nullptr;
+}
+
+std::shared_ptr<transport::ITransport> createTransport(const base::ModbusConfig& config) {
+    switch (config.mode) {
+    case base::ModbusMode::RTU:
+        return std::make_shared<transport::ModbusRtuTransport>();
+    case base::ModbusMode::ASCII:
+        return std::make_shared<transport::ModbusAsciiTransport>();
+    case base::ModbusMode::TCP:
+        return std::make_shared<transport::ModbusTcpTransport>();
+    }
+
+    return nullptr;
+}
+
 } // namespace
 
-ModbusStack ModbusFactory::createStack(const base::ModbusConfig& config) {
+ModbusStack createStack(const base::ModbusConfig& config) {
     ModbusStack stack;
     stack.ioThread = makeManagedThread();
     stack.thread = makeManagedThread();
@@ -110,45 +149,6 @@ ModbusStack ModbusFactory::createStack(const base::ModbusConfig& config) {
     stack.worker = makeManagedWorker(stack.client, stack.thread.get());
     spdlog::info("ModbusFactory: stack created mode={}", static_cast<int>(config.mode));
     return stack;
-}
-
-std::shared_ptr<io::IChannel> ModbusFactory::createChannel(const base::ModbusConfig& config, QThread* ioThread) {
-    switch (config.mode) {
-    case base::ModbusMode::RTU:
-    case base::ModbusMode::ASCII: {
-        auto serial = std::make_shared<io::SerialChannel>();
-        io::SerialConfig serialConfig;
-        serialConfig.portName = config.portName;
-        serialConfig.baudRate = config.baudRate;
-        serialConfig.dataBits = static_cast<QSerialPort::DataBits>(config.dataBits);
-        serialConfig.stopBits = static_cast<QSerialPort::StopBits>(config.stopBits);
-        serialConfig.parity = static_cast<QSerialPort::Parity>(config.parity);
-        serial->setConfig(serialConfig);
-        serial->moveToThread(ioThread);
-        return serial;
-    }
-    case base::ModbusMode::TCP: {
-        auto tcp = std::make_shared<io::TcpChannel>();
-        tcp->setEndpoint(config.ipAddress, config.port);
-        tcp->moveToThread(ioThread);
-        return tcp;
-    }
-    }
-
-    return nullptr;
-}
-
-std::shared_ptr<transport::ITransport> ModbusFactory::createTransport(const base::ModbusConfig& config) {
-    switch (config.mode) {
-    case base::ModbusMode::RTU:
-        return std::make_shared<transport::ModbusRtuTransport>();
-    case base::ModbusMode::ASCII:
-        return std::make_shared<transport::ModbusAsciiTransport>();
-    case base::ModbusMode::TCP:
-        return std::make_shared<transport::ModbusTcpTransport>();
-    }
-
-    return nullptr;
 }
 
 } // namespace modbus::factory

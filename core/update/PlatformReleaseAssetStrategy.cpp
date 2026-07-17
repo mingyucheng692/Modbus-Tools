@@ -11,7 +11,7 @@
 #define MODBUS_TOOLS_PLATFORM "windows-x86_64"
 #endif
 
-namespace core::update {
+namespace core::update::release_asset {
 
 namespace {
 
@@ -27,15 +27,30 @@ QString buildPlatformAssetName(const QString& version,
     return QStringLiteral("Modbus-Tools-v%1-%2%3").arg(version, packagePlatform, suffix);
 }
 
+UpdatePlatformFamily familyFromPackagePlatform(const QString& packagePlatform)
+{
+    const QString normalized = normalizedPackagePlatform(packagePlatform);
+    if (normalized.startsWith(QStringLiteral("windows-"))) {
+        return UpdatePlatformFamily::Windows;
+    }
+    if (normalized.startsWith(QStringLiteral("macos-"))) {
+        return UpdatePlatformFamily::MacOs;
+    }
+    if (normalized.startsWith(QStringLiteral("linux-"))) {
+        return UpdatePlatformFamily::Linux;
+    }
+    return UpdatePlatformFamily::Unknown;
+}
+
 } // namespace
 
-PlatformUpdateArtifactLayout PlatformReleaseAssetStrategy::currentLayout(const QString& version)
+PlatformUpdateArtifactLayout currentLayout(const QString& version)
 {
     return layoutForPackage(version, QStringLiteral(MODBUS_TOOLS_PLATFORM));
 }
 
-PlatformUpdateArtifactLayout PlatformReleaseAssetStrategy::layoutForPackage(const QString& version,
-                                                                            const QString& packagePlatform)
+PlatformUpdateArtifactLayout layoutForPackage(const QString& version,
+                                              const QString& packagePlatform)
 {
     PlatformUpdateArtifactLayout layout;
     layout.packagePlatform = packagePlatform;
@@ -72,9 +87,9 @@ PlatformUpdateArtifactLayout PlatformReleaseAssetStrategy::layoutForPackage(cons
     return layout;
 }
 
-QString PlatformReleaseAssetStrategy::resolveFullPackageUrl(const QJsonArray& assets,
-                                                            const PlatformUpdateArtifactLayout& layout,
-                                                            const QString& releaseUrl)
+QString resolveFullPackageUrl(const QJsonArray& assets,
+                              const PlatformUpdateArtifactLayout& layout,
+                              const QString& releaseUrl)
 {
     for (const QString& expectedAssetName : layout.fullPackageAssetNames) {
         for (const QJsonValue& assetValue : assets) {
@@ -98,19 +113,4 @@ QString PlatformReleaseAssetStrategy::resolveFullPackageUrl(const QJsonArray& as
     return releaseUrl;
 }
 
-UpdatePlatformFamily PlatformReleaseAssetStrategy::familyFromPackagePlatform(const QString& packagePlatform)
-{
-    const QString normalized = normalizedPackagePlatform(packagePlatform);
-    if (normalized.startsWith(QStringLiteral("windows-"))) {
-        return UpdatePlatformFamily::Windows;
-    }
-    if (normalized.startsWith(QStringLiteral("macos-"))) {
-        return UpdatePlatformFamily::MacOs;
-    }
-    if (normalized.startsWith(QStringLiteral("linux-"))) {
-        return UpdatePlatformFamily::Linux;
-    }
-    return UpdatePlatformFamily::Unknown;
-}
-
-} // namespace core::update
+} // namespace core::update::release_asset

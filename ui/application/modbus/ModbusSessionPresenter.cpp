@@ -27,11 +27,9 @@ void assertObjectThread(const QObject* object, const char* context) {
 } // namespace
 
 ModbusSessionPresenter::ModbusSessionPresenter(SessionMode mode,
-                                               ::modbus::factory::ModbusFactory* factory,
                                                QObject* parent)
     : QObject(parent),
       mode_(mode),
-      factory_(factory),
       timeoutMs_(config::Modbus::kDefaultTimeoutMs),
       retries_(0),
       retryIntervalMs_(config::Modbus::kDefaultRetryIntervalMs) {
@@ -419,13 +417,7 @@ bool ModbusSessionPresenter::isLinked() const {
 
 void ModbusSessionPresenter::initStack(const ::modbus::base::ModbusConfig& config) {
     assertGuiThread("initStack must run on the GUI thread");
-    ::modbus::factory::ModbusFactory* factory = factory_;
-    std::unique_ptr<::modbus::factory::ModbusFactory> tempFactory;
-    if (!factory) {
-        tempFactory = std::make_unique<::modbus::factory::ModbusFactory>();
-        factory = tempFactory.get();
-    }
-    auto stack = factory->createStack(config);
+    auto stack = ::modbus::factory::createStack(config);
     if (!stack.worker || !stack.thread || !stack.ioThread) {
         if (trafficLogController_) {
             trafficLogController_->logError(tr("Failed to create Modbus stack"));

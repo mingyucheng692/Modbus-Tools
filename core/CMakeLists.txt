@@ -55,9 +55,6 @@ target_sources(core PRIVATE
     # modbus factory
     modbus/factory/ModbusFactory.h
     modbus/factory/ModbusFactory.cpp
-    # modbus request
-    modbus/request/ModbusRequestFactory.h
-    modbus/request/ModbusRequestFactory.cpp
     # modbus parser
     modbus/parser/ModbusFrameParser.h
     modbus/parser/ModbusFrameParser.cpp

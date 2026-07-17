@@ -52,7 +52,7 @@ namespace ui::widgets {
 namespace {
 
 // RAII deleter for QThread: quits + waits (with fallback to async cleanup).
-// Same pattern as ModbusFactory::cleanupThread.
+// Same pattern as cleanupThread in ModbusFactory.cpp.
 void cleanupThread(QThread* thread)
 {
     if (!thread) {
@@ -74,7 +74,7 @@ void cleanupThread(QThread* thread)
 }
 
 // RAII deleter for FrameParseWorker: queues deleteLater on the worker thread.
-// Same pattern as ModbusFactory::cleanupWorker (without stop() since FrameParseWorker has none).
+// Same pattern as cleanupWorker in ModbusFactory.cpp (without stop() since FrameParseWorker has none).
 void cleanupWorker(FrameParseWorker* worker)
 {
     if (!worker) {

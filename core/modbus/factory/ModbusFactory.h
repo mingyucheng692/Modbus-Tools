@@ -28,14 +28,7 @@ struct ModbusStack {
     std::shared_ptr<dispatch::ModbusWorker> worker;
 };
 
-// 具体工厂实现
-class ModbusFactory {
-public:
-    ModbusStack createStack(const base::ModbusConfig& config);
-
-private:
-    std::shared_ptr<io::IChannel> createChannel(const base::ModbusConfig& config, QThread* ioThread);
-    std::shared_ptr<transport::ITransport> createTransport(const base::ModbusConfig& config);
-};
+// 工厂自由函数：根据配置创建并装配完整的 Modbus 协议栈。
+ModbusStack createStack(const base::ModbusConfig& config);
 
 } // namespace modbus::factory

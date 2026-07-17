@@ -27,7 +27,6 @@ class WorkerReleaseCoordinator;
 }
 
 namespace modbus::dispatch { class ModbusWorker; }
-namespace modbus::factory { class ModbusFactory; }
 namespace modbus::session { class ModbusClient; }
 
 namespace ui::application::modbus {
@@ -52,7 +51,6 @@ class ModbusSessionPresenter : public QObject {
 
 public:
     explicit ModbusSessionPresenter(SessionMode mode,
-                                    ::modbus::factory::ModbusFactory* factory = nullptr,
                                     QObject* parent = nullptr);
     ~ModbusSessionPresenter() noexcept override;
 
@@ -121,7 +119,6 @@ private:
     void maybeRunDeferredAction();
 
     SessionMode mode_;
-    ::modbus::factory::ModbusFactory* factory_ = nullptr; // optional injected factory; nullptr → create concrete ModbusFactory in initStack
     std::shared_ptr<io::IChannel> channel_;
     std::shared_ptr<::modbus::session::ModbusClient> client_;
     std::shared_ptr<::modbus::dispatch::ModbusWorker> worker_;

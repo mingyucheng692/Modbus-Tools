@@ -12,7 +12,7 @@
 
 namespace core::polling {
 
-int PollingStrategy::calculateThreshold(int intervalMs) const {
+int calculateThreshold(int intervalMs) {
     constexpr int kTargetUpgradeWindowMs = 3000;
     constexpr int kMinThreshold = 3;
     constexpr int kMaxThreshold = 10;
@@ -22,7 +22,7 @@ int PollingStrategy::calculateThreshold(int intervalMs) const {
     return std::clamp(roundedThreshold, kMinThreshold, kMaxThreshold);
 }
 
-ErrorSeverity PollingStrategy::classifyError(std::string_view errorText) const {
+ErrorSeverity classifyError(std::string_view errorText) {
     if (errorText.find("timeout") != std::string_view::npos
         || errorText.find("timed out") != std::string_view::npos) {
         return ErrorSeverity::Timeout;
@@ -34,10 +34,10 @@ ErrorSeverity PollingStrategy::classifyError(std::string_view errorText) const {
     return ErrorSeverity::Normal;
 }
 
-PollingDecision PollingStrategy::evaluateState(int consecutiveErrors,
-                                                int failureStreakMs,
-                                                bool zeroSuccessWindow,
-                                                int threshold) const {
+PollingDecision evaluateState(int consecutiveErrors,
+                              int failureStreakMs,
+                              bool zeroSuccessWindow,
+                              int threshold) {
     constexpr int kZeroSuccessWindowMs = 3000;
 
     if (consecutiveErrors <= 0) {

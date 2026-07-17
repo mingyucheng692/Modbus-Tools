@@ -84,12 +84,12 @@ set(TEST_CORE_LOGIC_SOURCES
     unit/modbus/base/ModbusCrcTest.cpp
     unit/modbus/base/ModbusEndianCodecTest.cpp
     unit/modbus/base/ModbusPduTest.cpp
+    unit/modbus/base/ModbusPduBuilderTest.cpp
     unit/modbus/parser/ParserRobustnessTest.cpp
     unit/modbus/parser/ParserTest.cpp
     unit/modbus/session/ModbusResponseTest.cpp
     unit/modbus/session/ModbusStateTest.cpp
     unit/modbus/session/RetryStrategyTest.cpp
-    unit/modbus/request/ModbusRequestFactoryTest.cpp
     unit/update/UpdateManagerInstallStrategyTest.cpp
     unit/update/ReleaseParserTest.cpp
         unit/polling/PollingStrategyTest.cpp

@@ -44,7 +44,7 @@ void ModbusPagePresenter::setup(ui::widgets::BaseConnectionWidget* connectionWid
 }
 
 void ModbusPagePresenter::createServices() {
-    sessionPresenter_ = new ModbusSessionPresenter(mode_, nullptr, this);
+    sessionPresenter_ = new ModbusSessionPresenter(mode_, this);
     requestService_ = new RequestSubmissionService(this);
     pollingController_ = new PollingController(requestService_, this);
     trafficLogController_ = new TrafficLogController(

@@ -105,7 +105,7 @@ void UpdateChecker::checkForUpdates() {
         QString updateOnlySha256;
         QString checksumsUrl;
         QString fullPackageUrl;
-        const auto artifactLayout = core::update::PlatformReleaseAssetStrategy::layoutForPackage(latestVersion, packagePlatform());
+        const auto artifactLayout = core::update::release_asset::layoutForPackage(latestVersion, packagePlatform());
         const QRegularExpression digestPattern(QStringLiteral("^sha256:([a-fA-F0-9]{64})$"));
         for (const QJsonValue& assetValue : assets) {
             if (!assetValue.isObject()) {
@@ -127,7 +127,7 @@ void UpdateChecker::checkForUpdates() {
             }
         }
 
-        fullPackageUrl = core::update::PlatformReleaseAssetStrategy::resolveFullPackageUrl(assets, artifactLayout, releaseUrl);
+        fullPackageUrl = core::update::release_asset::resolveFullPackageUrl(assets, artifactLayout, releaseUrl);
 
         const std::string currentVer = currentVersion().toStdString();
         const int compareResult = core::update::release_parser::compareVersions(

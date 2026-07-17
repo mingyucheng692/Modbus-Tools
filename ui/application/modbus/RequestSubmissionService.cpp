@@ -23,18 +23,17 @@ RequestSubmissionService::RequestBuildResult RequestSubmissionService::buildRead
     const PollSpec& spec, RequestKind kind) {
     RequestBuildResult result;
 
-    using namespace ::modbus::request;
+    using namespace ::modbus::base;
 
-    ReadRequestSpec factorySpec;
-    factorySpec.functionCode = spec.functionCode;
-    factorySpec.startAddress = spec.startAddress;
-    factorySpec.quantity = spec.quantity;
-
-    std::string error;
-    auto buildResult = factory_.buildReadRequest(factorySpec, &error);
+    QString error;
+    auto buildResult = pdu_builder::buildReadRequest(
+        static_cast<FunctionCode>(spec.functionCode),
+        static_cast<int>(spec.startAddress),
+        static_cast<int>(spec.quantity),
+        &error);
     if (!buildResult) {
         result.ok = false;
-        result.error = QString::fromStdString(error);
+        result.error = error;
         return result;
     }
 
@@ -50,7 +49,6 @@ RequestSubmissionService::RequestBuildResult RequestSubmissionService::buildWrit
     RequestBuildResult result;
 
     using namespace ::modbus::base;
-    using namespace ::modbus::request;
 
     QString trimmed = dataStr.trimmed();
     QByteArray rawBytes;
@@ -202,20 +200,17 @@ RequestSubmissionService::RequestBuildResult RequestSubmissionService::buildWrit
         }
     }
 
-    // Delegate PDU building to the factory
-    WriteRequestSpec spec;
-    spec.functionCode = fc;
-    spec.startAddress = static_cast<uint16_t>(addr);
-    spec.rawData = std::span<const uint8_t>(
-        reinterpret_cast<const uint8_t*>(rawBytes.constData()),
-        static_cast<size_t>(rawBytes.size()));
-    spec.quantity = static_cast<uint16_t>(quantity);
-
-    std::string error;
-    auto buildResult = factory_.buildWriteRequest(spec, &error);
+    // Delegate PDU building to pdu_builder
+    QString error;
+    auto buildResult = pdu_builder::buildWriteRequest(
+        static_cast<FunctionCode>(fc),
+        addr,
+        quantity,
+        rawBytes,
+        &error);
     if (!buildResult) {
         result.ok = false;
-        result.error = QString::fromStdString(error);
+        result.error = error;
         return result;
     }
 

@@ -8,7 +8,7 @@
 
 TEST(UpdateCheckerAssetSelection, WindowsLayoutKeepsDedicatedUpdateOnlyAndSetupContracts)
 {
-    const auto layout = core::update::PlatformReleaseAssetStrategy::layoutForPackage(
+    const auto layout = core::update::release_asset::layoutForPackage(
         QStringLiteral("1.2.3"), QStringLiteral("windows-x86_64"));
 
     EXPECT_EQ(layout.updateOnlyAssetName,
@@ -20,7 +20,7 @@ TEST(UpdateCheckerAssetSelection, WindowsLayoutKeepsDedicatedUpdateOnlyAndSetupC
 
 TEST(UpdateCheckerAssetSelection, MacOsAssetsPreferDiskImageBeforeArchiveFallback)
 {
-    const auto layout = core::update::PlatformReleaseAssetStrategy::layoutForPackage(
+    const auto layout = core::update::release_asset::layoutForPackage(
         QStringLiteral("1.2.3"), QStringLiteral("macos-arm64"));
 
     EXPECT_TRUE(layout.updateOnlyAssetName.isEmpty());
@@ -42,7 +42,7 @@ TEST(UpdateCheckerAssetSelection, MacOsAssetsPreferDiskImageBeforeArchiveFallbac
     dmgAsset.insert(QStringLiteral("browser_download_url"), QStringLiteral("https://example.com/macos-arm64.dmg"));
     assets.append(dmgAsset);
 
-    const QString resolvedUrl = core::update::PlatformReleaseAssetStrategy::resolveFullPackageUrl(
+    const QString resolvedUrl = core::update::release_asset::resolveFullPackageUrl(
         assets,
         layout,
         QStringLiteral("https://example.com/releases/tag/v1.2.3"));
@@ -52,7 +52,7 @@ TEST(UpdateCheckerAssetSelection, MacOsAssetsPreferDiskImageBeforeArchiveFallbac
 
 TEST(UpdateCheckerAssetSelection, LinuxAssetsAcceptPlatformPackageMatrix)
 {
-    const auto layout = core::update::PlatformReleaseAssetStrategy::layoutForPackage(
+    const auto layout = core::update::release_asset::layoutForPackage(
         QStringLiteral("1.2.3"), QStringLiteral("linux-x86_64"));
 
     EXPECT_TRUE(layout.updateOnlyAssetName.isEmpty());
@@ -71,7 +71,7 @@ TEST(UpdateCheckerAssetSelection, LinuxAssetsAcceptPlatformPackageMatrix)
     assets.append(rpmAsset);
 
     const QString releaseUrl = QStringLiteral("https://example.com/releases/tag/v1.2.3");
-    const QString resolvedUrl = core::update::PlatformReleaseAssetStrategy::resolveFullPackageUrl(
+    const QString resolvedUrl = core::update::release_asset::resolveFullPackageUrl(
         assets,
         layout,
         releaseUrl);
@@ -81,7 +81,7 @@ TEST(UpdateCheckerAssetSelection, LinuxAssetsAcceptPlatformPackageMatrix)
 
 TEST(UpdateCheckerAssetSelection, ForeignPlatformAssetsFallBackToReleasePage)
 {
-    const auto layout = core::update::PlatformReleaseAssetStrategy::layoutForPackage(
+    const auto layout = core::update::release_asset::layoutForPackage(
         QStringLiteral("1.2.3"), QStringLiteral("macos-arm64"));
 
     QJsonArray assets;
@@ -91,7 +91,7 @@ TEST(UpdateCheckerAssetSelection, ForeignPlatformAssetsFallBackToReleasePage)
     assets.append(foreignAsset);
 
     const QString releaseUrl = QStringLiteral("https://example.com/releases/tag/v1.2.3");
-    const QString resolvedUrl = core::update::PlatformReleaseAssetStrategy::resolveFullPackageUrl(
+    const QString resolvedUrl = core::update::release_asset::resolveFullPackageUrl(
         assets,
         layout,
         releaseUrl);

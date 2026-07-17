@@ -132,7 +132,7 @@ void PollingController::handlePollCompletion(bool success, int rttMs, int retryC
         const QString normalizedError = error.toLower();
         int threshold = pollErrorThreshold();
 
-        const auto severity = strategy_.classifyError(normalizedError.toStdString());
+        const auto severity = ::core::polling::classifyError(normalizedError.toStdString());
         if (severity == ::core::polling::ErrorSeverity::Timeout) {
             threshold = std::max(2, threshold - 1);
         } else if (severity == ::core::polling::ErrorSeverity::Busy) {
@@ -144,7 +144,7 @@ void PollingController::handlePollCompletion(bool success, int rttMs, int retryC
             && (now - context_.failureStreakStartTime) >= std::chrono::milliseconds(3000);
         const bool connectionFault = !context_.sessionConnected;
 
-        const auto decision = strategy_.evaluateState(
+        const auto decision = ::core::polling::evaluateState(
             context_.consecutiveErrorCount,
             context_.failureStreakStartTime != std::chrono::steady_clock::time_point{}
                 ? static_cast<int>(std::chrono::duration_cast<std::chrono::milliseconds>(
@@ -206,7 +206,7 @@ void PollingController::handlePollCompletion(bool success, int rttMs, int retryC
 }
 
 int PollingController::pollErrorThreshold() const {
-    return strategy_.calculateThreshold(pollingIntervalMs_);
+    return ::core::polling::calculateThreshold(pollingIntervalMs_);
 }
 
 void PollingController::resetPollErrorTracking() {
