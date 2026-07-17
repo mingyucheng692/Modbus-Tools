@@ -19,7 +19,7 @@
 
 namespace core::update {
 
-std::string ReleaseParser::normalizeVersion(const std::string& raw) {
+std::string release_parser::normalizeVersion(const std::string& raw) {
     std::string cleaned = raw;
     // Trim leading/trailing whitespace
     auto start = cleaned.find_first_not_of(" \t\r\n");
@@ -35,7 +35,7 @@ std::string ReleaseParser::normalizeVersion(const std::string& raw) {
     return cleaned;
 }
 
-int ReleaseParser::compareVersions(const std::string& a, const std::string& b) {
+int release_parser::compareVersions(const std::string& a, const std::string& b) {
     auto split = [](const std::string& s) -> std::vector<int> {
         std::vector<int> parts;
         std::string normalized = normalizeVersion(s);
@@ -68,7 +68,7 @@ int ReleaseParser::compareVersions(const std::string& a, const std::string& b) {
     return 0;
 }
 
-std::vector<ReleaseInfo> ReleaseParser::parseReleases(const std::string& json,
+std::vector<ReleaseInfo> release_parser::parseReleases(const std::string& json,
                                                      bool includePrerelease) {
     std::vector<ReleaseInfo> results;
 

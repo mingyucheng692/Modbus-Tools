@@ -16,7 +16,7 @@
 
 namespace modbus::analyzer {
 
-bool AnalyzerExporter::saveMetadataJson(const QString& filePath,
+bool exporter::saveMetadataJson(const QString& filePath,
                                         const QString& startAddress,
                                         const QString& displayMode,
                                         const QMap<uint16_t, DataMetadata>& metadata,
@@ -51,7 +51,7 @@ bool AnalyzerExporter::saveMetadataJson(const QString& filePath,
     return true;
 }
 
-ImportResult AnalyzerExporter::loadMetadataJson(const QString& filePath) {
+ImportResult exporter::loadMetadataJson(const QString& filePath) {
     ImportResult result;
     QFile file(filePath);
     if (!file.open(QIODevice::ReadOnly)) {
@@ -99,7 +99,7 @@ ImportResult AnalyzerExporter::loadMetadataJson(const QString& filePath) {
     return result;
 }
 
-bool AnalyzerExporter::writeCsvChunk(const QString& filePath,
+bool exporter::writeCsvChunk(const QString& filePath,
                                      const QStringList& lines,
                                      bool firstChunk,
                                      QString* error) {
@@ -123,7 +123,7 @@ bool AnalyzerExporter::writeCsvChunk(const QString& filePath,
     return true;
 }
 
-QString AnalyzerExporter::escapeCsvValue(const QString& value) {
+QString exporter::escapeCsvValue(const QString& value) {
     QString escaped = value;
     escaped.replace(QLatin1Char('"'), QLatin1String("\"\""));
     return QStringLiteral("\"%1\"").arg(escaped);

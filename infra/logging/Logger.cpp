@@ -10,9 +10,9 @@
 #include "Logger.h"
 
 #include "core/Config.h"
-#include "infra/platform/PlatformEncoding.h"
 #include <QDateTime>
 #include <QDir>
+#include <QString>
 #include <QFile>
 #include <QCoreApplication>
 #include <QtGlobal>
@@ -34,6 +34,15 @@ constexpr auto kDefaultFlushLevel = spdlog::level::info;
 #else
 constexpr auto kDefaultFlushLevel = spdlog::level::warn;
 #endif
+
+[[nodiscard]] static spdlog::filename_t encodePathForSpdlog(const QString& path)
+{
+#if defined(SPDLOG_WCHAR_FILENAMES)
+    return QDir::toNativeSeparators(path).toStdWString();
+#else
+    return QDir::toNativeSeparators(path).toStdString();
+#endif
+}
 
 static void QtMessageHandler(QtMsgType type, const QMessageLogContext& context, const QString& message)
 {
@@ -129,7 +138,7 @@ bool Init(const QString& logDir, QString* errorMessage) noexcept
     
     const QString timestamp = QDateTime::currentDateTimeUtc().toString("yyyyMMdd-HHmmss'Z'");
     const QString fileName = QStringLiteral("modbus-tools_%1.log").arg(timestamp);
-    const spdlog::filename_t filePath = infra::platform::encodePathForSpdlog(dir.filePath(fileName));
+    const spdlog::filename_t filePath = encodePathForSpdlog(dir.filePath(fileName));
     
     // rotating_file_sink 负责单次长时运行期间的日志切分防爆盘
     auto fileSink = std::make_shared<spdlog::sinks::rotating_file_sink_mt>(

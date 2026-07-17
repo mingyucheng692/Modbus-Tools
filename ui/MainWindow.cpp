@@ -76,47 +76,29 @@ protected:
 
 namespace ui {
 
-struct MainWindowBusinessContext {
-    MainWindowBusinessContext(MainWindow* view,
-                              application::IUpdateInteractionView* updateView,
-                              core::common::ISettingsService* settingsService)
-        : settingsController(std::make_unique<core::common::SettingsController>(settingsService)),
-          updateChecker(std::make_unique<common::UpdateChecker>()),
-          updateManager(std::make_unique<core::update::UpdateManager>()),
-          analyzerLinkCoordinator(std::make_unique<application::AnalyzerLinkCoordinator>()),
-          languageCoordinator(std::make_unique<application::LanguageCoordinator>(settingsController.get())),
-          updateCoordinator(std::make_unique<application::UpdateCoordinator>(
-              updateView,
-              updateChecker.get(),
-              updateManager.get(),
-              settingsController.get())),
-          appLifecycleCoordinator(std::make_unique<application::AppLifecycleCoordinator>(
-              view,
-              settingsController.get(),
-              languageCoordinator.get(),
-              updateCoordinator.get())),
-          settingsService(settingsService) {}
-
-    std::unique_ptr<core::common::SettingsController> settingsController;
-    std::unique_ptr<common::UpdateChecker> updateChecker;
-    std::unique_ptr<core::update::UpdateManager> updateManager;
-    std::unique_ptr<application::AnalyzerLinkCoordinator> analyzerLinkCoordinator;
-    std::unique_ptr<application::LanguageCoordinator> languageCoordinator;
-    std::unique_ptr<application::UpdateCoordinator> updateCoordinator;
-    std::unique_ptr<application::AppLifecycleCoordinator> appLifecycleCoordinator;
-    // Original UI-layer pointer retained for UI-side builders that expect
-    // the settings service interface.
-    core::common::ISettingsService* settingsService = nullptr;
-};
-
 MainWindow::MainWindow(core::common::ISettingsService* settingsService,
                        common::ThemeController* themeController,
                        QWidget *parent)
     : QMainWindow(parent),
       updateInteractionView_(std::make_unique<UpdateInteractionView>(this)),
       themeController_(themeController),
-      businessContext_(std::make_unique<MainWindowBusinessContext>(this, updateInteractionView_.get(), settingsService)) {
-    businessContext_->appLifecycleCoordinator->initialize();
+      settingsController_(std::make_unique<core::common::SettingsController>(settingsService)),
+      updateChecker_(std::make_unique<common::UpdateChecker>()),
+      updateManager_(std::make_unique<core::update::UpdateManager>()),
+      analyzerLinkCoordinator_(std::make_unique<application::AnalyzerLinkCoordinator>()),
+      languageCoordinator_(std::make_unique<application::LanguageCoordinator>(settingsController_.get())),
+      updateCoordinator_(std::make_unique<application::UpdateCoordinator>(
+          updateInteractionView_.get(),
+          updateChecker_.get(),
+          updateManager_.get(),
+          settingsController_.get())),
+      appLifecycleCoordinator_(std::make_unique<application::AppLifecycleCoordinator>(
+          this,
+          settingsController_.get(),
+          languageCoordinator_.get(),
+          updateCoordinator_.get())),
+      settingsService_(settingsService) {
+    appLifecycleCoordinator_->initialize();
 }
 
 MainWindow::~MainWindow() {
@@ -144,12 +126,12 @@ void MainWindow::initializeUi() {
     stackedWidget_ = new QStackedWidget(this);
     mainLayout->addWidget(stackedWidget_, 5);
 
-    const MainWindowPages pages = buildMainWindowPages(businessContext_->settingsService,
+    const MainWindowPages pages = buildMainWindowPages(settingsService_,
                                                         stackedWidget_, this);
     modbusView_ = pages.modbusView;
     frameAnalyzer_ = pages.frameAnalyzer;
-    if (businessContext_->analyzerLinkCoordinator) {
-        businessContext_->analyzerLinkCoordinator->bind(modbusView_, frameAnalyzer_);
+    if (analyzerLinkCoordinator_) {
+        analyzerLinkCoordinator_->bind(modbusView_, frameAnalyzer_);
     }
 
     if (navigationController_) {
@@ -193,8 +175,8 @@ void MainWindow::createNavigation() {
 
     common::ThemeController::applyNavigationTheme(navigationList_->palette(), navigationPane_, navigationToggleButton_, navigationList_);
     auto invoke = [this](auto fn, auto&&... args) {
-        if (businessContext_->appLifecycleCoordinator) {
-            (businessContext_->appLifecycleCoordinator.get()->*fn)(std::forward<decltype(args)>(args)...);
+        if (appLifecycleCoordinator_) {
+            (appLifecycleCoordinator_.get()->*fn)(std::forward<decltype(args)>(args)...);
         }
     };
     connect(navigationToggleButton_, &QToolButton::clicked, this, [invoke]() {
@@ -239,8 +221,8 @@ void MainWindow::applyModbusSettings(int timeoutMs, int retries, int retryInterv
 void MainWindow::setupSettingsMenu() {
     settingsMenu_ = menuBar()->addMenu(tr("Settings"));
     auto invoke = [this](auto fn, auto&&... args) {
-        if (businessContext_->appLifecycleCoordinator) {
-            (businessContext_->appLifecycleCoordinator.get()->*fn)(std::forward<decltype(args)>(args)...);
+        if (appLifecycleCoordinator_) {
+            (appLifecycleCoordinator_.get()->*fn)(std::forward<decltype(args)>(args)...);
         }
     };
     modbusSettingsAction_ = settingsMenu_->addAction(tr("Modbus Settings"), this, [invoke]() {
@@ -276,8 +258,8 @@ void MainWindow::setupLanguageMenu() {
     addLang(tr("繁體中文"), config::App::kLocaleZhTw);
 
     auto invoke = [this](auto fn, auto&&... args) {
-        if (businessContext_->appLifecycleCoordinator) {
-            (businessContext_->appLifecycleCoordinator.get()->*fn)(std::forward<decltype(args)>(args)...);
+        if (appLifecycleCoordinator_) {
+            (appLifecycleCoordinator_.get()->*fn)(std::forward<decltype(args)>(args)...);
         }
     };
     connect(languageActionGroup_, &QActionGroup::triggered, this, [invoke](QAction* action) {
@@ -288,8 +270,8 @@ void MainWindow::setupLanguageMenu() {
 void MainWindow::setupAboutMenu() {
     aboutMenu_ = menuBar()->addMenu(tr("About"));
     auto invoke = [this](auto fn, auto&&... args) {
-        if (businessContext_->appLifecycleCoordinator) {
-            (businessContext_->appLifecycleCoordinator.get()->*fn)(std::forward<decltype(args)>(args)...);
+        if (appLifecycleCoordinator_) {
+            (appLifecycleCoordinator_.get()->*fn)(std::forward<decltype(args)>(args)...);
         }
     };
     checkUpdatesAction_ = aboutMenu_->addAction(tr("Check for Updates"), this, [invoke]() {
@@ -329,7 +311,7 @@ void MainWindow::applyModbusSettingsToViews(int timeoutMs, int retries, int retr
 
 void MainWindow::openModbusSettingsDialog() {
     int t, r, i; bool e;
-    businessContext_->settingsController->loadModbusSettings(t, r, i, e);
+    settingsController_->loadModbusSettings(t, r, i, e);
     const auto currentLevel = spdlog::default_logger()->level();
     const int currentLogLevel = static_cast<int>(currentLevel);
     widgets::ModbusSettingsDialog::Settings current{t, r, i, e, currentLogLevel};
@@ -337,7 +319,7 @@ void MainWindow::openModbusSettingsDialog() {
     widgets::ModbusSettingsDialog dialog(current, this);
     if (dialog.exec() == QDialog::Accepted) {
         auto s = dialog.settings();
-        businessContext_->settingsController->setModbusSettings(s.timeoutMs, s.retries, s.retryIntervalMs, s.retryEnabled);
+        settingsController_->setModbusSettings(s.timeoutMs, s.retries, s.retryIntervalMs, s.retryEnabled);
         applyModbusSettingsToViews(s.timeoutMs, s.retryEnabled ? s.retries : 0, s.retryIntervalMs);
         const auto newLevel = static_cast<spdlog::level::level_enum>(s.logLevel);
         spdlog::set_level(newLevel);
@@ -348,9 +330,9 @@ void MainWindow::openModbusSettingsDialog() {
 }
 
 void MainWindow::openUpdateSettingsDialog() {
-    widgets::UpdateSettingsDialog dialog(businessContext_->settingsController->updateCheckFrequency(), this);
+    widgets::UpdateSettingsDialog dialog(settingsController_->updateCheckFrequency(), this);
     if (dialog.exec() == QDialog::Accepted) {
-        businessContext_->settingsController->setUpdateCheckFrequency(dialog.selectedFrequency());
+        settingsController_->setUpdateCheckFrequency(dialog.selectedFrequency());
     }
 }
 
@@ -397,8 +379,8 @@ void MainWindow::retranslateUi(const QString& effectiveLocale) {
     if (langZhCnAction_) langZhCnAction_->setChecked(effectiveLocale_ == config::App::kLocaleZhCn);
     if (langZhTwAction_) langZhTwAction_->setChecked(effectiveLocale_ == config::App::kLocaleZhTw);
     
-    if (businessContext_->updateCoordinator) {
-        businessContext_->updateCoordinator->refreshIndicators();
+    if (updateCoordinator_) {
+        updateCoordinator_->refreshIndicators();
     }
 }
 
@@ -409,8 +391,8 @@ void MainWindow::changeEvent(QEvent* event) {
 }
 
 void MainWindow::closeEvent(QCloseEvent* event) {
-    if (businessContext_->appLifecycleCoordinator) {
-        businessContext_->appLifecycleCoordinator->onCloseRequested();
+    if (appLifecycleCoordinator_) {
+        appLifecycleCoordinator_->onCloseRequested();
     }
     QMainWindow::closeEvent(event);
 }

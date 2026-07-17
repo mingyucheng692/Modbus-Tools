@@ -44,7 +44,7 @@ void GenericChannelViewBase::onSendRequested(const QByteArray& data) {
         return;
     }
     if (!isConnected_) {
-        ui::common::ConnectionAlert::showNotConnected(this);
+        ui::common::connection_alert::showNotConnected(this);
         return;
     }
     QMetaObject::invokeMethod(worker_, "write", 
@@ -57,7 +57,7 @@ void GenericChannelViewBase::onFileSendRequested(const QString& filePath) {
         return;
     }
     if (!isConnected_) {
-        ui::common::ConnectionAlert::showNotConnected(this);
+        ui::common::connection_alert::showNotConnected(this);
         return;
     }
     QMetaObject::invokeMethod(worker_, "sendFile",

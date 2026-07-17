@@ -9,7 +9,6 @@
 
 #include "UpdateManager.h"
 #include "../Config.h"
-#include "infra/platform/PlatformProcessRunnerFactory.h"
 #include "PlatformUpdateInstallStrategy.h"
 #include <QNetworkAccessManager>
 #include <QNetworkReply>
@@ -23,6 +22,21 @@
 #include <QRegularExpression>
 #include <QStringList>
 #include <spdlog/spdlog.h>
+
+#if defined(Q_OS_WIN)
+#include "infra/platform/win/Win32ProcessRunner.h"
+#endif
+
+namespace {
+[[nodiscard]] static std::unique_ptr<infra::platform::IPlatformProcessRunner> createPlatformProcessRunner()
+{
+#if defined(Q_OS_WIN)
+    return std::make_unique<Win32ProcessRunner>();
+#else
+    return nullptr; // Not supported on this platform
+#endif
+}
+} // namespace
 
 namespace core::update {
 
@@ -96,7 +110,7 @@ UpdateManager::UpdateManager(QObject* parent,
       processRunner_(std::move(processRunner)),
       installStrategy_(std::move(installStrategy)) {
     if (!processRunner_) {
-        processRunner_ = infra::platform::createPlatformProcessRunner();
+        processRunner_ = createPlatformProcessRunner();
     }
     if (!installStrategy_) {
         installStrategy_ = createPlatformUpdateInstallStrategy();

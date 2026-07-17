@@ -76,7 +76,7 @@ void UpdateChecker::checkForUpdates() {
         const std::string jsonStr(rawData.constData(), rawData.size());
         constexpr bool includePrerelease = MODBUS_TOOLS_INCLUDE_PRERELEASE != 0;
 
-        auto releases = core::update::ReleaseParser::parseReleases(jsonStr, includePrerelease);
+        auto releases = core::update::release_parser::parseReleases(jsonStr, includePrerelease);
         if (releases.empty()) {
             emit noUpdateAvailable(currentVersion());
             return;
@@ -84,7 +84,7 @@ void UpdateChecker::checkForUpdates() {
 
         const auto& firstRelease = releases.front();
         const QString latestVersion = QString::fromStdString(
-            core::update::ReleaseParser::normalizeVersion(firstRelease.tagName));
+            core::update::release_parser::normalizeVersion(firstRelease.tagName));
         if (latestVersion.isEmpty()) {
             emit checkFailed(tr("Release tag is missing"));
             return;
@@ -130,7 +130,7 @@ void UpdateChecker::checkForUpdates() {
         fullPackageUrl = core::update::PlatformReleaseAssetStrategy::resolveFullPackageUrl(assets, artifactLayout, releaseUrl);
 
         const std::string currentVer = currentVersion().toStdString();
-        const int compareResult = core::update::ReleaseParser::compareVersions(
+        const int compareResult = core::update::release_parser::compareVersions(
             firstRelease.tagName, currentVer);
         if (compareResult > 0) {
             spdlog::info("UpdateChecker: New version available: v{} (Current: v{})",

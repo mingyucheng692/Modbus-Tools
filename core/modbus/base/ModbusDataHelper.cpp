@@ -13,7 +13,7 @@
 
 namespace modbus::base {
 
-QByteArray ModbusDataHelper::parseHex(const QString& input) {
+QByteArray data_helper::parseHex(const QString& input) {
     QString cleaned = input;
     cleaned.remove(QRegularExpression("[^0-9A-Fa-f]"));
     if (cleaned.isEmpty()) return QByteArray();
@@ -21,7 +21,7 @@ QByteArray ModbusDataHelper::parseHex(const QString& input) {
     return QByteArray::fromHex(cleaned.toLatin1());
 }
 
-QByteArray ModbusDataHelper::parseDecimalList(const QString& input, bool& ok) {
+QByteArray data_helper::parseDecimalList(const QString& input, bool& ok) {
     ok = true;
     QByteArray result;
     QStringList parts = input.split(QRegularExpression("[\\s,;]+"), Qt::SkipEmptyParts);
@@ -43,7 +43,7 @@ QByteArray ModbusDataHelper::parseDecimalList(const QString& input, bool& ok) {
     return result;
 }
 
-QByteArray ModbusDataHelper::parseBinary(const QString& input) {
+QByteArray data_helper::parseBinary(const QString& input) {
     QString bits = input;
     bits.remove(QRegularExpression("[^0-1]"));
     if (bits.isEmpty()) return QByteArray();
@@ -62,7 +62,7 @@ QByteArray ModbusDataHelper::parseBinary(const QString& input) {
     return result;
 }
 
-int ModbusDataHelper::parseSmartInt(const QString& input, bool* ok) {
+int data_helper::parseSmartInt(const QString& input, bool* ok) {
     if (ok) *ok = false;
     QString s = input.trimmed();
     if (s.isEmpty()) return 0;

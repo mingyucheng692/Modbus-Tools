@@ -531,7 +531,7 @@ void ModbusSessionPresenter::handleChannelStateTransition(io::ChannelState state
                 trafficLogController_->logConnectionInfo(tr("Disconnected"));
             }
             if (shouldShowDisconnectAlert) {
-                ui::common::ConnectionAlert::showDisconnected(qApp->activeWindow());
+                ui::common::connection_alert::showDisconnected(qApp->activeWindow());
             }
             emit sessionDisconnected(QString());
         }

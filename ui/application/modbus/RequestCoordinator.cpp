@@ -36,9 +36,9 @@ bool RequestCoordinator::ensureConnected() const {
     if (presenter_ && presenter_->isSessionConnected()) {
         return true;
     }
-    // ConnectionAlert::showNotConnected needs a QWidget* parent; we pass
+    // connection_alert::showNotConnected needs a QWidget* parent; we pass
     // nullptr here since the alert is modeless and the user will see it.
-    ui::common::ConnectionAlert::showNotConnected(nullptr);
+    ui::common::connection_alert::showNotConnected(nullptr);
     return false;
 }
 

@@ -201,7 +201,7 @@ void ModbusPage::setupViewOnlyConnections() {
             if (pagePresenter_ && pagePresenter_->isSessionConnected()) {
                 return true;
             }
-            ui::common::ConnectionAlert::showNotConnected(this);
+            ui::common::connection_alert::showNotConnected(this);
             return false;
         };
         controlWidget_->setConnectionValidator(ensureConnected);

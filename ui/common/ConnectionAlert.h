@@ -16,16 +16,22 @@ class QWidget;
 
 namespace ui::common {
 
-class ConnectionAlert {
-    Q_DECLARE_TR_FUNCTIONS(ConnectionAlert)
-public:
-    static void showNotConnected(QWidget* parent) {
-        QMessageBox::warning(parent, tr("Not Connected"), tr("Please connect first."));
-    }
+namespace connection_alert {
 
-    static void showDisconnected(QWidget* parent) {
-        QMessageBox::warning(parent, tr("Connection Lost"), tr("Connection was closed."));
-    }
-};
+Q_DECLARE_TR_FUNCTIONS(ui::common::connection_alert)
+
+inline void showNotConnected(QWidget* parent) {
+    QMessageBox::warning(parent,
+                         QCoreApplication::translate("ConnectionAlert", "Not Connected"),
+                         QCoreApplication::translate("ConnectionAlert", "Please connect first."));
+}
+
+inline void showDisconnected(QWidget* parent) {
+    QMessageBox::warning(parent,
+                         QCoreApplication::translate("ConnectionAlert", "Connection Lost"),
+                         QCoreApplication::translate("ConnectionAlert", "Connection was closed."));
+}
+
+} // namespace connection_alert
 
 } // namespace ui::common

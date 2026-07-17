@@ -240,14 +240,14 @@ void FunctionWidget::setupRawUi(QWidget* parent) {
 int FunctionWidget::getSlaveId() const {
     if (!slaveIdEdit_) return 1;
     bool ok;
-    int val = modbus::base::ModbusDataHelper::parseSmartInt(slaveIdEdit_->text(), &ok);
+    int val = modbus::base::data_helper::parseSmartInt(slaveIdEdit_->text(), &ok);
     return ok ? val : 1;
 }
 
 int FunctionWidget::getStartAddress() const {
     if (!addressEdit_) return 0;
     bool ok;
-    int val = modbus::base::ModbusDataHelper::parseSmartInt(addressEdit_->text(), &ok);
+    int val = modbus::base::data_helper::parseSmartInt(addressEdit_->text(), &ok);
     return ok ? val : 0;
 }
 
@@ -327,8 +327,8 @@ void FunctionWidget::saveSettings() {
 
 void FunctionWidget::onReadClicked(uint8_t functionCode) {
     bool slaveOk, addrOk;
-    int slaveId = modbus::base::ModbusDataHelper::parseSmartInt(slaveIdEdit_->text(), &slaveOk);
-    int address = modbus::base::ModbusDataHelper::parseSmartInt(addressEdit_->text(), &addrOk);
+    int slaveId = modbus::base::data_helper::parseSmartInt(slaveIdEdit_->text(), &slaveOk);
+    int address = modbus::base::data_helper::parseSmartInt(addressEdit_->text(), &addrOk);
 
     if (!slaveOk || slaveId < config::Modbus::kMinSlaveId || slaveId > 255) {
         emit logMessageRequested(usesUnitIdLabel(transportMode_)
@@ -346,8 +346,8 @@ void FunctionWidget::onReadClicked(uint8_t functionCode) {
 
 void FunctionWidget::onWriteClicked(uint8_t functionCode) {
     bool slaveOk, addrOk;
-    int slaveId = modbus::base::ModbusDataHelper::parseSmartInt(slaveIdEdit_->text(), &slaveOk);
-    int address = modbus::base::ModbusDataHelper::parseSmartInt(addressEdit_->text(), &addrOk);
+    int slaveId = modbus::base::data_helper::parseSmartInt(slaveIdEdit_->text(), &slaveOk);
+    int address = modbus::base::data_helper::parseSmartInt(addressEdit_->text(), &addrOk);
 
     if (!slaveOk || slaveId < config::Modbus::kMinSlaveId || slaveId > 255) {
         emit logMessageRequested(usesUnitIdLabel(transportMode_)
@@ -494,7 +494,7 @@ void FunctionWidget::changeEvent(QEvent* event) {
 void FunctionWidget::onAppendCrcClicked() {
     if (!rawDataEdit_) return;
     QString input = rawDataEdit_->toPlainText();
-    QByteArray data = modbus::base::ModbusDataHelper::parseHex(input);
+    QByteArray data = modbus::base::data_helper::parseHex(input);
     if (data.isEmpty()) return;
 
     if (transportMode_ == ui::application::modbus::TransportUiMode::Ascii) {
@@ -516,7 +516,7 @@ void FunctionWidget::onAppendCrcClicked() {
 void FunctionWidget::onAddMbapClicked() {
     if (!rawDataEdit_) return;
     QString input = rawDataEdit_->toPlainText();
-    QByteArray data = modbus::base::ModbusDataHelper::parseHex(input);
+    QByteArray data = modbus::base::data_helper::parseHex(input);
     if (data.isEmpty()) return;
     
     QByteArray mbap;

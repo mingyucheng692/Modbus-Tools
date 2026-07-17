@@ -28,42 +28,40 @@ struct ImportResult {
 };
 
 /**
- * @brief Static utility class for CSV and JSON data handling.
+ * @brief Namespace of free functions for CSV and JSON data handling.
  *
- * Qt JSON dependencies are kept in the .cpp via static methods.
+ * Qt JSON dependencies are kept in the .cpp.
  */
-class AnalyzerExporter {
-public:
-    /**
-     * @brief Save metadata to a JSON file.
-     */
-    static bool saveMetadataJson(const QString& filePath,
-                                 const QString& startAddress,
-                                 const QString& displayMode,
-                                 const QMap<uint16_t, DataMetadata>& metadata,
-                                 QString* error = nullptr);
+namespace exporter {
 
-    /**
-     * @brief Load metadata from a JSON file.
-     */
-    static ImportResult loadMetadataJson(const QString& filePath);
+/**
+ * @brief Save metadata to a JSON file.
+ */
+bool saveMetadataJson(const QString& filePath,
+                      const QString& startAddress,
+                      const QString& displayMode,
+                      const QMap<uint16_t, DataMetadata>& metadata,
+                      QString* error = nullptr);
 
-    /**
-     * @brief Write a chunk of CSV lines to a file.
-     * @param firstChunk If true, truncates file and writes BOM. Otherwise appends.
-     */
-    static bool writeCsvChunk(const QString& filePath,
-                              const QStringList& lines,
-                              bool firstChunk,
-                              QString* error = nullptr);
+/**
+ * @brief Load metadata from a JSON file.
+ */
+ImportResult loadMetadataJson(const QString& filePath);
 
-    /**
-     * @brief Escape a string for CSV format.
-     */
-    static QString escapeCsvValue(const QString& value);
+/**
+ * @brief Write a chunk of CSV lines to a file.
+ * @param firstChunk If true, truncates file and writes BOM. Otherwise appends.
+ */
+bool writeCsvChunk(const QString& filePath,
+                   const QStringList& lines,
+                   bool firstChunk,
+                   QString* error = nullptr);
 
-private:
-    AnalyzerExporter() = delete;
-};
+/**
+ * @brief Escape a string for CSV format.
+ */
+QString escapeCsvValue(const QString& value);
+
+} // namespace exporter
 
 } // namespace modbus::analyzer

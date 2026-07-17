@@ -29,27 +29,28 @@ struct ReleaseInfo {
  * version comparison and release filtering can be unit-tested in isolation.
  * parseReleases uses QJsonDocument (Qt6::Core) for RFC 8259-compliant parsing.
  */
-class ReleaseParser {
-public:
-    /**
-     * @brief Strip leading 'v'/'V' from a version string.
-     */
-    static std::string normalizeVersion(const std::string& raw);
+namespace release_parser {
 
-    /**
-     * @brief Compare two semantic versions. Returns >0 if a > b, <0 if a < b, 0 if equal.
-     */
-    static int compareVersions(const std::string& a, const std::string& b);
+/**
+ * @brief Strip leading 'v'/'V' from a version string.
+ */
+std::string normalizeVersion(const std::string& raw);
 
-    /**
-     * @brief Parse a GitHub Releases JSON array and return all
-     * non-draft releases that satisfy the prerelease filter.
-     * @param json A JSON array string (as returned by the GitHub API).
-     * @param includePrerelease Whether to include prerelease versions.
-     * @return All matching releases, ordered as they appear in the JSON.
-     */
-    static std::vector<ReleaseInfo> parseReleases(const std::string& json,
-                                                   bool includePrerelease);
-};
+/**
+ * @brief Compare two semantic versions. Returns >0 if a > b, <0 if a < b, 0 if equal.
+ */
+int compareVersions(const std::string& a, const std::string& b);
+
+/**
+ * @brief Parse a GitHub Releases JSON array and return all
+ * non-draft releases that satisfy the prerelease filter.
+ * @param json A JSON array string (as returned by the GitHub API).
+ * @param includePrerelease Whether to include prerelease versions.
+ * @return All matching releases, ordered as they appear in the JSON.
+ */
+std::vector<ReleaseInfo> parseReleases(const std::string& json,
+                                       bool includePrerelease);
+
+} // namespace release_parser
 
 } // namespace core::update

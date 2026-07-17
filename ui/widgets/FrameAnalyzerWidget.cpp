@@ -643,7 +643,7 @@ void FrameAnalyzerWidget::onParseClicked()
     
     ProtocolType type = d->protocolCombo->currentData().value<ProtocolType>();
     bool addrOk = false;
-    int addrVal = modbus::base::ModbusDataHelper::parseSmartInt(d->startAddrEdit->text(), &addrOk);
+    int addrVal = modbus::base::data_helper::parseSmartInt(d->startAddrEdit->text(), &addrOk);
     if (!addrOk || addrVal < 0 || addrVal > 65535) {
         d->statusLabel->setText(tr("Invalid Address (0-65535): %1").arg(d->startAddrEdit->text()));
         d->statusLabel->setStyleSheet(QStringLiteral("color: red;"));
@@ -701,7 +701,7 @@ void FrameAnalyzerWidget::onExportJsonClicked()
     if (filePath.isEmpty()) return;
 
     QString error;
-    bool ok = AnalyzerExporter::saveMetadataJson(filePath, 
+    bool ok = exporter::saveMetadataJson(filePath, 
                                                d->startAddrEdit->text(),
                                                (d->displayMode == NumberDisplayMode::Signed ? QStringLiteral("signed") : QStringLiteral("unsigned")),
                                                d->metadataByAddress,
@@ -717,7 +717,7 @@ void FrameAnalyzerWidget::onImportJsonClicked()
     const QString filePath = QFileDialog::getOpenFileName(this, tr("Import Config"), QString(), tr("JSON Files (*.json)"));
     if (filePath.isEmpty()) return;
 
-    ImportResult result = AnalyzerExporter::loadMetadataJson(filePath);
+    ImportResult result = exporter::loadMetadataJson(filePath);
     if (!result.success) {
         QMessageBox::warning(this, tr("Import Failed"), result.error);
         return;
@@ -753,20 +753,20 @@ void FrameAnalyzerWidget::onExportCsvClicked()
     QStringList lines;
     QStringList headers;
     for (int c = 0; c < d->dataTable->columnCount(); ++c) {
-        headers << AnalyzerExporter::escapeCsvValue(d->dataTable->horizontalHeaderItem(c)->text());
+        headers << exporter::escapeCsvValue(d->dataTable->horizontalHeaderItem(c)->text());
     }
     lines << headers.join(QLatin1Char(','));
     
     for (int r = 0; r < d->dataTable->rowCount(); ++r) {
         QStringList row;
         for (int c = 0; c < d->dataTable->columnCount(); ++c) {
-            row << AnalyzerExporter::escapeCsvValue(d->dataTable->item(r, c)->text());
+            row << exporter::escapeCsvValue(d->dataTable->item(r, c)->text());
         }
         lines << row.join(QLatin1Char(','));
     }
 
     QString error;
-    if (!AnalyzerExporter::writeCsvChunk(filePath, lines, true, &error)) {
+    if (!exporter::writeCsvChunk(filePath, lines, true, &error)) {
         QMessageBox::warning(this, tr("Export Failed"), error);
     }
 }

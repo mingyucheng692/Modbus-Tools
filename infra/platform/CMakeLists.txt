@@ -6,8 +6,6 @@ target_sources(infra_platform
         IPlatformProcessRunner.h
         PathResolver.h
         PathResolver.cpp
-        PlatformEncoding.h
-        PlatformProcessRunnerFactory.h
         PlatformInfo.h
         QtStandardPlatformPaths.h
 )

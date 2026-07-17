@@ -78,7 +78,7 @@ RequestSubmissionService::RequestBuildResult RequestSubmissionService::buildWrit
             }
             coilOn = (cleaned == QStringLiteral("1"));
         } else {
-            QByteArray bytes = ModbusDataHelper::parseHex(trimmed);
+            QByteArray bytes = data_helper::parseHex(trimmed);
             if (bytes.isEmpty()) {
                 result.ok = false;
                 result.error = QCoreApplication::translate("RequestSubmissionService",
@@ -133,7 +133,7 @@ RequestSubmissionService::RequestBuildResult RequestSubmissionService::buildWrit
                 "Binary format not supported for registers (0x06)");
             return result;
         } else {
-            QByteArray bytes = ModbusDataHelper::parseHex(trimmed);
+            QByteArray bytes = data_helper::parseHex(trimmed);
             if (bytes.isEmpty() || bytes.size() > 2) {
                 result.ok = false;
                 result.error = QCoreApplication::translate("RequestSubmissionService",
@@ -160,9 +160,9 @@ RequestSubmissionService::RequestBuildResult RequestSubmissionService::buildWrit
                     .arg(bits.size()).arg(quantity);
                 return result;
             }
-            rawBytes = ModbusDataHelper::parseBinary(bits);
+            rawBytes = data_helper::parseBinary(bits);
         } else if (fmt == QStringLiteral("Hex")) {
-            rawBytes = ModbusDataHelper::parseHex(trimmed);
+            rawBytes = data_helper::parseHex(trimmed);
         } else {
             result.ok = false;
             result.error = QCoreApplication::translate("RequestSubmissionService",
@@ -184,7 +184,7 @@ RequestSubmissionService::RequestBuildResult RequestSubmissionService::buildWrit
         }
         if (fmt == QStringLiteral("Decimal")) {
             bool okList = false;
-            rawBytes = ModbusDataHelper::parseDecimalList(trimmed, okList);
+            rawBytes = data_helper::parseDecimalList(trimmed, okList);
             if (!okList) {
                 result.ok = false;
                 result.error = QCoreApplication::translate("RequestSubmissionService",
@@ -192,7 +192,7 @@ RequestSubmissionService::RequestBuildResult RequestSubmissionService::buildWrit
                 return result;
             }
         } else {
-            rawBytes = ModbusDataHelper::parseHex(trimmed);
+            rawBytes = data_helper::parseHex(trimmed);
             if (rawBytes.isEmpty() || (rawBytes.size() % 2 != 0)) {
                 result.ok = false;
                 result.error = QCoreApplication::translate("RequestSubmissionService",

@@ -343,7 +343,7 @@ void GenericTcpView::onUnbindClicked() {
 
 void GenericTcpView::onSendRequested(const QByteArray& data) {
     if (!isConnected_) {
-        ui::common::ConnectionAlert::showNotConnected(this);
+        ui::common::connection_alert::showNotConnected(this);
         return;
     }
 
@@ -382,7 +382,7 @@ void GenericTcpView::onSendRequested(const QByteArray& data) {
 
 void GenericTcpView::onFileSendRequested(const QString& filePath) {
     if (!isConnected_) {
-        ui::common::ConnectionAlert::showNotConnected(this);
+        ui::common::connection_alert::showNotConnected(this);
         return;
     }
 
@@ -463,7 +463,7 @@ void GenericTcpView::onWorkerStateChanged(io::ChannelState state, quint64 genera
         monitor_->appendInfo(tr("State changed: %1").arg(stateStr));
     }
     if (transition.showDisconnectAlert) {
-        ui::common::ConnectionAlert::showDisconnected(this);
+        ui::common::connection_alert::showDisconnected(this);
     }
 
     auto* activeWidget = (currentProtocol_ == Protocol::TcpClient)

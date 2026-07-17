@@ -24,16 +24,21 @@ class QObject;
 class QWidget;
 class QToolButton;
 
-namespace core::common { class ISettingsService; }
+namespace core::common { class ISettingsService; class SettingsController; }
+namespace core::update { class UpdateManager; }
 
 namespace ui {
 namespace views::modbus { class ModbusPage; }
 namespace widgets { class FrameAnalyzerWidget; }
 namespace common { class ThemeController; }
 namespace common { class CompactMenuBarStyle; }
+namespace common { class UpdateChecker; }
 namespace shell { class NavigationController; }
+namespace application { class AnalyzerLinkCoordinator; }
+namespace application { class LanguageCoordinator; }
+namespace application { class UpdateCoordinator; }
+namespace application { class AppLifecycleCoordinator; }
 class UpdateInteractionView;
-struct MainWindowBusinessContext;
 
 class MainWindow : public QMainWindow,
                    public application::IMainWindowView {
@@ -101,7 +106,16 @@ private:
     std::unique_ptr<UpdateInteractionView> updateInteractionView_;
     common::ThemeController* themeController_ = nullptr;
     std::unique_ptr<shell::NavigationController> navigationController_;
-    std::unique_ptr<MainWindowBusinessContext> businessContext_;
+    std::unique_ptr<core::common::SettingsController> settingsController_;
+    std::unique_ptr<common::UpdateChecker> updateChecker_;
+    std::unique_ptr<core::update::UpdateManager> updateManager_;
+    std::unique_ptr<application::AnalyzerLinkCoordinator> analyzerLinkCoordinator_;
+    std::unique_ptr<application::LanguageCoordinator> languageCoordinator_;
+    std::unique_ptr<application::UpdateCoordinator> updateCoordinator_;
+    std::unique_ptr<application::AppLifecycleCoordinator> appLifecycleCoordinator_;
+    // Original UI-layer pointer retained for UI-side builders that expect
+    // the settings service interface.
+    core::common::ISettingsService* settingsService_ = nullptr;
     
     // Local State
     QString effectiveLocale_ = "en_US";

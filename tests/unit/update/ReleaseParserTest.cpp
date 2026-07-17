@@ -13,52 +13,52 @@
 using namespace core::update;
 
 TEST(ReleaseParser, NormalizeVersionStripsV) {
-    EXPECT_EQ(ReleaseParser::normalizeVersion("v1.2.3"), "1.2.3");
-    EXPECT_EQ(ReleaseParser::normalizeVersion("V1.0.0"), "1.0.0");
-    EXPECT_EQ(ReleaseParser::normalizeVersion("1.0.0"), "1.0.0");
+    EXPECT_EQ(release_parser::normalizeVersion("v1.2.3"), "1.2.3");
+    EXPECT_EQ(release_parser::normalizeVersion("V1.0.0"), "1.0.0");
+    EXPECT_EQ(release_parser::normalizeVersion("1.0.0"), "1.0.0");
 }
 
 TEST(ReleaseParser, NormalizeVersionTrimsWhitespace) {
-    EXPECT_EQ(ReleaseParser::normalizeVersion("  v1.2.3  "), "1.2.3");
-    EXPECT_EQ(ReleaseParser::normalizeVersion("\t1.0.0\n"), "1.0.0");
+    EXPECT_EQ(release_parser::normalizeVersion("  v1.2.3  "), "1.2.3");
+    EXPECT_EQ(release_parser::normalizeVersion("\t1.0.0\n"), "1.0.0");
 }
 
 TEST(ReleaseParser, NormalizeVersionEmpty) {
-    EXPECT_EQ(ReleaseParser::normalizeVersion(""), "");
-    EXPECT_EQ(ReleaseParser::normalizeVersion("  "), "");
+    EXPECT_EQ(release_parser::normalizeVersion(""), "");
+    EXPECT_EQ(release_parser::normalizeVersion("  "), "");
 }
 
 TEST(ReleaseParser, CompareVersionsEqual) {
-    EXPECT_EQ(ReleaseParser::compareVersions("1.0.0", "1.0.0"), 0);
-    EXPECT_EQ(ReleaseParser::compareVersions("v1.0.0", "1.0.0"), 0);
-    EXPECT_EQ(ReleaseParser::compareVersions("2.0", "2.0.0"), 0);
+    EXPECT_EQ(release_parser::compareVersions("1.0.0", "1.0.0"), 0);
+    EXPECT_EQ(release_parser::compareVersions("v1.0.0", "1.0.0"), 0);
+    EXPECT_EQ(release_parser::compareVersions("2.0", "2.0.0"), 0);
 }
 
 TEST(ReleaseParser, CompareVersionsGreater) {
-    EXPECT_GT(ReleaseParser::compareVersions("2.0.0", "1.0.0"), 0);
-    EXPECT_GT(ReleaseParser::compareVersions("1.2.0", "1.1.0"), 0);
-    EXPECT_GT(ReleaseParser::compareVersions("1.0.1", "1.0.0"), 0);
-    EXPECT_GT(ReleaseParser::compareVersions("v2.0.0", "v1.9.9"), 0);
+    EXPECT_GT(release_parser::compareVersions("2.0.0", "1.0.0"), 0);
+    EXPECT_GT(release_parser::compareVersions("1.2.0", "1.1.0"), 0);
+    EXPECT_GT(release_parser::compareVersions("1.0.1", "1.0.0"), 0);
+    EXPECT_GT(release_parser::compareVersions("v2.0.0", "v1.9.9"), 0);
 }
 
 TEST(ReleaseParser, CompareVersionsLess) {
-    EXPECT_LT(ReleaseParser::compareVersions("1.0.0", "2.0.0"), 0);
-    EXPECT_LT(ReleaseParser::compareVersions("1.1.0", "1.2.0"), 0);
-    EXPECT_LT(ReleaseParser::compareVersions("1.0.0", "1.0.1"), 0);
+    EXPECT_LT(release_parser::compareVersions("1.0.0", "2.0.0"), 0);
+    EXPECT_LT(release_parser::compareVersions("1.1.0", "1.2.0"), 0);
+    EXPECT_LT(release_parser::compareVersions("1.0.0", "1.0.1"), 0);
 }
 
 TEST(ReleaseParser, CompareVersionsDifferentLengths) {
-    EXPECT_GT(ReleaseParser::compareVersions("1.0.0.1", "1.0.0"), 0);
-    EXPECT_EQ(ReleaseParser::compareVersions("1.0", "1.0.0"), 0);
+    EXPECT_GT(release_parser::compareVersions("1.0.0.1", "1.0.0"), 0);
+    EXPECT_EQ(release_parser::compareVersions("1.0", "1.0.0"), 0);
 }
 
 TEST(ReleaseParser, ParseReleasesEmpty) {
-    auto results = ReleaseParser::parseReleases("", false);
+    auto results = release_parser::parseReleases("", false);
     EXPECT_TRUE(results.empty());
 }
 
 TEST(ReleaseParser, ParseReleasesInvalidJson) {
-    auto results = ReleaseParser::parseReleases("not json", false);
+    auto results = release_parser::parseReleases("not json", false);
     EXPECT_TRUE(results.empty());
 }
 
@@ -73,7 +73,7 @@ TEST(ReleaseParser, ParseReleasesSingleRelease) {
         }
     ])";
 
-    auto results = ReleaseParser::parseReleases(json, false);
+    auto results = release_parser::parseReleases(json, false);
     ASSERT_EQ(results.size(), 1u);
     EXPECT_EQ(results[0].tagName, "v1.0.0");
     EXPECT_EQ(results[0].htmlUrl, "https://github.com/test/releases/tag/v1.0.0");
@@ -99,7 +99,7 @@ TEST(ReleaseParser, ParseReleasesFiltersDraft) {
         }
     ])";
 
-    auto results = ReleaseParser::parseReleases(json, false);
+    auto results = release_parser::parseReleases(json, false);
     ASSERT_EQ(results.size(), 1u);
     EXPECT_EQ(results[0].tagName, "v2.0.0");
 }
@@ -122,7 +122,7 @@ TEST(ReleaseParser, ParseReleasesFiltersPrerelease) {
         }
     ])";
 
-    auto results = ReleaseParser::parseReleases(json, false);
+    auto results = release_parser::parseReleases(json, false);
     ASSERT_EQ(results.size(), 1u);
     EXPECT_EQ(results[0].tagName, "v1.0.0");
 }
@@ -145,7 +145,7 @@ TEST(ReleaseParser, ParseReleasesIncludesPrerelease) {
         }
     ])";
 
-    auto results = ReleaseParser::parseReleases(json, true);
+    auto results = release_parser::parseReleases(json, true);
     ASSERT_EQ(results.size(), 2u);
     EXPECT_EQ(results[0].tagName, "v1.0.0-beta");
     EXPECT_EQ(results[1].tagName, "v1.0.0");
@@ -162,7 +162,7 @@ TEST(ReleaseParser, ParseReleasesPreservesJsonBody) {
         }
     ])";
 
-    auto results = ReleaseParser::parseReleases(json, false);
+    auto results = release_parser::parseReleases(json, false);
     ASSERT_EQ(results.size(), 1u);
     EXPECT_FALSE(results[0].jsonBody.empty());
     EXPECT_NE(results[0].jsonBody.find("\"assets\""), std::string::npos);
@@ -181,7 +181,7 @@ TEST(ReleaseParser, ParseReleasesHandlesEscapedCharacters) {
         }
     ])";
 
-    auto results = ReleaseParser::parseReleases(json, false);
+    auto results = release_parser::parseReleases(json, false);
     ASSERT_EQ(results.size(), 1u);
     EXPECT_EQ(results[0].tagName, "v1.0.0-\"rc\"");
     EXPECT_EQ(results[0].htmlUrl, "https://github.com/test/releases/tag/v1.0.0-\"rc\"");
