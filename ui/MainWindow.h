@@ -10,7 +10,6 @@
 #pragma once
 
 #include "application/IMainWindowView.h"
-#include "application/IMainWindowPresenter.h"
 #include <QMainWindow>
 #include <memory>
 
@@ -60,6 +59,7 @@ private:
     void openUpdateSettingsDialog() override;
     void openAboutDialog() override;
     [[nodiscard]] bool showDisclaimerDialog() override;
+    void requestQuit() override;
     void retranslateUi(const QString& effectiveLocale) override;
 
     // UI Setup
@@ -102,7 +102,6 @@ private:
     common::ThemeController* themeController_ = nullptr;
     std::unique_ptr<shell::NavigationController> navigationController_;
     std::unique_ptr<MainWindowBusinessContext> businessContext_;
-    std::unique_ptr<application::IMainWindowPresenter> presenter_;
     
     // Local State
     QString effectiveLocale_ = "en_US";

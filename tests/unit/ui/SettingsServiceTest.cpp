@@ -1,105 +1,92 @@
 #include <gtest/gtest.h>
 
-#include "../../../ui/common/IAppConfig.h"
 #include "common/SettingsKeys.h"
 #include "../../../ui/common/SettingsService.h"
+#include "infra/platform/PathResolver.h"
 
-#include <QHash>
-#include <memory>
+#include <QDir>
+#include <QFile>
+#include <QSettings>
 
 namespace {
 
-class FakeAppConfig final : public ui::common::IAppConfig {
+// RAII guard that isolates the real "config.ini" used by SettingsService so
+// tests can read/write it without clobbering a developer's real settings.
+// The original file is backed up and restored on destruction.
+//
+// IMPORTANT: declare the guard BEFORE the SettingsService instance in each
+// test so the service (and its debounce QTimer child) is destroyed first,
+// preventing a late timer fire from writing after restoration.
+class ConfigFileGuard {
 public:
-    [[nodiscard]] QVariant value(const QString& key, const QVariant& defaultValue = {}) const override
-    {
-        return values_.value(key, defaultValue);
+    ConfigFileGuard() {
+        const QString dir = infra::platform::PathResolver::instance().resolveConfigDir();
+        QDir().mkpath(dir);
+        path_ = QDir(dir).filePath(QStringLiteral("config.ini"));
+        if (QFile::exists(path_)) {
+            backupPath_ = path_ + QStringLiteral(".test-bak");
+            QFile::remove(backupPath_);
+            QFile::rename(path_, backupPath_);
+        }
     }
-
-    [[nodiscard]] bool contains(const QString& key) const override
-    {
-        return values_.contains(key);
+    ~ConfigFileGuard() {
+        QFile::remove(path_);
+        if (!backupPath_.isEmpty() && QFile::exists(backupPath_)) {
+            QFile::rename(backupPath_, path_);
+        }
     }
+    const QString& path() const { return path_; }
 
-    [[nodiscard]] QStringList allKeys() const override
-    {
-        return values_.keys();
-    }
-
-    [[nodiscard]] QString configFilePath() const override
-    {
-        return configFilePath_;
-    }
-
-    void setValue(const QString& key, const QVariant& value) override
-    {
-        values_.insert(key, value);
-        writtenKeys_.append(key);
-    }
-
-    void remove(const QString& key) override
-    {
-        values_.remove(key);
-        removedKeys_.append(key);
-    }
-
-    void sync() override
-    {
-        ++syncCount_;
-    }
-
-    QString configFilePath_ = QStringLiteral("fake-config.ini");
-    QHash<QString, QVariant> values_;
-    QStringList writtenKeys_;
-    QStringList removedKeys_;
-    int syncCount_ = 0;
+private:
+    QString path_;
+    QString backupPath_;
 };
 
 } // namespace
 
-TEST(SettingsService, LoadsValuesThroughAppConfigFacade)
+TEST(SettingsService, LoadsValuesFromConfigFile)
 {
-    auto fakeAppConfig = std::make_unique<FakeAppConfig>();
-    fakeAppConfig->configFilePath_ = QStringLiteral("settings-under-test.ini");
-    fakeAppConfig->values_.insert(QString::fromLatin1(core::common::settings_keys::kAppThemeMode), QStringLiteral("dark"));
-    FakeAppConfig* fakeAppConfigPtr = fakeAppConfig.get();
+    ConfigFileGuard guard;
+    {
+        QSettings writer(guard.path(), QSettings::IniFormat);
+        writer.setValue(QString::fromLatin1(core::common::settings_keys::kAppThemeMode), QStringLiteral("dark"));
+    }
 
-    ui::common::SettingsService service(nullptr, std::move(fakeAppConfig));
+    ui::common::SettingsService service;
 
-    EXPECT_EQ(service.configFilePath().toStdString(), std::string("settings-under-test.ini"));
+    EXPECT_TRUE(service.configFilePath().endsWith(QStringLiteral("config.ini")));
     EXPECT_EQ(service.value(QString::fromLatin1(core::common::settings_keys::kAppThemeMode)).toString().toStdString(),
               std::string("dark"));
-    EXPECT_TRUE(fakeAppConfigPtr->writtenKeys_.isEmpty());
 }
 
-TEST(SettingsService, SyncPersistsDirtyValuesThroughAppConfigFacade)
+TEST(SettingsService, SyncPersistsDirtyValues)
 {
-    auto fakeAppConfig = std::make_unique<FakeAppConfig>();
-    FakeAppConfig* fakeAppConfigPtr = fakeAppConfig.get();
-
-    ui::common::SettingsService service(nullptr, std::move(fakeAppConfig));
+    ConfigFileGuard guard;
+    ui::common::SettingsService service;
     service.setValue(QString::fromLatin1(core::common::settings_keys::kAppThemeMode), QStringLiteral("dark"));
     service.sync();
 
-    EXPECT_EQ(fakeAppConfigPtr->values_.value(QString::fromLatin1(core::common::settings_keys::kAppThemeMode)).toString().toStdString(),
+    QSettings reader(guard.path(), QSettings::IniFormat);
+    EXPECT_EQ(reader.value(QString::fromLatin1(core::common::settings_keys::kAppThemeMode)).toString().toStdString(),
               std::string("dark"));
-    EXPECT_EQ(fakeAppConfigPtr->syncCount_, 1);
-    EXPECT_TRUE(fakeAppConfigPtr->writtenKeys_.contains(QString::fromLatin1(core::common::settings_keys::kAppThemeMode)));
 }
 
-TEST(SettingsService, LegacySerialBaudRateMigratesThroughAppConfigFacade)
+TEST(SettingsService, LegacySerialBaudRateMigrates)
 {
-    auto fakeAppConfig = std::make_unique<FakeAppConfig>();
-    fakeAppConfig->values_.insert(QString::fromLatin1(core::common::settings_keys::kLegacySerialBaudRate), QStringLiteral("115200"));
-    FakeAppConfig* fakeAppConfigPtr = fakeAppConfig.get();
+    ConfigFileGuard guard;
+    {
+        QSettings writer(guard.path(), QSettings::IniFormat);
+        writer.setValue(QString::fromLatin1(core::common::settings_keys::kLegacySerialBaudRate), QStringLiteral("115200"));
+    }
 
-    ui::common::SettingsService service(nullptr, std::move(fakeAppConfig));
+    ui::common::SettingsService service;
     service.sync();
 
     EXPECT_EQ(service.value(QString::fromLatin1(core::common::settings_keys::kModbusRtuBaudRate)).toString().toStdString(),
               std::string("115200"));
-    EXPECT_FALSE(fakeAppConfigPtr->values_.contains(QString::fromLatin1(core::common::settings_keys::kLegacySerialBaudRate)));
-    EXPECT_EQ(fakeAppConfigPtr->values_.value(QString::fromLatin1(core::common::settings_keys::kModbusRtuBaudRate)).toString().toStdString(),
+
+    QSettings reader(guard.path(), QSettings::IniFormat);
+    EXPECT_FALSE(reader.contains(QString::fromLatin1(core::common::settings_keys::kLegacySerialBaudRate)));
+    EXPECT_EQ(reader.value(QString::fromLatin1(core::common::settings_keys::kModbusRtuBaudRate)).toString().toStdString(),
               std::string("115200"));
-    EXPECT_TRUE(fakeAppConfigPtr->removedKeys_.contains(QString::fromLatin1(core::common::settings_keys::kLegacySerialBaudRate)));
 }

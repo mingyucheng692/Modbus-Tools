@@ -6,7 +6,7 @@
 #include <cstdint>
 #include <functional>
 #include "modbus/base/ModbusConfig.h"
-#include "modbus/session/IModbusClient.h"
+#include "modbus/session/SessionTypes.h"
 #include "../../../infra/io/IChannel.h"
 #include "ModbusTypes.h"
 #include "SessionConnectionStateMachine.h"
@@ -27,7 +27,8 @@ class WorkerReleaseCoordinator;
 }
 
 namespace modbus::dispatch { class ModbusWorker; }
-namespace modbus::factory { class IModbusFactory; }
+namespace modbus::factory { class ModbusFactory; }
+namespace modbus::session { class ModbusClient; }
 
 namespace ui::application::modbus {
 
@@ -51,7 +52,7 @@ class ModbusSessionPresenter : public QObject {
 
 public:
     explicit ModbusSessionPresenter(SessionMode mode,
-                                    ::modbus::factory::IModbusFactory* factory = nullptr,
+                                    ::modbus::factory::ModbusFactory* factory = nullptr,
                                     QObject* parent = nullptr);
     ~ModbusSessionPresenter() noexcept override;
 
@@ -120,9 +121,9 @@ private:
     void maybeRunDeferredAction();
 
     SessionMode mode_;
-    ::modbus::factory::IModbusFactory* factory_ = nullptr; // optional injected factory; nullptr → create concrete ModbusFactory in initStack
+    ::modbus::factory::ModbusFactory* factory_ = nullptr; // optional injected factory; nullptr → create concrete ModbusFactory in initStack
     std::shared_ptr<io::IChannel> channel_;
-    std::shared_ptr<::modbus::session::IModbusClient> client_;
+    std::shared_ptr<::modbus::session::ModbusClient> client_;
     std::shared_ptr<::modbus::dispatch::ModbusWorker> worker_;
     std::shared_ptr<QThread> channelThread_;
     std::shared_ptr<QThread> modbusWorkerThread_;

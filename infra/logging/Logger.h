@@ -24,9 +24,5 @@
 namespace logging {
 
 [[nodiscard]] bool Init(const QString& logDir, QString* errorMessage = nullptr) noexcept;
-void Shutdown();
-void Flush();
-void SetLevel(spdlog::level::level_enum level);
-std::shared_ptr<spdlog::logger> Get();
 
 }

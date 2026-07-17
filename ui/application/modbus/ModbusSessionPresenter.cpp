@@ -7,7 +7,7 @@
 #include "../../widgets/BaseConnectionWidget.h"
 #include "../../common/ConnectionAlert.h"
 #include "modbus/factory/ModbusFactory.h"
-#include "modbus/factory/IModbusFactory.h"
+#include "modbus/session/ModbusClient.h"
 #include <QMetaObject>
 #include <QPointer>
 #include <QApplication>
@@ -27,7 +27,7 @@ void assertObjectThread(const QObject* object, const char* context) {
 } // namespace
 
 ModbusSessionPresenter::ModbusSessionPresenter(SessionMode mode,
-                                               ::modbus::factory::IModbusFactory* factory,
+                                               ::modbus::factory::ModbusFactory* factory,
                                                QObject* parent)
     : QObject(parent),
       mode_(mode),
@@ -419,8 +419,8 @@ bool ModbusSessionPresenter::isLinked() const {
 
 void ModbusSessionPresenter::initStack(const ::modbus::base::ModbusConfig& config) {
     assertGuiThread("initStack must run on the GUI thread");
-    ::modbus::factory::IModbusFactory* factory = factory_;
-    std::unique_ptr<::modbus::factory::IModbusFactory> tempFactory;
+    ::modbus::factory::ModbusFactory* factory = factory_;
+    std::unique_ptr<::modbus::factory::ModbusFactory> tempFactory;
     if (!factory) {
         tempFactory = std::make_unique<::modbus::factory::ModbusFactory>();
         factory = tempFactory.get();

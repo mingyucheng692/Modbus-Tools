@@ -7,7 +7,7 @@
 
 #include <gtest/gtest.h>
 
-#include "modbus/session/IModbusClient.h"
+#include "modbus/session/SessionTypes.h"
 
 using modbus::session::ModbusResponse;
 using modbus::session::ModbusResponseKind;

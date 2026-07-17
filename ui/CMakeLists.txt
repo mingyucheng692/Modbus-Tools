@@ -63,11 +63,8 @@ endfunction()
 add_library(ui STATIC)
 
 target_sources(ui PRIVATE
-    common/AppConfig.cpp
-    common/AppConfig.h
     common/CompactMenuBarStyle.cpp
     common/CompactMenuBarStyle.h
-    common/IAppConfig.h
     common/SettingsService.cpp
     common/SettingsService.h
     common/ThemeController.cpp
@@ -80,8 +77,6 @@ target_sources(ui PRIVATE
     application/IMainWindowView.h
     application/LanguageCoordinator.cpp
     application/LanguageCoordinator.h
-    application/MainWindowPresenter.cpp
-    application/MainWindowPresenter.h
     application/UpdateCoordinator.cpp
     application/UpdateCoordinator.h
     application/modbus/RequestCoordinator.cpp
@@ -109,7 +104,6 @@ target_sources(ui PRIVATE
     UpdateInteractionView.cpp
     application/AnalyzerLinkCoordinator.cpp
     application/AnalyzerLinkCoordinator.h
-    application/IMainWindowPresenter.h
     shell/NavigationController.cpp
     shell/NavigationController.h
     shell/MainWindowPageBuilder.cpp

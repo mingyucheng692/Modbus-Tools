@@ -7,12 +7,13 @@
 #include <functional>
 
 #include "../../../infra/io/IChannel.h"
-#include "modbus/session/IModbusClient.h"
+#include "modbus/session/SessionTypes.h"
 
 class QThread;
 class QTimer;
 
 namespace modbus::dispatch { class ModbusWorker; }
+namespace modbus::session { class ModbusClient; }
 
 namespace ui::application::modbus {
 
@@ -27,7 +28,7 @@ namespace ui::application::modbus {
  */
 struct StackHandle {
     std::shared_ptr<io::IChannel> channel;
-    std::shared_ptr<::modbus::session::IModbusClient> client;
+    std::shared_ptr<::modbus::session::ModbusClient> client;
     std::shared_ptr<::modbus::dispatch::ModbusWorker> worker;
     std::shared_ptr<QThread> channelThread;
     std::shared_ptr<QThread> workerThread;
@@ -107,7 +108,7 @@ signals:
 private:
     struct PendingReleaseContext {
         std::shared_ptr<io::IChannel> channel;
-        std::shared_ptr<::modbus::session::IModbusClient> client;
+        std::shared_ptr<::modbus::session::ModbusClient> client;
         std::shared_ptr<::modbus::dispatch::ModbusWorker> worker;
         std::shared_ptr<QThread> channelThread;
         std::shared_ptr<QThread> workerThread;

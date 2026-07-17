@@ -10,7 +10,7 @@
 #pragma once
 
 #include "Config.h"
-#include "IModbusClient.h"
+#include "SessionTypes.h"
 #include "RequestValidator.h"
 #include "FrameExtractor.h"
 #include "RetryStrategy.h"
@@ -31,7 +31,7 @@
 namespace modbus::session {
 
 /**
- * @brief Core Modbus client implementing IModbusClient with full session management.
+ * @brief Core Modbus client with full session management.
  *
  * @thread Objects of this class can be called from any thread. Internal state
  *         is protected by mutex_ (connection/response state) and pendingMutex_
@@ -40,6 +40,18 @@ namespace modbus::session {
  *
  * @note sendRequest() uses a separate requestMutex_ to prevent concurrent
  *       request execution, enforcing strict serialization of the submit path.
+ *
+ * @par Architecture decision: ModbusClient / RequestExecutor split
+ *      ModbusClient has 7 public methods that forward to RequestExecutor
+ *      (sendRequest, sendRaw, abort) and ConnectionManager (connect,
+ *      disconnect, isConnected, lastChannelError). The split is intentional:
+ *      RequestExecutor (~830 LOC) handles request lifecycle, retry, response
+ *      parsing; ConnectionManager handles connection lifecycle. Merging them
+ *      into a single ~1000 LOC class would hurt readability without reducing
+ *      complexity. The shared synchronization primitives (mutex_, cv_,
+ *      aborted_) are passed by reference into RequestExecutor::Dependencies
+ *      rather than extracted into a SessionSynchronizationContext wrapper —
+ *      3 primitives do not justify a wrapper class.
  *
  * @par Destruction order
  *      The caller (typically ModbusWorker / WorkerReleaseCoordinator) MUST
@@ -50,23 +62,23 @@ namespace modbus::session {
  *      destructor asserts (release-mode, std::abort) that no request is
  *      in-flight (RequestStateMachine is Idle/Completed/Failed/Aborted).
  */
-class ModbusClient : public IModbusClient {
+class ModbusClient {
 public:
     using ConnectionState = ConnectionStateMachine::State;
     using RequestState = RequestStateMachine::State;
 
-    ModbusClient(std::shared_ptr<io::IChannel> channel, 
+    ModbusClient(std::shared_ptr<io::IChannel> channel,
                  std::shared_ptr<transport::ITransport> transport);
-    ~ModbusClient() noexcept override;
+    ~ModbusClient() noexcept;
 
-    ModbusResponse sendRequest(const base::Pdu& request, int slaveId = -1) override;
-    void sendRaw(const QByteArray& data) override;
-    bool connect() override;
-    void disconnect() override;
-    bool isConnected() const override;
-    QString lastChannelError() const override;
-    void abort() override;
-    void setConfig(const base::ModbusConfig& config) override;
+    ModbusResponse sendRequest(const base::Pdu& request, int slaveId = -1);
+    void sendRaw(const QByteArray& data);
+    bool connect();
+    void disconnect();
+    bool isConnected() const;
+    QString lastChannelError() const;
+    void abort();
+    void setConfig(const base::ModbusConfig& config);
     ConnectionState connectionState() const;
     RequestState requestState() const;
 

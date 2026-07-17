@@ -3,7 +3,7 @@
 #include <QCoreApplication>
 #include <QSignalSpy>
 
-#include "../../../core/modbus/session/IModbusClient.h"
+#include "../../../core/modbus/session/SessionTypes.h"
 #include "../../../ui/application/modbus/ModbusSessionPresenter.h"
 #include "../../../ui/application/modbus/RequestSubmissionService.h"
 #include "../../../ui/application/modbus/PollingController.h"

@@ -21,6 +21,8 @@ public:
     virtual void openUpdateSettingsDialog() = 0;
     virtual void openAboutDialog() = 0;
     [[nodiscard]] virtual bool showDisclaimerDialog() = 0;
+    /// Request the application to quit (centralized to avoid qApp->quit() scattering).
+    virtual void requestQuit() = 0;
     virtual void retranslateUi(const QString& effectiveLocale) = 0;
 };
 

@@ -12,7 +12,7 @@ int main(int argc, char** argv)
     QCoreApplication app(argc, argv);
     QStandardPaths::setTestModeEnabled(true);
     QLoggingCategory::setFilterRules(QStringLiteral("*.debug=false\nqt.*.debug=false"));
-    logging::SetLevel(spdlog::level::warn);
+    spdlog::set_level(spdlog::level::warn);
 
     testing::InitGoogleMock(&argc, argv);
     testing::InitGoogleTest(&argc, argv);

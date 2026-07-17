@@ -1,21 +1,22 @@
 /**
  * @file ConnectionStateMachine.h
  * @brief Compile-time validated state machine for ModbusClient connection lifecycle.
- * 
+ *
  * Copyright (c) 2025 - present mingyucheng692
- * 
+ *
  * Licensed under the MIT License. See LICENSE file in the project root for full license information.
  */
 
 #pragma once
 
 #include <array>
-#include <atomic>
 #include <cstddef>
+
+#include "StateMachineBase.h"
 
 namespace modbus::session {
 
-class ConnectionStateMachine {
+class ConnectionStateMachine : public StateMachineBase<ConnectionStateMachine> {
 public:
     enum class State {
         Disconnected,
@@ -33,10 +34,6 @@ public:
 
     ConnectionStateMachine() = default;
 
-    bool tryTransition(State newState, const char* reason);
-    [[nodiscard]] State currentState() const;
-    void forceReset(State newState);
-
     static constexpr const char* toString(State s) {
         switch (s) {
         case State::Disconnected:  return "Disconnected";
@@ -51,7 +48,12 @@ public:
 
     static constexpr std::size_t kStateCount = 6;
 
+    static constexpr const char* kName = "ConnectionStateMachine";
+    static constexpr State kInitialState = State::Disconnected;
+
 private:
+    friend class StateMachineBase<ConnectionStateMachine>;
+
     static constexpr std::array kValidTransitions = {
         Transition{State::Disconnected,  State::Connecting},
         Transition{State::Disconnected,  State::Disconnecting},
@@ -68,10 +70,6 @@ private:
         Transition{State::Reconnecting,  State::Failed},
         Transition{State::Reconnecting,  State::Disconnecting},
     };
-
-    static bool isValidTransition(State from, State to);
-
-    std::atomic<State> state_{State::Disconnected};
 };
 
 static_assert(ConnectionStateMachine::kStateCount == 6,

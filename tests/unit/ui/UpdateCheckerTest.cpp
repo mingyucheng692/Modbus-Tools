@@ -42,7 +42,7 @@ TEST(UpdateCheckerAssetSelection, MacOsAssetsPreferDiskImageBeforeArchiveFallbac
     dmgAsset.insert(QStringLiteral("browser_download_url"), QStringLiteral("https://example.com/macos-arm64.dmg"));
     assets.append(dmgAsset);
 
-    const QString resolvedUrl = ui::common::UpdateChecker::resolveFullPackageUrl(
+    const QString resolvedUrl = core::update::PlatformReleaseAssetStrategy::resolveFullPackageUrl(
         assets,
         layout,
         QStringLiteral("https://example.com/releases/tag/v1.2.3"));
@@ -71,7 +71,7 @@ TEST(UpdateCheckerAssetSelection, LinuxAssetsAcceptPlatformPackageMatrix)
     assets.append(rpmAsset);
 
     const QString releaseUrl = QStringLiteral("https://example.com/releases/tag/v1.2.3");
-    const QString resolvedUrl = ui::common::UpdateChecker::resolveFullPackageUrl(
+    const QString resolvedUrl = core::update::PlatformReleaseAssetStrategy::resolveFullPackageUrl(
         assets,
         layout,
         releaseUrl);
@@ -91,7 +91,7 @@ TEST(UpdateCheckerAssetSelection, ForeignPlatformAssetsFallBackToReleasePage)
     assets.append(foreignAsset);
 
     const QString releaseUrl = QStringLiteral("https://example.com/releases/tag/v1.2.3");
-    const QString resolvedUrl = ui::common::UpdateChecker::resolveFullPackageUrl(
+    const QString resolvedUrl = core::update::PlatformReleaseAssetStrategy::resolveFullPackageUrl(
         assets,
         layout,
         releaseUrl);

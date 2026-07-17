@@ -105,7 +105,7 @@ void UpdateChecker::checkForUpdates() {
         QString updateOnlySha256;
         QString checksumsUrl;
         QString fullPackageUrl;
-        const auto artifactLayout = currentArtifactLayout(latestVersion);
+        const auto artifactLayout = core::update::PlatformReleaseAssetStrategy::layoutForPackage(latestVersion, packagePlatform());
         const QRegularExpression digestPattern(QStringLiteral("^sha256:([a-fA-F0-9]{64})$"));
         for (const QJsonValue& assetValue : assets) {
             if (!assetValue.isObject()) {
@@ -127,7 +127,7 @@ void UpdateChecker::checkForUpdates() {
             }
         }
 
-        fullPackageUrl = resolveFullPackageUrl(assets, artifactLayout, releaseUrl);
+        fullPackageUrl = core::update::PlatformReleaseAssetStrategy::resolveFullPackageUrl(assets, artifactLayout, releaseUrl);
 
         const std::string currentVer = currentVersion().toStdString();
         const int compareResult = core::update::ReleaseParser::compareVersions(
@@ -164,18 +164,6 @@ QString UpdateChecker::packagePlatform() {
 
 QString UpdateChecker::releasePageUrl() {
     return QStringLiteral(MODBUS_TOOLS_RELEASES_PAGE_URL);
-}
-
-core::update::PlatformUpdateArtifactLayout UpdateChecker::currentArtifactLayout(const QString& version) {
-    return core::update::PlatformReleaseAssetStrategy::layoutForPackage(version, packagePlatform());
-}
-
-QString UpdateChecker::resolveFullPackageUrl(const QJsonArray& assets,
-                                             const core::update::PlatformUpdateArtifactLayout& layout,
-                                             const QString& releaseUrl)
-{
-    return core::update::PlatformReleaseAssetStrategy::resolveFullPackageUrl(
-        assets, layout, releaseUrl);
 }
 
 } // namespace ui::common

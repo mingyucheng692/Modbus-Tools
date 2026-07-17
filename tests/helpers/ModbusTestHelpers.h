@@ -4,7 +4,7 @@
 #include <gtest/gtest.h>
 #include "modbus/base/ModbusConfig.h"
 #include "modbus/base/ModbusFrame.h"
-#include "modbus/session/IModbusClient.h"
+#include "modbus/session/SessionTypes.h"
 
 #include <QByteArray>
 

@@ -8,6 +8,7 @@
  */
 
 #include "ModbusWorker.h"
+#include "../session/ModbusClient.h"
 #include <spdlog/spdlog.h>
 #include <QMetaObject>
 #include <QThread>
@@ -20,7 +21,7 @@ bool isThreadReady(const QPointer<QThread>& thread) {
 }
 }
 
-ModbusWorker::ModbusWorker(std::shared_ptr<session::IModbusClient> client, QThread* workerThread, QObject* parent)
+ModbusWorker::ModbusWorker(std::shared_ptr<session::ModbusClient> client, QThread* workerThread, QObject* parent)
     : QObject(parent),
       client_(std::move(client)),
       thread_(workerThread) {

@@ -9,21 +9,22 @@
 
 #if defined(Q_OS_WIN)
 #include "infra/platform/win/Win32ProcessRunner.h"
-#else
-#include "infra/platform/UnsupportedProcessRunner.h"
 #endif
 
 namespace infra::platform {
 
 class IPlatformProcessRunner;
 
+#if defined(Q_OS_WIN)
 [[nodiscard]] inline std::unique_ptr<IPlatformProcessRunner> createPlatformProcessRunner()
 {
-#if defined(Q_OS_WIN)
     return std::make_unique<Win32ProcessRunner>();
-#else
-    return std::make_unique<UnsupportedProcessRunner>();
-#endif
 }
+#else
+[[nodiscard]] inline std::unique_ptr<IPlatformProcessRunner> createPlatformProcessRunner()
+{
+    return nullptr; // Not supported on this platform
+}
+#endif
 
 } // namespace infra::platform

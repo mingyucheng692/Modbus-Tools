@@ -1,21 +1,22 @@
 /**
  * @file RequestStateMachine.h
  * @brief Compile-time validated state machine for ModbusClient request lifecycle.
- * 
+ *
  * Copyright (c) 2025 - present mingyucheng692
- * 
+ *
  * Licensed under the MIT License. See LICENSE file in the project root for full license information.
  */
 
 #pragma once
 
 #include <array>
-#include <atomic>
 #include <cstddef>
+
+#include "StateMachineBase.h"
 
 namespace modbus::session {
 
-class RequestStateMachine {
+class RequestStateMachine : public StateMachineBase<RequestStateMachine> {
 public:
     enum class State {
         Idle,
@@ -33,10 +34,6 @@ public:
 
     RequestStateMachine() = default;
 
-    bool tryTransition(State newState, const char* reason);
-    [[nodiscard]] State currentState() const;
-    void forceReset(State newState);
-
     static constexpr const char* toString(State s) {
         switch (s) {
         case State::Idle:      return "Idle";
@@ -51,7 +48,12 @@ public:
 
     static constexpr std::size_t kStateCount = 6;
 
+    static constexpr const char* kName = "RequestStateMachine";
+    static constexpr State kInitialState = State::Idle;
+
 private:
+    friend class StateMachineBase<RequestStateMachine>;
+
     static constexpr std::array kValidTransitions = {
         Transition{State::Idle,      State::Sending},
         Transition{State::Idle,      State::Failed},
@@ -67,10 +69,6 @@ private:
         Transition{State::Completed, State::Idle},
         Transition{State::Aborted,   State::Idle},
     };
-
-    static bool isValidTransition(State from, State to);
-
-    std::atomic<State> state_{State::Idle};
 };
 
 static_assert(RequestStateMachine::kStateCount == 6,

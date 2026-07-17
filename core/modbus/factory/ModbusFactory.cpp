@@ -32,7 +32,7 @@ std::shared_ptr<QThread> makeManagedThread()
 }
 
 std::shared_ptr<dispatch::ModbusWorker> makeManagedWorker(
-    const std::shared_ptr<session::IModbusClient>& client,
+    const std::shared_ptr<session::ModbusClient>& client,
     QThread* workerThread)
 {
     return std::shared_ptr<dispatch::ModbusWorker>(

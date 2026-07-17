@@ -9,7 +9,7 @@
 
 #pragma once
 
-#include "IModbusClient.h"
+#include "SessionTypes.h"
 #include "RequestValidator.h"
 #include "FrameExtractor.h"
 #include "RetryStrategy.h"
@@ -52,6 +52,15 @@ public:
         std::chrono::steady_clock::time_point enqueueAt{};
     };
 
+    /// @brief Aggregated dependencies for RequestExecutor (17 fields in 3 groups).
+    ///
+    /// Group 1 (protocol stack, 11 fields): channel through config — non-owning
+    /// references to the protocol stack collaborators owned by ModbusClient.
+    /// Group 2 (sync primitives, 3 fields): mutex/cv/aborted — owned by
+    /// ModbusClient, passed by reference. Not extracted into a wrapper class
+    /// because 3 primitives do not justify a SessionSynchronizationContext.
+    /// Group 3 (request queue, 3 fields): pendingMutex/pendingRequests/
+    /// nextRequestId — owned by ModbusClient, passed by reference.
     struct Dependencies {
         // 1. Protocol stack references (non-owning)
         io::IChannel* channel;

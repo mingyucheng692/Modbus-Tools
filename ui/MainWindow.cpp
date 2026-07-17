@@ -12,9 +12,7 @@
 #include "UpdateInteractionView.h"
 #include "application/AppLifecycleCoordinator.h"
 #include "application/AnalyzerLinkCoordinator.h"
-#include "application/IMainWindowPresenter.h"
 #include "application/LanguageCoordinator.h"
-#include "application/MainWindowPresenter.h"
 #include "application/UpdateCoordinator.h"
 #include "shell/NavigationController.h"
 #include "shell/MainWindowPageBuilder.h"
@@ -82,20 +80,20 @@ struct MainWindowBusinessContext {
     MainWindowBusinessContext(MainWindow* view,
                               application::IUpdateInteractionView* updateView,
                               core::common::ISettingsService* settingsService)
-        : settingsController(std::make_unique<core::common::SettingsController>(settingsService, view)),
-          updateChecker(std::make_unique<common::UpdateChecker>(view)),
-          updateManager(std::make_unique<core::update::UpdateManager>(view)),
-          analyzerLinkCoordinator(std::make_unique<application::AnalyzerLinkCoordinator>(view)),
+        : settingsController(std::make_unique<core::common::SettingsController>(settingsService)),
+          updateChecker(std::make_unique<common::UpdateChecker>()),
+          updateManager(std::make_unique<core::update::UpdateManager>()),
+          analyzerLinkCoordinator(std::make_unique<application::AnalyzerLinkCoordinator>()),
           languageCoordinator(std::make_unique<application::LanguageCoordinator>(settingsController.get())),
           updateCoordinator(std::make_unique<application::UpdateCoordinator>(
               updateView,
               updateChecker.get(),
               updateManager.get(),
-              settingsController.get(),
-              view)),
+              settingsController.get())),
           appLifecycleCoordinator(std::make_unique<application::AppLifecycleCoordinator>(
               view,
               settingsController.get(),
+              languageCoordinator.get(),
               updateCoordinator.get())),
           settingsService(settingsService) {}
 
@@ -117,14 +115,8 @@ MainWindow::MainWindow(core::common::ISettingsService* settingsService,
     : QMainWindow(parent),
       updateInteractionView_(std::make_unique<UpdateInteractionView>(this)),
       themeController_(themeController),
-      businessContext_(std::make_unique<MainWindowBusinessContext>(this, updateInteractionView_.get(), settingsService)),
-      presenter_(std::make_unique<application::MainWindowPresenter>(
-        this,
-        businessContext_->settingsController.get(),
-        businessContext_->appLifecycleCoordinator.get(),
-        businessContext_->languageCoordinator.get(),
-        businessContext_->updateCoordinator.get())) {
-    presenter_->initialize();
+      businessContext_(std::make_unique<MainWindowBusinessContext>(this, updateInteractionView_.get(), settingsService)) {
+    businessContext_->appLifecycleCoordinator->initialize();
 }
 
 MainWindow::~MainWindow() {
@@ -201,12 +193,12 @@ void MainWindow::createNavigation() {
 
     common::ThemeController::applyNavigationTheme(navigationList_->palette(), navigationPane_, navigationToggleButton_, navigationList_);
     auto invoke = [this](auto fn, auto&&... args) {
-        if (presenter_) {
-            (presenter_.get()->*fn)(std::forward<decltype(args)>(args)...);
+        if (businessContext_->appLifecycleCoordinator) {
+            (businessContext_->appLifecycleCoordinator.get()->*fn)(std::forward<decltype(args)>(args)...);
         }
     };
     connect(navigationToggleButton_, &QToolButton::clicked, this, [invoke]() {
-        invoke(&application::IMainWindowPresenter::onNavigationToggleRequested);
+        invoke(&application::AppLifecycleCoordinator::onNavigationToggleRequested);
     });
 }
 
@@ -247,15 +239,15 @@ void MainWindow::applyModbusSettings(int timeoutMs, int retries, int retryInterv
 void MainWindow::setupSettingsMenu() {
     settingsMenu_ = menuBar()->addMenu(tr("Settings"));
     auto invoke = [this](auto fn, auto&&... args) {
-        if (presenter_) {
-            (presenter_.get()->*fn)(std::forward<decltype(args)>(args)...);
+        if (businessContext_->appLifecycleCoordinator) {
+            (businessContext_->appLifecycleCoordinator.get()->*fn)(std::forward<decltype(args)>(args)...);
         }
     };
     modbusSettingsAction_ = settingsMenu_->addAction(tr("Modbus Settings"), this, [invoke]() {
-        invoke(&application::IMainWindowPresenter::onModbusSettingsRequested);
+        invoke(&application::AppLifecycleCoordinator::onModbusSettingsRequested);
     });
     updateSettingsAction_ = settingsMenu_->addAction(tr("Update Settings"), this, [invoke]() {
-        invoke(&application::IMainWindowPresenter::onUpdateSettingsRequested);
+        invoke(&application::AppLifecycleCoordinator::onUpdateSettingsRequested);
     });
     settingsMenu_->addSeparator();
     openLogFolderAction_ = settingsMenu_->addAction(tr("Open Log Folder"), this, [this]() {
@@ -284,28 +276,28 @@ void MainWindow::setupLanguageMenu() {
     addLang(tr("繁體中文"), config::App::kLocaleZhTw);
 
     auto invoke = [this](auto fn, auto&&... args) {
-        if (presenter_) {
-            (presenter_.get()->*fn)(std::forward<decltype(args)>(args)...);
+        if (businessContext_->appLifecycleCoordinator) {
+            (businessContext_->appLifecycleCoordinator.get()->*fn)(std::forward<decltype(args)>(args)...);
         }
     };
     connect(languageActionGroup_, &QActionGroup::triggered, this, [invoke](QAction* action) {
-        invoke(&application::IMainWindowPresenter::onLanguageSelected, action->data().toString());
+        invoke(&application::AppLifecycleCoordinator::onLanguageSelected, action->data().toString());
     });
 }
 
 void MainWindow::setupAboutMenu() {
     aboutMenu_ = menuBar()->addMenu(tr("About"));
     auto invoke = [this](auto fn, auto&&... args) {
-        if (presenter_) {
-            (presenter_.get()->*fn)(std::forward<decltype(args)>(args)...);
+        if (businessContext_->appLifecycleCoordinator) {
+            (businessContext_->appLifecycleCoordinator.get()->*fn)(std::forward<decltype(args)>(args)...);
         }
     };
     checkUpdatesAction_ = aboutMenu_->addAction(tr("Check for Updates"), this, [invoke]() {
-        invoke(&application::IMainWindowPresenter::onCheckForUpdatesRequested);
+        invoke(&application::AppLifecycleCoordinator::onCheckForUpdatesRequested);
     });
     aboutMenu_->addSeparator();
     aboutAction_ = aboutMenu_->addAction(tr("About"), this, [invoke]() {
-        invoke(&application::IMainWindowPresenter::onAboutRequested);
+        invoke(&application::AppLifecycleCoordinator::onAboutRequested);
     });
 }
 
@@ -348,7 +340,10 @@ void MainWindow::openModbusSettingsDialog() {
         businessContext_->settingsController->setModbusSettings(s.timeoutMs, s.retries, s.retryIntervalMs, s.retryEnabled);
         applyModbusSettingsToViews(s.timeoutMs, s.retryEnabled ? s.retries : 0, s.retryIntervalMs);
         const auto newLevel = static_cast<spdlog::level::level_enum>(s.logLevel);
-        logging::SetLevel(newLevel);
+        spdlog::set_level(newLevel);
+        if (auto* logger = spdlog::default_logger()) {
+            logger->set_level(newLevel);
+        }
     }
 }
 
@@ -367,6 +362,10 @@ void MainWindow::openAboutDialog() {
 bool MainWindow::showDisclaimerDialog() {
     widgets::DisclaimerDialog dialog(this);
     return dialog.exec() == QDialog::Accepted;
+}
+
+void MainWindow::requestQuit() {
+    qApp->quit();
 }
 
 void MainWindow::retranslateUi(const QString& effectiveLocale) {
@@ -410,8 +409,8 @@ void MainWindow::changeEvent(QEvent* event) {
 }
 
 void MainWindow::closeEvent(QCloseEvent* event) {
-    if (presenter_) {
-        presenter_->onCloseRequested();
+    if (businessContext_->appLifecycleCoordinator) {
+        businessContext_->appLifecycleCoordinator->onCloseRequested();
     }
     QMainWindow::closeEvent(event);
 }

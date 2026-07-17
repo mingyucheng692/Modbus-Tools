@@ -16,7 +16,6 @@ class QNetworkAccessManager;
 class QString;
 
 namespace core::update {
-struct PlatformUpdateArtifactLayout;
 struct ReleaseInfo;
 }
 
@@ -32,10 +31,6 @@ public:
     static QString currentVersion();
     static QString packagePlatform();
     static QString releasePageUrl();
-    static core::update::PlatformUpdateArtifactLayout currentArtifactLayout(const QString& version);
-    static QString resolveFullPackageUrl(const QJsonArray& assets,
-                                         const core::update::PlatformUpdateArtifactLayout& layout,
-                                         const QString& releaseUrl);
 
 signals:
     void updateAvailable(const QString& currentVersion,

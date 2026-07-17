@@ -166,28 +166,4 @@ bool Init(const QString& logDir, QString* errorMessage) noexcept
     return true;
 }
 
-void Shutdown()
-{
-    spdlog::shutdown();
-}
-
-void Flush()
-{
-    spdlog::default_logger()->flush();
-}
-
-void SetLevel(spdlog::level::level_enum level)
-{
-    spdlog::set_level(level);
-    auto logger = spdlog::default_logger();
-    if (logger) {
-        logger->set_level(level);
-    }
-}
-
-std::shared_ptr<spdlog::logger> Get()
-{
-    return spdlog::default_logger();
-}
-
 }

@@ -8,9 +8,8 @@
 #include "../../infra/io/TcpServerHandle.h"
 #include "../../infra/io/UdpChannel.h"
 #include "../../core/modbus/dispatch/ModbusWorker.h"
-#include "../../core/modbus/factory/IModbusFactory.h"
 #include "../../core/modbus/parser/FrameParseWorker.h"
-#include "../../core/modbus/session/IModbusClient.h"
+#include "../../core/modbus/session/SessionTypes.h"
 #include "../../core/modbus/session/ModbusClient.h"
 #include "../../core/modbus/transport/ITransport.h"
 #include "../../core/update/UpdateManager.h"
@@ -34,9 +33,7 @@ static_assert(std::is_nothrow_destructible_v<io::TcpServerHandle>);
 static_assert(std::is_nothrow_destructible_v<ui::application::AnalyzerLinkCoordinator>);
 static_assert(std::is_nothrow_destructible_v<ui::application::modbus::ModbusSessionPresenter>);
 static_assert(std::is_nothrow_destructible_v<io::IChannel>);
-static_assert(std::is_nothrow_destructible_v<modbus::session::IModbusClient>);
 static_assert(std::is_nothrow_destructible_v<modbus::transport::ITransport>);
-static_assert(std::is_nothrow_destructible_v<modbus::factory::IModbusFactory>);
 
 TEST(NoexceptContract, PriorityClassesRemainNothrowDestructible)
 {

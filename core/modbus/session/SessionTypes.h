@@ -1,9 +1,9 @@
 /**
- * @file IModbusClient.h
- * @brief Header file for IModbusClient.
- * 
+ * @file SessionTypes.h
+ * @brief Header file for Modbus session response types.
+ *
  * Copyright (c) 2025 - present mingyucheng692
- * 
+ *
  * Licensed under the MIT License. See LICENSE file in the project root for full license information.
  */
 
@@ -76,31 +76,6 @@ struct ModbusResponse {
         response.errorCode = RequestError::Busy;
         return response;
     }
-};
-
-class IModbusClient {
-public:
-    virtual ~IModbusClient() noexcept = default;
-
-    // 发送请求并等待响应（由 Worker 线程保证不阻塞 UI）
-    // slaveId: 如果为 -1，则使用 setConfig 设置的默认 slaveId
-    virtual ModbusResponse sendRequest(const base::Pdu& request, int slaveId = -1) = 0;
-
-    // 发送原始数据（不经过 PDU 封装，直接写入通道）
-    // 用于非标准测试
-    virtual void sendRaw(const QByteArray& data) = 0;
-
-    // 连接/断开
-    virtual bool connect() = 0;
-    virtual void disconnect() = 0;
-    virtual bool isConnected() const = 0;
-    virtual QString lastChannelError() const = 0;
-    
-    // 中止当前正在进行的后台请求（用于关机/退出）
-    virtual void abort() = 0;
-    
-    // 更新配置
-    virtual void setConfig(const base::ModbusConfig& config) = 0;
 };
 
 } // namespace modbus::session

@@ -1,6 +1,6 @@
 /**
  * @file Win32UpdateStrategy.cpp
- * @brief Windows implementation of IPlatformUpdateStrategy using Win32 API.
+ * @brief Windows implementation using Win32 API.
  *
  * Copyright (c) 2025 - present mingyucheng692
  *
@@ -8,6 +8,7 @@
  */
 
 #include "Win32UpdateStrategy.h"
+#include "Win32Encoding.h"
 
 #include <windows.h>
 #include <bcrypt.h>
@@ -23,39 +24,6 @@ namespace updater {
 
 namespace {
 
-/// Converts UTF-8 string to UTF-16 wstring (Win32 boundary conversion).
-std::wstring utf8ToWide(const std::string& utf8) {
-    if (utf8.empty()) {
-        return {};
-    }
-    const int required = MultiByteToWideChar(CP_UTF8, 0, utf8.data(),
-                                             static_cast<int>(utf8.size()), nullptr, 0);
-    if (required <= 0) {
-        return {};
-    }
-    std::wstring wide(required, L'\0');
-    MultiByteToWideChar(CP_UTF8, 0, utf8.data(), static_cast<int>(utf8.size()),
-                        wide.data(), required);
-    return wide;
-}
-
-/// Converts UTF-16 wstring to UTF-8 string (Win32 boundary conversion).
-std::string wideToUtf8(const std::wstring& wide) {
-    if (wide.empty()) {
-        return {};
-    }
-    const int required = WideCharToMultiByte(CP_UTF8, 0, wide.data(),
-                                             static_cast<int>(wide.size()),
-                                             nullptr, 0, nullptr, nullptr);
-    if (required <= 0) {
-        return {};
-    }
-    std::string utf8(required, '\0');
-    WideCharToMultiByte(CP_UTF8, 0, wide.data(), static_cast<int>(wide.size()),
-                       utf8.data(), required, nullptr, nullptr);
-    return utf8;
-}
-
 std::string bytesToHex(const std::vector<unsigned char>& bytes) {
     static constexpr char digits[] = "0123456789abcdef";
     std::string hex;
@@ -70,7 +38,7 @@ std::string bytesToHex(const std::vector<unsigned char>& bytes) {
 } // namespace
 
 std::string Win32UpdateStrategy::readAllBytes(const std::string& path) {
-    const std::wstring wpath = utf8ToWide(path);
+    const std::wstring wpath = updater::win32::utf8ToWide(path);
     std::ifstream file(std::filesystem::path(wpath), std::ios::binary);
     if (!file.is_open()) {
         return {};
@@ -80,7 +48,7 @@ std::string Win32UpdateStrategy::readAllBytes(const std::string& path) {
 }
 
 bool Win32UpdateStrategy::computeSha256(const std::string& filePath, std::string& sha256) {
-    const std::wstring wpath = utf8ToWide(filePath);
+    const std::wstring wpath = updater::win32::utf8ToWide(filePath);
 
     BCRYPT_ALG_HANDLE algorithm = nullptr;
     BCRYPT_HASH_HANDLE hashHandle = nullptr;
@@ -164,21 +132,21 @@ bool Win32UpdateStrategy::computeSha256(const std::string& filePath, std::string
 }
 
 bool Win32UpdateStrategy::fileExists(const std::string& path) {
-    const std::wstring wpath = utf8ToWide(path);
+    const std::wstring wpath = updater::win32::utf8ToWide(path);
     const DWORD attrs = GetFileAttributesW(wpath.c_str());
     return attrs != INVALID_FILE_ATTRIBUTES && (attrs & FILE_ATTRIBUTE_DIRECTORY) == 0;
 }
 
 bool Win32UpdateStrategy::moveFileAtomic(const std::string& source, const std::string& destination) {
-    const std::wstring wsource = utf8ToWide(source);
-    const std::wstring wdest = utf8ToWide(destination);
+    const std::wstring wsource = updater::win32::utf8ToWide(source);
+    const std::wstring wdest = updater::win32::utf8ToWide(destination);
     return MoveFileExW(wsource.c_str(), wdest.c_str(),
                        MOVEFILE_REPLACE_EXISTING | MOVEFILE_COPY_ALLOWED |
                        MOVEFILE_WRITE_THROUGH) != FALSE;
 }
 
 bool Win32UpdateStrategy::launchTarget(const std::string& targetPath) {
-    const std::wstring wpath = utf8ToWide(targetPath);
+    const std::wstring wpath = updater::win32::utf8ToWide(targetPath);
     STARTUPINFOW startupInfo{};
     PROCESS_INFORMATION processInfo{};
     startupInfo.cb = sizeof(startupInfo);
@@ -206,7 +174,7 @@ bool Win32UpdateStrategy::waitForLauncherExit(std::uint32_t pid) {
 }
 
 void Win32UpdateStrategy::showError(const std::string& message) {
-    const std::wstring wmessage = utf8ToWide(message);
+    const std::wstring wmessage = updater::win32::utf8ToWide(message);
     MessageBoxW(nullptr, wmessage.c_str(), L"Update Error", MB_OK | MB_ICONERROR);
 }
 

@@ -7,8 +7,8 @@
  * Licensed under the MIT License. See LICENSE file in the project root for full license information.
  */
 
-#include "../IPlatformUpdateStrategy.h"
 #include "../UpdateTask.h"
+#include "Win32Encoding.h"
 #include "Win32UpdateStrategy.h"
 
 #include <windows.h>
@@ -35,22 +35,6 @@ std::string getString(const char* en, const char* zhCn, const char* zhTw) {
     case Language::ZhTw: return zhTw;
     default: return en;
     }
-}
-
-std::string wideToUtf8(const std::wstring& wide) {
-    if (wide.empty()) {
-        return {};
-    }
-    const int required = WideCharToMultiByte(CP_UTF8, 0, wide.data(),
-                                             static_cast<int>(wide.size()),
-                                             nullptr, 0, nullptr, nullptr);
-    if (required <= 0) {
-        return {};
-    }
-    std::string utf8(required, '\0');
-    WideCharToMultiByte(CP_UTF8, 0, wide.data(), static_cast<int>(wide.size()),
-                       utf8.data(), required, nullptr, nullptr);
-    return utf8;
 }
 
 std::wstring toLowerWide(std::wstring value) {
@@ -88,7 +72,7 @@ std::string getTaskPathAndLang() {
         }
     }
     LocalFree(argv);
-    return wideToUtf8(taskPath);
+    return updater::win32::wideToUtf8(taskPath);
 }
 
 } // namespace

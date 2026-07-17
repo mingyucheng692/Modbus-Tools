@@ -9,12 +9,12 @@
 
 #pragma once
 
-#include "IAppConfig.h"
 #include "../../core/common/ISettingsService.h"
 
 #include <QObject>
 #include <QHash>
 #include <QSet>
+#include <QSettings>
 #include <memory>
 
 class QTimer;
@@ -25,8 +25,7 @@ class SettingsService : public QObject, public ::core::common::ISettingsService 
     Q_OBJECT
 
 public:
-    explicit SettingsService(QObject* parent = nullptr,
-                             std::unique_ptr<IAppConfig> appConfig = {});
+    explicit SettingsService(QObject* parent = nullptr);
 
     QVariant value(const QString& key) const override;
     bool contains(const QString& key) const override;
@@ -44,7 +43,7 @@ private:
     QSet<QString> loadedKeys_;
     QSet<QString> dirtyKeys_;
     QSet<QString> keysToRemove_;
-    std::unique_ptr<IAppConfig> appConfig_;
+    std::unique_ptr<QSettings> settings_;
     QTimer* syncTimer_ = nullptr;
 };
 

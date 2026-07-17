@@ -1,6 +1,7 @@
 #pragma once
 
 #include <QByteArray>
+#include <QString>
 
 namespace core::common {
 class SettingsController;
@@ -9,21 +10,33 @@ class SettingsController;
 namespace ui::application {
 
 class IMainWindowView;
+class LanguageCoordinator;
 class UpdateCoordinator;
 
 class AppLifecycleCoordinator final {
 public:
     AppLifecycleCoordinator(IMainWindowView* view,
                             core::common::SettingsController* settingsController,
+                            LanguageCoordinator* languageCoordinator,
                             UpdateCoordinator* updateCoordinator);
 
     void restoreFromSettings();
     void finalizeStartup();
     void persistOnClose();
 
+    void initialize();
+    void onNavigationToggleRequested();
+    void onModbusSettingsRequested();
+    void onUpdateSettingsRequested();
+    void onAboutRequested();
+    void onCheckForUpdatesRequested();
+    void onLanguageSelected(const QString& locale);
+    void onCloseRequested();
+
 private:
     IMainWindowView* view_ = nullptr;
     core::common::SettingsController* settingsController_ = nullptr;
+    LanguageCoordinator* languageCoordinator_ = nullptr;
     UpdateCoordinator* updateCoordinator_ = nullptr;
 };
 

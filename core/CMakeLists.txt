@@ -29,7 +29,7 @@ target_sources(core PRIVATE
     modbus/transport/ModbusTcpTransport.h
     modbus/transport/ModbusTcpTransport.cpp
     # modbus session
-    modbus/session/IModbusClient.h
+    modbus/session/SessionTypes.h
     modbus/session/ModbusClient.h
     modbus/session/ModbusClient.cpp
     modbus/session/RequestValidator.h
@@ -38,10 +38,9 @@ target_sources(core PRIVATE
     modbus/session/FrameExtractor.cpp
     modbus/session/RetryStrategy.h
     modbus/session/RetryStrategy.cpp
+    modbus/session/StateMachineBase.h
     modbus/session/ConnectionStateMachine.h
-    modbus/session/ConnectionStateMachine.cpp
     modbus/session/RequestStateMachine.h
-    modbus/session/RequestStateMachine.cpp
     modbus/session/FlowController.h
     modbus/session/FlowController.cpp
     modbus/session/TimeoutController.h
@@ -54,7 +53,6 @@ target_sources(core PRIVATE
     modbus/dispatch/ModbusWorker.h
     modbus/dispatch/ModbusWorker.cpp
     # modbus factory
-    modbus/factory/IModbusFactory.h
     modbus/factory/ModbusFactory.h
     modbus/factory/ModbusFactory.cpp
     # modbus request

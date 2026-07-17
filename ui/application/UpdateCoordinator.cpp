@@ -179,6 +179,10 @@ void UpdateCoordinator::handleUpdateReadyToInstall(const QString& taskFile) {
     QString error;
     if (updateManager_ != nullptr && updateManager_->launchInstaller(taskFile, currentLocale_, error)) {
         spdlog::info("UpdateCoordinator: Updater launched successfully, terminating application to apply update.");
+        // Note: qApp->quit() is called directly here (not via IMainWindowView::requestQuit())
+        // because UpdateCoordinator only holds an IUpdateInteractionView* (not IMainWindowView*),
+        // placing it in a separate ownership boundary. Routing this through MainWindow would
+        // require adding an IMainWindowView* dependency or a quit signal/callback to UpdateCoordinator.
         qApp->quit();
     } else {
         if (updateManager_ == nullptr && error.isEmpty()) {

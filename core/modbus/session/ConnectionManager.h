@@ -23,6 +23,18 @@ namespace modbus::session {
  * @brief Encapsulates connection lifecycle: connect, disconnect, reconnect, and
  *        channel state waiting.
  *
+ * @par Retry abstraction evaluation (P1-7)
+ *      ensureConnected() uses an inline for-loop with RetryStrategy's static
+ *      calculateBackoffMs() for delay computation. This is intentionally NOT
+ *      migrated to RetryStrategy's instance API (shouldRetry/recordAttempt/
+ *      nextWait) because: (1) the current loop has different retry-counting
+ *      semantics (attempts = config->retries + 1 vs shouldRetry's <= maxRetries),
+ *      (2) migrating would change runtime behavior and requires dedicated
+ *      integration testing, (3) ReconnectPolicy (UI layer, fixed delay) and
+ *      RetryStrategy (session layer, exponential backoff) serve different
+ *      layers with different semantics and should NOT be unified into a single
+ *      abstraction — forcing unification would be over-engineering.
+ *
  * @note This class must not outlive the referenced objects (channel, stateMachine,
  *       timeoutController, config, mutex, cv). The owning ModbusClient is
  *       responsible for lifetime ordering.

@@ -8,17 +8,28 @@
  */
 
 #include "SettingsService.h"
-#include "AppConfig.h"
 #include "common/SettingsKeys.h"
 #include "Config.h"
+#include "infra/platform/PathResolver.h"
 #include <QCoreApplication>
+#include <QDir>
+#include <QSettings>
 #include <QTimer>
+
+namespace {
+
+QString resolveConfigFilePath()
+{
+    return QDir(infra::platform::PathResolver::instance().resolveConfigDir()).filePath(QStringLiteral("config.ini"));
+}
+
+} // namespace
 
 namespace ui::common {
 
-SettingsService::SettingsService(QObject* parent, std::unique_ptr<IAppConfig> appConfig)
+SettingsService::SettingsService(QObject* parent)
     : QObject(parent),
-      appConfig_(appConfig ? std::move(appConfig) : std::make_unique<AppConfig>()),
+      settings_(std::make_unique<QSettings>(resolveConfigFilePath(), QSettings::IniFormat)),
       syncTimer_(new QTimer(this)) {
     syncTimer_->setSingleShot(true);
     syncTimer_->setInterval(config::Settings::kSyncDebounceMs);
@@ -54,7 +65,7 @@ void SettingsService::setValue(const QString& key, const QVariant& value) {
 }
 
 QString SettingsService::configFilePath() const {
-    return appConfig_->configFilePath();
+    return settings_->fileName();
 }
 
 void SettingsService::sync() {
@@ -63,14 +74,14 @@ void SettingsService::sync() {
     }
 
     for (auto it = dirtyKeys_.cbegin(); it != dirtyKeys_.cend(); ++it) {
-        appConfig_->setValue(*it, values_.value(*it, defaults_.value(*it)));
+        settings_->setValue(*it, values_.value(*it, defaults_.value(*it)));
         loadedKeys_.insert(*it);
     }
     for (auto it = keysToRemove_.cbegin(); it != keysToRemove_.cend(); ++it) {
-        appConfig_->remove(*it);
+        settings_->remove(*it);
         loadedKeys_.remove(*it);
     }
-    appConfig_->sync();
+    settings_->sync();
     dirtyKeys_.clear();
     keysToRemove_.clear();
 }
@@ -178,21 +189,21 @@ void SettingsService::initializeDefaults() {
 void SettingsService::load() {
     // Load explicitly defined defaults first (ensures baseline exists)
     for (auto it = defaults_.cbegin(); it != defaults_.cend(); ++it) {
-        values_.insert(it.key(), appConfig_->value(it.key(), it.value()));
+        values_.insert(it.key(), settings_->value(it.key(), it.value()));
     }
 
     // Now load everything else found in the file to handle dynamic/prefixed keys
-    const QStringList allKeys = appConfig_->allKeys();
+    const QStringList allKeys = settings_->allKeys();
     for (const QString& key : allKeys) {
         if (!values_.contains(key)) {
-            values_.insert(key, appConfig_->value(key));
+            values_.insert(key, settings_->value(key));
         }
         loadedKeys_.insert(key);
     }
 
     using namespace core::common::settings_keys;
-    if (appConfig_->contains(kLegacySerialBaudRate) && !appConfig_->contains(kModbusRtuBaudRate)) {
-        values_.insert(kModbusRtuBaudRate, appConfig_->value(kLegacySerialBaudRate));
+    if (settings_->contains(kLegacySerialBaudRate) && !settings_->contains(kModbusRtuBaudRate)) {
+        values_.insert(kModbusRtuBaudRate, settings_->value(kLegacySerialBaudRate));
         dirtyKeys_.insert(kModbusRtuBaudRate);
         keysToRemove_.insert(kLegacySerialBaudRate);
     }

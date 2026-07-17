@@ -9,13 +9,15 @@
 
 #pragma once
 
-#include "../session/IModbusClient.h"
+#include "../session/SessionTypes.h"
 #include <memory>
 #include <deque>
 #include <atomic>
 #include <QObject>
 #include <QPointer>
 #include <QThread>
+
+namespace modbus::session { class ModbusClient; }
 
 namespace modbus::dispatch {
 
@@ -27,13 +29,13 @@ namespace modbus::dispatch {
  *         queued and executed on the worker thread. Results are signaled back
  *         to the caller via queued connections.
  *
- * @note The underlying IModbusClient is thread-safe; this worker serializes
+ * @note The underlying ModbusClient is thread-safe; this worker serializes
  *       access through queued connections to avoid concurrent submit() calls.
  */
 class ModbusWorker : public QObject {
     Q_OBJECT
 public:
-    explicit ModbusWorker(std::shared_ptr<session::IModbusClient> client, QThread* workerThread, QObject* parent = nullptr);
+    explicit ModbusWorker(std::shared_ptr<session::ModbusClient> client, QThread* workerThread, QObject* parent = nullptr);
     ~ModbusWorker() noexcept override;
 
     void start();
@@ -69,7 +71,7 @@ private:
     void scheduleProcessQueue();
     void processQueue();
 
-    std::shared_ptr<session::IModbusClient> client_;
+    std::shared_ptr<session::ModbusClient> client_;
     QPointer<QThread> thread_;
     std::atomic_bool stopping_ {false};
     std::atomic_bool stopped_ {false};

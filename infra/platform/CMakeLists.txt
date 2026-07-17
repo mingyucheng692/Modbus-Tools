@@ -10,8 +10,6 @@ target_sources(infra_platform
         PlatformProcessRunnerFactory.h
         PlatformInfo.h
         QtStandardPlatformPaths.h
-        UnsupportedProcessRunner.h
-        UnsupportedProcessRunner.cpp
 )
 
 if(WIN32)

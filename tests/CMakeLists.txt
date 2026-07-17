@@ -103,7 +103,6 @@ set(TEST_QT_CORE_SOURCES
     unit/modbus/application/WorkerReleaseCoordinatorTest.cpp
     unit/modbus/application/SessionConnectionStateMachineTest.cpp
     unit/ui/AppLifecycleCoordinatorTest.cpp
-    unit/ui/MainWindowPresenterTest.cpp
     unit/ui/SettingsServiceTest.cpp
     unit/ui/UpdateCheckerTest.cpp
     unit/ui/UpdateCoordinatorTest.cpp
