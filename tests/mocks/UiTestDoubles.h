@@ -57,6 +57,7 @@ public:
         lastRetranslatedLocale = effectiveLocale;
         ++retranslateUiCallCount;
     }
+    void requestQuit() override { ++requestQuitCallCount; }
 
     void setUpdateCheckActionEnabled(bool enabled) override {
         updateCheckActionEnabled = enabled;
@@ -142,6 +143,7 @@ public:
     int openAboutDialogCallCount = 0;
     int showDisclaimerDialogCallCount = 0;
     int retranslateUiCallCount = 0;
+    int requestQuitCallCount = 0;
     int setUpdateCheckActionEnabledCallCount = 0;
     int setUpdateIndicatorVisibleCallCount = 0;
     int showUpdateInfoMessageCallCount = 0;
