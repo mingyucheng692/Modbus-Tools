@@ -55,11 +55,14 @@ TcpChannel::~TcpChannel() {
     // thread and returns immediately, then destroys socket_/pendingWrites_
     // while the IO thread may still access them. Callers must ensure the IO
     // thread has quit()+wait() before releasing the channel.
-    Q_ASSERT_X(socket_.thread() == QThread::currentThread(),
-                "TcpChannel::~TcpChannel",
-                "TcpChannel must be destroyed on its owner (IO) thread; "
-                "cross-thread destruction is UAF. Ensure ioThread quit()+wait() "
-                "completes before releasing the channel.");
+    // Release-mode assert: UAF is unrecoverable, must crash rather than
+    // silently continue (Q_ASSERT_X is debug-only).
+    if (socket_.thread() != QThread::currentThread()) {
+        spdlog::critical("TcpChannel::~TcpChannel: destroyed on non-owner thread. "
+                         "Cross-thread destruction is UAF. Ensure ioThread "
+                         "quit()+wait() completes before releasing the channel.");
+        std::abort();
+    }
     close();
 }
 

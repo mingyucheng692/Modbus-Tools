@@ -42,8 +42,15 @@ protected:
 
 private:
     std::atomic<ChannelState> state_{ChannelState::Closed};
+    // timeouts_ is accessed from both IO thread (read in write timeout checks)
+    // and GUI thread (setTimeouts during config). Protected by timeoutsMutex_
+    // since setTimeouts is rare (config-time only), not a hot path.
+    mutable std::mutex timeoutsMutex_;
     Timeouts timeouts_{};
-    ChannelStats stats_{};
+    // stats_ counters are on the IO-thread hot path (addTx/addRx per frame).
+    // Use relaxed atomics — no ordering guarantee needed for byte counters.
+    std::atomic<quint64> bytesTx_{0};
+    std::atomic<quint64> bytesRx_{0};
     std::function<void(QByteArrayView)> readHandler_;
     std::function<void(const QString&)> errorHandler_;
     std::function<void()> writeDrainedHandler_;

@@ -12,25 +12,31 @@
 
 namespace modbus::request {
 
-BuildResult ModbusRequestFactory::buildReadRequest(const ReadRequestSpec& spec) {
+std::optional<modbus::base::Pdu> ModbusRequestFactory::buildReadRequest(const ReadRequestSpec& spec,
+                                                                         std::string* errorOut) {
     using namespace modbus::base;
 
+    QString error;
     auto result = ModbusPduBuilder::buildReadRequest(
         static_cast<FunctionCode>(spec.functionCode),
         static_cast<int>(spec.startAddress),
-        static_cast<int>(spec.quantity));
+        static_cast<int>(spec.quantity),
+        &error);
 
-    if (!result.isOk()) {
-        return BuildResult::fail(result.error().toStdString());
+    if (!result) {
+        if (errorOut) *errorOut = error.toStdString();
+        return std::nullopt;
     }
 
-    return BuildResult::ok(std::move(result.value()));
+    return std::move(result);
 }
 
-BuildResult ModbusRequestFactory::buildWriteRequest(const WriteRequestSpec& spec) {
+std::optional<modbus::base::Pdu> ModbusRequestFactory::buildWriteRequest(const WriteRequestSpec& spec,
+                                                                          std::string* errorOut) {
     using namespace modbus::base;
 
-    PduBuildResult result = PduBuildResult::fail(QStringLiteral("Unsupported function code"));
+    QString error;
+    std::optional<Pdu> result;
 
     if (spec.functionCode == 0x05) {
         // value: 0xFF00 = ON, 0x0000 = OFF
@@ -42,7 +48,7 @@ BuildResult ModbusRequestFactory::buildWriteRequest(const WriteRequestSpec& spec
             value = (spec.rawData[0] != 0x00);
         }
         result = ModbusPduBuilder::buildWriteSingleCoil(
-            static_cast<int>(spec.startAddress), value);
+            static_cast<int>(spec.startAddress), value, &error);
     } else if (spec.functionCode == 0x06) {
         uint16_t val = 0;
         if (spec.rawData.size() == 1) {
@@ -51,28 +57,32 @@ BuildResult ModbusRequestFactory::buildWriteRequest(const WriteRequestSpec& spec
             val = (static_cast<uint16_t>(spec.rawData[0]) << 8) | spec.rawData[1];
         }
         result = ModbusPduBuilder::buildWriteSingleRegister(
-            static_cast<int>(spec.startAddress), val);
+            static_cast<int>(spec.startAddress), val, &error);
     } else if (spec.functionCode == 0x0F) {
         QByteArray bytes(reinterpret_cast<const char*>(spec.rawData.data()),
                          static_cast<qsizetype>(spec.rawData.size()));
         result = ModbusPduBuilder::buildWriteMultipleCoils(
             static_cast<int>(spec.startAddress),
             static_cast<int>(spec.quantity),
-            bytes);
+            bytes, &error);
     } else if (spec.functionCode == 0x10) {
         QByteArray bytes(reinterpret_cast<const char*>(spec.rawData.data()),
                          static_cast<qsizetype>(spec.rawData.size()));
         result = ModbusPduBuilder::buildWriteMultipleRegisters(
             static_cast<int>(spec.startAddress),
             static_cast<int>(spec.quantity),
-            bytes);
+            bytes, &error);
+    } else {
+        if (errorOut) *errorOut = "Unsupported function code";
+        return std::nullopt;
     }
 
-    if (!result.isOk()) {
-        return BuildResult::fail(result.error().toStdString());
+    if (!result) {
+        if (errorOut) *errorOut = error.toStdString();
+        return std::nullopt;
     }
 
-    return BuildResult::ok(std::move(result.value()));
+    return std::move(result);
 }
 
 } // namespace modbus::request

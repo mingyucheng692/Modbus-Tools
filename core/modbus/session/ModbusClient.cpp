@@ -90,6 +90,23 @@ ModbusClient::ModbusClient(std::shared_ptr<io::IChannel> channel,
 
 ModbusClient::~ModbusClient() {
     abort();
+
+    // Destruction-order safety: if the worker thread is still executing a
+    // request (RequestStateMachine in Sending or Waiting), destroying
+    // requestExecutor_ and its collaborators below is a use-after-free.
+    // The caller (ModbusWorker / WorkerReleaseCoordinator) must ensure the
+    // worker thread has quit()+wait() before releasing the client.
+    // Release-mode assert: UAF is unrecoverable, must crash.
+    const auto reqState = requestStateMachine_.currentState();
+    if (reqState == RequestStateMachine::State::Sending ||
+        reqState == RequestStateMachine::State::Waiting) {
+        spdlog::critical("ModbusClient::~ModbusClient: destroyed while request is "
+                         "in-flight (state={}). The worker thread must be joined "
+                         "before destruction. This is a use-after-free.",
+                         RequestStateMachine::toString(reqState));
+        std::abort();
+    }
+
     if (channel_) {
         channel_->setReadHandler({});
         channel_->setErrorHandler({});

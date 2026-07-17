@@ -30,14 +30,15 @@ RequestSubmissionService::RequestBuildResult RequestSubmissionService::buildRead
     factorySpec.startAddress = spec.startAddress;
     factorySpec.quantity = spec.quantity;
 
-    auto buildResult = factory_.buildReadRequest(factorySpec);
-    if (!buildResult.isOk()) {
+    std::string error;
+    auto buildResult = factory_.buildReadRequest(factorySpec, &error);
+    if (!buildResult) {
         result.ok = false;
-        result.error = QString::fromStdString(buildResult.error());
+        result.error = QString::fromStdString(error);
         return result;
     }
 
-    result.pdu = std::move(buildResult.value());
+    result.pdu = std::move(*buildResult);
     result.requestId = nextRequestId();
     trackRequest(result.requestId, kind, spec.startAddress);
     result.ok = true;
@@ -210,14 +211,15 @@ RequestSubmissionService::RequestBuildResult RequestSubmissionService::buildWrit
         static_cast<size_t>(rawBytes.size()));
     spec.quantity = static_cast<uint16_t>(quantity);
 
-    auto buildResult = factory_.buildWriteRequest(spec);
-    if (!buildResult.isOk()) {
+    std::string error;
+    auto buildResult = factory_.buildWriteRequest(spec, &error);
+    if (!buildResult) {
         result.ok = false;
-        result.error = QString::fromStdString(buildResult.error());
+        result.error = QString::fromStdString(error);
         return result;
     }
 
-    result.pdu = std::move(buildResult.value());
+    result.pdu = std::move(*buildResult);
     result.requestId = nextRequestId();
     trackRequest(result.requestId, RequestKind::Write, static_cast<uint16_t>(addr));
     result.ok = true;

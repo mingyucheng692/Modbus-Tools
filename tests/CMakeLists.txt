@@ -78,6 +78,7 @@ set(TEST_CORE_LOGIC_SOURCES
     unit/io/ChannelOperationWorkerTest.cpp
     unit/io/SerialChannelTest.cpp
     unit/io/TcpChannelTest.cpp
+    unit/io/ReconnectPolicyTest.cpp
     unit/logging/LoggerInitTest.cpp
     unit/modbus/base/DataHelperTest.cpp
     unit/modbus/base/ModbusCrcTest.cpp
@@ -87,6 +88,7 @@ set(TEST_CORE_LOGIC_SOURCES
     unit/modbus/parser/ParserTest.cpp
     unit/modbus/session/ModbusResponseTest.cpp
     unit/modbus/session/ModbusStateTest.cpp
+    unit/modbus/session/RetryStrategyTest.cpp
     unit/modbus/request/ModbusRequestFactoryTest.cpp
     unit/update/UpdateManagerInstallStrategyTest.cpp
     unit/update/ReleaseParserTest.cpp

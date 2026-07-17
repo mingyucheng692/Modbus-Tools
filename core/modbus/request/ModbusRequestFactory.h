@@ -10,7 +10,6 @@
 #pragma once
 
 #include "modbus/base/ModbusFrame.h"
-#include "result/Result.h"
 #include <cstdint>
 #include <optional>
 #include <string>
@@ -31,18 +30,21 @@ struct ReadRequestSpec {
     uint16_t quantity = 0;
 };
 
-using BuildResult = ::core::result::Result<modbus::base::Pdu, std::string>;
-
 /**
  * @brief Pure PDU-builder factory. Delegates to ModbusPduBuilder for the actual
  * protocol formatting. This class exists so that UI-layer code (e.g.
  * RequestSubmissionService) can delegate PDU construction without mixing
  * protocol logic into format-parsing logic.
+ *
+ * Returns std::optional<Pdu>; on failure, returns std::nullopt and (if
+ * errorOut is non-null) writes a description to *errorOut.
  */
 class ModbusRequestFactory {
 public:
-    BuildResult buildReadRequest(const ReadRequestSpec& spec);
-    BuildResult buildWriteRequest(const WriteRequestSpec& spec);
+    std::optional<modbus::base::Pdu> buildReadRequest(const ReadRequestSpec& spec,
+                                                       std::string* errorOut = nullptr);
+    std::optional<modbus::base::Pdu> buildWriteRequest(const WriteRequestSpec& spec,
+                                                        std::string* errorOut = nullptr);
 };
 
 } // namespace modbus::request

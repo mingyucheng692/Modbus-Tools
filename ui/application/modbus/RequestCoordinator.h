@@ -36,7 +36,9 @@ class TrafficLogController;
  *   - Poll request orchestration: PollSpec construction → schedule
  *   - Request completion: protocol type determination → linkage data forwarding
  *
- * Lives on the GUI thread. Does not depend on QWidget or any View class.
+ * Lives on the GUI thread. Uses ConnectionAlert (which wraps QMessageBox)
+ * for connection-required prompts, so it transitively depends on QWidget
+ * via the alert helper. This is an acknowledged UI-layer coupling.
  */
 class RequestCoordinator : public QObject {
     Q_OBJECT

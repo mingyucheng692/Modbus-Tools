@@ -29,11 +29,13 @@ bool ChannelBase::isOpen() const
 
 void ChannelBase::setTimeouts(const Timeouts& timeouts)
 {
+    std::lock_guard<std::mutex> lock(timeoutsMutex_);
     timeouts_ = timeouts;
 }
 
 Timeouts ChannelBase::timeouts() const
 {
+    std::lock_guard<std::mutex> lock(timeoutsMutex_);
     return timeouts_;
 }
 
@@ -91,7 +93,8 @@ void ChannelBase::setMonitor(std::function<void(bool, const QByteArray&)> monito
 
 ChannelStats ChannelBase::stats() const
 {
-    return stats_;
+    return ChannelStats{bytesTx_.load(std::memory_order_relaxed),
+                        bytesRx_.load(std::memory_order_relaxed)};
 }
 
 void ChannelBase::setState(ChannelState state)
@@ -120,14 +123,14 @@ void ChannelBase::setState(ChannelState state)
 void ChannelBase::addTx(qsizetype bytes)
 {
     if (bytes > 0) {
-        stats_.bytesTx += static_cast<quint64>(bytes);
+        bytesTx_.fetch_add(static_cast<quint64>(bytes), std::memory_order_relaxed);
     }
 }
 
 void ChannelBase::addRx(qsizetype bytes)
 {
     if (bytes > 0) {
-        stats_.bytesRx += static_cast<quint64>(bytes);
+        bytesRx_.fetch_add(static_cast<quint64>(bytes), std::memory_order_relaxed);
     }
 }
 

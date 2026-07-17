@@ -35,6 +35,16 @@ SerialChannel::SerialChannel() {
 }
 
 SerialChannel::~SerialChannel() {
+    // UAF guard: same contract as TcpChannel — cross-thread destruction is
+    // UAF. Callers must ensure the IO thread has quit()+wait() before
+    // releasing the channel. Release-mode assert (not Q_ASSERT_X which is
+    // debug-only) because UAF is unrecoverable.
+    if (serial_.thread() != QThread::currentThread()) {
+        spdlog::critical("SerialChannel::~SerialChannel: destroyed on non-owner thread. "
+                         "Cross-thread destruction is UAF. Ensure ioThread "
+                         "quit()+wait() completes before releasing the channel.");
+        std::abort();
+    }
     close();
 }
 

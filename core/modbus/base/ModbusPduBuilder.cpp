@@ -1,9 +1,9 @@
 /**
  * @file ModbusPduBuilder.cpp
  * @brief Implementation of ModbusPduBuilder.
- * 
+ *
  * Copyright (c) 2025 - present mingyucheng692
- * 
+ *
  * Licensed under the MIT License. See LICENSE file in the project root for full license information.
  */
 
@@ -24,12 +24,15 @@ void appendBigEndianUInt16(QByteArray& data, qsizetype offset, uint16_t value)
 
 } // namespace
 
-PduBuildResult ModbusPduBuilder::buildReadRequest(FunctionCode fc, int startAddress, int quantity) {
+std::optional<Pdu> ModbusPduBuilder::buildReadRequest(FunctionCode fc, int startAddress, int quantity,
+                                                       QString* errorOut) {
     if (startAddress < 0 || startAddress > 0xFFFF) {
-        return PduBuildResult::fail(QCoreApplication::translate("ModbusPduBuilder", "Invalid start address"));
+        if (errorOut) *errorOut = QCoreApplication::translate("ModbusPduBuilder", "Invalid start address");
+        return std::nullopt;
     }
     if (quantity <= 0 || quantity > 2000) {
-        return PduBuildResult::fail(QCoreApplication::translate("ModbusPduBuilder", "Invalid quantity"));
+        if (errorOut) *errorOut = QCoreApplication::translate("ModbusPduBuilder", "Invalid quantity");
+        return std::nullopt;
     }
 
     QByteArray data;
@@ -37,12 +40,14 @@ PduBuildResult ModbusPduBuilder::buildReadRequest(FunctionCode fc, int startAddr
     appendBigEndianUInt16(data, 0, static_cast<uint16_t>(startAddress));
     appendBigEndianUInt16(data, 2, static_cast<uint16_t>(quantity));
 
-    return PduBuildResult::ok(Pdu(fc, data));
+    return Pdu(fc, data);
 }
 
-PduBuildResult ModbusPduBuilder::buildWriteSingleCoil(int startAddress, bool value) {
+std::optional<Pdu> ModbusPduBuilder::buildWriteSingleCoil(int startAddress, bool value,
+                                                           QString* errorOut) {
     if (startAddress < 0 || startAddress > 0xFFFF) {
-        return PduBuildResult::fail(QCoreApplication::translate("ModbusPduBuilder", "Invalid start address"));
+        if (errorOut) *errorOut = QCoreApplication::translate("ModbusPduBuilder", "Invalid start address");
+        return std::nullopt;
     }
 
     QByteArray data;
@@ -51,12 +56,14 @@ PduBuildResult ModbusPduBuilder::buildWriteSingleCoil(int startAddress, bool val
     uint16_t coilValue = value ? 0xFF00 : 0x0000;
     appendBigEndianUInt16(data, 2, coilValue);
 
-    return PduBuildResult::ok(Pdu(FunctionCode::WriteSingleCoil, data));
+    return Pdu(FunctionCode::WriteSingleCoil, data);
 }
 
-PduBuildResult ModbusPduBuilder::buildWriteSingleRegister(int startAddress, uint16_t value) {
+std::optional<Pdu> ModbusPduBuilder::buildWriteSingleRegister(int startAddress, uint16_t value,
+                                                              QString* errorOut) {
     if (startAddress < 0 || startAddress > 0xFFFF) {
-        return PduBuildResult::fail(QCoreApplication::translate("ModbusPduBuilder", "Invalid start address"));
+        if (errorOut) *errorOut = QCoreApplication::translate("ModbusPduBuilder", "Invalid start address");
+        return std::nullopt;
     }
 
     QByteArray data;
@@ -64,72 +71,82 @@ PduBuildResult ModbusPduBuilder::buildWriteSingleRegister(int startAddress, uint
     appendBigEndianUInt16(data, 0, static_cast<uint16_t>(startAddress));
     appendBigEndianUInt16(data, 2, value);
 
-    return PduBuildResult::ok(Pdu(FunctionCode::WriteSingleRegister, data));
+    return Pdu(FunctionCode::WriteSingleRegister, data);
 }
 
-PduBuildResult ModbusPduBuilder::buildWriteMultipleCoils(int startAddress, int quantity, const QByteArray& packedData) {
+std::optional<Pdu> ModbusPduBuilder::buildWriteMultipleCoils(int startAddress, int quantity,
+                                                              const QByteArray& packedData,
+                                                              QString* errorOut) {
     if (startAddress < 0 || startAddress > 0xFFFF) {
-        return PduBuildResult::fail(QCoreApplication::translate("ModbusPduBuilder", "Invalid start address"));
+        if (errorOut) *errorOut = QCoreApplication::translate("ModbusPduBuilder", "Invalid start address");
+        return std::nullopt;
     }
     if (quantity <= 0 || quantity > 1968) { // Modbus limit
-        return PduBuildResult::fail(QCoreApplication::translate("ModbusPduBuilder", "Invalid quantity for 0x0F"));
+        if (errorOut) *errorOut = QCoreApplication::translate("ModbusPduBuilder", "Invalid quantity for 0x0F");
+        return std::nullopt;
     }
 
     int expectedBytes = (quantity + 7) / 8;
     if (packedData.size() != expectedBytes) {
-        return PduBuildResult::fail(QCoreApplication::translate("ModbusPduBuilder", "Data length mismatch for 0x0F"));
+        if (errorOut) *errorOut = QCoreApplication::translate("ModbusPduBuilder", "Data length mismatch for 0x0F");
+        return std::nullopt;
     }
 
     QByteArray data;
     data.reserve(5 + packedData.size());
-    
+
     // Address (2 bytes)
     data.append(static_cast<char>((startAddress >> 8) & 0xFF));
     data.append(static_cast<char>(startAddress & 0xFF));
-    
+
     // Quantity (2 bytes)
     data.append(static_cast<char>((quantity >> 8) & 0xFF));
     data.append(static_cast<char>(quantity & 0xFF));
-    
+
     // Byte Count (1 byte)
     data.append(static_cast<char>(expectedBytes));
-    
+
     // Data
     data.append(packedData);
 
-    return PduBuildResult::ok(Pdu(FunctionCode::WriteMultipleCoils, data));
+    return Pdu(FunctionCode::WriteMultipleCoils, data);
 }
 
-PduBuildResult ModbusPduBuilder::buildWriteMultipleRegisters(int startAddress, int quantity, const QByteArray& packedData) {
+std::optional<Pdu> ModbusPduBuilder::buildWriteMultipleRegisters(int startAddress, int quantity,
+                                                                  const QByteArray& packedData,
+                                                                  QString* errorOut) {
     if (startAddress < 0 || startAddress > 0xFFFF) {
-        return PduBuildResult::fail(QCoreApplication::translate("ModbusPduBuilder", "Invalid start address"));
+        if (errorOut) *errorOut = QCoreApplication::translate("ModbusPduBuilder", "Invalid start address");
+        return std::nullopt;
     }
     if (quantity <= 0 || quantity > 123) { // Modbus limit for TCP/RTU
-        return PduBuildResult::fail(QCoreApplication::translate("ModbusPduBuilder", "Invalid quantity for 0x10"));
+        if (errorOut) *errorOut = QCoreApplication::translate("ModbusPduBuilder", "Invalid quantity for 0x10");
+        return std::nullopt;
     }
 
     if (packedData.size() != quantity * 2) {
-        return PduBuildResult::fail(QCoreApplication::translate("ModbusPduBuilder", "Data length mismatch for 0x10"));
+        if (errorOut) *errorOut = QCoreApplication::translate("ModbusPduBuilder", "Data length mismatch for 0x10");
+        return std::nullopt;
     }
 
     QByteArray data;
     data.reserve(5 + packedData.size());
-    
+
     // Address (2 bytes)
     data.append(static_cast<char>((startAddress >> 8) & 0xFF));
     data.append(static_cast<char>(startAddress & 0xFF));
-    
+
     // Quantity (2 bytes)
     data.append(static_cast<char>((quantity >> 8) & 0xFF));
     data.append(static_cast<char>(quantity & 0xFF));
-    
+
     // Byte Count (1 byte)
     data.append(static_cast<char>(quantity * 2));
-    
+
     // Data
     data.append(packedData);
 
-    return PduBuildResult::ok(Pdu(FunctionCode::WriteMultipleRegisters, data));
+    return Pdu(FunctionCode::WriteMultipleRegisters, data);
 }
 
 } // namespace modbus::base

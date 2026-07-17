@@ -2,8 +2,6 @@ add_library(core STATIC)
 
 target_sources(core PRIVATE
     Config.h
-    # result
-    result/Result.h
     # reconnect
     ReconnectPolicy.h
     ReconnectPolicy.cpp

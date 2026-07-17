@@ -40,6 +40,15 @@ namespace modbus::session {
  *
  * @note sendRequest() uses a separate requestMutex_ to prevent concurrent
  *       request execution, enforcing strict serialization of the submit path.
+ *
+ * @par Destruction order
+ *      The caller (typically ModbusWorker / WorkerReleaseCoordinator) MUST
+ *      ensure the worker thread has fully joined (quit()+wait()) before
+ *      ~ModbusClient() runs. If RequestExecutor::execute() is still running
+ *      on the worker thread when the destructor fires, destroying
+ *      requestExecutor_ and its collaborators is a use-after-free. The
+ *      destructor asserts (release-mode, std::abort) that no request is
+ *      in-flight (RequestStateMachine is Idle/Completed/Failed/Aborted).
  */
 class ModbusClient : public IModbusClient {
 public:
