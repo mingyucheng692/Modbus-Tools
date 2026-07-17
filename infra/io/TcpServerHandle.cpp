@@ -83,6 +83,13 @@ int TcpServerHandle::clientCount() const
 
 void TcpServerHandle::onNewConnection()
 {
+    // P2-4: implicit lifetime transfer — socket from nextPendingConnection()
+    // is adopted via socketDescriptor() into TcpChannel, then the original
+    // QTcpSocket is deleteLater()'d. This is correct but fragile: it relies
+    // on the native descriptor remaining valid after the QTcpSocket wrapper
+    // is destroyed. Qt guarantees this for descriptors adopted via
+    // setSocketDescriptor(), but a future refactor to pass ownership of the
+    // QTcpSocket itself (via moveChannel) would be more robust.
     while (server_.hasPendingConnections()) {
         QTcpSocket* socket = server_.nextPendingConnection();
         if (!socket) continue;

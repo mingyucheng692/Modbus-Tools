@@ -120,21 +120,15 @@ set(TEST_INTEGRATION_SOURCES
     integration/session/ClientIntegrationTest.cpp
 )
 
-set(TEST_MODBUS_STABILITY_SOURCES
-)
-
-set(TEST_MODBUS_CONCURRENCY_SOURCES
-)
-
 set(TEST_MODBUS_FUZZ_SOURCES
     unit/modbus/fuzz/ModbusParsingFuzzTest.cpp
 )
 
 # ---------------------------------------------------------------------------
 # Shared test objects — compiled once, linked into multiple test targets.
-# These 4 files were previously compiled 2-3 times each (test_core_logic,
-# test_modbus_stability, test_modbus_concurrency). The OBJECT library compiles
-# them once; targets link the objects via test_modbus_common_objects in LIBS.
+# These 4 files were previously compiled multiple times across separate
+# test binaries. The OBJECT library compiles them once; targets link the
+# objects via test_modbus_common_objects in LIBS.
 # ---------------------------------------------------------------------------
 add_library(test_modbus_common_objects OBJECT
     unit/modbus/factory/ModbusFactoryThreadingTest.cpp
@@ -177,17 +171,10 @@ modbus_add_test_target(test_integration
     LIBS core Qt6::Core
 )
 
-modbus_add_test_target(test_modbus_stability
-    ${CMAKE_CURRENT_SOURCE_DIR}/TestMainCore.cpp
-    SOURCES "$<TARGET_OBJECTS:test_modbus_common_objects>"
-    LIBS core Qt6::Core
-)
-
-modbus_add_test_target(test_modbus_concurrency
-    ${CMAKE_CURRENT_SOURCE_DIR}/TestMainCore.cpp
-    SOURCES "$<TARGET_OBJECTS:test_modbus_common_objects>"
-    LIBS core Qt6::Core
-)
+# P2-6 evaluation: test_modbus_stability and test_modbus_concurrency targets
+# were placeholders for future stability/concurrency test suites. They compiled
+# only the shared common objects (same as test_core_logic) with no unique tests,
+# wasting build time. Removed; re-add with actual test sources when needed.
 
 modbus_add_test_target(test_modbus_fuzz
     ${CMAKE_CURRENT_SOURCE_DIR}/TestMainCore.cpp
