@@ -44,7 +44,7 @@ private:
     void handleLinkageStopRequested();
     void handleLinkagePauseToggled(bool paused);
     void handleLinkageData(const ::modbus::base::Pdu& pdu,
-                           ::modbus::core::parser::ProtocolType protocol,
+                           ::modbus::parser::ProtocolType protocol,
                            uint16_t addr);
     void handleSourceDisconnected();
 
@@ -53,7 +53,7 @@ private:
     void requestStop();
     void requestPause(bool paused);
     void handleLiveData(const ::modbus::base::Pdu& pdu,
-                        ::modbus::core::parser::ProtocolType protocol,
+                        ::modbus::parser::ProtocolType protocol,
                         uint16_t addr);
     void transitionTo(LinkState state);
     void applyState();
@@ -63,7 +63,7 @@ private:
 
     struct BufferedLiveData {
         ::modbus::base::Pdu pdu;
-        ::modbus::core::parser::ProtocolType protocol = ::modbus::core::parser::ProtocolType::Tcp;
+        ::modbus::parser::ProtocolType protocol = ::modbus::parser::ProtocolType::Tcp;
         uint16_t addr = 0;
     };
 

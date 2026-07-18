@@ -55,7 +55,7 @@ TEST_F(RequestCoordinatorTest, RawSendRequest_DelegatesWithoutCrash) {
 TEST_F(RequestCoordinatorTest, LinkageDataReceived_EmittedOnSuccess) {
     bool received = false;
     QObject::connect(coordinator_.get(), &RequestCoordinator::linkageDataReceived,
-        [&received](const ::modbus::base::Pdu&, modbus::core::parser::ProtocolType, uint16_t) {
+        [&received](const ::modbus::base::Pdu&, modbus::parser::ProtocolType, uint16_t) {
             received = true;
         });
 
@@ -72,7 +72,7 @@ TEST_F(RequestCoordinatorTest, LinkageDataReceived_EmittedOnSuccess) {
 
 TEST_F(RequestCoordinatorTest, ModeDescriptor_MapsAsciiProtocolType) {
     EXPECT_EQ(modeDescriptor(SessionMode::Ascii).protocolType,
-              modbus::core::parser::ProtocolType::Ascii);
+              modbus::parser::ProtocolType::Ascii);
 }
 
 } // namespace

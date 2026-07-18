@@ -19,7 +19,7 @@
 #include <QStringList>
 #include <modbus/base/ModbusTypes.h>
 
-namespace modbus::core::parser {
+namespace modbus::parser {
 
 // 解析协议类型
 enum class ProtocolType {
@@ -83,61 +83,37 @@ struct ParseResult {
     QByteArray pduData;
 };
 
-class ModbusFrameParser {
-public:
-    // 静态工具类，无需构造
-    ModbusFrameParser() = delete;
+/**
+ * @brief 解析 Modbus 帧
+ * @param frame 原始帧数据
+ * @param type 指定协议类型 (若为 Unknown 则自动检测)
+ * @param startAddress 起始地址 (仅用于 Response 帧解析数据地址，Request 帧会自动从报文中提取)
+ * @param expectedQuantity 期望数量 (用于 Read Response 限定有效位/寄存器个数)
+ */
+ParseResult parse(const QByteArray& frame,
+                  ProtocolType type = ProtocolType::Unknown,
+                  uint16_t startAddress = 0,
+                  uint16_t expectedQuantity = 0,
+                  bool force = false,
+                  modbus::base::RegisterOrder order = modbus::base::RegisterOrder::ABCD);
 
-    /**
-     * @brief 解析 Modbus 帧
-     * @param frame 原始帧数据
-     * @param type 指定协议类型 (若为 Unknown 则自动检测)
-     * @param startAddress 起始地址 (仅用于 Response 帧解析数据地址，Request 帧会自动从报文中提取)
-     * @param expectedQuantity 期望数量 (用于 Read Response 限定有效位/寄存器个数)
-     */
-    static ParseResult parse(const QByteArray& frame,
-                             ProtocolType type = ProtocolType::Unknown,
-                             uint16_t startAddress = 0,
-                             uint16_t expectedQuantity = 0,
-                             bool force = false,
-                             modbus::base::RegisterOrder order = modbus::base::RegisterOrder::ABCD);
+/**
+ * @brief Apply register byte/word order transformation to the parse result.
+ * @param result The parse result to modify.
+ * @param order The target register order.
+ */
+void applyRegisterOrder(ParseResult& result, modbus::base::RegisterOrder order);
 
-    /**
-     * @brief Apply register byte/word order transformation to the parse result.
-     * @param result The parse result to modify.
-     * @param order The target register order.
-     */
-    static void applyRegisterOrder(ParseResult& result, modbus::base::RegisterOrder order);
+/**
+ * @brief 解析 PDU 数据段
+ */
+void parsePdu(ParseResult& result,
+              const QByteArray& pdu,
+              uint16_t startAddress,
+              uint16_t expectedQuantity,
+              modbus::base::RegisterOrder order = modbus::base::RegisterOrder::ABCD);
 
-    /**
-     * @brief 解析 PDU 数据段
-     */
-    static void parsePdu(ParseResult& result,
-                         const QByteArray& pdu,
-                         uint16_t startAddress,
-                         uint16_t expectedQuantity,
-                         modbus::base::RegisterOrder order = modbus::base::RegisterOrder::ABCD);
+} // namespace modbus::parser
 
-private:
-    static bool detectTcp(const QByteArray& frame);
-    static bool detectRtu(const QByteArray& frame);
-    static bool detectAscii(const QByteArray& frame);
-    
-    static ParseResult parseTcp(const QByteArray& frame, uint16_t startAddress, uint16_t expectedQuantity, bool force, modbus::base::RegisterOrder order);
-    static ParseResult parseRtu(const QByteArray& frame, uint16_t startAddress, uint16_t expectedQuantity, bool force, modbus::base::RegisterOrder order);
-    static ParseResult parseAscii(const QByteArray& frame, uint16_t startAddress, uint16_t expectedQuantity, bool force, modbus::base::RegisterOrder order);
-
-    static bool hasAddressInPdu(modbus::base::FunctionCode functionCode, const QByteArray& pdu);
-    static uint16_t extractAddressFromPdu(const QByteArray& pdu);
-    static uint16_t determineEffectiveStartAddress(modbus::base::FunctionCode functionCode,
-                                                   const QByteArray& pdu,
-                                                   uint16_t userStartAddress);
-    
-    // 辅助函数
-    static QString getExceptionString(modbus::base::ExceptionCode code);
-};
-
-} // namespace modbus::core::parser
-
-Q_DECLARE_METATYPE(modbus::core::parser::ProtocolType)
-Q_DECLARE_METATYPE(modbus::core::parser::ParseResult)
+Q_DECLARE_METATYPE(modbus::parser::ProtocolType)
+Q_DECLARE_METATYPE(modbus::parser::ParseResult)

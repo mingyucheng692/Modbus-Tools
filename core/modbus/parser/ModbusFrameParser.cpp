@@ -18,7 +18,7 @@
 #include <bitset>
 #include <cstring>
 
-namespace modbus::core::parser {
+namespace modbus::parser {
 
 namespace {
 
@@ -32,9 +32,7 @@ QString formatFrameHex(const QByteArray& frame)
     return frame.toHex(' ').toUpper();
 }
 
-} // namespace
-
-QString ModbusFrameParser::getExceptionString(modbus::base::ExceptionCode code)
+QString getExceptionString(modbus::base::ExceptionCode code)
 {
     using namespace modbus::base;
     switch (code) {
@@ -63,79 +61,68 @@ QString ModbusFrameParser::getExceptionString(modbus::base::ExceptionCode code)
     }
 }
 
-ParseResult ModbusFrameParser::parse(const QByteArray& frame,
-                                     ProtocolType type,
-                                     uint16_t startAddress,
-                                     uint16_t expectedQuantity,
-                                     bool force,
-                                     modbus::base::RegisterOrder order)
-{
-    ParseResult result;
-    result.timestamp = QDateTime::currentDateTimeUtc();
-    result.rawFrame = frame;
-    result.expectedQuantity = expectedQuantity;
-    result.isForced = force;
-
-    if (frame.isEmpty()) {
-        result.isValid = false;
-        result.error = QCoreApplication::translate("ModbusFrameParser", "Empty frame data");
-        return result;
-    }
-
-    // 1. 协议检测
-    if (type == ProtocolType::Unknown) {
-        if (detectTcp(frame)) {
-            type = ProtocolType::Tcp;
-        } else if (detectAscii(frame)) {
-            type = ProtocolType::Ascii;
-        } else if (detectRtu(frame)) {
-            type = ProtocolType::Rtu;
-        } else {
-            result.isValid = false;
-            result.error = QCoreApplication::translate(
-                               "ModbusFrameParser",
-                               "Unable to identify protocol. Frame length: %1 bytes, data: %2")
-                               .arg(frame.size())
-                               .arg(formatFrameHex(frame));
-            return result;
-        }
-    }
-
-    result.protocol = type;
-
-    // 2. 根据协议解析头部
-    if (type == ProtocolType::Tcp) {
-        result = parseTcp(frame, startAddress, expectedQuantity, force, order);
-    } else if (type == ProtocolType::Ascii) {
-        result = parseAscii(frame, startAddress, expectedQuantity, force, order);
-    } else {
-        result = parseRtu(frame, startAddress, expectedQuantity, force, order);
-    }
-
-    // 3. 应用诊断字节序变换
-    if (result.isValid) {
-        applyRegisterOrder(result, order);
-    }
-
-    return result;
-}
-
-bool ModbusFrameParser::detectTcp(const QByteArray& frame)
+bool detectTcp(const QByteArray& frame)
 {
     return base::inspectTcpAdu(frame) == frame.size();
 }
 
-bool ModbusFrameParser::detectRtu(const QByteArray& frame)
+bool detectRtu(const QByteArray& frame)
 {
     return base::inspectRtuAdu(frame) == frame.size();
 }
 
-bool ModbusFrameParser::detectAscii(const QByteArray& frame)
+bool detectAscii(const QByteArray& frame)
 {
     return base::inspectAsciiAdu(frame) == frame.size();
 }
 
-ParseResult ModbusFrameParser::parseTcp(const QByteArray& frame, uint16_t startAddress, uint16_t expectedQuantity, bool force, modbus::base::RegisterOrder order)
+bool hasAddressInPdu(modbus::base::FunctionCode functionCode, const QByteArray& pdu)
+{
+    using namespace modbus::base;
+    if (pdu.size() < 5) {
+        return false;
+    }
+
+    switch (functionCode) {
+    case FunctionCode::ReadCoils:
+    case FunctionCode::ReadDiscreteInputs:
+    case FunctionCode::ReadHoldingRegisters:
+    case FunctionCode::ReadInputRegisters:
+        return pdu.size() == 5;
+    case FunctionCode::WriteSingleCoil:
+    case FunctionCode::WriteSingleRegister:
+    case FunctionCode::WriteMultipleCoils:
+    case FunctionCode::WriteMultipleRegisters:
+        return true;
+    default:
+        return false;
+    }
+}
+
+uint16_t extractAddressFromPdu(const QByteArray& pdu)
+{
+    if (pdu.size() < 3) {
+        return 0;
+    }
+
+    uint16_t address = 0;
+    return modbus::base::readBigEndian<uint16_t>(QByteArrayView(pdu), 1, address) ? address : 0;
+}
+
+uint16_t determineEffectiveStartAddress(modbus::base::FunctionCode functionCode,
+                                        const QByteArray& pdu,
+                                        uint16_t userStartAddress)
+{
+    if (hasAddressInPdu(functionCode, pdu)) {
+        return extractAddressFromPdu(pdu);
+    }
+    if (userStartAddress != 0) {
+        return userStartAddress;
+    }
+    return 0;
+}
+
+ParseResult parseTcp(const QByteArray& frame, uint16_t startAddress, uint16_t expectedQuantity, bool force, modbus::base::RegisterOrder order)
 {
     ParseResult result;
     result.timestamp = QDateTime::currentDateTimeUtc();
@@ -207,7 +194,7 @@ ParseResult ModbusFrameParser::parseTcp(const QByteArray& frame, uint16_t startA
     return result;
 }
 
-ParseResult ModbusFrameParser::parseRtu(const QByteArray& frame, uint16_t startAddress, uint16_t expectedQuantity, bool force, modbus::base::RegisterOrder order)
+ParseResult parseRtu(const QByteArray& frame, uint16_t startAddress, uint16_t expectedQuantity, bool force, modbus::base::RegisterOrder order)
 {
     ParseResult result;
     result.timestamp = QDateTime::currentDateTimeUtc();
@@ -274,11 +261,11 @@ ParseResult ModbusFrameParser::parseRtu(const QByteArray& frame, uint16_t startA
     return result;
 }
 
-ParseResult ModbusFrameParser::parseAscii(const QByteArray& frame,
-                                          uint16_t startAddress,
-                                          uint16_t expectedQuantity,
-                                          bool force,
-                                          modbus::base::RegisterOrder order)
+ParseResult parseAscii(const QByteArray& frame,
+                      uint16_t startAddress,
+                      uint16_t expectedQuantity,
+                      bool force,
+                      modbus::base::RegisterOrder order)
 {
     ParseResult result;
     result.timestamp = QDateTime::currentDateTimeUtc();
@@ -332,11 +319,70 @@ ParseResult ModbusFrameParser::parseAscii(const QByteArray& frame,
     return result;
 }
 
-void ModbusFrameParser::parsePdu(ParseResult& result,
-                                 const QByteArray& pdu,
-                                 uint16_t startAddress,
-                                 uint16_t expectedQuantity,
-                                 modbus::base::RegisterOrder order)
+} // namespace
+
+ParseResult parse(const QByteArray& frame,
+                 ProtocolType type,
+                 uint16_t startAddress,
+                 uint16_t expectedQuantity,
+                 bool force,
+                 modbus::base::RegisterOrder order)
+{
+    ParseResult result;
+    result.timestamp = QDateTime::currentDateTimeUtc();
+    result.rawFrame = frame;
+    result.expectedQuantity = expectedQuantity;
+    result.isForced = force;
+
+    if (frame.isEmpty()) {
+        result.isValid = false;
+        result.error = QCoreApplication::translate("ModbusFrameParser", "Empty frame data");
+        return result;
+    }
+
+    // 1. 协议检测
+    if (type == ProtocolType::Unknown) {
+        if (detectTcp(frame)) {
+            type = ProtocolType::Tcp;
+        } else if (detectAscii(frame)) {
+            type = ProtocolType::Ascii;
+        } else if (detectRtu(frame)) {
+            type = ProtocolType::Rtu;
+        } else {
+            result.isValid = false;
+            result.error = QCoreApplication::translate(
+                               "ModbusFrameParser",
+                               "Unable to identify protocol. Frame length: %1 bytes, data: %2")
+                               .arg(frame.size())
+                               .arg(formatFrameHex(frame));
+            return result;
+        }
+    }
+
+    result.protocol = type;
+
+    // 2. 根据协议解析头部
+    if (type == ProtocolType::Tcp) {
+        result = parseTcp(frame, startAddress, expectedQuantity, force, order);
+    } else if (type == ProtocolType::Ascii) {
+        result = parseAscii(frame, startAddress, expectedQuantity, force, order);
+    } else {
+        result = parseRtu(frame, startAddress, expectedQuantity, force, order);
+    }
+
+    // 3. 应用诊断字节序变换
+    if (result.isValid) {
+        applyRegisterOrder(result, order);
+    }
+
+    return result;
+}
+
+void parsePdu(ParseResult& result,
+              const QByteArray& pdu,
+              uint16_t startAddress,
+              uint16_t expectedQuantity,
+              modbus::base::RegisterOrder order)
 {
     Q_UNUSED(order);
     if (pdu.isEmpty()) {
@@ -636,53 +682,7 @@ void ModbusFrameParser::parsePdu(ParseResult& result,
     }
 }
 
-bool ModbusFrameParser::hasAddressInPdu(modbus::base::FunctionCode functionCode, const QByteArray& pdu)
-{
-    using namespace modbus::base;
-    if (pdu.size() < 5) {
-        return false;
-    }
-
-    switch (functionCode) {
-    case FunctionCode::ReadCoils:
-    case FunctionCode::ReadDiscreteInputs:
-    case FunctionCode::ReadHoldingRegisters:
-    case FunctionCode::ReadInputRegisters:
-        return pdu.size() == 5;
-    case FunctionCode::WriteSingleCoil:
-    case FunctionCode::WriteSingleRegister:
-    case FunctionCode::WriteMultipleCoils:
-    case FunctionCode::WriteMultipleRegisters:
-        return true;
-    default:
-        return false;
-    }
-}
-
-uint16_t ModbusFrameParser::extractAddressFromPdu(const QByteArray& pdu)
-{
-    if (pdu.size() < 3) {
-        return 0;
-    }
-
-    uint16_t address = 0;
-    return modbus::base::readBigEndian<uint16_t>(QByteArrayView(pdu), 1, address) ? address : 0;
-}
-
-uint16_t ModbusFrameParser::determineEffectiveStartAddress(modbus::base::FunctionCode functionCode,
-                                                           const QByteArray& pdu,
-                                                           uint16_t userStartAddress)
-{
-    if (hasAddressInPdu(functionCode, pdu)) {
-        return extractAddressFromPdu(pdu);
-    }
-    if (userStartAddress != 0) {
-        return userStartAddress;
-    }
-    return 0;
-}
-
-void ModbusFrameParser::applyRegisterOrder(ParseResult& result, modbus::base::RegisterOrder order)
+void applyRegisterOrder(ParseResult& result, modbus::base::RegisterOrder order)
 {
     using namespace modbus::base;
     if (order == RegisterOrder::ABCD || result.dataItems.isEmpty()) {
@@ -774,4 +774,4 @@ void ModbusFrameParser::applyRegisterOrder(ParseResult& result, modbus::base::Re
     }
 }
 
-} // namespace modbus::core::parser
+} // namespace modbus::parser

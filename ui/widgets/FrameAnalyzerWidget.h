@@ -33,7 +33,7 @@ public:
     /**
      * @brief 处理来自外部（如会话视图）的实时 PDU 数据。
      */
-    void processLivePdu(const modbus::base::Pdu& pdu, modbus::core::parser::ProtocolType protocol, uint16_t addr);
+    void processLivePdu(const modbus::base::Pdu& pdu, modbus::parser::ProtocolType protocol, uint16_t addr);
     void exitLiveMode();
     void setLivePaused(bool paused);
 
@@ -52,7 +52,7 @@ private slots:
     void onClearHistoryClicked();
 
     // 内部槽函数，由 Private 类进行跨线程桥接
-    void onParseFinished(const modbus::core::parser::ParseResult& result, quint64 requestId);
+    void onParseFinished(const modbus::parser::ParseResult& result, quint64 requestId);
 
 protected:
     void changeEvent(QEvent* event) override;
@@ -63,7 +63,7 @@ private:
     void retranslateUi();
     
     // 渲染解析结果
-    void renderResult(const modbus::core::parser::ParseResult& result);
+    void renderResult(const modbus::parser::ParseResult& result);
     void clearResult();
 
     QScopedPointer<FrameAnalyzerWidgetPrivate> d_ptr;

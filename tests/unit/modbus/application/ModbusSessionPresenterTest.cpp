@@ -75,7 +75,7 @@ TEST_F(ModbusSessionPresenterTest, RtuMode_CreatesRtuPresenter) {
 TEST_F(ModbusSessionPresenterTest, ModeDescriptor_MapsAsciiSessionMode) {
     const auto descriptor = modeDescriptor(SessionMode::Ascii);
     EXPECT_EQ(descriptor.modbusMode, ::modbus::base::ModbusMode::ASCII);
-    EXPECT_EQ(descriptor.protocolType, ::modbus::core::parser::ProtocolType::Ascii);
+    EXPECT_EQ(descriptor.protocolType, ::modbus::parser::ProtocolType::Ascii);
     EXPECT_TRUE(descriptor.usesSerialConnection);
 }
 

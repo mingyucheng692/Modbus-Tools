@@ -20,7 +20,7 @@
 #include <type_traits>
 
 static_assert(std::is_nothrow_destructible_v<ui::widgets::LogRecorder>);
-static_assert(std::is_nothrow_destructible_v<modbus::core::parser::FrameParseWorker>);
+static_assert(std::is_nothrow_destructible_v<modbus::parser::FrameParseWorker>);
 static_assert(std::is_nothrow_destructible_v<core::update::UpdateManager>);
 static_assert(std::is_nothrow_destructible_v<modbus::session::ModbusClient>);
 static_assert(std::is_nothrow_destructible_v<modbus::dispatch::ModbusWorker>);
@@ -38,7 +38,7 @@ static_assert(std::is_nothrow_destructible_v<modbus::transport::ITransport>);
 TEST(NoexceptContract, PriorityClassesRemainNothrowDestructible)
 {
     EXPECT_TRUE((std::is_nothrow_destructible_v<ui::widgets::LogRecorder>));
-    EXPECT_TRUE((std::is_nothrow_destructible_v<modbus::core::parser::FrameParseWorker>));
+    EXPECT_TRUE((std::is_nothrow_destructible_v<modbus::parser::FrameParseWorker>));
     EXPECT_TRUE((std::is_nothrow_destructible_v<core::update::UpdateManager>));
     EXPECT_TRUE((std::is_nothrow_destructible_v<modbus::session::ModbusClient>));
     EXPECT_TRUE((std::is_nothrow_destructible_v<ui::application::modbus::ModbusSessionPresenter>));

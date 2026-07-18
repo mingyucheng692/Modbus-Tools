@@ -71,10 +71,10 @@ TEST(ModbusEndianCodecTest, ValidateResponsePduAcceptsMatchingWriteMultipleEcho)
 
 TEST(ModbusEndianCodecTest, FrameParserExtractsStartAddressFromBigEndianRequestPdu)
 {
-    modbus::core::parser::ParseResult result;
+    modbus::parser::ParseResult result;
     result.isValid = true;
 
-    modbus::core::parser::ModbusFrameParser::parsePdu(
+    modbus::parser::parsePdu(
         result,
         QByteArray::fromHex("0300100002"),
         0,

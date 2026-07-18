@@ -13,7 +13,7 @@
 #include <QDateTime>
 #include <QMetaObject>
 
-namespace modbus::core::parser {
+namespace modbus::parser {
 
 class FrameParseWorker::Private {
 public:
@@ -108,7 +108,7 @@ ParseResult FrameParseWorker::Private::buildResult(const QString& input,
 
     const QByteArray frame = QByteArray::fromHex(hexStr.toLatin1());
     const bool force = (type != ProtocolType::Unknown);
-    return ModbusFrameParser::parse(frame, type, startAddress, 0, force, order);
+    return parse(frame, type, startAddress, 0, force, order);
 }
 
 void FrameParseWorker::Private::processPending() {
@@ -133,7 +133,7 @@ FrameParseWorker::FrameParseWorker(QObject* parent)
 FrameParseWorker::~FrameParseWorker() = default;
 
 void FrameParseWorker::enqueueParse(const QString& input,
-                                    modbus::core::parser::ProtocolType type,
+                                    ProtocolType type,
                                     uint16_t startAddress,
                                     modbus::base::RegisterOrder order,
                                     quint64 requestId) {
@@ -150,4 +150,4 @@ void FrameParseWorker::enqueueParse(const QString& input,
     QMetaObject::invokeMethod(this, [this]() { d_ptr->processPending(); }, Qt::QueuedConnection);
 }
 
-} // namespace modbus::core::parser
+} // namespace modbus::parser

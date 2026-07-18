@@ -44,7 +44,7 @@
 #include <memory>
 #include <spdlog/spdlog.h>
 
-using namespace modbus::core::parser;
+using namespace modbus::parser;
 using namespace modbus::analyzer;
 
 namespace ui::widgets {
@@ -103,10 +103,10 @@ public:
 
     // --- Helpers ---
     [[nodiscard]] uint16_t rowAddress(int row) const;
-    [[nodiscard]] QString historyItemText(const modbus::core::parser::ParseResult& result) const;
+    [[nodiscard]] QString historyItemText(const modbus::parser::ParseResult& result) const;
     
     void applyMetadataToRow(int row, const QVariant& value, const DataMetadata& meta);
-    void addToHistory(const modbus::core::parser::ParseResult& result);
+    void addToHistory(const modbus::parser::ParseResult& result);
     void refreshHistoryList();
     void setHistoryCollapsed(bool collapsed);
     void updateHistoryToggleText();
@@ -160,8 +160,8 @@ public:
     int lastHistoryPanelWidth = config::Ui::kFrameAnalyzerDefaultHistoryWidth;
     NumberDisplayMode displayMode = NumberDisplayMode::Unsigned;
     QMap<uint16_t, DataMetadata> metadataByAddress;
-    QList<modbus::core::parser::ParseResult> historyResults;
-    modbus::core::parser::ParseResult currentResult;
+    QList<modbus::parser::ParseResult> historyResults;
+    modbus::parser::ParseResult currentResult;
     
     // Threading
     std::shared_ptr<QThread> parseThread;
@@ -173,7 +173,7 @@ public:
     // Live Link State
     bool isLiveMode = false;
     bool isLivePaused = false;
-    modbus::core::parser::ParseResult lastLiveResult;
+    modbus::parser::ParseResult lastLiveResult;
     modbus::base::RegisterOrder registerOrder = modbus::base::RegisterOrder::ABCD;
 
     // Service
@@ -260,12 +260,12 @@ void FrameAnalyzerWidget::FrameAnalyzerWidgetPrivate::refreshHistoryList()
     if (!historyList) return;
     const QSignalBlocker blocker(historyList);
     historyList->clear();
-    for (const modbus::core::parser::ParseResult& res : historyResults) {
+    for (const modbus::parser::ParseResult& res : historyResults) {
         historyList->addItem(historyItemText(res));
     }
 }
 
-QString FrameAnalyzerWidget::FrameAnalyzerWidgetPrivate::historyItemText(const modbus::core::parser::ParseResult& result) const
+QString FrameAnalyzerWidget::FrameAnalyzerWidgetPrivate::historyItemText(const modbus::parser::ParseResult& result) const
 {
     const QString status = result.isValid ? tr("OK") : tr("ERR");
     const QString type =
@@ -280,7 +280,7 @@ QString FrameAnalyzerWidget::FrameAnalyzerWidgetPrivate::historyItemText(const m
         .arg(QString::fromLatin1(result.rawFrame.toHex().toUpper().left(16)) + "...");
 }
 
-void FrameAnalyzerWidget::FrameAnalyzerWidgetPrivate::addToHistory(const modbus::core::parser::ParseResult& result)
+void FrameAnalyzerWidget::FrameAnalyzerWidgetPrivate::addToHistory(const modbus::parser::ParseResult& result)
 {
     historyResults.prepend(result);
     while (historyResults.size() > config::Ui::kFrameAnalyzerMaxHistoryItems) {
@@ -298,8 +298,8 @@ FrameAnalyzerWidget::FrameAnalyzerWidget(core::common::ISettingsService* setting
     Q_D(FrameAnalyzerWidget);
     d->settingsService = settingsService;
 
-    qRegisterMetaType<modbus::core::parser::ProtocolType>();
-    qRegisterMetaType<modbus::core::parser::ParseResult>();
+    qRegisterMetaType<modbus::parser::ProtocolType>();
+    qRegisterMetaType<modbus::parser::ParseResult>();
     qRegisterMetaType<modbus::base::RegisterOrder>();
 
     d->parseThread = std::shared_ptr<QThread>(new QThread(), &cleanupThread);
@@ -1053,7 +1053,7 @@ void FrameAnalyzerWidget::clearResult()
     if (d->resultTabs) d->resultTabs->setTabText(0, tr("Structure"));
 }
 
-void FrameAnalyzerWidget::processLivePdu(const modbus::base::Pdu& pdu, modbus::core::parser::ProtocolType protocol, uint16_t addr)
+void FrameAnalyzerWidget::processLivePdu(const modbus::base::Pdu& pdu, modbus::parser::ProtocolType protocol, uint16_t addr)
 {
     Q_D(FrameAnalyzerWidget);
     d->isLiveMode = true;
@@ -1069,7 +1069,7 @@ void FrameAnalyzerWidget::processLivePdu(const modbus::base::Pdu& pdu, modbus::c
     result.pduData = pdu.toByteArray();
     result.type = result.isException ? FrameType::Exception : FrameType::Response;
     
-    modbus::core::parser::ModbusFrameParser::parsePdu(result, result.pduData, addr, 0);
+    modbus::parser::parsePdu(result, result.pduData, addr, 0);
     
     QString protocolStr =
         protocol == ProtocolType::Tcp ? QStringLiteral("TCP") :

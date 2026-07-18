@@ -79,7 +79,7 @@ public:
 signals:
     /// Forwarded from RequestCoordinator (gated by linked_ state).
     void linkageDataReceived(const ::modbus::base::Pdu& pdu,
-                             ::modbus::core::parser::ProtocolType protocol,
+                             ::modbus::parser::ProtocolType protocol,
                              uint16_t addr);
     /// Forwarded from ControlWidget link toggle.
     void linkageToggled(bool active);

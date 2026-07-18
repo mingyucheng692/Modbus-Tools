@@ -140,7 +140,7 @@ void ModbusPagePresenter::wireConnections() {
         connect(requestCoordinator_,
                 &RequestCoordinator::linkageDataReceived,
                 this, [this](const ::modbus::base::Pdu& pdu,
-                             ::modbus::core::parser::ProtocolType protocol,
+                             ::modbus::parser::ProtocolType protocol,
                              uint16_t addr) {
                     if (linked_) {
                         emit linkageDataReceived(pdu, protocol, addr);

@@ -15,7 +15,7 @@
 #include <modbus/parser/ModbusFrameParser.h>
 #include <modbus/base/ModbusTypes.h>
 
-namespace modbus::core::parser {
+namespace modbus::parser {
 
 /**
  * @brief Worker object designed to run in a background thread for frame parsing.
@@ -45,7 +45,7 @@ public slots:
      * @param requestId Unique ID to track the request.
      */
     void enqueueParse(const QString& input,
-                      modbus::core::parser::ProtocolType type,
+                      ProtocolType type,
                       uint16_t startAddress,
                       modbus::base::RegisterOrder order,
                       quint64 requestId);
@@ -54,7 +54,7 @@ signals:
     /**
      * @brief Signal emitted when parsing is finished.
      */
-    void parseFinished(const modbus::core::parser::ParseResult& result, quint64 requestId);
+    void parseFinished(const ParseResult& result, quint64 requestId);
 
 private:
     class Private;
@@ -62,4 +62,4 @@ private:
     Q_DISABLE_COPY(FrameParseWorker)
 };
 
-} // namespace modbus::core::parser
+} // namespace modbus::parser

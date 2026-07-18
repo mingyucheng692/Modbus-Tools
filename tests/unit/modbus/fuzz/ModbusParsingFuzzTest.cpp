@@ -13,7 +13,7 @@
 #include <vector>
 
 using namespace modbus::base;
-using namespace modbus::core::parser;
+using namespace modbus::parser;
 using namespace modbus::session;
 using namespace modbus::transport;
 
@@ -76,9 +76,9 @@ TEST(ModbusParsingFuzzTest, ParserAndIntegritySurfaces_HandleDeterministicCorpus
 
     for (const QByteArray& frame : corpus) {
         EXPECT_NO_THROW({
-            (void)ModbusFrameParser::parse(frame, ProtocolType::Unknown);
-            (void)ModbusFrameParser::parse(frame, ProtocolType::Tcp);
-            (void)ModbusFrameParser::parse(frame, ProtocolType::Rtu, 0, 0, true);
+            (void)parse(frame, ProtocolType::Unknown);
+            (void)parse(frame, ProtocolType::Tcp);
+            (void)parse(frame, ProtocolType::Rtu, 0, 0, true);
             (void)tcpTransport.checkIntegrity(frame);
             (void)rtuTransport.checkIntegrity(frame);
         });

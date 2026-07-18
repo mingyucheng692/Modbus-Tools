@@ -73,7 +73,7 @@ public:
     [[nodiscard]] ui::application::modbus::SessionMode currentMode() const noexcept { return currentMode_; }
 
 signals:
-    void linkageDataReceived(const ::modbus::base::Pdu& pdu, ::modbus::core::parser::ProtocolType protocol, uint16_t addr);
+    void linkageDataReceived(const ::modbus::base::Pdu& pdu, ::modbus::parser::ProtocolType protocol, uint16_t addr);
     void linkageToggled(bool active);
     void linkageSourceDisconnected();
 

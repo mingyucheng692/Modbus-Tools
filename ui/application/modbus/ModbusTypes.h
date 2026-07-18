@@ -56,7 +56,7 @@ enum class TransportUiMode {
 struct ModbusModeDescriptor {
     SessionMode sessionMode = SessionMode::Tcp;
     ::modbus::base::ModbusMode modbusMode = ::modbus::base::ModbusMode::TCP;
-    ::modbus::core::parser::ProtocolType protocolType = ::modbus::core::parser::ProtocolType::Tcp;
+    ::modbus::parser::ProtocolType protocolType = ::modbus::parser::ProtocolType::Tcp;
     TransportUiMode transportUiMode = TransportUiMode::Tcp;
     const char* settingsPrefix = "modbus/tcp";
     const char* logName = "TCP";
@@ -88,7 +88,7 @@ struct ModbusConnectionSpec {
         return ModbusModeDescriptor{
             SessionMode::Tcp,
             ::modbus::base::ModbusMode::TCP,
-            ::modbus::core::parser::ProtocolType::Tcp,
+            ::modbus::parser::ProtocolType::Tcp,
             TransportUiMode::Tcp,
             "modbus/tcp",
             "TCP",
@@ -99,7 +99,7 @@ struct ModbusConnectionSpec {
         return ModbusModeDescriptor{
             SessionMode::Rtu,
             ::modbus::base::ModbusMode::RTU,
-            ::modbus::core::parser::ProtocolType::Rtu,
+            ::modbus::parser::ProtocolType::Rtu,
             TransportUiMode::Rtu,
             "modbus/rtu",
             "RTU",
@@ -110,7 +110,7 @@ struct ModbusConnectionSpec {
         return ModbusModeDescriptor{
             SessionMode::Ascii,
             ::modbus::base::ModbusMode::ASCII,
-            ::modbus::core::parser::ProtocolType::Ascii,
+            ::modbus::parser::ProtocolType::Ascii,
             TransportUiMode::Ascii,
             "modbus/ascii",
             "ASCII",
