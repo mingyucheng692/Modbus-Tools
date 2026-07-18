@@ -25,6 +25,7 @@
 #include "common/CompactMenuBarStyle.h"
 #include "common/SettingsKeys.h"
 #include "common/ThemeController.h"
+#include "common/ThemeUi.h"
 #include "common/UpdateChecker.h"
 #include "../core/common/ISettingsService.h"
 #include "../core/update/UpdateManager.h"
@@ -78,6 +79,7 @@ namespace ui {
 
 MainWindow::MainWindow(core::common::ISettingsService* settingsService,
                        common::ThemeController* themeController,
+                       infra::platform::PathResolver& pathResolver,
                        QWidget *parent)
     : QMainWindow(parent),
       updateInteractionView_(std::make_unique<UpdateInteractionView>(this)),
@@ -97,7 +99,8 @@ MainWindow::MainWindow(core::common::ISettingsService* settingsService,
           settingsController_.get(),
           languageCoordinator_.get(),
           updateCoordinator_.get())),
-      settingsService_(settingsService) {
+      settingsService_(settingsService),
+      pathResolver_(pathResolver) {
     appLifecycleCoordinator_->initialize();
 }
 
@@ -173,7 +176,7 @@ void MainWindow::createNavigation() {
     navigationController_->initialize(
         {tr("Modbus"), tr("TCP/UDP Tool"), tr("Serial Debugger"), tr("Frame Analyzer")});
 
-    common::ThemeController::applyNavigationTheme(navigationList_->palette(), navigationPane_, navigationToggleButton_, navigationList_);
+    common::theme_ui::applyNavigationTheme(navigationList_->palette(), navigationPane_, navigationToggleButton_, navigationList_);
     auto invoke = [this](auto fn, auto&&... args) {
         if (appLifecycleCoordinator_) {
             (appLifecycleCoordinator_.get()->*fn)(std::forward<decltype(args)>(args)...);
@@ -233,7 +236,7 @@ void MainWindow::setupSettingsMenu() {
     });
     settingsMenu_->addSeparator();
     openLogFolderAction_ = settingsMenu_->addAction(tr("Open Log Folder"), this, [this]() {
-        const QString logDir = infra::platform::PathResolver::instance().resolveLogDir();
+        const QString logDir = pathResolver_.resolveLogDir();
         QDesktopServices::openUrl(QUrl::fromLocalFile(logDir));
     });
 }
@@ -293,13 +296,13 @@ void MainWindow::setupThemeToggle() {
 }
 
 void MainWindow::updateThemeUi() {
-    common::ThemeController::applyNavigationTheme(palette(), navigationPane_, navigationToggleButton_, navigationList_);
+    common::theme_ui::applyNavigationTheme(palette(), navigationPane_, navigationToggleButton_, navigationList_);
     updateThemeToggleUi();
 }
 
 void MainWindow::updateThemeToggleUi() {
     if (!themeToggleButton_) return;
-    common::ThemeController::applyThemeToggleAppearance(themeToggleButton_->palette(), menuBar(), style(), themeToggleButton_, themeController_->currentMode());
+    common::theme_ui::applyThemeToggleAppearance(themeToggleButton_->palette(), menuBar(), style(), themeToggleButton_, themeController_->currentMode());
     QString tooltip = (themeController_->currentMode() == common::Theme::Mode::Auto) ? tr("Theme: Auto") : 
                       (themeController_->currentMode() == common::Theme::Mode::Light) ? tr("Theme: Light") : tr("Theme: Dark");
     themeToggleButton_->setToolTip(tooltip);

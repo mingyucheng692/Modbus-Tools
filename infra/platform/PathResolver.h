@@ -31,8 +31,6 @@ public:
                  QStringList arguments,
                  QString applicationName);
 
-    [[nodiscard]] static PathResolver& instance();
-
     /// Returns true when portable mode was explicitly opted-in (marker file or --portable).
     [[nodiscard]] bool isPortableMode() const noexcept { return portableMode_; }
 

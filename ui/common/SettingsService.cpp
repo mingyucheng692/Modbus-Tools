@@ -18,19 +18,21 @@
 
 namespace {
 
-QString resolveConfigFilePath()
+QString resolveConfigFilePath(const infra::platform::PathResolver& pathResolver)
 {
-    return QDir(infra::platform::PathResolver::instance().resolveConfigDir()).filePath(QStringLiteral("config.ini"));
+    return QDir(pathResolver.resolveConfigDir()).filePath(QStringLiteral("config.ini"));
 }
 
 } // namespace
 
 namespace ui::common {
 
-SettingsService::SettingsService(QObject* parent)
+SettingsService::SettingsService(infra::platform::PathResolver& pathResolver,
+                                 QObject* parent)
     : QObject(parent),
-      settings_(std::make_unique<QSettings>(resolveConfigFilePath(), QSettings::IniFormat)),
-      syncTimer_(new QTimer(this)) {
+      settings_(std::make_unique<QSettings>(resolveConfigFilePath(pathResolver), QSettings::IniFormat)),
+      syncTimer_(new QTimer(this)),
+      pathResolver_(pathResolver) {
     syncTimer_->setSingleShot(true);
     syncTimer_->setInterval(config::Settings::kSyncDebounceMs);
     connect(syncTimer_, &QTimer::timeout, this, &SettingsService::sync);
@@ -48,17 +50,16 @@ QVariant SettingsService::value(const QString& key) const {
 }
 
 bool SettingsService::contains(const QString& key) const {
-    return loadedKeys_.contains(key) || dirtyKeys_.contains(key);
+    return values_.contains(key) || dirtyKeys_.contains(key);
 }
 
 void SettingsService::setValue(const QString& key, const QVariant& value) {
     const QVariant currentValue = values_.contains(key) ? values_.value(key) : defaults_.value(key);
-    const bool alreadyTracked = loadedKeys_.contains(key) || dirtyKeys_.contains(key);
+    const bool alreadyTracked = values_.contains(key) || dirtyKeys_.contains(key);
     if (currentValue == value && alreadyTracked) {
         return;
     }
     values_.insert(key, value);
-    loadedKeys_.insert(key);
     keysToRemove_.remove(key);
     dirtyKeys_.insert(key);
     scheduleSync();
@@ -75,11 +76,10 @@ void SettingsService::sync() {
 
     for (auto it = dirtyKeys_.cbegin(); it != dirtyKeys_.cend(); ++it) {
         settings_->setValue(*it, values_.value(*it, defaults_.value(*it)));
-        loadedKeys_.insert(*it);
     }
     for (auto it = keysToRemove_.cbegin(); it != keysToRemove_.cend(); ++it) {
         settings_->remove(*it);
-        loadedKeys_.remove(*it);
+        values_.remove(*it);
     }
     settings_->sync();
     dirtyKeys_.clear();
@@ -187,18 +187,11 @@ void SettingsService::initializeDefaults() {
 }
 
 void SettingsService::load() {
-    // Load explicitly defined defaults first (ensures baseline exists)
-    for (auto it = defaults_.cbegin(); it != defaults_.cend(); ++it) {
-        values_.insert(it.key(), settings_->value(it.key(), it.value()));
-    }
-
-    // Now load everything else found in the file to handle dynamic/prefixed keys
+    // Load all keys present in the settings file into values_.
+    // Keys absent from the file fall back to defaults_ via value().
     const QStringList allKeys = settings_->allKeys();
     for (const QString& key : allKeys) {
-        if (!values_.contains(key)) {
-            values_.insert(key, settings_->value(key));
-        }
-        loadedKeys_.insert(key);
+        values_.insert(key, settings_->value(key));
     }
 
     using namespace core::common::settings_keys;

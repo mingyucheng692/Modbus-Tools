@@ -11,7 +11,6 @@
 
 #include "Config.h"
 #include "SessionTypes.h"
-#include "RequestValidator.h"
 #include "FrameExtractor.h"
 #include "RetryStrategy.h"
 #include "ConnectionStateMachine.h"
@@ -94,7 +93,6 @@ private:
     std::shared_ptr<io::IChannel> channel_;
     std::shared_ptr<transport::ITransport> transport_;
     base::ModbusConfig config_;
-    RequestValidator requestValidator_;
 
     // 同步机制：等待响应
     std::mutex mutex_;

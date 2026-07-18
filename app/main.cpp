@@ -29,11 +29,12 @@ int main(int argc, char *argv[])
     app.setApplicationName("Modbus-Tools");
     app.setApplicationVersion(QStringLiteral(MODBUS_TOOLS_APP_VERSION));
 
-    ui::common::SettingsService settingsService;
+    infra::platform::PathResolver pathResolver;
+    ui::common::SettingsService settingsService(pathResolver);
     ui::common::ThemeController themeController(settingsService);
 
     QString loggingError;
-    if (!logging::Init(infra::platform::PathResolver::instance().resolveLogDir(), &loggingError)) {
+    if (!logging::Init(pathResolver.resolveLogDir(), &loggingError)) {
         QMessageBox::critical(
             nullptr,
             QCoreApplication::translate("main", "Startup Error"),
@@ -45,7 +46,7 @@ int main(int argc, char *argv[])
 
     app.setWindowIcon(QIcon(":/assets/logo.svg"));
 
-    ui::MainWindow window(&settingsService, &themeController);
+    ui::MainWindow window(&settingsService, &themeController, pathResolver);
     window.setWindowIcon(QIcon(":/assets/logo.svg"));
     window.show();
 

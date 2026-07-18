@@ -15,9 +15,10 @@
 #include <QtEndian>
 #include <cstring>
 
-namespace modbus::session {
+namespace modbus::session::request_validator {
+namespace {
 
-bool RequestValidator::isAddressRangeValid(uint16_t startAddress, uint16_t quantity)
+bool isAddressRangeValid(uint16_t startAddress, uint16_t quantity)
 {
     if (quantity == 0) {
         return false;
@@ -26,8 +27,9 @@ bool RequestValidator::isAddressRangeValid(uint16_t startAddress, uint16_t quant
     return endAddress <= static_cast<uint32_t>(config::Modbus::kMaxAddress);
 }
 
-RequestValidator::Result RequestValidator::validate(const base::Pdu& request,
-    int slaveId, base::ModbusMode mode) const
+} // namespace
+
+Result validate(const base::Pdu& request, int slaveId, base::ModbusMode mode)
 {
     if (mode == base::ModbusMode::RTU &&
         (slaveId < config::Modbus::kMinSlaveId ||
@@ -154,4 +156,4 @@ RequestValidator::Result RequestValidator::validate(const base::Pdu& request,
     return {true, QString()};
 }
 
-} // namespace modbus::session
+} // namespace modbus::session::request_validator

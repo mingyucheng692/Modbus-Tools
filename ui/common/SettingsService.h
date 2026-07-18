@@ -19,13 +19,16 @@
 
 class QTimer;
 
+namespace infra::platform { class PathResolver; }
+
 namespace ui::common {
 
 class SettingsService : public QObject, public ::core::common::ISettingsService {
     Q_OBJECT
 
 public:
-    explicit SettingsService(QObject* parent = nullptr);
+    explicit SettingsService(infra::platform::PathResolver& pathResolver,
+                             QObject* parent = nullptr);
 
     QVariant value(const QString& key) const override;
     bool contains(const QString& key) const override;
@@ -40,11 +43,15 @@ private:
 
     QHash<QString, QVariant> defaults_;
     QHash<QString, QVariant> values_;
-    QSet<QString> loadedKeys_;
+    // dirtyKeys_ tracks keys pending batch write-back (debounced QTimer sync).
+    // keysToRemove_ tracks legacy keys pending deletion (e.g. kLegacySerialBaudRate).
+    // QSettings does not provide dirty/removal set queries, so these sets carry
+    // real semantics distinct from values_.
     QSet<QString> dirtyKeys_;
     QSet<QString> keysToRemove_;
     std::unique_ptr<QSettings> settings_;
     QTimer* syncTimer_ = nullptr;
+    infra::platform::PathResolver& pathResolver_;
 };
 
 } // namespace ui::common

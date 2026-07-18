@@ -10,7 +10,6 @@
 #pragma once
 
 #include "SessionTypes.h"
-#include "RequestValidator.h"
 #include "FrameExtractor.h"
 #include "RetryStrategy.h"
 #include "ConnectionStateMachine.h"
@@ -52,9 +51,9 @@ public:
         std::chrono::steady_clock::time_point enqueueAt{};
     };
 
-    /// @brief Aggregated dependencies for RequestExecutor (17 fields in 3 groups).
+    /// @brief Aggregated dependencies for RequestExecutor (16 fields in 3 groups).
     ///
-    /// Group 1 (protocol stack, 11 fields): channel through config — non-owning
+    /// Group 1 (protocol stack, 10 fields): channel through config — non-owning
     /// references to the protocol stack collaborators owned by ModbusClient.
     /// Group 2 (sync primitives, 3 fields): mutex/cv/aborted — owned by
     /// ModbusClient, passed by reference. Not extracted into a wrapper class
@@ -68,7 +67,6 @@ public:
         FrameExtractor* frameExtractor;
         FlowController* flowController;
         RetryStrategy* retryStrategy;
-        RequestValidator* requestValidator;
         ConnectionStateMachine* connStateMachine;
         RequestStateMachine* reqStateMachine;
         TimeoutController* timeoutController;
@@ -158,7 +156,6 @@ private:
     FrameExtractor* frameExtractor_;
     FlowController* flowController_;
     RetryStrategy* retryStrategy_;
-    RequestValidator* requestValidator_;
     ConnectionStateMachine* connStateMachine_;
     RequestStateMachine* reqStateMachine_;
     TimeoutController* timeoutController_;

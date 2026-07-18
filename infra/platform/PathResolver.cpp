@@ -52,12 +52,6 @@ PathResolver::PathResolver(std::shared_ptr<const IPlatformPaths> platformPaths,
     detectPortableMode(arguments);
 }
 
-PathResolver& PathResolver::instance()
-{
-    static PathResolver resolver;
-    return resolver;
-}
-
 void PathResolver::detectPortableMode(const QStringList& arguments)
 {
     // Per AGENTS.md §21.7: portable mode MUST be explicit opt-in.

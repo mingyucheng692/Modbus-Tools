@@ -17,20 +17,13 @@ namespace modbus::base {
 class Pdu;
 }
 
-namespace modbus::session {
+namespace modbus::session::request_validator {
 
-class RequestValidator {
-public:
-    struct Result {
-        bool valid = false;
-        QString error;
-    };
-
-    Result validate(const base::Pdu& request, int slaveId,
-        base::ModbusMode mode) const;
-
-private:
-    static bool isAddressRangeValid(uint16_t startAddress, uint16_t quantity);
+struct Result {
+    bool valid = false;
+    QString error;
 };
 
-} // namespace modbus::session
+Result validate(const base::Pdu& request, int slaveId, base::ModbusMode mode);
+
+} // namespace modbus::session::request_validator

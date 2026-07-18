@@ -69,6 +69,8 @@ target_sources(ui PRIVATE
     common/SettingsService.h
     common/ThemeController.cpp
     common/ThemeController.h
+    common/ThemeUi.cpp
+    common/ThemeUi.h
     common/TrafficEvent.h
     common/UpdateChecker.cpp
     common/UpdateChecker.h

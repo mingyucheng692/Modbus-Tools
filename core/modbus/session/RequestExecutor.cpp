@@ -95,7 +95,6 @@ RequestExecutor::RequestExecutor(const Dependencies& deps)
     , frameExtractor_(deps.frameExtractor)
     , flowController_(deps.flowController)
     , retryStrategy_(deps.retryStrategy)
-    , requestValidator_(deps.requestValidator)
     , connStateMachine_(deps.connStateMachine)
     , reqStateMachine_(deps.reqStateMachine)
     , timeoutController_(deps.timeoutController)
@@ -112,7 +111,6 @@ RequestExecutor::RequestExecutor(const Dependencies& deps)
     Q_ASSERT(frameExtractor_);
     Q_ASSERT(flowController_);
     Q_ASSERT(retryStrategy_);
-    Q_ASSERT(requestValidator_);
     Q_ASSERT(connStateMachine_);
     Q_ASSERT(reqStateMachine_);
     Q_ASSERT(timeoutController_);
@@ -279,7 +277,7 @@ ModbusResponse RequestExecutor::sendRequestInternal(const base::Pdu& request, in
     }
 
     const int targetSlaveId = (slaveId == -1) ? config_->slaveId : slaveId;
-    const auto validationResult = requestValidator_->validate(request, targetSlaveId, config_->mode);
+    const auto validationResult = request_validator::validate(request, targetSlaveId, config_->mode);
     if (!validationResult.valid) {
         reqStateMachine_->tryTransition(RequestStateMachine::State::Failed,
                                         "request-validation-failed");

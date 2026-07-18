@@ -88,12 +88,12 @@ TEST(ModbusEndianCodecTest, FrameParserExtractsStartAddressFromBigEndianRequestP
 
 TEST(ModbusEndianCodecTest, RequestValidatorAcceptsValidReadRequestPayload)
 {
-    modbus::session::RequestValidator validator;
+    using modbus::session::request_validator::validate;
     const Pdu request(
         FunctionCode::ReadHoldingRegisters,
         QByteArray::fromHex("00100002"));
 
-    const auto result = validator.validate(request, 1, ModbusMode::TCP);
+    const auto result = validate(request, 1, ModbusMode::TCP);
 
     EXPECT_TRUE(result.valid) << result.error.toStdString();
     EXPECT_TRUE(result.error.isEmpty());

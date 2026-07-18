@@ -2,27 +2,56 @@
 
 #include "common/SettingsKeys.h"
 #include "../../../ui/common/SettingsService.h"
+#include "infra/platform/IPlatformPaths.h"
 #include "infra/platform/PathResolver.h"
 
 #include <QDir>
 #include <QFile>
 #include <QSettings>
+#include <QTemporaryDir>
+#include <memory>
 
 namespace {
 
-// RAII guard that isolates the real "config.ini" used by SettingsService so
-// tests can read/write it without clobbering a developer's real settings.
-// The original file is backed up and restored on destruction.
-//
-// IMPORTANT: declare the guard BEFORE the SettingsService instance in each
-// test so the service (and its debounce QTimer child) is destroyed first,
+class FakePlatformPaths final : public infra::platform::IPlatformPaths {
+public:
+    FakePlatformPaths(QString appDataLocation, QString appConfigLocation, QString tempLocation)
+        : appDataLocation_(std::move(appDataLocation)),
+          appConfigLocation_(std::move(appConfigLocation)),
+          tempLocation_(std::move(tempLocation))
+    {
+    }
+
+    [[nodiscard]] QString appDataLocation() const override { return appDataLocation_; }
+    [[nodiscard]] QString appConfigLocation() const override { return appConfigLocation_; }
+    [[nodiscard]] QString tempLocation() const override { return tempLocation_; }
+
+private:
+    QString appDataLocation_;
+    QString appConfigLocation_;
+    QString tempLocation_;
+};
+
+// Builds a PathResolver whose config/log/temp directories live inside the
+// supplied sandbox, so tests never touch the developer's real user config.
+infra::platform::PathResolver makeIsolatedResolver(const QString& sandboxPath)
+{
+    auto platformPaths = std::make_shared<FakePlatformPaths>(
+        QDir(sandboxPath).filePath(QStringLiteral("data")),
+        QDir(sandboxPath).filePath(QStringLiteral("config")),
+        QDir(sandboxPath).filePath(QStringLiteral("temp")));
+    return infra::platform::PathResolver(platformPaths, sandboxPath, {}, "Modbus-Tools-Test");
+}
+
+// RAII guard that backs up and restores the sandbox "config.ini" so each test
+// starts from a clean state. Declared BEFORE the SettingsService instance in
+// each test so the service (and its debounce QTimer child) is destroyed first,
 // preventing a late timer fire from writing after restoration.
 class ConfigFileGuard {
 public:
-    ConfigFileGuard() {
-        const QString dir = infra::platform::PathResolver::instance().resolveConfigDir();
-        QDir().mkpath(dir);
-        path_ = QDir(dir).filePath(QStringLiteral("config.ini"));
+    explicit ConfigFileGuard(const QString& configDir) {
+        QDir().mkpath(configDir);
+        path_ = QDir(configDir).filePath(QStringLiteral("config.ini"));
         if (QFile::exists(path_)) {
             backupPath_ = path_ + QStringLiteral(".test-bak");
             QFile::remove(backupPath_);
@@ -46,13 +75,17 @@ private:
 
 TEST(SettingsService, LoadsValuesFromConfigFile)
 {
-    ConfigFileGuard guard;
+    QTemporaryDir sandbox;
+    ASSERT_TRUE(sandbox.isValid());
+
+    infra::platform::PathResolver pathResolver = makeIsolatedResolver(sandbox.path());
+    ConfigFileGuard guard(pathResolver.resolveConfigDir());
     {
         QSettings writer(guard.path(), QSettings::IniFormat);
         writer.setValue(QString::fromLatin1(core::common::settings_keys::kAppThemeMode), QStringLiteral("dark"));
     }
 
-    ui::common::SettingsService service;
+    ui::common::SettingsService service(pathResolver);
 
     EXPECT_TRUE(service.configFilePath().endsWith(QStringLiteral("config.ini")));
     EXPECT_EQ(service.value(QString::fromLatin1(core::common::settings_keys::kAppThemeMode)).toString().toStdString(),
@@ -61,8 +94,12 @@ TEST(SettingsService, LoadsValuesFromConfigFile)
 
 TEST(SettingsService, SyncPersistsDirtyValues)
 {
-    ConfigFileGuard guard;
-    ui::common::SettingsService service;
+    QTemporaryDir sandbox;
+    ASSERT_TRUE(sandbox.isValid());
+
+    infra::platform::PathResolver pathResolver = makeIsolatedResolver(sandbox.path());
+    ConfigFileGuard guard(pathResolver.resolveConfigDir());
+    ui::common::SettingsService service(pathResolver);
     service.setValue(QString::fromLatin1(core::common::settings_keys::kAppThemeMode), QStringLiteral("dark"));
     service.sync();
 
@@ -73,13 +110,17 @@ TEST(SettingsService, SyncPersistsDirtyValues)
 
 TEST(SettingsService, LegacySerialBaudRateMigrates)
 {
-    ConfigFileGuard guard;
+    QTemporaryDir sandbox;
+    ASSERT_TRUE(sandbox.isValid());
+
+    infra::platform::PathResolver pathResolver = makeIsolatedResolver(sandbox.path());
+    ConfigFileGuard guard(pathResolver.resolveConfigDir());
     {
         QSettings writer(guard.path(), QSettings::IniFormat);
         writer.setValue(QString::fromLatin1(core::common::settings_keys::kLegacySerialBaudRate), QStringLiteral("115200"));
     }
 
-    ui::common::SettingsService service;
+    ui::common::SettingsService service(pathResolver);
     service.sync();
 
     EXPECT_EQ(service.value(QString::fromLatin1(core::common::settings_keys::kModbusRtuBaudRate)).toString().toStdString(),

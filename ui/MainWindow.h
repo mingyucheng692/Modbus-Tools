@@ -13,6 +13,8 @@
 #include <QMainWindow>
 #include <memory>
 
+namespace infra::platform { class PathResolver; }
+
 class QStackedWidget;
 class QListWidget;
 class QAction;
@@ -47,6 +49,7 @@ class MainWindow : public QMainWindow,
 public:
     explicit MainWindow(core::common::ISettingsService* settingsService,
                         common::ThemeController* themeController,
+                        infra::platform::PathResolver& pathResolver,
                         QWidget *parent = nullptr);
     ~MainWindow() override;
 
@@ -116,6 +119,7 @@ private:
     // Original UI-layer pointer retained for UI-side builders that expect
     // the settings service interface.
     core::common::ISettingsService* settingsService_ = nullptr;
+    infra::platform::PathResolver& pathResolver_;
     
     // Local State
     QString effectiveLocale_ = "en_US";
