@@ -90,7 +90,7 @@ cmake --build build_release --target release_bundle --config Release --parallel
 
 自動化檢查是工程護欄，不是認證結論。
 
-- 測試按目標拆分為 `test_core_logic`、`test_qt_core`、`test_ui_widgets`、`test_integration`、`test_modbus_stability`、`test_modbus_concurrency`、`test_modbus_fuzz`
+- 測試按目標拆分為 `test_core_logic`、`test_qt_core`、`test_ui_widgets`、`test_integration`、`test_modbus_fuzz`
 - CI 在 `Windows`、`Linux`、`macOS` 上執行構建矩陣
 - Linux CI 包含非阻斷 `clang-tidy`
 - 開啟 ASan 測試時，Linux 會構建並執行確定性 fuzz 目標

@@ -90,7 +90,7 @@ cmake --build build_release --target release_bundle --config Release --parallel
 
 Automated checks are part of normal development, but they are engineering safeguards, not a certification claim.
 
-- Unit and integration tests are organized into focused targets such as `test_core_logic`, `test_qt_core`, `test_ui_widgets`, `test_integration`, `test_modbus_stability`, `test_modbus_concurrency`, and `test_modbus_fuzz`
+- Unit and integration tests are organized into focused targets such as `test_core_logic`, `test_qt_core`, `test_ui_widgets`, `test_integration`, and `test_modbus_fuzz`
 - CI runs a cross-platform matrix on `Windows`, `Linux`, and `macOS`
 - Linux CI also includes non-blocking `clang-tidy`
 - The deterministic fuzz target is built and executed on Linux when ASan test runs are enabled

@@ -16,7 +16,7 @@ Without explicit state machines, these workflows were implemented with boolean f
 
 ## Decision
 
-We use **constexpr transition tables + lock-free CAS (compare-and-swap)** for core-layer state machines, and **Qt's `QStateMachine`** for UI-layer polling escalation.
+We use **constexpr transition tables + lock-free CAS (compare-and-swap)** for core-layer state machines, and a **hand-written `enum class` + Qt signals** for UI-layer polling escalation.
 
 ### Core-layer state machines (constexpr + CAS)
 
@@ -30,14 +30,14 @@ Each derived class exposes:
 - `static constexpr const char* toString(State)` — state label for logging
 - `static constexpr State kInitialState` — power-on state
 
-### UI-layer state machine (QStateMachine)
+### UI-layer state machine (hand-written enum + signals)
 
-- `PollingController` in `ui/application/modbus/` uses Qt's `QStateMachine` for the polling escalation state machine (idle → polling → degraded → escalated → recovered).
+- `PollingController` in `ui/application/modbus/` uses a hand-written `enum class PollState` (idle → polling → degraded → escalated → recovered) with explicit transition methods and Qt signals, not `QStateMachine`.
 
 ### Why two approaches
 
 - **Core layer** requires thread-safe, lock-free state transitions (called from worker thread + UI thread). `QStateMachine` is event-loop-bound (asynchronous, single-threaded) and unsuitable. The constexpr + CAS approach gives deterministic, thread-safe transitions with zero heap allocation.
-- **UI layer** polling escalation is single-threaded and benefits from `QStateMachine`'s signal-driven transitions and Qt Creator visualization.
+- **UI layer** polling escalation is single-threaded and simple enough that a hand-written `enum class` with signal emissions suffices; the overhead of `QStateMachine` was not justified.
 
 ## Alternatives Considered
 
@@ -51,7 +51,7 @@ Each derived class exposes:
 - **Positive**: Core state transitions are thread-safe without mutexes (CAS).
 - **Positive**: Invalid transitions are caught at compile time (`static_assert`) and runtime (spdlog::error).
 - **Positive**: CRTP template eliminates ~112 LOC of duplicated CAS/transition code.
-- **Positive**: UI polling state machine remains visualizable in Qt Creator.
+- **Positive**: UI polling state machine is simple and explicit (no `QStateMachine` overhead).
 - **Negative**: Two state machine paradigms in the codebase (core vs UI).
 - **Negative**: CAS transition table requires manual maintenance of the `kValidTransitions` array.
 

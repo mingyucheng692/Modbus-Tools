@@ -90,7 +90,7 @@ cmake --build build_release --target release_bundle --config Release --parallel
 
 自动化检查是工程护栏，不是认证结论。
 
-- 测试按目标拆分为 `test_core_logic`、`test_qt_core`、`test_ui_widgets`、`test_integration`、`test_modbus_stability`、`test_modbus_concurrency`、`test_modbus_fuzz`
+- 测试按目标拆分为 `test_core_logic`、`test_qt_core`、`test_ui_widgets`、`test_integration`、`test_modbus_fuzz`
 - CI 在 `Windows`、`Linux`、`macOS` 上执行构建矩阵
 - Linux CI 包含非阻断 `clang-tidy`
 - 开启 ASan 测试时，Linux 会构建并运行确定性 fuzz 目标
