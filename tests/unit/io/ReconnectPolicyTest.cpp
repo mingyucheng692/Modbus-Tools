@@ -8,7 +8,7 @@
  */
 
 #include <gtest/gtest.h>
-#include "ReconnectPolicy.h"
+#include "../../../infra/io/ReconnectPolicy.h"
 
 using io::ReconnectPolicy;
 

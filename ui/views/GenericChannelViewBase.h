@@ -14,7 +14,7 @@
 #include <QString>
 #include <QByteArray>
 #include <functional>
-#include "../../../core/ReconnectPolicy.h"
+#include "../../infra/io/ReconnectPolicy.h"
 
 namespace io {
 class ChannelOperationWorker;

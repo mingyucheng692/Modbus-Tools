@@ -10,7 +10,7 @@
 
 namespace modbus::analyzer {
 
-QString ValueFormatter::formatDecimalValue(const QVariant& value, NumberDisplayMode mode)
+QString value_formatter::formatDecimalValue(const QVariant& value, NumberDisplayMode mode)
 {
     if (!value.isValid()) return QStringLiteral("-");
     if (value.typeId() == QMetaType::Bool) return value.toBool() ? QStringLiteral("1") : QStringLiteral("0");
@@ -25,7 +25,7 @@ QString ValueFormatter::formatDecimalValue(const QVariant& value, NumberDisplayM
     return value.toString();
 }
 
-double ValueFormatter::numericValueForDisplay(const QVariant& value, NumberDisplayMode mode, bool* ok)
+double value_formatter::numericValueForDisplay(const QVariant& value, NumberDisplayMode mode, bool* ok)
 {
     if (ok) *ok = false;
     if (!value.isValid() || value.typeId() == QMetaType::Bool) return 0.0;
@@ -44,7 +44,7 @@ double ValueFormatter::numericValueForDisplay(const QVariant& value, NumberDispl
     return localOk ? parsed : 0.0;
 }
 
-QString ValueFormatter::formatScaledValue(const QVariant& value, const DataMetadata& meta, NumberDisplayMode mode)
+QString value_formatter::formatScaledValue(const QVariant& value, const DataMetadata& meta, NumberDisplayMode mode)
 {
     bool ok = false;
     const double raw = numericValueForDisplay(value, mode, &ok);
@@ -52,7 +52,7 @@ QString ValueFormatter::formatScaledValue(const QVariant& value, const DataMetad
     return QString::number(raw * meta.scale, 'g', 12);
 }
 
-QString ValueFormatter::buildDescriptionTooltip(const QVariant& value, const DataMetadata& meta, NumberDisplayMode mode)
+QString value_formatter::buildDescriptionTooltip(const QVariant& value, const DataMetadata& meta, NumberDisplayMode mode)
 {
     QStringList lines;
     if (!meta.description.trimmed().isEmpty()) {
@@ -69,7 +69,7 @@ QString ValueFormatter::buildDescriptionTooltip(const QVariant& value, const Dat
     return lines.join('\n');
 }
 
-QString ValueFormatter::formatHexValue(const QByteArray& rawBytes, const QString& fallbackHex)
+QString value_formatter::formatHexValue(const QByteArray& rawBytes, const QString& fallbackHex)
 {
     if (rawBytes.isEmpty()) return fallbackHex;
     
@@ -88,7 +88,7 @@ QString ValueFormatter::formatHexValue(const QByteArray& rawBytes, const QString
     return QStringLiteral("0x%1").arg(rawHex);
 }
 
-QString ValueFormatter::formatBinaryValue(const QByteArray& rawBytes, const QString& fallbackBinary)
+QString value_formatter::formatBinaryValue(const QByteArray& rawBytes, const QString& fallbackBinary)
 {
     if (rawBytes.isEmpty()) return fallbackBinary;
 

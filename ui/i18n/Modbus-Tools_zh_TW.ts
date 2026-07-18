@@ -409,7 +409,7 @@
 <context>
     <name>ReconnectPolicy</name>
     <message>
-        <location filename="../../core/ReconnectPolicy.cpp" line="84"/>
+        <location filename="../../infra/io/ReconnectPolicy.cpp" line="84"/>
         <source>Attempt %1/%2</source>
         <translation>重連嘗試 %1/%2</translation>
     </message>
@@ -535,7 +535,7 @@
     </message>
 </context>
 <context>
-    <name>ValueFormatter</name>
+    <name>modbus::analyzer::value_formatter</name>
     <message>
         <location filename="../../core/analyzer/ValueFormatter.cpp" line="59"/>
         <source>Description: %1</source>

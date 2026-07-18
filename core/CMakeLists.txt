@@ -2,9 +2,6 @@ add_library(core STATIC)
 
 target_sources(core PRIVATE
     Config.h
-    # reconnect
-    ReconnectPolicy.h
-    ReconnectPolicy.cpp
     # modbus base
     modbus/base/ModbusTypes.h
     modbus/base/ModbusFrame.h

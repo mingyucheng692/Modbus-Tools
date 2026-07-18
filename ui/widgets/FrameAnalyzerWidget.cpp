@@ -196,12 +196,12 @@ void FrameAnalyzerWidget::FrameAnalyzerWidgetPrivate::applyMetadataToRow(int row
 
     QTableWidgetItem* descItem = dataTable->item(row, 6);
     if (descItem) {
-        descItem->setToolTip(ValueFormatter::buildDescriptionTooltip(value, meta, displayMode));
+        descItem->setToolTip(value_formatter::buildDescriptionTooltip(value, meta, displayMode));
     }
     
     QTableWidgetItem* scaledItem = dataTable->item(row, 5);
     if (scaledItem) {
-        scaledItem->setText(ValueFormatter::formatScaledValue(value, meta, displayMode));
+        scaledItem->setText(value_formatter::formatScaledValue(value, meta, displayMode));
     }
     
     QTableWidgetItem* scaleItem = dataTable->item(row, 4);
@@ -986,21 +986,21 @@ void FrameAnalyzerWidget::renderResult(const ParseResult& result)
             addrItem->setFlags(addrItem->flags() & ~Qt::ItemIsEditable);
             d->dataTable->setItem(i, 0, addrItem);
 
-            auto* hexItem = new QTableWidgetItem(ValueFormatter::formatHexValue(item.rawBytes, item.hexString));
+            auto* hexItem = new QTableWidgetItem(value_formatter::formatHexValue(item.rawBytes, item.hexString));
             hexItem->setFlags(addrItem->flags());
             d->dataTable->setItem(i, 1, hexItem);
 
-            auto* decItem = new QTableWidgetItem(ValueFormatter::formatDecimalValue(item.value, d->displayMode));
+            auto* decItem = new QTableWidgetItem(value_formatter::formatDecimalValue(item.value, d->displayMode));
             decItem->setFlags(addrItem->flags());
             d->dataTable->setItem(i, 2, decItem);
 
-            auto* binItem = new QTableWidgetItem(ValueFormatter::formatBinaryValue(item.rawBytes, item.binaryString));
+            auto* binItem = new QTableWidgetItem(value_formatter::formatBinaryValue(item.rawBytes, item.binaryString));
             binItem->setFlags(addrItem->flags());
             d->dataTable->setItem(i, 3, binItem);
 
             d->dataTable->setItem(i, 4, new QTableWidgetItem(QString::number(meta.scale, 'g', 12)));
             
-            auto* scaledItem = new QTableWidgetItem(ValueFormatter::formatScaledValue(item.value, meta, d->displayMode));
+            auto* scaledItem = new QTableWidgetItem(value_formatter::formatScaledValue(item.value, meta, d->displayMode));
             scaledItem->setFlags(addrItem->flags());
             d->dataTable->setItem(i, 5, scaledItem);
 
