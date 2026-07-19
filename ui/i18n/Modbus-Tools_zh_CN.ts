@@ -853,13 +853,13 @@
         <location filename="../MainWindow.cpp" line="200"/>
         <location filename="../MainWindow.cpp" line="377"/>
         <source>TCP/UDP Tool</source>
-        <translation type="unfinished"></translation>
+        <translation>TCP/UDP 工具</translation>
     </message>
     <message>
         <location filename="../MainWindow.cpp" line="200"/>
         <location filename="../MainWindow.cpp" line="378"/>
         <source>Serial Debugger</source>
-        <translation type="unfinished"></translation>
+        <translation>串口调试助手</translation>
     </message>
     <message>
         <location filename="../MainWindow.cpp" line="200"/>
@@ -2048,11 +2048,6 @@ Choose update method:</source>
         <translation type="unfinished">[%1] [警告] %2</translation>
     </message>
     <message>
-        <location filename="../widgets/ByteMonitorWidget.cpp" line="305"/>
-        <source>Record Log</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
         <location filename="../widgets/ByteMonitorWidget.cpp" line="306"/>
         <location filename="../widgets/ByteMonitorWidget.cpp" line="348"/>
         <source>Text Files (*.txt);;All Files (*)</source>
@@ -2152,11 +2147,6 @@ Choose update method:</source>
         <location filename="../widgets/ByteMonitorWidget.cpp" line="584"/>
         <source>Save</source>
         <translation type="unfinished">保存</translation>
-    </message>
-    <message>
-        <location filename="../widgets/ByteMonitorWidget.cpp" line="586"/>
-        <source>Record</source>
-        <translation type="unfinished"></translation>
     </message>
 </context>
 <context>
@@ -3110,11 +3100,6 @@ Choose update method:</source>
         <location filename="../widgets/GenericInputWidget.cpp" line="373"/>
         <source> ms</source>
         <translation> 毫秒</translation>
-    </message>
-    <message>
-        <location filename="../widgets/GenericInputWidget.cpp" line="376"/>
-        <source>Send File</source>
-        <translation>发送文件</translation>
     </message>
     <message>
         <location filename="../widgets/GenericInputWidget.cpp" line="379"/>

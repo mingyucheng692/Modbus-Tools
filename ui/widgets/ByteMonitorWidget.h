@@ -1,6 +1,6 @@
 /**
  * @file ByteMonitorWidget.h
- * @brief Generic byte-level traffic monitor with HEX/ASCII display, statistics, and recording.
+ * @brief Generic byte-level traffic monitor with HEX/ASCII display and statistics.
  *
  * Copyright (c) 2025 - present mingyucheng692
  *
