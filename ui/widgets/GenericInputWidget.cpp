@@ -20,7 +20,6 @@
 #include <QSpinBox>
 #include <QPushButton>
 #include <QLabel>
-#include <QFileDialog>
 #include <QDebug>
 #include <QEvent>
 #include <QSignalBlocker>
@@ -89,11 +88,8 @@ void GenericInputWidget::setupUi() {
     intervalSpin_->setSuffix(" ms");
     intervalSpin_->setEnabled(false); // Enabled when checked
     controlLayout->addWidget(intervalSpin_);
-    
-    // Send File
+
     controlLayout->addStretch();
-    sendFileBtn_ = new QPushButton(this);
-    controlLayout->addWidget(sendFileBtn_);
 
     // Send History
     sendHistoryCombo_ = new QComboBox(this);
@@ -106,7 +102,7 @@ void GenericInputWidget::setupUi() {
     sendBtn_ = new QPushButton(this);
     sendBtn_->setMinimumWidth(64);
     controlLayout->addWidget(sendBtn_);
-    
+
     mainLayout->addLayout(controlLayout);
 
     // Connections
@@ -118,12 +114,11 @@ void GenericInputWidget::setupUi() {
     });
     connect(hexRadio_, &QRadioButton::toggled, this, &GenericInputWidget::saveSettings);
     connect(asciiRadio_, &QRadioButton::toggled, this, &GenericInputWidget::saveSettings);
-    
+
     connect(autoSendCheck_, &QCheckBox::toggled, this, &GenericInputWidget::onAutoSendToggled);
     connect(autoSendCheck_, &QCheckBox::toggled, this, &GenericInputWidget::saveSettings);
     connect(intervalSpin_, qOverload<int>(&QSpinBox::valueChanged), this, &GenericInputWidget::saveSettings);
     connect(sendBtn_, &QPushButton::clicked, this, &GenericInputWidget::onSendClicked);
-    connect(sendFileBtn_, &QPushButton::clicked, this, &GenericInputWidget::onSendFileClicked);
 
     connect(lineEndingCombo_, QOverload<int>::of(&QComboBox::currentIndexChanged),
             this, &GenericInputWidget::saveSettings);
@@ -297,12 +292,6 @@ void GenericInputWidget::onTimerTimeout() {
     onSendClicked();
 }
 
-void GenericInputWidget::onSendFileClicked() {
-    QString path = QFileDialog::getOpenFileName(this, tr("Select File to Send"));
-    if (path.isEmpty()) return;
-    emit fileSendRequested(path);
-}
-
 void GenericInputWidget::onHistoryActivated(int index) {
     if (index < 0 || !sendHistoryCombo_) return;
     const QString text = sendHistoryCombo_->itemText(index);
@@ -371,9 +360,6 @@ void GenericInputWidget::retranslateUi() {
     }
     if (intervalSpin_) {
         intervalSpin_->setSuffix(tr(" ms"));
-    }
-    if (sendFileBtn_) {
-        sendFileBtn_->setText(tr("Send File"));
     }
     if (sendBtn_) {
         sendBtn_->setText(tr("Send"));

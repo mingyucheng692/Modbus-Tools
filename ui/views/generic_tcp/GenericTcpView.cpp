@@ -171,8 +171,6 @@ void GenericTcpView::setupUi() {
 
     connect(inputWidget_, &widgets::GenericInputWidget::sendRequested,
             this, &GenericTcpView::onSendRequested);
-    connect(inputWidget_, &widgets::GenericInputWidget::fileSendRequested,
-            this, &GenericTcpView::onFileSendRequested);
     connect(serverClientPanel_, &widgets::ServerClientPanel::disconnectClientsRequested,
             this, &GenericTcpView::onDisconnectSelectedClientsRequested);
     connect(serverClientPanel_, &widgets::ServerClientPanel::disconnectAllClientsRequested,
@@ -375,25 +373,6 @@ void GenericTcpView::onSendRequested(const QByteArray& data) {
                                           Q_ARG(int, clientId),
                                           Q_ARG(QByteArray, data));
             }
-        }
-        break;
-    }
-}
-
-void GenericTcpView::onFileSendRequested(const QString& filePath) {
-    if (!isConnected_) {
-        ui::common::connection_alert::showNotConnected(this);
-        return;
-    }
-
-    switch (currentProtocol_) {
-    case Protocol::TcpClient:
-    case Protocol::Udp:
-        GenericChannelViewBase::onFileSendRequested(filePath);
-        break;
-    case Protocol::TcpServer:
-        if (monitor_) {
-            monitor_->appendWarn(tr("Server mode: file transfer not supported"));
         }
         break;
     }

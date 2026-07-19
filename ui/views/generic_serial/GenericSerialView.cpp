@@ -87,11 +87,9 @@ void GenericSerialView::setupUi() {
     connect(connectionWidget_, &widgets::SerialConnectionWidget::disconnectClicked, 
             this, &GenericSerialView::onDisconnectClicked);
     
-    connect(inputWidget_, &widgets::GenericInputWidget::sendRequested, 
+    connect(inputWidget_, &widgets::GenericInputWidget::sendRequested,
             this, &GenericSerialView::onSendRequested);
-    connect(inputWidget_, &widgets::GenericInputWidget::fileSendRequested,
-            this, &GenericSerialView::onFileSendRequested);
-            
+
     connect(dtrCheck_, &QCheckBox::toggled, this, &GenericSerialView::onDtrChanged);
     connect(rtsCheck_, &QCheckBox::toggled, this, &GenericSerialView::onRtsChanged);
     

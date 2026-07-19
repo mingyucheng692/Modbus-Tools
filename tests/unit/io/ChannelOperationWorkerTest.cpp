@@ -101,35 +101,12 @@ TEST_F(ChannelOperationWorkerTest, Close_NoChannel_DoesNotCrash) {
 }
 
 // ---------------------------------------------------------------------------
-// File transfer — no channel
-// ---------------------------------------------------------------------------
-
-TEST_F(ChannelOperationWorkerTest, SendFile_NoChannel_EmitsError) {
-    QSignalSpy errorSpy(worker_.get(), &ChannelOperationWorker::channelErrorOccurred);
-
-    worker_->sendFile(QStringLiteral("nonexistent_file.bin"), 1024);
-
-    EXPECT_GE(errorSpy.count(), 1);
-}
-
-// ---------------------------------------------------------------------------
 // DTR / RTS on non-serial channel (silently ignored)
 // ---------------------------------------------------------------------------
 
 TEST_F(ChannelOperationWorkerTest, DtrRts_NoChannel_DoesNotCrash) {
     EXPECT_NO_FATAL_FAILURE(worker_->setDtr(true));
     EXPECT_NO_FATAL_FAILURE(worker_->setRts(false));
-}
-
-// ---------------------------------------------------------------------------
-// Chunk size — clamped internally, verify no crash
-// ---------------------------------------------------------------------------
-
-TEST_F(ChannelOperationWorkerTest, SendFile_LargeChunk_NoCrash) {
-    // 10 MB chunk — clamped to kMaxChunkSizeBytes internally, should not crash
-    QSignalSpy errorSpy(worker_.get(), &ChannelOperationWorker::channelErrorOccurred);
-    worker_->sendFile(QStringLiteral("nonexistent_file.bin"), 10 * 1024 * 1024);
-    EXPECT_GE(errorSpy.count(), 1);
 }
 
 // ---------------------------------------------------------------------------

@@ -39,18 +39,9 @@ public:
 
 signals:
     void sendRequested(const QByteArray& data);
-    void fileSendRequested(const QString& filePath); // Or handle internally?
-    // Handling large file send internally or via worker is better.
-    // But UI just requests it.
-    
-    // Actually, ChannelOperationWorker handles writing.
-    // If we send a large file, we might want to chunk it.
-    // For now, let's just load file and send if small, or stream if large.
-    // Let's expose a signal to send data.
-    
+
 private slots:
     void onSendClicked();
-    void onSendFileClicked();
     void onAutoSendToggled(bool checked);
     void onTimerTimeout();
     void onFormatChanged();
@@ -74,7 +65,6 @@ private:
     QCheckBox* autoSendCheck_ = nullptr;
     QSpinBox* intervalSpin_ = nullptr;
     QPushButton* sendBtn_ = nullptr;
-    QPushButton* sendFileBtn_ = nullptr;
     QComboBox* lineEndingCombo_ = nullptr;
     QComboBox* encodingCombo_ = nullptr;
     QComboBox* sendHistoryCombo_ = nullptr;

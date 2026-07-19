@@ -41,7 +41,7 @@ namespace ui::views {
  * @brief Common base class for GenericSerialView and GenericTcpView.
  *
  * Manages the background worker thread lifecycle, common data transmission,
- * file transfer progress tracking, and reconnection timer behaviors.
+ * and reconnection timer behaviors.
  */
 class GenericChannelViewBase : public QWidget {
     Q_OBJECT
@@ -53,7 +53,6 @@ public:
 protected slots:
     virtual void onDisconnectClicked();
     virtual void onSendRequested(const QByteArray& data);
-    virtual void onFileSendRequested(const QString& filePath);
     virtual void onWorkerError(const QString& deviceHint, const QString& error);
     virtual void onWorkerMonitor(bool isTx, const QByteArray& data);
     virtual void onReconnectTimerTick() = 0;
@@ -87,7 +86,6 @@ protected:
     io::ChannelOperationWorker* worker_ = nullptr;
     QThread* workerThread_ = nullptr;
     bool isConnected_ = false;
-    int lastLoggedFileTransferPct_ = -1;
     core::common::ISettingsService* settingsService_ = nullptr;
 
     io::ReconnectPolicy reconnectPolicy_;

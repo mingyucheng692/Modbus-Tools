@@ -33,7 +33,6 @@ namespace ui::widgets {
 namespace {
 
 constexpr int kUiFlushIntervalMs = 120;
-constexpr int kStatsUpdateIntervalMs = 500;
 constexpr int kActionButtonMinWidth = 72;
 
 QColor colorForTx() { return QColor(0, 0, 200); }
@@ -64,11 +63,6 @@ ByteMonitorWidget::ByteMonitorWidget(core::common::ISettingsService* settingsSer
     flushTimer_ = new QTimer(this);
     flushTimer_->setInterval(kUiFlushIntervalMs);
     connect(flushTimer_, &QTimer::timeout, this, &ByteMonitorWidget::onFlushPending);
-
-    statsTimer_ = new QTimer(this);
-    statsTimer_->setInterval(kStatsUpdateIntervalMs);
-    connect(statsTimer_, &QTimer::timeout, this, &ByteMonitorWidget::onStatsTimer);
-    statsTimer_->start();
 }
 
 ByteMonitorWidget::~ByteMonitorWidget() {
@@ -165,9 +159,6 @@ void ByteMonitorWidget::setupUi() {
     rxStatsLabel_ = new QLabel(statsBar_);
     rxStatsLabel_->setStyleSheet(QStringLiteral("color: rgb(0,120,0); font-weight: bold;"));
     statsLayout->addWidget(rxStatsLabel_);
-
-    rateLabel_ = new QLabel(statsBar_);
-    statsLayout->addWidget(rateLabel_);
 
     statsLayout->addStretch();
     mainLayout->addWidget(statsBar_);
@@ -281,10 +272,6 @@ void ByteMonitorWidget::onWarnMessage(QString message) {
 
 void ByteMonitorWidget::onFlushPending() {
     flushPending();
-}
-
-void ByteMonitorWidget::onStatsTimer() {
-    stats_.updateRate(kStatsUpdateIntervalMs);
     updateStatsDisplay();
 }
 
@@ -451,19 +438,10 @@ QString ByteMonitorWidget::formatTimestamp() {
 
 void ByteMonitorWidget::updateStatsDisplay() {
     if (txStatsLabel_) {
-        txStatsLabel_->setText(tr("TX: %1 (%2 pkts)")
-            .arg(TrafficStats::formatSize(stats_.txBytes))
-            .arg(stats_.txPackets));
+        txStatsLabel_->setText(tr("TX: %1").arg(TrafficStats::formatSize(stats_.txBytes)));
     }
     if (rxStatsLabel_) {
-        rxStatsLabel_->setText(tr("RX: %1 (%2 pkts)")
-            .arg(TrafficStats::formatSize(stats_.rxBytes))
-            .arg(stats_.rxPackets));
-    }
-    if (rateLabel_) {
-        rateLabel_->setText(tr("Rate: %1 / %2")
-            .arg(TrafficStats::formatRate(stats_.txRate))
-            .arg(TrafficStats::formatRate(stats_.rxRate)));
+        rxStatsLabel_->setText(tr("RX: %1").arg(TrafficStats::formatSize(stats_.rxBytes)));
     }
 }
 

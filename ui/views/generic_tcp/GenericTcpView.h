@@ -62,8 +62,7 @@ private slots:
     void onProtocolChanged(int index);
     
     void onSendRequested(const QByteArray& data) override;
-    void onFileSendRequested(const QString& filePath) override;
-    
+
     void onWorkerStateChanged(io::ChannelState state, quint64 generation);
     void onServerClientConnected(int clientId, const QString& peerInfo);
     void onServerClientDisconnected(int clientId);

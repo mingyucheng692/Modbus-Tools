@@ -70,7 +70,6 @@ private slots:
     void onErrorMessage(QString message);
     void onWarnMessage(QString message);
     void onFlushPending();
-    void onStatsTimer();
     void onDisplayModeChanged(int id);
     void onTimestampFormatChanged(int index);
     void onRecordToggled(bool checked);
@@ -123,10 +122,8 @@ private:
     QPushButton* recordBtn_ = nullptr;
     QLabel* txStatsLabel_ = nullptr;
     QLabel* rxStatsLabel_ = nullptr;
-    QLabel* rateLabel_ = nullptr;
     QWidget* statsBar_ = nullptr;
     QTimer* flushTimer_ = nullptr;
-    QTimer* statsTimer_ = nullptr;
     QList<PendingLine> pendingLines_;
 
     DisplayMode displayMode_ = DisplayMode::Hex;

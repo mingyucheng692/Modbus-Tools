@@ -52,20 +52,6 @@ void GenericChannelViewBase::onSendRequested(const QByteArray& data) {
                               Q_ARG(QByteArray, data));
 }
 
-void GenericChannelViewBase::onFileSendRequested(const QString& filePath) {
-    if (!worker_) {
-        return;
-    }
-    if (!isConnected_) {
-        ui::common::connection_alert::showNotConnected(this);
-        return;
-    }
-    QMetaObject::invokeMethod(worker_, "sendFile",
-                              Qt::QueuedConnection,
-                              Q_ARG(QString, filePath),
-                              Q_ARG(int, 4096)); // default chunk size
-}
-
 void GenericChannelViewBase::onWorkerError(const QString& deviceHint, const QString& error) {
     const QString hint = deviceHint.isEmpty() ? QStringLiteral("Channel") : deviceHint;
     if (monitor_) {
@@ -146,43 +132,6 @@ void GenericChannelViewBase::stopWorkerPair(QThread* thread, QObject* worker,
 void GenericChannelViewBase::setupCommonWorkerConnections(io::ChannelOperationWorker* worker) {
     connect(worker, &io::ChannelOperationWorker::channelErrorOccurred, this, &GenericChannelViewBase::onWorkerError);
     connect(worker, &io::ChannelOperationWorker::monitor, this, &GenericChannelViewBase::onWorkerMonitor);
-    connect(worker, &io::ChannelOperationWorker::fileTransferStarted, this, [this](const QString& filePath, qint64 totalBytes) {
-        lastLoggedFileTransferPct_ = -1;
-        if (monitor_) {
-            monitor_->appendInfo(tr("File transfer started: %1 (%2 bytes)").arg(filePath).arg(totalBytes));
-        }
-    });
-    connect(worker, &io::ChannelOperationWorker::fileTransferProgress, this, [this](const QString& filePath, qint64 sentBytes, qint64 totalBytes) {
-        if (totalBytes <= 0) {
-            return;
-        }
-        const int progress = static_cast<int>((sentBytes * 100) / totalBytes);
-        if (progress == lastLoggedFileTransferPct_) {
-            return;
-        }
-        lastLoggedFileTransferPct_ = progress;
-        if (monitor_) {
-            monitor_->appendInfo(tr("File transfer progress: %1 %2/%3")
-                                            .arg(filePath)
-                                            .arg(sentBytes)
-                                            .arg(totalBytes));
-        }
-    });
-    connect(worker, &io::ChannelOperationWorker::fileTransferFinished, this, [this](const QString& filePath) {
-        if (monitor_) {
-            monitor_->appendInfo(tr("File transfer finished: %1").arg(filePath));
-        }
-    });
-    connect(worker, &io::ChannelOperationWorker::fileTransferFailed, this, [this](const QString& filePath, const QString& error) {
-        if (monitor_) {
-            monitor_->appendInfo(tr("File transfer failed: %1 (%2)").arg(filePath, error));
-        }
-    });
-    connect(worker, &io::ChannelOperationWorker::fileTransferCanceled, this, [this](const QString& filePath) {
-        if (monitor_) {
-            monitor_->appendInfo(tr("File transfer canceled: %1").arg(filePath));
-        }
-    });
 }
 
 void GenericChannelViewBase::startReconnectTimer(widgets::BaseConnectionWidget* connectionWidget) {
