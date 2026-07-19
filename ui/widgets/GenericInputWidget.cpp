@@ -72,7 +72,6 @@ void GenericInputWidget::setupUi() {
     encodingCombo_ = new QComboBox(this);
     encodingCombo_->addItem(QStringLiteral("UTF-8"), QVariant(0));
     encodingCombo_->addItem(QStringLiteral("Latin-1"), QVariant(1));
-    encodingCombo_->addItem(QStringLiteral("GBK"), QVariant(2));
     encodingCombo_->addItem(QStringLiteral("ASCII"), QVariant(3));
     controlLayout->addWidget(encodingCombo_);
     
@@ -194,7 +193,9 @@ void GenericInputWidget::loadSettings() {
         autoSendTimer_->stop();
     }
     lineEndingCombo_->setCurrentIndex(qBound(0, lineEnding, 3));
-    encodingCombo_->setCurrentIndex(qBound(0, encoding, 3));
+    int encIndex = encodingCombo_->findData(encoding);
+    if (encIndex < 0) encIndex = 0; // fallback to UTF-8 for unknown/legacy encoding values
+    encodingCombo_->setCurrentIndex(encIndex);
 
     loadHistory();
 }
@@ -229,11 +230,6 @@ QByteArray GenericInputWidget::getData() const {
                 else
                     data.append('?');
             }
-            break;
-        }
-        case 2: { // GBK (via GB18030 superset)
-            QStringEncoder encoder(QStringLiteral("GB18030"));
-            data = encoder.encode(text);
             break;
         }
         case 3: { // ASCII

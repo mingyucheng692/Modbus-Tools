@@ -137,13 +137,6 @@ void ByteMonitorWidget::setupUi() {
     connect(saveBtn_, &QPushButton::clicked, this, &ByteMonitorWidget::onSaveClicked);
     toolbarLayout->addWidget(saveBtn_);
 
-    recordBtn_ = new QPushButton(this);
-    recordBtn_->setCheckable(true);
-    recordBtn_->setChecked(false);
-    recordBtn_->setMinimumWidth(kActionButtonMinWidth);
-    connect(recordBtn_, &QPushButton::toggled, this, &ByteMonitorWidget::onRecordToggled);
-    toolbarLayout->addWidget(recordBtn_);
-
     toolbarLayout->addStretch();
     mainLayout->addLayout(toolbarLayout);
 
@@ -286,31 +279,6 @@ void ByteMonitorWidget::onTimestampFormatChanged(int index) {
     saveSettings();
 }
 
-void ByteMonitorWidget::onRecordToggled(bool checked) {
-    if (checked) {
-        const QString path = QFileDialog::getSaveFileName(
-            this, tr("Record Log"), QString(),
-            tr("Text Files (*.txt);;All Files (*)"));
-        if (path.isEmpty()) {
-            QSignalBlocker b(recordBtn_);
-            recordBtn_->setChecked(false);
-            return;
-        }
-        if (!recorder_.start(path)) {
-            appendError(tr("Failed to start recording: %1").arg(path));
-            QSignalBlocker b(recordBtn_);
-            recordBtn_->setChecked(false);
-            return;
-        }
-        recordBtn_->setStyleSheet(QStringLiteral("color: red; font-weight: bold;"));
-        recordBtn_->setText(QStringLiteral("\u25CF ") + tr("Stop"));
-    } else {
-        recorder_.stop();
-        recordBtn_->setStyleSheet(QString());
-        retranslateUi();
-    }
-}
-
 void ByteMonitorWidget::onPauseToggled(bool checked) {
     paused_ = checked;
     if (!paused_) {
@@ -368,9 +336,6 @@ void ByteMonitorWidget::onCopyClicked() {
 }
 
 void ByteMonitorWidget::appendLogLine(const QString& text, const QColor& color) {
-    if (recorder_.isRecording()) {
-        recorder_.writeLine(text);
-    }
     pendingLines_.append({text, color});
     if (flushTimer_ && !flushTimer_->isActive()) {
         flushTimer_->start();
@@ -478,10 +443,6 @@ bool ByteMonitorWidget::isPaused() const {
     return paused_;
 }
 
-bool ByteMonitorWidget::isRecording() const {
-    return recorder_.isRecording();
-}
-
 void ByteMonitorWidget::setSettingsGroup(const QString& group) {
     settingsGroup_ = group;
     loadSettings();
@@ -560,9 +521,6 @@ void ByteMonitorWidget::retranslateUi() {
     }
     if (clearBtn_) clearBtn_->setText(tr("Clear"));
     if (saveBtn_) saveBtn_->setText(tr("Save"));
-    if (!recorder_.isRecording() && recordBtn_) {
-        recordBtn_->setText(tr("Record"));
-    }
     updateStatsDisplay();
 }
 

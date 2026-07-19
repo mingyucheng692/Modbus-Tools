@@ -17,7 +17,6 @@
 #include <QElapsedTimer>
 #include "LogListModel.h"
 #include "TrafficStats.h"
-#include "LogRecorder.h"
 
 class QListView;
 class QCheckBox;
@@ -72,7 +71,6 @@ private slots:
     void onFlushPending();
     void onDisplayModeChanged(int id);
     void onTimestampFormatChanged(int index);
-    void onRecordToggled(bool checked);
     void onPauseToggled(bool checked);
     void onClearClicked();
     void onSaveClicked();
@@ -98,7 +96,6 @@ private:
     void updateStatsDisplay();
     void rebuildDisplay();
     bool isPaused() const;
-    bool isRecording() const;
     void loadSettings();
     void saveSettings();
     void retranslateUi();
@@ -106,7 +103,6 @@ private:
 
     LogListModel* logModel_ = nullptr;
     TrafficStats stats_;
-    LogRecorder recorder_;
     QElapsedTimer elapsedTimer_;
     qint64 lastAppendTimeMs_ = 0;
 
@@ -119,7 +115,6 @@ private:
     QPushButton* pauseBtn_ = nullptr;
     QPushButton* clearBtn_ = nullptr;
     QPushButton* saveBtn_ = nullptr;
-    QPushButton* recordBtn_ = nullptr;
     QLabel* txStatsLabel_ = nullptr;
     QLabel* rxStatsLabel_ = nullptr;
     QWidget* statsBar_ = nullptr;

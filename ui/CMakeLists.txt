@@ -130,8 +130,6 @@ target_sources(ui PRIVATE
     widgets/TrafficMonitorWidget.cpp
     widgets/LogListModel.cpp
     widgets/LogListModel.h
-    widgets/LogRecorder.cpp
-    widgets/LogRecorder.h
     widgets/ByteMonitorWidget.cpp
     widgets/ByteMonitorWidget.h
     widgets/ServerClientPanel.cpp
