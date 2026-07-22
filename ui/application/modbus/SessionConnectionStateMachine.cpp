@@ -42,7 +42,7 @@ constexpr TransitionRule kLegalTransitions[] = {
     {SessionConnectionState::Disconnecting, SessionConnectionState::Disconnected},
 };
 
-constexpr const char* stateName(SessionConnectionState s) {
+constexpr const char* stateNameImpl(SessionConnectionState s) {
     switch (s) {
     case SessionConnectionState::Disconnected: return "Disconnected";
     case SessionConnectionState::Connecting: return "Connecting";
@@ -57,6 +57,10 @@ constexpr const char* stateName(SessionConnectionState s) {
 
 SessionConnectionStateMachine::SessionConnectionStateMachine(QObject* parent)
     : QObject(parent) {
+}
+
+const char* SessionConnectionStateMachine::stateName(SessionConnectionState s) {
+    return stateNameImpl(s);
 }
 
 bool SessionConnectionStateMachine::isLegalTransition(SessionConnectionState from,
@@ -79,15 +83,25 @@ bool SessionConnectionStateMachine::transitionTo(SessionConnectionState target) 
 
     if (!isLegalTransition(state_, target)) {
         spdlog::warn("SessionConnectionStateMachine: rejected illegal transition {} -> {}",
-                     stateName(state_), stateName(target));
+                     stateNameImpl(state_), stateNameImpl(target));
         return false;
     }
 
-    spdlog::debug("SessionConnectionStateMachine: {} -> {}", stateName(state_), stateName(target));
+    spdlog::debug("SessionConnectionStateMachine: {} -> {}", stateNameImpl(state_), stateNameImpl(target));
     state_ = target;
     emit stateChanged(target); // synchronous (direct connection): side effects inline
 
     return true;
+}
+
+void SessionConnectionStateMachine::forceTransitionTo(SessionConnectionState target) {
+    if (target == state_) {
+        return; // no-op, no signal
+    }
+    spdlog::warn("SessionConnectionStateMachine: force transition {} -> {}",
+                 stateNameImpl(state_), stateNameImpl(target));
+    state_ = target;
+    emit stateChanged(target);
 }
 
 } // namespace ui::application::modbus

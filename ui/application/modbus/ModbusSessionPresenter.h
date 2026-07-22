@@ -7,6 +7,7 @@
 #include <functional>
 #include "modbus/base/ModbusConfig.h"
 #include "modbus/session/SessionTypes.h"
+#include "modbus/session/ConnectionStateMachine.h"
 #include "../../../infra/io/IChannel.h"
 #include "ModbusTypes.h"
 #include "SessionConnectionStateMachine.h"
@@ -106,6 +107,19 @@ private:
     void handleRequestFinished(int requestId, const ::modbus::session::ModbusResponse& response,
                                quint64 generation);
     void assertGuiThread(const char* context) const;
+
+    /// Derives the UI connection state from the authoritative core
+    /// ConnectionStateMachine::State and the current channel state.
+    /// This is the single source of truth for UI state.
+    static SessionConnectionState deriveUiState(
+        ::modbus::session::ConnectionStateMachine::State coreState,
+        io::ChannelState channelState);
+
+    /// Queries client_->connectionState() (thread-safe via std::atomic) and
+    /// transitions the UI FSM to the derived state. If the derived state
+    /// conflicts with the existing UI FSM state, the core state wins.
+    void syncStateFromCore();
+
     void onConnectionStateChanged(SessionConnectionState state);
     void syncConnectionWidget(SessionConnectionState state);
     bool hasLiveOrPendingStack() const;

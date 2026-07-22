@@ -57,9 +57,17 @@ public:
      * A no-op transition to the current state is a success and does not emit
      * `stateChanged` (idempotent re-entry).
      */
-    bool transitionTo(SessionConnectionState target);
+   [[nodiscard]] bool transitionTo(SessionConnectionState target);
 
-    SessionConnectionState currentState() const noexcept { return state_; }
+    /// Force the state to @p target without transition-rule validation.
+    /// Only for use when the core authoritative state conflicts with the
+    /// UI FSM's transition rules (e.g. core-side reconnection loop).
+    void forceTransitionTo(SessionConnectionState target);
+
+    [[nodiscard]] SessionConnectionState currentState() const noexcept { return state_; }
+
+    /// Human-readable state name for logging.
+    [[nodiscard]] static const char* stateName(SessionConnectionState s);
 
     static bool isLegalTransition(SessionConnectionState from, SessionConnectionState to);
 

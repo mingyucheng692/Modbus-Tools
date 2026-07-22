@@ -481,41 +481,92 @@ void ModbusSessionPresenter::setupWorkerSignals(quint64 generation) {
         }, Qt::QueuedConnection);
 }
 
+SessionConnectionState ModbusSessionPresenter::deriveUiState(
+    ::modbus::session::ConnectionStateMachine::State coreState,
+    io::ChannelState channelState) {
+    using Core = ::modbus::session::ConnectionStateMachine::State;
+    switch (coreState) {
+    case Core::Disconnected:
+        return SessionConnectionState::Disconnected;
+    case Core::Connecting:
+        // Channel Open → TransportConnected (session not yet validated)
+        if (channelState == io::ChannelState::Open) {
+            return SessionConnectionState::TransportConnected;
+        }
+        return SessionConnectionState::Connecting;
+    case Core::Connected:
+        return SessionConnectionState::Connected;
+    case Core::Reconnecting:
+        return SessionConnectionState::Connecting;
+    case Core::Disconnecting:
+        return SessionConnectionState::Disconnecting;
+    case Core::Failed:
+        return SessionConnectionState::Disconnected;
+    }
+    return SessionConnectionState::Disconnected;
+}
+
+void ModbusSessionPresenter::syncStateFromCore() {
+    assertGuiThread("syncStateFromCore must run on the GUI thread");
+    if (!client_) {
+        // No live client — stay in current state (release path handles this).
+        return;
+    }
+
+    const auto coreState = client_->connectionState();
+    // Channel state is needed for the Connecting vs TransportConnected
+    // distinction; channel_ is on the IO thread but channel_->state() is a
+    // simple enum read — safe for the same reason as client_->connectionState().
+    const auto chanState = channel_ ? channel_->state() : io::ChannelState::Closed;
+
+    const auto derivedUi = deriveUiState(coreState, chanState);
+    const auto currentUi = connectionStateMachine_->currentState();
+
+    if (derivedUi != currentUi) {
+        const auto oldUi = currentUi;
+        if (!connectionStateMachine_->transitionTo(derivedUi)) {
+            spdlog::warn("ModbusSessionPresenter: core-state-derived UI transition "
+                         "{} -> {} rejected by UI FSM rules; forcing disconnect",
+                         SessionConnectionStateMachine::stateName(oldUi),
+                         SessionConnectionStateMachine::stateName(derivedUi));
+            // Core is authoritative — force the UI into Disconnected as a
+            // safe fallback.
+            connectionStateMachine_->forceTransitionTo(
+                SessionConnectionState::Disconnected);
+        }
+    }
+}
+
 void ModbusSessionPresenter::handleChannelStateTransition(io::ChannelState state,
-                                                       quint64 generation) {
+                                                          quint64 generation) {
     assertGuiThread("handleChannelStateTransition must run on the GUI thread");
     Q_UNUSED(generation);
-    const bool hadLiveTransport = connectionStateMachine_->currentState() != SessionConnectionState::Disconnected;
+
+    // Core FSM is the single source of truth — derive UI state from it.
+    syncStateFromCore();
+
+    const auto currentState = connectionStateMachine_->currentState();
     const bool isTcp = modeDescriptor(mode_).transportUiMode == TransportUiMode::Tcp;
 
     switch (state) {
     case io::ChannelState::Opening:
-        if (connectionStateMachine_->currentState() != SessionConnectionState::Connected) {
+        if (currentState != SessionConnectionState::Connected) {
             syncConnectionWidget(SessionConnectionState::Connecting);
         }
         return;
-    case io::ChannelState::Open: {
-        const bool wasNotConnected = (connectionStateMachine_->currentState() != SessionConnectionState::Connected);
-        connectionStateMachine_->transitionTo(SessionConnectionState::TransportConnected);
-        if (wasNotConnected) {
-            syncConnectionWidget(connectionStateMachine_->currentState());
-            if (isTcp && trafficLogController_) {
-                trafficLogController_->logConnectionInfo(tr("Transport connected, validating session..."));
-            }
+    case io::ChannelState::Open:
+        if (currentState != SessionConnectionState::Connected && isTcp && trafficLogController_) {
+            trafficLogController_->logConnectionInfo(tr("Transport connected, validating session..."));
         }
         return;
-    }
     case io::ChannelState::Closing:
         syncConnectionWidget(SessionConnectionState::Disconnecting);
         return;
     case io::ChannelState::Closed:
     case io::ChannelState::Error: {
-        const bool wasConnected = (connectionStateMachine_->currentState() == SessionConnectionState::Connected);
-        connectionStateMachine_->transitionTo(SessionConnectionState::Disconnected);
-        if (wasConnected || hadLiveTransport) {
+        const bool wasConnected = (currentState == SessionConnectionState::Connected);
+        if (wasConnected || currentState != SessionConnectionState::Disconnected) {
             const bool shouldShowDisconnectAlert = isTcp && wasConnected && !suppressDisconnectAlert_;
-            // Widget already synced to Disconnected by the state-entry handler
-            // during transitionTo above (or no-op if already Disconnected).
             if (controlWidget_) {
                 controlWidget_->setPollingEnabled(false);
             }
@@ -537,8 +588,12 @@ void ModbusSessionPresenter::handleConnectFinished(bool ok, const QString& error
     assertGuiThread("handleConnectFinished must run on the GUI thread");
     if (generation != connectionGeneration_) return;
 
+    // Core FSM is the single source of truth — derive UI state from it.
+    syncStateFromCore();
+
     if (!ok) {
-        connectionStateMachine_->transitionTo(SessionConnectionState::Disconnected);
+        // syncStateFromCore already derived the correct state.  Handle
+        // side effects from the presenter layer.
         if (controlWidget_) {
             controlWidget_->setPollingEnabled(false);
         }
@@ -552,8 +607,6 @@ void ModbusSessionPresenter::handleConnectFinished(bool ok, const QString& error
         return;
     }
 
-    // suppressDisconnectAlert_ is reset by the Connected state-entry handler.
-    connectionStateMachine_->transitionTo(SessionConnectionState::Connected);
     if (trafficLogController_) {
         trafficLogController_->logConnectionInfo(tr("Connected"));
     }
