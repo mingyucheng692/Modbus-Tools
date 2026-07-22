@@ -8,21 +8,10 @@
  */
 
 #include "ModbusPduBuilder.h"
-#include <QtEndian>
+#include "ModbusEndianCodec.h"
 #include <QCoreApplication>
-#include <cstring>
 
 namespace modbus::base {
-
-namespace {
-
-void appendBigEndianUInt16(QByteArray& data, qsizetype offset, uint16_t value)
-{
-    uint16_t encoded = qToBigEndian(value);
-    std::memcpy(data.data() + offset, &encoded, sizeof(encoded));
-}
-
-} // namespace
 
 std::optional<Pdu> pdu_builder::buildReadRequest(FunctionCode fc, int startAddress, int quantity,
                                                   QString* errorOut) {
@@ -37,8 +26,8 @@ std::optional<Pdu> pdu_builder::buildReadRequest(FunctionCode fc, int startAddre
 
     QByteArray data;
     data.resize(4);
-    appendBigEndianUInt16(data, 0, static_cast<uint16_t>(startAddress));
-    appendBigEndianUInt16(data, 2, static_cast<uint16_t>(quantity));
+    writeBigEndian(data, 0, static_cast<uint16_t>(startAddress));
+    writeBigEndian(data, 2, static_cast<uint16_t>(quantity));
 
     return Pdu(fc, data);
 }
@@ -94,9 +83,9 @@ std::optional<Pdu> pdu_builder::buildWriteSingleCoil(int startAddress, bool valu
 
     QByteArray data;
     data.resize(4);
-    appendBigEndianUInt16(data, 0, static_cast<uint16_t>(startAddress));
+    writeBigEndian(data, 0, static_cast<uint16_t>(startAddress));
     uint16_t coilValue = value ? 0xFF00 : 0x0000;
-    appendBigEndianUInt16(data, 2, coilValue);
+    writeBigEndian(data, 2, coilValue);
 
     return Pdu(FunctionCode::WriteSingleCoil, data);
 }
@@ -110,8 +99,8 @@ std::optional<Pdu> pdu_builder::buildWriteSingleRegister(int startAddress, uint1
 
     QByteArray data;
     data.resize(4);
-    appendBigEndianUInt16(data, 0, static_cast<uint16_t>(startAddress));
-    appendBigEndianUInt16(data, 2, value);
+    writeBigEndian(data, 0, static_cast<uint16_t>(startAddress));
+    writeBigEndian(data, 2, value);
 
     return Pdu(FunctionCode::WriteSingleRegister, data);
 }

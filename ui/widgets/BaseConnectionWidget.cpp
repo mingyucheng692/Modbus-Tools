@@ -50,6 +50,30 @@ void BaseConnectionWidget::setDisplayState(DisplayState state) {
     applyDisplayState();
 }
 
+bool BaseConnectionWidget::inputsLocked(DisplayState state) noexcept {
+    return state != DisplayState::Disconnected;
+}
+
+void BaseConnectionWidget::applyDisplayState() {
+    // Template method (P2-44): common skeleton shared by Serial and Network
+    // connection widgets. Subclasses supply data via getStateDisplayInfo()
+    // and per-widget enabling via applyInputWidgetsState(); protocol-specific
+    // refresh is delegated to updateProtocolUi().
+    const auto info = getStateDisplayInfo(displayState_);
+
+    connectBtn_->setText(info.buttonText);
+    statusLabel_->setText(info.statusText);
+    statusLabel_->setStyleSheet(info.statusStyle);
+
+    const bool enabled = !inputsLocked(displayState_);
+    applyInputWidgetsState(enabled);
+    autoReconnectCheck_->setEnabled(enabled);
+    reconnectDelaySpin_->setEnabled(enabled && autoReconnectCheck_->isChecked());
+    connectBtn_->setEnabled(displayState_ != DisplayState::Disconnecting);
+
+    updateProtocolUi();
+}
+
 void BaseConnectionWidget::createCommonWidgets(QWidget* parent) {
     autoReconnectCheck_ = new QCheckBox(parent);
     

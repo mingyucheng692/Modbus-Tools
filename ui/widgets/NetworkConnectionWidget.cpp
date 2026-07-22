@@ -155,25 +155,11 @@ void NetworkConnectionWidget::setConnected(bool connected) {
     setDisplayState(connectedState());
 }
 
-bool NetworkConnectionWidget::inputsLocked(DisplayState state) {
-    return state != DisplayState::Disconnected;
-}
-
-void NetworkConnectionWidget::applyDisplayState() {
-    const auto info = getStateDisplayInfo(displayState_);
-
-    connectBtn_->setText(info.buttonText);
-    statusLabel_->setText(info.statusText);
-    statusLabel_->setStyleSheet(info.statusStyle);
-
-    const bool enabled = !inputsLocked(displayState_);
+void NetworkConnectionWidget::applyInputWidgetsState(bool enabled) {
+    // Network-specific input widgets only; autoReconnectCheck_ /
+    // reconnectDelaySpin_ / connectBtn_ are handled by the base skeleton.
     ipEdit_->setEnabled(enabled);
     portEdit_->setEnabled(enabled);
-    autoReconnectCheck_->setEnabled(enabled);
-    reconnectDelaySpin_->setEnabled(enabled && autoReconnectCheck_->isChecked());
-    connectBtn_->setEnabled(displayState_ != DisplayState::Disconnecting);
-
-    updateProtocolUi();
 }
 
 } // namespace ui::widgets

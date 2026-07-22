@@ -29,6 +29,20 @@ const char* toString(PollState s) {
     }
 }
 
+// Legal-transition table for the polling state machine (P2-45).
+// - Idle may only enter Polling (start); jumping Idle -> Degraded/Escalated
+//   is a logic error (cannot degrade/escalate without an active poll).
+// - Polling / Degraded / Escalated may move freely among themselves
+//   (recovery and escalation paths) or transition to Idle (stop).
+// Call sites already guard against illegal transitions; this assert is a
+// regression net for future edits that bypass the guards.
+[[nodiscard]] bool isLegalPollTransition(PollState from, PollState to) {
+    if (from == to) return true;
+    if (to == PollState::Idle) return true; // stop from any state
+    if (from == PollState::Idle) return to == PollState::Polling;
+    return true; // Polling/Degraded/Escalated inter-transition
+}
+
 } // namespace
 
 PollingController::PollingController(RequestSubmissionService* requestService,
@@ -290,6 +304,7 @@ void PollingController::transitionTo(PollState newState) {
         return;
     }
 
+    Q_ASSERT(isLegalPollTransition(context_.state, newState));
     const auto oldState = context_.state;
     context_.state = newState;
     spdlog::debug("PollingController: {} -> {}", toString(oldState), toString(newState));

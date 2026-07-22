@@ -417,13 +417,14 @@ bool ModbusSessionPresenter::isLinked() const {
 
 void ModbusSessionPresenter::initStack(const ::modbus::base::ModbusConfig& config) {
     assertGuiThread("initStack must run on the GUI thread");
-    auto stack = ::modbus::factory::createStack(config);
-    if (!stack.worker || !stack.thread || !stack.ioThread) {
+    auto stackOpt = ::modbus::factory::createStack(config);
+    if (!stackOpt) {
         if (trafficLogController_) {
             trafficLogController_->logError(tr("Failed to create Modbus stack"));
         }
         return;
     }
+    auto stack = std::move(*stackOpt);
 
     currentConfig_ = config;
     channel_ = std::move(stack.channel);

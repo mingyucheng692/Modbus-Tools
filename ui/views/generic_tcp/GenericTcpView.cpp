@@ -451,8 +451,8 @@ void GenericTcpView::onWorkerStateChanged(io::ChannelState state, quint64 genera
     }
 
     auto* activeWidget = (currentProtocol_ == Protocol::TcpClient)
-        ? static_cast<widgets::NetworkConnectionWidget*>(tcpClientWidget_)
-        : static_cast<widgets::NetworkConnectionWidget*>(udpWidget_);
+        ? static_cast<widgets::BaseConnectionWidget*>(tcpClientWidget_)
+        : static_cast<widgets::BaseConnectionWidget*>(udpWidget_);
 
     if (!isConnected_ && wasConnected
         && currentProtocol_ == Protocol::TcpClient

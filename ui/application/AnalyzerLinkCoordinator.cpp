@@ -5,6 +5,23 @@
 
 namespace ui::application {
 
+namespace {
+
+// Legal-transition table for the live-link state machine (P2-45).
+// - Idle may only enter Live (start linkage); jumping Idle -> Paused is a
+//   logic error (cannot pause something that was never started).
+// - Live <-> Paused is the resume/pause cycle.
+// - Any state may transition to Idle (stop). Call sites already guard against
+//   illegal transitions; this assert is a regression net for future edits.
+[[nodiscard]] bool isLegalLinkTransition(LinkState from, LinkState to) {
+    if (from == to) return true;
+    if (to == LinkState::Idle) return true; // stop from any state
+    if (from == LinkState::Idle) return to == LinkState::Live;
+    return true; // Live <-> Paused
+}
+
+} // namespace
+
 AnalyzerLinkCoordinator::AnalyzerLinkCoordinator(QObject* parent)
     : QObject(parent) {}
 
@@ -104,6 +121,7 @@ void AnalyzerLinkCoordinator::handleLiveData(const ::modbus::base::Pdu& pdu,
 }
 
 void AnalyzerLinkCoordinator::transitionTo(LinkState state) {
+    Q_ASSERT(isLegalLinkTransition(state_, state));
     state_ = state;
     if (state_ == LinkState::Idle) {
         clearBufferedLiveData();

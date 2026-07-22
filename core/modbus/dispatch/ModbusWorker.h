@@ -68,20 +68,16 @@ private:
     void handleStopInThread();
     void handleUpdateConfig(base::ModbusConfig config);
     void drainQueuedRequests(const QString& reason);
-    void scheduleProcessQueue();
     void processQueue();
 
     std::shared_ptr<session::ModbusClient> client_;
     QPointer<QThread> thread_;
+    // stopping_/stopped_ are set from any thread (e.g. the UI thread calling
+    // stop()), so they remain atomic. processQueue()/submit() run exclusively
+    // on the worker thread via QueuedConnection, so queuedRequests_ does not
+    // need its own atomic guard.
     std::atomic_bool stopping_ {false};
     std::atomic_bool stopped_ {false};
-    std::atomic_bool processing_ {false};
-    // True while a processQueue() invocation is pending on the worker thread.
-    // Prevents redundant queued invokes when several submit() calls arrive
-    // before the first processQueue() runs. All access happens on the worker
-    // thread (submit/processQueue/scheduleProcessQueue are marshalled there),
-    // so the atomic is defensive rather than strictly required.
-    std::atomic_bool processQueued_ {false};
     std::deque<QueuedRequest> queuedRequests_;
 };
 

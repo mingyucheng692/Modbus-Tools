@@ -46,6 +46,14 @@ int main(int argc, char *argv[])
 
     app.setWindowIcon(QIcon(":/assets/logo.svg"));
 
+    // Stack destruction order (reverse of construction) is load-bearing:
+    //   window -> themeController -> settingsService -> pathResolver
+    // `window` must die before `settingsService` so widgets stop touching QSettings
+    // during teardown; `settingsService` must die before `pathResolver` because
+    // SettingsService holds a reference to PathResolver's directory strings.
+    // If a future change moves settings persistence to an async worker, the
+    // worker must be joined before any of these stack objects go out of scope
+    // (otherwise the worker may flush into a destroyed SettingsService -> UAF).
     ui::MainWindow window(&settingsService, &themeController, pathResolver);
     window.setWindowIcon(QIcon(":/assets/logo.svg"));
     window.show();

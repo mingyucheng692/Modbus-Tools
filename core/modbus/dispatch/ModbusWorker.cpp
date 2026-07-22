@@ -38,8 +38,6 @@ ModbusWorker::~ModbusWorker() {
 void ModbusWorker::start() {
     stopped_.store(false);
     stopping_.store(false);
-    processing_.store(false);
-    processQueued_.store(false);
     if (thread_ && !thread_->isRunning()) {
         thread_->start();
     }
@@ -91,7 +89,10 @@ void ModbusWorker::submit(const base::Pdu& request, int slaveId, int requestId) 
             return;
         }
         queuedRequests_.push_back(QueuedRequest{std::move(request), slaveId, requestId});
-        scheduleProcessQueue();
+        // Draining runs inline on the worker thread. processQueue() re-arms
+        // itself via QueuedConnection so stop()/sendRaw()/etc. can interleave
+        // between items; no separate scheduleProcessQueue() hop is needed.
+        processQueue();
     }, Qt::QueuedConnection);
 }
 
@@ -161,45 +162,21 @@ void ModbusWorker::drainQueuedRequests(const QString& reason) {
     }
 }
 
-void ModbusWorker::scheduleProcessQueue() {
-    if (processing_.load() || queuedRequests_.empty() || stopping_.load()) {
-        return;
-    }
-    // Avoid posting a duplicate processQueue() invoke when one is already
-    // pending (e.g. several submit() calls arrive before the first invoke
-    // runs). processQueue() clears the claim on entry and re-arms it via this
-    // path if the queue still has items.
-    bool expectedQueued = false;
-    if (!processQueued_.compare_exchange_strong(expectedQueued, true)) {
-        return;
-    }
-    QMetaObject::invokeMethod(this, [this]() {
-        processQueue();
-    }, Qt::QueuedConnection);
-}
-
 void ModbusWorker::processQueue() {
-    if (stopping_.load()) {
-        processQueued_.store(false);
-        return;
-    }
-    // Consume the pending-invoke claim; scheduleProcessQueue() re-arms it if
-    // the queue still has items after this pass (single-threaded, no race).
-    processQueued_.store(false);
-    bool expectedProcessing = false;
-    if (!processing_.compare_exchange_strong(expectedProcessing, true)) {
-        return;
-    }
-    if (queuedRequests_.empty()) {
-        processing_.store(false);
+    // All access to queuedRequests_ is marshalled onto the worker thread via
+    // QueuedConnection (submit() / the re-arm below), so no atomic flag is
+    // needed here. Only one item is consumed per pass to keep the event loop
+    // responsive between requests (stop()/sendRaw()/updateConfig() can run).
+    if (stopping_.load() || queuedRequests_.empty()) {
         return;
     }
     auto item = queuedRequests_.front();
     queuedRequests_.pop_front();
     handleSubmit(item.request, item.slaveId, item.requestId);
-    processing_.store(false);
     if (!queuedRequests_.empty() && !stopping_.load()) {
-        scheduleProcessQueue();
+        QMetaObject::invokeMethod(this, [this]() {
+            processQueue();
+        }, Qt::QueuedConnection);
     }
 }
 
@@ -262,7 +239,6 @@ void ModbusWorker::handleStopInThread() {
     }
     drainQueuedRequests("Worker stopped");
     handleDisconnect();
-    processing_.store(false);
     stopping_.store(false);
     emit stopped();
 }

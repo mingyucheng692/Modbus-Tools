@@ -46,7 +46,12 @@ public slots:
 protected:
     void loadSettings() override;
     void saveSettings() override;
-    void applyDisplayState() override;
+
+    // Display-state template method hooks (P2-44): Serial supplies the
+    // per-state display strings and its own input-widget list; the skeleton
+    // lives in BaseConnectionWidget::applyDisplayState().
+    [[nodiscard]] StateDisplayInfo getStateDisplayInfo(DisplayState state) const override;
+    void applyInputWidgetsState(bool enabled) override;
 
 private:
     void setupUi();

@@ -26,7 +26,9 @@ bool waitForCondition(const std::function<bool()>& predicate, int timeoutMs = 10
 TEST(ModbusFactoryThreadingTest, CreateTcpStack_UsesDedicatedIoAndWorkerThreads) {
     auto config = modbus::test::MakeModbusConfig(ModbusMode::TCP);
 
-    ModbusStack stack = createStack(config);
+    auto stackOpt = createStack(config);
+    ASSERT_TRUE(stackOpt);
+    ModbusStack stack = std::move(*stackOpt);
 
     ASSERT_TRUE(stack.channel);
     ASSERT_TRUE(stack.client);
@@ -43,7 +45,9 @@ TEST(ModbusFactoryThreadingTest, DestroyUnstartedStack_DeletesWorkerAndThreadsSy
 
     {
         auto config = modbus::test::MakeModbusConfig(ModbusMode::TCP);
-        ModbusStack stack = createStack(config);
+        auto stackOpt = createStack(config);
+        ASSERT_TRUE(stackOpt);
+        ModbusStack stack = std::move(*stackOpt);
 
         ASSERT_TRUE(stack.ioThread);
         ASSERT_TRUE(stack.thread);
@@ -61,7 +65,9 @@ TEST(ModbusFactoryThreadingTest, DestroyUnstartedStack_DeletesWorkerAndThreadsSy
 
 TEST(ModbusFactoryThreadingTest, DestroyStoppedStartedStack_ReleasesWorkerAndThreads) {
     auto config = modbus::test::MakeModbusConfig(ModbusMode::TCP);
-    ModbusStack stack = createStack(config);
+    auto stackOpt = createStack(config);
+    ASSERT_TRUE(stackOpt);
+    ModbusStack stack = std::move(*stackOpt);
 
     ASSERT_TRUE(stack.ioThread);
     ASSERT_TRUE(stack.thread);
@@ -94,7 +100,9 @@ TEST(ModbusFactoryThreadingTest, DestroyStoppedStartedStack_ReleasesWorkerAndThr
 
 TEST(ModbusFactoryThreadingTest, ReleasingStartedStack_ShutsDownWorkerAndIoThreads) {
     auto config = modbus::test::MakeModbusConfig(ModbusMode::TCP);
-    ModbusStack stack = createStack(config);
+    auto stackOpt = createStack(config);
+    ASSERT_TRUE(stackOpt);
+    ModbusStack stack = std::move(*stackOpt);
 
     ASSERT_TRUE(stack.ioThread);
     ASSERT_TRUE(stack.thread);
@@ -123,7 +131,9 @@ TEST(ModbusFactoryThreadingTest, CreateRtuStack_UsesDedicatedIoAndWorkerThreads)
     auto config = modbus::test::MakeModbusConfig(ModbusMode::RTU);
     config.portName = "COM1";
 
-    ModbusStack stack = createStack(config);
+    auto stackOpt = createStack(config);
+    ASSERT_TRUE(stackOpt);
+    ModbusStack stack = std::move(*stackOpt);
 
     ASSERT_TRUE(stack.channel);
     ASSERT_TRUE(stack.client);

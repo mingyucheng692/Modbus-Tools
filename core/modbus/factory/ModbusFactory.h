@@ -10,6 +10,7 @@
 #pragma once
 
 #include <memory>
+#include <optional>
 #include <QThread>
 #include "infra/io/IChannel.h"
 #include "../transport/ITransport.h"
@@ -29,6 +30,9 @@ struct ModbusStack {
 };
 
 // 工厂自由函数：根据配置创建并装配完整的 Modbus 协议栈。
-ModbusStack createStack(const base::ModbusConfig& config);
+// Returns std::nullopt when the channel or transport cannot be created
+// (P2-36): callers never see a half-initialised stack, eliminating the
+// risk of dereferencing null channel/client/worker members.
+std::optional<ModbusStack> createStack(const base::ModbusConfig& config);
 
 } // namespace modbus::factory

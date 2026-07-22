@@ -39,4 +39,23 @@ template <typename T>
     return true;
 }
 
+/**
+ * @brief Writes a big-endian integer of type @p T into @p data at @p offset.
+ *
+ * Symmetric counterpart of readBigEndian.  The caller must ensure @p data
+ * has at least sizeof(T) bytes available from @p offset (e.g. by calling
+ * data.resize() beforehand).
+ *
+ * @tparam T   Integer type to write (e.g. uint16_t, uint32_t).
+ * @param data   Destination byte array (must be pre-sized).
+ * @param offset Byte offset within @p data where the value will be written.
+ * @param value  Host-endian value to encode.
+ */
+template <typename T>
+void writeBigEndian(QByteArray& data, qsizetype offset, T value) noexcept
+{
+    const T encoded = qToBigEndian(value);
+    std::memcpy(data.data() + offset, &encoded, sizeof(T));
+}
+
 } // namespace modbus::base

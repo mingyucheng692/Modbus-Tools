@@ -93,6 +93,56 @@ void cleanupWorker(FrameParseWorker* worker)
     delete worker;
 }
 
+// UI-layer input preprocessing: strips bracketed metadata ([RX]/[TX]/timestamps),
+// 0x prefixes and non-hex characters; returns a contiguous lowercase/uppercase
+// hex string suitable for QByteArray::fromHex(). Moved here from FrameParseWorker
+// (P2-27) so the worker stays free of UI/input-format concerns.
+QString normalizeHexInput(const QString& input)
+{
+    QString text = input;
+    // Remove bracketed metadata segments such as "[12:39:35.668]" / "[RX]".
+    text.remove(QRegularExpression(QStringLiteral("\\[[^\\]]*\\]")));
+
+    const QStringList rawTokens = text.split(QRegularExpression(QStringLiteral("\\s+")), Qt::SkipEmptyParts);
+    QString normalized;
+    normalized.reserve(rawTokens.size() * 2);
+
+    for (QString token : rawTokens) {
+        token = token.trimmed();
+        if (token.isEmpty()) continue;
+
+        const QString upper = token.toUpper();
+        if (upper == QStringLiteral("RX") || upper == QStringLiteral("TX") ||
+            upper == QStringLiteral("FAIL") || upper == QStringLiteral("RTT")) {
+            continue;
+        }
+
+        // Skip obvious timestamp/date-like tokens.
+        if (token.contains(':') || token.contains('.') || token.contains('-')) continue;
+
+        if (token.startsWith(QStringLiteral("0x"), Qt::CaseInsensitive)) {
+            token = token.mid(2);
+        }
+
+        token.remove(QRegularExpression(QStringLiteral("[^0-9A-Fa-f]")));
+        if (token.size() < 2) continue;
+        if (token.size() % 2 != 0) token.chop(1);
+
+        if (!token.isEmpty()) {
+            normalized.append(token);
+        }
+    }
+
+    // Fallback for plain contiguous hex input.
+    if (normalized.isEmpty()) {
+        QString plain = input;
+        plain.remove(QRegularExpression(QStringLiteral("[^0-9A-Fa-f]")));
+        if (plain.size() % 2 != 0) plain.chop(1);
+        normalized = plain;
+    }
+    return normalized;
+}
+
 } // namespace
 
 class FrameAnalyzerWidget::FrameAnalyzerWidgetPrivate {
@@ -607,7 +657,7 @@ void FrameAnalyzerWidget::FrameAnalyzerWidgetPrivate::createResultGroup()
 void FrameAnalyzerWidget::onFormatClicked()
 {
     Q_D(FrameAnalyzerWidget);
-    const QString text = FrameParseWorker::normalizeHexInput(d->inputEditor->toPlainText());
+    const QString text = normalizeHexInput(d->inputEditor->toPlainText());
     
     QString formatted;
     for (int i = 0; i < text.length(); i += 2) {
@@ -633,7 +683,7 @@ void FrameAnalyzerWidget::onParseClicked()
     Q_D(FrameAnalyzerWidget);
     clearResult();
     const QString rawInput = d->inputEditor->toPlainText();
-    const QString hexStr = FrameParseWorker::normalizeHexInput(rawInput);
+    const QString hexStr = normalizeHexInput(rawInput);
     
     if (hexStr.isEmpty()) {
         d->statusLabel->setText(tr("Error: Empty input"));
@@ -657,7 +707,9 @@ void FrameAnalyzerWidget::onParseClicked()
     if (d->parseBtn) d->parseBtn->setEnabled(false);
 
     if (d->parseWorker) {
-        d->parseWorker->enqueueParse(rawInput, type, static_cast<uint16_t>(addrVal), d->registerOrder, d->latestParseRequestId);
+        // Pass the pre-normalized hex string so the worker does not need to
+        // repeat input-format cleanup (see FrameParseWorker contract).
+        d->parseWorker->enqueueParse(hexStr, type, static_cast<uint16_t>(addrVal), d->registerOrder, d->latestParseRequestId);
     }
 }
 

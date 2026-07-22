@@ -39,11 +39,34 @@ enum class DisplayState {
 };
 
 /**
+ * @brief Per-state display texts returned by getStateDisplayInfo().
+ *
+ * Hoisted from NetworkConnectionWidget (P2-44) so SerialConnectionWidget can
+ * also participate in the applyDisplayState() template method without
+ * duplicating the per-state switch.
+ */
+struct StateDisplayInfo {
+    QString buttonText;
+    QString statusText;
+    QString statusStyle;
+};
+
+/**
  * @class BaseConnectionWidget
  * @brief Common base class for SerialConnectionWidget and NetworkConnectionWidget.
  *
- * Handles common behaviors such as collapsible section logic, auto-reconnect configurations,
- * settings group and settings loading/saving.
+ * Handles common behaviors such as collapsible section logic, auto-reconnect
+ * configurations, settings group and settings loading/saving.
+ *
+ * @par Display-state template method (P2-44)
+ *      applyDisplayState() is implemented in this base class as a template
+ *      method: it queries getStateDisplayInfo() for the current state's
+ *      button/status text and style, applies them to connectBtn_/statusLabel_,
+ *      toggles autoReconnectCheck_/reconnectDelaySpin_, then delegates
+ *      per-widget input enabling to applyInputWidgetsState() and protocol
+ *      refresh to updateProtocolUi() (default no-op). Subclasses supply only
+ *      the data + their own widget list, eliminating the per-state switch
+ *      duplication that previously lived in SerialConnectionWidget.
  */
 class BaseConnectionWidget : public QWidget {
     Q_OBJECT
@@ -89,7 +112,22 @@ protected:
     void saveCommonSettings();
     void retranslateCommonUi();
 
-    virtual void applyDisplayState() = 0;
+    // ---- Display-state template method (P2-44) ----
+    // Skeleton: queries subclass for state-specific data, applies common
+    // widgets, delegates input-widget enabling and protocol refresh.
+    void applyDisplayState();
+
+    /** @brief Return the display info (button/status text + style) for @p state. */
+    [[nodiscard]] virtual StateDisplayInfo getStateDisplayInfo(DisplayState state) const = 0;
+
+    /** @brief Enable/disable subclass-specific input widgets based on @p enabled. */
+    virtual void applyInputWidgetsState(bool enabled) = 0;
+
+    /** @brief Refresh protocol-specific labels / visibility. Default is no-op. */
+    virtual void updateProtocolUi() {}
+
+    /** @brief True when @p state should lock input widgets (i.e. not Disconnected). */
+    [[nodiscard]] static bool inputsLocked(DisplayState state) noexcept;
 
     core::common::ISettingsService* settingsService_ = nullptr;
     QString settingsGroup_;

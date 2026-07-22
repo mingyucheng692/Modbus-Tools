@@ -3,9 +3,9 @@
  * @brief Base class for network connection widgets (TCP Client, TCP Server, UDP).
  *
  * Uses the Template Method pattern: the base class owns the display-state update
- * skeleton (applyDisplayState, setupNetworkUi, setConnected), while subclasses
- * supply only the state-specific data via getStateDisplayInfo(), isActiveState(),
- * connectedState(), and setupButtonConnection().
+ * skeleton (BaseConnectionWidget::applyDisplayState, setupNetworkUi, setConnected),
+ * while subclasses supply only the state-specific data via getStateDisplayInfo(),
+ * isActiveState(), connectedState(), and setupButtonConnection().
  *
  * Copyright (c) 2025 - present mingyucheng692
  *
@@ -27,18 +27,6 @@ class ISettingsService;
 }
 
 namespace ui::widgets {
-
-/**
- * @brief Per-state display texts and visibility flags.
- *
- * Returned by getStateDisplayInfo() to decouple the applyDisplayState() skeleton
- * from subclass-specific labels.
- */
-struct StateDisplayInfo {
-    QString buttonText;
-    QString statusText;
-    QString statusStyle;
-};
 
 /**
  * @class NetworkConnectionWidget
@@ -87,28 +75,28 @@ protected:
     /** @brief Connect the button click to the appropriate signal. */
     virtual void setupButtonConnection() = 0;
 
-    /** @brief Refresh protocol-specific label text and widget visibility. */
-    virtual void updateProtocolUi() = 0;
+    /** @brief Refresh protocol-specific label text and widget visibility.
+     *         Pure virtual here so Network subclasses must implement it;
+     *         BaseConnectionWidget provides a default no-op for non-Network
+     *         subclasses (e.g. SerialConnectionWidget). */
+    void updateProtocolUi() override = 0;
 
-    // ---- Display State (Template Method) ----
-    /**
-     * @brief Skeleton implemented in base class. Calls getStateDisplayInfo() for
-     *        the current displayState_, then updates common widgets.
-     */
-    void applyDisplayState() override final;
+    // ---- Display State (data hooks) ----
+    // applyDisplayState() skeleton and inputsLocked() live in BaseConnectionWidget
+    // (P2-44 hoist). NetworkConnectionWidget only contributes the per-protocol
+    // data via the following pure-virtual hooks.
 
     /** @brief Return the display info for the given state. */
-    [[nodiscard]] virtual StateDisplayInfo getStateDisplayInfo(DisplayState state) const = 0;
+    [[nodiscard]] StateDisplayInfo getStateDisplayInfo(DisplayState state) const override = 0;
+
+    /** @brief Enable/disable the IP/Port inputs (Network-specific widgets). */
+    void applyInputWidgetsState(bool enabled) override;
 
     /** @brief Whether the given state is an "active" / connected state. */
     [[nodiscard]] virtual bool isActiveState(DisplayState state) const = 0;
 
     /** @brief The DisplayState that represents "fully connected" for this protocol. */
     [[nodiscard]] virtual DisplayState connectedState() const = 0;
-
-    // ---- Common helpers ----
-    /** @brief Shared by all subclasses: locked unless Disconnected. */
-    [[nodiscard]] static bool inputsLocked(DisplayState state);
 
     QLabel* hostLabel_ = nullptr;
     QLabel* portLabel_ = nullptr;

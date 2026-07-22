@@ -119,7 +119,7 @@ std::shared_ptr<transport::ITransport> createTransport(const base::ModbusConfig&
 
 } // namespace
 
-ModbusStack createStack(const base::ModbusConfig& config) {
+std::optional<ModbusStack> createStack(const base::ModbusConfig& config) {
     ModbusStack stack;
     stack.ioThread = makeManagedThread();
     stack.thread = makeManagedThread();
@@ -130,7 +130,7 @@ ModbusStack createStack(const base::ModbusConfig& config) {
     if (!stack.channel) {
         spdlog::error("ModbusFactory: failed to create channel for mode={}",
                       static_cast<int>(config.mode));
-        return stack;
+        return std::nullopt;
     }
 
     // 2. 创建传输层策略 (Protocol)
@@ -138,7 +138,7 @@ ModbusStack createStack(const base::ModbusConfig& config) {
     if (!transport) {
         spdlog::error("ModbusFactory: failed to create transport for mode={}",
                       static_cast<int>(config.mode));
-        return stack;
+        return std::nullopt;
     }
 
     // 3. 创建客户端会话 (Session)
@@ -148,7 +148,7 @@ ModbusStack createStack(const base::ModbusConfig& config) {
     // 4. 创建工作线程 (Dispatch)
     stack.worker = makeManagedWorker(stack.client, stack.thread.get());
     spdlog::info("ModbusFactory: stack created mode={}", static_cast<int>(config.mode));
-    return stack;
+    return std::move(stack);
 }
 
 } // namespace modbus::factory

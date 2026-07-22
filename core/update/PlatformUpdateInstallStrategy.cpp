@@ -185,6 +185,14 @@ public:
     }
 };
 
+// P2-38: This strategy is a deliberate cross-platform fallback, not dead code.
+// The application is currently Windows-only, but the update subsystem keeps a
+// platform abstraction so that a future Linux/macOS port only needs to provide
+// a real install strategy here. Until then every method returns a localised
+// "not supported" error so the UI can surface a clear message instead of
+// silently no-op'ing. UpdateManager also falls back to DownloadOnly when no
+// strategy is configured (null installStrategy_), so this class documents the
+// contract that callers can always obtain an installMode() without null checks.
 class DownloadOnlyInstallStrategy final : public core::update::PlatformUpdateInstallStrategy {
 public:
     [[nodiscard]] core::update::UpdateInstallMode installMode(
