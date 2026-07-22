@@ -15,7 +15,7 @@
 #include "ConnectionStateMachine.h"
 #include "RequestStateMachine.h"
 #include "FlowController.h"
-#include "TimeoutController.h"
+#include "TimeoutHelper.h"
 #include "ConnectionManager.h"
 #include "../transport/ITransport.h"
 #include "../base/ModbusConfig.h"
@@ -69,7 +69,6 @@ public:
         RetryStrategy* retryStrategy;
         ConnectionStateMachine* connStateMachine;
         RequestStateMachine* reqStateMachine;
-        TimeoutController* timeoutController;
         ConnectionManager* connectionManager;
         const base::ModbusConfig* config;
 
@@ -146,6 +145,11 @@ private:
     bool waitForWriteDrain(std::chrono::steady_clock::time_point deadline,
                            std::chrono::steady_clock::time_point* drainedAt);
     bool waitForEventOrTimeout(std::chrono::steady_clock::time_point deadline);
+    // Writes the ADU and drains the RTU write buffer. For TCP, only the write
+    // is performed. Returns true on success; *drainedAt receives the time the
+    // drain completed (unset for TCP / non-RTU).
+    bool writeRtuFrameWithDrain(const QByteArray& adu,
+                                std::chrono::steady_clock::time_point* drainedAt);
     int enqueuePendingRequest(const base::Pdu& request, int slaveId);
     void finishPendingRequest(int requestId, bool success, const QString& error);
 
@@ -158,7 +162,6 @@ private:
     RetryStrategy* retryStrategy_;
     ConnectionStateMachine* connStateMachine_;
     RequestStateMachine* reqStateMachine_;
-    TimeoutController* timeoutController_;
     ConnectionManager* connectionManager_;
     const base::ModbusConfig* config_;
     // 2. Synchronization primitives

@@ -136,7 +136,7 @@ private:
     QPointer<TrafficLogController> trafficLogController_;
     QPointer<PollingController> pollingController_;
     QPointer<RequestSubmissionService> requestService_;
-    ui::widgets::BaseConnectionWidget* connectionWidget_ = nullptr;
+    QPointer<ui::widgets::BaseConnectionWidget> connectionWidget_;
     QPointer<ui::widgets::ControlWidget> controlWidget_;
     std::unique_ptr<WorkerReleaseCoordinator> releaseCoordinator_;
     std::function<void()> deferredAction_;

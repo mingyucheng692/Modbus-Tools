@@ -42,6 +42,19 @@ struct UpdatePreparationResult {
 };
 
 /**
+ * @brief Bundled update metadata passed through the signal chain.
+ */
+struct UpdateInfo {
+    QString currentVersion;
+    QString latestVersion;
+    QString updateOnlyUrl;
+    QString updateOnlySha256;
+    QString checksumsUrl;
+    QString fullPackageUrl;
+    QString releaseUrl;
+};
+
+/**
  * @brief Manages the application update process, including downloading, 
  *        checksum verification, and launching the external updater.
  */
@@ -120,6 +133,8 @@ private:
     void downloadAsset(const QUrl& url, 
                        const QString& filePath, 
                        std::function<void(bool, const QString&)> onFinished);
+
+    void onDownloadFinished(std::function<void(bool, const QString&)> onFinished);
 
     QString pendingLatestVersion_;
     std::shared_ptr<std::atomic_bool> cancelToken_;

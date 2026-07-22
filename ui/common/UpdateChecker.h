@@ -17,6 +17,7 @@ class QString;
 
 namespace core::update {
 struct ReleaseInfo;
+struct UpdateInfo;
 }
 
 namespace ui::common {
@@ -33,13 +34,7 @@ public:
     static QString releasePageUrl();
 
 signals:
-    void updateAvailable(const QString& currentVersion,
-                         const QString& latestVersion,
-                         const QString& updateOnlyUrl,
-                         const QString& updateOnlySha256,
-                         const QString& checksumsUrl,
-                         const QString& fullPackageUrl,
-                         const QString& releaseUrl);
+    void updateAvailable(const core::update::UpdateInfo& info);
     void noUpdateAvailable(const QString& currentVersion);
     void checkFailed(const QString& reason);
 

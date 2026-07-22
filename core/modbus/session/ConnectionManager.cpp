@@ -8,7 +8,6 @@
  */
 
 #include "ConnectionManager.h"
-#include "RetryStrategy.h"
 #include <spdlog/spdlog.h>
 #include <QCoreApplication>
 #include <algorithm>
@@ -23,13 +22,15 @@ namespace {
 
 ConnectionManager::ConnectionManager(io::IChannel* channel,
                                      ConnectionStateMachine* stateMachine,
-                                     TimeoutController* timeoutController,
+                                     std::atomic<bool>& aborted,
+                                     RetryStrategy* retryStrategy,
                                      const base::ModbusConfig* config,
                                      std::mutex& mutex,
                                      std::condition_variable& cv)
     : channel_(channel)
     , stateMachine_(stateMachine)
-    , timeoutController_(timeoutController)
+    , aborted_(aborted)
+    , retryStrategy_(retryStrategy)
     , config_(config)
     , mutex_(mutex)
     , cv_(cv) {}
@@ -123,8 +124,8 @@ bool ConnectionManager::ensureConnected(bool allowReconnect) {
         reconnectBackoffCfg.maxIntervalMs = config_->reconnectMaxMs;
         reconnectBackoffCfg.backoffFactor = config_->retryBackoffFactor;
         reconnectBackoffCfg.jitterPercent = config_->retryJitterPercent;
-        const int reconnectDelayMs = RetryStrategy::calculateBackoffMs(reconnectBackoffCfg, attempt);
-        if (!timeoutController_->waitForAbortableDelay(
+        const int reconnectDelayMs = retryStrategy_->calculateBackoffMs(reconnectBackoffCfg, attempt);
+        if (!waitForAbortableDelay(mutex_, cv_, aborted_,
                 std::chrono::milliseconds(reconnectDelayMs))) {
             std::lock_guard<std::mutex> lock(mutex_);
             lastChannelError_ = trConn("Aborted");
@@ -174,7 +175,7 @@ bool ConnectionManager::waitForChannelState(io::ChannelState expectedState,
             return false;
         }
 
-        timeoutController_->waitForCondition([this, expectedState]() {
+        waitForCondition(mutex_, cv_, [this, expectedState]() {
             return !lastChannelError_.isEmpty()
                 || channel_->state() == io::ChannelState::Error
                 || channel_->state() == expectedState

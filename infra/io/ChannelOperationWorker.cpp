@@ -104,15 +104,15 @@ void ChannelOperationWorker::write(const QByteArray& data)
 
 void ChannelOperationWorker::setDtr(bool set)
 {
-    if (auto serial = std::dynamic_pointer_cast<SerialChannel>(channel_)) {
-        serial->setDtr(set);
+    if (channel_) {
+        channel_->setSerialControl(IChannel::SerialSignal::Dtr, set);
     }
 }
 
 void ChannelOperationWorker::setRts(bool set)
 {
-    if (auto serial = std::dynamic_pointer_cast<SerialChannel>(channel_)) {
-        serial->setRts(set);
+    if (channel_) {
+        channel_->setSerialControl(IChannel::SerialSignal::Rts, set);
     }
 }
 

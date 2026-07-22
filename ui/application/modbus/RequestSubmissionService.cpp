@@ -233,44 +233,26 @@ bool RequestSubmissionService::validateRawData(const QByteArray& data, QString* 
 }
 
 std::optional<RequestTrackingInfo> RequestSubmissionService::lookup(int requestId) const {
-    auto itStart = requestStart_.find(requestId);
-    auto itKind = requestKinds_.find(requestId);
-    auto itAddr = requestAddrs_.find(requestId);
-    if (itStart == requestStart_.end() || itKind == requestKinds_.end() || itAddr == requestAddrs_.end()) {
+    auto it = requestTracking_.find(requestId);
+    if (it == requestTracking_.end()) {
         return std::nullopt;
     }
-
-    RequestTrackingInfo info;
-    info.kind = itKind->second;
-    info.address = itAddr->second;
-    info.startTime = itStart->second;
-    return info;
+    return it->second;
 }
 
 std::optional<RequestTrackingInfo> RequestSubmissionService::lookupAndRemove(int requestId) {
-    auto itStart = requestStart_.find(requestId);
-    auto itKind = requestKinds_.find(requestId);
-    auto itAddr = requestAddrs_.find(requestId);
-    if (itStart == requestStart_.end() || itKind == requestKinds_.end() || itAddr == requestAddrs_.end()) {
+    auto it = requestTracking_.find(requestId);
+    if (it == requestTracking_.end()) {
         return std::nullopt;
     }
 
-    RequestTrackingInfo info;
-    info.kind = itKind->second;
-    info.address = itAddr->second;
-    info.startTime = itStart->second;
-
-    requestStart_.erase(itStart);
-    requestKinds_.erase(itKind);
-    requestAddrs_.erase(itAddr);
-
+    RequestTrackingInfo info = it->second;
+    requestTracking_.erase(it);
     return info;
 }
 
 void RequestSubmissionService::clearAll() {
-    requestStart_.clear();
-    requestKinds_.clear();
-    requestAddrs_.clear();
+    requestTracking_.clear();
 }
 
 int RequestSubmissionService::nextRequestId() {
@@ -281,9 +263,11 @@ int RequestSubmissionService::nextRequestId() {
 }
 
 void RequestSubmissionService::trackRequest(int requestId, RequestKind kind, uint16_t addr) {
-    requestStart_[requestId] = std::chrono::steady_clock::now();
-    requestKinds_[requestId] = kind;
-    requestAddrs_[requestId] = addr;
+    RequestTrackingInfo info;
+    info.kind = kind;
+    info.address = addr;
+    info.startTime = std::chrono::steady_clock::now();
+    requestTracking_[requestId] = info;
     emit txCountUpdated();
 }
 

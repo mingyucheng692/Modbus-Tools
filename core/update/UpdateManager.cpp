@@ -224,28 +224,28 @@ void UpdateManager::downloadAsset(const QUrl& url, const QString& filePath, std:
     });
 
     connect(currentReply_, &QNetworkReply::finished, this, [this, onFinished]() {
-        if (!currentReply_) return;
-        
-        const bool canceled = cancelToken_->load() || (currentReply_->error() == QNetworkReply::OperationCanceledError);
-        
-        if (currentReply_->error() != QNetworkReply::NoError) {
-            QString error = currentReply_->errorString();
-            currentReply_->deleteLater();
-            outputFile_->close();
-            if (canceled) {
-                emit updateCanceled();
-            } else {
-                onFinished(false, error);
-            }
-            return;
-        }
-
-        outputFile_->write(currentReply_->readAll());
-        outputFile_->close();
-        currentReply_->deleteLater();
-        
-        onFinished(true, {});
+        onDownloadFinished(onFinished);
     });
+}
+
+void UpdateManager::onDownloadFinished(std::function<void(bool, const QString&)> onFinished) {
+    if (!currentReply_) return;
+    const bool canceled = cancelToken_->load() || (currentReply_->error() == QNetworkReply::OperationCanceledError);
+    if (currentReply_->error() != QNetworkReply::NoError) {
+        QString error = currentReply_->errorString();
+        currentReply_->deleteLater();
+        outputFile_->close();
+        if (canceled) {
+            emit updateCanceled();
+        } else {
+            onFinished(false, error);
+        }
+        return;
+    }
+    outputFile_->write(currentReply_->readAll());
+    outputFile_->close();
+    currentReply_->deleteLater();
+    onFinished(true, {});
 }
 
 void UpdateManager::processDownloadedUpdate(const QString& updateFilePath, const QString& expectedSha, const QString& checksumsPath) {

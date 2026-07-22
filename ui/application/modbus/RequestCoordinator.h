@@ -10,6 +10,7 @@
 #pragma once
 
 #include <QObject>
+#include <QPointer>
 #include <QByteArray>
 #include <cstdint>
 #include "modbus/base/ModbusFrame.h"
@@ -18,6 +19,7 @@
 
 namespace ui::widgets {
 class FunctionWidget;
+class ControlWidget;
 }
 
 namespace ui::application::modbus {
@@ -58,6 +60,7 @@ public:
     void handlePollRequest(uint8_t fc, int addr, int qty, int intervalMs);
     void handleRequestFinished(int requestId,
                                const ::modbus::session::ModbusResponse& response);
+    void setControlWidget(ui::widgets::ControlWidget* widget);
 
 signals:
     void linkageDataReceived(const ::modbus::base::Pdu& pdu,
@@ -71,6 +74,7 @@ private:
     RequestSubmissionService* requestService_;
     PollingController* pollingController_;
     TrafficLogController* trafficLogController_;
+    QPointer<ui::widgets::ControlWidget> controlWidget_;
     SessionMode sessionMode_;
 };
 

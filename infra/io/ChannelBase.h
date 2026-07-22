@@ -13,6 +13,8 @@
 #include <atomic>
 #include <mutex>
 #include <vector>
+#include <QThread>
+#include <QMetaObject>
 
 namespace io {
 
@@ -39,6 +41,27 @@ protected:
     void emitError(const QString& error);
     void emitWriteDrained();
     void emitMonitor(bool isTx, const QByteArray& data);
+
+    /// Marshals @p func onto the @p owner QObject's thread via
+    /// Qt::QueuedConnection. Returns true if marshalling was performed
+    /// (caller was on a different thread), false if already on the
+    /// owner thread.
+    template <typename QObj, typename Func>
+    static bool marshalToOwner(QObj& owner, Func&& func) {
+        if (QThread::currentThread() != owner.thread()) {
+            QMetaObject::invokeMethod(&owner, std::forward<Func>(func),
+                                      Qt::QueuedConnection);
+            return true;
+        }
+        return false;
+    }
+
+    /// Asserts (debug-only) that the current thread is the owner's thread.
+    template <typename QObj>
+    static void assertOwnerThread(const QObj& owner, const char* context) {
+        Q_ASSERT_X(QThread::currentThread() == owner.thread(),
+                   context, "must run on the owner thread");
+    }
 
 private:
     std::atomic<ChannelState> state_{ChannelState::Closed};

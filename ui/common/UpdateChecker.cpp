@@ -11,6 +11,7 @@
 
 #include "../../core/update/PlatformReleaseAssetStrategy.h"
 #include "../../core/update/ReleaseParser.h"
+#include "../../core/update/UpdateManager.h"
 
 #include <QJsonArray>
 #include <QCoreApplication>
@@ -135,13 +136,15 @@ void UpdateChecker::checkForUpdates() {
         if (compareResult > 0) {
             spdlog::info("UpdateChecker: New version available: v{} (Current: v{})",
                          latestVersion.toStdString(), currentVer);
-            emit updateAvailable(currentVersion(),
-                                 latestVersion,
-                                 updateOnlyUrl,
-                                 updateOnlySha256,
-                                 checksumsUrl,
-                                 fullPackageUrl,
-                                 releaseUrl);
+            emit updateAvailable(core::update::UpdateInfo{
+                currentVersion(),
+                latestVersion,
+                updateOnlyUrl,
+                updateOnlySha256,
+                checksumsUrl,
+                fullPackageUrl,
+                releaseUrl
+            });
             return;
         }
 

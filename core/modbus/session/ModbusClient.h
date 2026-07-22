@@ -16,7 +16,7 @@
 #include "ConnectionStateMachine.h"
 #include "RequestStateMachine.h"
 #include "FlowController.h"
-#include "TimeoutController.h"
+#include "TimeoutHelper.h"
 #include "ConnectionManager.h"
 #include "RequestExecutor.h"
 #include "../transport/ITransport.h"
@@ -100,15 +100,14 @@ private:
     io::IChannel::HandlerId stateHandlerId_ = 0;
     
     std::atomic<bool> aborted_ {false};
-    TimeoutController timeoutController_;
     ConnectionStateMachine connectionStateMachine_;
+    RetryStrategy retryStrategy_;
     ConnectionManager connectionManager_;
     RequestStateMachine requestStateMachine_;
 
     // @guarded_by pendingMutex_ — pendingRequests_, nextRequestId_
     std::mutex pendingMutex_;
     FrameExtractor frameExtractor_;
-    RetryStrategy retryStrategy_;
     FlowController flowController_;
     int nextRequestId_ = 1;
     std::deque<PendingRequest> pendingRequests_;

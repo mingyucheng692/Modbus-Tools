@@ -35,7 +35,10 @@ public:
     /// Calculate backoff delay for @p attempt using @p config without
     /// constructing a full RetryStrategy. Used by ConnectionManager for
     /// reconnection delays that don't need retry-counting semantics.
-    [[nodiscard]] static int calculateBackoffMs(const Config& config, int attempt);
+    [[nodiscard]] int calculateBackoffMs(const Config& config, int attempt) const;
+
+    /// Calculate backoff delay using the stored config_ for @p attempt.
+    [[nodiscard]] int calculateBackoffMs(int attempt) const;
 
 private:
     static int sanitizeDelayMs(int value);

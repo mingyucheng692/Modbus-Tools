@@ -57,9 +57,7 @@ private:
     void trackRequest(int requestId, RequestKind kind, uint16_t addr);
 
     int requestId_ = 0;
-    std::unordered_map<int, std::chrono::steady_clock::time_point> requestStart_;
-    std::unordered_map<int, RequestKind> requestKinds_;
-    std::unordered_map<int, uint16_t> requestAddrs_;
+    std::unordered_map<int, RequestTrackingInfo> requestTracking_;
 };
 
 } // namespace ui::application::modbus

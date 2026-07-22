@@ -32,7 +32,7 @@ bool RetryStrategy::shouldRetry() const
 std::chrono::milliseconds RetryStrategy::nextWait() const
 {
     const int attempt = (attemptCount_ > 0) ? (attemptCount_ - 1) : 0;
-    return std::chrono::milliseconds(calculateBackoffMs(config_, attempt));
+    return std::chrono::milliseconds(calculateBackoffMs(attempt));
 }
 
 void RetryStrategy::recordAttempt()
@@ -55,7 +55,7 @@ int RetryStrategy::sanitizeDelayMs(int value)
     return std::max(0, value);
 }
 
-int RetryStrategy::calculateBackoffMs(const Config& config, int attempt)
+int RetryStrategy::calculateBackoffMs(const Config& config, int attempt) const
 {
     const double factor = std::max(1.0, config.backoffFactor);
     const int sanitizedBase = sanitizeDelayMs(config.baseIntervalMs);
@@ -72,6 +72,11 @@ int RetryStrategy::calculateBackoffMs(const Config& config, int attempt)
     const int jitterWindow = std::max(1, (cappedDelay * jitterPercent) / 100);
     std::uniform_int_distribution<int> distribution(-jitterWindow, jitterWindow);
     return std::max(0, cappedDelay + distribution(generator));
+}
+
+int RetryStrategy::calculateBackoffMs(int attempt) const
+{
+    return calculateBackoffMs(config_, attempt);
 }
 
 } // namespace modbus::session

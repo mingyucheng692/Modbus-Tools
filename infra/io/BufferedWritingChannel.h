@@ -34,6 +34,14 @@ class BufferedWritingChannel : public ChannelBase {
 public:
     ~BufferedWritingChannel() noexcept override;
 
+    /// @brief Enqueue data for writing. Thread-safe.
+    ///
+    /// When called from the device's owner thread, data is written immediately
+    /// (subject to internal buffering) and the return value reflects the real
+    /// write outcome. When called from any other thread, the write is marshalled
+    /// onto the owner thread via Qt::QueuedConnection and the method always
+    /// returns true — the caller must not rely on the return value to confirm
+    /// delivery in the cross-thread case.
     bool write(QByteArrayView data) override;
 
 protected:

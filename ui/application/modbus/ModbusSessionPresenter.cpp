@@ -565,64 +565,8 @@ void ModbusSessionPresenter::handleRequestFinished(int requestId,
                                                      const ::modbus::session::ModbusResponse& response,
                                                      quint64 generation) {
     assertGuiThread("handleRequestFinished must run on the GUI thread");
-
     if (generation != connectionGeneration_) return;
     if (!requestService_) return;
-
-    auto trackingInfo = requestService_->lookup(requestId);
-    if (!trackingInfo.has_value()) {
-        return;
-    }
-
-    auto kind = trackingInfo->kind;
-    uint16_t addr = trackingInfo->address;
-
-    if (kind == RequestKind::Poll) {
-        if (pollingController_) {
-            pollingController_->handleResponse(!response.isError(),
-                                                response.rttMs,
-                                                response.retryCount(),
-                                                response.error);
-        }
-    }
-
-    switch (response.kind) {
-    case ::modbus::session::ModbusResponseKind::NoResponseExpected:
-        if (trafficLogController_) {
-            trafficLogController_->logBroadcastWriteSuccess(response.retryCount());
-        }
-        break;
-    case ::modbus::session::ModbusResponseKind::Success:
-        if (controlWidget_) {
-            controlWidget_->recordRx(response.rttMs);
-        }
-
-        if (kind == RequestKind::Read && trafficLogController_) {
-            trafficLogController_->logReadSuccess(response.retryCount());
-        } else if (kind == RequestKind::Write && trafficLogController_) {
-            trafficLogController_->logWriteSuccess(response.retryCount());
-        }
-        break;
-    case ::modbus::session::ModbusResponseKind::Error:
-        if (response.isBusy()) {
-            // Soft-lock contention is not a protocol error: don't bump the
-            // error counter; surface a dedicated warning so the UI shows a
-            // precise "request in progress" hint instead of a generic error.
-            if (kind != RequestKind::Poll && trafficLogController_) {
-                trafficLogController_->logWarning(response.error);
-            }
-            break;
-        }
-        if (controlWidget_) {
-            controlWidget_->recordError();
-        }
-
-        if (kind != RequestKind::Poll && trafficLogController_) {
-            trafficLogController_->logRequestError(response.error, response.retryCount());
-        }
-        break;
-    }
-
     emit requestFinished(requestId, response);
 }
 

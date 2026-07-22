@@ -145,29 +145,25 @@ void SerialChannel::setConfig(const SerialConfig& config) {
 }
 
 void SerialChannel::setDtr(bool set) {
-    if (QThread::currentThread() != serial_.thread()) {
-        QMetaObject::invokeMethod(&serial_, [this, set]() {
-            this->setDtr(set);
-        }, Qt::QueuedConnection);
-        return;
-    }
-
+    if (marshalToOwner(serial_, [this, set]() { this->setDtr(set); })) return;
     if (isOpen()) {
         serial_.setDataTerminalReady(set);
     }
 }
 
 void SerialChannel::setRts(bool set) {
-    if (QThread::currentThread() != serial_.thread()) {
-        QMetaObject::invokeMethod(&serial_, [this, set]() {
-            this->setRts(set);
-        }, Qt::QueuedConnection);
-        return;
-    }
-
+    if (marshalToOwner(serial_, [this, set]() { this->setRts(set); })) return;
     if (isOpen()) {
         serial_.setRequestToSend(set);
     }
+}
+
+bool SerialChannel::setSerialControl(SerialSignal signal, bool value) {
+    switch (signal) {
+    case SerialSignal::Dtr: setDtr(value); return true;
+    case SerialSignal::Rts: setRts(value); return true;
+    }
+    return false;
 }
 
 void SerialChannel::onReadyRead() {

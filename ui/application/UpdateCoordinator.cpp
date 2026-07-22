@@ -132,23 +132,17 @@ bool UpdateCoordinator::shouldAutoCheckUpdates() const {
     return true;
 }
 
-void UpdateCoordinator::handleUpdateAvailable(const QString& currentVersion,
-                                              const QString& latestVersion,
-                                              const QString& updateOnlyUrl,
-                                              const QString& updateOnlySha256,
-                                              const QString& checksumsUrl,
-                                              const QString& fullPackageUrl,
-                                              const QString& releaseUrl) {
+void UpdateCoordinator::handleUpdateAvailable(const core::update::UpdateInfo& info) {
     if (view_) {
         view_->setUpdateCheckActionEnabled(true);
     }
 
     updateAvailable_ = true;
-    pendingUpdateInfo_ = {latestVersion, updateOnlyUrl, updateOnlySha256, checksumsUrl, fullPackageUrl, releaseUrl};
+    pendingUpdateInfo_ = info;
     refreshIndicators();
 
     if (checkingUpdateManually_) {
-        promptUpdateAction(currentVersion);
+        promptUpdateAction(info.currentVersion);
     }
 }
 

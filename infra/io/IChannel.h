@@ -22,6 +22,7 @@ namespace io {
 
 enum class ChannelKind { Tcp, Serial, Udp };
 enum class ChannelState { Closed, Opening, Open, Closing, Error };
+enum class SerialSignal { Dtr, Rts };
 
 enum class ChannelErrorCode {
     None = 0,
@@ -78,6 +79,9 @@ public:
     // isTx: true=TX, false=RX
     virtual void setMonitor(std::function<void(bool isTx, const QByteArray&)> monitor) = 0;
     virtual ChannelStats stats() const = 0;
+    /// Serial control signals (DTR, RTS). Returns false by default;
+    /// SerialChannel overrides to forward to the underlying QSerialPort.
+    virtual bool setSerialControl(SerialSignal signal, bool value) { return false; }
 };
 
 }

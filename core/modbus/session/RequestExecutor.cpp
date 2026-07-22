@@ -97,7 +97,6 @@ RequestExecutor::RequestExecutor(const Dependencies& deps)
     , retryStrategy_(deps.retryStrategy)
     , connStateMachine_(deps.connStateMachine)
     , reqStateMachine_(deps.reqStateMachine)
-    , timeoutController_(deps.timeoutController)
     , connectionManager_(deps.connectionManager)
     , config_(deps.config)
     , mutex_(deps.mutex)
@@ -113,7 +112,6 @@ RequestExecutor::RequestExecutor(const Dependencies& deps)
     Q_ASSERT(retryStrategy_);
     Q_ASSERT(connStateMachine_);
     Q_ASSERT(reqStateMachine_);
-    Q_ASSERT(timeoutController_);
     Q_ASSERT(connectionManager_);
     Q_ASSERT(config_);
 }
@@ -170,7 +168,7 @@ ModbusResponse RequestExecutor::execute(const base::Pdu& request, int slaveId) {
                          retryStrategy_->attemptCount(),
                          config_->retries,
                          lastResponse.error.toStdString());
-            if (!timeoutController_->waitForAbortableDelay(retryDelay)) {
+            if (!waitForAbortableDelay(mutex_, cv_, aborted_, retryDelay)) {
                 reqStateMachine_->tryTransition(RequestStateMachine::State::Aborted,
                                                 "request-aborted-during-backoff");
                 finishPendingRequest(requestId, false, "Aborted");
@@ -200,7 +198,7 @@ void RequestExecutor::sendRaw(const QByteArray& data) {
     std::lock_guard<std::mutex> lock(requestMutex_);
     if (connectionManager_->isConnected()) {
         if (!flowController_->isRtuSendWindowOpen(std::chrono::steady_clock::now())) {
-            timeoutController_->waitForAbortableDelay(
+            waitForAbortableDelay(mutex_, cv_, aborted_,
                 flowController_->rtuSendWindowOpensAt() - std::chrono::steady_clock::now());
         }
         {
@@ -209,14 +207,7 @@ void RequestExecutor::sendRaw(const QByteArray& data) {
                 flowController_->markWritePending();
             }
         }
-        if (channel_->write(data)) {
-            flowController_->updateRtuSendWindow(data.size(), *config_);
-            if (config_->mode == base::ModbusMode::RTU) {
-                const auto writeDeadline = std::chrono::steady_clock::now()
-                    + std::chrono::milliseconds(config_->timeoutMs);
-                waitForWriteDrain(writeDeadline, nullptr);
-            }
-        }
+        writeRtuFrameWithDrain(data, nullptr);
     }
 }
 
@@ -311,33 +302,28 @@ ModbusResponse RequestExecutor::sendRequestInternal(const base::Pdu& request, in
     QByteArray adu = transport_->buildRequest(request, targetSlaveId);
 
     if (!flowController_->isRtuSendWindowOpen(std::chrono::steady_clock::now())) {
-        timeoutController_->waitForAbortableDelay(
+        waitForAbortableDelay(mutex_, cv_, aborted_,
             flowController_->rtuSendWindowOpensAt() - std::chrono::steady_clock::now());
     }
 
-    if (!channel_->write(adu)) {
-        reqStateMachine_->tryTransition(RequestStateMachine::State::Failed, "write-failed");
-        return ModbusResponse::Error(trReq("Write failed"));
+    std::chrono::steady_clock::time_point drainedAt{};
+    if (!writeRtuFrameWithDrain(adu, &drainedAt)) {
+        reqStateMachine_->tryTransition(RequestStateMachine::State::Failed,
+                                        config_->mode == base::ModbusMode::RTU
+                                            ? "write-drain-timeout"
+                                            : "write-failed");
+        std::lock_guard<std::mutex> lock(mutex_);
+        const QString error = connectionManager_->hasChannelErrorLocked()
+            ? connectionManager_->lastChannelErrorLocked()
+            : trReq(config_->mode == base::ModbusMode::RTU
+                        ? "Write drain timeout"
+                        : "Write failed");
+        return ModbusResponse::Error(error);
     }
-    flowController_->updateRtuSendWindow(adu.size(), *config_);
     reqStateMachine_->tryTransition(RequestStateMachine::State::Sending, "write-success");
     auto start = std::chrono::steady_clock::now();
-
-    if (config_->mode == base::ModbusMode::RTU) {
-        std::chrono::steady_clock::time_point drainedAt{};
-        const auto writeDeadline = start + std::chrono::milliseconds(config_->timeoutMs);
-        if (!waitForWriteDrain(writeDeadline, &drainedAt)) {
-            reqStateMachine_->tryTransition(RequestStateMachine::State::Failed,
-                                            "write-drain-timeout");
-            std::lock_guard<std::mutex> lock(mutex_);
-            const QString error = connectionManager_->hasChannelErrorLocked()
-                ? connectionManager_->lastChannelErrorLocked()
-                : trReq("Write drain timeout");
-            return ModbusResponse::Error(error);
-        }
-        if (drainedAt != std::chrono::steady_clock::time_point{}) {
-            start = drainedAt;
-        }
+    if (drainedAt != std::chrono::steady_clock::time_point{}) {
+        start = drainedAt;
     }
 
     if (!shouldWaitForResponse(targetSlaveId, request.functionCode())) {
@@ -550,6 +536,22 @@ bool RequestExecutor::shouldWaitForResponse(int slaveId,
     return !isRtuBroadcastRequest(slaveId, functionCode);
 }
 
+bool RequestExecutor::writeRtuFrameWithDrain(const QByteArray& adu,
+                                             std::chrono::steady_clock::time_point* drainedAt) {
+    if (!channel_->write(adu)) {
+        return false;
+    }
+    flowController_->updateRtuSendWindow(adu.size(), *config_);
+
+    if (config_->mode != base::ModbusMode::RTU) {
+        return true;
+    }
+
+    const auto writeDeadline = std::chrono::steady_clock::now()
+        + std::chrono::milliseconds(config_->timeoutMs);
+    return waitForWriteDrain(writeDeadline, drainedAt);
+}
+
 bool RequestExecutor::waitForWriteDrain(std::chrono::steady_clock::time_point deadline,
                                         std::chrono::steady_clock::time_point* drainedAt) {
     while (std::chrono::steady_clock::now() < deadline) {
@@ -575,7 +577,7 @@ bool RequestExecutor::waitForWriteDrain(std::chrono::steady_clock::time_point de
             return false;
         }
 
-        timeoutController_->waitForCondition([this]() {
+        waitForCondition(mutex_, cv_, [this]() {
             return aborted_.load() || flowController_->isWriteDrained()
                 || connectionManager_->hasChannelErrorLocked()
                 || channel_->state() == io::ChannelState::Error;
@@ -606,7 +608,7 @@ bool RequestExecutor::waitForEventOrTimeout(std::chrono::steady_clock::time_poin
             }
         }
 
-        timeoutController_->waitForCondition([this]() {
+        waitForCondition(mutex_, cv_, [this]() {
             return aborted_.load() || responseReady_
                 || connectionManager_->hasChannelErrorLocked()
                 || channel_->state() == io::ChannelState::Error;

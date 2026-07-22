@@ -46,9 +46,8 @@ ModbusClient::ModbusClient(std::shared_ptr<io::IChannel> channel,
     , frameExtractor_(base::ModbusMode::TCP, 9600)
     , retryStrategy_(RetryStrategy::Config{})
     , flowController_(base::ModbusMode::TCP)
-    , timeoutController_(mutex_, cv_, aborted_)
     , connectionManager_(channel_.get(), &connectionStateMachine_,
-                         &timeoutController_, &config_, mutex_, cv_)
+                         aborted_, &retryStrategy_, &config_, mutex_, cv_)
     , requestExecutor_(RequestExecutor::Dependencies{
           channel_.get(),
           transport_.get(),
@@ -57,7 +56,6 @@ ModbusClient::ModbusClient(std::shared_ptr<io::IChannel> channel,
           &retryStrategy_,
           &connectionStateMachine_,
           &requestStateMachine_,
-          &timeoutController_,
           &connectionManager_,
           &config_,
           mutex_,

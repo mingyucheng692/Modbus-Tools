@@ -32,6 +32,7 @@ public:
     // Control signals
     void setDtr(bool set);
     void setRts(bool set);
+    bool setSerialControl(SerialSignal signal, bool value) override;
 
 protected:
     QIODevice* device() override { return &serial_; }

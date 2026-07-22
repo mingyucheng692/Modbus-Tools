@@ -61,24 +61,9 @@ public:
     [[nodiscard]] bool updateAvailable() const;
 
 private:
-    struct PendingUpdateInfo {
-        QString latestVersion;
-        QString updateOnlyUrl;
-        QString updateOnlySha256;
-        QString checksumsUrl;
-        QString fullPackageUrl;
-        QString releaseUrl;
-    };
-
     void performUpdateCheck(bool manual);
     bool shouldAutoCheckUpdates() const;
-    void handleUpdateAvailable(const QString& currentVersion,
-                               const QString& latestVersion,
-                               const QString& updateOnlyUrl,
-                               const QString& updateOnlySha256,
-                               const QString& checksumsUrl,
-                               const QString& fullPackageUrl,
-                               const QString& releaseUrl);
+    void handleUpdateAvailable(const core::update::UpdateInfo& info);
     void handleNoUpdateAvailable(const QString& currentVersion);
     void handleCheckFailed(const QString& reason);
     void handleUpdateReadyToInstall(const QString& taskFile);
@@ -93,7 +78,7 @@ private:
     QString currentLocale_ = QStringLiteral("en_US");
     bool updateAvailable_ = false;
     bool checkingUpdateManually_ = false;
-    PendingUpdateInfo pendingUpdateInfo_;
+    core::update::UpdateInfo pendingUpdateInfo_;
 };
 
 } // namespace ui::application

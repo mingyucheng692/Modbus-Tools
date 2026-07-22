@@ -23,13 +23,6 @@ unsigned long long threadToken(QThread* thread)
     return static_cast<unsigned long long>(reinterpret_cast<quintptr>(thread));
 }
 
-// Verifies the caller is on the IO thread (socket_.thread()). All signal
-// handlers are connected via Qt::QueuedConnection and must execute on the IO
-// thread to avoid data races on pendingWrites_/closing_/currentWriteOffset_.
-#define ASSERT_IO_THREAD() \
-    Q_ASSERT_X(QThread::currentThread() == socket_.thread(), \
-               __func__, "must run on the IO thread (socket_.thread())")
-
 } // namespace
 
 TcpChannel::TcpChannel() {
@@ -175,7 +168,7 @@ void TcpChannel::setEndpoint(const QString& ip, int port) {
 }
 
 void TcpChannel::onReadyRead() {
-    ASSERT_IO_THREAD();
+    assertOwnerThread(socket_, __func__);
     logThreadContextOnce("TcpChannel::onReadyRead", ioThreadLoggedFlag());
     QByteArray data = socket_.readAll();
     if (!data.isEmpty()) {
@@ -187,7 +180,7 @@ void TcpChannel::onReadyRead() {
 }
 
 void TcpChannel::onConnected() {
-    ASSERT_IO_THREAD();
+    assertOwnerThread(socket_, __func__);
     logThreadContextOnce("TcpChannel::onConnected", ioThreadLoggedFlag());
     setClosing(false);
     setState(ChannelState::Open);
@@ -195,7 +188,7 @@ void TcpChannel::onConnected() {
 }
 
 void TcpChannel::onSocketError(QAbstractSocket::SocketError error) {
-    ASSERT_IO_THREAD();
+    assertOwnerThread(socket_, __func__);
     if (isClosing()) {
         return;
     }
@@ -218,7 +211,7 @@ void TcpChannel::onSocketError(QAbstractSocket::SocketError error) {
 }
 
 void TcpChannel::onStateChanged(QAbstractSocket::SocketState state) {
-    ASSERT_IO_THREAD();
+    assertOwnerThread(socket_, __func__);
     switch (state) {
         case QAbstractSocket::ConnectedState:
             setState(ChannelState::Open);

@@ -13,6 +13,7 @@
 #include "TrafficLogController.h"
 #include "ModbusTypes.h"
 #include "../../common/ConnectionAlert.h"
+#include "../../widgets/ControlWidget.h"
 #include <QWidget>
 #include <spdlog/spdlog.h>
 
@@ -136,13 +137,61 @@ void RequestCoordinator::handleRequestFinished(int requestId,
         return;
     }
 
+    auto kind = trackingInfo->kind;
     uint16_t addr = trackingInfo->address;
+
+    if (kind == RequestKind::Poll) {
+        if (pollingController_) {
+            pollingController_->handleResponse(!response.isError(),
+                                                response.rttMs,
+                                                response.retryCount(),
+                                                response.error);
+        }
+    }
+
+    switch (response.kind) {
+    case ::modbus::session::ModbusResponseKind::NoResponseExpected:
+        if (trafficLogController_) {
+            trafficLogController_->logBroadcastWriteSuccess(response.retryCount());
+        }
+        break;
+    case ::modbus::session::ModbusResponseKind::Success:
+        if (controlWidget_) {
+            controlWidget_->recordRx(response.rttMs);
+        }
+
+        if (kind == RequestKind::Read && trafficLogController_) {
+            trafficLogController_->logReadSuccess(response.retryCount());
+        } else if (kind == RequestKind::Write && trafficLogController_) {
+            trafficLogController_->logWriteSuccess(response.retryCount());
+        }
+        break;
+    case ::modbus::session::ModbusResponseKind::Error:
+        if (response.isBusy()) {
+            if (kind != RequestKind::Poll && trafficLogController_) {
+                trafficLogController_->logWarning(response.error);
+            }
+            break;
+        }
+        if (controlWidget_) {
+            controlWidget_->recordError();
+        }
+
+        if (kind != RequestKind::Poll && trafficLogController_) {
+            trafficLogController_->logRequestError(response.error, response.retryCount());
+        }
+        break;
+    }
 
     if (!response.isError()) {
         const ::modbus::parser::ProtocolType protocolType =
             modeDescriptor(sessionMode_).protocolType;
         emit linkageDataReceived(response.pdu, protocolType, addr);
     }
+}
+
+void RequestCoordinator::setControlWidget(ui::widgets::ControlWidget* widget) {
+    controlWidget_ = widget;
 }
 
 } // namespace ui::application::modbus

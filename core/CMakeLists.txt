@@ -40,8 +40,7 @@ target_sources(core PRIVATE
     modbus/session/RequestStateMachine.h
     modbus/session/FlowController.h
     modbus/session/FlowController.cpp
-    modbus/session/TimeoutController.h
-    modbus/session/TimeoutController.cpp
+    modbus/session/TimeoutHelper.h
     modbus/session/ConnectionManager.h
     modbus/session/ConnectionManager.cpp
     modbus/session/RequestExecutor.h

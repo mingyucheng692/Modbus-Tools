@@ -10,7 +10,8 @@
 #pragma once
 
 #include "ConnectionStateMachine.h"
-#include "TimeoutController.h"
+#include "TimeoutHelper.h"
+#include "RetryStrategy.h"
 #include "infra/io/IChannel.h"
 #include "../base/ModbusConfig.h"
 #include <QString>
@@ -43,7 +44,8 @@ class ConnectionManager {
 public:
     ConnectionManager(io::IChannel* channel,
                       ConnectionStateMachine* stateMachine,
-                      TimeoutController* timeoutController,
+                      std::atomic<bool>& aborted,
+                      RetryStrategy* retryStrategy,
                       const base::ModbusConfig* config,
                       std::mutex& mutex,
                       std::condition_variable& cv);
@@ -94,7 +96,8 @@ public:
 private:
     io::IChannel* channel_;
     ConnectionStateMachine* stateMachine_;
-    TimeoutController* timeoutController_;
+    std::atomic<bool>& aborted_;
+    RetryStrategy* retryStrategy_;
     const base::ModbusConfig* config_;
     std::mutex& mutex_;
     std::condition_variable& cv_;
