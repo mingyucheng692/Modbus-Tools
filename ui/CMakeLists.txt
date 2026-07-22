@@ -65,6 +65,8 @@ add_library(ui STATIC)
 target_sources(ui PRIVATE
     common/CompactMenuBarStyle.cpp
     common/CompactMenuBarStyle.h
+    common/ModbusDataHelper.h
+    common/ModbusDataHelper.cpp
     common/SettingsService.cpp
     common/SettingsService.h
     common/ThemeController.cpp
@@ -112,6 +114,8 @@ target_sources(ui PRIVATE
     shell/MainWindowPageBuilder.h
     views/modbus/ModbusPage.cpp
     views/modbus/ModbusPage.h
+    views/ChannelController.cpp
+    views/ChannelController.h
     views/GenericChannelViewBase.cpp
     views/GenericChannelViewBase.h
     views/generic_tcp/GenericTcpView.cpp

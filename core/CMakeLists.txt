@@ -11,8 +11,6 @@ target_sources(core PRIVATE
     modbus/base/ModbusProtocolChecks.cpp
     modbus/base/ModbusLrc.h
     modbus/base/ModbusLrc.cpp
-    modbus/base/ModbusDataHelper.h
-    modbus/base/ModbusDataHelper.cpp
     modbus/base/ModbusPduBuilder.h
     modbus/base/ModbusPduBuilder.cpp
     # modbus transport

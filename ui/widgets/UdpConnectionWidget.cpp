@@ -12,6 +12,7 @@
 #include "UdpConnectionWidget.h"
 #include "Config.h"
 #include "CollapsibleSection.h"
+#include "common/SettingsKeys.h"
 #include "../../core/common/ISettingsService.h"
 #include <QHBoxLayout>
 #include <QBoxLayout>
@@ -24,6 +25,8 @@
 #include <QSizePolicy>
 
 namespace ui::widgets {
+
+using namespace core::common::settings_keys;
 
 UdpConnectionWidget::UdpConnectionWidget(core::common::ISettingsService* settingsService, QWidget* parent)
     : NetworkConnectionWidget(settingsService, parent) {
@@ -140,25 +143,25 @@ void UdpConnectionWidget::updateProtocolUi() {
 
 void UdpConnectionWidget::loadSettings() {
     NetworkConnectionWidget::loadSettings();
-    if (settingsGroup_.isEmpty() || !settingsService_) return;
+    if (!settingsService_) return;
     if (!remoteIpEdit_ || !remotePortEdit_) return;
 
     QSignalBlocker b1(remoteIpEdit_);
     QSignalBlocker b2(remotePortEdit_);
 
-    remoteIpEdit_->setText(settingsService_->value(settingsGroup_ + QStringLiteral("/remoteIp")).toString());
-    remotePortEdit_->setValue(settingsService_->contains(settingsGroup_ + QStringLiteral("/remotePort"))
-        ? settingsService_->value(settingsGroup_ + QStringLiteral("/remotePort")).toInt() : 0);
+    remoteIpEdit_->setText(settingsService_->value(kUdpRemoteIp).toString());
+    remotePortEdit_->setValue(settingsService_->contains(kUdpRemotePort)
+        ? settingsService_->value(kUdpRemotePort).toInt() : 0);
 }
 
 void UdpConnectionWidget::saveSettings() {
     NetworkConnectionWidget::saveSettings();
-    if (settingsGroup_.isEmpty() || !settingsService_) return;
+    if (!settingsService_) return;
     if (remoteIpEdit_) {
-        settingsService_->setValue(settingsGroup_ + QStringLiteral("/remoteIp"), remoteIpEdit_->text());
+        settingsService_->setValue(kUdpRemoteIp, remoteIpEdit_->text());
     }
     if (remotePortEdit_) {
-        settingsService_->setValue(settingsGroup_ + QStringLiteral("/remotePort"), remotePortEdit_->value());
+        settingsService_->setValue(kUdpRemotePort, remotePortEdit_->value());
     }
 }
 

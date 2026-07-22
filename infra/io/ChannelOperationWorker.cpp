@@ -105,14 +105,14 @@ void ChannelOperationWorker::write(const QByteArray& data)
 void ChannelOperationWorker::setDtr(bool set)
 {
     if (channel_) {
-        channel_->setSerialControl(IChannel::SerialSignal::Dtr, set);
+        channel_->setSerialControl(io::SerialSignal::Dtr, set);
     }
 }
 
 void ChannelOperationWorker::setRts(bool set)
 {
     if (channel_) {
-        channel_->setSerialControl(IChannel::SerialSignal::Rts, set);
+        channel_->setSerialControl(io::SerialSignal::Rts, set);
     }
 }
 

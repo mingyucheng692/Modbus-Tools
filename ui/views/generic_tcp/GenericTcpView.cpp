@@ -27,8 +27,6 @@
 #include <QComboBox>
 #include <QStackedWidget>
 #include <QSplitter>
-#include <QThread>
-#include <QTimer>
 #include <QMetaObject>
 #include <QEvent>
 #include <spdlog/spdlog.h>
@@ -61,7 +59,9 @@ void populateProtocolOptions(QComboBox* combo) {
 } // namespace
 
 GenericTcpView::GenericTcpView(core::common::ISettingsService* settingsService, QWidget *parent)
-    : GenericChannelViewBase(settingsService, parent) {
+    : GenericChannelViewBase(settingsService, parent),
+      channelCtrl_(this) {
+    channelController_ = &channelCtrl_;
     setupUi();
     startWorker();
     startServerWorker();
@@ -69,15 +69,17 @@ GenericTcpView::GenericTcpView(core::common::ISettingsService* settingsService, 
 
 GenericTcpView::~GenericTcpView() noexcept {
     stopServerWorker();
-    stopWorker();
+    // channelCtrl_ is a value member, destroyed automatically.
 }
 
 void GenericTcpView::startWorker() {
-    GenericChannelViewBase::startWorker();
-    if (worker_) {
-        connect(worker_, &io::ChannelOperationWorker::stateChangedWithGeneration, 
-                this, &GenericTcpView::onWorkerStateChanged);
-    }
+    auto* worker = channelCtrl_.createWorker();
+    connect(worker, &io::ChannelOperationWorker::channelErrorOccurred,
+            this, &GenericTcpView::onWorkerError);
+    connect(worker, &io::ChannelOperationWorker::monitor,
+            this, &GenericTcpView::onWorkerMonitor);
+    connect(worker, &io::ChannelOperationWorker::stateChangedWithGeneration,
+            this, &GenericTcpView::onWorkerStateChanged);
 }
 
 void GenericTcpView::setupUi() {
@@ -178,9 +180,9 @@ void GenericTcpView::setupUi() {
 
     retranslateUi();
 
-    reconnectTimer_ = new QTimer(this);
-    reconnectTimer_->setSingleShot(true);
-    connect(reconnectTimer_, &QTimer::timeout, this, &GenericTcpView::onReconnectTimerTick);
+    // Reconnect timer is managed by ChannelController; connect its signal to our slot.
+    connect(&channelCtrl_, &ChannelController::reconnectTimeout,
+            this, &GenericTcpView::onReconnectTimerTick);
 
     onProtocolChanged(protocolCombo_->currentIndex());
 }
@@ -211,7 +213,7 @@ void GenericTcpView::stopServerWorker() {
     auto* serverWorker = serverWorker_;
     serverThread_ = nullptr;
     serverWorker_ = nullptr;
-    stopWorkerPair(thread, serverWorker);
+    channelCtrl_.stopWorkerPair(thread, serverWorker);
 }
 
 void GenericTcpView::switchToProtocol(Protocol protocol) {
@@ -257,10 +259,11 @@ void GenericTcpView::onProtocolChanged(int index) {
 }
 
 void GenericTcpView::onConnectClicked(const QString& ip, int port) {
-    if (!worker_) return;
+    auto* worker = channelCtrl_.worker();
+    if (!worker) return;
 
-    stopReconnectTimer();
-    reconnectPolicy_.reset();
+    channelCtrl_.stopReconnectTimer();
+    channelCtrl_.resetReconnect();
     reconnectHost_ = ip;
     reconnectPort_ = port;
 
@@ -272,7 +275,7 @@ void GenericTcpView::onConnectClicked(const QString& ip, int port) {
     }
     tcpClientWidget_->setDisplayState(widgets::TcpClientConnectionWidget::DisplayState::Connecting);
 
-    QMetaObject::invokeMethod(worker_, "openTcp",
+    QMetaObject::invokeMethod(worker, "openTcp",
                               Qt::QueuedConnection,
                               Q_ARG(QString, ip),
                               Q_ARG(int, port),
@@ -307,7 +310,8 @@ void GenericTcpView::onStopListenClicked() {
 
 void GenericTcpView::onBindClicked(const QString& localIp, int localPort,
                                     const QString& remoteIp, int remotePort) {
-    if (!worker_) return;
+    auto* worker = channelCtrl_.worker();
+    if (!worker) return;
 
     spdlog::info("GenericTcp: Binding UDP {}:{}", localIp.toStdString(), localPort);
     if (monitor_) {
@@ -323,7 +327,7 @@ void GenericTcpView::onBindClicked(const QString& localIp, int localPort,
     suppressDisconnectAlert_ = false;
     udpWidget_->setDisplayState(widgets::UdpConnectionWidget::DisplayState::Connecting);
 
-    QMetaObject::invokeMethod(worker_, "openUdp",
+    QMetaObject::invokeMethod(worker, "openUdp",
                               Qt::QueuedConnection,
                               Q_ARG(QString, localIp),
                               Q_ARG(int, localPort),
@@ -332,11 +336,12 @@ void GenericTcpView::onBindClicked(const QString& localIp, int localPort,
 }
 
 void GenericTcpView::onUnbindClicked() {
-    if (!worker_) return;
+    auto* worker = channelCtrl_.worker();
+    if (!worker) return;
 
     suppressDisconnectAlert_ = true;
     udpWidget_->setDisplayState(widgets::UdpConnectionWidget::DisplayState::Disconnecting);
-    QMetaObject::invokeMethod(worker_, "close", Qt::QueuedConnection);
+    QMetaObject::invokeMethod(worker, "close", Qt::QueuedConnection);
 }
 
 void GenericTcpView::onSendRequested(const QByteArray& data) {
@@ -453,12 +458,41 @@ void GenericTcpView::onWorkerStateChanged(io::ChannelState state, quint64 genera
         && currentProtocol_ == Protocol::TcpClient
         && activeWidget->autoReconnectEnabled()
         && !suppressDisconnectAlert_
-        && !reconnectTimer_->isActive()) {
-        startReconnectTimer(activeWidget);
+        && !channelCtrl_.reconnectTimer()->isActive()) {
+        auto& policy = channelCtrl_.reconnectPolicy();
+        if (policy.exhausted()) {
+            if (monitor_) {
+                monitor_->appendInfo(tr("Auto-reconnect exhausted (%1 attempts)")
+                                         .arg(policy.maxRetries()));
+            }
+            channelCtrl_.stopReconnectTimer();
+            return;
+        }
+        const int delay = activeWidget->reconnectDelayMs();
+        if (monitor_) {
+            monitor_->appendInfo(tr("Auto-reconnect in %1ms (%2)")
+                                     .arg(delay)
+                                     .arg(policy.statusString()));
+        }
+        channelCtrl_.startReconnectTimer(delay);
     }
 
     if (state == io::ChannelState::Open) {
-        reconnectPolicy_.onSuccess();
+        channelCtrl_.reconnectPolicy().onSuccess();
+    }
+}
+
+void GenericTcpView::onWorkerError(const QString& deviceHint, const QString& error) {
+    const QString hint = deviceHint.isEmpty() ? QStringLiteral("Channel") : deviceHint;
+    if (monitor_) {
+        monitor_->appendError(tr("Error: %1").arg(error));
+    }
+    spdlog::error("{} Error: {}", hint.toStdString(), error.toStdString());
+}
+
+void GenericTcpView::onWorkerMonitor(bool isTx, const QByteArray& data) {
+    if (monitor_) {
+        monitor_->appendMessage(isTx, data);
     }
 }
 
@@ -563,21 +597,22 @@ void GenericTcpView::retranslateUi() {
 
 void GenericTcpView::onReconnectTimerTick() {
     auto* activeWidget = tcpClientWidget_;
-    if (!activeWidget || !worker_) return;
+    auto* worker = channelCtrl_.worker();
+    if (!activeWidget || !worker) return;
 
     if (!activeWidget->autoReconnectEnabled()) {
-        stopReconnectTimer();
+        channelCtrl_.stopReconnectTimer();
         return;
     }
 
     if (reconnectHost_.isEmpty()) {
-        stopReconnectTimer();
+        channelCtrl_.stopReconnectTimer();
         return;
     }
 
     spdlog::info("GenericTcp: Auto-reconnecting to {}:{} (attempt {})",
                  reconnectHost_.toStdString(), reconnectPort_,
-                 reconnectPolicy_.attemptCount());
+                 channelCtrl_.reconnectPolicy().attemptCount());
 
     suppressDisconnectAlert_ = false;
     const quint64 generation = ++connectionGeneration_;
@@ -585,18 +620,18 @@ void GenericTcpView::onReconnectTimerTick() {
         monitor_->appendInfo(tr("Auto-reconnecting to %1:%2 (attempt %3)...")
                                  .arg(reconnectHost_)
                                  .arg(reconnectPort_)
-                                 .arg(reconnectPolicy_.attemptCount()));
+                                 .arg(channelCtrl_.reconnectPolicy().attemptCount()));
     }
     activeWidget->setDisplayState(widgets::BaseConnectionWidget::DisplayState::Connecting);
 
-    QMetaObject::invokeMethod(worker_, "openTcp",
+    QMetaObject::invokeMethod(worker, "openTcp",
                               Qt::QueuedConnection,
                               Q_ARG(QString, reconnectHost_),
                               Q_ARG(int, reconnectPort_),
                               Q_ARG(quint64, generation));
 
-    reconnectTimer_->setInterval(reconnectPolicy_.nextDelayMs());
-    reconnectTimer_->start();
+    channelCtrl_.reconnectTimer()->setInterval(channelCtrl_.reconnectPolicy().nextDelayMs());
+    channelCtrl_.reconnectTimer()->start();
 }
 
 } // namespace ui::views::generic_tcp

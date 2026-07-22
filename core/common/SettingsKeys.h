@@ -105,6 +105,11 @@ inline constexpr char kSerialPortInputCollapsed[] = "serial_port/ui/inputCollaps
 inline constexpr char kSerialPortDtr[] = "serial_port/dtr";
 inline constexpr char kSerialPortRts[] = "serial_port/rts";
 
+inline constexpr char kModbusRtuFlowControl[] = "modbus/rtu/serial/flowControl";
+
+inline constexpr char kUdpRemoteIp[] = "udp/remoteIp";
+inline constexpr char kUdpRemotePort[] = "udp/remotePort";
+
 inline constexpr char kLegacySerialBaudRate[] = "serial/baudRate";
 
 }

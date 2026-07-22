@@ -10,6 +10,7 @@
 #pragma once
 
 #include "../GenericChannelViewBase.h"
+#include "../ChannelController.h"
 #include "../../../infra/io/IChannel.h"
 #include <QList>
 
@@ -25,6 +26,9 @@ class TcpClientConnectionWidget;
 class TcpServerConnectionWidget;
 class UdpConnectionWidget;
 class ServerClientPanel;
+class ByteMonitorWidget;
+class GenericInputWidget;
+class CollapsibleSection;
 }
 
 class QThread;
@@ -49,9 +53,6 @@ public:
     explicit GenericTcpView(core::common::ISettingsService* settingsService, QWidget *parent = nullptr);
     ~GenericTcpView() noexcept override;
 
-protected:
-    void startWorker();
-
 private slots:
     void onConnectClicked(const QString& ip, int port);
     void onStartListenClicked(const QString& ip, int port);
@@ -64,6 +65,8 @@ private slots:
     void onSendRequested(const QByteArray& data) override;
 
     void onWorkerStateChanged(io::ChannelState state, quint64 generation);
+    void onWorkerError(const QString& deviceHint, const QString& error);
+    void onWorkerMonitor(bool isTx, const QByteArray& data);
     void onServerClientConnected(int clientId, const QString& peerInfo);
     void onServerClientDisconnected(int clientId);
     void onServerMonitorWithClient(bool isTx, const QByteArray& data, int clientId);
@@ -71,10 +74,11 @@ private slots:
     void onServerError(const QString& deviceHint, const QString& error);
     void onDisconnectSelectedClientsRequested(const QList<int>& clientIds);
     void onDisconnectAllClientsRequested();
-    void onReconnectTimerTick() override;
+    void onReconnectTimerTick();
 
 private:
     void setupUi();
+    void startWorker();
     void startServerWorker();
     void stopServerWorker();
     void switchToProtocol(Protocol protocol);
@@ -91,6 +95,14 @@ private:
 
     // Server panel
     widgets::ServerClientPanel* serverClientPanel_ = nullptr;
+
+    // UI Components (moved from base class)
+    widgets::ByteMonitorWidget* monitor_ = nullptr;
+    widgets::GenericInputWidget* inputWidget_ = nullptr;
+    widgets::CollapsibleSection* inputSection_ = nullptr;
+
+    // Channel controller (composite) – manages client worker thread + reconnect timer
+    ChannelController channelCtrl_;
 
     // Backend - Server
     io::ServerChannelWorker* serverWorker_ = nullptr;

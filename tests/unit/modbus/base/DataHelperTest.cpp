@@ -1,7 +1,7 @@
 #include <gtest/gtest.h>
-#include "modbus/base/ModbusDataHelper.h"
+#include "common/ModbusDataHelper.h"
 
-using namespace modbus::base;
+using namespace ui::common;
 
 TEST(ModbusDataHelperTest, ParseHex) {
     EXPECT_EQ(data_helper::parseHex("01 23 AB"), QByteArray::fromHex("0123AB"));

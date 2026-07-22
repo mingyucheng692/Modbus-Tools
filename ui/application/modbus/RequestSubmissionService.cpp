@@ -8,7 +8,7 @@
  */
 
 #include "RequestSubmissionService.h"
-#include "modbus/base/ModbusDataHelper.h"
+#include "common/ModbusDataHelper.h"
 #include <QRegularExpression>
 #include <QCoreApplication>
 #include <limits>
@@ -23,7 +23,7 @@ RequestSubmissionService::RequestBuildResult RequestSubmissionService::buildRead
     const PollSpec& spec, RequestKind kind) {
     RequestBuildResult result;
 
-    using namespace ::modbus::base;
+    using namespace ::ui::common;
 
     QString error;
     auto buildResult = pdu_builder::buildReadRequest(
@@ -48,7 +48,7 @@ RequestSubmissionService::RequestBuildResult RequestSubmissionService::buildWrit
     uint8_t fc, int addr, const QString& dataStr, const QString& fmt, int slaveId, int quantity) {
     RequestBuildResult result;
 
-    using namespace ::modbus::base;
+    using namespace ::ui::common;
 
     QString trimmed = dataStr.trimmed();
     QByteArray rawBytes;

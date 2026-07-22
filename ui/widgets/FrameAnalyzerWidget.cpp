@@ -11,7 +11,7 @@
 #include "Config.h"
 #include "../../core/common/ISettingsService.h"
 #include "common/SettingsKeys.h"
-#include "modbus/base/ModbusDataHelper.h"
+#include "common/ModbusDataHelper.h"
 #include "modbus/base/ModbusProtocolChecks.h"
 #include "modbus/parser/ModbusFrameParser.h"
 #include "modbus/parser/FrameParseWorker.h"
@@ -643,7 +643,7 @@ void FrameAnalyzerWidget::onParseClicked()
     
     ProtocolType type = d->protocolCombo->currentData().value<ProtocolType>();
     bool addrOk = false;
-    int addrVal = modbus::base::data_helper::parseSmartInt(d->startAddrEdit->text(), &addrOk);
+    int addrVal = ui::common::data_helper::parseSmartInt(d->startAddrEdit->text(), &addrOk);
     if (!addrOk || addrVal < 0 || addrVal > 65535) {
         d->statusLabel->setText(tr("Invalid Address (0-65535): %1").arg(d->startAddrEdit->text()));
         d->statusLabel->setStyleSheet(QStringLiteral("color: red;"));

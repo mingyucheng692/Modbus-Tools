@@ -9,6 +9,7 @@
 
 #include "NetworkConnectionWidget.h"
 #include "CollapsibleSection.h"
+#include "common/SettingsKeys.h"
 #include "../../core/common/ISettingsService.h"
 #include <QHBoxLayout>
 #include <QLabel>

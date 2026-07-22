@@ -10,11 +10,15 @@
 #pragma once
 
 #include "../GenericChannelViewBase.h"
+#include "../ChannelController.h"
 #include "../../../infra/io/IChannel.h"
 #include "../../../infra/io/SerialConfig.h"
 
 namespace ui::widgets {
 class SerialConnectionWidget;
+class ByteMonitorWidget;
+class GenericInputWidget;
+class CollapsibleSection;
 }
 
 class QCheckBox;
@@ -36,27 +40,35 @@ public:
 private slots:
     void onConnectClicked(const io::SerialConfig& config);
     void onWorkerStateChanged(io::ChannelState state);
+    void onWorkerError(const QString& deviceHint, const QString& error);
+    void onWorkerMonitor(bool isTx, const QByteArray& data);
+    void onReconnectTimerTick();
     
     // Serial Control
     void onDtrChanged(bool checked);
     void onRtsChanged(bool checked);
-    void onReconnectTimerTick() override;
 
 protected:
-    void startWorker();
     void retranslateUi() override;
+
+private:
+    void setupUi();
+    void startWorker();
 
     // UI Components
     widgets::SerialConnectionWidget* connectionWidget_ = nullptr;
+    widgets::ByteMonitorWidget* monitor_ = nullptr;
+    widgets::GenericInputWidget* inputWidget_ = nullptr;
+    widgets::CollapsibleSection* inputSection_ = nullptr;
     
     QCheckBox* dtrCheck_ = nullptr;
     QCheckBox* rtsCheck_ = nullptr;
     QGroupBox* controlGroup_ = nullptr;
 
-    io::SerialConfig reconnectConfig_;
+    // Channel controller (composite) – manages worker thread + reconnect timer
+    ChannelController channelCtrl_;
 
-private:
-    void setupUi();
+    io::SerialConfig reconnectConfig_;
 };
 
 } // namespace ui::views::generic_serial

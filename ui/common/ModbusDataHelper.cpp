@@ -11,7 +11,7 @@
 #include <QRegularExpression>
 #include <QStringList>
 
-namespace modbus::base {
+namespace ui::common {
 
 QByteArray data_helper::parseHex(const QString& input) {
     QString cleaned = input;
@@ -90,4 +90,4 @@ int data_helper::parseSmartInt(const QString& input, bool* ok) {
     return val;
 }
 
-} // namespace modbus::base
+} // namespace ui::common

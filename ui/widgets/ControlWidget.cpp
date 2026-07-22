@@ -9,6 +9,7 @@
 
 #include "ControlWidget.h"
 #include "Config.h"
+#include "common/SettingsKeys.h"
 #include "../../core/common/ISettingsService.h"
 #include <QHBoxLayout>
 #include <QLabel>
@@ -24,7 +25,7 @@
 #include <QMessageBox>
 #include <QHelpEvent>
 #include <QToolTip>
-#include "modbus/base/ModbusDataHelper.h"
+#include "common/ModbusDataHelper.h"
 
 namespace ui::widgets {
 
@@ -106,7 +107,7 @@ void ControlWidget::onTimer() {
     }
     
     bool ok = false;
-    int addr = modbus::base::data_helper::parseSmartInt(addrEdit_->text(), &ok);
+    int addr = ui::common::data_helper::parseSmartInt(addrEdit_->text(), &ok);
     
     if (!ok || addr < config::Modbus::kMinAddress || addr > config::Modbus::kMaxAddress) {
         emit logMessageRequested(tr("Invalid Address format or range (0-65535): %1").arg(addrEdit_->text()), true);
@@ -268,7 +269,7 @@ void ControlWidget::saveSettings() {
     settingsService_->setValue(settingsGroup_ + "/pollAddrStr", addrStr);
     
     bool ok = false;
-    int addr = modbus::base::data_helper::parseSmartInt(addrStr, &ok);
+    int addr = ui::common::data_helper::parseSmartInt(addrStr, &ok);
     if (ok) {
         settingsService_->setValue(settingsGroup_ + "/addr", addr);
     }

@@ -13,7 +13,7 @@
 #include <QString>
 #include <QList>
 
-namespace modbus::base::data_helper {
+namespace ui::common::data_helper {
 
 /**
  * @brief Utility for parsing data formats from UI strings.
@@ -67,4 +67,4 @@ QByteArray parseBinary(const QString& input);
  */
 int parseSmartInt(const QString& input, bool* ok = nullptr);
 
-} // namespace modbus::base::data_helper
+} // namespace ui::common::data_helper
