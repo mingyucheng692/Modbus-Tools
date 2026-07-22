@@ -118,7 +118,12 @@ UpdateManager::UpdateManager(QObject* parent,
 }
 
 UpdateManager::~UpdateManager() {
-    cancelUpdate();
+    cancelToken_->store(true);
+    if (currentReply_) {
+        currentReply_->disconnect(this);
+        currentReply_->abort();
+        currentReply_ = nullptr;
+    }
 }
 
 UpdateInstallMode UpdateManager::installMode() const noexcept

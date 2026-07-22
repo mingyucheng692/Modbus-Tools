@@ -14,6 +14,7 @@
 #include <QFile>
 #include <QFileInfo>
 #include <QJsonDocument>
+#include <QCryptographicHash>
 
 namespace {
 
@@ -29,6 +30,49 @@ QString currentPackagePlatform()
 QString bundledUpdaterPath()
 {
     return QDir(QCoreApplication::applicationDirPath()).filePath(QStringLiteral("updater.exe"));
+}
+
+/// Computes SHA256 of a file. Returns empty string on failure.
+QString computeFileSha256(const QString& filePath)
+{
+    QFile file(filePath);
+    if (!file.open(QIODevice::ReadOnly)) {
+        return {};
+    }
+    QCryptographicHash hash(QCryptographicHash::Sha256);
+    if (!hash.addData(&file)) {
+        return {};
+    }
+    return QString::fromLatin1(hash.result().toHex());
+}
+
+/// Verifies the updater.exe binary integrity before launch.
+/// Returns true if the check passes or is skipped (no expected hash configured).
+bool verifyUpdaterIntegrity(const QString& updaterPath, const QString& expectedSha256, QString& errorDetail)
+{
+    if (!QFileInfo::exists(updaterPath)) {
+        errorDetail = QStringLiteral("Updater binary not found at %1").arg(updaterPath);
+        return false;
+    }
+
+    if (expectedSha256.isEmpty()) {
+        // No expected hash configured — skip verification (development builds).
+        return true;
+    }
+
+    const QString actualSha = computeFileSha256(updaterPath);
+    if (actualSha.isEmpty()) {
+        errorDetail = QStringLiteral("Failed to compute updater SHA256");
+        return false;
+    }
+
+    if (actualSha.compare(expectedSha256.trimmed(), Qt::CaseInsensitive) != 0) {
+        errorDetail = QStringLiteral("Updater integrity check failed. Expected: %1, Actual: %2")
+                          .arg(expectedSha256.trimmed(), actualSha);
+        return false;
+    }
+
+    return true;
 }
 
 class WindowsUpdateInstallStrategy final : public core::update::PlatformUpdateInstallStrategy {
@@ -78,9 +122,62 @@ public:
             return false;
         }
 
+        // Verify updater.exe integrity before launching.
+#ifdef MODBUS_TOOLS_UPDATER_SHA256
+        {
+            QString detail;
+            if (!verifyUpdaterIntegrity(updaterPath, QStringLiteral(MODBUS_TOOLS_UPDATER_SHA256), detail)) {
+                errorMessage = QCoreApplication::translate("core::update::UpdateManager",
+                                                           "Updater integrity check failed: %1").arg(detail);
+                return false;
+            }
+        }
+#endif
+
+        // Read task.json to extract parameters, then pass them via CLI
+        // (not via --task file) to eliminate TOCTOU surface.
+        QFile taskFile(installArtifactPath);
+        if (!taskFile.open(QIODevice::ReadOnly)) {
+            errorMessage = QCoreApplication::translate("core::update::UpdateManager",
+                                                       "Failed to read update task file");
+            return false;
+        }
+        const QJsonDocument doc = QJsonDocument::fromJson(taskFile.readAll());
+        taskFile.close();
+        if (!doc.isObject()) {
+            errorMessage = QCoreApplication::translate("core::update::UpdateManager",
+                                                       "Invalid update task file");
+            return false;
+        }
+
+        const QJsonObject root = doc.object();
+        const QString targetExe = root.value(QStringLiteral("targetExePath")).toString();
+        const QString newExe = root.value(QStringLiteral("newExePath")).toString();
+        const QString backupExe = root.value(QStringLiteral("backupExePath")).toString();
+        const QString expectedSha256 = root.value(QStringLiteral("expectedSha256")).toString();
+        const QString expectedVersion = root.value(QStringLiteral("expectedVersion")).toString();
+        const qint64 launcherPid = static_cast<qint64>(QCoreApplication::applicationPid());
+
+        if (targetExe.isEmpty() || newExe.isEmpty() || expectedSha256.isEmpty()) {
+            errorMessage = QCoreApplication::translate("core::update::UpdateManager",
+                                                       "Incomplete update task parameters");
+            return false;
+        }
+
         const QStringList arguments{
-            QStringLiteral("--task"),
-            QDir::toNativeSeparators(installArtifactPath),
+            QStringLiteral("--target-exe"),
+            QDir::toNativeSeparators(targetExe),
+            QStringLiteral("--new-exe"),
+            QDir::toNativeSeparators(newExe),
+            QStringLiteral("--backup-exe"),
+            QDir::toNativeSeparators(backupExe),
+            QStringLiteral("--expected-sha256"),
+            expectedSha256,
+            QStringLiteral("--expected-version"),
+            expectedVersion,
+            QStringLiteral("--launcher-pid"),
+            QString::number(launcherPid),
+            QStringLiteral("--restart"),
             QStringLiteral("--lang"),
             langCode
         };

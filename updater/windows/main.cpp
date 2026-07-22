@@ -50,53 +50,109 @@ std::string toLowerAscii(std::string value) {
     return value;
 }
 
-/// Parses --task and --lang command-line arguments. Returns UTF-8 task path.
-std::string getTaskPathAndLang() {
+/// Parses CLI arguments. Supports both legacy --task mode and direct
+/// parameter mode (--target-exe, --new-exe, etc.). Returns true if the
+/// task was built from individual arguments (no file I/O needed).
+struct CliParseResult {
+    std::string taskPath;       // legacy --task path
+    updater::UpdateTask task;   // built from direct args (valid when taskPath is empty)
+    bool fromDirectArgs = false;
+};
+
+CliParseResult parseCommandLine() {
     int argc = 0;
     LPWSTR* argv = CommandLineToArgvW(GetCommandLineW(), &argc);
     if (!argv) {
         return {};
     }
 
-    std::wstring taskPath;
+    CliParseResult result;
+    std::wstring targetExe, newExe, backupExe, expectedSha256, expectedVersion, launcherPidStr;
+    bool restartExplicitlySet = false;
+
     for (int i = 1; i < argc; ++i) {
-        if (std::wstring(argv[i]) == L"--task" && i + 1 < argc) {
-            taskPath = argv[i + 1];
-        } else if (std::wstring(argv[i]) == L"--lang" && i + 1 < argc) {
-            const std::wstring code = toLowerWide(argv[i + 1]);
+        const std::wstring arg(argv[i]);
+        if (arg == L"--task" && i + 1 < argc) {
+            result.taskPath = updater::win32::wideToUtf8(argv[++i]);
+        } else if (arg == L"--lang" && i + 1 < argc) {
+            const std::wstring code = toLowerWide(argv[++i]);
             if (code == L"zh_cn") {
                 g_lang = Language::ZhCn;
             } else if (code == L"zh_tw") {
                 g_lang = Language::ZhTw;
             }
+        } else if (arg == L"--target-exe" && i + 1 < argc) {
+            targetExe = argv[++i];
+        } else if (arg == L"--new-exe" && i + 1 < argc) {
+            newExe = argv[++i];
+        } else if (arg == L"--backup-exe" && i + 1 < argc) {
+            backupExe = argv[++i];
+        } else if (arg == L"--expected-sha256" && i + 1 < argc) {
+            expectedSha256 = argv[++i];
+        } else if (arg == L"--expected-version" && i + 1 < argc) {
+            expectedVersion = argv[++i];
+        } else if (arg == L"--launcher-pid" && i + 1 < argc) {
+            launcherPidStr = argv[++i];
+        } else if (arg == L"--restart") {
+            result.task.restartAfterUpdate = true;
+            restartExplicitlySet = true;
+        } else if (arg == L"--no-restart") {
+            result.task.restartAfterUpdate = false;
+            restartExplicitlySet = true;
         }
     }
     LocalFree(argv);
-    return updater::win32::wideToUtf8(taskPath);
+
+    // If direct args were provided, build the task in-process (no file I/O).
+    if (!targetExe.empty() && !newExe.empty() && !expectedSha256.empty()) {
+        result.task.targetExePath = updater::win32::wideToUtf8(targetExe);
+        result.task.newExePath = updater::win32::wideToUtf8(newExe);
+        result.task.backupExePath = backupExe.empty()
+            ? (result.task.targetExePath + ".bak")
+            : updater::win32::wideToUtf8(backupExe);
+        result.task.expectedSha256 = toLowerAscii(updater::win32::wideToUtf8(expectedSha256));
+        result.task.expectedVersion = updater::win32::wideToUtf8(expectedVersion);
+        result.task.schemaVersion = 1;
+        if (!launcherPidStr.empty()) {
+            result.task.launcherPid = static_cast<std::uint32_t>(
+                std::wcstoul(launcherPidStr.c_str(), nullptr, 10));
+        }
+        if (!restartExplicitlySet) {
+            result.task.restartAfterUpdate = true;
+        }
+        result.fromDirectArgs = true;
+    }
+
+    return result;
 }
 
 } // namespace
 
 int WINAPI wWinMain(HINSTANCE, HINSTANCE, PWSTR, int) {
-    const std::string taskPath = getTaskPathAndLang();
-    if (taskPath.empty()) {
-        return 1;
-    }
+    const CliParseResult cli = parseCommandLine();
+    updater::UpdateTask task;
 
     updater::Win32UpdateStrategy strategy;
 
-    // 1. Read and parse task configuration
-    const std::string json = strategy.readAllBytes(taskPath);
-    updater::UpdateTask task;
-    if (json.empty() || !updater::parseTaskConfig(json, task)) {
-        strategy.showError(getString(
-            "Failed to parse update task configuration.",
-            "解析更新任务配置失败。",
-            "解析更新任務設定失敗。"));
-        return 1;
+    if (cli.fromDirectArgs) {
+        // Task built from CLI arguments — no file I/O, no TOCTOU surface.
+        task = cli.task;
+    } else {
+        // Legacy --task path: read and parse task.json.
+        if (cli.taskPath.empty()) {
+            return 1;
+        }
+        const std::string json = strategy.readAllBytes(cli.taskPath);
+        if (json.empty() || !updater::parseTaskConfig(json, task)) {
+            strategy.showError(getString(
+                "Failed to parse update task configuration.",
+                "解析更新任务配置失败。",
+                "解析更新任務設定失敗。"));
+            return 1;
+        }
     }
 
-    // 2. Wait for launcher process to exit
+    // 1. Wait for launcher process to exit
     if (!strategy.waitForLauncherExit(task.launcherPid)) {
         strategy.showError(getString(
             "Timed out waiting for the main program to exit.",
@@ -105,7 +161,7 @@ int WINAPI wWinMain(HINSTANCE, HINSTANCE, PWSTR, int) {
         return 2;
     }
 
-    // 3. Verify SHA-256 checksum
+    // 2. Verify SHA-256 checksum
     std::string actualSha256;
     if (!strategy.computeSha256(task.newExePath, actualSha256) ||
         toLowerAscii(actualSha256) != task.expectedSha256) {
@@ -116,7 +172,7 @@ int WINAPI wWinMain(HINSTANCE, HINSTANCE, PWSTR, int) {
         return 3;
     }
 
-    // 4. Backup old version
+    // 3. Backup old version
     const bool hasOldTarget = strategy.fileExists(task.targetExePath);
     if (hasOldTarget) {
         if (!strategy.moveFileAtomic(task.targetExePath, task.backupExePath)) {
@@ -128,7 +184,7 @@ int WINAPI wWinMain(HINSTANCE, HINSTANCE, PWSTR, int) {
         }
     }
 
-    // 5. Install new version (with rollback on failure)
+    // 4. Install new version (with rollback on failure)
     if (!strategy.moveFileAtomic(task.newExePath, task.targetExePath)) {
         if (hasOldTarget) {
             if (strategy.moveFileAtomic(task.backupExePath, task.targetExePath)) {
@@ -149,7 +205,7 @@ int WINAPI wWinMain(HINSTANCE, HINSTANCE, PWSTR, int) {
         return 5;
     }
 
-    // 6. Restart updated application
+    // 5. Restart updated application
     if (task.restartAfterUpdate) {
         strategy.launchTarget(task.targetExePath);
     }

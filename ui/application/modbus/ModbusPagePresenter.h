@@ -90,9 +90,12 @@ private:
     void createServices();
     void wireConnections();
     void teardownServices();
+    void onStackReleasedForSwitch();
 
     ui::views::modbus::ModbusPage* view_ = nullptr;
     SessionMode mode_;
+    SessionMode pendingMode_{};
+    ui::widgets::BaseConnectionWidget* pendingConnectionWidget_ = nullptr;
 
     ModbusSessionPresenter* sessionPresenter_ = nullptr;
     RequestSubmissionService* requestService_ = nullptr;

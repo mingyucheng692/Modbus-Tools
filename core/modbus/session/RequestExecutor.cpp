@@ -511,6 +511,7 @@ std::optional<ModbusResponse> RequestExecutor::handleParsedFrame(
 
 ModbusResponse RequestExecutor::handleExceptionResponse(const base::Pdu& responsePdu, int slaveId,
                                                         const base::Pdu& requestPdu) {
+    std::lock_guard<std::mutex> lock(mutex_);
     const QString exceptionMessage = buildExceptionMessage(
         slaveId,
         requestPdu.functionCode(),

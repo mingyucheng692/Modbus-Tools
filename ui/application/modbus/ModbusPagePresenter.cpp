@@ -189,19 +189,49 @@ void ModbusPagePresenter::switchMode(SessionMode newMode,
         return;
     }
 
-    // Disconnect first if a session is active.
-    if (sessionPresenter_ && sessionPresenter_->isSessionConnected()) {
-        sessionPresenter_->requestDisconnect();
+    pendingMode_ = newMode;
+    pendingConnectionWidget_ = newConnectionWidget;
+
+    if (sessionPresenter_) {
+        connect(sessionPresenter_, &ModbusSessionPresenter::stackReleased,
+                this, &ModbusPagePresenter::onStackReleasedForSwitch, Qt::UniqueConnection);
+        if (sessionPresenter_->isSessionConnected()) {
+            sessionPresenter_->requestDisconnect();
+        } else {
+            sessionPresenter_->releaseStack();
+        }
+        return;
     }
 
+    // No session presenter yet — rebuild directly.
     teardownServices();
-
     mode_ = newMode;
     connectionWidget_ = newConnectionWidget;
     linked_ = false;
-
     createServices();
     wireConnections();
+}
+
+void ModbusPagePresenter::onStackReleasedForSwitch() {
+    if (!sessionPresenter_) return;
+
+    disconnect(sessionPresenter_, &ModbusSessionPresenter::stackReleased,
+               this, &ModbusPagePresenter::onStackReleasedForSwitch);
+
+    // Defer teardown to the next event loop iteration: stackReleased is
+    // emitted synchronously from ModbusSessionPresenter::requestRelease(),
+    // so we must not delete sessionPresenter_ while it is still on the
+    // call stack.
+    QMetaObject::invokeMethod(this, [this]() {
+        teardownServices();
+
+        mode_ = pendingMode_;
+        connectionWidget_ = pendingConnectionWidget_;
+        linked_ = false;
+
+        createServices();
+        wireConnections();
+    }, Qt::QueuedConnection);
 }
 
 void ModbusPagePresenter::requestConnect(const ModbusConnectionSpec& spec) {
