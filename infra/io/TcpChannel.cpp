@@ -44,18 +44,7 @@ TcpChannel::TcpChannel() {
 }
 
 TcpChannel::~TcpChannel() {
-    // UAF guard: cross-thread destruction queues a close() lambda to the IO
-    // thread and returns immediately, then destroys socket_/pendingWrites_
-    // while the IO thread may still access them. Callers must ensure the IO
-    // thread has quit()+wait() before releasing the channel.
-    // Release-mode assert: UAF is unrecoverable, must crash rather than
-    // silently continue (Q_ASSERT_X is debug-only).
-    if (socket_.thread() != QThread::currentThread()) {
-        spdlog::critical("TcpChannel::~TcpChannel: destroyed on non-owner thread. "
-                         "Cross-thread destruction is UAF. Ensure ioThread "
-                         "quit()+wait() completes before releasing the channel.");
-        std::abort();
-    }
+    assertOwnerThreadForDestruction("TcpChannel");
     close();
 }
 
@@ -119,6 +108,7 @@ void TcpChannel::moveToThread(QThread* thread) {
     MODBUS_TOOLS_VERBOSE_INFO("TcpChannel: moveToThread current={} target={}",
                               threadToken(socket_.thread()),
                               threadToken(thread));
+    ChannelBase::moveToThread(thread);
     socket_.moveToThread(thread);
     moveWriteInfrastructureToThread(thread);
     // Invariant: socket_ and writeTimeoutTimer_ now both live on @p thread.

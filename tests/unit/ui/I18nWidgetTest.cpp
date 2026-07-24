@@ -1,8 +1,7 @@
 #include <gtest/gtest.h>
 
 #include "../../../ui/widgets/SerialConnectionWidget.h"
-#include "../../../ui/widgets/TcpClientConnectionWidget.h"
-#include "../../../ui/widgets/TcpServerConnectionWidget.h"
+#include "../../../ui/widgets/TcpConnectionWidget.h"
 #include "../../../ui/widgets/TrafficMonitorWidget.h"
 #include "../../mocks/UiTestDoubles.h"
 
@@ -67,10 +66,10 @@ void sendLanguageChange(QWidget& widget)
 
 } // namespace
 
-TEST(I18nWidgets, TcpClientConnectionWidget_RetranslateHostLabel)
+TEST(I18nWidgets, TcpConnectionWidget_RetranslateHostLabel)
 {
     tests::mocks::FakeSettingsService settingsService;
-    ui::widgets::TcpClientConnectionWidget widget(&settingsService);
+    ui::widgets::TcpConnectionWidget widget(ui::widgets::TcpRole::Client, &settingsService);
 
     auto* hostLabel = widget.findChild<QLabel*>(QStringLiteral("hostLabel"));
     // The host label is not an object-named child, verify via text
@@ -123,12 +122,12 @@ TEST(I18nWidgets, SerialConnectionConfigParsingUsesStableOptionValuesAfterLangua
     EXPECT_EQ(config.flowControl, QSerialPort::HardwareControl);
 }
 
-TEST(I18nWidgets, TcpClientConnectionWidget_SupportsIntermediateStates)
+TEST(I18nWidgets, TcpConnectionWidget_SupportsIntermediateStates)
 {
     tests::mocks::FakeSettingsService settingsService;
-    ui::widgets::TcpClientConnectionWidget widget(&settingsService);
+    ui::widgets::TcpConnectionWidget widget(ui::widgets::TcpRole::Client, &settingsService);
 
-    widget.setDisplayState(ui::widgets::TcpClientConnectionWidget::DisplayState::TransportConnected);
+    widget.setDisplayState(ui::widgets::TcpConnectionWidget::DisplayState::TransportConnected);
     bool foundTransportLabel = false;
     for (auto* label : widget.findChildren<QLabel*>()) {
         if (label->text() == QStringLiteral("Transport Connected")) {
@@ -138,7 +137,7 @@ TEST(I18nWidgets, TcpClientConnectionWidget_SupportsIntermediateStates)
     }
     EXPECT_TRUE(foundTransportLabel);
 
-    widget.setDisplayState(ui::widgets::TcpClientConnectionWidget::DisplayState::Disconnecting);
+    widget.setDisplayState(ui::widgets::TcpConnectionWidget::DisplayState::Disconnecting);
     bool foundDisconnectingLabel = false;
     for (auto* label : widget.findChildren<QLabel*>()) {
         if (label->text() == QStringLiteral("Disconnecting")) {

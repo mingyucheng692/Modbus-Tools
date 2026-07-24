@@ -2,12 +2,10 @@ add_library(infra_platform STATIC)
 
 target_sources(infra_platform
     PRIVATE
-        IPlatformPaths.h
         IPlatformProcessRunner.h
         PathResolver.h
         PathResolver.cpp
         PlatformInfo.h
-        QtStandardPlatformPaths.h
 )
 
 if(WIN32)

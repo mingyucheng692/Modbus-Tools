@@ -30,7 +30,7 @@ namespace ui::widgets {
 
 /**
  * @class NetworkConnectionWidget
- * @brief Common base for TcpClientConnectionWidget, TcpServerConnectionWidget, and UdpConnectionWidget.
+ * @brief Common base for TcpConnectionWidget and UdpConnectionWidget.
  *
  * Provides shared IP/Port input fields, settings persistence, and collapsible section layout.
  * Subclasses only need to provide protocol-specific display data and button wiring.

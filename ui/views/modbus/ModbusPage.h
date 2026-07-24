@@ -36,7 +36,7 @@ class ModbusPagePresenter;
 
 namespace ui::widgets {
 class BaseConnectionWidget;
-class TcpClientConnectionWidget;
+class TcpConnectionWidget;
 class SerialConnectionWidget;
 class FunctionWidget;
 class TrafficMonitorWidget;
@@ -52,7 +52,7 @@ namespace ui::views::modbus {
  * Replaces the former BaseModbusPage + 3 protocol-specific subclasses
  * (ModbusTcpPage / ModbusRtuPage / ModbusAsciiPage). A QComboBox selects
  * the active protocol; a QStackedWidget swaps the connection widget
- * (TcpClientConnectionWidget vs SerialConnectionWidget). The backend
+ * (TcpConnectionWidget vs SerialConnectionWidget). The backend
  * services are rebuilt on protocol switch via ModbusPagePresenter::switchMode.
  *
  * Follows ADR 0004 (MVP): the View owns UI widgets; ModbusPagePresenter
@@ -103,7 +103,7 @@ private:
     QVBoxLayout* mainLayout_ = nullptr;
     QComboBox* protocolCombo_ = nullptr;
     QStackedWidget* connectionStack_ = nullptr;
-    ui::widgets::TcpClientConnectionWidget* tcpConnectionWidget_ = nullptr;
+    ui::widgets::TcpConnectionWidget* tcpConnectionWidget_ = nullptr;
     ui::widgets::SerialConnectionWidget* serialConnectionWidget_ = nullptr;
     ui::widgets::BaseConnectionWidget* connectionWidget_ = nullptr; // currently active
 

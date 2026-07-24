@@ -127,12 +127,10 @@ std::optional<Pdu> pdu_builder::buildWriteMultipleCoils(int startAddress, int qu
     data.reserve(5 + packedData.size());
 
     // Address (2 bytes)
-    data.append(static_cast<char>((startAddress >> 8) & 0xFF));
-    data.append(static_cast<char>(startAddress & 0xFF));
+    appendBigEndian(data, static_cast<uint16_t>(startAddress));
 
     // Quantity (2 bytes)
-    data.append(static_cast<char>((quantity >> 8) & 0xFF));
-    data.append(static_cast<char>(quantity & 0xFF));
+    appendBigEndian(data, static_cast<uint16_t>(quantity));
 
     // Byte Count (1 byte)
     data.append(static_cast<char>(expectedBytes));
@@ -164,12 +162,10 @@ std::optional<Pdu> pdu_builder::buildWriteMultipleRegisters(int startAddress, in
     data.reserve(5 + packedData.size());
 
     // Address (2 bytes)
-    data.append(static_cast<char>((startAddress >> 8) & 0xFF));
-    data.append(static_cast<char>(startAddress & 0xFF));
+    appendBigEndian(data, static_cast<uint16_t>(startAddress));
 
     // Quantity (2 bytes)
-    data.append(static_cast<char>((quantity >> 8) & 0xFF));
-    data.append(static_cast<char>(quantity & 0xFF));
+    appendBigEndian(data, static_cast<uint16_t>(quantity));
 
     // Byte Count (1 byte)
     data.append(static_cast<char>(quantity * 2));

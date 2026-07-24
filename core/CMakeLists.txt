@@ -16,10 +16,8 @@ target_sources(core PRIVATE
     modbus/transport/ITransport.h
     modbus/transport/PendingSlaveTracker.h
     modbus/transport/PendingSlaveTracker.cpp
-    modbus/transport/ModbusRtuTransport.h
-    modbus/transport/ModbusRtuTransport.cpp
-    modbus/transport/ModbusAsciiTransport.h
-    modbus/transport/ModbusAsciiTransport.cpp
+    modbus/transport/ModbusSerialTransport.h
+    modbus/transport/ModbusSerialTransport.cpp
     modbus/transport/ModbusTcpTransport.h
     modbus/transport/ModbusTcpTransport.cpp
     # modbus session
@@ -68,6 +66,7 @@ target_sources(core PRIVATE
     update/ReleaseParser.cpp
     polling/PollingStrategy.h
     polling/PollingStrategy.cpp
+    common/TrContext.h
     common/ISettingsService.h
     common/SettingsKeys.h
     common/SettingsController.h

@@ -4,7 +4,7 @@
 #include "modbus/base/ModbusCrc.h"
 #include "modbus/parser/ModbusFrameParser.h"
 #include "modbus/session/FrameExtractor.h"
-#include "modbus/transport/ModbusRtuTransport.h"
+#include "modbus/transport/ModbusSerialTransport.h"
 #include "modbus/transport/ModbusTcpTransport.h"
 
 #include <chrono>
@@ -66,7 +66,7 @@ std::vector<QByteArray> buildSeedCorpus()
 TEST(ModbusParsingFuzzTest, ParserAndIntegritySurfaces_HandleDeterministicCorpus)
 {
     ModbusTcpTransport tcpTransport;
-    ModbusRtuTransport rtuTransport;
+    ModbusSerialTransport rtuTransport(SerialFraming::Rtu);
     std::mt19937 rng(0xC0FFEE);
 
     std::vector<QByteArray> corpus = buildSeedCorpus();

@@ -5,12 +5,11 @@
 
 #include "infra/platform/PathResolver.h"
 
-#include "infra/platform/QtStandardPlatformPaths.h"
-
 #include <QCoreApplication>
 #include <QDir>
 #include <QFile>
 #include <QFileInfo>
+#include <QStandardPaths>
 #include <QTemporaryFile>
 #include <algorithm>
 #include <spdlog/spdlog.h>
@@ -32,19 +31,48 @@ QString normalizedPath(const QString& path)
 
 namespace infra::platform {
 
+// ---------------------------------------------------------------------------
+// Free functions — direct QStandardPaths wrappers
+// ---------------------------------------------------------------------------
+
+QString appDataLocation()
+{
+    return QStandardPaths::writableLocation(QStandardPaths::AppDataLocation);
+}
+
+QString appConfigLocation()
+{
+    return QStandardPaths::writableLocation(QStandardPaths::AppConfigLocation);
+}
+
+QString tempLocation()
+{
+    return QStandardPaths::writableLocation(QStandardPaths::TempLocation);
+}
+
+// ---------------------------------------------------------------------------
+// PathResolver
+// ---------------------------------------------------------------------------
+
 PathResolver::PathResolver()
-    : PathResolver(std::make_shared<QtStandardPlatformPaths>(),
+    : PathResolver(std::function<QString()>(),
+                   std::function<QString()>(),
+                   std::function<QString()>(),
                    currentApplicationDirPath(),
                    currentApplicationArguments(),
                    currentApplicationName())
 {
 }
 
-PathResolver::PathResolver(std::shared_ptr<const IPlatformPaths> platformPaths,
+PathResolver::PathResolver(std::function<QString()> appDataLocationFn,
+                           std::function<QString()> appConfigLocationFn,
+                           std::function<QString()> tempLocationFn,
                            QString applicationDirPath,
                            QStringList arguments,
                            QString applicationName)
-    : platformPaths_(std::move(platformPaths)),
+    : appDataLocationFn_(appDataLocationFn ? std::move(appDataLocationFn) : appDataLocation),
+      appConfigLocationFn_(appConfigLocationFn ? std::move(appConfigLocationFn) : appConfigLocation),
+      tempLocationFn_(tempLocationFn ? std::move(tempLocationFn) : tempLocation),
       applicationDirPath_(normalizedPath(applicationDirPath)),
       applicationName_(applicationName.isEmpty() ? QString::fromLatin1(kDefaultApplicationName)
                                                  : std::move(applicationName))
@@ -79,7 +107,7 @@ QString PathResolver::resolveLogDir() const
     // Installed mode never falls back to applicationDirPath_/logs (per
     // AGENTS.md §21.7).
     const QString portableLogDir = QDir(applicationDirPath_).filePath(QString::fromLatin1(kLogsDirectoryName));
-    const QString standardLogDir = QDir(platformPaths_->appDataLocation()).filePath(QString::fromLatin1(kLogsDirectoryName));
+    const QString standardLogDir = QDir(appDataLocationFn_()).filePath(QString::fromLatin1(kLogsDirectoryName));
     const QString preferred = portableMode_ ? portableLogDir : standardLogDir;
     const QString secondary = portableMode_ ? standardLogDir : QString();
     return resolveWritableDir(QStringLiteral("log directory"),
@@ -95,7 +123,7 @@ QString PathResolver::resolveConfigDir() const
     // Installed mode never falls back to applicationDirPath_ (per AGENTS.md §21.7:
     // fallback chain is portable → QStandardPaths → TempLocation, never exe-dir
     // without explicit opt-in).
-    const QString standardConfigDir = platformPaths_->appConfigLocation();
+    const QString standardConfigDir = appConfigLocationFn_();
     const QString preferred = portableMode_ ? applicationDirPath_ : standardConfigDir;
     const QString secondary = portableMode_ ? standardConfigDir : QString();
     return resolveWritableDir(QStringLiteral("config directory"),
@@ -114,7 +142,7 @@ QString PathResolver::resolveTempDir() const
 
 QString PathResolver::resolveScopedTempDir() const
 {
-    return QDir(platformPaths_->tempLocation()).filePath(applicationName_);
+    return QDir(tempLocationFn_()).filePath(applicationName_);
 }
 
 QString PathResolver::resolveWritableDir(const QString& purpose,

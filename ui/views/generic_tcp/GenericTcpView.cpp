@@ -10,8 +10,7 @@
 #include "GenericTcpView.h"
 #include "Config.h"
 #include "../../../core/common/ISettingsService.h"
-#include "../../widgets/TcpClientConnectionWidget.h"
-#include "../../widgets/TcpServerConnectionWidget.h"
+#include "../../widgets/TcpConnectionWidget.h"
 #include "../../widgets/UdpConnectionWidget.h"
 #include "../../widgets/ByteMonitorWidget.h"
 #include "../../widgets/GenericInputWidget.h"
@@ -102,12 +101,12 @@ void GenericTcpView::setupUi() {
     connectionStack_ = new QStackedWidget(this);
     connectionStack_->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);
 
-    tcpClientWidget_ = new widgets::TcpClientConnectionWidget(settingsService_, connectionStack_);
+    tcpClientWidget_ = new widgets::TcpConnectionWidget(widgets::TcpRole::Client, settingsService_, connectionStack_);
     tcpClientWidget_->setSettingsGroup(QStringLiteral("tcp_client"));
     tcpClientWidget_->setDefaultPort(config::Network::kDefaultGenericTcpPort);
     connectionStack_->addWidget(tcpClientWidget_);
 
-    tcpServerWidget_ = new widgets::TcpServerConnectionWidget(settingsService_, connectionStack_);
+    tcpServerWidget_ = new widgets::TcpConnectionWidget(widgets::TcpRole::Server, settingsService_, connectionStack_);
     tcpServerWidget_->setSettingsGroup(QStringLiteral("tcp_server"));
     tcpServerWidget_->setDefaultPort(config::Network::kDefaultGenericTcpPort);
     connectionStack_->addWidget(tcpServerWidget_);
@@ -155,15 +154,15 @@ void GenericTcpView::setupUi() {
             this, &GenericTcpView::onProtocolChanged);
 
     // Client mode connections
-    connect(tcpClientWidget_, &widgets::TcpClientConnectionWidget::connectClicked,
+    connect(tcpClientWidget_, &widgets::TcpConnectionWidget::connectClicked,
             this, &GenericTcpView::onConnectClicked);
-    connect(tcpClientWidget_, &widgets::TcpClientConnectionWidget::disconnectClicked,
+    connect(tcpClientWidget_, &widgets::TcpConnectionWidget::disconnectClicked,
             this, &GenericTcpView::onDisconnectClicked);
 
     // Server mode connections
-    connect(tcpServerWidget_, &widgets::TcpServerConnectionWidget::startListenClicked,
+    connect(tcpServerWidget_, &widgets::TcpConnectionWidget::startListenClicked,
             this, &GenericTcpView::onStartListenClicked);
-    connect(tcpServerWidget_, &widgets::TcpServerConnectionWidget::stopListenClicked,
+    connect(tcpServerWidget_, &widgets::TcpConnectionWidget::stopListenClicked,
             this, &GenericTcpView::onStopListenClicked);
 
     // UDP mode connections
@@ -274,7 +273,7 @@ void GenericTcpView::onConnectClicked(const QString& ip, int port) {
     if (monitor_) {
         monitor_->appendInfo(tr("Connecting to %1:%2...").arg(ip).arg(port));
     }
-    tcpClientWidget_->setDisplayState(widgets::TcpClientConnectionWidget::DisplayState::Connecting);
+    tcpClientWidget_->setDisplayState(widgets::TcpConnectionWidget::DisplayState::Connecting);
 
     QMetaObject::invokeMethod(worker, "openTcp",
                               Qt::QueuedConnection,
@@ -290,7 +289,7 @@ void GenericTcpView::onStartListenClicked(const QString& ip, int port) {
     if (monitor_) {
         monitor_->appendInfo(tr("Starting TCP server on %1:%2...").arg(ip).arg(port));
     }
-    tcpServerWidget_->setDisplayState(widgets::TcpServerConnectionWidget::DisplayState::Connecting);
+    tcpServerWidget_->setDisplayState(widgets::TcpConnectionWidget::DisplayState::Connecting);
 
     QMetaObject::invokeMethod(serverWorker_, "openTcpServer",
                               Qt::QueuedConnection,
@@ -305,7 +304,7 @@ void GenericTcpView::onStopListenClicked() {
     if (monitor_) {
         monitor_->appendInfo(tr("Stopping TCP server..."));
     }
-    tcpServerWidget_->setDisplayState(widgets::TcpServerConnectionWidget::DisplayState::Disconnecting);
+    tcpServerWidget_->setDisplayState(widgets::TcpConnectionWidget::DisplayState::Disconnecting);
     QMetaObject::invokeMethod(serverWorker_, "closeAllClients", Qt::QueuedConnection);
 }
 

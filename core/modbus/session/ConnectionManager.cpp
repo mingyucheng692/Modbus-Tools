@@ -9,15 +9,13 @@
 
 #include "ConnectionManager.h"
 #include <spdlog/spdlog.h>
-#include <QCoreApplication>
 #include <algorithm>
+#include "common/TrContext.h"
 
 namespace modbus::session {
 namespace {
     // i18n helper — uses explicit context so lupdate can categorize strings
-    QString trConn(const char* text) {
-        return QCoreApplication::translate("modbus::session::ConnectionManager", text);
-    }
+    constexpr char kConnManagerCtx[] = "modbus::session::ConnectionManager";
 } // namespace
 
 ConnectionManager::ConnectionManager(io::IChannel* channel,
@@ -73,7 +71,7 @@ void ConnectionManager::setErrorLocked(const QString& error) {
 bool ConnectionManager::ensureConnected(bool allowReconnect) {
     if (!channel_) {
         std::lock_guard<std::mutex> lock(mutex_);
-        lastChannelError_ = trConn("No channel attached");
+        lastChannelError_ = TrContext<kConnManagerCtx>::tr("No channel attached");
         stateMachine_->tryTransition(ConnectionStateMachine::State::Failed, "no-channel");
         return false;
     }
@@ -102,7 +100,7 @@ bool ConnectionManager::ensureConnected(bool allowReconnect) {
             attempt == 0 ? "connect-attempt" : "reconnect-attempt");
 
         if (!channel_->open()) {
-            connectError = trConn("Failed to dispatch channel open");
+            connectError = TrContext<kConnManagerCtx>::tr("Failed to dispatch channel open");
         } else {
             const auto deadline = std::chrono::steady_clock::now()
                 + std::chrono::milliseconds(config_->timeoutMs);
@@ -128,7 +126,7 @@ bool ConnectionManager::ensureConnected(bool allowReconnect) {
         if (!waitForAbortableDelay(mutex_, cv_, aborted_,
                 std::chrono::milliseconds(reconnectDelayMs))) {
             std::lock_guard<std::mutex> lock(mutex_);
-            lastChannelError_ = trConn("Aborted");
+            lastChannelError_ = TrContext<kConnManagerCtx>::tr("Aborted");
             stateMachine_->tryTransition(ConnectionStateMachine::State::Failed,
                                          "reconnect-aborted");
             return false;
@@ -140,7 +138,7 @@ bool ConnectionManager::ensureConnected(bool allowReconnect) {
     // (e.g. "Aborted", channel error). Only synthesize a generic timeout message
     // when no specific reason was recorded, and never overwrite an existing error.
     if (lastChannelError_.isEmpty()) {
-        lastChannelError_ = connectError.isEmpty() ? trConn("Connect timeout") : connectError;
+        lastChannelError_ = connectError.isEmpty() ? TrContext<kConnManagerCtx>::tr("Connect timeout") : connectError;
     }
     spdlog::warn("ModbusClient: connect failed target={}:{} reason={} channelState={}",
                  config_->ipAddress.toStdString(),
@@ -170,7 +168,7 @@ bool ConnectionManager::waitForChannelState(io::ChannelState expectedState,
         }
         if (channel_->state() == io::ChannelState::Error) {
             if (errorOut && errorOut->isEmpty()) {
-                *errorOut = trConn("Channel entered error state");
+                *errorOut = TrContext<kConnManagerCtx>::tr("Channel entered error state");
             }
             return false;
         }
@@ -188,7 +186,7 @@ bool ConnectionManager::waitForChannelState(io::ChannelState expectedState,
         return true;
     }
     if (errorOut && errorOut->isEmpty()) {
-        *errorOut = trConn("Connect timeout");
+        *errorOut = TrContext<kConnManagerCtx>::tr("Connect timeout");
     }
     return false;
 }

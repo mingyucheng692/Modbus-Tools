@@ -60,4 +60,24 @@ bool SerialConfig::isValid(QString* errorOut) const
     return true;
 }
 
+SerialConfig toSerialConfig(const modbus::base::ModbusConfig& config)
+{
+    SerialConfig serialConfig;
+    serialConfig.portName = config.portName;
+    serialConfig.baudRate = config.baudRate;
+    serialConfig.dataBits = config.dataBits;
+    serialConfig.stopBits = config.stopBits;
+
+    // ModbusConfig parity: 0=None, 2=Even, 3=Odd → QSerialPort::Parity
+    switch (config.parity) {
+    case 0:  serialConfig.parity = QSerialPort::NoParity;   break;
+    case 2:  serialConfig.parity = QSerialPort::EvenParity;  break;
+    case 3:  serialConfig.parity = QSerialPort::OddParity;   break;
+    default: serialConfig.parity = QSerialPort::NoParity;    break;
+    }
+
+    // flowControl stays at default (NoFlowControl)
+    return serialConfig;
+}
+
 } // namespace io

@@ -3299,49 +3299,49 @@ Choose update method:</source>
     </message>
 </context>
 <context>
-    <name>ui::widgets::TcpClientConnectionWidget</name>
+    <name>ui::widgets::TcpConnectionWidget</name>
     <message>
-        <location filename="../widgets/TcpClientConnectionWidget.cpp" line="31"/>
-        <location filename="../widgets/TcpClientConnectionWidget.cpp" line="82"/>
+        <location filename="../widgets/TcpConnectionWidget.cpp" line="31"/>
+        <location filename="../widgets/TcpConnectionWidget.cpp" line="82"/>
         <source>Host:</source>
         <translation type="unfinished">主機：</translation>
     </message>
     <message>
-        <location filename="../widgets/TcpClientConnectionWidget.cpp" line="32"/>
-        <location filename="../widgets/TcpClientConnectionWidget.cpp" line="51"/>
-        <location filename="../widgets/TcpClientConnectionWidget.cpp" line="83"/>
+        <location filename="../widgets/TcpConnectionWidget.cpp" line="32"/>
+        <location filename="../widgets/TcpConnectionWidget.cpp" line="51"/>
+        <location filename="../widgets/TcpConnectionWidget.cpp" line="83"/>
         <source>Connect</source>
         <translation type="unfinished">連線</translation>
     </message>
     <message>
-        <location filename="../widgets/TcpClientConnectionWidget.cpp" line="51"/>
+        <location filename="../widgets/TcpConnectionWidget.cpp" line="51"/>
         <source>Disconnected</source>
         <translation type="unfinished">已斷線</translation>
     </message>
     <message>
-        <location filename="../widgets/TcpClientConnectionWidget.cpp" line="53"/>
-        <location filename="../widgets/TcpClientConnectionWidget.cpp" line="55"/>
-        <location filename="../widgets/TcpClientConnectionWidget.cpp" line="57"/>
+        <location filename="../widgets/TcpConnectionWidget.cpp" line="53"/>
+        <location filename="../widgets/TcpConnectionWidget.cpp" line="55"/>
+        <location filename="../widgets/TcpConnectionWidget.cpp" line="57"/>
         <source>Disconnect</source>
         <translation type="unfinished">中斷連線</translation>
     </message>
     <message>
-        <location filename="../widgets/TcpClientConnectionWidget.cpp" line="53"/>
+        <location filename="../widgets/TcpConnectionWidget.cpp" line="53"/>
         <source>Connecting</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/TcpClientConnectionWidget.cpp" line="55"/>
+        <location filename="../widgets/TcpConnectionWidget.cpp" line="55"/>
         <source>Transport Connected</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/TcpClientConnectionWidget.cpp" line="57"/>
+        <location filename="../widgets/TcpConnectionWidget.cpp" line="57"/>
         <source>Connected</source>
         <translation type="unfinished">已連線</translation>
     </message>
     <message>
-        <location filename="../widgets/TcpClientConnectionWidget.cpp" line="59"/>
+        <location filename="../widgets/TcpConnectionWidget.cpp" line="59"/>
         <source>Disconnecting</source>
         <translation type="unfinished"></translation>
     </message>
@@ -3390,48 +3390,48 @@ Choose update method:</source>
     </message>
 </context>
 <context>
-    <name>ui::widgets::TcpServerConnectionWidget</name>
+    <name>ui::widgets::TcpConnectionWidget</name>
     <message>
-        <location filename="../widgets/TcpServerConnectionWidget.cpp" line="31"/>
-        <location filename="../widgets/TcpServerConnectionWidget.cpp" line="81"/>
+        <location filename="../widgets/TcpConnectionWidget.cpp" line="31"/>
+        <location filename="../widgets/TcpConnectionWidget.cpp" line="81"/>
         <source>Listen:</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/TcpServerConnectionWidget.cpp" line="32"/>
-        <location filename="../widgets/TcpServerConnectionWidget.cpp" line="53"/>
-        <location filename="../widgets/TcpServerConnectionWidget.cpp" line="82"/>
+        <location filename="../widgets/TcpConnectionWidget.cpp" line="32"/>
+        <location filename="../widgets/TcpConnectionWidget.cpp" line="53"/>
+        <location filename="../widgets/TcpConnectionWidget.cpp" line="82"/>
         <source>Start Listen</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/TcpServerConnectionWidget.cpp" line="53"/>
+        <location filename="../widgets/TcpConnectionWidget.cpp" line="53"/>
         <source>Disconnected</source>
         <translation type="unfinished">已斷線</translation>
     </message>
     <message>
-        <location filename="../widgets/TcpServerConnectionWidget.cpp" line="55"/>
-        <location filename="../widgets/TcpServerConnectionWidget.cpp" line="57"/>
+        <location filename="../widgets/TcpConnectionWidget.cpp" line="55"/>
+        <location filename="../widgets/TcpConnectionWidget.cpp" line="57"/>
         <source>Stop</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/TcpServerConnectionWidget.cpp" line="55"/>
+        <location filename="../widgets/TcpConnectionWidget.cpp" line="55"/>
         <source>Starting</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/TcpServerConnectionWidget.cpp" line="57"/>
+        <location filename="../widgets/TcpConnectionWidget.cpp" line="57"/>
         <source>Listening</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/TcpServerConnectionWidget.cpp" line="59"/>
+        <location filename="../widgets/TcpConnectionWidget.cpp" line="59"/>
         <source>Stopping</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/TcpServerConnectionWidget.cpp" line="59"/>
+        <location filename="../widgets/TcpConnectionWidget.cpp" line="59"/>
         <source>Disconnecting</source>
         <translation type="unfinished"></translation>
     </message>

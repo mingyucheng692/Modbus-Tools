@@ -2,45 +2,27 @@
 
 #include "common/SettingsKeys.h"
 #include "../../../ui/common/SettingsService.h"
-#include "infra/platform/IPlatformPaths.h"
 #include "infra/platform/PathResolver.h"
 
 #include <QDir>
 #include <QFile>
 #include <QSettings>
 #include <QTemporaryDir>
-#include <memory>
+#include <functional>
 
 namespace {
-
-class FakePlatformPaths final : public infra::platform::IPlatformPaths {
-public:
-    FakePlatformPaths(QString appDataLocation, QString appConfigLocation, QString tempLocation)
-        : appDataLocation_(std::move(appDataLocation)),
-          appConfigLocation_(std::move(appConfigLocation)),
-          tempLocation_(std::move(tempLocation))
-    {
-    }
-
-    [[nodiscard]] QString appDataLocation() const override { return appDataLocation_; }
-    [[nodiscard]] QString appConfigLocation() const override { return appConfigLocation_; }
-    [[nodiscard]] QString tempLocation() const override { return tempLocation_; }
-
-private:
-    QString appDataLocation_;
-    QString appConfigLocation_;
-    QString tempLocation_;
-};
 
 // Builds a PathResolver whose config/log/temp directories live inside the
 // supplied sandbox, so tests never touch the developer's real user config.
 infra::platform::PathResolver makeIsolatedResolver(const QString& sandboxPath)
 {
-    auto platformPaths = std::make_shared<FakePlatformPaths>(
-        QDir(sandboxPath).filePath(QStringLiteral("data")),
-        QDir(sandboxPath).filePath(QStringLiteral("config")),
-        QDir(sandboxPath).filePath(QStringLiteral("temp")));
-    return infra::platform::PathResolver(platformPaths, sandboxPath, {}, "Modbus-Tools-Test");
+    const QString dataDir = QDir(sandboxPath).filePath(QStringLiteral("data"));
+    const QString configDir = QDir(sandboxPath).filePath(QStringLiteral("config"));
+    const QString tempDir = QDir(sandboxPath).filePath(QStringLiteral("temp"));
+    auto appDataFn = [dataDir]() { return dataDir; };
+    auto appConfigFn = [configDir]() { return configDir; };
+    auto tempFn = [tempDir]() { return tempDir; };
+    return infra::platform::PathResolver(appDataFn, appConfigFn, tempFn, sandboxPath, {}, "Modbus-Tools-Test");
 }
 
 // RAII guard that backs up and restores the sandbox "config.ini" so each test

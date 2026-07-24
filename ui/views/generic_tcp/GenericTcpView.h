@@ -22,8 +22,7 @@ class ServerChannelWorker;
 }
 
 namespace ui::widgets {
-class TcpClientConnectionWidget;
-class TcpServerConnectionWidget;
+class TcpConnectionWidget;
 class UdpConnectionWidget;
 class ServerClientPanel;
 class ByteMonitorWidget;
@@ -96,8 +95,8 @@ private:
 
     // Stacked connection widgets
     QStackedWidget* connectionStack_ = nullptr;
-    widgets::TcpClientConnectionWidget* tcpClientWidget_ = nullptr;
-    widgets::TcpServerConnectionWidget* tcpServerWidget_ = nullptr;
+    widgets::TcpConnectionWidget* tcpClientWidget_ = nullptr;
+    widgets::TcpConnectionWidget* tcpServerWidget_ = nullptr;
     widgets::UdpConnectionWidget* udpWidget_ = nullptr;
 
     // Server panel

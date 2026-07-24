@@ -12,7 +12,7 @@
 #include "CollapsibleSection.h"
 #include "common/SettingsKeys.h"
 #include "../../core/common/ISettingsService.h"
-#include <QCoreApplication>
+#include "../../core/common/TrContext.h"
 #include <QHBoxLayout>
 #include <QVBoxLayout>
 #include <QComboBox>
@@ -38,7 +38,7 @@ constexpr auto kParityMark = "mark";
 constexpr auto kFlowNone = "none";
 constexpr auto kFlowRtsCts = "rts_cts";
 constexpr auto kFlowXonXoff = "xon_xoff";
-constexpr auto kSerialContext = "ui::widgets::SerialConnectionWidget";
+constexpr char kSerialContext[] = "ui::widgets::SerialConnectionWidget";
 constexpr auto kNoneText = QT_TRANSLATE_NOOP("ui::widgets::SerialConnectionWidget", "None");
 constexpr auto kEvenText = QT_TRANSLATE_NOOP("ui::widgets::SerialConnectionWidget", "Even");
 constexpr auto kOddText = QT_TRANSLATE_NOOP("ui::widgets::SerialConnectionWidget", "Odd");
@@ -46,11 +46,6 @@ constexpr auto kSpaceText = QT_TRANSLATE_NOOP("ui::widgets::SerialConnectionWidg
 constexpr auto kMarkText = QT_TRANSLATE_NOOP("ui::widgets::SerialConnectionWidget", "Mark");
 constexpr auto kRtsCtsText = QT_TRANSLATE_NOOP("ui::widgets::SerialConnectionWidget", "RTS/CTS");
 constexpr auto kXonXoffText = QT_TRANSLATE_NOOP("ui::widgets::SerialConnectionWidget", "XON/XOFF");
-
-QString trSerialOption(const char* sourceText)
-{
-    return QCoreApplication::translate(kSerialContext, sourceText);
-}
 
 void repopulateParityOptions(QComboBox* combo)
 {
@@ -61,11 +56,11 @@ void repopulateParityOptions(QComboBox* combo)
     const QString currentValue = combo->currentData().toString();
     QSignalBlocker blocker(combo);
     combo->clear();
-    combo->addItem(trSerialOption(kNoneText), QString::fromLatin1(kParityNone));
-    combo->addItem(trSerialOption(kEvenText), QString::fromLatin1(kParityEven));
-    combo->addItem(trSerialOption(kOddText), QString::fromLatin1(kParityOdd));
-    combo->addItem(trSerialOption(kSpaceText), QString::fromLatin1(kParitySpace));
-    combo->addItem(trSerialOption(kMarkText), QString::fromLatin1(kParityMark));
+    combo->addItem(TrContext<kSerialContext>::tr(kNoneText), QString::fromLatin1(kParityNone));
+    combo->addItem(TrContext<kSerialContext>::tr(kEvenText), QString::fromLatin1(kParityEven));
+    combo->addItem(TrContext<kSerialContext>::tr(kOddText), QString::fromLatin1(kParityOdd));
+    combo->addItem(TrContext<kSerialContext>::tr(kSpaceText), QString::fromLatin1(kParitySpace));
+    combo->addItem(TrContext<kSerialContext>::tr(kMarkText), QString::fromLatin1(kParityMark));
 
     const int currentIndex = combo->findData(currentValue);
     combo->setCurrentIndex(currentIndex >= 0 ? currentIndex : 0);
@@ -80,9 +75,9 @@ void repopulateFlowControlOptions(QComboBox* combo)
     const QString currentValue = combo->currentData().toString();
     QSignalBlocker blocker(combo);
     combo->clear();
-    combo->addItem(trSerialOption(kNoneText), QString::fromLatin1(kFlowNone));
-    combo->addItem(trSerialOption(kRtsCtsText), QString::fromLatin1(kFlowRtsCts));
-    combo->addItem(trSerialOption(kXonXoffText), QString::fromLatin1(kFlowXonXoff));
+    combo->addItem(TrContext<kSerialContext>::tr(kNoneText), QString::fromLatin1(kFlowNone));
+    combo->addItem(TrContext<kSerialContext>::tr(kRtsCtsText), QString::fromLatin1(kFlowRtsCts));
+    combo->addItem(TrContext<kSerialContext>::tr(kXonXoffText), QString::fromLatin1(kFlowXonXoff));
 
     const int currentIndex = combo->findData(currentValue);
     combo->setCurrentIndex(currentIndex >= 0 ? currentIndex : 0);

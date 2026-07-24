@@ -10,6 +10,7 @@
 #pragma once
 
 #include "core/Config.h"
+#include "core/modbus/base/ModbusConfig.h"
 #include <QSerialPort>
 #include <QString>
 
@@ -25,5 +26,10 @@ struct SerialConfig {
 
     [[nodiscard]] bool isValid(QString* errorOut = nullptr) const;
 };
+
+/// Convert ModbusConfig to SerialConfig, centralizing parity mapping.
+/// ModbusConfig parity: 0=None, 2=Even, 3=Odd → QSerialPort::Parity.
+/// flowControl is left at default (NoFlowControl).
+[[nodiscard]] SerialConfig toSerialConfig(const modbus::base::ModbusConfig& config);
 
 } // namespace io

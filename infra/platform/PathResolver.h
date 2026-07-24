@@ -6,27 +6,39 @@
  * next to the executable OR `--portable` CLI argument). Installed mode is the
  * default and prefers QStandardPaths locations. Direct inference from
  * "directory happens to be writable" is forbidden.
+ *
+ * Free functions appDataLocation(), appConfigLocation(), tempLocation() provide
+ * the default QStandardPaths-backed resolution. PathResolver uses these by
+ * default; tests may inject std::function overrides.
  */
 
 #pragma once
 
-#include "infra/platform/IPlatformPaths.h"
-
 #include <QString>
 #include <QStringList>
-#include <memory>
+#include <functional>
 
 namespace infra::platform {
 
+/// Free functions directly wrapping QStandardPaths::writableLocation.
+[[nodiscard]] QString appDataLocation();
+[[nodiscard]] QString appConfigLocation();
+[[nodiscard]] QString tempLocation();
+
 class PathResolver final {
 public:
-    /// Default constructor: uses QtStandardPlatformPaths and detects portable
-    /// mode from `.portable` marker file or `--portable` CLI argument.
+    /// Default constructor: uses the free functions above (backed by
+    /// QStandardPaths) and detects portable mode from `.portable` marker file
+    /// or `--portable` CLI argument.
     PathResolver();
 
-    /// Test/injection constructor. `arguments` is typically QCoreApplication::arguments();
+    /// Test/injection constructor. Each std::function may be default-constructed
+    /// (equiv. to not provided) — the resolver will fall back to the free
+    /// function. `arguments` is typically QCoreApplication::arguments();
     /// an empty list means "no CLI arguments" (installed mode unless marker file exists).
-    PathResolver(std::shared_ptr<const IPlatformPaths> platformPaths,
+    PathResolver(std::function<QString()> appDataLocationFn,
+                 std::function<QString()> appConfigLocationFn,
+                 std::function<QString()> tempLocationFn,
                  QString applicationDirPath,
                  QStringList arguments,
                  QString applicationName);
@@ -52,7 +64,9 @@ private:
     [[nodiscard]] static QString currentApplicationName();
     [[nodiscard]] static QStringList currentApplicationArguments();
 
-    std::shared_ptr<const IPlatformPaths> platformPaths_;
+    std::function<QString()> appDataLocationFn_;
+    std::function<QString()> appConfigLocationFn_;
+    std::function<QString()> tempLocationFn_;
     QString applicationDirPath_;
     QString applicationName_;
     bool portableMode_ = false;

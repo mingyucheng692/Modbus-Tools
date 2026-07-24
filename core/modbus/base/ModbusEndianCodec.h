@@ -58,4 +58,22 @@ void writeBigEndian(QByteArray& data, qsizetype offset, T value) noexcept
     std::memcpy(data.data() + offset, &encoded, sizeof(T));
 }
 
+/**
+ * @brief Appends a big-endian integer of type @p T to the end of @p dest.
+ *
+ * Convenience wrapper for dynamic-growth scenarios where the caller does not
+ * want to pre-size the buffer.  Equivalent to encoding @p value in big-endian
+ * byte order and appending the @c sizeof(T) bytes to @p dest.
+ *
+ * @tparam T   Integer type to append (e.g. uint8_t, uint16_t, uint32_t).
+ * @param dest   Destination byte array (grows by sizeof(T) bytes).
+ * @param value  Host-endian value to encode.
+ */
+template <typename T>
+void appendBigEndian(QByteArray& dest, T value) noexcept
+{
+    const T encoded = qToBigEndian(value);
+    dest.append(reinterpret_cast<const char*>(&encoded), sizeof(T));
+}
+
 } // namespace modbus::base

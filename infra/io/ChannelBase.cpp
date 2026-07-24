@@ -8,6 +8,7 @@
  */
 
 #include "ChannelBase.h"
+#include <spdlog/spdlog.h>
 #include <algorithm>
 
 namespace io {
@@ -19,7 +20,7 @@ ChannelState ChannelBase::state() const
 
 void ChannelBase::moveToThread(QThread* thread)
 {
-    Q_UNUSED(thread);
+    deviceThread_ = thread;
 }
 
 bool ChannelBase::isOpen() const
@@ -179,6 +180,17 @@ void ChannelBase::emitMonitor(bool isTx, const QByteArray& data)
     }
     if (handler) {
         handler(isTx, data);
+    }
+}
+
+void ChannelBase::assertOwnerThreadForDestruction(const char* className)
+{
+    if (deviceThread_ != QThread::currentThread()) {
+        spdlog::critical("{}::~{}: destroyed on non-owner thread. "
+                         "Cross-thread destruction is UAF. Ensure ioThread "
+                         "quit()+wait() completes before releasing the channel.",
+                         className, className);
+        std::abort();
     }
 }
 

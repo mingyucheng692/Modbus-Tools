@@ -13,7 +13,7 @@
 #include "../../application/modbus/ModbusPagePresenter.h"
 #include "../../application/modbus/ModbusSessionPresenter.h"
 #include "../../widgets/BaseConnectionWidget.h"
-#include "../../widgets/TcpClientConnectionWidget.h"
+#include "../../widgets/TcpConnectionWidget.h"
 #include "../../widgets/SerialConnectionWidget.h"
 #include "../../widgets/FunctionWidget.h"
 #include "../../widgets/TrafficMonitorWidget.h"
@@ -91,7 +91,7 @@ void ModbusPage::setupUi() {
     connectionStack_ = new QStackedWidget(this);
     connectionStack_->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);
 
-    tcpConnectionWidget_ = new widgets::TcpClientConnectionWidget(settingsService_, connectionStack_);
+    tcpConnectionWidget_ = new widgets::TcpConnectionWidget(widgets::TcpRole::Client, settingsService_, connectionStack_);
     tcpConnectionWidget_->setSettingsGroup(QStringLiteral("modbus/tcp"));
     connectionStack_->addWidget(tcpConnectionWidget_);
 
@@ -181,9 +181,9 @@ void ModbusPage::setupUi() {
             this, &ModbusPage::onProtocolChanged);
 
     // Connection widget signals.
-    connect(tcpConnectionWidget_, &widgets::TcpClientConnectionWidget::connectClicked,
+    connect(tcpConnectionWidget_, &widgets::TcpConnectionWidget::connectClicked,
             this, &ModbusPage::onTcpConnectClicked);
-    connect(tcpConnectionWidget_, &widgets::TcpClientConnectionWidget::disconnectClicked,
+    connect(tcpConnectionWidget_, &widgets::TcpConnectionWidget::disconnectClicked,
             this, &ModbusPage::onDisconnectClicked);
     connect(serialConnectionWidget_, &widgets::SerialConnectionWidget::connectClicked,
             this, &ModbusPage::onSerialConnectClicked);

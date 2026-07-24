@@ -34,15 +34,7 @@ UdpChannel::UdpChannel()
 
 UdpChannel::~UdpChannel()
 {
-    // UAF guard: same contract as TcpChannel/SerialChannel — cross-thread
-    // destruction is UAF. Release-mode assert (not Q_ASSERT_X which is
-    // debug-only) because UAF is unrecoverable.
-    if (socket_.thread() != QThread::currentThread()) {
-        spdlog::critical("UdpChannel::~UdpChannel: destroyed on non-owner thread. "
-                         "Cross-thread destruction is UAF. Ensure ioThread "
-                         "quit()+wait() completes before releasing the channel.");
-        std::abort();
-    }
+    assertOwnerThreadForDestruction("UdpChannel");
     close();
 }
 
@@ -101,6 +93,7 @@ bool UdpChannel::open()
 
 void UdpChannel::moveToThread(QThread* thread)
 {
+    ChannelBase::moveToThread(thread);
     socket_.moveToThread(thread);
 }
 

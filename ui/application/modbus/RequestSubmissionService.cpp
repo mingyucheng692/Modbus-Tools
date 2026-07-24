@@ -8,6 +8,7 @@
  */
 
 #include "RequestSubmissionService.h"
+#include "modbus/base/ModbusEndianCodec.h"
 #include "common/ModbusDataHelper.h"
 #include <QRegularExpression>
 #include <QCoreApplication>
@@ -107,8 +108,7 @@ RequestSubmissionService::RequestBuildResult RequestSubmissionService::buildWrit
         }
         // Encode coil value as raw bytes for factory
         uint16_t coilVal = coilOn ? 0xFF00 : 0x0000;
-        rawBytes.append(static_cast<char>((coilVal >> 8) & 0xFF));
-        rawBytes.append(static_cast<char>(coilVal & 0xFF));
+        appendBigEndian(rawBytes, coilVal);
     } else if (fc == 0x06) {
         if (trimmed.isEmpty()) {
             result.ok = false;
@@ -125,8 +125,8 @@ RequestSubmissionService::RequestBuildResult RequestSubmissionService::buildWrit
                     "Invalid decimal value for 0x06");
                 return result;
             }
-            rawBytes.append(static_cast<char>((value >> 8) & 0xFF));
-            rawBytes.append(static_cast<char>(value & 0xFF));
+            using namespace ::modbus::base;
+            appendBigEndian(rawBytes, static_cast<uint16_t>(value));
         } else if (fmt == QStringLiteral("Binary")) {
             result.ok = false;
             result.error = QCoreApplication::translate("RequestSubmissionService",

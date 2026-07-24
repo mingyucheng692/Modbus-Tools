@@ -1,6 +1,9 @@
 /**
- * @file TcpServerConnectionWidget.h
- * @brief TCP Server connection widget — Listen IP/Port with Start/Stop button.
+ * @file TcpConnectionWidget.h
+ * @brief Unified TCP connection widget — Client or Server role selected at construction.
+ *
+ * Merges TcpClientConnectionWidget and TcpServerConnectionWidget (P2-v2-8).
+ * Uses TcpRole{Client, Server} to parameterize behaviour.
  *
  * Copyright (c) 2025 - present mingyucheng692
  *
@@ -17,16 +20,21 @@ class ISettingsService;
 
 namespace ui::widgets {
 
-class TcpServerConnectionWidget : public NetworkConnectionWidget {
+enum class TcpRole { Client, Server };
+
+class TcpConnectionWidget : public NetworkConnectionWidget {
     Q_OBJECT
 
 public:
     using DisplayState = BaseConnectionWidget::DisplayState;
 
-    explicit TcpServerConnectionWidget(core::common::ISettingsService* settingsService, QWidget* parent = nullptr);
-    ~TcpServerConnectionWidget() override;
+    explicit TcpConnectionWidget(TcpRole role, core::common::ISettingsService* settingsService, QWidget* parent = nullptr);
+    ~TcpConnectionWidget() override;
+
+    [[nodiscard]] TcpRole role() const noexcept { return role_; }
 
 signals:
+    void connectClicked(const QString& ip, int port);
     void startListenClicked(const QString& ip, int port);
     void stopListenClicked();
 
@@ -38,6 +46,9 @@ protected:
     [[nodiscard]] StateDisplayInfo getStateDisplayInfo(DisplayState state) const override;
     [[nodiscard]] bool isActiveState(DisplayState state) const override;
     [[nodiscard]] DisplayState connectedState() const override;
+
+private:
+    TcpRole role_;
 };
 
 } // namespace ui::widgets

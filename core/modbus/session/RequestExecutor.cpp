@@ -20,7 +20,7 @@
 #include <random>
 #include <tuple>
 #include <QtEndian>
-#include <QCoreApplication>
+#include "common/TrContext.h"
 #include <QtGlobal>
 
 namespace modbus::session {
@@ -32,9 +32,7 @@ namespace {
         std::chrono::duration_cast<std::chrono::seconds>(
             kDupeTrackerSuppressionWindow).count();
 
-    QString trReq(const char* text) {
-        return QCoreApplication::translate("modbus::session::RequestExecutor", text);
-    }
+    constexpr char kReqExecCtx[] = "modbus::session::RequestExecutor";
 
     bool isBroadcastWriteFunction(base::FunctionCode functionCode) {
         using base::FunctionCode;
@@ -53,34 +51,34 @@ namespace {
         using base::ExceptionCode;
         switch (code) {
         case ExceptionCode::IllegalFunction:
-            return trReq("Illegal Function");
+            return TrContext<kReqExecCtx>::tr("Illegal Function");
         case ExceptionCode::IllegalDataAddress:
-            return trReq("Illegal Data Address");
+            return TrContext<kReqExecCtx>::tr("Illegal Data Address");
         case ExceptionCode::IllegalDataValue:
-            return trReq("Illegal Data Value");
+            return TrContext<kReqExecCtx>::tr("Illegal Data Value");
         case ExceptionCode::ServerDeviceFailure:
-            return trReq("Server Device Failure");
+            return TrContext<kReqExecCtx>::tr("Server Device Failure");
         case ExceptionCode::Acknowledge:
-            return trReq("Acknowledge");
+            return TrContext<kReqExecCtx>::tr("Acknowledge");
         case ExceptionCode::ServerDeviceBusy:
-            return trReq("Server Device Busy");
+            return TrContext<kReqExecCtx>::tr("Server Device Busy");
         case ExceptionCode::NegativeAcknowledge:
-            return trReq("Negative Acknowledge");
+            return TrContext<kReqExecCtx>::tr("Negative Acknowledge");
         case ExceptionCode::MemoryParityError:
-            return trReq("Memory Parity Error");
+            return TrContext<kReqExecCtx>::tr("Memory Parity Error");
         case ExceptionCode::GatewayPathUnavailable:
-            return trReq("Gateway Path Unavailable");
+            return TrContext<kReqExecCtx>::tr("Gateway Path Unavailable");
         case ExceptionCode::GatewayTargetDeviceFailed:
-            return trReq("Gateway Target Device Failed To Respond");
+            return TrContext<kReqExecCtx>::tr("Gateway Target Device Failed To Respond");
         default:
-            return trReq("Unknown Exception");
+            return TrContext<kReqExecCtx>::tr("Unknown Exception");
         }
     }
 
     QString buildExceptionMessage(int slaveId,
                                   base::FunctionCode requestFc,
                                   base::ExceptionCode exceptionCode) {
-        return trReq("Modbus exception response. Slave=%1 FC=0x%2 Exception=0x%3 (%4)")
+        return TrContext<kReqExecCtx>::tr("Modbus exception response. Slave=%1 FC=0x%2 Exception=0x%3 (%4)")
             .arg(slaveId)
             .arg(static_cast<int>(requestFc), 2, 16, QChar('0'))
             .arg(static_cast<int>(exceptionCode), 2, 16, QChar('0'))
@@ -125,7 +123,7 @@ bool RequestExecutor::tryAcquireRequestLock() {
 ModbusResponse RequestExecutor::execute(const base::Pdu& request, int slaveId) {
     if (!tryAcquireRequestLock()) {
         spdlog::warn("RequestExecutor: rejected concurrent sendRequest while another request is active");
-        return ModbusResponse::Busy(trReq("Request already in progress"));
+        return ModbusResponse::Busy(TrContext<kReqExecCtx>::tr("Request already in progress"));
     }
     RequestLockGuard unlockGuard(requestLocked_);
     std::lock_guard<std::mutex> lock(requestMutex_);
@@ -133,12 +131,12 @@ ModbusResponse RequestExecutor::execute(const base::Pdu& request, int slaveId) {
         // Abort was requested before we acquired the lock; don't reset it.
         reqStateMachine_->tryTransition(RequestStateMachine::State::Aborted,
                                         "request-aborted-before-lock");
-        return ModbusResponse::Error(trReq("Aborted"), retryStrategy_->attemptCount());
+        return ModbusResponse::Error(TrContext<kReqExecCtx>::tr("Aborted"), retryStrategy_->attemptCount());
     }
     aborted_ = false;
 
     retryStrategy_->reset();
-    ModbusResponse lastResponse = ModbusResponse::Error(trReq("Unknown error"));
+    ModbusResponse lastResponse = ModbusResponse::Error(TrContext<kReqExecCtx>::tr("Unknown error"));
     const int requestId = enqueuePendingRequest(request, slaveId);
     reqStateMachine_->tryTransition(RequestStateMachine::State::Idle, "request-start");
 
@@ -147,7 +145,7 @@ ModbusResponse RequestExecutor::execute(const base::Pdu& request, int slaveId) {
             reqStateMachine_->tryTransition(RequestStateMachine::State::Aborted,
                                             "request-aborted-before-send");
             finishPendingRequest(requestId, false, "Aborted");
-            return ModbusResponse::Error(trReq("Aborted"), retryStrategy_->attemptCount());
+            return ModbusResponse::Error(TrContext<kReqExecCtx>::tr("Aborted"), retryStrategy_->attemptCount());
         }
 
         lastResponse = sendRequestInternal(request, slaveId);
@@ -172,7 +170,7 @@ ModbusResponse RequestExecutor::execute(const base::Pdu& request, int slaveId) {
                 reqStateMachine_->tryTransition(RequestStateMachine::State::Aborted,
                                                 "request-aborted-during-backoff");
                 finishPendingRequest(requestId, false, "Aborted");
-                return ModbusResponse::Error(trReq("Aborted"), retryStrategy_->attemptCount());
+                return ModbusResponse::Error(TrContext<kReqExecCtx>::tr("Aborted"), retryStrategy_->attemptCount());
             }
         } else {
             break;
@@ -263,7 +261,7 @@ ModbusResponse RequestExecutor::sendRequestInternal(const base::Pdu& request, in
         reqStateMachine_->tryTransition(RequestStateMachine::State::Failed, "not-connected");
         const QString channelError = connectionManager_->lastChannelError();
         return ModbusResponse::Error(channelError.isEmpty()
-                                         ? trReq("Not connected")
+                                         ? TrContext<kReqExecCtx>::tr("Not connected")
                                          : channelError);
     }
 
@@ -281,7 +279,7 @@ ModbusResponse RequestExecutor::sendRequestInternal(const base::Pdu& request, in
         if (aborted_) {
             reqStateMachine_->tryTransition(RequestStateMachine::State::Aborted,
                                             "aborted-before-build");
-            return ModbusResponse::Error(trReq("Aborted"));
+            return ModbusResponse::Error(TrContext<kReqExecCtx>::tr("Aborted"));
         }
         frameExtractor_->reset();
         responseReady_ = false;
@@ -297,7 +295,7 @@ ModbusResponse RequestExecutor::sendRequestInternal(const base::Pdu& request, in
         reqStateMachine_->tryTransition(RequestStateMachine::State::Failed,
                                         "invalid-rtu-broadcast-function");
         return ModbusResponse::Error(
-            trReq("RTU broadcast only supports write function codes"));
+            TrContext<kReqExecCtx>::tr("RTU broadcast only supports write function codes"));
     }
     QByteArray adu = transport_->buildRequest(request, targetSlaveId);
 
@@ -315,7 +313,7 @@ ModbusResponse RequestExecutor::sendRequestInternal(const base::Pdu& request, in
         std::lock_guard<std::mutex> lock(mutex_);
         const QString error = connectionManager_->hasChannelErrorLocked()
             ? connectionManager_->lastChannelErrorLocked()
-            : trReq(config_->mode == base::ModbusMode::RTU
+            : TrContext<kReqExecCtx>::tr(config_->mode == base::ModbusMode::RTU
                         ? "Write drain timeout"
                         : "Write failed");
         return ModbusResponse::Error(error);
@@ -356,7 +354,7 @@ ModbusResponse RequestExecutor::sendRequestInternal(const base::Pdu& request, in
                 spdlog::warn("ModbusClient: request timeout slave={} fc={} timeoutMs={}",
                              slaveId, static_cast<int>(request.functionCode()),
                              config_->timeoutMs);
-                return ModbusResponse::Error(trReq("Timeout"));
+                return ModbusResponse::Error(TrContext<kReqExecCtx>::tr("Timeout"));
             }
             continue;
         }
@@ -373,7 +371,7 @@ ModbusResponse RequestExecutor::sendRequestInternal(const base::Pdu& request, in
                 spdlog::warn("ModbusClient: RTU frame wait timeout slave={} fc={} timeoutMs={}",
                              slaveId, static_cast<int>(request.functionCode()),
                              config_->timeoutMs);
-                return ModbusResponse::Error(trReq("Timeout"));
+                return ModbusResponse::Error(TrContext<kReqExecCtx>::tr("Timeout"));
             }
             continue;
         }
@@ -381,7 +379,7 @@ ModbusResponse RequestExecutor::sendRequestInternal(const base::Pdu& request, in
             MODBUS_TOOLS_VERBOSE_INFO("ModbusClient: Aborted during wait");
             reqStateMachine_->tryTransition(RequestStateMachine::State::Aborted,
                                             "aborted-during-wait");
-            return ModbusResponse::Error(trReq("Aborted"));
+            return ModbusResponse::Error(TrContext<kReqExecCtx>::tr("Aborted"));
         }
         {
             const QString chErr = connectionManager_->lastChannelErrorLocked();
@@ -395,7 +393,7 @@ ModbusResponse RequestExecutor::sendRequestInternal(const base::Pdu& request, in
         if (frameExtractor_->hasExceededDropLimit()) {
             reqStateMachine_->tryTransition(RequestStateMachine::State::Failed,
                                             "too-many-invalid-bytes");
-            return ModbusResponse::Error(trReq("Too many invalid response bytes"));
+            return ModbusResponse::Error(TrContext<kReqExecCtx>::tr("Too many invalid response bytes"));
         }
 
         responseReady_ = false;
@@ -442,7 +440,7 @@ ModbusResponse RequestExecutor::sendRequestInternal(const base::Pdu& request, in
                     RequestStateMachine::State::Failed,
                     "incomplete-rtu-frame-after-gap");
                 return ModbusResponse::Error(
-                    trReq("Incomplete RTU frame after inter-frame silence"));
+                    TrContext<kReqExecCtx>::tr("Incomplete RTU frame after inter-frame silence"));
             }
             break;
         }
@@ -453,7 +451,7 @@ ModbusResponse RequestExecutor::sendRequestInternal(const base::Pdu& request, in
             spdlog::warn("ModbusClient: full packet wait timeout slave={} fc={} timeoutMs={}",
                          slaveId, static_cast<int>(request.functionCode()),
                          config_->timeoutMs);
-            return ModbusResponse::Error(trReq("Timeout while waiting for full packet"));
+            return ModbusResponse::Error(TrContext<kReqExecCtx>::tr("Timeout while waiting for full packet"));
         }
     }
 }
@@ -492,7 +490,7 @@ std::optional<ModbusResponse> RequestExecutor::handleParsedFrame(
     // Invalid, or Ok without pdu (transport contract violation — treat as failure).
     reqStateMachine_->tryTransition(
         RequestStateMachine::State::Failed, "response-parse-failed");
-    return ModbusResponse::Error(trReq("Response parsing failed"));
+    return ModbusResponse::Error(TrContext<kReqExecCtx>::tr("Response parsing failed"));
 }
 
 ModbusResponse RequestExecutor::handleExceptionResponse(const base::Pdu& responsePdu, int slaveId,

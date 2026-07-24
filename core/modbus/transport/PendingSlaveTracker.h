@@ -17,8 +17,8 @@ namespace modbus::transport {
 /**
  * @brief Thread-safe tracker for the pending request's expected slave ID.
  *
- * Encapsulates the pending-state mechanism shared by ModbusRtuTransport and
- * ModbusAsciiTransport: buildRequest() records which slave a response is
+ * Encapsulates the pending-state mechanism shared by serial transports
+ * (ModbusSerialTransport): buildRequest() records which slave a response is
  * expected from; parseResponse() checks and clears it; resetPendingState()
  * clears it on abort/error.
  */

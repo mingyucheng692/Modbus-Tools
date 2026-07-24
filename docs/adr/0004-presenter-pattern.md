@@ -2,7 +2,15 @@
 
 **Date:** 2026-06-28
 
-**Status:** Accepted
+**Status:** Accepted (Corrected 2026-07-24)
+
+> **Correction (2026-07-24):** The originally proposed `MainWindowPresenter` class was never implemented.
+> Its intended responsibilities — navigation, toolbar state, and update checking — were split across
+> the existing architecture:
+> - **Navigation state** → `AppLifecycleCoordinator` (orchestrates navigation toggle) + `MainWindow` (creates and manages navigation UI)
+> - **Toolbar/menu state** → `MainWindow` (creates menus, toolbar, and menu actions) + `AppLifecycleCoordinator` (handles action callbacks via `IMainWindowView`)
+> - **Update checking** → `UpdateCoordinator` (dedicated update lifecycle management) + `AppLifecycleCoordinator` (delegation entry point)
+> See updated Key Presenters list below.
 
 ---
 
@@ -19,8 +27,9 @@ We adopt a lightweight **Presenter pattern** (Model-View-Presenter variant):
 
 Key presenters:
 - `ModbusSessionPresenter` — manages polling lifecycle, delegates to `RequestCoordinator`, `PollingController`, `WorkerReleaseCoordinator`.
-- `MainWindowPresenter` — manages navigation, toolbar state, update checking.
-- `AppLifecycleCoordinator` — manages application startup/shutdown, coordinates settings and logging.
+- `AppLifecycleCoordinator` — manages application startup/shutdown, coordinates navigation, settings, language, and delegates update-checking to `UpdateCoordinator`.
+- `UpdateCoordinator` — manages update checking, download, and installation lifecycle.
+- `LanguageCoordinator` — manages locale switching and retranslation of the UI.
 
 ## Alternatives Considered
 

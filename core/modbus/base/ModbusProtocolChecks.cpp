@@ -13,7 +13,7 @@
 #include "ModbusLrc.h"
 #include "ModbusEndianCodec.h"
 #include "ModbusFrame.h"
-#include <QCoreApplication>
+#include "common/TrContext.h"
 #include <QtEndian>
 #include <cstring>
 
@@ -21,7 +21,7 @@ namespace modbus::base {
 
 namespace {
 
-constexpr auto kProtocolChecksContext = "ModbusProtocolChecks";
+constexpr char kProtocolChecksContext[] = "ModbusProtocolChecks";
 constexpr auto kOperationException = QT_TRANSLATE_NOOP("ModbusProtocolChecks", "Exception");
 constexpr auto kOperationBitRead = QT_TRANSLATE_NOOP("ModbusProtocolChecks", "Bit read");
 constexpr auto kOperationRegisterRead = QT_TRANSLATE_NOOP("ModbusProtocolChecks", "Register read");
@@ -102,15 +102,10 @@ bool decodeAsciiHex(QByteArrayView asciiPayload, QByteArray* binaryOut)
     return true;
 }
 
-QString trProtocolCheck(const char* sourceText)
-{
-    return QCoreApplication::translate(kProtocolChecksContext, sourceText);
-}
-
 QString payloadLengthMismatch(const char* operation, qsizetype actual, qsizetype expected)
 {
-    return trProtocolCheck(kPayloadMismatchText)
-        .arg(trProtocolCheck(operation))
+    return TrContext<kProtocolChecksContext>::tr(kPayloadMismatchText)
+        .arg(TrContext<kProtocolChecksContext>::tr(operation))
         .arg(expected)
         .arg(actual);
 }
@@ -230,7 +225,7 @@ QString validateResponsePdu(const Pdu& request, const Pdu& response)
 {
     if (response.isException()) {
         if (response.originalFunctionCode() != request.functionCode()) {
-            return trProtocolCheck(kExceptionFunctionCodeMismatchText);
+            return TrContext<kProtocolChecksContext>::tr(kExceptionFunctionCodeMismatchText);
         }
         if (response.data().size() != 1) {
             return payloadLengthMismatch(kOperationException, response.data().size(), 1);
@@ -239,7 +234,7 @@ QString validateResponsePdu(const Pdu& request, const Pdu& response)
     }
 
     if (response.functionCode() != request.functionCode()) {
-        return trProtocolCheck(kResponseFunctionCodeMismatchText);
+        return TrContext<kProtocolChecksContext>::tr(kResponseFunctionCodeMismatchText);
     }
 
     const QByteArrayView requestData(request.data());
@@ -251,39 +246,39 @@ QString validateResponsePdu(const Pdu& request, const Pdu& response)
     case FunctionCode::ReadCoils:
     case FunctionCode::ReadDiscreteInputs: {
         if (!readBigEndian<uint16_t>(requestData, 2, requestQuantity)) {
-            return trProtocolCheck(kBitReadRequestQuantityMissingText);
+            return TrContext<kProtocolChecksContext>::tr(kBitReadRequestQuantityMissingText);
         }
         if (responseData.size() < 1) {
             return payloadLengthMismatch(kOperationBitRead, responseData.size(), 1);
         }
         const uint8_t byteCount = static_cast<uint8_t>(responseData[0]);
         if (responseData.size() != 1 + byteCount) {
-            return trProtocolCheck(kBitReadPayloadLengthMismatchText);
+            return TrContext<kProtocolChecksContext>::tr(kBitReadPayloadLengthMismatchText);
         }
         const int expectedByteCount = (static_cast<int>(requestQuantity) + 7) / 8;
         if (byteCount != expectedByteCount) {
-            return trProtocolCheck(kBitReadQuantityMismatchText);
+            return TrContext<kProtocolChecksContext>::tr(kBitReadQuantityMismatchText);
         }
         return QString();
     }
     case FunctionCode::ReadHoldingRegisters:
     case FunctionCode::ReadInputRegisters: {
         if (!readBigEndian<uint16_t>(requestData, 2, requestQuantity)) {
-            return trProtocolCheck(kRegisterReadRequestQuantityMissingText);
+            return TrContext<kProtocolChecksContext>::tr(kRegisterReadRequestQuantityMissingText);
         }
         if (responseData.size() < 1) {
             return payloadLengthMismatch(kOperationRegisterRead, responseData.size(), 1);
         }
         const uint8_t byteCount = static_cast<uint8_t>(responseData[0]);
         if (responseData.size() != 1 + byteCount) {
-            return trProtocolCheck(kRegisterReadPayloadLengthMismatchText);
+            return TrContext<kProtocolChecksContext>::tr(kRegisterReadPayloadLengthMismatchText);
         }
         const int expectedByteCount = static_cast<int>(requestQuantity) * 2;
         if (byteCount != expectedByteCount) {
-            return trProtocolCheck(kRegisterReadQuantityMismatchText);
+            return TrContext<kProtocolChecksContext>::tr(kRegisterReadQuantityMismatchText);
         }
         if ((byteCount % 2) != 0) {
-            return trProtocolCheck(kRegisterReadByteCountEvenText);
+            return TrContext<kProtocolChecksContext>::tr(kRegisterReadByteCountEvenText);
         }
         return QString();
     }
@@ -293,14 +288,14 @@ QString validateResponsePdu(const Pdu& request, const Pdu& response)
             return payloadLengthMismatch(kOperationWriteSingle, responseData.size(), requestData.size());
         }
         if (responseData != requestData) {
-            return trProtocolCheck(kWriteSingleEchoMismatchText);
+            return TrContext<kProtocolChecksContext>::tr(kWriteSingleEchoMismatchText);
         }
         return QString();
     case FunctionCode::WriteMultipleCoils:
     case FunctionCode::WriteMultipleRegisters:
         if (!readBigEndian<uint16_t>(requestData, 0, requestStartAddress) ||
             !readBigEndian<uint16_t>(requestData, 2, requestQuantity)) {
-            return trProtocolCheck(kWriteMultipleRequestEchoMissingText);
+            return TrContext<kProtocolChecksContext>::tr(kWriteMultipleRequestEchoMissingText);
         }
         if (responseData.size() != 4) {
             return payloadLengthMismatch(kOperationWriteMultiple, responseData.size(), 4);
@@ -310,15 +305,15 @@ QString validateResponsePdu(const Pdu& request, const Pdu& response)
             uint16_t responseQuantity = 0;
             if (!readBigEndian<uint16_t>(responseData, 0, responseStartAddress) ||
                 !readBigEndian<uint16_t>(responseData, 2, responseQuantity)) {
-                return trProtocolCheck(kWriteMultipleEchoIncompleteText);
+                return TrContext<kProtocolChecksContext>::tr(kWriteMultipleEchoIncompleteText);
             }
             if (responseStartAddress != requestStartAddress || responseQuantity != requestQuantity) {
-                return trProtocolCheck(kWriteMultipleEchoMismatchText);
+                return TrContext<kProtocolChecksContext>::tr(kWriteMultipleEchoMismatchText);
             }
         }
         return QString();
     default:
-        return trProtocolCheck(kUnsupportedFunctionValidationText);
+        return TrContext<kProtocolChecksContext>::tr(kUnsupportedFunctionValidationText);
     }
 }
 

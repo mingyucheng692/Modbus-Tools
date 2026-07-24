@@ -8,10 +8,9 @@
  */
 
 #include "ModbusFactory.h"
-#include "../transport/ModbusRtuTransport.h"
+#include "../transport/ModbusSerialTransport.h"
 #include "../transport/ModbusTcpTransport.h"
 #include "../session/ModbusClient.h"
-#include "../transport/ModbusAsciiTransport.h"
 #include "infra/io/SerialChannel.h"
 #include "infra/io/TcpChannel.h"
 #include <QMetaObject>
@@ -83,12 +82,7 @@ std::shared_ptr<io::IChannel> createChannel(const base::ModbusConfig& config, QT
     case base::ModbusMode::RTU:
     case base::ModbusMode::ASCII: {
         auto serial = std::make_shared<io::SerialChannel>();
-        io::SerialConfig serialConfig;
-        serialConfig.portName = config.portName;
-        serialConfig.baudRate = config.baudRate;
-        serialConfig.dataBits = static_cast<QSerialPort::DataBits>(config.dataBits);
-        serialConfig.stopBits = static_cast<QSerialPort::StopBits>(config.stopBits);
-        serialConfig.parity = static_cast<QSerialPort::Parity>(config.parity);
+        io::SerialConfig serialConfig = io::toSerialConfig(config);
         serial->setConfig(serialConfig);
         serial->moveToThread(ioThread);
         return serial;
@@ -107,9 +101,9 @@ std::shared_ptr<io::IChannel> createChannel(const base::ModbusConfig& config, QT
 std::shared_ptr<transport::ITransport> createTransport(const base::ModbusConfig& config) {
     switch (config.mode) {
     case base::ModbusMode::RTU:
-        return std::make_shared<transport::ModbusRtuTransport>();
+        return std::make_shared<transport::ModbusSerialTransport>(transport::SerialFraming::Rtu);
     case base::ModbusMode::ASCII:
-        return std::make_shared<transport::ModbusAsciiTransport>();
+        return std::make_shared<transport::ModbusSerialTransport>(transport::SerialFraming::Ascii);
     case base::ModbusMode::TCP:
         return std::make_shared<transport::ModbusTcpTransport>();
     }

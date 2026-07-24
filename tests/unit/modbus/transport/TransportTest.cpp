@@ -1,7 +1,6 @@
 #include <gtest/gtest.h>
-#include "modbus/transport/ModbusAsciiTransport.h"
+#include "modbus/transport/ModbusSerialTransport.h"
 #include "modbus/transport/ModbusTcpTransport.h"
-#include "modbus/transport/ModbusRtuTransport.h"
 #include "modbus/base/ModbusCrc.h"
 #include <QCoreApplication>
 
@@ -13,14 +12,14 @@ protected:
     void SetUp() override {
         // TCP Transport instance
         tcp_ = std::make_unique<ModbusTcpTransport>();
-        // RTU Transport instance
-        rtu_ = std::make_unique<ModbusRtuTransport>();
-        ascii_ = std::make_unique<ModbusAsciiTransport>();
+        // Serial Transport instances
+        rtu_ = std::make_unique<ModbusSerialTransport>(SerialFraming::Rtu);
+        ascii_ = std::make_unique<ModbusSerialTransport>(SerialFraming::Ascii);
     }
 
     std::unique_ptr<ModbusTcpTransport> tcp_;
-    std::unique_ptr<ModbusRtuTransport> rtu_;
-    std::unique_ptr<ModbusAsciiTransport> ascii_;
+    std::unique_ptr<ModbusSerialTransport> rtu_;
+    std::unique_ptr<ModbusSerialTransport> ascii_;
 };
 
 TEST_F(TransportTest, TcpBuildRequest) {

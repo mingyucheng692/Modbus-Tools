@@ -125,8 +125,7 @@ target_sources(ui PRIVATE
     widgets/BaseConnectionWidget.cpp
     widgets/BaseConnectionWidget.h
     widgets/NetworkConnectionWidget.cpp
-    widgets/TcpClientConnectionWidget.cpp
-    widgets/TcpServerConnectionWidget.cpp
+    widgets/TcpConnectionWidget.cpp
     widgets/UdpConnectionWidget.cpp
     widgets/SerialConnectionWidget.cpp
     widgets/FunctionWidget.cpp

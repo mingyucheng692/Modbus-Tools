@@ -63,6 +63,10 @@ protected:
                    context, "must run on the owner thread");
     }
 
+    /// Release-mode UAF guard: aborts if the current thread is not the
+    /// device owner thread set by the last moveToThread() call.
+    void assertOwnerThreadForDestruction(const char* className);
+
 private:
     std::atomic<ChannelState> state_{ChannelState::Closed};
     // timeouts_ is accessed from both IO thread (read in write timeout checks)
@@ -82,6 +86,7 @@ private:
     std::mutex stateHandlersMutex_;
     HandlerId nextStateHandlerId_ = 1;
     std::vector<std::pair<HandlerId, std::function<void(ChannelState)>>> stateHandlers_;
+    QThread* deviceThread_ = nullptr;
 };
 
 }
