@@ -19,7 +19,7 @@
 #include <QPushButton>
 #include <QSignalBlocker>
 #include <QSizePolicy>
-#include <QEvent>
+
 
 namespace ui::widgets {
 
@@ -30,14 +30,7 @@ NetworkConnectionWidget::NetworkConnectionWidget(core::common::ISettingsService*
 NetworkConnectionWidget::~NetworkConnectionWidget() = default;
 
 void NetworkConnectionWidget::setupCommonUi() {
-    auto mainLayout = new QHBoxLayout(this);
-    mainLayout->setContentsMargins(0, 0, 0, 0);
-    mainLayout->setSpacing(0);
-
-    section_ = new CollapsibleSection(settingsService_, this);
-    auto layout = new QHBoxLayout(section_->contentWidget());
-    layout->setContentsMargins(4, 0, 4, 0);
-    layout->setSpacing(2);
+    auto* layout = setupBaseUi();
 
     // IP Address
     hostLabel_ = new QLabel(this);
@@ -67,7 +60,10 @@ void NetworkConnectionWidget::setupCommonUi() {
     layout->addWidget(statusLabel_);
 
     layout->addStretch();
-    mainLayout->addWidget(section_);
+    auto* mainLayout = qobject_cast<QHBoxLayout*>(this->layout());
+    if (mainLayout) {
+        mainLayout->addWidget(section_);
+    }
 
     setupCommonConnections();
 
@@ -122,18 +118,10 @@ void NetworkConnectionWidget::saveSettings() {
 }
 
 void NetworkConnectionWidget::retranslateUi() {
-    retranslateCommonUi();
+    BaseConnectionWidget::retranslateUi();
     if (portLabel_) {
         portLabel_->setText(tr("Port:"));
     }
-    applyDisplayState();
-}
-
-void NetworkConnectionWidget::changeEvent(QEvent* event) {
-    if (event->type() == QEvent::LanguageChange) {
-        retranslateUi();
-    }
-    QWidget::changeEvent(event);
 }
 
 // ---- Template Methods ----

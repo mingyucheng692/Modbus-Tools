@@ -16,7 +16,7 @@
 class QComboBox;
 class QPushButton;
 class QLabel;
-class QEvent;
+
 class QString;
 
 namespace core::common {
@@ -56,7 +56,6 @@ protected:
 private:
     void setupUi();
     void retranslateUi();
-    void changeEvent(QEvent* event) override;
 
     QLabel* portLabel_ = nullptr;
     QComboBox* portCombo_ = nullptr;

@@ -17,6 +17,7 @@ class QSpinBox;
 class QLabel;
 class QPushButton;
 class QEvent;
+class QHBoxLayout;
 
 namespace core::common {
 class ISettingsService;
@@ -111,6 +112,31 @@ protected:
     void loadCommonSettings();
     void saveCommonSettings();
     void retranslateCommonUi();
+
+    /**
+     * @brief Create the collapsible section and return the content layout.
+     *        Subclasses add their own widgets to the returned layout, then call
+     *        finishBaseUi() to finalize the common widgets and connections.
+     * @return The content layout of the section widget.
+     */
+    QHBoxLayout* setupBaseUi();
+
+    /**
+     * @brief Finalize the base UI: add common widgets, stretch, section to main layout,
+     *        setup common connections, load settings, and retranslate.
+     * Called after the subclass has added its widgets to the layout from setupBaseUi().
+     */
+    void finishBaseUi(const QString& sectionSettingsKey = {});
+
+    /**
+     * @brief Retranslate common widgets and protocol-specific labels.
+     *        Default implementation calls retranslateCommonUi() + applyDisplayState().
+     *        Subclasses override to add their own label translations, calling
+     *        BaseConnectionWidget::retranslateUi() first.
+     */
+    virtual void retranslateUi();
+
+    void changeEvent(QEvent* event) override;
 
     // ---- Display-state template method (P2-44) ----
     // Skeleton: queries subclass for state-specific data, applies common

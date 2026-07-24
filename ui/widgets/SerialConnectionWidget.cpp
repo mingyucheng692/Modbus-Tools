@@ -21,7 +21,7 @@
 #include <QCheckBox>
 #include <QSpinBox>
 #include <QSerialPortInfo>
-#include <QEvent>
+
 #include <QSignalBlocker>
 
 namespace ui::widgets {
@@ -203,11 +203,7 @@ void SerialConnectionWidget::refreshPorts() {
 }
 
 void SerialConnectionWidget::setupUi() {
-    auto* mainLayout = new QHBoxLayout(this);
-    mainLayout->setContentsMargins(0, 0, 0, 0);
-
-    section_ = new CollapsibleSection(settingsService_, this);
-    auto* layout = new QHBoxLayout(section_->contentWidget());
+    auto* layout = setupBaseUi();
 
     // Port
     portLabel_ = new QLabel(this);
@@ -277,7 +273,10 @@ void SerialConnectionWidget::setupUi() {
     layout->addWidget(statusLabel_);
     
     layout->addStretch();
-    mainLayout->addWidget(section_);
+    auto* mainLayout = qobject_cast<QHBoxLayout*>(this->layout());
+    if (mainLayout) {
+        mainLayout->addWidget(section_);
+    }
 
     connect(connectBtn_, &QPushButton::clicked, [this]() {
         if (usesDisconnectAction(displayState_)) {
@@ -373,7 +372,7 @@ void SerialConnectionWidget::saveSettings() {
 }
 
 void SerialConnectionWidget::retranslateUi() {
-    retranslateCommonUi();
+    BaseConnectionWidget::retranslateUi();
     if (portLabel_) {
         portLabel_->setText(tr("Port:"));
     }
@@ -397,14 +396,6 @@ void SerialConnectionWidget::retranslateUi() {
     if (refreshBtn_) {
         refreshBtn_->setToolTip(tr("Refresh Ports"));
     }
-    applyDisplayState();
-}
-
-void SerialConnectionWidget::changeEvent(QEvent* event) {
-    if (event->type() == QEvent::LanguageChange) {
-        retranslateUi();
-    }
-    QWidget::changeEvent(event);
 }
 
 } // namespace ui::widgets

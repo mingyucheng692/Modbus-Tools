@@ -20,7 +20,7 @@
 class QLineEdit;
 class QSpinBox;
 class QLabel;
-class QEvent;
+
 
 namespace core::common {
 class ISettingsService;
@@ -57,7 +57,6 @@ protected:
     void loadSettings() override;
     void saveSettings() override;
     void retranslateUi();
-    void changeEvent(QEvent* event) override;
 
     // ---- UI Setup ----
     /** @brief Set up the common UI: IP/Port inputs, common widgets, section layout. */
