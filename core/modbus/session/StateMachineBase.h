@@ -18,18 +18,20 @@ namespace modbus::session {
 /**
  * @brief CRTP base that supplies the shared state-machine implementation.
  *
+ * @tparam Derived   The derived state-machine class (CRTP).
+ * @tparam StateEnum The enum type for states (must be defined before Derived).
+ *
  * Derived classes must expose:
- *   - `enum class State`              — the set of states
- *   - `struct Transition { State from; State to; };`
+ *   - `struct Transition { StateEnum from; StateEnum to; };`
  *   - `static constexpr std::array kValidTransitions` — allowed transitions
  *   - `static constexpr const char* kName`             — log tag
- *   - `static constexpr State kInitialState`           — power-on state
- *   - `static constexpr const char* toString(State)`   — state label for logs
+ *   - `static constexpr StateEnum kInitialState`       — power-on state
+ *   - `static constexpr const char* toString(StateEnum)` — state label for logs
  */
-template<typename Derived>
+template<typename Derived, typename StateEnum>
 class StateMachineBase {
 public:
-    using State = typename Derived::State;
+    using State = StateEnum;
 
     bool isValidTransition(State from, State to) const {
         for (const auto& t : Derived::kValidTransitions) {

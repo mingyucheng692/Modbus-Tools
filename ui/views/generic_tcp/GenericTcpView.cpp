@@ -28,6 +28,7 @@
 #include <QStackedWidget>
 #include <QSplitter>
 #include <QMetaObject>
+#include <QThread>
 #include <QEvent>
 #include <spdlog/spdlog.h>
 #include "../../../infra/io/IChannel.h"

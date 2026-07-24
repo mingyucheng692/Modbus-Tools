@@ -16,16 +16,18 @@
 
 namespace modbus::session {
 
-class ConnectionStateMachine : public StateMachineBase<ConnectionStateMachine> {
+enum class ConnectionState {
+    Disconnected,
+    Connecting,
+    Connected,
+    Reconnecting,
+    Disconnecting,
+    Failed
+};
+
+class ConnectionStateMachine : public StateMachineBase<ConnectionStateMachine, ConnectionState> {
 public:
-    enum class State {
-        Disconnected,
-        Connecting,
-        Connected,
-        Reconnecting,
-        Disconnecting,
-        Failed
-    };
+    using State = ConnectionState;
 
     struct Transition {
         State from;
@@ -52,7 +54,7 @@ public:
     static constexpr State kInitialState = State::Disconnected;
 
 private:
-    friend class StateMachineBase<ConnectionStateMachine>;
+    friend class StateMachineBase<ConnectionStateMachine, ConnectionState>;
 
     static constexpr std::array kValidTransitions = {
         Transition{State::Disconnected,  State::Connecting},

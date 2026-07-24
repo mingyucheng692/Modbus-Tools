@@ -13,10 +13,10 @@ namespace {
 // - Live <-> Paused is the resume/pause cycle.
 // - Any state may transition to Idle (stop). Call sites already guard against
 //   illegal transitions; this assert is a regression net for future edits.
-[[nodiscard]] bool isLegalLinkTransition(LinkState from, LinkState to) {
+[[nodiscard]] bool isLegalLinkTransition(AnalyzerLinkCoordinator::LinkState from, AnalyzerLinkCoordinator::LinkState to) {
     if (from == to) return true;
-    if (to == LinkState::Idle) return true; // stop from any state
-    if (from == LinkState::Idle) return to == LinkState::Live;
+    if (to == AnalyzerLinkCoordinator::LinkState::Idle) return true; // stop from any state
+    if (from == AnalyzerLinkCoordinator::LinkState::Idle) return to == AnalyzerLinkCoordinator::LinkState::Live;
     return true; // Live <-> Paused
 }
 

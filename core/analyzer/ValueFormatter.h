@@ -14,7 +14,10 @@
 
 namespace modbus::analyzer::value_formatter {
 
-Q_DECLARE_TR_FUNCTIONS(modbus::analyzer::value_formatter)
+inline QString tr(const char* sourceText, const char* disambiguation = nullptr, int n = -1)
+{
+    return QCoreApplication::translate("modbus::analyzer::value_formatter", sourceText, disambiguation, n);
+}
 
 /**
  * @brief 格式化为十进制字符串（考虑有无符号模式）。

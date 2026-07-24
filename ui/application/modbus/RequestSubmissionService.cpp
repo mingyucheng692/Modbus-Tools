@@ -24,6 +24,7 @@ RequestSubmissionService::RequestBuildResult RequestSubmissionService::buildRead
     RequestBuildResult result;
 
     using namespace ::ui::common;
+    using namespace ::modbus::base;
 
     QString error;
     auto buildResult = pdu_builder::buildReadRequest(
@@ -49,6 +50,7 @@ RequestSubmissionService::RequestBuildResult RequestSubmissionService::buildWrit
     RequestBuildResult result;
 
     using namespace ::ui::common;
+    using namespace ::modbus::base;
 
     QString trimmed = dataStr.trimmed();
     QByteArray rawBytes;

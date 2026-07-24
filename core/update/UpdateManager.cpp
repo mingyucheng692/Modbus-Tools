@@ -31,7 +31,7 @@ namespace {
 [[nodiscard]] static std::unique_ptr<infra::platform::IPlatformProcessRunner> createPlatformProcessRunner()
 {
 #if defined(Q_OS_WIN)
-    return std::make_unique<Win32ProcessRunner>();
+    return std::make_unique<infra::platform::Win32ProcessRunner>();
 #else
     return nullptr; // Not supported on this platform
 #endif

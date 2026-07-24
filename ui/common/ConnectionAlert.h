@@ -18,7 +18,10 @@ namespace ui::common {
 
 namespace connection_alert {
 
-Q_DECLARE_TR_FUNCTIONS(ui::common::connection_alert)
+inline QString tr(const char* sourceText, const char* disambiguation = nullptr, int n = -1)
+{
+    return QCoreApplication::translate("ui::common::connection_alert", sourceText, disambiguation, n);
+}
 
 inline void showNotConnected(QWidget* parent) {
     QMessageBox::warning(parent,

@@ -3,15 +3,12 @@
 #include <QObject>
 #include <QString>
 #include <functional>
+#include "update/UpdateManager.h"
 
 class QUrl;
 
 namespace core::common {
 class SettingsController;
-}
-
-namespace core::update {
-class UpdateManager;
 }
 
 namespace ui::common {

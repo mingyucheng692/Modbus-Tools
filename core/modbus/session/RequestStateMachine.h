@@ -16,16 +16,18 @@
 
 namespace modbus::session {
 
-class RequestStateMachine : public StateMachineBase<RequestStateMachine> {
+enum class RequestState {
+    Idle,
+    Sending,
+    Waiting,
+    Completed,
+    Failed,
+    Aborted
+};
+
+class RequestStateMachine : public StateMachineBase<RequestStateMachine, RequestState> {
 public:
-    enum class State {
-        Idle,
-        Sending,
-        Waiting,
-        Completed,
-        Failed,
-        Aborted
-    };
+    using State = RequestState;
 
     struct Transition {
         State from;
@@ -52,7 +54,7 @@ public:
     static constexpr State kInitialState = State::Idle;
 
 private:
-    friend class StateMachineBase<RequestStateMachine>;
+    friend class StateMachineBase<RequestStateMachine, RequestState>;
 
     static constexpr std::array kValidTransitions = {
         Transition{State::Idle,      State::Sending},
