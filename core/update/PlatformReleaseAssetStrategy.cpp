@@ -44,11 +44,6 @@ UpdatePlatformFamily familyFromPackagePlatform(const QString& packagePlatform)
 
 } // namespace
 
-PlatformUpdateArtifactLayout currentLayout(const QString& version)
-{
-    return layoutForPackage(version, QStringLiteral(MODBUS_TOOLS_PLATFORM));
-}
-
 PlatformUpdateArtifactLayout layoutForPackage(const QString& version,
                                               const QString& packagePlatform)
 {

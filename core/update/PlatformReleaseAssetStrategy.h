@@ -32,7 +32,6 @@ struct PlatformUpdateArtifactLayout {
 
 namespace release_asset {
 
-[[nodiscard]] PlatformUpdateArtifactLayout currentLayout(const QString& version);
 [[nodiscard]] PlatformUpdateArtifactLayout layoutForPackage(const QString& version,
                                                             const QString& packagePlatform);
 [[nodiscard]] QString resolveFullPackageUrl(const QJsonArray& assets,
