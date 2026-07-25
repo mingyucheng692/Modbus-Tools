@@ -53,7 +53,15 @@ void FrameParseWorker::processPending() {
             result.isValid = false;
             result.error = QCoreApplication::translate("FrameParseWorker", "Error: Empty input");
         } else {
-            const QByteArray frame = QByteArray::fromHex(input.toLatin1());
+            QByteArray frame;
+            if (input.startsWith(':')) {
+                // ASCII frame: input is Latin-1 text (':' + hex chars + CRLF).
+                // Pass through directly — inspectAsciiAdu expects the raw text.
+                frame = input.toLatin1();
+            } else {
+                // TCP/RTU binary frame: hex byte pairs -> binary
+                frame = QByteArray::fromHex(input.toLatin1());
+            }
             const bool force = (type != ProtocolType::Unknown);
             result = parse(frame, type, startAddress, 0, force, order);
         }

@@ -95,13 +95,35 @@ void cleanupWorker(FrameParseWorker* worker)
 
 // UI-layer input preprocessing: strips bracketed metadata ([RX]/[TX]/timestamps),
 // 0x prefixes and non-hex characters; returns a contiguous lowercase/uppercase
-// hex string suitable for QByteArray::fromHex(). Moved here from FrameParseWorker
+// hex string suitable for QByteArray::fromHex(), or a Latin-1 ASCII frame text
+// (":...\r\n") for Modbus ASCII frames. Moved here from FrameParseWorker
 // (P2-27) so the worker stays free of UI/input-format concerns.
 QString normalizeHexInput(const QString& input)
 {
     QString text = input;
     // Remove bracketed metadata segments such as "[12:39:35.668]" / "[RX]".
     text.remove(QRegularExpression(QStringLiteral("\\[[^\\]]*\\]")));
+
+    // ASCII frame fast path: Modbus ASCII frames start with ':' and use
+    // hex-encoded content with CRLF terminator. Must be preserved as Latin-1
+    // text (not fromHex-decoded) for inspectAsciiAdu to work correctly.
+    const QString trimmed = text.trimmed();
+    if (trimmed.startsWith(':')) {
+        const int crlfPos = trimmed.indexOf(QStringLiteral("\r\n"));
+        QString hexBody;
+        if (crlfPos > 0) {
+            hexBody = trimmed.mid(1, crlfPos - 1);
+        } else {
+            hexBody = trimmed.mid(1);
+        }
+        hexBody.remove(QRegularExpression(QStringLiteral("[^0-9A-Fa-f]")));
+        if (hexBody.size() % 2 != 0) hexBody.chop(1);
+        // Minimum valid frame: slaveId(1) + FC(1) + LRC(1) = 3 bytes = 6 hex chars
+        if (hexBody.size() >= 6) {
+            return QStringLiteral(":") + hexBody.toUpper() + QStringLiteral("\r\n");
+        }
+        // Insufficient hex chars — fall through to normal token parsing
+    }
 
     const QStringList rawTokens = text.split(QRegularExpression(QStringLiteral("\\s+")), Qt::SkipEmptyParts);
     QString normalized;

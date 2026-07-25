@@ -140,7 +140,7 @@ private:
         std::chrono::steady_clock::time_point start);
     ModbusResponse handleExceptionResponse(const base::Pdu& responsePdu, int slaveId,
                                            const base::Pdu& requestPdu);
-    bool isRtuBroadcastRequest(int slaveId, base::FunctionCode functionCode) const;
+    bool isBroadcastRequest(int slaveId, base::FunctionCode functionCode) const;
     bool shouldWaitForResponse(int slaveId, base::FunctionCode functionCode) const;
     bool waitForWriteDrain(std::chrono::steady_clock::time_point deadline,
                            std::chrono::steady_clock::time_point* drainedAt);

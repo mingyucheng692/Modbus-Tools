@@ -18,7 +18,7 @@ namespace modbus::base {
 enum class ModbusMode {
     RTU,
     TCP,
-    ASCII // 暂不实现，预留
+    ASCII // Serial ASCII framing with LRC check
 };
 
 struct ModbusConfig {

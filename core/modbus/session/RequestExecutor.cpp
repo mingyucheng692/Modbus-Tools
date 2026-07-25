@@ -290,12 +290,12 @@ ModbusResponse RequestExecutor::sendRequestInternal(const base::Pdu& request, in
     }
 
     // 2. Build ADU
-    if (isRtuBroadcastRequest(targetSlaveId, request.functionCode())
+    if (isBroadcastRequest(targetSlaveId, request.functionCode())
         && !isBroadcastWriteFunction(request.functionCode())) {
         reqStateMachine_->tryTransition(RequestStateMachine::State::Failed,
-                                        "invalid-rtu-broadcast-function");
+                                        "invalid-broadcast-function");
         return ModbusResponse::Error(
-            TrContext<kReqExecCtx>::tr("RTU broadcast only supports write function codes"));
+            TrContext<kReqExecCtx>::tr("Broadcast only supports write function codes"));
     }
     QByteArray adu = transport_->buildRequest(request, targetSlaveId);
 
@@ -523,15 +523,17 @@ ModbusResponse RequestExecutor::handleExceptionResponse(const base::Pdu& respons
 
 // --- Private: Helpers ---
 
-bool RequestExecutor::isRtuBroadcastRequest(int slaveId,
-                                            base::FunctionCode functionCode) const {
+bool RequestExecutor::isBroadcastRequest(int slaveId,
+                                          base::FunctionCode functionCode) const {
     Q_UNUSED(functionCode);
-    return config_->mode == base::ModbusMode::RTU && slaveId == 0;
+    return (config_->mode == base::ModbusMode::RTU
+            || config_->mode == base::ModbusMode::ASCII)
+        && slaveId == 0;
 }
 
 bool RequestExecutor::shouldWaitForResponse(int slaveId,
                                             base::FunctionCode functionCode) const {
-    return !isRtuBroadcastRequest(slaveId, functionCode);
+    return !isBroadcastRequest(slaveId, functionCode);
 }
 
 bool RequestExecutor::writeRtuFrameWithDrain(const QByteArray& adu,
