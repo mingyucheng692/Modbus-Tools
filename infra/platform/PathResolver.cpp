@@ -1,6 +1,6 @@
 /**
  * @file PathResolver.cpp
- * @brief Implements writable path resolution for installed and portable deployments.
+ * @brief Implements writable path resolution for portable deployments.
  */
 
 #include "infra/platform/PathResolver.h"
@@ -9,7 +9,6 @@
 #include <QDir>
 #include <QFile>
 #include <QFileInfo>
-#include <QStandardPaths>
 #include <QTemporaryFile>
 #include <algorithm>
 #include <spdlog/spdlog.h>
@@ -32,48 +31,20 @@ QString normalizedPath(const QString& path)
 namespace infra::platform {
 
 // ---------------------------------------------------------------------------
-// Free functions — direct QStandardPaths wrappers
-// ---------------------------------------------------------------------------
-
-QString appDataLocation()
-{
-    return QStandardPaths::writableLocation(QStandardPaths::AppDataLocation);
-}
-
-QString appConfigLocation()
-{
-    return QStandardPaths::writableLocation(QStandardPaths::AppConfigLocation);
-}
-
-QString tempLocation()
-{
-    return QStandardPaths::writableLocation(QStandardPaths::TempLocation);
-}
-
-// ---------------------------------------------------------------------------
 // PathResolver
 // ---------------------------------------------------------------------------
 
 PathResolver::PathResolver()
-    : PathResolver(std::function<QString()>(),
-                   std::function<QString()>(),
-                   std::function<QString()>(),
-                   currentApplicationDirPath(),
+    : PathResolver(currentApplicationDirPath(),
                    currentApplicationArguments(),
                    currentApplicationName())
 {
 }
 
-PathResolver::PathResolver(std::function<QString()> appDataLocationFn,
-                           std::function<QString()> appConfigLocationFn,
-                           std::function<QString()> tempLocationFn,
-                           QString applicationDirPath,
+PathResolver::PathResolver(QString applicationDirPath,
                            QStringList arguments,
                            QString applicationName)
-    : appDataLocationFn_(appDataLocationFn ? std::move(appDataLocationFn) : appDataLocation),
-      appConfigLocationFn_(appConfigLocationFn ? std::move(appConfigLocationFn) : appConfigLocation),
-      tempLocationFn_(tempLocationFn ? std::move(tempLocationFn) : tempLocation),
-      applicationDirPath_(normalizedPath(applicationDirPath)),
+    : applicationDirPath_(normalizedPath(applicationDirPath)),
       applicationName_(applicationName.isEmpty() ? QString::fromLatin1(kDefaultApplicationName)
                                                  : std::move(applicationName))
 {
@@ -102,33 +73,19 @@ void PathResolver::detectPortableMode(const QStringList& arguments)
 
 QString PathResolver::resolveLogDir() const
 {
-    // Preferred: portable → exe/logs; installed → AppDataLocation/logs.
-    // Secondary (portable only): standard log location as fallback before temp.
-    // Installed mode never falls back to applicationDirPath_/logs (per
-    // AGENTS.md §21.7).
-    const QString portableLogDir = QDir(applicationDirPath_).filePath(QString::fromLatin1(kLogsDirectoryName));
-    const QString standardLogDir = QDir(appDataLocationFn_()).filePath(QString::fromLatin1(kLogsDirectoryName));
-    const QString preferred = portableMode_ ? portableLogDir : standardLogDir;
-    const QString secondary = portableMode_ ? standardLogDir : QString();
+    // Portable-first: always prefer exe/logs, fall back to temp/appName/logs.
+    const QString preferredLogDir = QDir(applicationDirPath_).filePath(QString::fromLatin1(kLogsDirectoryName));
+    const QString fallbackLogDir = QDir(resolveScopedTempDir()).filePath(QString::fromLatin1(kLogsDirectoryName));
     return resolveWritableDir(QStringLiteral("log directory"),
-                              preferred,
-                              secondary,
-                              resolveScopedTempDir() + QStringLiteral("/") + QString::fromLatin1(kLogsDirectoryName));
+                              preferredLogDir,
+                              fallbackLogDir);
 }
 
 QString PathResolver::resolveConfigDir() const
 {
-    // Preferred: portable → exe dir; installed → AppConfigLocation.
-    // Secondary (portable only): standard config location as fallback before temp.
-    // Installed mode never falls back to applicationDirPath_ (per AGENTS.md §21.7:
-    // fallback chain is portable → QStandardPaths → TempLocation, never exe-dir
-    // without explicit opt-in).
-    const QString standardConfigDir = appConfigLocationFn_();
-    const QString preferred = portableMode_ ? applicationDirPath_ : standardConfigDir;
-    const QString secondary = portableMode_ ? standardConfigDir : QString();
+    // Portable-first: always prefer exe dir, fall back to temp/appName.
     return resolveWritableDir(QStringLiteral("config directory"),
-                              preferred,
-                              secondary,
+                              applicationDirPath_,
                               resolveScopedTempDir());
 }
 
@@ -136,18 +93,16 @@ QString PathResolver::resolveTempDir() const
 {
     return resolveWritableDir(QStringLiteral("temporary directory"),
                               resolveScopedTempDir(),
-                              applicationDirPath_,
                               applicationDirPath_);
 }
 
 QString PathResolver::resolveScopedTempDir() const
 {
-    return QDir(tempLocationFn_()).filePath(applicationName_);
+    return QDir(QDir::tempPath()).filePath(applicationName_);
 }
 
 QString PathResolver::resolveWritableDir(const QString& purpose,
                                          const QString& preferredDir,
-                                         const QString& secondaryDir,
                                          const QString& fallbackDir) const
 {
     const QString normalizedPreferredDir = normalizedPath(preferredDir);
@@ -159,18 +114,6 @@ QString PathResolver::resolveWritableDir(const QString& purpose,
         spdlog::warn("PathResolver: {} is not writable, falling back from {}",
                      purpose.toStdString(),
                      normalizedPreferredDir.toStdString());
-    }
-
-    const QString normalizedSecondaryDir = normalizedPath(secondaryDir);
-    if (!normalizedSecondaryDir.isEmpty() && normalizedSecondaryDir != normalizedPreferredDir &&
-        isWritableDirectory(normalizedSecondaryDir)) {
-        return normalizedSecondaryDir;
-    }
-
-    if (!normalizedSecondaryDir.isEmpty() && normalizedSecondaryDir != normalizedPreferredDir) {
-        spdlog::warn("PathResolver: {} standard fallback is not writable, falling back from {}",
-                     purpose.toStdString(),
-                     normalizedSecondaryDir.toStdString());
     }
 
     const QString normalizedFallbackDir = normalizedPath(fallbackDir);
