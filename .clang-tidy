@@ -9,8 +9,8 @@ Checks: >
   clang-analyzer-*,
   cppcoreguidelines-pro-type-cstyle-cast,
   cppcoreguidelines-pro-type-static-cast-downcast
-WarningsAsErrors: ''
-HeaderFilterRegex: '.*(core|infra|ui|tests)/.*'
+WarningsAsErrors: '*'
+HeaderFilterRegex: '.*(core|infra)/.*'
 FormatStyle: none
 CheckOptions:
   - key: readability-identifier-length.MinimumVariableNameLength

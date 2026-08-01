@@ -259,7 +259,7 @@ jobs:
         shell: pwsh
         run: |
           # Reconfigure with tests enabled so test targets exist. Lite path runs
-          # only test_core_logic + test_qt_core; full path builds all targets.
+          # test_core_logic + test_qt_core + test_ui_widgets; full path builds all targets.
           & cmake -S . -B build_ci `
             -DCMAKE_BUILD_TYPE=${{ steps.ci_options.outputs.build_type }} `
             -DMODBUS_TOOLS_BUILD_TESTS=ON `
@@ -286,7 +286,7 @@ jobs:
         if: runner.os == 'Windows' && steps.ci_options.outputs.should_run == 'true' && steps.ci_options.outputs.run_tests_lite == 'true'
         run: >
           cmake --build build_ci
-          --target test_core_logic test_qt_core
+          --target test_core_logic test_qt_core test_ui_widgets
           --config "${{ steps.ci_options.outputs.build_type }}"
           --parallel
 
@@ -294,7 +294,7 @@ jobs:
         if: runner.os != 'Windows' && steps.ci_options.outputs.should_run == 'true' && steps.ci_options.outputs.run_tests_lite == 'true'
         shell: bash
         run: |
-          cmake --build build_ci --target test_core_logic test_qt_core --parallel
+          cmake --build build_ci --target test_core_logic test_qt_core test_ui_widgets --parallel
 
       - name: Run tests (Windows)
         if: runner.os == 'Windows' && steps.ci_options.outputs.should_run == 'true' && steps.ci_options.outputs.run_tests == 'ON'
@@ -314,18 +314,17 @@ jobs:
         run: >
           ctest --test-dir build_ci
           -C "${{ steps.ci_options.outputs.build_type }}"
-          -R "test_core_logic|test_qt_core"
+          -R "test_core_logic|test_qt_core|test_ui_widgets"
           --output-on-failure
 
       - name: Run lite tests (POSIX)
         if: runner.os != 'Windows' && steps.ci_options.outputs.should_run == 'true' && steps.ci_options.outputs.run_tests_lite == 'true'
         shell: bash
         run: |
-          ctest --test-dir build_ci -R "test_core_logic|test_qt_core" --output-on-failure
+          ctest --test-dir build_ci -R "test_core_logic|test_qt_core|test_ui_widgets" --output-on-failure
 
-      - name: Run clang-tidy (non-blocking, Linux)
+      - name: Run clang-tidy (blocking, Linux)
         if: runner.os == 'Linux' && steps.ci_options.outputs.should_run == 'true'
-        continue-on-error: true
         shell: bash
         env:
           CC: ${{ matrix.c_compiler }}

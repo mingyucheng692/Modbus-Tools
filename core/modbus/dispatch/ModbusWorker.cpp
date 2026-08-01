@@ -84,6 +84,12 @@ void ModbusWorker::submit(const base::Pdu& request, int slaveId, int requestId) 
         return;
     }
     QMetaObject::invokeMethod(this, [this, request, slaveId, requestId]() {
+        // Check stopped_ first — handleStopInThread sets stopped_=true and
+        // clears stopping_, so a post-stop submit would otherwise slip through.
+        if (stopped_.load()) {
+            emit requestFinished(requestId, session::ModbusResponse::Error("Worker has stopped"));
+            return;
+        }
         if (stopping_.load()) {
             emit requestFinished(requestId, session::ModbusResponse::Error("Worker is stopping"));
             return;

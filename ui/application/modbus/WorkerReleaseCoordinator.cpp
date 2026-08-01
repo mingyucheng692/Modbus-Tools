@@ -193,9 +193,15 @@ void WorkerReleaseCoordinator::finalize(
 
     if (pending->workerThread && pending->workerThread->isRunning()) {
         pending->workerThread->quit();
+        if (!pending->workerThread->wait(1000)) {
+            spdlog::warn("WorkerReleaseCoordinator: worker thread did not finish in time");
+        }
     }
     if (pending->channelThread && pending->channelThread->isRunning()) {
         pending->channelThread->quit();
+        if (!pending->channelThread->wait(1000)) {
+            spdlog::warn("WorkerReleaseCoordinator: channel thread did not finish in time");
+        }
     }
 
     pending->worker.reset();
