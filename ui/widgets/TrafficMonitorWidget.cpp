@@ -503,9 +503,11 @@ void TrafficMonitorWidget::onSaveClicked() {
     *scheduleNextChunk = [this, fileName, totalCount, chunkSize, state, errorMessage, scheduleNextChunk, exportLines]() {
         if (!errorMessage->isEmpty()) {
             appendError(tr("Save failed: %1").arg(*errorMessage));
+            *scheduleNextChunk = nullptr; // break self-capture cycle
             return;
         }
         if (state->nextIndex >= totalCount) {
+            *scheduleNextChunk = nullptr; // break self-capture cycle
             return;
         }
 
@@ -525,6 +527,7 @@ void TrafficMonitorWidget::onSaveClicked() {
             watcher->deleteLater();
             if (!errorMessage->isEmpty()) {
                 appendError(tr("Save failed: %1").arg(*errorMessage));
+                *scheduleNextChunk = nullptr; // break self-capture cycle
                 return;
             }
             QMetaObject::invokeMethod(this, [scheduleNextChunk]() {
