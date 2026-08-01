@@ -15,6 +15,7 @@
 #include <QFileInfo>
 #include <QJsonDocument>
 #include <QCryptographicHash>
+#include <spdlog/spdlog.h>
 
 namespace {
 
@@ -123,7 +124,6 @@ public:
         }
 
         // Verify updater.exe integrity before launching.
-#ifdef MODBUS_TOOLS_UPDATER_SHA256
         {
             QString detail;
             if (!verifyUpdaterIntegrity(updaterPath, QStringLiteral(MODBUS_TOOLS_UPDATER_SHA256), detail)) {
@@ -132,7 +132,6 @@ public:
                 return false;
             }
         }
-#endif
 
         // Read task.json to extract parameters, then pass them via CLI
         // (not via --task file) to eliminate TOCTOU surface.
@@ -181,6 +180,15 @@ public:
             QStringLiteral("--lang"),
             langCode
         };
+        // Try non-elevated launch first (portable tool, no UAC prompt).
+        // Fall back to elevated launch if non-elevated fails (e.g. running from
+        // a protected directory like C:\Program Files).
+        if (processRunner->startNonElevated(updaterPath, arguments, &errorMessage)) {
+            return true;
+        }
+        spdlog::info("PlatformUpdateInstallStrategy: non-elevated launch failed, "
+                      "falling back to elevated launch: {}",
+                      errorMessage.toStdString());
         return processRunner->startElevated(updaterPath, arguments, &errorMessage);
     }
 };

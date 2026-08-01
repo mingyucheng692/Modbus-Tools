@@ -13,9 +13,6 @@
 #include <windows.h>
 #include <bcrypt.h>
 
-#include <filesystem>
-#include <fstream>
-#include <iterator>
 #include <vector>
 
 #pragma comment(lib, "bcrypt.lib")
@@ -36,16 +33,6 @@ std::string bytesToHex(const std::vector<unsigned char>& bytes) {
 }
 
 } // namespace
-
-std::string Win32UpdateStrategy::readAllBytes(const std::string& path) {
-    const std::wstring wpath = updater::win32::utf8ToWide(path);
-    std::ifstream file(std::filesystem::path(wpath), std::ios::binary);
-    if (!file.is_open()) {
-        return {};
-    }
-    return std::string(std::istreambuf_iterator<char>(file),
-                       std::istreambuf_iterator<char>());
-}
 
 bool Win32UpdateStrategy::computeSha256(const std::string& filePath, std::string& sha256) {
     const std::wstring wpath = updater::win32::utf8ToWide(filePath);

@@ -9,7 +9,6 @@ endif()
 add_executable(updater WIN32
     windows/main.cpp
     windows/Win32UpdateStrategy.cpp
-    UpdateTask.cpp
 )
 
 set_target_properties(updater PROPERTIES OUTPUT_NAME "updater")
@@ -26,12 +25,6 @@ target_compile_definitions(updater PRIVATE
 target_link_libraries(updater PRIVATE
     bcrypt
 )
-
-if(MSVC)
-    target_link_options(updater PRIVATE
-        "/MANIFESTUAC:level='requireAdministrator' uiAccess='false'"
-    )
-endif()
 
 install(TARGETS updater
     RUNTIME DESTINATION .

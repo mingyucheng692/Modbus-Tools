@@ -24,8 +24,21 @@ public:
         return startElevatedResult_;
     }
 
+    [[nodiscard]] bool startNonElevated(const QString& executablePath,
+                                        const QStringList& arguments,
+                                        QString* errorMessage) override
+    {
+        lastExecutablePath_ = executablePath;
+        lastArguments_ = arguments;
+        if (errorMessage != nullptr) {
+            *errorMessage = errorMessage_;
+        }
+        return startNonElevatedResult_;
+    }
+
     bool supportsElevatedLaunch_ = false;
     bool startElevatedResult_ = false;
+    bool startNonElevatedResult_ = false;
     QString errorMessage_;
     QString lastExecutablePath_;
     QStringList lastArguments_;

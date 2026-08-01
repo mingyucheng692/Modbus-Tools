@@ -17,7 +17,6 @@ namespace updater {
 /// Windows implementation using Win32 API (BCrypt, MoveFileExW, CreateProcessW).
 class Win32UpdateStrategy {
 public:
-    std::string readAllBytes(const std::string& path);
     bool computeSha256(const std::string& filePath, std::string& sha256);
     bool fileExists(const std::string& path);
     bool moveFileAtomic(const std::string& source, const std::string& destination);

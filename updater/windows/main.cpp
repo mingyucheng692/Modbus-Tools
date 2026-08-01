@@ -7,7 +7,6 @@
  * Licensed under the MIT License. See LICENSE file in the project root for full license information.
  */
 
-#include "../UpdateTask.h"
 #include "Win32Encoding.h"
 #include "Win32UpdateStrategy.h"
 
@@ -16,6 +15,7 @@
 
 #include <algorithm>
 #include <cctype>
+#include <cstdint>
 #include <cwctype>
 #include <string>
 
@@ -50,31 +50,33 @@ std::string toLowerAscii(std::string value) {
     return value;
 }
 
-/// Parses CLI arguments. Supports both legacy --task mode and direct
-/// parameter mode (--target-exe, --new-exe, etc.). Returns true if the
-/// task was built from individual arguments (no file I/O needed).
-struct CliParseResult {
-    std::string taskPath;       // legacy --task path
-    updater::UpdateTask task;   // built from direct args (valid when taskPath is empty)
-    bool fromDirectArgs = false;
+/// In-memory update task built from CLI arguments (no file I/O, no TOCTOU surface).
+struct Task {
+    std::uint32_t launcherPid = 0;
+    std::string targetExePath;
+    std::string newExePath;
+    std::string backupExePath;
+    std::string expectedSha256;
+    std::string expectedVersion;
+    bool restartAfterUpdate = true;
 };
 
-CliParseResult parseCommandLine() {
+/// Parses CLI arguments. Returns a Task built from --target-exe, --new-exe, etc.
+/// Exits with error code 1 if required arguments are missing.
+Task parseCommandLine() {
     int argc = 0;
     LPWSTR* argv = CommandLineToArgvW(GetCommandLineW(), &argc);
     if (!argv) {
         return {};
     }
 
-    CliParseResult result;
+    Task task;
     std::wstring targetExe, newExe, backupExe, expectedSha256, expectedVersion, launcherPidStr;
     bool restartExplicitlySet = false;
 
     for (int i = 1; i < argc; ++i) {
         const std::wstring arg(argv[i]);
-        if (arg == L"--task" && i + 1 < argc) {
-            result.taskPath = updater::win32::wideToUtf8(argv[++i]);
-        } else if (arg == L"--lang" && i + 1 < argc) {
+        if (arg == L"--lang" && i + 1 < argc) {
             const std::wstring code = toLowerWide(argv[++i]);
             if (code == L"zh_cn") {
                 g_lang = Language::ZhCn;
@@ -94,63 +96,52 @@ CliParseResult parseCommandLine() {
         } else if (arg == L"--launcher-pid" && i + 1 < argc) {
             launcherPidStr = argv[++i];
         } else if (arg == L"--restart") {
-            result.task.restartAfterUpdate = true;
+            task.restartAfterUpdate = true;
             restartExplicitlySet = true;
         } else if (arg == L"--no-restart") {
-            result.task.restartAfterUpdate = false;
+            task.restartAfterUpdate = false;
             restartExplicitlySet = true;
         }
     }
     LocalFree(argv);
 
-    // If direct args were provided, build the task in-process (no file I/O).
-    if (!targetExe.empty() && !newExe.empty() && !expectedSha256.empty()) {
-        result.task.targetExePath = updater::win32::wideToUtf8(targetExe);
-        result.task.newExePath = updater::win32::wideToUtf8(newExe);
-        result.task.backupExePath = backupExe.empty()
-            ? (result.task.targetExePath + ".bak")
-            : updater::win32::wideToUtf8(backupExe);
-        result.task.expectedSha256 = toLowerAscii(updater::win32::wideToUtf8(expectedSha256));
-        result.task.expectedVersion = updater::win32::wideToUtf8(expectedVersion);
-        result.task.schemaVersion = 1;
-        if (!launcherPidStr.empty()) {
-            result.task.launcherPid = static_cast<std::uint32_t>(
-                std::wcstoul(launcherPidStr.c_str(), nullptr, 10));
-        }
-        if (!restartExplicitlySet) {
-            result.task.restartAfterUpdate = true;
-        }
-        result.fromDirectArgs = true;
+    if (targetExe.empty() || newExe.empty() || expectedSha256.empty()) {
+        return task;  // caller will validate and exit
     }
 
-    return result;
+    task.targetExePath = updater::win32::wideToUtf8(targetExe);
+    task.newExePath = updater::win32::wideToUtf8(newExe);
+    task.backupExePath = backupExe.empty()
+        ? (task.targetExePath + ".bak")
+        : updater::win32::wideToUtf8(backupExe);
+    task.expectedSha256 = toLowerAscii(updater::win32::wideToUtf8(expectedSha256));
+    task.expectedVersion = updater::win32::wideToUtf8(expectedVersion);
+    if (!launcherPidStr.empty()) {
+        task.launcherPid = static_cast<std::uint32_t>(
+            std::wcstoul(launcherPidStr.c_str(), nullptr, 10));
+    }
+    if (!restartExplicitlySet) {
+        task.restartAfterUpdate = true;
+    }
+
+    return task;
 }
 
 } // namespace
 
 int WINAPI wWinMain(HINSTANCE, HINSTANCE, PWSTR, int) {
-    const CliParseResult cli = parseCommandLine();
-    updater::UpdateTask task;
+    const Task task = parseCommandLine();
+
+    if (task.targetExePath.empty() || task.newExePath.empty() || task.expectedSha256.empty()) {
+        updater::Win32UpdateStrategy strategy;
+        strategy.showError(getString(
+            "Missing required arguments: --target-exe, --new-exe, --expected-sha256.",
+            "缺少必要参数：--target-exe、--new-exe、--expected-sha256。",
+            "缺少必要參數：--target-exe、--new-exe、--expected-sha256。"));
+        return 1;
+    }
 
     updater::Win32UpdateStrategy strategy;
-
-    if (cli.fromDirectArgs) {
-        // Task built from CLI arguments — no file I/O, no TOCTOU surface.
-        task = cli.task;
-    } else {
-        // Legacy --task path: read and parse task.json.
-        if (cli.taskPath.empty()) {
-            return 1;
-        }
-        const std::string json = strategy.readAllBytes(cli.taskPath);
-        if (json.empty() || !updater::parseTaskConfig(json, task)) {
-            strategy.showError(getString(
-                "Failed to parse update task configuration.",
-                "解析更新任务配置失败。",
-                "解析更新任務設定失敗。"));
-            return 1;
-        }
-    }
 
     // 1. Wait for launcher process to exit
     if (!strategy.waitForLauncherExit(task.launcherPid)) {

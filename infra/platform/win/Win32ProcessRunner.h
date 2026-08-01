@@ -1,6 +1,6 @@
-﻿/**
+/**
  * @file Win32ProcessRunner.h
- * @brief Declares the Windows elevated process launcher.
+ * @brief Declares the Windows elevated and non-elevated process launcher.
  */
 
 #pragma once
@@ -17,6 +17,9 @@ public:
     [[nodiscard]] bool startElevated(const QString& executablePath,
                                      const QStringList& arguments,
                                      QString* errorMessage) override;
+    [[nodiscard]] bool startNonElevated(const QString& executablePath,
+                                        const QStringList& arguments,
+                                        QString* errorMessage) override;
 };
 
 } // namespace infra::platform
