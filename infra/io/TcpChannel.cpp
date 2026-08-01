@@ -105,7 +105,7 @@ bool TcpChannel::open() {
 }
 
 void TcpChannel::moveToThread(QThread* thread) {
-    MODBUS_TOOLS_VERBOSE_INFO("TcpChannel: moveToThread current={} target={}",
+    spdlog::debug("TcpChannel: moveToThread current={} target={}",
                               threadToken(socket_.thread()),
                               threadToken(thread));
     ChannelBase::moveToThread(thread);
@@ -162,7 +162,7 @@ void TcpChannel::onReadyRead() {
     logThreadContextOnce("TcpChannel::onReadyRead", ioThreadLoggedFlag());
     QByteArray data = socket_.readAll();
     if (!data.isEmpty()) {
-        MODBUS_TOOLS_VERBOSE_INFO("TcpChannel: Received {} bytes", data.size());
+        spdlog::debug("TcpChannel: Received {} bytes", data.size());
         addRx(data.size());
         emitMonitor(false, data);
         emitRead(data);

@@ -224,7 +224,7 @@ void RequestExecutor::abort() {
 
 void RequestExecutor::onDataReceived(QByteArrayView data) {
     std::lock_guard<std::mutex> lock(mutex_);
-    MODBUS_TOOLS_VERBOSE_INFO("ModbusClient: Data received, size={}, notifying loop", data.size());
+    spdlog::debug("ModbusClient: Data received, size={}, notifying loop", data.size());
 
     frameExtractor_->feed(data);
     responseReady_ = frameExtractor_->hasCompleteFrame()
@@ -337,7 +337,7 @@ ModbusResponse RequestExecutor::sendRequestInternal(const base::Pdu& request, in
         deadline += FrameExtractor::calculateInterFrameDelay(*config_);
     }
     reqStateMachine_->tryTransition(RequestStateMachine::State::Waiting, "wait-response");
-    MODBUS_TOOLS_VERBOSE_INFO("ModbusClient: Entering wait loop, deadline in {}ms",
+    spdlog::debug("ModbusClient: Entering wait loop, deadline in {}ms",
                               config_->timeoutMs);
 
     while (true) {
@@ -376,7 +376,7 @@ ModbusResponse RequestExecutor::sendRequestInternal(const base::Pdu& request, in
             continue;
         }
         if (aborted_) {
-            MODBUS_TOOLS_VERBOSE_INFO("ModbusClient: Aborted during wait");
+            spdlog::debug("ModbusClient: Aborted during wait");
             reqStateMachine_->tryTransition(RequestStateMachine::State::Aborted,
                                             "aborted-during-wait");
             return ModbusResponse::Error(TrContext<kReqExecCtx>::tr("Aborted"));
@@ -627,7 +627,7 @@ int RequestExecutor::enqueuePendingRequest(const base::Pdu& request, int slaveId
     item.retries = config_->retries;
     item.enqueueAt = std::chrono::steady_clock::now();
     pendingRequests_.push_back(item);
-    MODBUS_TOOLS_VERBOSE_INFO("ModbusClient: enqueue request id={}, fc={}, slave={}, queue={}",
+    spdlog::debug("ModbusClient: enqueue request id={}, fc={}, slave={}, queue={}",
                               item.requestId,
                               static_cast<int>(item.functionCode),
                               item.slaveId,
@@ -648,7 +648,7 @@ void RequestExecutor::finishPendingRequest(int requestId, bool success,
     }
     const auto waitMs = std::chrono::duration_cast<std::chrono::milliseconds>(
         std::chrono::steady_clock::now() - it->enqueueAt).count();
-    MODBUS_TOOLS_VERBOSE_INFO(
+    spdlog::debug(
         "ModbusClient: finish request id={}, success={}, queue_wait={}ms, error='{}'",
         requestId, success, waitMs, error.toStdString());
     pendingRequests_.erase(it);

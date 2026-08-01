@@ -17,7 +17,6 @@
 #include "../../widgets/CollapsibleSection.h"
 #include "../../widgets/ServerClientPanel.h"
 #include "../../common/ConnectionAlert.h"
-#include "../../common/TcpStateTransition.h"
 #include "../../../infra/io/ChannelOperationWorker.h"
 #include "../../../infra/io/ServerChannelWorker.h"
 #include <QVBoxLayout>
@@ -35,6 +34,32 @@
 namespace ui::views::generic_tcp {
 
 namespace {
+
+/// In-memory state transition flags for TCP connection state changes.
+/// Previously a separate header (TcpStateTransition.h); inlined here as the
+/// sole consumer.
+struct TcpConnectionStateTransition {
+    bool setConnected = false;
+    bool setDisconnected = false;
+    bool clearSuppressDisconnectAlert = false;
+    bool showDisconnectAlert = false;
+};
+
+TcpConnectionStateTransition computeTcpStateTransition(io::ChannelState state,
+                                                       bool wasConnected,
+                                                       bool suppressDisconnectAlert) {
+    TcpConnectionStateTransition result;
+    if (state == io::ChannelState::Open) {
+        result.setConnected = !wasConnected;
+        result.clearSuppressDisconnectAlert = true;
+        return result;
+    }
+    if (state == io::ChannelState::Closed && wasConnected) {
+        result.setDisconnected = true;
+        result.showDisconnectAlert = !suppressDisconnectAlert;
+    }
+    return result;
+}
 
 constexpr auto kTcpClientText = QT_TRANSLATE_NOOP("ui::views::generic_tcp::Protocol", "TCP Client");
 constexpr auto kTcpServerText = QT_TRANSLATE_NOOP("ui::views::generic_tcp::Protocol", "TCP Server");
@@ -389,7 +414,7 @@ void GenericTcpView::onWorkerStateChanged(io::ChannelState state, quint64 genera
     }
 
     const bool wasConnected = isConnected_;
-    const auto transition = ui::common::computeTcpStateTransition(
+    const auto transition = computeTcpStateTransition(
         state,
         wasConnected,
         suppressDisconnectAlert_);

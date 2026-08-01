@@ -195,11 +195,11 @@ void BufferedWritingChannel::logThreadContextOnce(const char* scope, bool& logge
     QThread* currentThread = QThread::currentThread();
     QThread* ownerThread = dev->thread();
     QThread* uiThread = QCoreApplication::instance() ? QCoreApplication::instance()->thread() : nullptr;
-    MODBUS_TOOLS_VERBOSE_INFO("{} current={} owner={}",
+    spdlog::debug("{} current={} owner={}",
                               scope,
                               threadToken(currentThread),
                               threadToken(ownerThread));
-    MODBUS_TOOLS_VERBOSE_INFO("{} ui_thread={} current_is_ui={} owner_is_ui={}",
+    spdlog::debug("{} ui_thread={} current_is_ui={} owner_is_ui={}",
                               scope,
                               threadToken(uiThread),
                               currentThread == uiThread,

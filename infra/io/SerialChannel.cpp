@@ -98,7 +98,7 @@ bool SerialChannel::open() {
 }
 
 void SerialChannel::moveToThread(QThread* thread) {
-    MODBUS_TOOLS_VERBOSE_INFO("SerialChannel: moveToThread current={} target={}",
+    spdlog::debug("SerialChannel: moveToThread current={} target={}",
                               threadToken(serial_.thread()),
                               threadToken(thread));
     ChannelBase::moveToThread(thread);
@@ -167,7 +167,7 @@ void SerialChannel::onReadyRead() {
     if (!data.isEmpty()) {
         // OS 驱动层推送上来的一批数据视为连续到达，分配统一时间戳
         // 这在 PC 平台上是唯一合理且高性能的做法
-        MODBUS_TOOLS_VERBOSE_INFO("SerialChannel: Received {} bytes", data.size());
+        spdlog::debug("SerialChannel: Received {} bytes", data.size());
         addRx(data.size());
         emitMonitor(false, data);
         emitRead(data);

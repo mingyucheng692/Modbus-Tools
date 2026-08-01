@@ -13,13 +13,9 @@
 #include <memory>
 #include <spdlog/spdlog.h>
 
-// Controls MODBUS_TOOLS_VERBOSE_INFO macro (spdlog::info vs ((void)0)).
-// Corollary: also gates kDefaultFlushLevel (info vs warn) in Logger.cpp.
-#if defined(MODBUS_TOOLS_ENABLE_VERBOSE_RUNTIME_LOGS) && MODBUS_TOOLS_ENABLE_VERBOSE_RUNTIME_LOGS
-#define MODBUS_TOOLS_VERBOSE_INFO(...) spdlog::info(__VA_ARGS__)
-#else
-#define MODBUS_TOOLS_VERBOSE_INFO(...) ((void)0)
-#endif
+// Verbose runtime logging is gated by the CMake option
+// MODBUS_TOOLS_ENABLE_VERBOSE_RUNTIME_LOGS, which controls spdlog flush level
+// (info vs warn) in Logger.cpp. Call sites use spdlog::debug() directly.
 
 namespace logging {
 
