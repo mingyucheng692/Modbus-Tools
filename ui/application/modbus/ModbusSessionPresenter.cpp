@@ -64,7 +64,7 @@ void ModbusSessionPresenter::startTcpConnect(const QString& ip, int port,
     Q_ASSERT(mode_ == SessionMode::Tcp);
     spdlog::info("ModbusSessionPresenter[TCP]: Connect requested to {}:{}", ip.toStdString(), port);
     // suppressDisconnectAlert_ is reset by the Connecting state-entry handler.
-    connectionStateMachine_->transitionTo(SessionConnectionState::Connecting);
+    [[maybe_unused]] const bool _conn = connectionStateMachine_->transitionTo(SessionConnectionState::Connecting);
     const quint64 generation = connectionGeneration_;
 
     if (trafficLogController_) {
@@ -73,7 +73,7 @@ void ModbusSessionPresenter::startTcpConnect(const QString& ip, int port,
 
     initStack(config);
     if (!worker_ || !channel_) {
-        connectionStateMachine_->transitionTo(SessionConnectionState::Disconnected);
+        [[maybe_unused]] const bool _disc = connectionStateMachine_->transitionTo(SessionConnectionState::Disconnected);
         emit connectFinished(false, tr("Failed to create Modbus stack"));
         return;
     }
@@ -123,7 +123,7 @@ void ModbusSessionPresenter::startSerialConnect(const io::SerialConfig& serialCo
     spdlog::info("ModbusSessionPresenter[{}]: Connect requested to {}",
                  descriptor.logName,
                  serialConfig.portName.toStdString());
-    connectionStateMachine_->transitionTo(SessionConnectionState::Connecting);
+    [[maybe_unused]] const bool _conn = connectionStateMachine_->transitionTo(SessionConnectionState::Connecting);
 
     if (trafficLogController_) {
         trafficLogController_->logConnectionInfo(tr("Opening %1...").arg(serialConfig.portName));
@@ -132,7 +132,7 @@ void ModbusSessionPresenter::startSerialConnect(const io::SerialConfig& serialCo
 
     initStack(modbusConfig);
     if (!worker_ || !channel_) {
-        connectionStateMachine_->transitionTo(SessionConnectionState::Disconnected);
+        [[maybe_unused]] const bool _disc = connectionStateMachine_->transitionTo(SessionConnectionState::Disconnected);
         emit connectFinished(false, tr("Failed to create Modbus stack"));
         return;
     }
@@ -165,7 +165,7 @@ void ModbusSessionPresenter::requestDisconnect() {
                  descriptor.logName);
     deferredAction_ = nullptr;
     // suppressDisconnectAlert_ is set by the Disconnecting state-entry handler.
-    connectionStateMachine_->transitionTo(SessionConnectionState::Disconnecting);
+    [[maybe_unused]] const bool _disc = connectionStateMachine_->transitionTo(SessionConnectionState::Disconnecting);
     if (trafficLogController_) {
         trafficLogController_->logConnectionInfo(tr("Disconnecting..."));
     }
@@ -193,7 +193,7 @@ void ModbusSessionPresenter::requestRelease(const QString& timeoutMessage) {
     if (pollingController_) pollingController_->reset();
     ++connectionGeneration_;
     suppressDisconnectAlert_ = true;
-    connectionStateMachine_->transitionTo(SessionConnectionState::Disconnected);
+    [[maybe_unused]] const bool _disc = connectionStateMachine_->transitionTo(SessionConnectionState::Disconnected);
     const bool wasLinked = linked_;
     linked_ = false;
     if (controlWidget_) {
