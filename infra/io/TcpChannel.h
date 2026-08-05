@@ -62,6 +62,7 @@ private:
     void onStateChanged(QAbstractSocket::SocketState state);
 
     QTcpSocket socket_;
+    QTimer connectTimer_;
     QString ip_;
     int port_ = config::Network::kDefaultModbusTcpPort;
 };

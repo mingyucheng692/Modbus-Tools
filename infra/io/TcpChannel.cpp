@@ -26,6 +26,14 @@ unsigned long long threadToken(QThread* thread)
 } // namespace
 
 TcpChannel::TcpChannel() {
+    connectTimer_.setSingleShot(true);
+    connectTimer_.callOnTimeout([this]() {
+        spdlog::warn("TcpChannel: connect timeout to {}:{}", ip_.toStdString(), port_);
+        socket_.abort();
+        setState(ChannelState::Error);
+        emitError(QStringLiteral("TCP connect timeout (%1:%2)").arg(ip_).arg(port_));
+    });
+
     QObject::connect(&socket_, &QTcpSocket::connected, &socket_, [this]() {
         onConnected();
     }, Qt::QueuedConnection);
@@ -65,6 +73,8 @@ bool TcpChannel::open() {
 
     logThreadContextOnce("TcpChannel::open", openThreadLoggedFlag());
 
+    connectTimer_.stop();
+
     if (socket_.state() == QAbstractSocket::ConnectedState) {
         setState(ChannelState::Open);
         flushPendingWrites();
@@ -101,6 +111,7 @@ bool TcpChannel::open() {
     socket_.setSocketOption(QAbstractSocket::LowDelayOption, 1);
     socket_.setSocketOption(QAbstractSocket::KeepAliveOption, 1);
     socket_.connectToHost(ip_, port_);
+    connectTimer_.start(std::max(3000, timeouts().readMs));
     return true;
 }
 
@@ -110,6 +121,7 @@ void TcpChannel::moveToThread(QThread* thread) {
                               threadToken(thread));
     ChannelBase::moveToThread(thread);
     socket_.moveToThread(thread);
+    connectTimer_.moveToThread(thread);
     moveWriteInfrastructureToThread(thread);
     // Invariant: socket_ and writeTimeoutTimer_ now both live on @p thread.
     // moveWriteInfrastructureToThread moves the timer to the same target, so
@@ -133,6 +145,7 @@ void TcpChannel::close() {
 
     resetWriteState();
     disarmWriteTimeout();
+    connectTimer_.stop();
     setState(ChannelState::Closing);
     setClosing(true);
     if (socket_.state() == QAbstractSocket::UnconnectedState) {
@@ -172,6 +185,7 @@ void TcpChannel::onReadyRead() {
 void TcpChannel::onConnected() {
     assertOwnerThread(socket_, __func__);
     logThreadContextOnce("TcpChannel::onConnected", ioThreadLoggedFlag());
+    connectTimer_.stop();
     setClosing(false);
     setState(ChannelState::Open);
     flushPendingWrites();
@@ -179,6 +193,7 @@ void TcpChannel::onConnected() {
 
 void TcpChannel::onSocketError(QAbstractSocket::SocketError error) {
     assertOwnerThread(socket_, __func__);
+    connectTimer_.stop();
     if (isClosing()) {
         return;
     }
