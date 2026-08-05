@@ -152,6 +152,13 @@ QString ModbusClient::lastChannelError() const {
 }
 
 void ModbusClient::setConfig(const base::ModbusConfig& config) {
+    // Detect endpoint change before applying config so we can tear down
+    // the stale connection before the new endpoint takes effect.
+    const bool endpointChanged = (config_.ipAddress != config.ipAddress ||
+                                   config_.port != config.port);
+    const auto oldIp = config_.ipAddress;
+    const auto oldPort = config_.port;
+
     config_ = config;
     frameExtractor_.setConfig(config);
     flowController_.setMode(config.mode);
@@ -161,7 +168,14 @@ void ModbusClient::setConfig(const base::ModbusConfig& config) {
         config.maxRetryIntervalMs,
         config.retryBackoffFactor,
         config.retryJitterPercent});
-    if (isConnected()) {
+
+    if (endpointChanged && isConnected()) {
+        spdlog::info("ModbusClient::setConfig: endpoint changed while connected "
+                     "(old={}:{} new={}:{}), disconnecting",
+                     oldIp.toStdString(), oldPort,
+                     config.ipAddress.toStdString(), config.port);
+        disconnect();
+    } else if (isConnected()) {
         io::Timeouts timeouts;
         timeouts.readMs = config_.timeoutMs;
         timeouts.writeMs = config_.timeoutMs;

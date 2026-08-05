@@ -166,6 +166,12 @@ void TcpChannel::close() {
 }
 
 void TcpChannel::setEndpoint(const QString& ip, int port) {
+    // Defensive: if the socket is in an active state, tear down the old
+    // connection before changing the endpoint to prevent stale connections.
+    if (socket_.state() == QAbstractSocket::ConnectedState ||
+        socket_.state() == QAbstractSocket::ConnectingState) {
+        close();
+    }
     ip_ = ip;
     port_ = port;
 }
