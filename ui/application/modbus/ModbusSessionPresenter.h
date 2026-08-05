@@ -109,11 +109,13 @@ private:
     void assertGuiThread(const char* context) const;
 
     /// Derives the UI connection state from the authoritative core
-    /// ConnectionStateMachine::State and the current channel state.
+    /// ConnectionStateMachine::State, the current channel state, and the
+    /// session health (whether the Modbus device is actually responding).
     /// This is the single source of truth for UI state.
     static SessionConnectionState deriveUiState(
         ::modbus::session::ConnectionStateMachine::State coreState,
-        io::ChannelState channelState);
+        io::ChannelState channelState,
+        ::modbus::session::SessionHealth health);
 
     /// Queries client_->connectionState() (thread-safe via std::atomic) and
     /// transitions the UI FSM to the derived state. If the derived state

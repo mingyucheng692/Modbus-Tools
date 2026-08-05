@@ -81,6 +81,12 @@ public:
     ConnectionState connectionState() const;
     RequestState requestState() const;
 
+    /// Session health: whether the Modbus device is actually responding,
+    /// orthogonal to the transport-layer connection state.
+    SessionHealth sessionHealth() const {
+        return sessionHealth_.load(std::memory_order_acquire);
+    }
+
 private:
     using PendingRequest = RequestExecutor::PendingRequest;
 
@@ -104,6 +110,7 @@ private:
     RetryStrategy retryStrategy_;
     ConnectionManager connectionManager_;
     RequestStateMachine requestStateMachine_;
+    std::atomic<SessionHealth> sessionHealth_{SessionHealth::Unknown};
 
     // @guarded_by pendingMutex_ — pendingRequests_, nextRequestId_
     std::mutex pendingMutex_;

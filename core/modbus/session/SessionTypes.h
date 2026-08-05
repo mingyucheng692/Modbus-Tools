@@ -17,6 +17,19 @@
 
 namespace modbus::session {
 
+/// Orthogonal to transport state: tracks whether the Modbus device is
+/// actually responding, not just whether the TCP socket is open.
+/// Transitions:
+///   Unknown -> Healthy  (first successful request)
+///   Unknown -> Unresponsive (first failed request)
+///   Healthy -> Unresponsive (request failure after being healthy)
+///   Unresponsive -> Healthy (request success after being unresponsive)
+enum class SessionHealth {
+    Unknown,      // Transport established, no Modbus exchange yet
+    Healthy,      // At least one request succeeded
+    Unresponsive  // Most recent request failed (timeout, error, etc.)
+};
+
 enum class ModbusResponseKind {
     Success,
     NoResponseExpected,

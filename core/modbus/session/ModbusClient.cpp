@@ -117,6 +117,7 @@ bool ModbusClient::connect() {
     if (!channel_) return false;
 
     aborted_ = false;
+    sessionHealth_.store(SessionHealth::Unknown, std::memory_order_release);
     const bool connected = ensureConnected(config_.autoReconnect);
     if (connected) {
         clearRuntimeState(false);
@@ -127,6 +128,7 @@ bool ModbusClient::connect() {
 
 void ModbusClient::disconnect() {
     aborted_ = true;
+    sessionHealth_.store(SessionHealth::Unknown, std::memory_order_release);
     connectionStateMachine_.tryTransition(ConnectionState::Disconnecting, "disconnect");
     if (channel_) {
         channel_->close();
@@ -194,7 +196,15 @@ bool ModbusClient::waitForChannelState(io::ChannelState expectedState,
 }
 
 ModbusResponse ModbusClient::sendRequest(const base::Pdu& request, int slaveId) {
-    return requestExecutor_.execute(request, slaveId);
+    auto response = requestExecutor_.execute(request, slaveId);
+    // Update session health based on the outcome of this request.
+    // Busy (lock contention) is not a transport failure — don't downgrade.
+    if (response.kind == ModbusResponseKind::Success) {
+        sessionHealth_.store(SessionHealth::Healthy, std::memory_order_release);
+    } else if (!response.isBusy()) {
+        sessionHealth_.store(SessionHealth::Unresponsive, std::memory_order_release);
+    }
+    return response;
 }
 
 void ModbusClient::sendRaw(const QByteArray& data) {

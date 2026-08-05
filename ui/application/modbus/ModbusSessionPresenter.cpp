@@ -484,7 +484,8 @@ void ModbusSessionPresenter::setupWorkerSignals(quint64 generation) {
 
 SessionConnectionState ModbusSessionPresenter::deriveUiState(
     ::modbus::session::ConnectionStateMachine::State coreState,
-    io::ChannelState channelState) {
+    io::ChannelState channelState,
+    ::modbus::session::SessionHealth health) {
     using Core = ::modbus::session::ConnectionStateMachine::State;
     switch (coreState) {
     case Core::Disconnected:
@@ -496,7 +497,12 @@ SessionConnectionState ModbusSessionPresenter::deriveUiState(
         }
         return SessionConnectionState::Connecting;
     case Core::Connected:
-        return SessionConnectionState::Connected;
+        // Transport is up, but the Modbus session may not be healthy.
+        // Only show "Connected" when the device has actually responded.
+        if (health == ::modbus::session::SessionHealth::Healthy) {
+            return SessionConnectionState::Connected;
+        }
+        return SessionConnectionState::TransportConnected;
     case Core::Reconnecting:
         return SessionConnectionState::Connecting;
     case Core::Disconnecting:
@@ -519,8 +525,9 @@ void ModbusSessionPresenter::syncStateFromCore() {
     // distinction; channel_ is on the IO thread but channel_->state() is a
     // simple enum read — safe for the same reason as client_->connectionState().
     const auto chanState = channel_ ? channel_->state() : io::ChannelState::Closed;
+    const auto health = client_->sessionHealth();
 
-    const auto derivedUi = deriveUiState(coreState, chanState);
+    const auto derivedUi = deriveUiState(coreState, chanState, health);
     const auto currentUi = connectionStateMachine_->currentState();
 
     if (derivedUi != currentUi) {
@@ -571,13 +578,21 @@ void ModbusSessionPresenter::handleChannelStateTransition(io::ChannelState state
             if (controlWidget_) {
                 controlWidget_->setPollingEnabled(false);
             }
+            // Attribute the disconnection reason: prefer the last channel
+            // error, fall back to a generic message.
+            const QString reason = client_
+                ? client_->lastChannelError()
+                : QString();
             if (isTcp && trafficLogController_) {
-                trafficLogController_->logConnectionInfo(tr("Disconnected"));
+                const QString logMsg = reason.isEmpty()
+                    ? tr("Disconnected")
+                    : tr("Disconnected: %1").arg(reason);
+                trafficLogController_->logConnectionInfo(logMsg);
             }
             if (shouldShowDisconnectAlert) {
                 ui::common::connection_alert::showDisconnected(qApp->activeWindow());
             }
-            emit sessionDisconnected(QString());
+            emit sessionDisconnected(reason);
         }
         return;
     }
@@ -604,12 +619,13 @@ void ModbusSessionPresenter::handleConnectFinished(bool ok, const QString& error
         if (trafficLogController_) {
             trafficLogController_->logConnectionInfo(tr("Connection failed: %1").arg(error));
         }
+        emit sessionDisconnected(error);
         emit connectFinished(false, error);
         return;
     }
 
     if (trafficLogController_) {
-        trafficLogController_->logConnectionInfo(tr("Connected"));
+        trafficLogController_->logConnectionInfo(tr("Transport connected, waiting for device response..."));
     }
     emit sessionConnected();
     emit connectFinished(true, error);
@@ -620,6 +636,9 @@ void ModbusSessionPresenter::handleRequestFinished(int requestId,
                                                      quint64 generation) {
     assertGuiThread("handleRequestFinished must run on the GUI thread");
     if (generation != connectionGeneration_) return;
+    // Re-derive UI state after each request: health may have changed
+    // (Healthy <-> Unresponsive), which affects Connected vs TransportConnected.
+    syncStateFromCore();
     if (!requestService_) return;
     emit requestFinished(requestId, response);
 }
