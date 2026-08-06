@@ -206,6 +206,15 @@ void WorkerReleaseCoordinator::finalize(
 
     pending->worker.reset();
     pending->client.reset();
+    // Move the channel back to the current (GUI) thread before destruction.
+    // TcpChannel/SerialChannel/UdpChannel destructors assert ownership via
+    // assertOwnerThreadForDestruction(). After the IO thread has been
+    // quit()+wait()'d above, the channel's deviceThread_ still points to the
+    // (now stopped) IO thread. Moving it to the current thread ensures the
+    // destructor runs on an owning thread that matches deviceThread_.
+    if (pending->channel) {
+        pending->channel->moveToThread(QThread::currentThread());
+    }
     pending->channel.reset();
     pending->channelThread.reset();
     pending->workerThread.reset();
