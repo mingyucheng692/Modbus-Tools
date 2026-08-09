@@ -25,6 +25,7 @@ class QPushButton;
 class QComboBox;
 class QStackedWidget;
 class QEvent;
+class QTimer;
 
 namespace core::common {
 class ISettingsService;
@@ -95,9 +96,13 @@ private:
 
     void appendReceiveData(const QByteArray& data);
     void appendSendData(const QByteArray& data);
+    void flushPendingTrafficDisplay();
     void refreshReceiveDisplay();
     void refreshSendDisplay();
     [[nodiscard]] QString formatData(const QByteArray& data, bool hex) const;
+    [[nodiscard]] QString buildDisplayText(const QString& directionLabel,
+                                           const QByteArray& data,
+                                           bool hex) const;
 
     // Layout
     QVBoxLayout* mainLayout_ = nullptr;
@@ -119,8 +124,13 @@ private:
     QPushButton* copySendButton_ = nullptr;
     QPushButton* clearReceiveButton_ = nullptr;
     QPushButton* clearSendButton_ = nullptr;
+    QTimer* dataFlushTimer_ = nullptr;
     QByteArray lastReceiveFrame_;
     QByteArray lastSendFrame_;
+    QString lastRenderedReceiveText_;
+    QString lastRenderedSendText_;
+    bool receiveDirty_ = false;
+    bool sendDirty_ = false;
 
     // Non-owning reference to the session presenter (owned by pagePresenter_).
     ui::application::modbus::ModbusSessionPresenter* sessionPresenter_ = nullptr;

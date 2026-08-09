@@ -28,12 +28,15 @@
 #include <QComboBox>
 #include <QStackedWidget>
 #include <QEvent>
+#include <QTimer>
 #include <QClipboard>
 #include <QGuiApplication>
 #include <QCoreApplication>
 #include <spdlog/spdlog.h>
 
 namespace {
+
+constexpr bool kDataMonitorHexDisplay = true;
 
 void initializeAsciiSerialDefaults(core::common::ISettingsService* settingsService)
 {
@@ -148,6 +151,11 @@ void ModbusPage::setupUi() {
     dataLayout->addWidget(receiveGroup_, 1);
     dataLayout->addWidget(sendGroup_, 1);
 
+    dataFlushTimer_ = new QTimer(this);
+    dataFlushTimer_->setInterval(config::Ui::kDataMonitorFlushIntervalMs);
+    connect(dataFlushTimer_, &QTimer::timeout,
+            this, &ModbusPage::flushPendingTrafficDisplay);
+
     trafficMonitor_ = new widgets::TrafficMonitorWidget(settingsService_, this);
     trafficMonitor_->setMinimumHeight(140);
     trafficMonitor_->setSettingsGroup(QStringLiteral("modbus/tcp/traffic"));
@@ -208,12 +216,26 @@ void ModbusPage::setupViewOnlyConnections() {
     }
 
     connect(clearReceiveButton_, &QPushButton::clicked, this, [this]() {
+        receiveDirty_ = false;
         lastReceiveFrame_.clear();
-        if (receiveTextEdit_) receiveTextEdit_->clear();
+        lastRenderedReceiveText_.clear();
+        if (receiveTextEdit_) {
+            receiveTextEdit_->clear();
+        }
+        if (dataFlushTimer_ && !sendDirty_) {
+            dataFlushTimer_->stop();
+        }
     });
     connect(clearSendButton_, &QPushButton::clicked, this, [this]() {
+        sendDirty_ = false;
         lastSendFrame_.clear();
-        if (sendTextEdit_) sendTextEdit_->clear();
+        lastRenderedSendText_.clear();
+        if (sendTextEdit_) {
+            sendTextEdit_->clear();
+        }
+        if (dataFlushTimer_ && !receiveDirty_) {
+            dataFlushTimer_->stop();
+        }
     });
     connect(copyReceiveButton_, &QPushButton::clicked, this, [this]() {
         if (!receiveTextEdit_) return;
@@ -387,38 +409,75 @@ QString ModbusPage::formatData(const QByteArray& data, bool hex) const {
     return QString::fromLatin1(data);
 }
 
+QString ModbusPage::buildDisplayText(const QString& directionLabel,
+                                     const QByteArray& data,
+                                     bool hex) const {
+    return tr("[%1] %2").arg(directionLabel, formatData(data, hex));
+}
+
 void ModbusPage::appendReceiveData(const QByteArray& data) {
     lastReceiveFrame_ = data;
-    refreshReceiveDisplay();
+    receiveDirty_ = true;
+    if (dataFlushTimer_ && !dataFlushTimer_->isActive()) {
+        dataFlushTimer_->start();
+    }
 }
 
 void ModbusPage::appendSendData(const QByteArray& data) {
     lastSendFrame_ = data;
-    refreshSendDisplay();
+    sendDirty_ = true;
+    if (dataFlushTimer_ && !dataFlushTimer_->isActive()) {
+        dataFlushTimer_->start();
+    }
+}
+
+void ModbusPage::flushPendingTrafficDisplay() {
+    if (receiveDirty_) {
+        refreshReceiveDisplay();
+    }
+    if (sendDirty_) {
+        refreshSendDisplay();
+    }
+
+    if (dataFlushTimer_ && !receiveDirty_ && !sendDirty_) {
+        dataFlushTimer_->stop();
+    }
 }
 
 void ModbusPage::refreshReceiveDisplay() {
     if (!receiveTextEdit_) return;
+    receiveDirty_ = false;
     if (lastReceiveFrame_.isEmpty()) {
-        receiveTextEdit_->clear();
+        if (!lastRenderedReceiveText_.isEmpty()) {
+            lastRenderedReceiveText_.clear();
+            receiveTextEdit_->clear();
+        }
         return;
     }
-    const bool hex = true;
-    receiveTextEdit_->setPlainText(tr("[%1] %2")
-                                       .arg(tr("RX"))
-                                       .arg(formatData(lastReceiveFrame_, hex)));
+    const QString text = buildDisplayText(tr("RX"), lastReceiveFrame_, kDataMonitorHexDisplay);
+    if (text == lastRenderedReceiveText_) {
+        return;
+    }
+    lastRenderedReceiveText_ = text;
+    receiveTextEdit_->setPlainText(text);
 }
 
 void ModbusPage::refreshSendDisplay() {
     if (!sendTextEdit_) return;
+    sendDirty_ = false;
     if (lastSendFrame_.isEmpty()) {
-        sendTextEdit_->clear();
+        if (!lastRenderedSendText_.isEmpty()) {
+            lastRenderedSendText_.clear();
+            sendTextEdit_->clear();
+        }
         return;
     }
-    const bool hex = true;
-    sendTextEdit_->setPlainText(tr("[%1] %2")
-                                    .arg(tr("TX"))
-                                    .arg(formatData(lastSendFrame_, hex)));
+    const QString text = buildDisplayText(tr("TX"), lastSendFrame_, kDataMonitorHexDisplay);
+    if (text == lastRenderedSendText_) {
+        return;
+    }
+    lastRenderedSendText_ = text;
+    sendTextEdit_->setPlainText(text);
 }
 
 void ModbusPage::retranslateUi() {

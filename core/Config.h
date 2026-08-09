@@ -143,6 +143,7 @@ struct Ui {
     static constexpr int kNavigationRightInset = 9;
     static constexpr int kTrafficMonitorMaxBlockCount = 1000;
     static constexpr int kByteMonitorMaxBlockCount = 50000;
+    static constexpr int kDataMonitorFlushIntervalMs = 33;
 };
 
 struct Io {
