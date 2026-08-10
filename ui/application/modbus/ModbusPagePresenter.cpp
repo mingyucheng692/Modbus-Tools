@@ -51,9 +51,7 @@ void ModbusPagePresenter::createServices() {
         trafficMonitor_, pollingController_, this);
     requestCoordinator_ = new RequestCoordinator(
         sessionPresenter_, requestService_, pollingController_,
-        trafficLogController_, mode_, this);
-
-    requestCoordinator_->setControlWidget(controlWidget_);
+        trafficLogController_, controlWidget_, mode_, this);
 
     sessionPresenter_->setConnectionWidget(connectionWidget_);
     sessionPresenter_->setControlWidget(controlWidget_);

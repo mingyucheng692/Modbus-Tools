@@ -50,6 +50,7 @@ public:
                                 RequestSubmissionService* requestService,
                                 PollingController* pollingController,
                                 TrafficLogController* trafficLogController,
+                                ui::widgets::ControlWidget* controlWidget,
                                 SessionMode sessionMode,
                                 QObject* parent = nullptr);
 
@@ -60,7 +61,6 @@ public:
     void handlePollRequest(uint8_t fc, int addr, int qty, int intervalMs);
     void handleRequestFinished(int requestId,
                                const ::modbus::session::ModbusResponse& response);
-    void setControlWidget(ui::widgets::ControlWidget* widget);
 
 signals:
     void linkageDataReceived(const ::modbus::base::Pdu& pdu,

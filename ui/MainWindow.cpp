@@ -91,6 +91,7 @@ MainWindow::MainWindow(core::common::ISettingsService* settingsService,
       languageCoordinator_(std::make_unique<application::LanguageCoordinator>(settingsController_.get())),
       updateCoordinator_(std::make_unique<application::UpdateCoordinator>(
           updateInteractionView_.get(),
+          this,
           updateChecker_.get(),
           updateManager_.get(),
           settingsController_.get())),

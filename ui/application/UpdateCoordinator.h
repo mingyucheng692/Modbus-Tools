@@ -3,6 +3,7 @@
 #include <QObject>
 #include <QString>
 #include <functional>
+#include "IApplicationExitView.h"
 #include "update/UpdateManager.h"
 
 class QUrl;
@@ -45,6 +46,7 @@ class UpdateCoordinator : public QObject {
 
 public:
     explicit UpdateCoordinator(IUpdateInteractionView* view,
+                               IApplicationExitView* exitView,
                                common::UpdateChecker* updateChecker,
                                core::update::UpdateManager* updateManager,
                                core::common::SettingsController* settingsController,
@@ -69,6 +71,7 @@ private:
     void startSilentUpdate();
 
     IUpdateInteractionView* view_ = nullptr;
+    IApplicationExitView* exitView_ = nullptr;
     common::UpdateChecker* updateChecker_ = nullptr;
     core::update::UpdateManager* updateManager_ = nullptr;
     core::common::SettingsController* settingsController_ = nullptr;

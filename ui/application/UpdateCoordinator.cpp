@@ -9,7 +9,6 @@
 #include <QDateTime>
 #include <QDesktopServices>
 #include <QUrl>
-#include <QApplication>
 #include <spdlog/spdlog.h>
 #include "../core/common/TrContext.h"
 
@@ -22,16 +21,19 @@ constexpr char kMainWindowCtx[] = "ui::MainWindow";
 namespace ui::application {
 
 UpdateCoordinator::UpdateCoordinator(IUpdateInteractionView* view,
+                                     IApplicationExitView* exitView,
                                      common::UpdateChecker* updateChecker,
                                      core::update::UpdateManager* updateManager,
                                      core::common::SettingsController* settingsController,
                                      QObject* parent)
     : QObject(parent),
       view_(view),
+      exitView_(exitView),
       updateChecker_(updateChecker),
       updateManager_(updateManager),
       settingsController_(settingsController) {
     Q_ASSERT(view_);
+    Q_ASSERT(exitView_);
     Q_ASSERT(updateChecker_);
     Q_ASSERT(updateManager_);
     Q_ASSERT(settingsController_);
@@ -171,11 +173,7 @@ void UpdateCoordinator::handleUpdateReadyToInstall(const QString& taskFile) {
     QString error;
     if (updateManager_ != nullptr && updateManager_->launchInstaller(taskFile, currentLocale_, error)) {
         spdlog::info("UpdateCoordinator: Updater launched successfully, terminating application to apply update.");
-        // Note: qApp->quit() is called directly here (not via IMainWindowView::requestQuit())
-        // because UpdateCoordinator only holds an IUpdateInteractionView* (not IMainWindowView*),
-        // placing it in a separate ownership boundary. Routing this through MainWindow would
-        // require adding an IMainWindowView* dependency or a quit signal/callback to UpdateCoordinator.
-        qApp->quit();
+        exitView_->requestQuit();
     } else {
         if (updateManager_ == nullptr && error.isEmpty()) {
             error = TrContext<kMainWindowCtx>::tr("Update service unavailable");

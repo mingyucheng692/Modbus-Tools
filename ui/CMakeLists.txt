@@ -78,6 +78,7 @@ target_sources(ui PRIVATE
     common/UpdateChecker.h
     application/AppLifecycleCoordinator.cpp
     application/AppLifecycleCoordinator.h
+    application/IApplicationExitView.h
     application/IMainWindowView.h
     application/LanguageCoordinator.cpp
     application/LanguageCoordinator.h

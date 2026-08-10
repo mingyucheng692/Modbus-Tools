@@ -12,7 +12,7 @@ protected:
     void SetUp() override {
         settingsController_ = std::make_unique<core::common::SettingsController>(&settingsService_);
         coordinator_ = std::make_unique<ui::application::UpdateCoordinator>(
-            &view_, &updateChecker_, &updateManager_, settingsController_.get());
+            &view_, &view_, &updateChecker_, &updateManager_, settingsController_.get());
     }
 
     tests::mocks::FakeSettingsService settingsService_;

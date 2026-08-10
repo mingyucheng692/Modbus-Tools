@@ -23,6 +23,7 @@ RequestCoordinator::RequestCoordinator(ModbusSessionPresenter* presenter,
                                        RequestSubmissionService* requestService,
                                        PollingController* pollingController,
                                        TrafficLogController* trafficLogController,
+                                       ui::widgets::ControlWidget* controlWidget,
                                        SessionMode sessionMode,
                                        QObject* parent)
     : QObject(parent),
@@ -30,6 +31,7 @@ RequestCoordinator::RequestCoordinator(ModbusSessionPresenter* presenter,
       requestService_(requestService),
       pollingController_(pollingController),
       trafficLogController_(trafficLogController),
+      controlWidget_(controlWidget),
       sessionMode_(sessionMode) {
 }
 
@@ -191,10 +193,6 @@ void RequestCoordinator::handleRequestFinished(int requestId,
             modeDescriptor(sessionMode_).protocolType;
         emit linkageDataReceived(response.pdu, protocolType, addr);
     }
-}
-
-void RequestCoordinator::setControlWidget(ui::widgets::ControlWidget* widget) {
-    controlWidget_ = widget;
 }
 
 } // namespace ui::application::modbus

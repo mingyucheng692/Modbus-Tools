@@ -22,6 +22,18 @@ option(MODBUS_TOOLS_ENABLE_CLANG_TIDY "Enable clang-tidy during compilation when
 #   cmake -S . -B build_release -DMODBUS_TOOLS_ENABLE_VERBOSE_RUNTIME_LOGS=ON
 option(MODBUS_TOOLS_ENABLE_VERBOSE_RUNTIME_LOGS "Flush spdlog on info level (ON) or warn level (OFF)" OFF)
 
+function(modbus_tools_apply_logging_policy target_name)
+    if(NOT TARGET ${target_name})
+        message(FATAL_ERROR "Target '${target_name}' must exist before applying logging policy")
+    endif()
+
+    target_compile_definitions(${target_name} PRIVATE
+        MODBUS_TOOLS_ENABLE_VERBOSE_RUNTIME_LOGS=$<IF:$<BOOL:${MODBUS_TOOLS_ENABLE_VERBOSE_RUNTIME_LOGS}>,1,0>
+        SPDLOG_ACTIVE_LEVEL=$<IF:$<CONFIG:Debug>,SPDLOG_LEVEL_DEBUG,SPDLOG_LEVEL_INFO>
+        $<$<NOT:$<CONFIG:Debug>>:QT_NO_DEBUG_OUTPUT>
+    )
+endfunction()
+
 function(modbus_tools_disable_exceptions target_name)
     if(NOT TARGET ${target_name})
         message(FATAL_ERROR "Target '${target_name}' must exist before disabling exceptions")
@@ -231,8 +243,6 @@ set(MODBUS_TOOLS_RELEASES_PAGE_URL "https://github.com/mingyucheng692/Modbus-Too
 target_compile_definitions(core PRIVATE
     MODBUS_TOOLS_RELEASES_PAGE_URL="${MODBUS_TOOLS_RELEASES_PAGE_URL}"
     MODBUS_TOOLS_PLATFORM="${MODBUS_TOOLS_PLATFORM}"
-    MODBUS_TOOLS_ENABLE_VERBOSE_RUNTIME_LOGS=$<IF:$<BOOL:${MODBUS_TOOLS_ENABLE_VERBOSE_RUNTIME_LOGS}>,1,0>
-    SPDLOG_ACTIVE_LEVEL=$<IF:$<CONFIG:Debug>,SPDLOG_LEVEL_DEBUG,SPDLOG_LEVEL_INFO>
     MODBUS_TOOLS_UPDATER_SHA256=""
 )
 
@@ -247,6 +257,10 @@ target_compile_definitions(ui PRIVATE
 target_compile_definitions(Modbus-Tools PRIVATE
     MODBUS_TOOLS_APP_VERSION="${PROJECT_VERSION}"
 )
+
+foreach(modbus_tools_target IN ITEMS infra_platform infra core ui Modbus-Tools)
+    modbus_tools_apply_logging_policy(${modbus_tools_target})
+endforeach()
 
 # Ensure updater is built along with the main application when supported.
 if(MODBUS_TOOLS_UPDATER_ENABLED)
