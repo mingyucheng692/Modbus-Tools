@@ -72,9 +72,10 @@ void ModbusPagePresenter::wireConnections() {
             controlWidget_, &ui::widgets::ControlWidget::recordTx);
 
     connect(pollingController_, &PollingController::submitPollRequest,
-            this, [this](const ::modbus::base::Pdu& pdu, int slaveId, int requestId) {
+            this, [this](const ::modbus::base::Pdu& pdu, int slaveId, int requestId,
+                         TraceId traceId) {
                 if (sessionPresenter_) {
-                    sessionPresenter_->submitRequest(pdu, slaveId, requestId);
+                    sessionPresenter_->submitRequest(pdu, slaveId, requestId, traceId);
                 }
             });
     connect(pollingController_, &PollingController::summaryReady,

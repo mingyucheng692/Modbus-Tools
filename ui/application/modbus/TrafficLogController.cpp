@@ -9,8 +9,10 @@
 
 #include "TrafficLogController.h"
 #include "PollingController.h"
+#include "../../logging/LogBridge.h"
 #include "../../widgets/TrafficMonitorWidget.h"
 #include <QCoreApplication>
+#include <utility>
 
 namespace ui::application::modbus {
 
@@ -26,12 +28,20 @@ void TrafficLogController::setPollingController(PollingController* controller) {
     pollingController_ = controller;
 }
 
+void TrafficLogController::publishEvent(ui::common::TrafficEvent event) {
+    if (!monitor_) {
+        return;
+    }
+    monitor_->appendEvent(event);
+    ui::logging::relay(event);
+}
+
 void TrafficLogController::logConnectionInfo(const QString& message) {
     if (!monitor_) return;
     ui::common::TrafficEvent event;
     event.requestType = ui::common::TrafficRequestType::Connection;
     event.summary = message;
-    monitor_->appendEvent(event);
+    publishEvent(std::move(event));
 }
 
 void TrafficLogController::logRawFrame(ui::common::TrafficDirection direction,
@@ -49,64 +59,99 @@ void TrafficLogController::logRawFrame(ui::common::TrafficDirection direction,
     event.requestType = ui::common::TrafficRequestType::Unknown;
     event.isPoll = suppressLog;
     event.payload = data;
-    monitor_->appendEvent(event);
+    publishEvent(std::move(event));
 }
 
-void TrafficLogController::logReadSuccess(int retryCount) {
+void TrafficLogController::logReadSuccess(int retryCount, TraceId traceId) {
     if (!monitor_) return;
-    monitor_->appendInfo(
-        successWithRetrySummary(tr("Success: Response received"), retryCount));
+    ui::common::TrafficEvent event;
+    event.requestType = ui::common::TrafficRequestType::ManualRead;
+    event.traceId = traceId;
+    event.summary = successWithRetrySummary(tr("Success: Response received"), retryCount);
+    publishEvent(std::move(event));
 }
 
-void TrafficLogController::logWriteSuccess(int retryCount) {
+void TrafficLogController::logWriteSuccess(int retryCount, TraceId traceId) {
     if (!monitor_) return;
-    monitor_->appendInfo(
-        successWithRetrySummary(tr("Success: Write confirmed"), retryCount));
+    ui::common::TrafficEvent event;
+    event.requestType = ui::common::TrafficRequestType::ManualWrite;
+    event.traceId = traceId;
+    event.summary = successWithRetrySummary(tr("Success: Write confirmed"), retryCount);
+    publishEvent(std::move(event));
 }
 
-void TrafficLogController::logBroadcastWriteSuccess(int retryCount) {
+void TrafficLogController::logBroadcastWriteSuccess(int retryCount, TraceId traceId) {
     if (!monitor_) return;
-    monitor_->appendInfo(successWithRetrySummary(
-        tr("Success: Broadcast write sent, no response expected"), retryCount));
+    ui::common::TrafficEvent event;
+    event.requestType = ui::common::TrafficRequestType::ManualWrite;
+    event.traceId = traceId;
+    event.summary = successWithRetrySummary(
+        tr("Success: Broadcast write sent, no response expected"), retryCount);
+    publishEvent(std::move(event));
 }
 
-void TrafficLogController::logRequestError(const QString& error, int retryCount) {
+void TrafficLogController::logRequestError(const QString& error, int retryCount, TraceId traceId) {
     if (!monitor_) return;
-    monitor_->appendError(errorWithRetrySummary(error, retryCount));
+    ui::common::TrafficEvent event;
+    event.level = ui::common::TrafficEventLevel::Error;
+    event.traceId = traceId;
+    event.summary = errorWithRetrySummary(error, retryCount);
+    publishEvent(std::move(event));
 }
 
-void TrafficLogController::logSendingReadRequest(uint8_t fc, int addr, int qty, int slaveId) {
+void TrafficLogController::logSendingReadRequest(uint8_t fc, int addr, int qty, int slaveId,
+                                                 TraceId traceId) {
     if (!monitor_) return;
-    monitor_->appendInfo(tr("Sending Read Request FC:%1 Addr:%2 Qty:%3 Slave:%4")
-        .arg(fc).arg(addr).arg(qty).arg(slaveId));
+    ui::common::TrafficEvent event;
+    event.requestType = ui::common::TrafficRequestType::ManualRead;
+    event.traceId = traceId;
+    event.summary = tr("Sending Read Request FC:%1 Addr:%2 Qty:%3 Slave:%4")
+        .arg(fc).arg(addr).arg(qty).arg(slaveId);
+    publishEvent(std::move(event));
 }
 
 void TrafficLogController::logSendingWriteRequest(uint8_t fc, int addr,
-                                                  const QString& dataStr, int slaveId) {
+                                                  const QString& dataStr, int slaveId,
+                                                  TraceId traceId) {
     if (!monitor_) return;
-    monitor_->appendInfo(tr("Sending Write Request FC:%1 Addr:%2 Data:%3 Slave:%4")
-        .arg(fc).arg(addr).arg(dataStr).arg(slaveId));
+    ui::common::TrafficEvent event;
+    event.requestType = ui::common::TrafficRequestType::ManualWrite;
+    event.traceId = traceId;
+    event.summary = tr("Sending Write Request FC:%1 Addr:%2 Data:%3 Slave:%4")
+        .arg(fc).arg(addr).arg(dataStr).arg(slaveId);
+    publishEvent(std::move(event));
 }
 
 void TrafficLogController::logSendingRawData(const QByteArray& data) {
     if (!monitor_) return;
-    monitor_->appendInfo(tr("Sending Raw Data: %1")
-        .arg(QString(data.toHex(' ').toUpper())));
+    ui::common::TrafficEvent event;
+    event.requestType = ui::common::TrafficRequestType::RawSend;
+    event.summary = tr("Sending Raw Data: %1")
+        .arg(QString(data.toHex(' ').toUpper()));
+    publishEvent(std::move(event));
 }
 
 void TrafficLogController::logError(const QString& message) {
     if (!monitor_) return;
-    monitor_->appendError(message);
+    ui::common::TrafficEvent event;
+    event.level = ui::common::TrafficEventLevel::Error;
+    event.summary = message;
+    publishEvent(std::move(event));
 }
 
 void TrafficLogController::logWarning(const QString& message) {
     if (!monitor_) return;
-    monitor_->appendWarning(message);
+    ui::common::TrafficEvent event;
+    event.level = ui::common::TrafficEventLevel::Warning;
+    event.summary = message;
+    publishEvent(std::move(event));
 }
 
 void TrafficLogController::logInfo(const QString& message) {
     if (!monitor_) return;
-    monitor_->appendInfo(message);
+    ui::common::TrafficEvent event;
+    event.summary = message;
+    publishEvent(std::move(event));
 }
 
 void TrafficLogController::logPollSummary(const PollSummary& summary) {
@@ -128,7 +173,7 @@ void TrafficLogController::logPollSummary(const PollSummary& summary) {
         .arg(summary.errorCount)
         .arg(summary.retryCount)
         .arg(avgRttText);
-    monitor_->appendEvent(event);
+    publishEvent(std::move(event));
 }
 
 QString TrafficLogController::retryWord(int retryCount) {

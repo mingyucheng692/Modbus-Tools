@@ -255,10 +255,10 @@ SessionMode ModbusSessionPresenter::mode() const {
 }
 
 void ModbusSessionPresenter::submitRequest(const ::modbus::base::Pdu& pdu, int slaveId,
-                                           int requestId) {
+                                           int requestId, TraceId traceId) {
     assertGuiThread("submitRequest must be called on the GUI thread");
     if (worker_) {
-        worker_->submit(pdu, slaveId, requestId);
+        worker_->submit(pdu, slaveId, requestId, traceId);
     }
 }
 

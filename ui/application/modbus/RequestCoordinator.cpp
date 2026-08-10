@@ -68,10 +68,10 @@ void RequestCoordinator::handleReadRequest(uint8_t fc, int addr, int qty, int sl
     }
 
     if (trafficLogController_) {
-        trafficLogController_->logSendingReadRequest(fc, addr, qty, slaveId);
+        trafficLogController_->logSendingReadRequest(fc, addr, qty, slaveId, result.traceId);
     }
 
-    presenter_->submitRequest(result.pdu, slaveId, result.requestId);
+    presenter_->submitRequest(result.pdu, slaveId, result.requestId, result.traceId);
 }
 
 void RequestCoordinator::handleWriteRequest(uint8_t fc, int addr,
@@ -96,10 +96,11 @@ void RequestCoordinator::handleWriteRequest(uint8_t fc, int addr,
     }
 
     if (trafficLogController_) {
-        trafficLogController_->logSendingWriteRequest(fc, addr, dataStr, slaveId);
+        trafficLogController_->logSendingWriteRequest(fc, addr, dataStr, slaveId,
+                                                      result.traceId);
     }
 
-    presenter_->submitRequest(result.pdu, slaveId, result.requestId);
+    presenter_->submitRequest(result.pdu, slaveId, result.requestId, result.traceId);
 }
 
 void RequestCoordinator::handleRawSendRequest(const QByteArray& data) {
@@ -139,6 +140,7 @@ void RequestCoordinator::handleRequestFinished(int requestId,
 
     auto kind = trackingInfo->kind;
     uint16_t addr = trackingInfo->address;
+    const TraceId traceId = trackingInfo->traceId;
 
     if (kind == RequestKind::Poll) {
         if (pollingController_) {
@@ -152,7 +154,7 @@ void RequestCoordinator::handleRequestFinished(int requestId,
     switch (response.kind) {
     case ::modbus::session::ModbusResponseKind::NoResponseExpected:
         if (trafficLogController_) {
-            trafficLogController_->logBroadcastWriteSuccess(response.retryCount());
+            trafficLogController_->logBroadcastWriteSuccess(response.retryCount(), traceId);
         }
         break;
     case ::modbus::session::ModbusResponseKind::Success:
@@ -161,9 +163,9 @@ void RequestCoordinator::handleRequestFinished(int requestId,
         }
 
         if (kind == RequestKind::Read && trafficLogController_) {
-            trafficLogController_->logReadSuccess(response.retryCount());
+            trafficLogController_->logReadSuccess(response.retryCount(), traceId);
         } else if (kind == RequestKind::Write && trafficLogController_) {
-            trafficLogController_->logWriteSuccess(response.retryCount());
+            trafficLogController_->logWriteSuccess(response.retryCount(), traceId);
         }
         break;
     case ::modbus::session::ModbusResponseKind::Error:
@@ -178,7 +180,8 @@ void RequestCoordinator::handleRequestFinished(int requestId,
         }
 
         if (kind != RequestKind::Poll && trafficLogController_) {
-            trafficLogController_->logRequestError(response.error, response.retryCount());
+            trafficLogController_->logRequestError(response.error, response.retryCount(),
+                                                   traceId);
         }
         break;
     }

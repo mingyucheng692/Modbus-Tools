@@ -77,7 +77,8 @@ public:
     const PollContext& context() const;
 
 signals:
-    void submitPollRequest(const ::modbus::base::Pdu& pdu, int slaveId, int requestId);
+    void submitPollRequest(const ::modbus::base::Pdu& pdu, int slaveId, int requestId,
+                           TraceId traceId);
     void trafficEvent(const ui::common::TrafficEvent& event);
     void stateChanged(PollState oldState, PollState newState);
     void summaryReady(const PollSummary& summary);

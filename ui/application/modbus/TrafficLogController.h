@@ -36,12 +36,13 @@ public:
 
     void logConnectionInfo(const QString& message);
     void logRawFrame(ui::common::TrafficDirection direction, const QByteArray& data);
-    void logReadSuccess(int retryCount);
-    void logWriteSuccess(int retryCount);
-    void logBroadcastWriteSuccess(int retryCount);
-    void logRequestError(const QString& error, int retryCount);
-    void logSendingReadRequest(uint8_t fc, int addr, int qty, int slaveId);
-    void logSendingWriteRequest(uint8_t fc, int addr, const QString& dataStr, int slaveId);
+    void logReadSuccess(int retryCount, TraceId traceId = 0);
+    void logWriteSuccess(int retryCount, TraceId traceId = 0);
+    void logBroadcastWriteSuccess(int retryCount, TraceId traceId = 0);
+    void logRequestError(const QString& error, int retryCount, TraceId traceId = 0);
+    void logSendingReadRequest(uint8_t fc, int addr, int qty, int slaveId, TraceId traceId = 0);
+    void logSendingWriteRequest(uint8_t fc, int addr, const QString& dataStr, int slaveId,
+                                TraceId traceId = 0);
     void logSendingRawData(const QByteArray& data);
     void logError(const QString& message);
     void logWarning(const QString& message);
@@ -52,6 +53,7 @@ private:
     static QString retryWord(int retryCount);
     static QString successWithRetrySummary(const QString& baseMessage, int retryCount);
     static QString errorWithRetrySummary(const QString& error, int retryCount);
+    void publishEvent(ui::common::TrafficEvent event);
 
     ui::widgets::TrafficMonitorWidget* monitor_ = nullptr;
     PollingController* pollingController_ = nullptr;

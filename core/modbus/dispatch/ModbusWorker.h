@@ -41,7 +41,7 @@ public:
     void start();
     void stop();
 
-    void submit(const base::Pdu& request, int slaveId, int requestId);
+    void submit(const base::Pdu& request, int slaveId, int requestId, quint64 traceId = 0);
     void sendRaw(const QByteArray& data);
     void requestConnect();
     void requestDisconnect();
@@ -58,9 +58,10 @@ private:
         base::Pdu request;
         int slaveId = -1;
         int requestId = -1;
+        quint64 traceId = 0;
     };
 
-    void handleSubmit(base::Pdu request, int slaveId, int requestId);
+    void handleSubmit(base::Pdu request, int slaveId, int requestId, quint64 traceId);
     void handleSendRaw(QByteArray data);
     void handleConnect();
     void handleDisconnect();

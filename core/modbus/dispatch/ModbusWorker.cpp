@@ -78,23 +78,31 @@ void ModbusWorker::stop() {
     }, Qt::QueuedConnection);
 }
 
-void ModbusWorker::submit(const base::Pdu& request, int slaveId, int requestId) {
+void ModbusWorker::submit(const base::Pdu& request, int slaveId, int requestId, quint64 traceId) {
     if (!isThreadReady(thread_)) {
+        spdlog::warn("ModbusWorker: reject request trace_id={} because worker thread is not running",
+                     static_cast<unsigned long long>(traceId));
         emit requestFinished(requestId, session::ModbusResponse::Error("Worker thread not running"));
         return;
     }
-    QMetaObject::invokeMethod(this, [this, request, slaveId, requestId]() {
+    QMetaObject::invokeMethod(this, [this, request, slaveId, requestId, traceId]() {
         // Check stopped_ first — handleStopInThread sets stopped_=true and
         // clears stopping_, so a post-stop submit would otherwise slip through.
         if (stopped_.load()) {
+            spdlog::warn("ModbusWorker: reject request trace_id={} because worker has stopped",
+                         static_cast<unsigned long long>(traceId));
             emit requestFinished(requestId, session::ModbusResponse::Error("Worker has stopped"));
             return;
         }
         if (stopping_.load()) {
+            spdlog::warn("ModbusWorker: reject request trace_id={} because worker is stopping",
+                         static_cast<unsigned long long>(traceId));
             emit requestFinished(requestId, session::ModbusResponse::Error("Worker is stopping"));
             return;
         }
-        queuedRequests_.push_back(QueuedRequest{std::move(request), slaveId, requestId});
+        spdlog::info("ModbusWorker: enqueue request trace_id={} request_id={} slave={}",
+                     static_cast<unsigned long long>(traceId), requestId, slaveId);
+        queuedRequests_.push_back(QueuedRequest{std::move(request), slaveId, requestId, traceId});
         // Draining runs inline on the worker thread. processQueue() re-arms
         // itself via QueuedConnection so stop()/sendRaw()/etc. can interleave
         // between items; no separate scheduleProcessQueue() hop is needed.
@@ -143,20 +151,31 @@ void ModbusWorker::updateConfig(const base::ModbusConfig& config) {
     }, Qt::QueuedConnection);
 }
 
-void ModbusWorker::handleSubmit(base::Pdu request, int slaveId, int requestId) {
+void ModbusWorker::handleSubmit(base::Pdu request, int slaveId, int requestId, quint64 traceId) {
     if (stopping_.load()) {
+        spdlog::warn("ModbusWorker: fail request trace_id={} because worker is stopping",
+                     static_cast<unsigned long long>(traceId));
         emit requestFinished(requestId, session::ModbusResponse::Error("Worker is stopping"));
         return;
     }
     if (!client_) {
+        spdlog::warn("ModbusWorker: fail request trace_id={} because no client is attached",
+                     static_cast<unsigned long long>(traceId));
         emit requestFinished(requestId, session::ModbusResponse::Error("No client attached"));
         return;
     }
     if (!client_->isConnected()) {
+        spdlog::warn("ModbusWorker: fail request trace_id={} because client is not connected",
+                     static_cast<unsigned long long>(traceId));
         emit requestFinished(requestId, session::ModbusResponse::Error("Not connected"));
         return;
     }
     auto response = client_->sendRequest(request, slaveId);
+    spdlog::info("ModbusWorker: complete request trace_id={} request_id={} success={} error='{}'",
+                 static_cast<unsigned long long>(traceId),
+                 requestId,
+                 !response.isError(),
+                 response.error.toStdString());
     emit requestFinished(requestId, response);
 }
 
@@ -178,7 +197,7 @@ void ModbusWorker::processQueue() {
     }
     auto item = queuedRequests_.front();
     queuedRequests_.pop_front();
-    handleSubmit(item.request, item.slaveId, item.requestId);
+    handleSubmit(item.request, item.slaveId, item.requestId, item.traceId);
     if (!queuedRequests_.empty() && !stopping_.load()) {
         QMetaObject::invokeMethod(this, [this]() {
             processQueue();

@@ -68,7 +68,8 @@ public:
     quint64 connectionGeneration() const;
     SessionMode mode() const;
 
-    void submitRequest(const ::modbus::base::Pdu& pdu, int slaveId, int requestId);
+    void submitRequest(const ::modbus::base::Pdu& pdu, int slaveId, int requestId,
+                       TraceId traceId);
     void sendRaw(const QByteArray& data);
 
     void setTrafficLogController(TrafficLogController* controller);

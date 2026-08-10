@@ -21,6 +21,8 @@
 
 namespace ui::application::modbus {
 
+using TraceId = quint64;
+
 struct PollSpec {
     uint8_t functionCode = 0;
     uint16_t startAddress = 0;

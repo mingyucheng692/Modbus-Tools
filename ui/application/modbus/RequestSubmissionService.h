@@ -13,6 +13,7 @@
 #include <unordered_map>
 #include <chrono>
 #include <cstdint>
+#include <atomic>
 #include <optional>
 #include "modbus/base/ModbusFrame.h"
 #include "modbus/base/ModbusPduBuilder.h"
@@ -23,6 +24,7 @@ namespace ui::application::modbus {
 struct RequestTrackingInfo {
     RequestKind kind = RequestKind::Read;
     uint16_t address = 0;
+    TraceId traceId = 0;
     std::chrono::steady_clock::time_point startTime{};
 };
 
@@ -37,6 +39,7 @@ public:
         QString error;
         ::modbus::base::Pdu pdu;
         int requestId = 0;
+        TraceId traceId = 0;
     };
 
     RequestBuildResult buildReadRequest(const PollSpec& spec,
@@ -54,9 +57,11 @@ signals:
 
 private:
     int nextRequestId();
-    void trackRequest(int requestId, RequestKind kind, uint16_t addr);
+    TraceId nextTraceId();
+    void trackRequest(int requestId, RequestKind kind, uint16_t addr, TraceId traceId);
 
     int requestId_ = 0;
+    std::atomic<TraceId> traceIdCounter_{1};
     std::unordered_map<int, RequestTrackingInfo> requestTracking_;
 };
 

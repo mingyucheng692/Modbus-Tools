@@ -41,7 +41,8 @@ RequestSubmissionService::RequestBuildResult RequestSubmissionService::buildRead
 
     result.pdu = std::move(*buildResult);
     result.requestId = nextRequestId();
-    trackRequest(result.requestId, kind, spec.startAddress);
+    result.traceId = nextTraceId();
+    trackRequest(result.requestId, kind, spec.startAddress, result.traceId);
     result.ok = true;
     return result;
 }
@@ -218,7 +219,8 @@ RequestSubmissionService::RequestBuildResult RequestSubmissionService::buildWrit
 
     result.pdu = std::move(*buildResult);
     result.requestId = nextRequestId();
-    trackRequest(result.requestId, RequestKind::Write, static_cast<uint16_t>(addr));
+    result.traceId = nextTraceId();
+    trackRequest(result.requestId, RequestKind::Write, static_cast<uint16_t>(addr), result.traceId);
     result.ok = true;
     return result;
 }
@@ -264,10 +266,16 @@ int RequestSubmissionService::nextRequestId() {
     return ++requestId_;
 }
 
-void RequestSubmissionService::trackRequest(int requestId, RequestKind kind, uint16_t addr) {
+TraceId RequestSubmissionService::nextTraceId() {
+    return traceIdCounter_.fetch_add(1, std::memory_order_relaxed);
+}
+
+void RequestSubmissionService::trackRequest(int requestId, RequestKind kind, uint16_t addr,
+                                            TraceId traceId) {
     RequestTrackingInfo info;
     info.kind = kind;
     info.address = addr;
+    info.traceId = traceId;
     info.startTime = std::chrono::steady_clock::now();
     requestTracking_[requestId] = info;
     emit txCountUpdated();

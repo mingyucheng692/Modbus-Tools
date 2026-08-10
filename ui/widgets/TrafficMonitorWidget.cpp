@@ -314,6 +314,9 @@ void TrafficMonitorWidget::scheduleVisibleEntriesRebuild() {
 bool TrafficMonitorWidget::renderEvent(const ui::common::TrafficEvent& event, QString& outText, QColor& outColor) const {
     const QDateTime timestamp = (event.timestamp.isValid() ? event.timestamp : QDateTime::currentDateTimeUtc()).toLocalTime();
     const QString timeStr = timestamp.toString("HH:mm:ss.zzz");
+    const QString tracePrefix = event.traceId != 0
+        ? tr("[Trace:%1] ").arg(event.traceId)
+        : QString();
     outColor = Qt::gray;
 
     if (!matchesLevelFilter(event)) {
@@ -329,7 +332,7 @@ bool TrafficMonitorWidget::renderEvent(const ui::common::TrafficEvent& event, QS
         if (!showTxCheck_->isChecked()) {
             return false;
         }
-        outText = tr("[%1] [TX] %2").arg(timeStr, formatData(event.payload));
+        outText = tr("[%1] %2[TX] %3").arg(timeStr, tracePrefix, formatData(event.payload));
         outColor = Qt::blue;
         return true;
     }
@@ -340,22 +343,22 @@ bool TrafficMonitorWidget::renderEvent(const ui::common::TrafficEvent& event, QS
         if (!showRxCheck_->isChecked()) {
             return false;
         }
-        outText = tr("[%1] [RX] %2").arg(timeStr, formatData(event.payload));
+        outText = tr("[%1] %2[RX] %3").arg(timeStr, tracePrefix, formatData(event.payload));
         outColor = Qt::darkGreen;
         return true;
     }
     if (event.level == ui::common::TrafficEventLevel::Warning) {
-        outText = tr("[%1] [WARN] %2").arg(timeStr, event.summary);
+        outText = tr("[%1] %2[WARN] %3").arg(timeStr, tracePrefix, event.summary);
         outColor = QColor(255, 140, 0);
         return true;
     }
     if (event.level == ui::common::TrafficEventLevel::Error) {
-        outText = tr("[%1] [ERROR] %2").arg(timeStr, event.summary);
+        outText = tr("[%1] %2[ERROR] %3").arg(timeStr, tracePrefix, event.summary);
         outColor = QColor(220, 20, 60);
         return true;
     }
 
-    outText = tr("[%1] [INFO] %2").arg(timeStr, event.summary);
+    outText = tr("[%1] %2[INFO] %3").arg(timeStr, tracePrefix, event.summary);
     return true;
 }
 

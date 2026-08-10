@@ -101,7 +101,8 @@ void PollingController::buildAndSubmit() {
     context_.requestInFlight = true;
     context_.suppressTrafficLog = true;
     transitionTo(PollState::Polling);
-    emit submitPollRequest(result.pdu, context_.currentSpec.slaveId, result.requestId);
+    emit submitPollRequest(result.pdu, context_.currentSpec.slaveId, result.requestId,
+                           result.traceId);
 }
 
 void PollingController::handleResponse(bool success, int rttMs, int retryCount,
