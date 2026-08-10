@@ -9,8 +9,10 @@
 #include <QDir>
 #include <QFile>
 #include <QFileInfo>
+#include <QStandardPaths>
 #include <QTemporaryFile>
 #include <algorithm>
+#include <utility>
 #include <spdlog/spdlog.h>
 
 namespace {
@@ -35,7 +37,10 @@ namespace infra::platform {
 // ---------------------------------------------------------------------------
 
 PathResolver::PathResolver()
-    : PathResolver(currentApplicationDirPath(),
+    : PathResolver(currentAppDataDirPath,
+                   currentAppConfigDirPath,
+                   currentTempRootDirPath,
+                   currentApplicationDirPath(),
                    currentApplicationArguments(),
                    currentApplicationName())
 {
@@ -44,9 +49,27 @@ PathResolver::PathResolver()
 PathResolver::PathResolver(QString applicationDirPath,
                            QStringList arguments,
                            QString applicationName)
+    : PathResolver(currentAppDataDirPath,
+                   currentAppConfigDirPath,
+                   currentTempRootDirPath,
+                   std::move(applicationDirPath),
+                   std::move(arguments),
+                   std::move(applicationName))
+{
+}
+
+PathResolver::PathResolver(StandardPathProvider appDataDirProvider,
+                           StandardPathProvider appConfigDirProvider,
+                           StandardPathProvider tempDirProvider,
+                           QString applicationDirPath,
+                           QStringList arguments,
+                           QString applicationName)
     : applicationDirPath_(normalizedPath(applicationDirPath)),
       applicationName_(applicationName.isEmpty() ? QString::fromLatin1(kDefaultApplicationName)
-                                                 : std::move(applicationName))
+                                                 : std::move(applicationName)),
+      appDataDirProvider_(std::move(appDataDirProvider)),
+      appConfigDirProvider_(std::move(appConfigDirProvider)),
+      tempDirProvider_(std::move(tempDirProvider))
 {
     detectPortableMode(arguments);
 }
@@ -73,8 +96,10 @@ void PathResolver::detectPortableMode(const QStringList& arguments)
 
 QString PathResolver::resolveLogDir() const
 {
-    // Portable-first: always prefer exe/logs, fall back to temp/appName/logs.
-    const QString preferredLogDir = QDir(applicationDirPath_).filePath(QString::fromLatin1(kLogsDirectoryName));
+    const QString preferredLogDir = portableMode_
+        ? QDir(applicationDirPath_).filePath(QString::fromLatin1(kLogsDirectoryName))
+        : QDir(appDataDirProvider_ ? appDataDirProvider_() : QString())
+              .filePath(QString::fromLatin1(kLogsDirectoryName));
     const QString fallbackLogDir = QDir(resolveScopedTempDir()).filePath(QString::fromLatin1(kLogsDirectoryName));
     return resolveWritableDir(QStringLiteral("log directory"),
                               preferredLogDir,
@@ -83,9 +108,11 @@ QString PathResolver::resolveLogDir() const
 
 QString PathResolver::resolveConfigDir() const
 {
-    // Portable-first: always prefer exe dir, fall back to temp/appName.
+    const QString preferredConfigDir = portableMode_
+        ? applicationDirPath_
+        : (appConfigDirProvider_ ? appConfigDirProvider_() : QString());
     return resolveWritableDir(QStringLiteral("config directory"),
-                              applicationDirPath_,
+                              preferredConfigDir,
                               resolveScopedTempDir());
 }
 
@@ -98,7 +125,8 @@ QString PathResolver::resolveTempDir() const
 
 QString PathResolver::resolveScopedTempDir() const
 {
-    return QDir(QDir::tempPath()).filePath(applicationName_);
+    const QString tempRoot = tempDirProvider_ ? tempDirProvider_() : QString();
+    return QDir(tempRoot).filePath(applicationName_);
 }
 
 QString PathResolver::resolveWritableDir(const QString& purpose,
@@ -160,6 +188,16 @@ QString PathResolver::currentApplicationDirPath()
     return app == nullptr ? QString() : QCoreApplication::applicationDirPath();
 }
 
+QString PathResolver::currentAppDataDirPath()
+{
+    return QStandardPaths::writableLocation(QStandardPaths::AppLocalDataLocation);
+}
+
+QString PathResolver::currentAppConfigDirPath()
+{
+    return QStandardPaths::writableLocation(QStandardPaths::AppConfigLocation);
+}
+
 QString PathResolver::currentApplicationName()
 {
     const auto* app = QCoreApplication::instance();
@@ -172,6 +210,11 @@ QStringList PathResolver::currentApplicationArguments()
 {
     const auto* app = QCoreApplication::instance();
     return app == nullptr ? QStringList() : QCoreApplication::arguments();
+}
+
+QString PathResolver::currentTempRootDirPath()
+{
+    return QStandardPaths::writableLocation(QStandardPaths::TempLocation);
 }
 
 } // namespace infra::platform

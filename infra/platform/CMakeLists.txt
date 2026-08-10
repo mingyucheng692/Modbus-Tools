@@ -3,6 +3,7 @@ add_library(infra_platform STATIC)
 target_sources(infra_platform
     PRIVATE
         IPlatformProcessRunner.h
+        IPlatformProcessRunner.cpp
         PathResolver.h
         PathResolver.cpp
         PlatformInfo.h

@@ -9,8 +9,23 @@
 #include <QFile>
 #include <QTemporaryDir>
 #include <gtest/gtest.h>
+#include <utility>
 
 namespace {
+
+infra::platform::PathResolver makeResolver(const QString& appDataDir,
+                                           const QString& appConfigDir,
+                                           const QString& tempRootDir,
+                                           const QString& applicationDir,
+                                           QStringList arguments = {})
+{
+    auto appDataFn = [appDataDir]() { return appDataDir; };
+    auto appConfigFn = [appConfigDir]() { return appConfigDir; };
+    auto tempFn = [tempRootDir]() { return tempRootDir; };
+    return infra::platform::PathResolver(appDataFn, appConfigFn, tempFn,
+                                         applicationDir, std::move(arguments),
+                                         QStringLiteral("Modbus-Tools-Test"));
+}
 
 QString createBlockedPath(const QString& rootPath, const QString& fileName)
 {
@@ -24,19 +39,26 @@ QString createBlockedPath(const QString& rootPath, const QString& fileName)
 
 } // namespace
 
-TEST(PathResolver, NonPortableModeUsesAppDir)
+TEST(PathResolver, NonPortableModeUsesStandardInstallDirs)
 {
     QTemporaryDir sandbox;
     ASSERT_TRUE(sandbox.isValid());
 
     const QString appDir = QDir(sandbox.path()).filePath("app");
+    const QString dataDir = QDir(sandbox.path()).filePath("data");
+    const QString configDir = QDir(sandbox.path()).filePath("config");
+    const QString tempRoot = QDir(sandbox.path()).filePath("temp-root");
     ASSERT_TRUE(QDir().mkpath(appDir));
-    const infra::platform::PathResolver resolver(appDir, {}, "Modbus-Tools-Test");
+    ASSERT_TRUE(QDir().mkpath(dataDir));
+    ASSERT_TRUE(QDir().mkpath(configDir));
+    ASSERT_TRUE(QDir().mkpath(tempRoot));
+    const infra::platform::PathResolver resolver =
+        makeResolver(dataDir, configDir, tempRoot, appDir);
 
     EXPECT_FALSE(resolver.isPortableMode());
-    EXPECT_EQ(QDir::cleanPath(appDir).toStdString(),
+    EXPECT_EQ(QDir::cleanPath(configDir).toStdString(),
               QDir::cleanPath(resolver.resolveConfigDir()).toStdString());
-    EXPECT_EQ(QDir::cleanPath(QDir(appDir).filePath("logs")).toStdString(),
+    EXPECT_EQ(QDir::cleanPath(QDir(dataDir).filePath("logs")).toStdString(),
               QDir::cleanPath(resolver.resolveLogDir()).toStdString());
 }
 
@@ -47,7 +69,14 @@ TEST(PathResolver, PortableFlagUsesAppDir)
 
     const QString appDir = QDir(sandbox.path()).filePath("portable-app");
     ASSERT_TRUE(QDir().mkpath(appDir));
-    const infra::platform::PathResolver resolver(appDir, {"--portable"}, "Modbus-Tools-Test");
+    const QString dataDir = QDir(sandbox.path()).filePath("data");
+    const QString configDir = QDir(sandbox.path()).filePath("config");
+    const QString tempRoot = QDir(sandbox.path()).filePath("temp-root");
+    ASSERT_TRUE(QDir().mkpath(dataDir));
+    ASSERT_TRUE(QDir().mkpath(configDir));
+    ASSERT_TRUE(QDir().mkpath(tempRoot));
+    const infra::platform::PathResolver resolver =
+        makeResolver(dataDir, configDir, tempRoot, appDir, {"--portable"});
 
     EXPECT_TRUE(resolver.isPortableMode());
     EXPECT_EQ(QDir::cleanPath(appDir).toStdString(),
@@ -63,47 +92,65 @@ TEST(PathResolver, PortableMarkerUsesAppDir)
 
     const QString appDir = QDir(sandbox.path()).filePath("portable-marker");
     ASSERT_TRUE(QDir().mkpath(appDir));
+    const QString dataDir = QDir(sandbox.path()).filePath("data");
+    const QString configDir = QDir(sandbox.path()).filePath("config");
+    const QString tempRoot = QDir(sandbox.path()).filePath("temp-root");
+    ASSERT_TRUE(QDir().mkpath(dataDir));
+    ASSERT_TRUE(QDir().mkpath(configDir));
+    ASSERT_TRUE(QDir().mkpath(tempRoot));
     QFile markerFile(QDir(appDir).filePath(".portable"));
     ASSERT_TRUE(markerFile.open(QIODevice::WriteOnly));
     markerFile.close();
 
-    const infra::platform::PathResolver resolver(appDir, {}, "Modbus-Tools-Test");
+    const infra::platform::PathResolver resolver =
+        makeResolver(dataDir, configDir, tempRoot, appDir);
 
     EXPECT_TRUE(resolver.isPortableMode());
     EXPECT_EQ(QDir::cleanPath(appDir).toStdString(),
               QDir::cleanPath(resolver.resolveConfigDir()).toStdString());
 }
 
-TEST(PathResolver, UnwritableAppDirFallsBackToTemp)
+TEST(PathResolver, PortableModeFallsBackToTempWhenAppDirIsNotWritable)
 {
     QTemporaryDir sandbox;
     ASSERT_TRUE(sandbox.isValid());
 
     const QString blockedAppPath = createBlockedPath(sandbox.path(), "blocked-app");
-    const infra::platform::PathResolver resolver(blockedAppPath, {"--portable"}, "Modbus-Tools-Test");
+    const QString dataDir = QDir(sandbox.path()).filePath("data");
+    const QString configDir = QDir(sandbox.path()).filePath("config");
+    const QString tempRoot = QDir(sandbox.path()).filePath("temp-root");
+    ASSERT_TRUE(QDir().mkpath(dataDir));
+    ASSERT_TRUE(QDir().mkpath(configDir));
+    ASSERT_TRUE(QDir().mkpath(tempRoot));
+    const infra::platform::PathResolver resolver =
+        makeResolver(dataDir, configDir, tempRoot, blockedAppPath, {"--portable"});
 
     const QString expectedTempDir = QDir::cleanPath(
-        QDir(QDir::tempPath()).filePath("Modbus-Tools-Test"));
+        QDir(tempRoot).filePath("Modbus-Tools-Test"));
     EXPECT_EQ(expectedTempDir.toStdString(),
               QDir::cleanPath(resolver.resolveConfigDir()).toStdString());
-    EXPECT_EQ(QDir(expectedTempDir).filePath("logs").toStdString(),
+    EXPECT_EQ(QDir::cleanPath(QDir(expectedTempDir).filePath("logs")).toStdString(),
               QDir::cleanPath(resolver.resolveLogDir()).toStdString());
 }
 
-TEST(PathResolver, MacAppBundleUsesAppDir)
+TEST(PathResolver, StandardInstallFallsBackToTempWhenStandardDirsAreNotWritable)
 {
     QTemporaryDir sandbox;
     ASSERT_TRUE(sandbox.isValid());
 
-    const QString appDir = QDir(sandbox.path()).filePath("Modbus-Tools.app/Contents/MacOS");
+    const QString appDir = QDir(sandbox.path()).filePath("app");
+    const QString blockedDataPath = createBlockedPath(sandbox.path(), "blocked-data");
+    const QString blockedConfigPath = createBlockedPath(sandbox.path(), "blocked-config");
+    const QString tempRoot = QDir(sandbox.path()).filePath("temp-root");
     ASSERT_TRUE(QDir().mkpath(appDir));
-    const infra::platform::PathResolver resolver(appDir, {}, "Modbus-Tools-Test");
+    ASSERT_TRUE(QDir().mkpath(tempRoot));
+    const infra::platform::PathResolver resolver =
+        makeResolver(blockedDataPath, blockedConfigPath, tempRoot, appDir);
 
     EXPECT_FALSE(resolver.isPortableMode());
-    // App bundle dir is writable, so it should be used directly.
-    EXPECT_EQ(QDir::cleanPath(appDir).toStdString(),
+    EXPECT_EQ(QDir::cleanPath(QDir(tempRoot).filePath("Modbus-Tools-Test")).toStdString(),
               QDir::cleanPath(resolver.resolveConfigDir()).toStdString());
-    EXPECT_EQ(QDir::cleanPath(QDir(appDir).filePath("logs")).toStdString(),
+    EXPECT_EQ(QDir::cleanPath(QDir(QDir(tempRoot).filePath("Modbus-Tools-Test")).filePath("logs")).toStdString(),
               QDir::cleanPath(resolver.resolveLogDir()).toStdString());
 }
 
@@ -113,11 +160,18 @@ TEST(PathResolver, TempDirResolvesToScopedTemp)
     ASSERT_TRUE(sandbox.isValid());
 
     const QString appDir = QDir(sandbox.path()).filePath("app");
+    const QString dataDir = QDir(sandbox.path()).filePath("data");
+    const QString configDir = QDir(sandbox.path()).filePath("config");
+    const QString tempRoot = QDir(sandbox.path()).filePath("temp-root");
     ASSERT_TRUE(QDir().mkpath(appDir));
-    const infra::platform::PathResolver resolver(appDir, {}, "Modbus-Tools-Test");
+    ASSERT_TRUE(QDir().mkpath(dataDir));
+    ASSERT_TRUE(QDir().mkpath(configDir));
+    ASSERT_TRUE(QDir().mkpath(tempRoot));
+    const infra::platform::PathResolver resolver =
+        makeResolver(dataDir, configDir, tempRoot, appDir);
 
     const QString expectedTemp = QDir::cleanPath(
-        QDir(QDir::tempPath()).filePath("Modbus-Tools-Test"));
+        QDir(tempRoot).filePath("Modbus-Tools-Test"));
     EXPECT_EQ(expectedTemp.toStdString(),
               QDir::cleanPath(resolver.resolveTempDir()).toStdString());
 }

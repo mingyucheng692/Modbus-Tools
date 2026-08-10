@@ -1,17 +1,16 @@
 /**
  * @file PathResolver.h
- * @brief Declares the writable path resolver for portable deployments.
+ * @brief Declares writable path resolution for portable and standard installs.
  *
- * Portable-first design: always prefers the application directory with
- * QDir::tempPath() as fallback. No QStandardPaths involvement.
- *
- * Portable mode (`.portable` marker file or `--portable` CLI argument) is
- * detected for informational purposes (isPortableMode()) but does not change
- * the resolution logic — all modes use exe-dir-first.
+ * Portable mode (`.portable` marker file or `--portable` CLI argument) uses
+ * the application directory for config/logs. Standard mode uses
+ * QStandardPaths-backed locations, with scoped temp as fallback.
  */
 
 #pragma once
 
+#include <functional>
+#include <utility>
 #include <QString>
 #include <QStringList>
 
@@ -19,12 +18,22 @@ namespace infra::platform {
 
 class PathResolver final {
 public:
+    using StandardPathProvider = std::function<QString()>;
+
     /// Default constructor: uses QCoreApplication for applicationDirPath,
-    /// arguments, and applicationName.
+    /// arguments, applicationName, and QStandardPaths-backed standard dirs.
     PathResolver();
 
     /// Constructor for tests and explicit injection.
     PathResolver(QString applicationDirPath,
+                 QStringList arguments,
+                 QString applicationName);
+
+    /// Constructor for tests that need deterministic standard locations.
+    PathResolver(StandardPathProvider appDataDirProvider,
+                 StandardPathProvider appConfigDirProvider,
+                 StandardPathProvider tempDirProvider,
+                 QString applicationDirPath,
                  QStringList arguments,
                  QString applicationName);
 
@@ -44,12 +53,18 @@ private:
                                             const QString& fallbackDir) const;
     [[nodiscard]] bool isWritableDirectory(const QString& directoryPath) const;
 
+    [[nodiscard]] static QString currentAppDataDirPath();
+    [[nodiscard]] static QString currentAppConfigDirPath();
     [[nodiscard]] static QString currentApplicationDirPath();
     [[nodiscard]] static QString currentApplicationName();
     [[nodiscard]] static QStringList currentApplicationArguments();
+    [[nodiscard]] static QString currentTempRootDirPath();
 
     QString applicationDirPath_;
     QString applicationName_;
+    StandardPathProvider appDataDirProvider_;
+    StandardPathProvider appConfigDirProvider_;
+    StandardPathProvider tempDirProvider_;
     bool portableMode_ = false;
 };
 

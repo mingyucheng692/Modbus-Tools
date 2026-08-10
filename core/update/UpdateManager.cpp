@@ -23,21 +23,6 @@
 #include <QStringList>
 #include <spdlog/spdlog.h>
 
-#if defined(Q_OS_WIN)
-#include "infra/platform/win/Win32ProcessRunner.h"
-#endif
-
-namespace {
-[[nodiscard]] static std::unique_ptr<infra::platform::IPlatformProcessRunner> createPlatformProcessRunner()
-{
-#if defined(Q_OS_WIN)
-    return std::make_unique<infra::platform::Win32ProcessRunner>();
-#else
-    return nullptr; // Not supported on this platform
-#endif
-}
-} // namespace
-
 namespace core::update {
 
 /**
@@ -110,7 +95,7 @@ UpdateManager::UpdateManager(QObject* parent,
       processRunner_(std::move(processRunner)),
       installStrategy_(std::move(installStrategy)) {
     if (!processRunner_) {
-        processRunner_ = createPlatformProcessRunner();
+        processRunner_ = infra::platform::createDefaultPlatformProcessRunner();
     }
     if (!installStrategy_) {
         installStrategy_ = createPlatformUpdateInstallStrategy();

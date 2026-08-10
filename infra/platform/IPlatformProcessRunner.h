@@ -7,6 +7,7 @@
 
 #include <QString>
 #include <QStringList>
+#include <memory>
 
 namespace infra::platform {
 
@@ -26,5 +27,7 @@ public:
                                                 const QStringList& arguments,
                                                 QString* errorMessage) = 0;
 };
+
+[[nodiscard]] std::unique_ptr<IPlatformProcessRunner> createDefaultPlatformProcessRunner();
 
 } // namespace infra::platform
