@@ -33,12 +33,21 @@ void WorkerReleaseCoordinator::requestRelease(StackHandle handle,
     pending->workerThreadFinished =
         !pending->workerThread || !pending->workerThread->isRunning();
 
+    spdlog::info(
+        "WorkerReleaseCoordinator: release requested worker_present={} channel_present={} "
+        "worker_thread_running={} channel_thread_running={}",
+        pending->worker != nullptr,
+        pending->channel != nullptr,
+        pending->workerThread && pending->workerThread->isRunning(),
+        pending->channelThread && pending->channelThread->isRunning());
+
     // Empty handle: nothing to wait for. Emit completion via a queued
     // invocation so callers that chain on releaseCompleted() always observe a
     // consistent signal ordering (never a reentrant callback).
     if (pending->workerStopped && pending->channelThreadFinished
         && pending->workerThreadFinished
         && !pending->channel && !pending->client && !pending->worker) {
+        spdlog::info("WorkerReleaseCoordinator: release completed immediately (empty handle)");
         QMetaObject::invokeMethod(this, [this]() { emit releaseCompleted(); },
                                   Qt::QueuedConnection);
         return;
@@ -112,6 +121,7 @@ void WorkerReleaseCoordinator::onWorkerStopped(
     if (!pending) {
         return;
     }
+    spdlog::info("WorkerReleaseCoordinator: worker reported stopped");
     pending->workerStopped = true;
     if (pending->workerThread && pending->workerThread->isRunning()) {
         pending->workerThread->quit();
@@ -219,6 +229,7 @@ void WorkerReleaseCoordinator::finalize(
     pending->channelThread.reset();
     pending->workerThread.reset();
 
+    spdlog::info("WorkerReleaseCoordinator: release finalized");
     emit releaseCompleted();
 }
 

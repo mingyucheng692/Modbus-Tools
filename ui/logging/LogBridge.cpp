@@ -13,10 +13,27 @@
 
 namespace ui::logging {
 
+namespace {
+
+bool shouldRelay(const ui::common::TrafficEvent& event)
+{
+    if (event.level == ui::common::TrafficEventLevel::Warning
+        || event.level == ui::common::TrafficEventLevel::Error) {
+        return true;
+    }
+
+    if (event.requestType == ui::common::TrafficRequestType::Connection) {
+        return true;
+    }
+
+    return event.traceId != 0;
+}
+
+} // namespace
+
 void relay(const ui::common::TrafficEvent& event)
 {
-    const bool isTraceableRequest = event.traceId != 0;
-    if (!isTraceableRequest && event.level != ui::common::TrafficEventLevel::Error) {
+    if (!shouldRelay(event)) {
         return;
     }
 
@@ -28,12 +45,22 @@ void relay(const ui::common::TrafficEvent& event)
                          ui::common::toString(event.requestType),
                          ui::common::toString(event.direction),
                          event.summary.toStdString());
+        } else {
+            spdlog::info("Traffic type={} dir={} summary={}",
+                         ui::common::toString(event.requestType),
+                         ui::common::toString(event.direction),
+                         event.summary.toStdString());
         }
         break;
     case ui::common::TrafficEventLevel::Warning:
         if (event.traceId != 0) {
             spdlog::warn("Traffic trace_id={} type={} dir={} summary={}",
                          static_cast<unsigned long long>(event.traceId),
+                         ui::common::toString(event.requestType),
+                         ui::common::toString(event.direction),
+                         event.summary.toStdString());
+        } else {
+            spdlog::warn("Traffic type={} dir={} summary={}",
                          ui::common::toString(event.requestType),
                          ui::common::toString(event.direction),
                          event.summary.toStdString());

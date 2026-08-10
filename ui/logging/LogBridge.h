@@ -3,9 +3,10 @@
  * @brief Strategic bridge from TrafficEvent to spdlog.
  *
  * Encapsulates TrafficEventLevel to spdlog::level mapping.
- * Error-level events cross the bridge with full context
- * (type, direction, summary); Info/Warning events remain
- * in TrafficMonitor.
+ * Error-level events always cross the bridge. A small whitelist of
+ * lifecycle/request-summary events (for example Connection and traced
+ * request events) also cross so that UI-only observability does not
+ * leave gaps in the persistent log.
  *
  * Copyright (c) 2025 - present mingyucheng692
  *

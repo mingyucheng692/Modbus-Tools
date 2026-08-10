@@ -190,6 +190,10 @@ bool ModbusSessionPresenter::hasLiveOrPendingStack() const {
 
 void ModbusSessionPresenter::requestRelease(const QString& timeoutMessage) {
     assertGuiThread("requestRelease must run on the GUI thread");
+    const ModbusModeDescriptor descriptor = modeDescriptor(mode_);
+    spdlog::info("ModbusSessionPresenter[{}]: Release requested (generation={})",
+                 descriptor.logName,
+                 static_cast<unsigned long long>(connectionGeneration_ + 1));
     if (pollingController_) pollingController_->reset();
     ++connectionGeneration_;
     suppressDisconnectAlert_ = true;
@@ -202,6 +206,9 @@ void ModbusSessionPresenter::requestRelease(const QString& timeoutMessage) {
     }
     if (wasLinked) {
         emit linkageSourceDisconnected();
+    }
+    if (trafficLogController_) {
+        trafficLogController_->logConnectionInfo(tr("Releasing Modbus stack..."));
     }
 
     // Move the live stack into the coordinator. After this move the
@@ -220,6 +227,11 @@ void ModbusSessionPresenter::requestRelease(const QString& timeoutMessage) {
         // callers (and tests) observing the signal without pumping the event
         // loop still see it. Widget sync already applied by the
         // Disconnected state-entry handler during transitionTo above.
+        spdlog::info("ModbusSessionPresenter[{}]: Release completed immediately (no live stack)",
+                     descriptor.logName);
+        if (trafficLogController_) {
+            trafficLogController_->logConnectionInfo(tr("Release completed"));
+        }
         emit stackReleased();
         maybeRunDeferredAction();
         return;
@@ -374,9 +386,14 @@ void ModbusSessionPresenter::syncConnectionWidget(SessionConnectionState state) 
 
 void ModbusSessionPresenter::onReleaseCompleted() {
     assertGuiThread("onReleaseCompleted must run on the GUI thread");
+    spdlog::info("ModbusSessionPresenter[{}]: Release completed",
+                 modeDescriptor(mode_).logName);
     if (!worker_ && !channel_ && !client_
         && connectionStateMachine_->currentState() != SessionConnectionState::Connecting) {
         syncConnectionWidget(SessionConnectionState::Disconnected);
+    }
+    if (trafficLogController_) {
+        trafficLogController_->logConnectionInfo(tr("Release completed"));
     }
     emit stackReleased();
     maybeRunDeferredAction();
@@ -384,6 +401,9 @@ void ModbusSessionPresenter::onReleaseCompleted() {
 
 void ModbusSessionPresenter::onReleaseTimedOut(const QString& message) {
     assertGuiThread("onReleaseTimedOut must run on the GUI thread");
+    spdlog::error("ModbusSessionPresenter[{}]: Release timed out: {}",
+                  modeDescriptor(mode_).logName,
+                  message.toStdString());
     if (trafficLogController_) {
         trafficLogController_->logError(message);
     }
