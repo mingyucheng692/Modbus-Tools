@@ -10,6 +10,7 @@
 #include "ChannelBase.h"
 #include <spdlog/spdlog.h>
 #include <algorithm>
+#include <cstdio>
 
 namespace io {
 
@@ -186,10 +187,18 @@ void ChannelBase::emitMonitor(bool isTx, const QByteArray& data)
 void ChannelBase::assertOwnerThreadForDestruction(const char* className)
 {
     if (deviceThread_ != QThread::currentThread()) {
+        // Double-write to stderr: this abort path bypasses QtMessageHandler,
+        // and the async queue may not flush the critical line in time.
+        std::fprintf(stderr,
+                     "%s::~%s: destroyed on non-owner thread. "
+                     "Cross-thread destruction is UAF. Ensure ioThread "
+                     "quit()+wait() completes before releasing the channel.\n",
+                     className, className);
         spdlog::critical("{}::~{}: destroyed on non-owner thread. "
                          "Cross-thread destruction is UAF. Ensure ioThread "
                          "quit()+wait() completes before releasing the channel.",
                          className, className);
+        spdlog::default_logger()->flush();
         std::abort();
     }
 }

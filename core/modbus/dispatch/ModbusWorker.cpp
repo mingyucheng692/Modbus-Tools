@@ -9,6 +9,7 @@
 
 #include "ModbusWorker.h"
 #include "../session/ModbusClient.h"
+#include "../TraceContext.h"
 #include <spdlog/spdlog.h>
 #include <QMetaObject>
 #include <QThread>
@@ -152,6 +153,15 @@ void ModbusWorker::updateConfig(const base::ModbusConfig& config) {
 }
 
 void ModbusWorker::handleSubmit(base::Pdu request, int slaveId, int requestId, quint64 traceId) {
+    // Thread affinity guard: the thread_local TraceContext below (and the
+    // request serialization it feeds) is only correct when this handler runs
+    // on the worker thread. QueuedConnection guarantees that today; the
+    // assert catches future regressions in debug builds.
+    Q_ASSERT(!thread_ || QThread::currentThread() == thread_);
+    // Publish the trace id for the duration of this request so
+    // RequestExecutor / state-machine log sites can correlate with the
+    // UI-visible TrafficEvent.traceId.
+    trace::Scope traceScope(traceId);
     if (stopping_.load()) {
         spdlog::warn("ModbusWorker: fail request trace_id={} because worker is stopping",
                      static_cast<unsigned long long>(traceId));
@@ -171,11 +181,21 @@ void ModbusWorker::handleSubmit(base::Pdu request, int slaveId, int requestId, q
         return;
     }
     auto response = client_->sendRequest(request, slaveId);
-    spdlog::info("ModbusWorker: complete request trace_id={} request_id={} success={} error='{}'",
-                 static_cast<unsigned long long>(traceId),
-                 requestId,
-                 !response.isError(),
-                 response.error.toStdString());
+    // Clean successes (no error, no retry) are the steady-state majority of
+    // log lines under polling; demote them to debug so production logs keep
+    // signal density. Failures and retried requests stay at info.
+    if (!response.isError() && response.retryCount() == 0) {
+        spdlog::debug("ModbusWorker: complete request trace_id={} request_id={} success=true",
+                      static_cast<unsigned long long>(traceId),
+                      requestId);
+    } else {
+        spdlog::info("ModbusWorker: complete request trace_id={} request_id={} success={} retries={} error='{}'",
+                     static_cast<unsigned long long>(traceId),
+                     requestId,
+                     !response.isError(),
+                     response.retryCount(),
+                     response.error.toStdString());
+    }
     emit requestFinished(requestId, response);
 }
 

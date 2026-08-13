@@ -16,6 +16,7 @@
 #include <QFile>
 #include <QCoreApplication>
 #include <QtGlobal>
+#include <cstdio>
 #include <spdlog/async.h>
 #include <spdlog/common.h>
 #include <spdlog/pattern_formatter.h>
@@ -74,7 +75,13 @@ static void QtMessageHandler(QtMsgType type, const QMessageLogContext& context, 
         logger->error("Qt [{}:{}:{}] {}", file, line, category, text);
         break;
     case QtFatalMsg:
+        // Double-write to stderr: the async queue may drop or not yet have
+        // flushed this message before abort(), and stderr survives in crash
+        // dumps / console output. Flush before abort so the queued tail is
+        // persisted — the dying moments carry the highest diagnostic value.
+        std::fprintf(stderr, "Qt FATAL [%s:%d:%s] %s\n", file, line, category, text.c_str());
         logger->critical("Qt [{}:{}:{}] {}", file, line, category, text);
+        logger->flush();
         abort();
     }
 }
@@ -155,12 +162,20 @@ bool Init(const QString& logDir, QString* errorMessage) noexcept
             config::Logging::kAsyncWorkerThreads);
     }
 
+    // Overflow policy = overrun_oldest: when the queue is full, drop the
+    // oldest message instead of blocking the caller. The Modbus worker
+    // thread logs on every request; with block policy a stalled file sink
+    // (antivirus scan, cloud-sync contention) would stall the worker and
+    // corrupt the very RTT measurements this tool exists to take. An
+    // observability system must never interfere with the observed link —
+    // losing the oldest log line is always preferable to blocking the
+    // measured path.
     auto logger = std::make_shared<spdlog::async_logger>(
         "default",
         sinks.begin(),
         sinks.end(),
         spdlog::thread_pool(),
-        spdlog::async_overflow_policy::block);
+        spdlog::async_overflow_policy::overrun_oldest);
     logger->set_formatter(std::make_unique<spdlog::pattern_formatter>(
         "%Y-%m-%d %H:%M:%S.%eZ [%t] [%^%l%$] %v",
         spdlog::pattern_time_type::utc));

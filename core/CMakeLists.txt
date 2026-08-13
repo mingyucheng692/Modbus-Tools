@@ -20,6 +20,8 @@ target_sources(core PRIVATE
     modbus/transport/ModbusSerialTransport.cpp
     modbus/transport/ModbusTcpTransport.h
     modbus/transport/ModbusTcpTransport.cpp
+    # modbus trace context
+    modbus/TraceContext.h
     # modbus session
     modbus/session/SessionTypes.h
     modbus/session/ModbusClient.h

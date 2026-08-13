@@ -9,6 +9,7 @@
 
 #pragma once
 
+#include "../TraceContext.h"
 #include <atomic>
 #include <spdlog/spdlog.h>
 #include <string_view>
@@ -51,21 +52,26 @@ public:
             }
 
             if (!isValidTransition(oldState, newState)) {
-                spdlog::error("{}: invalid transition {} -> {} ({})",
+                // trace_id is 0 for connection-lifecycle transitions (no
+                // request in flight); non-zero when a request drives the
+                // transition. Never required here — 0 is a valid value.
+                spdlog::error("{}: invalid transition {} -> {} ({}) trace_id={}",
                               Derived::kName,
                               Derived::toString(oldState),
                               Derived::toString(newState),
-                              reason ? reason : "");
+                              reason ? reason : "",
+                              static_cast<unsigned long long>(modbus::trace::currentTraceId));
                 return false;
             }
 
             if (state_.compare_exchange_weak(oldState, newState,
                     std::memory_order_acq_rel, std::memory_order_relaxed)) {
-                spdlog::debug("{}: {} -> {} ({})",
+                spdlog::debug("{}: {} -> {} ({}) trace_id={}",
                               Derived::kName,
                               Derived::toString(oldState),
                               Derived::toString(newState),
-                              reason ? reason : "");
+                              reason ? reason : "",
+                              static_cast<unsigned long long>(modbus::trace::currentTraceId));
                 return true;
             }
         }

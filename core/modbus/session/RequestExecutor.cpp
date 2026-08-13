@@ -21,10 +21,41 @@
 #include <tuple>
 #include <QtEndian>
 #include "common/TrContext.h"
+#include "../TraceContext.h"
 #include <QtGlobal>
+#include <mutex>
 
 namespace modbus::session {
 namespace {
+
+    // One-shot guard: if a log site that should carry a trace id observes 0,
+    // the worker thread affinity was broken somewhere upstream. Warn once so
+    // the regression is visible without flooding the log on every request.
+    void warnIfTraceLost() {
+        static std::once_flag flag;
+        std::call_once(flag, [] {
+            spdlog::error("RequestExecutor: trace context lost (trace_id=0 on a "
+                          "path that should carry a trace). Check ModbusWorker "
+                          "thread affinity.");
+        });
+    }
+
+    // Read the thread-local trace id published by ModbusWorker::handleSubmit.
+    // Returns 0 when no request context is active (e.g. channel callbacks
+    // fired while idle) — callers decide whether 0 is expected.
+    unsigned long long currentTrace() {
+        return static_cast<unsigned long long>(modbus::trace::currentTraceId);
+    }
+
+    // Variant for request-path log sites (retry / timeouts) where a trace id
+    // must be present; emits a one-shot error if the context was lost.
+    unsigned long long currentTraceRequired() {
+        const unsigned long long id = currentTrace();
+        if (id == 0) {
+            warnIfTraceLost();
+        }
+        return id;
+    }
 
     constexpr std::size_t kDupeTrackerCleanupThreshold = 1000;
     constexpr auto kDupeTrackerSuppressionWindow = std::chrono::seconds(5);
@@ -122,7 +153,8 @@ bool RequestExecutor::tryAcquireRequestLock() {
 
 ModbusResponse RequestExecutor::execute(const base::Pdu& request, int slaveId) {
     if (!tryAcquireRequestLock()) {
-        spdlog::warn("RequestExecutor: rejected concurrent sendRequest while another request is active");
+        spdlog::warn("RequestExecutor: rejected concurrent sendRequest while another request is active trace_id={}",
+                     currentTrace());
         return ModbusResponse::Busy(TrContext<kReqExecCtx>::tr("Request already in progress"));
     }
     RequestLockGuard unlockGuard(requestLocked_);
@@ -162,9 +194,10 @@ ModbusResponse RequestExecutor::execute(const base::Pdu& request, int slaveId) {
             reqStateMachine_->tryTransition(RequestStateMachine::State::Failed,
                                             "request-retry");
             const auto retryDelay = retryStrategy_->nextWait();
-            spdlog::warn("Request failed, retrying... ({}/{}) Error: {}",
+            spdlog::warn("Request failed, retrying... ({}/{}) trace_id={} Error: {}",
                          retryStrategy_->attemptCount(),
                          config_->retries,
+                         currentTraceRequired(),
                          lastResponse.error.toStdString());
             if (!waitForAbortableDelay(mutex_, cv_, aborted_, retryDelay)) {
                 reqStateMachine_->tryTransition(RequestStateMachine::State::Aborted,
@@ -189,7 +222,8 @@ ModbusResponse RequestExecutor::execute(const base::Pdu& request, int slaveId) {
 
 void RequestExecutor::sendRaw(const QByteArray& data) {
     if (!tryAcquireRequestLock()) {
-        spdlog::warn("RequestExecutor: rejected sendRaw while another request is active");
+        spdlog::warn("RequestExecutor: rejected sendRaw while another request is active trace_id={}",
+                     currentTrace());
         return;
     }
     RequestLockGuard unlockGuard(requestLocked_);
@@ -210,7 +244,9 @@ void RequestExecutor::sendRaw(const QByteArray& data) {
 }
 
 void RequestExecutor::abort() {
-    spdlog::info("ModbusClient: Abort requested");
+    // abort() may be called from any thread (e.g. the UI thread during stop),
+    // so trace_id can legitimately be 0 here.
+    spdlog::info("ModbusClient: Abort requested trace_id={}", currentTrace());
     aborted_ = true;
     const auto current = reqStateMachine_->currentState();
     if (current != RequestStateMachine::State::Completed
@@ -224,7 +260,9 @@ void RequestExecutor::abort() {
 
 void RequestExecutor::onDataReceived(QByteArrayView data) {
     std::lock_guard<std::mutex> lock(mutex_);
-    spdlog::debug("ModbusClient: Data received, size={}, notifying loop", data.size());
+    // Channel callback: trace_id is 0 when data arrives outside a request.
+    spdlog::debug("ModbusClient: Data received, size={}, notifying loop trace_id={}",
+                  data.size(), currentTrace());
 
     frameExtractor_->feed(data);
     responseReady_ = frameExtractor_->hasCompleteFrame()
@@ -237,10 +275,14 @@ void RequestExecutor::onChannelError(const QString& error) {
         std::lock_guard<std::mutex> lock(mutex_);
         connectionManager_->setErrorLocked(error);
     }
-    spdlog::warn("ModbusClient: channel error forwarded: '{}' state={} connState={}",
+    // trace_id is 0 when the error arrives outside a request context
+    // (channel callbacks run on the channel thread); non-zero when a request
+    // is in flight on the worker thread.
+    spdlog::warn("ModbusClient: channel error forwarded: '{}' state={} connState={} trace_id={}",
                  error.toStdString(),
                  static_cast<int>(channel_->state()),
-                 static_cast<int>(connStateMachine_->currentState()));
+                 static_cast<int>(connStateMachine_->currentState()),
+                 currentTrace());
     cv_.notify_one();
 }
 
@@ -337,8 +379,8 @@ ModbusResponse RequestExecutor::sendRequestInternal(const base::Pdu& request, in
         deadline += FrameExtractor::calculateInterFrameDelay(*config_);
     }
     reqStateMachine_->tryTransition(RequestStateMachine::State::Waiting, "wait-response");
-    spdlog::debug("ModbusClient: Entering wait loop, deadline in {}ms",
-                              config_->timeoutMs);
+    spdlog::debug("ModbusClient: Entering wait loop, deadline in {}ms trace_id={}",
+                              config_->timeoutMs, currentTrace());
 
     while (true) {
         std::unique_lock<std::mutex> lock(mutex_);
@@ -351,9 +393,9 @@ ModbusResponse RequestExecutor::sendRequestInternal(const base::Pdu& request, in
             lock.lock();
             if (!stillWaiting && std::chrono::steady_clock::now() >= deadline) {
                 reqStateMachine_->tryTransition(RequestStateMachine::State::Failed, "timeout");
-                spdlog::warn("ModbusClient: request timeout slave={} fc={} timeoutMs={}",
+                spdlog::warn("ModbusClient: request timeout slave={} fc={} timeoutMs={} trace_id={}",
                              slaveId, static_cast<int>(request.functionCode()),
-                             config_->timeoutMs);
+                             config_->timeoutMs, currentTraceRequired());
                 return ModbusResponse::Error(TrContext<kReqExecCtx>::tr("Timeout"));
             }
             continue;
@@ -368,15 +410,15 @@ ModbusResponse RequestExecutor::sendRequestInternal(const base::Pdu& request, in
             lock.lock();
             if (!stillWaiting && std::chrono::steady_clock::now() >= deadline) {
                 reqStateMachine_->tryTransition(RequestStateMachine::State::Failed, "timeout");
-                spdlog::warn("ModbusClient: RTU frame wait timeout slave={} fc={} timeoutMs={}",
+                spdlog::warn("ModbusClient: RTU frame wait timeout slave={} fc={} timeoutMs={} trace_id={}",
                              slaveId, static_cast<int>(request.functionCode()),
-                             config_->timeoutMs);
+                             config_->timeoutMs, currentTraceRequired());
                 return ModbusResponse::Error(TrContext<kReqExecCtx>::tr("Timeout"));
             }
             continue;
         }
         if (aborted_) {
-            spdlog::debug("ModbusClient: Aborted during wait");
+            spdlog::debug("ModbusClient: Aborted during wait trace_id={}", currentTrace());
             reqStateMachine_->tryTransition(RequestStateMachine::State::Aborted,
                                             "aborted-during-wait");
             return ModbusResponse::Error(TrContext<kReqExecCtx>::tr("Aborted"));
@@ -448,9 +490,9 @@ ModbusResponse RequestExecutor::sendRequestInternal(const base::Pdu& request, in
         if (std::chrono::steady_clock::now() >= deadline) {
             reqStateMachine_->tryTransition(RequestStateMachine::State::Failed,
                                             "timeout-full-packet");
-            spdlog::warn("ModbusClient: full packet wait timeout slave={} fc={} timeoutMs={}",
+            spdlog::warn("ModbusClient: full packet wait timeout slave={} fc={} timeoutMs={} trace_id={}",
                          slaveId, static_cast<int>(request.functionCode()),
-                         config_->timeoutMs);
+                         config_->timeoutMs, currentTraceRequired());
             return ModbusResponse::Error(TrContext<kReqExecCtx>::tr("Timeout while waiting for full packet"));
         }
     }
@@ -495,6 +537,9 @@ std::optional<ModbusResponse> RequestExecutor::handleParsedFrame(
 
 ModbusResponse RequestExecutor::handleExceptionResponse(const base::Pdu& responsePdu, int slaveId,
                                                         const base::Pdu& requestPdu) {
+    // Read the trace id before taking the lock — a pure thread_local read,
+    // keeps the critical section free of any trace-context access.
+    const unsigned long long traceId = currentTrace();
     std::lock_guard<std::mutex> lock(mutex_);
     const QString exceptionMessage = buildExceptionMessage(
         slaveId,
@@ -507,15 +552,15 @@ ModbusResponse RequestExecutor::handleExceptionResponse(const base::Pdu& respons
     auto it = dupeTracker_.find(dupeKey);
     if (it != dupeTracker_.end() && (now - it->second) < kDupeTrackerSuppressionWindow) {
         spdlog::debug("ModbusClient: Modbus exception response. "
-                      "Slave={} FC=0x{:02X} Exception=0x{:02X} (duplicate within {}s)",
+                      "Slave={} FC=0x{:02X} Exception=0x{:02X} (duplicate within {}s) trace_id={}",
                       slaveId, static_cast<int>(requestPdu.functionCode()),
                       static_cast<int>(responsePdu.exceptionCode()),
-                      kDupeTrackerSuppressionWindowSeconds);
+                      kDupeTrackerSuppressionWindowSeconds, traceId);
     } else {
         spdlog::debug("ModbusClient: Modbus exception response. "
-                      "Slave={} FC=0x{:02X} Exception=0x{:02X}",
+                      "Slave={} FC=0x{:02X} Exception=0x{:02X} trace_id={}",
                       slaveId, static_cast<int>(requestPdu.functionCode()),
-                      static_cast<int>(responsePdu.exceptionCode()));
+                      static_cast<int>(responsePdu.exceptionCode()), traceId);
         dupeTracker_[dupeKey] = now;
     }
     return ModbusResponse::Error(exceptionMessage);
@@ -627,11 +672,12 @@ int RequestExecutor::enqueuePendingRequest(const base::Pdu& request, int slaveId
     item.retries = config_->retries;
     item.enqueueAt = std::chrono::steady_clock::now();
     pendingRequests_.push_back(item);
-    spdlog::debug("ModbusClient: enqueue request id={}, fc={}, slave={}, queue={}",
+    spdlog::debug("ModbusClient: enqueue request id={}, fc={}, slave={}, queue={} trace_id={}",
                               item.requestId,
                               static_cast<int>(item.functionCode),
                               item.slaveId,
-                              pendingRequests_.size());
+                              pendingRequests_.size(),
+                              currentTrace());
     return item.requestId;
 }
 
@@ -643,14 +689,15 @@ void RequestExecutor::finishPendingRequest(int requestId, bool success,
                                return item.requestId == requestId;
                            });
     if (it == pendingRequests_.end()) {
-        spdlog::warn("ModbusClient: request id={} not found in queue", requestId);
+        spdlog::warn("ModbusClient: request id={} not found in queue trace_id={}",
+                     requestId, currentTrace());
         return;
     }
     const auto waitMs = std::chrono::duration_cast<std::chrono::milliseconds>(
         std::chrono::steady_clock::now() - it->enqueueAt).count();
     spdlog::debug(
-        "ModbusClient: finish request id={}, success={}, queue_wait={}ms, error='{}'",
-        requestId, success, waitMs, error.toStdString());
+        "ModbusClient: finish request id={}, success={}, queue_wait={}ms, error='{}' trace_id={}",
+        requestId, success, waitMs, error.toStdString(), currentTrace());
     pendingRequests_.erase(it);
 }
 

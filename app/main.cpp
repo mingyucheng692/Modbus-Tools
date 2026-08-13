@@ -11,6 +11,7 @@
 #include <QIcon>
 #include <QMessageBox>
 #include <QResource>
+#include <spdlog/spdlog.h>
 #include "MainWindow.h"
 #include "common/SettingsService.h"
 #include "common/ThemeController.h"
@@ -54,11 +55,22 @@ int main(int argc, char *argv[])
     // If a future change moves settings persistence to an async worker, the
     // worker must be joined before any of these stack objects go out of scope
     // (otherwise the worker may flush into a destroyed SettingsService -> UAF).
-    ui::MainWindow window(&settingsService, &themeController, pathResolver);
-    window.setWindowIcon(QIcon(":/assets/logo.svg"));
-    window.show();
+    //
+    // `window` lives in an explicit scope so spdlog::shutdown() runs AFTER the
+    // window's destructor chain (which still emits log lines during teardown).
+    // Shutting down the logger before window destruction would drop those lines.
+    int exitCode = 0;
+    {
+        ui::MainWindow window(&settingsService, &themeController, pathResolver);
+        window.setWindowIcon(QIcon(":/assets/logo.svg"));
+        window.show();
 
-    spdlog::info("Modbus-Tools initialized");
+        spdlog::info("Modbus-Tools initialized");
 
-    return app.exec();
+        exitCode = app.exec();
+    }
+    // All QObjects are dead here; drain the async queue and stop the backend
+    // thread so the final log lines reach disk before process exit.
+    spdlog::shutdown();
+    return exitCode;
 }
