@@ -16,6 +16,10 @@
 
 namespace modbus::dispatch {
 
+bool isCleanSuccess(const session::ModbusResponse& response) {
+    return !response.isError() && response.retryCount() == 0;
+}
+
 namespace {
 bool isThreadReady(const QPointer<QThread>& thread) {
     return thread && thread->isRunning();
@@ -184,7 +188,7 @@ void ModbusWorker::handleSubmit(base::Pdu request, int slaveId, int requestId, q
     // Clean successes (no error, no retry) are the steady-state majority of
     // log lines under polling; demote them to debug so production logs keep
     // signal density. Failures and retried requests stay at info.
-    if (!response.isError() && response.retryCount() == 0) {
+    if (isCleanSuccess(response)) {
         spdlog::debug("ModbusWorker: complete request trace_id={} request_id={} success=true",
                       static_cast<unsigned long long>(traceId),
                       requestId);

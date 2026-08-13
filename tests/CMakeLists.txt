@@ -80,11 +80,13 @@ set(TEST_CORE_LOGIC_SOURCES
     unit/io/TcpChannelTest.cpp
     unit/io/ReconnectPolicyTest.cpp
     unit/logging/LoggerInitTest.cpp
+    unit/logging/TraceContextTest.cpp
     unit/modbus/base/DataHelperTest.cpp
     unit/modbus/base/ModbusCrcTest.cpp
     unit/modbus/base/ModbusEndianCodecTest.cpp
     unit/modbus/base/ModbusPduTest.cpp
     unit/modbus/base/ModbusPduBuilderTest.cpp
+    unit/modbus/dispatch/WorkerLogDemotionTest.cpp
     unit/modbus/parser/ParserRobustnessTest.cpp
     unit/modbus/parser/ParserTest.cpp
     unit/modbus/session/ModbusResponseTest.cpp

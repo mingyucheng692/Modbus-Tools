@@ -21,6 +21,12 @@ namespace modbus::session { class ModbusClient; }
 
 namespace modbus::dispatch {
 
+/// True when a completed request is a "clean success" (no error, no retry)
+/// and its completion log should be demoted to debug level. Clean successes
+/// are the steady-state majority of log lines under polling; failures and
+/// retried requests keep info level to preserve signal density.
+bool isCleanSuccess(const session::ModbusResponse& response);
+
 /**
  * @brief Worker object for submitting Modbus requests from a dedicated thread.
  *

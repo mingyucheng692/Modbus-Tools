@@ -32,15 +32,22 @@ namespace modbus::trace {
  */
 inline thread_local quint64 currentTraceId = 0;
 
-/// RAII guard: publishes @p traceId for the current thread and resets it to 0
-/// when the request handling scope ends (including on early return).
+/// RAII guard: publishes @p traceId for the current thread and restores the
+/// previous value when the request handling scope ends (including on early
+/// return). Save/restore — not reset-to-zero — so a nested Scope never erases
+/// an outer trace context.
 class Scope {
 public:
-    explicit Scope(quint64 traceId) { currentTraceId = traceId; }
-    ~Scope() { currentTraceId = 0; }
+    explicit Scope(quint64 traceId) : previous_(currentTraceId) {
+        currentTraceId = traceId;
+    }
+    ~Scope() { currentTraceId = previous_; }
 
     Scope(const Scope&) = delete;
     Scope& operator=(const Scope&) = delete;
+
+private:
+    quint64 previous_;
 };
 
 } // namespace modbus::trace

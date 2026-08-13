@@ -16,6 +16,10 @@ TEST(RetryStrategy, NoRetriesByDefault) {
     RetryStrategy::Config cfg;
     cfg.maxRetries = 0;
     RetryStrategy strategy(cfg);
+    // Production calls recordAttempt() before shouldRetry() (see
+    // RequestExecutor). With maxRetries=0 the first recorded attempt must
+    // already exhaust the retry budget: attemptCount_=1, 1 <= 0 is false.
+    strategy.recordAttempt();
     EXPECT_FALSE(strategy.shouldRetry());
 }
 
@@ -54,9 +58,10 @@ TEST(RetryStrategy, BackoffIncreasesWithAttempts) {
     cfg.jitterPercent = 0; // disable jitter for deterministic test
 
     // attempt 0: 100ms, attempt 1: 200ms, attempt 2: 400ms
-    EXPECT_EQ(RetryStrategy::calculateBackoffMs(cfg, 0), 100);
-    EXPECT_EQ(RetryStrategy::calculateBackoffMs(cfg, 1), 200);
-    EXPECT_EQ(RetryStrategy::calculateBackoffMs(cfg, 2), 400);
+    RetryStrategy strategy(cfg);
+    EXPECT_EQ(strategy.calculateBackoffMs(cfg, 0), 100);
+    EXPECT_EQ(strategy.calculateBackoffMs(cfg, 1), 200);
+    EXPECT_EQ(strategy.calculateBackoffMs(cfg, 2), 400);
 }
 
 TEST(RetryStrategy, BackoffCappedAtMaxInterval) {
@@ -67,7 +72,8 @@ TEST(RetryStrategy, BackoffCappedAtMaxInterval) {
     cfg.jitterPercent = 0;
 
     // 100 * 10^2 = 10000, capped to 500
-    EXPECT_EQ(RetryStrategy::calculateBackoffMs(cfg, 2), 500);
+    RetryStrategy strategy(cfg);
+    EXPECT_EQ(strategy.calculateBackoffMs(cfg, 2), 500);
 }
 
 TEST(RetryStrategy, JitterStaysWithinWindow) {
@@ -78,8 +84,9 @@ TEST(RetryStrategy, JitterStaysWithinWindow) {
     cfg.jitterPercent = 20;
 
     // With 20% jitter on 1000ms, result should be in [800, 1200]
+    RetryStrategy strategy(cfg);
     for (int i = 0; i < 100; ++i) {
-        const int delay = RetryStrategy::calculateBackoffMs(cfg, 0);
+        const int delay = strategy.calculateBackoffMs(cfg, 0);
         EXPECT_GE(delay, 800);
         EXPECT_LE(delay, 1200);
     }
@@ -92,7 +99,8 @@ TEST(RetryStrategy, NegativeBaseIntervalSanitized) {
     cfg.backoffFactor = 2.0;
     cfg.jitterPercent = 0;
 
-    EXPECT_EQ(RetryStrategy::calculateBackoffMs(cfg, 0), 0);
+    RetryStrategy strategy(cfg);
+    EXPECT_EQ(strategy.calculateBackoffMs(cfg, 0), 0);
 }
 
 TEST(RetryStrategy, NextWaitUsesAttemptMinusOne) {
@@ -120,10 +128,13 @@ TEST(RetryStrategy, ReconfigureUpdatesConfig) {
     RetryStrategy::Config cfg1;
     cfg1.maxRetries = 1;
     RetryStrategy strategy(cfg1);
-    EXPECT_TRUE(strategy.shouldRetry());
+    strategy.recordAttempt();
+    EXPECT_TRUE(strategy.shouldRetry()); // attemptCount_=1, 1 <= 1
 
     RetryStrategy::Config cfg2;
     cfg2.maxRetries = 0;
     strategy.reconfigure(cfg2);
+    // Reconfigure takes effect immediately: the already-recorded attempt now
+    // exhausts the tightened budget. attemptCount_=1, 1 <= 0 is false.
     EXPECT_FALSE(strategy.shouldRetry());
 }
