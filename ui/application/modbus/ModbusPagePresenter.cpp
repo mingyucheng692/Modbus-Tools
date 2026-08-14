@@ -59,10 +59,12 @@ void ModbusPagePresenter::createServices() {
     sessionPresenter_->setPollingController(pollingController_);
     sessionPresenter_->setTrafficLogController(trafficLogController_);
 
-    // trafficEvent → trafficMonitor (needs the monitor pointer, so wire here
-    // rather than in wireConnections() which does not retain it).
+    // Task 1.5: trafficEvent flows through TrafficLogController::publishEvent,
+    // the single legitimate bridge entry (monitor append + LogBridge relay).
+    // Wiring directly to the monitor would bypass relay() and re-create the
+    // dual-entry problem this task removes.
     connect(pollingController_, &PollingController::trafficEvent,
-            trafficMonitor_, &ui::widgets::TrafficMonitorWidget::appendEvent);
+            trafficLogController_, &TrafficLogController::publishEvent);
 }
 
 void ModbusPagePresenter::wireConnections() {

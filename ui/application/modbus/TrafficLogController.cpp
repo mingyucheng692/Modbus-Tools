@@ -9,6 +9,7 @@
 
 #include "TrafficLogController.h"
 #include "PollingController.h"
+#include "Config.h"
 #include "../../logging/LogBridge.h"
 #include "../../widgets/TrafficMonitorWidget.h"
 #include <QCoreApplication>
@@ -46,9 +47,22 @@ void TrafficLogController::logRawFrame(ui::common::TrafficDirection direction,
                                        const QByteArray& data) {
     const bool suppressLog = pollingController_
         && pollingController_->isSuppressingTrafficLog();
-    const bool allowRawFrameLog = !suppressLog
-        || (monitor_ && monitor_->isRawFramesModeEnabled());
+    const bool rawFramesEnabled = monitor_ && monitor_->isRawFramesModeEnabled();
+    const bool allowRawFrameLog = !suppressLog || rawFramesEnabled;
     if (!allowRawFrameLog) return;
+
+    // Task 1.4: sample poll frames (1 per kRawFrameSampleRate) so fast polling
+    // with Raw Frames enabled does not flood the UI thread. Manual frames
+    // (suppressLog == false) are never sampled. Dropped frames are counted and
+    // reported by the next poll summary.
+    if (suppressLog && rawFramesEnabled) {
+        rawFramePhase_ = (rawFramePhase_ + 1) % config::Ui::kRawFrameSampleRate;
+        if (rawFramePhase_ != 0) {
+            ++rawFramesDropped_;
+            return;
+        }
+        ++rawFramesShown_;
+    }
 
     ui::common::TrafficEvent event;
     event.direction = direction;
@@ -145,11 +159,7 @@ void TrafficLogController::logPollSummary(const PollSummary& summary) {
         ? tr("%1 ms").arg(summary.avgRttMs)
         : tr("--");
 
-    ui::common::TrafficEvent event;
-    event.level = ui::common::TrafficEventLevel::Info;
-    event.requestType = ui::common::TrafficRequestType::Poll;
-    event.isPoll = true;
-    event.summary = tr("Poll Summary FC:%1 Addr:%2 Qty:%3 Slave:%4 Success:%5 Error:%6 Retries:%7 Avg Success RTT:%8")
+    QString summaryText = tr("Poll Summary FC:%1 Addr:%2 Qty:%3 Slave:%4 Success:%5 Error:%6 Retries:%7 Avg Success RTT:%8")
         .arg(summary.functionCode)
         .arg(summary.address)
         .arg(summary.quantity)
@@ -158,6 +168,22 @@ void TrafficLogController::logPollSummary(const PollSummary& summary) {
         .arg(summary.errorCount)
         .arg(summary.retryCount)
         .arg(avgRttText);
+
+    // Task 1.4: report Raw Frames sampling outcome for this window, then reset
+    // the per-window counters (phase is kept so the 1/N rhythm stays stable).
+    if (rawFramesShown_ > 0 || rawFramesDropped_ > 0) {
+        summaryText += tr(" | Raw frames shown %1, dropped %2")
+            .arg(rawFramesShown_)
+            .arg(rawFramesDropped_);
+        rawFramesShown_ = 0;
+        rawFramesDropped_ = 0;
+    }
+
+    ui::common::TrafficEvent event;
+    event.level = ui::common::TrafficEventLevel::Info;
+    event.requestType = ui::common::TrafficRequestType::Poll;
+    event.isPoll = true;
+    event.summary = summaryText;
     publishEvent(std::move(event));
 }
 

@@ -10,7 +10,6 @@
 #include "PollingController.h"
 #include "RequestSubmissionService.h"
 #include "Config.h"
-#include "../../logging/LogBridge.h"
 #include <QCoreApplication>
 #include <algorithm>
 #include <spdlog/spdlog.h>
@@ -196,7 +195,9 @@ void PollingController::handlePollCompletion(bool success, int rttMs, int retryC
             }
 
             if (shouldLogEscalatedError) {
-                ui::logging::relay(event);
+                // Task 1.5: no direct ui::logging::relay() here. The event flows
+                // along the signal chain (trafficEvent -> TrafficLogController
+                // ::publishEvent), which is the single legitimate bridge entry.
                 emit trafficEvent(event);
                 context_.lastErrorLogTime = now;
             }

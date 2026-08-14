@@ -63,6 +63,15 @@ namespace {
         std::chrono::duration_cast<std::chrono::seconds>(
             kDupeTrackerSuppressionWindow).count();
 
+    // Failure kinds for the timeout/retry deduplication key
+    // (slave, fc, errorKind). Integer enum by design — see LogDedupe.h.
+    enum class FailureKind : uint8_t {
+        Timeout = 0,
+        RtuFrameTimeout = 1,
+        FullPacketTimeout = 2,
+        Retry = 3,
+    };
+
     constexpr char kReqExecCtx[] = "modbus::session::RequestExecutor";
 
     bool isBroadcastWriteFunction(base::FunctionCode functionCode) {
@@ -133,7 +142,9 @@ RequestExecutor::RequestExecutor(const Dependencies& deps)
     , aborted_(deps.aborted)
     , pendingMutex_(deps.pendingMutex)
     , pendingRequests_(deps.pendingRequests)
-    , nextRequestId_(deps.nextRequestId) {
+    , nextRequestId_(deps.nextRequestId)
+    , exceptionDedupe_(kDupeTrackerSuppressionWindow)
+    , failureDedupe_(kDupeTrackerSuppressionWindow) {
     Q_ASSERT(channel_);
     Q_ASSERT(transport_);
     Q_ASSERT(frameExtractor_);
@@ -194,11 +205,27 @@ ModbusResponse RequestExecutor::execute(const base::Pdu& request, int slaveId) {
             reqStateMachine_->tryTransition(RequestStateMachine::State::Failed,
                                             "request-retry");
             const auto retryDelay = retryStrategy_->nextWait();
-            spdlog::warn("Request failed, retrying... ({}/{}) trace_id={} Error: {}",
-                         retryStrategy_->attemptCount(),
-                         config_->retries,
-                         currentTraceRequired(),
-                         lastResponse.error.toStdString());
+            // Dedupe: under polling of a dead device this warn would fire on
+            // every request. First occurrence per (slave, fc) within the
+            // window logs at warn; duplicates drop to debug.
+            const auto retryKey = std::make_tuple(
+                static_cast<uint8_t>(slaveId),
+                static_cast<uint8_t>(request.functionCode()),
+                static_cast<uint8_t>(FailureKind::Retry));
+            if (failureDedupe_.shouldLog(retryKey, std::chrono::steady_clock::now())) {
+                spdlog::warn("Request failed, retrying... ({}/{}) trace_id={} Error: {}",
+                             retryStrategy_->attemptCount(),
+                             config_->retries,
+                             currentTraceRequired(),
+                             lastResponse.error.toStdString());
+            } else {
+                spdlog::debug("Request failed, retrying... ({}/{}) trace_id={} Error: {} (duplicate within {}s)",
+                              retryStrategy_->attemptCount(),
+                              config_->retries,
+                              currentTraceRequired(),
+                              lastResponse.error.toStdString(),
+                              kDupeTrackerSuppressionWindowSeconds);
+            }
             if (!waitForAbortableDelay(mutex_, cv_, aborted_, retryDelay)) {
                 reqStateMachine_->tryTransition(RequestStateMachine::State::Aborted,
                                                 "request-aborted-during-backoff");
@@ -289,7 +316,8 @@ void RequestExecutor::onChannelError(const QString& error) {
 void RequestExecutor::resetState(bool clearPendingQueue) {
     std::lock_guard<std::mutex> lock(mutex_);
     responseReady_ = false;
-    dupeTracker_.clear();
+    exceptionDedupe_.clear();
+    failureDedupe_.clear();
     if (clearPendingQueue) {
         std::lock_guard<std::mutex> pendingLock(pendingMutex_);
         pendingRequests_.clear();
@@ -393,9 +421,21 @@ ModbusResponse RequestExecutor::sendRequestInternal(const base::Pdu& request, in
             lock.lock();
             if (!stillWaiting && std::chrono::steady_clock::now() >= deadline) {
                 reqStateMachine_->tryTransition(RequestStateMachine::State::Failed, "timeout");
-                spdlog::warn("ModbusClient: request timeout slave={} fc={} timeoutMs={} trace_id={}",
-                             slaveId, static_cast<int>(request.functionCode()),
-                             config_->timeoutMs, currentTraceRequired());
+                // Dedupe: polling a dead device fires this on every request.
+                const auto key = std::make_tuple(
+                    static_cast<uint8_t>(slaveId),
+                    static_cast<uint8_t>(request.functionCode()),
+                    static_cast<uint8_t>(FailureKind::Timeout));
+                if (failureDedupe_.shouldLog(key, std::chrono::steady_clock::now())) {
+                    spdlog::warn("ModbusClient: request timeout slave={} fc={} timeoutMs={} trace_id={}",
+                                 slaveId, static_cast<int>(request.functionCode()),
+                                 config_->timeoutMs, currentTraceRequired());
+                } else {
+                    spdlog::debug("ModbusClient: request timeout slave={} fc={} timeoutMs={} trace_id={} (duplicate within {}s)",
+                                  slaveId, static_cast<int>(request.functionCode()),
+                                  config_->timeoutMs, currentTraceRequired(),
+                                  kDupeTrackerSuppressionWindowSeconds);
+                }
                 return ModbusResponse::Error(TrContext<kReqExecCtx>::tr("Timeout"));
             }
             continue;
@@ -410,9 +450,20 @@ ModbusResponse RequestExecutor::sendRequestInternal(const base::Pdu& request, in
             lock.lock();
             if (!stillWaiting && std::chrono::steady_clock::now() >= deadline) {
                 reqStateMachine_->tryTransition(RequestStateMachine::State::Failed, "timeout");
-                spdlog::warn("ModbusClient: RTU frame wait timeout slave={} fc={} timeoutMs={} trace_id={}",
-                             slaveId, static_cast<int>(request.functionCode()),
-                             config_->timeoutMs, currentTraceRequired());
+                const auto key = std::make_tuple(
+                    static_cast<uint8_t>(slaveId),
+                    static_cast<uint8_t>(request.functionCode()),
+                    static_cast<uint8_t>(FailureKind::RtuFrameTimeout));
+                if (failureDedupe_.shouldLog(key, std::chrono::steady_clock::now())) {
+                    spdlog::warn("ModbusClient: RTU frame wait timeout slave={} fc={} timeoutMs={} trace_id={}",
+                                 slaveId, static_cast<int>(request.functionCode()),
+                                 config_->timeoutMs, currentTraceRequired());
+                } else {
+                    spdlog::debug("ModbusClient: RTU frame wait timeout slave={} fc={} timeoutMs={} trace_id={} (duplicate within {}s)",
+                                  slaveId, static_cast<int>(request.functionCode()),
+                                  config_->timeoutMs, currentTraceRequired(),
+                                  kDupeTrackerSuppressionWindowSeconds);
+                }
                 return ModbusResponse::Error(TrContext<kReqExecCtx>::tr("Timeout"));
             }
             continue;
@@ -428,6 +479,11 @@ ModbusResponse RequestExecutor::sendRequestInternal(const base::Pdu& request, in
             if (!chErr.isEmpty()) {
                 reqStateMachine_->tryTransition(RequestStateMachine::State::Failed,
                                                 "channel-error");
+                // Lifecycle closure: a channel error tearing down the session
+                // mid-request is a *passive* disconnect — mark it explicitly
+                // so log readers can distinguish it from user-initiated ones.
+                spdlog::info("ModbusClient: session disconnected passively by channel error: '{}' trace_id={}",
+                             chErr.toStdString(), currentTrace());
                 return ModbusResponse::Error(chErr);
             }
         }
@@ -440,17 +496,9 @@ ModbusResponse RequestExecutor::sendRequestInternal(const base::Pdu& request, in
 
         responseReady_ = false;
 
-        // Bound duplicate-exception tracking state without changing response behavior.
-        if (dupeTracker_.size() > kDupeTrackerCleanupThreshold) {
-            const auto cutoff = std::chrono::steady_clock::now() - kDupeTrackerSuppressionWindow;
-            for (auto it = dupeTracker_.begin(); it != dupeTracker_.end(); ) {
-                if (it->second < cutoff) {
-                    it = dupeTracker_.erase(it);
-                } else {
-                    ++it;
-                }
-            }
-        }
+        // Bound deduplication state without changing response behavior.
+        exceptionDedupe_.prune(now, kDupeTrackerCleanupThreshold);
+        failureDedupe_.prune(now, kDupeTrackerCleanupThreshold);
 
         while (true) {
             if (config_->mode == base::ModbusMode::RTU
@@ -490,9 +538,20 @@ ModbusResponse RequestExecutor::sendRequestInternal(const base::Pdu& request, in
         if (std::chrono::steady_clock::now() >= deadline) {
             reqStateMachine_->tryTransition(RequestStateMachine::State::Failed,
                                             "timeout-full-packet");
-            spdlog::warn("ModbusClient: full packet wait timeout slave={} fc={} timeoutMs={} trace_id={}",
-                         slaveId, static_cast<int>(request.functionCode()),
-                         config_->timeoutMs, currentTraceRequired());
+            const auto key = std::make_tuple(
+                static_cast<uint8_t>(slaveId),
+                static_cast<uint8_t>(request.functionCode()),
+                static_cast<uint8_t>(FailureKind::FullPacketTimeout));
+            if (failureDedupe_.shouldLog(key, std::chrono::steady_clock::now())) {
+                spdlog::warn("ModbusClient: full packet wait timeout slave={} fc={} timeoutMs={} trace_id={}",
+                             slaveId, static_cast<int>(request.functionCode()),
+                             config_->timeoutMs, currentTraceRequired());
+            } else {
+                spdlog::debug("ModbusClient: full packet wait timeout slave={} fc={} timeoutMs={} trace_id={} (duplicate within {}s)",
+                              slaveId, static_cast<int>(request.functionCode()),
+                              config_->timeoutMs, currentTraceRequired(),
+                              kDupeTrackerSuppressionWindowSeconds);
+            }
             return ModbusResponse::Error(TrContext<kReqExecCtx>::tr("Timeout while waiting for full packet"));
         }
     }
@@ -548,9 +607,9 @@ ModbusResponse RequestExecutor::handleExceptionResponse(const base::Pdu& respons
     auto dupeKey = std::make_tuple(static_cast<uint8_t>(slaveId),
                                    static_cast<uint8_t>(requestPdu.functionCode()),
                                    static_cast<uint8_t>(responsePdu.exceptionCode()));
-    auto now = std::chrono::steady_clock::now();
-    auto it = dupeTracker_.find(dupeKey);
-    if (it != dupeTracker_.end() && (now - it->second) < kDupeTrackerSuppressionWindow) {
+    // shouldLog is a pure in-memory operation (map lookup + time compare),
+    // safe to call while holding mutex_ — no string work happens inside it.
+    if (!exceptionDedupe_.shouldLog(dupeKey, std::chrono::steady_clock::now())) {
         spdlog::debug("ModbusClient: Modbus exception response. "
                       "Slave={} FC=0x{:02X} Exception=0x{:02X} (duplicate within {}s) trace_id={}",
                       slaveId, static_cast<int>(requestPdu.functionCode()),
@@ -561,7 +620,6 @@ ModbusResponse RequestExecutor::handleExceptionResponse(const base::Pdu& respons
                       "Slave={} FC=0x{:02X} Exception=0x{:02X} trace_id={}",
                       slaveId, static_cast<int>(requestPdu.functionCode()),
                       static_cast<int>(responsePdu.exceptionCode()), traceId);
-        dupeTracker_[dupeKey] = now;
     }
     return ModbusResponse::Error(exceptionMessage);
 }

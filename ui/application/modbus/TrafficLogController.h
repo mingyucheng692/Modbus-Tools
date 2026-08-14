@@ -49,14 +49,25 @@ public:
     void logInfo(const QString& message);
     void logPollSummary(const PollSummary& summary);
 
+    /// Single legitimate entry point for traffic events (Task 1.5): appends to
+    /// the monitor and crosses the LogBridge into spdlog. Producers must emit
+    /// signals wired here; calling ui::logging::relay() directly is forbidden.
+    void publishEvent(ui::common::TrafficEvent event);
+
 private:
     static QString retryWord(int retryCount);
     static QString successWithRetrySummary(const QString& baseMessage, int retryCount);
     static QString errorWithRetrySummary(const QString& error, int retryCount);
-    void publishEvent(ui::common::TrafficEvent event);
 
     ui::widgets::TrafficMonitorWidget* monitor_ = nullptr;
     PollingController* pollingController_ = nullptr;
+
+    // Task 1.4 Raw Frames sampling state (poll frames only; manual frames are
+    // never sampled). rawFramePhase_ keeps the 1/N rhythm across summary
+    // windows; shown/dropped are per-window counters reported in the summary.
+    int rawFramePhase_ = 0;
+    int rawFramesShown_ = 0;
+    int rawFramesDropped_ = 0;
 };
 
 } // namespace ui::application::modbus

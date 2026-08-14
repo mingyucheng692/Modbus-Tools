@@ -136,6 +136,9 @@ bool ModbusClient::connect() {
 }
 
 void ModbusClient::disconnect() {
+    // Lifecycle closure: pairs with the connect-side info logs so every
+    // session has a visible start AND end in the log file.
+    spdlog::info("ModbusClient: disconnect requested, reason=user-request");
     aborted_ = true;
     sessionHealth_.store(SessionHealth::Unknown, std::memory_order_release);
     connectionStateMachine_.tryTransition(ConnectionState::Disconnecting, "disconnect");
@@ -148,6 +151,7 @@ void ModbusClient::disconnect() {
         connectionStateMachine_.forceReset(ConnectionState::Disconnected);
     }
     requestStateMachine_.tryTransition(RequestState::Idle, "disconnect");
+    spdlog::info("ModbusClient: session disconnected");
 }
 
 void ModbusClient::abort() {

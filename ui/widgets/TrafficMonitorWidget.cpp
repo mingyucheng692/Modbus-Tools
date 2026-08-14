@@ -192,9 +192,11 @@ void TrafficMonitorWidget::setupUi() {
 }
 
 bool TrafficMonitorWidget::isRealtimeEvent(const ui::common::TrafficEvent& event) const {
-    return event.level == ui::common::TrafficEventLevel::Warning
-        || event.level == ui::common::TrafficEventLevel::Error
-        || event.requestType == ui::common::TrafficRequestType::Connection;
+    // Task 1.4: the Warning/Error bypass is closed. Only low-frequency Connection
+    // lifecycle events keep immediate rendering; everything else (including
+    // Warning/Error storms) goes through the 120ms pendingEvents_ batch so the
+    // UI thread is not re-entered per event.
+    return event.requestType == ui::common::TrafficRequestType::Connection;
 }
 
 TrafficMonitorWidget::DisplayMode TrafficMonitorWidget::currentDisplayMode() const {
@@ -257,7 +259,8 @@ void TrafficMonitorWidget::syncDisplayModeUi() {
     }
     if (rawHintLabel_) {
         rawHintLabel_->setText(rawFramesEnabled
-            ? tr("Raw Frames may affect UI fluency")
+            ? tr("Raw Frames: poll frames sampled 1/%1, manual frames always shown")
+                .arg(config::Ui::kRawFrameSampleRate)
             : QString());
     }
 }
@@ -274,8 +277,12 @@ void TrafficMonitorWidget::syncPauseUi() {
 void TrafficMonitorWidget::appendEventToHistory(const ui::common::TrafficEvent& event) {
     eventHistory_.append(event);
     const int maxRows = config::Ui::kTrafficMonitorMaxBlockCount;
-    while (eventHistory_.size() > maxRows) {
-        eventHistory_.removeFirst();
+    // Task 1.4: trim in one batch instead of repeated removeFirst() (each of which
+    // is an O(n) shift). Normal flow overflows by at most 1, but the batch form
+    // is correct for any overflow amount.
+    const int overflow = eventHistory_.size() - maxRows;
+    if (overflow > 0) {
+        eventHistory_.erase(eventHistory_.begin(), eventHistory_.begin() + overflow);
     }
 }
 
@@ -456,13 +463,57 @@ void TrafficMonitorWidget::flushPendingEvents() {
 
     QList<LogEntry> batch;
     batch.reserve(pendingEvents_.size());
+
+    // Task 1.4 (error-storm merging): collapse runs of consecutive Error events
+    // that share the same summary into a single "[ERROR] xxx (xN)" line. Only
+    // adjacent events inside the current batch are merged; already-rendered
+    // history rows are never rescanned (see Plan_v2 Task 1.4 guideline).
+    QString pendingErrorLine;
+    QString pendingErrorSummary;
+    QColor pendingErrorColor;
+    int pendingErrorCount = 0;
+
+    auto flushPendingError = [&]() {
+        if (pendingErrorCount <= 0) {
+            return;
+        }
+        QString text = pendingErrorCount > 1
+            ? pendingErrorLine + tr(" (\u00D7%1)").arg(pendingErrorCount)
+            : pendingErrorLine;
+        batch.append({text, pendingErrorColor});
+        pendingErrorCount = 0;
+        pendingErrorLine.clear();
+        pendingErrorSummary.clear();
+    };
+
     for (const auto& event : pendingEvents_) {
         QString line;
         QColor color;
-        if (renderEvent(event, line, color)) {
-            batch.append({line, color});
+        if (!renderEvent(event, line, color)) {
+            continue;
         }
+        // Raw frames carry a direction; only direction-less Error events are
+        // merge candidates (matches renderEvent, which returns early for Tx/Rx).
+        const bool mergeableError =
+            event.level == ui::common::TrafficEventLevel::Error
+            && event.direction == ui::common::TrafficDirection::None;
+        if (mergeableError) {
+            if (pendingErrorCount > 0 && event.summary == pendingErrorSummary) {
+                ++pendingErrorCount;
+                continue;
+            }
+            flushPendingError();
+            pendingErrorLine = line;
+            pendingErrorSummary = event.summary;
+            pendingErrorColor = color;
+            pendingErrorCount = 1;
+            continue;
+        }
+        flushPendingError();
+        batch.append({line, color});
     }
+    flushPendingError();
+
     pendingEvents_.clear();
     if (flushTimer_) {
         flushTimer_->stop();

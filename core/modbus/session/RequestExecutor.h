@@ -19,14 +19,15 @@
 #include "ConnectionManager.h"
 #include "../transport/ITransport.h"
 #include "../base/ModbusConfig.h"
+#include "common/LogDedupe.h"
 #include "infra/io/IChannel.h"
 #include <mutex>
 #include <condition_variable>
 #include <atomic>
 #include <deque>
-#include <map>
 #include <chrono>
 #include <optional>
+#include <tuple>
 
 namespace modbus::session {
 
@@ -176,8 +177,13 @@ private:
     // --- Owned member ---
     std::mutex requestMutex_;
     std::atomic<bool> requestLocked_{false};
-    std::map<std::tuple<uint8_t, uint8_t, uint8_t>,
-             std::chrono::steady_clock::time_point> dupeTracker_;
+    // Deduplication keys are integer tuples by design: shouldLog() is called
+    // while holding mutex_, so keys must never involve QString hashing/copy.
+    // exceptionDedupe_: (slave, fc, exceptionCode) for Modbus exception responses.
+    // failureDedupe_:   (slave, fc, errorKind) for timeout/retry log sites.
+    using DedupeKey = std::tuple<uint8_t, uint8_t, uint8_t>;
+    common::LogDedupe<DedupeKey> exceptionDedupe_;
+    common::LogDedupe<DedupeKey> failureDedupe_;
     bool responseReady_ = false;
 };
 
