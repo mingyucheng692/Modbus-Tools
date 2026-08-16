@@ -1,9 +1,9 @@
 /**
  * @file FrameAnalyzerWidget.cpp
  * @brief Implementation of FrameAnalyzerWidget.
- * 
+ *
  * Copyright (c) 2025 - present mingyucheng692
- * 
+ *
  * Licensed under the MIT License. See LICENSE file in the project root for full license information.
  */
 
@@ -14,7 +14,7 @@
 #include "common/ModbusDataHelper.h"
 #include "modbus/base/ModbusProtocolChecks.h"
 #include "modbus/parser/ModbusFrameParser.h"
-#include "modbus/parser/FrameParseWorker.h"
+#include "application/analyzer/FrameAnalyzerPresenter.h"
 #include "analyzer/AnalyzerCommon.h"
 #include "analyzer/AnalyzerExporter.h"
 #include "analyzer/ValueFormatter.h"
@@ -38,11 +38,7 @@
 #include <QFileDialog>
 #include <QListWidget>
 #include <QResizeEvent>
-#include <QFutureWatcher>
 #include <QSplitter>
-#include <QThread>
-#include <memory>
-#include <spdlog/spdlog.h>
 
 using namespace modbus::parser;
 using namespace modbus::analyzer;
@@ -51,53 +47,11 @@ namespace ui::widgets {
 
 namespace {
 
-// RAII deleter for QThread: quits + waits (with fallback to async cleanup).
-// Same pattern as cleanupThread in ModbusFactory.cpp.
-void cleanupThread(QThread* thread)
-{
-    if (!thread) {
-        return;
-    }
-
-    if (thread->isRunning()) {
-        thread->quit();
-        if (QThread::currentThread() != thread && thread->wait(1000)) {
-            delete thread;
-            return;
-        }
-        // Fallback: let the thread self-delete when finished.
-        QObject::connect(thread, &QThread::finished, thread, &QObject::deleteLater, Qt::UniqueConnection);
-        return;
-    }
-
-    delete thread;
-}
-
-// RAII deleter for FrameParseWorker: queues deleteLater on the worker thread.
-// Same pattern as cleanupWorker in ModbusFactory.cpp (without stop() since FrameParseWorker has none).
-void cleanupWorker(FrameParseWorker* worker)
-{
-    if (!worker) {
-        return;
-    }
-
-    QThread* objectThread = worker->thread();
-    if (objectThread && objectThread->isRunning()) {
-        QMetaObject::invokeMethod(worker, [worker, objectThread]() {
-            QObject::connect(worker, &QObject::destroyed, objectThread, &QThread::quit, Qt::UniqueConnection);
-            worker->deleteLater();
-        }, Qt::QueuedConnection);
-        return;
-    }
-
-    delete worker;
-}
-
 // UI-layer input preprocessing: strips bracketed metadata ([RX]/[TX]/timestamps),
 // 0x prefixes and non-hex characters; returns a contiguous lowercase/uppercase
 // hex string suitable for QByteArray::fromHex(), or a Latin-1 ASCII frame text
-// (":...\r\n") for Modbus ASCII frames. Moved here from FrameParseWorker
-// (P2-27) so the worker stays free of UI/input-format concerns.
+// (":...\r\n") for Modbus ASCII frames. Kept here (P2-27) so the worker stays
+// free of UI/input-format concerns.
 QString normalizeHexInput(const QString& input)
 {
     QString text = input;
@@ -167,275 +121,67 @@ QString normalizeHexInput(const QString& input)
 
 } // namespace
 
-class FrameAnalyzerWidget::FrameAnalyzerWidgetPrivate {
-public:
-    explicit FrameAnalyzerWidgetPrivate(FrameAnalyzerWidget* q)
-        : q_ptr(q)
-    {}
-
-    // --- Helpers ---
-    [[nodiscard]] uint16_t rowAddress(int row) const;
-    [[nodiscard]] QString historyItemText(const modbus::parser::ParseResult& result) const;
-    
-    void applyMetadataToRow(int row, const QVariant& value, const DataMetadata& meta);
-    void addToHistory(const modbus::parser::ParseResult& result);
-    void refreshHistoryList();
-    void setHistoryCollapsed(bool collapsed);
-    void updateHistoryToggleText();
-    void updateAdaptiveLayout();
-    void loadSettings();
-    void saveSettings();
-
-    // --- UI Logic ---
-    void createInputGroup();
-    void createResultGroup();
-
-    // --- Members ---
-    FrameAnalyzerWidget* q_ptr;
-
-    // Input Controls
-    QGroupBox* inputGroup = nullptr;
-    QSplitter* mainSplitter = nullptr;
-    QLabel* protocolLabel = nullptr;
-    QLabel* startAddrLabel = nullptr;
-    QLabel* displayModeLabel = nullptr;
-    QPlainTextEdit* inputEditor = nullptr;
-    QComboBox* protocolCombo = nullptr;
-    QComboBox* displayModeCombo = nullptr;
-    QComboBox* registerOrderCombo = nullptr;
-    QPushButton* parseBtn = nullptr;
-    QPushButton* formatBtn = nullptr;
-    QPushButton* importJsonBtn = nullptr;
-    QPushButton* exportJsonBtn = nullptr;
-    QPushButton* exportCsvBtn = nullptr;
-    QPushButton* toggleHistoryBtn = nullptr;
-    QPushButton* clearBtn = nullptr;
-    QLabel* registerOrderLabel = nullptr;
-    QLineEdit* startAddrEdit = nullptr;
-
-    // Result Controls
-    QGroupBox* resultGroup = nullptr;
-    QLabel* statusTitleLabel = nullptr;
-    QLabel* statusLabel = nullptr;
-    QWidget* structureTab = nullptr;
-    QTreeWidget* overviewTree = nullptr;
-    QTableWidget* dataTable = nullptr;
-    QTabWidget* resultTabs = nullptr;
-    QSplitter* contentSplitter = nullptr;
-    QGroupBox* historyGroup = nullptr;
-    QListWidget* historyList = nullptr;
-    QPushButton* clearHistoryBtn = nullptr;
-
-    // State
-    bool historyCollapsed = false;
-    bool historyAutoCollapsed = false;
-    int lastHistoryPanelWidth = config::Ui::kFrameAnalyzerDefaultHistoryWidth;
-    NumberDisplayMode displayMode = NumberDisplayMode::Unsigned;
-    QMap<uint16_t, DataMetadata> metadataByAddress;
-    QList<modbus::parser::ParseResult> historyResults;
-    modbus::parser::ParseResult currentResult;
-    
-    // Threading
-    std::shared_ptr<QThread> parseThread;
-    std::shared_ptr<FrameParseWorker> parseWorker;
-    quint64 latestParseRequestId = 0;
-    bool parseInProgress = false;
-    bool isUpdatingDataTable = false;
-
-    // Live Link State
-    bool isLiveMode = false;
-    bool isLivePaused = false;
-    modbus::parser::ParseResult lastLiveResult;
-    modbus::base::RegisterOrder registerOrder = modbus::base::RegisterOrder::ABCD;
-
-    // Service
-    core::common::ISettingsService* settingsService = nullptr;
-    
-    // Live Link UI
-    QLabel* liveLabel = nullptr;
-    QLabel* linkageTipLabel = nullptr;
-    QPushButton* linkagePauseBtn = nullptr;
-    QPushButton* linkageStopBtn = nullptr;
-};
-
-// --- FrameAnalyzerWidget Implementation ---
-
-/// --- FrameAnalyzerWidgetPrivate Implementations ---
-
-void FrameAnalyzerWidget::FrameAnalyzerWidgetPrivate::applyMetadataToRow(int row, const QVariant& value, const DataMetadata& meta)
-{
-    if (!dataTable || row < 0 || row >= dataTable->rowCount()) return;
-
-    QTableWidgetItem* descItem = dataTable->item(row, 6);
-    if (descItem) {
-        descItem->setToolTip(value_formatter::buildDescriptionTooltip(value, meta, displayMode));
-    }
-    
-    QTableWidgetItem* scaledItem = dataTable->item(row, 5);
-    if (scaledItem) {
-        scaledItem->setText(value_formatter::formatScaledValue(value, meta, displayMode));
-    }
-    
-    QTableWidgetItem* scaleItem = dataTable->item(row, 4);
-    if (scaleItem && scaleItem->text().trimmed().isEmpty()) {
-        scaleItem->setText(QString::number(meta.scale, 'g', 12));
-    }
-}
-
-uint16_t FrameAnalyzerWidget::FrameAnalyzerWidgetPrivate::rowAddress(int row) const
-{
-    if (!dataTable || row < 0 || row >= dataTable->rowCount()) return 0;
-    const QTableWidgetItem* addrItem = dataTable->item(row, 0);
-    if (!addrItem) return 0;
-    const QVariant data = addrItem->data(Qt::UserRole);
-    return data.isValid() ? static_cast<uint16_t>(data.toUInt()) : 0;
-}
-
-void FrameAnalyzerWidget::FrameAnalyzerWidgetPrivate::setHistoryCollapsed(bool collapsed)
-{
-    if (!historyGroup || !contentSplitter) return;
-    
-    historyCollapsed = collapsed;
-    if (collapsed) {
-        const QList<int> sizes = contentSplitter->sizes();
-        if (sizes.size() > 1 && sizes.at(1) > 0) {
-            lastHistoryPanelWidth = sizes.at(1);
-        }
-        historyGroup->hide();
-    } else {
-        historyGroup->show();
-        QList<int> currentSizes = contentSplitter->sizes();
-        int totalWidth = currentSizes.at(0) + currentSizes.at(1);
-        
-        // Fallback for first-time render where currentSizes might be {0, 0}
-        if (totalWidth <= 0) {
-            totalWidth = q_ptr->width();
-        }
-        if (totalWidth <= 200) {
-            totalWidth = 1000; // Ensure a sane default if parent width is also unavailable
-        }
-
-        int hWidth = qMax(config::Ui::kFrameAnalyzerMinHistoryWidth, lastHistoryPanelWidth);
-        contentSplitter->setSizes({qMax(0, totalWidth - hWidth), hWidth});
-    }
-    updateHistoryToggleText();
-}
-
-void FrameAnalyzerWidget::FrameAnalyzerWidgetPrivate::updateHistoryToggleText()
-{
-    if (!toggleHistoryBtn) return;
-    toggleHistoryBtn->setText(historyCollapsed ? tr("Show History") : tr("Hide History"));
-}
-
-void FrameAnalyzerWidget::FrameAnalyzerWidgetPrivate::refreshHistoryList()
-{
-    if (!historyList) return;
-    const QSignalBlocker blocker(historyList);
-    historyList->clear();
-    for (const modbus::parser::ParseResult& res : historyResults) {
-        historyList->addItem(historyItemText(res));
-    }
-}
-
-QString FrameAnalyzerWidget::FrameAnalyzerWidgetPrivate::historyItemText(const modbus::parser::ParseResult& result) const
-{
-    const QString status = result.isValid ? tr("OK") : tr("ERR");
-    const QString type =
-        result.protocol == ProtocolType::Tcp ? QStringLiteral("TCP") :
-        result.protocol == ProtocolType::Rtu ? QStringLiteral("RTU") :
-        result.protocol == ProtocolType::Ascii ? QStringLiteral("ASCII") :
-        QStringLiteral("Unknown");
-    return QString("[%1] %2 %3 - %4")
-        .arg(tr("Local time %1").arg(result.timestamp.toLocalTime().toString("HH:mm:ss")))
-        .arg(type)
-        .arg(status)
-        .arg(QString::fromLatin1(result.rawFrame.toHex().toUpper().left(16)) + "...");
-}
-
-void FrameAnalyzerWidget::FrameAnalyzerWidgetPrivate::addToHistory(const modbus::parser::ParseResult& result)
-{
-    historyResults.prepend(result);
-    while (historyResults.size() > config::Ui::kFrameAnalyzerMaxHistoryItems) {
-        historyResults.removeLast();
-    }
-    refreshHistoryList();
-}
-
 // --- FrameAnalyzerWidget Implementation ---
 
 FrameAnalyzerWidget::FrameAnalyzerWidget(core::common::ISettingsService* settingsService, QWidget* parent)
     : QWidget(parent)
-    , d_ptr(new FrameAnalyzerWidgetPrivate(this))
 {
-    Q_D(FrameAnalyzerWidget);
-    d->settingsService = settingsService;
+    settingsService_ = settingsService;
 
-    qRegisterMetaType<modbus::parser::ProtocolType>();
-    qRegisterMetaType<modbus::parser::ParseResult>();
-    qRegisterMetaType<modbus::base::RegisterOrder>();
-
-    d->parseThread = std::shared_ptr<QThread>(new QThread(), &cleanupThread);
-    d->parseWorker = std::shared_ptr<FrameParseWorker>(new FrameParseWorker(), &cleanupWorker);
-    d->parseWorker->moveToThread(d->parseThread.get());
-
-    connect(d->parseWorker.get(), &FrameParseWorker::parseFinished, this, &FrameAnalyzerWidget::onParseFinished);
-
-    // Note: worker/thread lifecycle is managed by shared_ptr deleters (RAII).
-    // No finished→deleteLater connection needed here.
-
-    d->parseThread->start();
+    // Background parse thread/worker pair and its teardown are owned by the
+    // presenter (via core::common::ThreadGuard); this widget only renders
+    // results and forwards parse requests.
+    presenter_ = new ui::application::analyzer::FrameAnalyzerPresenter(this);
+    connect(presenter_, &ui::application::analyzer::FrameAnalyzerPresenter::parseFinished,
+            this, &FrameAnalyzerWidget::onParseFinished);
 
     setupUi();
-    d->loadSettings();
+    loadSettings();
 }
 
 FrameAnalyzerWidget::~FrameAnalyzerWidget()
 {
-    Q_D(FrameAnalyzerWidget);
-    // Disconnect parseFinished to prevent UAF if a parse is in flight.
-    // Worker and thread cleanup is handled by shared_ptr deleters (RAII):
-    //   - parseWorker deleter queues deleteLater on the worker thread
-    //   - parseThread deleter quits + waits (with async fallback)
-    if (d->parseWorker) {
-        disconnect(d->parseWorker.get(), &FrameParseWorker::parseFinished,
-                   this, &FrameAnalyzerWidget::onParseFinished);
-    }
+    // Deterministic teardown: destroy the presenter (and with it the parse
+    // worker + thread via ThreadGuard) while this widget is still a live
+    // QObject, severing worker->widget delivery paths first. No UAF window
+    // for an in-flight parse.
+    delete presenter_;
+    presenter_ = nullptr;
 }
 
 void FrameAnalyzerWidget::setupUi()
 {
-    Q_D(FrameAnalyzerWidget);
     auto mainLayout = new QVBoxLayout(this);
     mainLayout->setContentsMargins(8, 8, 8, 8);
     mainLayout->setSpacing(6);
 
-    d->createInputGroup();
-    d->createResultGroup();
+    createInputGroup();
+    createResultGroup();
 
-    d->mainSplitter = new QSplitter(Qt::Vertical, this);
-    d->mainSplitter->setChildrenCollapsible(false);
-    d->mainSplitter->setHandleWidth(6);
-    d->mainSplitter->addWidget(d->inputGroup);
-    d->mainSplitter->addWidget(d->resultGroup);
-    d->mainSplitter->setStretchFactor(0, 0);
-    d->mainSplitter->setStretchFactor(1, 1);
-    d->mainSplitter->setSizes({config::Ui::kFrameAnalyzerDefaultInputHeight, 
-                               config::Ui::kFrameAnalyzerDefaultResultsHeight});
-    mainLayout->addWidget(d->mainSplitter, 1);
+    mainSplitter = new QSplitter(Qt::Vertical, this);
+    mainSplitter->setChildrenCollapsible(false);
+    mainSplitter->setHandleWidth(6);
+    mainSplitter->addWidget(inputGroup);
+    mainSplitter->addWidget(resultGroup);
+    mainSplitter->setStretchFactor(0, 0);
+    mainSplitter->setStretchFactor(1, 1);
+    mainSplitter->setSizes({config::Ui::kFrameAnalyzerDefaultInputHeight,
+                            config::Ui::kFrameAnalyzerDefaultResultsHeight});
+    mainLayout->addWidget(mainSplitter, 1);
     retranslateUi();
 }
 
-void FrameAnalyzerWidget::FrameAnalyzerWidgetPrivate::createInputGroup()
+void FrameAnalyzerWidget::createInputGroup()
 {
-    inputGroup = new QGroupBox(tr("Frame Input"), q_ptr);
+    inputGroup = new QGroupBox(tr("Frame Input"), this);
     auto groupLayout = new QVBoxLayout(inputGroup);
 
     // Controls Row
     auto controlsLayout = new QHBoxLayout();
-    
-    protocolLabel = new QLabel(tr("Protocol:"), q_ptr);
+
+    protocolLabel = new QLabel(tr("Protocol:"), this);
     controlsLayout->addWidget(protocolLabel);
-    protocolCombo = new QComboBox(q_ptr);
+    protocolCombo = new QComboBox(this);
     protocolCombo->addItem(tr("Auto Detect"), QVariant::fromValue(ProtocolType::Unknown));
     protocolCombo->addItem(tr("Modbus TCP"), QVariant::fromValue(ProtocolType::Tcp));
     protocolCombo->addItem(tr("Modbus RTU"), QVariant::fromValue(ProtocolType::Rtu));
@@ -443,32 +189,32 @@ void FrameAnalyzerWidget::FrameAnalyzerWidgetPrivate::createInputGroup()
     controlsLayout->addWidget(protocolCombo);
 
     controlsLayout->addSpacing(20);
-    startAddrLabel = new QLabel(tr("Start Address (for Response):"), q_ptr);
+    startAddrLabel = new QLabel(tr("Start Address (for Response):"), this);
     controlsLayout->addWidget(startAddrLabel);
-    startAddrEdit = new QLineEdit(q_ptr);
+    startAddrEdit = new QLineEdit(this);
     startAddrEdit->setFixedWidth(88);
-    auto* hexValidator = new QRegularExpressionValidator(QRegularExpression("[0-9a-fA-FxXHh]*"), q_ptr);
+    auto* hexValidator = new QRegularExpressionValidator(QRegularExpression("[0-9a-fA-FxXHh]*"), this);
     startAddrEdit->setValidator(hexValidator);
     controlsLayout->addWidget(startAddrEdit);
 
     controlsLayout->addStretch();
-    auto* actionsContainer = new QWidget(q_ptr);
+    auto* actionsContainer = new QWidget(this);
     auto* actionsLayout = new QHBoxLayout(actionsContainer);
     actionsLayout->setContentsMargins(0, 0, 0, 0);
     actionsLayout->setSpacing(6);
 
-    formatBtn = new QPushButton(tr("Format Hex"), q_ptr);
-    connect(formatBtn, &QPushButton::clicked, q_ptr, &FrameAnalyzerWidget::onFormatClicked);
+    formatBtn = new QPushButton(tr("Format Hex"), this);
+    connect(formatBtn, &QPushButton::clicked, this, &FrameAnalyzerWidget::onFormatClicked);
     formatBtn->setMinimumWidth(86);
     actionsLayout->addWidget(formatBtn);
 
-    parseBtn = new QPushButton(tr("Parse"), q_ptr);
-    connect(parseBtn, &QPushButton::clicked, q_ptr, &FrameAnalyzerWidget::onParseClicked);
+    parseBtn = new QPushButton(tr("Parse"), this);
+    connect(parseBtn, &QPushButton::clicked, this, &FrameAnalyzerWidget::onParseClicked);
     parseBtn->setMinimumWidth(86);
     actionsLayout->addWidget(parseBtn);
 
-    clearBtn = new QPushButton(tr("Clear"), q_ptr);
-    connect(clearBtn, &QPushButton::clicked, q_ptr, &FrameAnalyzerWidget::onClearClicked);
+    clearBtn = new QPushButton(tr("Clear"), this);
+    connect(clearBtn, &QPushButton::clicked, this, &FrameAnalyzerWidget::onClearClicked);
     clearBtn->setMinimumWidth(86);
     actionsLayout->addWidget(clearBtn);
 
@@ -476,111 +222,111 @@ void FrameAnalyzerWidget::FrameAnalyzerWidgetPrivate::createInputGroup()
     groupLayout->addLayout(controlsLayout);
 
     // Input Editor
-    inputEditor = new QPlainTextEdit(q_ptr);
+    inputEditor = new QPlainTextEdit(this);
     inputEditor->setPlaceholderText(tr("Enter Hex string (e.g., 01 03 00 00 00 01 84 0A)"));
     inputEditor->setMinimumHeight(64);
     inputEditor->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
     groupLayout->addWidget(inputEditor);
 
-    connect(startAddrEdit, &QLineEdit::textChanged, q_ptr, [this]() { saveSettings(); });
+    connect(startAddrEdit, &QLineEdit::textChanged, this, [this]() { saveSettings(); });
     inputGroup->setMinimumHeight(0);
 }
 
-void FrameAnalyzerWidget::FrameAnalyzerWidgetPrivate::createResultGroup()
+void FrameAnalyzerWidget::createResultGroup()
 {
-    resultGroup = new QGroupBox(tr("Analysis Result"), q_ptr);
+    resultGroup = new QGroupBox(tr("Analysis Result"), this);
     auto groupLayout = new QVBoxLayout(resultGroup);
 
     auto resultToolbarLayout = new QHBoxLayout();
     resultToolbarLayout->setContentsMargins(0, 0, 0, 0);
     resultToolbarLayout->setSpacing(6);
-    
-    auto* statusContainer = new QWidget(q_ptr);
+
+    auto* statusContainer = new QWidget(this);
     auto* statusAreaLayout = new QVBoxLayout(statusContainer);
     statusAreaLayout->setContentsMargins(0, 0, 0, 0);
     statusAreaLayout->setSpacing(2);
-    
+
     auto* statusLineLayout = new QHBoxLayout();
     statusLineLayout->setContentsMargins(0, 0, 0, 0);
     statusLineLayout->setSpacing(4);
 
-    statusTitleLabel = new QLabel(tr("Status:"), q_ptr);
+    statusTitleLabel = new QLabel(tr("Status:"), this);
     statusTitleLabel->setStyleSheet("color: gray;");
     statusLineLayout->addWidget(statusTitleLabel);
 
-    statusLabel = new QLabel(tr("Ready"), q_ptr);
+    statusLabel = new QLabel(tr("Ready"), this);
     statusLabel->setStyleSheet("font-weight: bold; color: gray;");
     statusLineLayout->addWidget(statusLabel);
     statusLineLayout->addStretch();
-    
+
     statusAreaLayout->addLayout(statusLineLayout);
-    
-    linkageTipLabel = new QLabel(q_ptr);
+
+    linkageTipLabel = new QLabel(this);
     linkageTipLabel->setStyleSheet("color: #10B981; font-size: 11px; font-weight: normal;");
     linkageTipLabel->setText(tr("Tip: \"Pause\" to edit description"));
     linkageTipLabel->setVisible(false);
     statusAreaLayout->addWidget(linkageTipLabel);
-    
+
     resultToolbarLayout->addWidget(statusContainer);
-    
+
     // Live Indicators (Left Aligned as per Original UI)
-    auto* liveContainer = new QWidget(q_ptr);
+    auto* liveContainer = new QWidget(this);
     auto* liveLayout = new QHBoxLayout(liveContainer);
     liveLayout->setContentsMargins(0, 0, 0, 0);
     liveLayout->setSpacing(4);
-    
-    liveLabel = new QLabel(q_ptr);
+
+    liveLabel = new QLabel(this);
     liveLabel->setStyleSheet("color: #10B981; font-weight: bold; padding: 2px 6px; border: 1px solid #10B981; border-radius: 4px;");
     liveLabel->setVisible(false);
     liveLayout->addWidget(liveLabel);
 
-    linkagePauseBtn = new QPushButton(tr("Pause Refresh"), q_ptr);
+    linkagePauseBtn = new QPushButton(tr("Pause Refresh"), this);
     linkagePauseBtn->setMinimumHeight(28);
     linkagePauseBtn->setVisible(false);
-    connect(linkagePauseBtn, &QPushButton::clicked, q_ptr, [this]() {
-        emit q_ptr->linkagePauseToggled(!isLivePaused);
+    connect(linkagePauseBtn, &QPushButton::clicked, this, [this]() {
+        emit linkagePauseToggled(!isLivePaused);
     });
     liveLayout->addWidget(linkagePauseBtn);
 
-    linkageStopBtn = new QPushButton(tr("Stop Link"), q_ptr);
+    linkageStopBtn = new QPushButton(tr("Stop Link"), this);
     linkageStopBtn->setStyleSheet("color: #EF4444; border: 1px solid #EF4444; background-color: white; font-weight: bold; padding: 0 10px; border-radius: 4px;");
     linkageStopBtn->setMinimumHeight(28);
     linkageStopBtn->setVisible(false);
-    connect(linkageStopBtn, &QPushButton::clicked, q_ptr, [this]() {
-        emit q_ptr->linkageStopRequested();
+    connect(linkageStopBtn, &QPushButton::clicked, this, [this]() {
+        emit linkageStopRequested();
     });
     liveLayout->addWidget(linkageStopBtn);
-    
+
     resultToolbarLayout->addWidget(liveContainer);
     resultToolbarLayout->addStretch();
-    
-    displayModeLabel = new QLabel(tr("Decode Mode:"), q_ptr);
-    displayModeCombo = new QComboBox(q_ptr);
+
+    displayModeLabel = new QLabel(tr("Decode Mode:"), this);
+    displayModeCombo = new QComboBox(this);
     displayModeCombo->addItem(tr("Unsigned"), static_cast<int>(NumberDisplayMode::Unsigned));
     displayModeCombo->addItem(tr("Signed"), static_cast<int>(NumberDisplayMode::Signed));
     displayModeCombo->setCurrentIndex(0);
     displayModeCombo->setMinimumContentsLength(8);
     displayModeCombo->setSizeAdjustPolicy(QComboBox::AdjustToMinimumContentsLengthWithIcon);
-    connect(displayModeCombo, qOverload<int>(&QComboBox::currentIndexChanged), q_ptr, [this]() {
+    connect(displayModeCombo, qOverload<int>(&QComboBox::currentIndexChanged), this, [this]() {
         displayMode = static_cast<NumberDisplayMode>(displayModeCombo->currentData().toInt());
         if (!isLiveMode && !inputEditor->toPlainText().trimmed().isEmpty()) {
-            q_ptr->onParseClicked();
+            onParseClicked();
         } else if (isLiveMode && lastLiveResult.isValid) {
-            q_ptr->renderResult(lastLiveResult);
+            renderResult(lastLiveResult);
         }
     });
 
-    registerOrderLabel = new QLabel(tr("Byte Order:"), q_ptr);
-    registerOrderCombo = new QComboBox(q_ptr);
+    registerOrderLabel = new QLabel(tr("Byte Order:"), this);
+    registerOrderCombo = new QComboBox(this);
     registerOrderCombo->addItem(tr("ABCD(default)"), static_cast<int>(modbus::base::RegisterOrder::ABCD));
     registerOrderCombo->addItem("BADC", static_cast<int>(modbus::base::RegisterOrder::BADC));
     registerOrderCombo->addItem("CDAB", static_cast<int>(modbus::base::RegisterOrder::CDAB));
     registerOrderCombo->addItem("DCBA", static_cast<int>(modbus::base::RegisterOrder::DCBA));
     registerOrderCombo->setMinimumWidth(80);
-    connect(registerOrderCombo, qOverload<int>(&QComboBox::currentIndexChanged), q_ptr, [this](int index) {
+    connect(registerOrderCombo, qOverload<int>(&QComboBox::currentIndexChanged), this, [this](int index) {
         registerOrder = static_cast<modbus::base::RegisterOrder>(registerOrderCombo->itemData(index).toInt());
         if (!isLiveMode && !inputEditor->toPlainText().trimmed().isEmpty()) {
-            q_ptr->onParseClicked();
+            onParseClicked();
         }
     });
 
@@ -590,14 +336,14 @@ void FrameAnalyzerWidget::FrameAnalyzerWidgetPrivate::createResultGroup()
     resultToolbarLayout->addWidget(registerOrderLabel);
     resultToolbarLayout->addWidget(registerOrderCombo);
     resultToolbarLayout->addSpacing(16);
-    
-    importJsonBtn = new QPushButton(tr("Import Config"), q_ptr);
-    connect(importJsonBtn, &QPushButton::clicked, q_ptr, &FrameAnalyzerWidget::onImportJsonClicked);
-    exportJsonBtn = new QPushButton(tr("Export Config"), q_ptr);
-    connect(exportJsonBtn, &QPushButton::clicked, q_ptr, &FrameAnalyzerWidget::onExportJsonClicked);
-    exportCsvBtn = new QPushButton(tr("Export CSV"), q_ptr);
-    connect(exportCsvBtn, &QPushButton::clicked, q_ptr, &FrameAnalyzerWidget::onExportCsvClicked);
-    
+
+    importJsonBtn = new QPushButton(tr("Import Config"), this);
+    connect(importJsonBtn, &QPushButton::clicked, this, &FrameAnalyzerWidget::onImportJsonClicked);
+    exportJsonBtn = new QPushButton(tr("Export Config"), this);
+    connect(exportJsonBtn, &QPushButton::clicked, this, &FrameAnalyzerWidget::onExportJsonClicked);
+    exportCsvBtn = new QPushButton(tr("Export CSV"), this);
+    connect(exportCsvBtn, &QPushButton::clicked, this, &FrameAnalyzerWidget::onExportCsvClicked);
+
     const QList<QPushButton*> actionButtons = { importJsonBtn, exportJsonBtn, exportCsvBtn };
     for (auto* button : actionButtons) {
         button->setMinimumWidth(0);
@@ -605,17 +351,17 @@ void FrameAnalyzerWidget::FrameAnalyzerWidgetPrivate::createResultGroup()
         resultToolbarLayout->addWidget(button);
     }
 
-    toggleHistoryBtn = new QPushButton(q_ptr);
+    toggleHistoryBtn = new QPushButton(this);
     toggleHistoryBtn->setMinimumWidth(0);
     toggleHistoryBtn->setMinimumHeight(28);
-    connect(toggleHistoryBtn, &QPushButton::clicked, q_ptr, [this]() { setHistoryCollapsed(!historyCollapsed); });
+    connect(toggleHistoryBtn, &QPushButton::clicked, this, [this]() { setHistoryCollapsed(!historyCollapsed); });
     updateHistoryToggleText();
     resultToolbarLayout->addWidget(toggleHistoryBtn);
-    
+
     groupLayout->addLayout(resultToolbarLayout);
 
-    resultTabs = new QTabWidget(q_ptr);
-    structureTab = new QWidget(q_ptr);
+    resultTabs = new QTabWidget(this);
+    structureTab = new QWidget(this);
     auto structureLayout = new QVBoxLayout(structureTab);
     structureLayout->setContentsMargins(0, 0, 0, 0);
     overviewTree = new QTreeWidget(structureTab);
@@ -625,11 +371,11 @@ void FrameAnalyzerWidget::FrameAnalyzerWidgetPrivate::createResultGroup()
     structureLayout->addWidget(overviewTree);
     resultTabs->addTab(structureTab, tr("Structure"));
 
-    dataTable = new QTableWidget(q_ptr);
+    dataTable = new QTableWidget(this);
     dataTable->setColumnCount(7);
     dataTable->setHorizontalHeaderLabels({tr("Address"), tr("Hex"), tr("Decimal"), tr("Binary"), tr("Scale"), tr("Value"), tr("Description")});
     dataTable->horizontalHeader()->setStretchLastSection(true);
-    connect(dataTable, &QTableWidget::itemChanged, q_ptr, [this](QTableWidgetItem* item) {
+    connect(dataTable, &QTableWidget::itemChanged, this, [this](QTableWidgetItem* item) {
         if (isUpdatingDataTable || !item) return;
         const int col = item->column();
         if (col != 4 && col != 6) return;
@@ -655,131 +401,222 @@ void FrameAnalyzerWidget::FrameAnalyzerWidgetPrivate::createResultGroup()
     });
     resultTabs->addTab(dataTable, tr("Decoded Data"));
 
-    contentSplitter = new QSplitter(Qt::Horizontal, q_ptr);
+    contentSplitter = new QSplitter(Qt::Horizontal, this);
     contentSplitter->addWidget(resultTabs);
 
-    historyGroup = new QGroupBox(tr("History"), q_ptr);
+    historyGroup = new QGroupBox(tr("History"), this);
     auto historyLayout = new QVBoxLayout(historyGroup);
-    historyList = new QListWidget(q_ptr);
+    historyList = new QListWidget(this);
     historyLayout->addWidget(historyList);
-    clearHistoryBtn = new QPushButton(tr("Clear History"), q_ptr);
-    connect(clearHistoryBtn, &QPushButton::clicked, q_ptr, &FrameAnalyzerWidget::onClearHistoryClicked);
+    clearHistoryBtn = new QPushButton(tr("Clear History"), this);
+    connect(clearHistoryBtn, &QPushButton::clicked, this, &FrameAnalyzerWidget::onClearHistoryClicked);
     historyLayout->addWidget(clearHistoryBtn);
-    connect(historyList, &QListWidget::currentRowChanged, q_ptr, &FrameAnalyzerWidget::onHistorySelectionChanged);
+    connect(historyList, &QListWidget::currentRowChanged, this, &FrameAnalyzerWidget::onHistorySelectionChanged);
 
     contentSplitter->addWidget(historyGroup);
     contentSplitter->setStretchFactor(0, 1);
     contentSplitter->setStretchFactor(1, 0);
-    contentSplitter->setSizes({800, config::Ui::kFrameAnalyzerDefaultHistoryWidth}); 
+    contentSplitter->setSizes({800, config::Ui::kFrameAnalyzerDefaultHistoryWidth});
     groupLayout->addWidget(contentSplitter);
 
     updateAdaptiveLayout();
 }
 
+void FrameAnalyzerWidget::applyMetadataToRow(int row, const QVariant& value, const DataMetadata& meta)
+{
+    if (!dataTable || row < 0 || row >= dataTable->rowCount()) return;
+
+    QTableWidgetItem* descItem = dataTable->item(row, 6);
+    if (descItem) {
+        descItem->setToolTip(value_formatter::buildDescriptionTooltip(value, meta, displayMode));
+    }
+
+    QTableWidgetItem* scaledItem = dataTable->item(row, 5);
+    if (scaledItem) {
+        scaledItem->setText(value_formatter::formatScaledValue(value, meta, displayMode));
+    }
+
+    QTableWidgetItem* scaleItem = dataTable->item(row, 4);
+    if (scaleItem && scaleItem->text().trimmed().isEmpty()) {
+        scaleItem->setText(QString::number(meta.scale, 'g', 12));
+    }
+}
+
+uint16_t FrameAnalyzerWidget::rowAddress(int row) const
+{
+    if (!dataTable || row < 0 || row >= dataTable->rowCount()) return 0;
+    const QTableWidgetItem* addrItem = dataTable->item(row, 0);
+    if (!addrItem) return 0;
+    const QVariant data = addrItem->data(Qt::UserRole);
+    return data.isValid() ? static_cast<uint16_t>(data.toUInt()) : 0;
+}
+
+void FrameAnalyzerWidget::setHistoryCollapsed(bool collapsed)
+{
+    if (!historyGroup || !contentSplitter) return;
+
+    historyCollapsed = collapsed;
+    if (collapsed) {
+        const QList<int> sizes = contentSplitter->sizes();
+        if (sizes.size() > 1 && sizes.at(1) > 0) {
+            lastHistoryPanelWidth = sizes.at(1);
+        }
+        historyGroup->hide();
+    } else {
+        historyGroup->show();
+        QList<int> currentSizes = contentSplitter->sizes();
+        int totalWidth = currentSizes.at(0) + currentSizes.at(1);
+
+        // Fallback for first-time render where currentSizes might be {0, 0}
+        if (totalWidth <= 0) {
+            totalWidth = width();
+        }
+        if (totalWidth <= 200) {
+            totalWidth = 1000; // Ensure a sane default if parent width is also unavailable
+        }
+
+        int hWidth = qMax(config::Ui::kFrameAnalyzerMinHistoryWidth, lastHistoryPanelWidth);
+        contentSplitter->setSizes({qMax(0, totalWidth - hWidth), hWidth});
+    }
+    updateHistoryToggleText();
+}
+
+void FrameAnalyzerWidget::updateHistoryToggleText()
+{
+    if (!toggleHistoryBtn) return;
+    toggleHistoryBtn->setText(historyCollapsed ? tr("Show History") : tr("Hide History"));
+}
+
+void FrameAnalyzerWidget::refreshHistoryList()
+{
+    if (!historyList) return;
+    const QSignalBlocker blocker(historyList);
+    historyList->clear();
+    for (const modbus::parser::ParseResult& res : historyResults) {
+        historyList->addItem(historyItemText(res));
+    }
+}
+
+QString FrameAnalyzerWidget::historyItemText(const modbus::parser::ParseResult& result) const
+{
+    const QString status = result.isValid ? tr("OK") : tr("ERR");
+    const QString type =
+        result.protocol == ProtocolType::Tcp ? QStringLiteral("TCP") :
+        result.protocol == ProtocolType::Rtu ? QStringLiteral("RTU") :
+        result.protocol == ProtocolType::Ascii ? QStringLiteral("ASCII") :
+        QStringLiteral("Unknown");
+    return QString("[%1] %2 %3 - %4")
+        .arg(tr("Local time %1").arg(result.timestamp.toLocalTime().toString("HH:mm:ss")))
+        .arg(type)
+        .arg(status)
+        .arg(QString::fromLatin1(result.rawFrame.toHex().toUpper().left(16)) + "...");
+}
+
+void FrameAnalyzerWidget::addToHistory(const modbus::parser::ParseResult& result)
+{
+    historyResults.prepend(result);
+    while (historyResults.size() > config::Ui::kFrameAnalyzerMaxHistoryItems) {
+        historyResults.removeLast();
+    }
+    refreshHistoryList();
+}
+
 void FrameAnalyzerWidget::onFormatClicked()
 {
-    Q_D(FrameAnalyzerWidget);
-    const QString text = normalizeHexInput(d->inputEditor->toPlainText());
-    
+    const QString text = normalizeHexInput(inputEditor->toPlainText());
+
     QString formatted;
     for (int i = 0; i < text.length(); i += 2) {
         formatted.append(text.mid(i, 2));
         if (i + 2 < text.length()) formatted.append(QLatin1Char(' '));
     }
-    
-    d->inputEditor->setPlainText(formatted.toUpper());
+
+    inputEditor->setPlainText(formatted.toUpper());
 }
 
 void FrameAnalyzerWidget::onClearClicked()
 {
-    Q_D(FrameAnalyzerWidget);
-    ++d->latestParseRequestId;
-    d->parseInProgress = false;
-    if (d->parseBtn) d->parseBtn->setEnabled(true);
-    d->inputEditor->clear();
+    ++latestParseRequestId;
+    parseInProgress = false;
+    if (parseBtn) parseBtn->setEnabled(true);
+    inputEditor->clear();
     clearResult();
 }
 
 void FrameAnalyzerWidget::onParseClicked()
 {
-    Q_D(FrameAnalyzerWidget);
     clearResult();
-    const QString rawInput = d->inputEditor->toPlainText();
+    const QString rawInput = inputEditor->toPlainText();
     const QString hexStr = normalizeHexInput(rawInput);
-    
+
     if (hexStr.isEmpty()) {
-        d->statusLabel->setText(tr("Error: Empty input"));
-        d->statusLabel->setStyleSheet(QStringLiteral("color: red;"));
+        statusLabel->setText(tr("Error: Empty input"));
+        statusLabel->setStyleSheet(QStringLiteral("color: red;"));
         return;
     }
-    
-    ProtocolType type = d->protocolCombo->currentData().value<ProtocolType>();
+
+    ProtocolType type = protocolCombo->currentData().value<ProtocolType>();
     bool addrOk = false;
-    int addrVal = ui::common::data_helper::parseSmartInt(d->startAddrEdit->text(), &addrOk);
+    int addrVal = ui::common::data_helper::parseSmartInt(startAddrEdit->text(), &addrOk);
     if (!addrOk || addrVal < 0 || addrVal > 65535) {
-        d->statusLabel->setText(tr("Invalid Address (0-65535): %1").arg(d->startAddrEdit->text()));
-        d->statusLabel->setStyleSheet(QStringLiteral("color: red;"));
+        statusLabel->setText(tr("Invalid Address (0-65535): %1").arg(startAddrEdit->text()));
+        statusLabel->setStyleSheet(QStringLiteral("color: red;"));
         return;
     }
 
-    ++d->latestParseRequestId;
-    d->parseInProgress = true;
-    d->statusLabel->setText(tr("Parsing..."));
-    d->statusLabel->setStyleSheet(QStringLiteral("color: gray;"));
-    if (d->parseBtn) d->parseBtn->setEnabled(false);
+    ++latestParseRequestId;
+    parseInProgress = true;
+    statusLabel->setText(tr("Parsing..."));
+    statusLabel->setStyleSheet(QStringLiteral("color: gray;"));
+    if (parseBtn) parseBtn->setEnabled(false);
 
-    if (d->parseWorker) {
-        // Pass the pre-normalized hex string so the worker does not need to
-        // repeat input-format cleanup (see FrameParseWorker contract).
-        d->parseWorker->enqueueParse(hexStr, type, static_cast<uint16_t>(addrVal), d->registerOrder, d->latestParseRequestId);
-    }
+    // Pass the pre-normalized hex string so the worker does not need to
+    // repeat input-format cleanup (see FrameParseWorker contract). The
+    // presenter marshals the request onto the worker thread.
+    presenter_->enqueueParse(hexStr, type, static_cast<uint16_t>(addrVal), registerOrder, latestParseRequestId);
 }
 
 void FrameAnalyzerWidget::onParseFinished(const ParseResult& result, quint64 requestId)
 {
-    Q_D(FrameAnalyzerWidget);
-    if (requestId != d->latestParseRequestId) return;
+    if (requestId != latestParseRequestId) return;
 
-    d->parseInProgress = false;
-    if (d->parseBtn) d->parseBtn->setEnabled(true);
+    parseInProgress = false;
+    if (parseBtn) parseBtn->setEnabled(true);
 
-    d->currentResult = result;
+    currentResult = result;
     renderResult(result);
     if (result.isValid) {
-        d->addToHistory(result);
+        addToHistory(result);
     } else {
-        d->statusLabel->setText(result.error.isEmpty() ? tr("Parse Failed") : result.error);
-        d->statusLabel->setStyleSheet(QStringLiteral("color: red;"));
+        statusLabel->setText(result.error.isEmpty() ? tr("Parse Failed") : result.error);
+        statusLabel->setStyleSheet(QStringLiteral("color: red;"));
     }
 }
 
 void FrameAnalyzerWidget::onHistorySelectionChanged(int row)
 {
-    Q_D(FrameAnalyzerWidget);
-    if (row < 0 || row >= d->historyResults.size()) return;
-    d->currentResult = d->historyResults.at(row);
-    renderResult(d->currentResult);
+    if (row < 0 || row >= historyResults.size()) return;
+    currentResult = historyResults.at(row);
+    renderResult(currentResult);
 }
 
 void FrameAnalyzerWidget::onClearHistoryClicked()
 {
-    Q_D(FrameAnalyzerWidget);
-    d->historyResults.clear();
-    d->historyList->clear();
+    historyResults.clear();
+    historyList->clear();
 }
 
 void FrameAnalyzerWidget::onExportJsonClicked()
 {
-    Q_D(FrameAnalyzerWidget);
     const QString filePath = QFileDialog::getSaveFileName(this, tr("Export Config"), QString(), tr("JSON Files (*.json)"));
     if (filePath.isEmpty()) return;
 
     QString error;
-    bool ok = exporter::saveMetadataJson(filePath, 
-                                               d->startAddrEdit->text(),
-                                               (d->displayMode == NumberDisplayMode::Signed ? QStringLiteral("signed") : QStringLiteral("unsigned")),
-                                               d->metadataByAddress,
-                                               &error);
+    bool ok = exporter::saveMetadataJson(filePath,
+                                         startAddrEdit->text(),
+                                         (displayMode == NumberDisplayMode::Signed ? QStringLiteral("signed") : QStringLiteral("unsigned")),
+                                         metadataByAddress,
+                                         &error);
     if (!ok) {
         QMessageBox::warning(this, tr("Export Failed"), error);
     }
@@ -787,7 +624,6 @@ void FrameAnalyzerWidget::onExportJsonClicked()
 
 void FrameAnalyzerWidget::onImportJsonClicked()
 {
-    Q_D(FrameAnalyzerWidget);
     const QString filePath = QFileDialog::getOpenFileName(this, tr("Import Config"), QString(), tr("JSON Files (*.json)"));
     if (filePath.isEmpty()) return;
 
@@ -797,14 +633,14 @@ void FrameAnalyzerWidget::onImportJsonClicked()
         return;
     }
 
-    if (d->startAddrEdit) d->startAddrEdit->setText(result.startAddress);
-    if (d->displayModeCombo) {
+    if (startAddrEdit) startAddrEdit->setText(result.startAddress);
+    if (displayModeCombo) {
         int idx = (result.displayMode == QStringLiteral("signed")) ? 1 : 0;
-        d->displayModeCombo->setCurrentIndex(idx);
+        displayModeCombo->setCurrentIndex(idx);
     }
-    
-    d->metadataByAddress = result.metadata;
-    if (!d->inputEditor->toPlainText().trimmed().isEmpty()) {
+
+    metadataByAddress = result.metadata;
+    if (!inputEditor->toPlainText().trimmed().isEmpty()) {
         onParseClicked();
     } else {
         clearResult();
@@ -813,28 +649,27 @@ void FrameAnalyzerWidget::onImportJsonClicked()
 
 void FrameAnalyzerWidget::onExportCsvClicked()
 {
-    Q_D(FrameAnalyzerWidget);
-    if (!d->currentResult.isValid || !d->dataTable || d->dataTable->rowCount() == 0) {
+    if (!currentResult.isValid || !dataTable || dataTable->rowCount() == 0) {
         QMessageBox::information(this, tr("No Data"), tr("There is no data to export."));
         return;
     }
 
-    const QString filePath = QFileDialog::getSaveFileName(this, tr("Export CSV"), 
+    const QString filePath = QFileDialog::getSaveFileName(this, tr("Export CSV"),
         QStringLiteral("analysis_%1.csv").arg(QDateTime::currentDateTimeUtc().toString(QStringLiteral("yyyyMMdd_HHmmss'Z'"))),
         tr("CSV Files (*.csv)"));
     if (filePath.isEmpty()) return;
 
     QStringList lines;
     QStringList headers;
-    for (int c = 0; c < d->dataTable->columnCount(); ++c) {
-        headers << exporter::escapeCsvValue(d->dataTable->horizontalHeaderItem(c)->text());
+    for (int c = 0; c < dataTable->columnCount(); ++c) {
+        headers << exporter::escapeCsvValue(dataTable->horizontalHeaderItem(c)->text());
     }
     lines << headers.join(QLatin1Char(','));
-    
-    for (int r = 0; r < d->dataTable->rowCount(); ++r) {
+
+    for (int r = 0; r < dataTable->rowCount(); ++r) {
         QStringList row;
-        for (int c = 0; c < d->dataTable->columnCount(); ++c) {
-            row << exporter::escapeCsvValue(d->dataTable->item(r, c)->text());
+        for (int c = 0; c < dataTable->columnCount(); ++c) {
+            row << exporter::escapeCsvValue(dataTable->item(r, c)->text());
         }
         lines << row.join(QLatin1Char(','));
     }
@@ -847,21 +682,20 @@ void FrameAnalyzerWidget::onExportCsvClicked()
 
 void FrameAnalyzerWidget::renderResult(const ParseResult& result)
 {
-    Q_D(FrameAnalyzerWidget);
-    d->isUpdatingDataTable = true;
-    
-    if (d->overviewTree) {
-        d->overviewTree->clear();
+    isUpdatingDataTable = true;
+
+    if (overviewTree) {
+        overviewTree->clear();
     }
-    if (d->dataTable) {
-        d->dataTable->setRowCount(0);
+    if (dataTable) {
+        dataTable->setRowCount(0);
     }
 
     if (!result.isValid) {
-        d->isUpdatingDataTable = false;
-        if (!d->isLiveMode) {
-            d->statusLabel->setText(tr("Parse Failed: %1").arg(result.error));
-            d->statusLabel->setStyleSheet(QStringLiteral("color: red; font-weight: bold;"));
+        isUpdatingDataTable = false;
+        if (!isLiveMode) {
+            statusLabel->setText(tr("Parse Failed: %1").arg(result.error));
+            statusLabel->setStyleSheet(QStringLiteral("color: red; font-weight: bold;"));
         }
         return;
     }
@@ -907,16 +741,16 @@ void FrameAnalyzerWidget::renderResult(const ParseResult& result)
         return item;
     };
 
-    if (d->overviewTree) {
-        d->overviewTree->clear();
-        if (d->isLiveMode) {
-            auto* root = new QTreeWidgetItem(d->overviewTree);
+    if (overviewTree) {
+        overviewTree->clear();
+        if (isLiveMode) {
+            auto* root = new QTreeWidgetItem(overviewTree);
             root->setText(0, tr("Structure"));
             root->setText(1, tr("(Unavailable in Live Mode)"));
             root->setText(2, tr("Logical parsing is disabled for high-frequency linkage"));
             root->setExpanded(true);
         } else {
-            auto* root = new QTreeWidgetItem(d->overviewTree);
+            auto* root = new QTreeWidgetItem(overviewTree);
             root->setText(0, tr("Frame"));
             root->setText(1, tr("%1 bytes").arg(result.rawFrame.size()));
             root->setText(2, buildDescription({protocolText, typeText}));
@@ -1003,7 +837,7 @@ void FrameAnalyzerWidget::renderResult(const ParseResult& result)
                 tr("Payload"),
                 byteHex(payloadBytes),
                 result.isException ? tr("Exception detail payload") : tr("Application data payload"));
-            
+
             if (result.isException) {
                 addTreeItem(
                     pdu,
@@ -1042,50 +876,50 @@ void FrameAnalyzerWidget::renderResult(const ParseResult& result)
                     byteHex(result.rawFrame.right(2)),
                     tr("ASCII frame terminator"));
             }
-            
-            d->overviewTree->expandAll();
+
+            overviewTree->expandAll();
         }
     }
 
-    if (d->dataTable) {
-        d->dataTable->setRowCount(result.dataItems.size());
+    if (dataTable) {
+        dataTable->setRowCount(result.dataItems.size());
         for (int i = 0; i < result.dataItems.size(); ++i) {
             const auto& item = result.dataItems[i];
-            DataMetadata meta = d->metadataByAddress.value(item.address);
-            
+            DataMetadata meta = metadataByAddress.value(item.address);
+
             auto* addrItem = new QTableWidgetItem(QStringLiteral("%1 (0x%2)")
                 .arg(item.address)
                 .arg(QString::number(item.address, 16).toUpper().rightJustified(4, QLatin1Char('0'))));
             addrItem->setData(Qt::UserRole, item.address);
             addrItem->setFlags(addrItem->flags() & ~Qt::ItemIsEditable);
-            d->dataTable->setItem(i, 0, addrItem);
+            dataTable->setItem(i, 0, addrItem);
 
             auto* hexItem = new QTableWidgetItem(value_formatter::formatHexValue(item.rawBytes, item.hexString));
             hexItem->setFlags(addrItem->flags());
-            d->dataTable->setItem(i, 1, hexItem);
+            dataTable->setItem(i, 1, hexItem);
 
-            auto* decItem = new QTableWidgetItem(value_formatter::formatDecimalValue(item.value, d->displayMode));
+            auto* decItem = new QTableWidgetItem(value_formatter::formatDecimalValue(item.value, displayMode));
             decItem->setFlags(addrItem->flags());
-            d->dataTable->setItem(i, 2, decItem);
+            dataTable->setItem(i, 2, decItem);
 
             auto* binItem = new QTableWidgetItem(value_formatter::formatBinaryValue(item.rawBytes, item.binaryString));
             binItem->setFlags(addrItem->flags());
-            d->dataTable->setItem(i, 3, binItem);
+            dataTable->setItem(i, 3, binItem);
 
-            d->dataTable->setItem(i, 4, new QTableWidgetItem(QString::number(meta.scale, 'g', 12)));
-            
-            auto* scaledItem = new QTableWidgetItem(value_formatter::formatScaledValue(item.value, meta, d->displayMode));
+            dataTable->setItem(i, 4, new QTableWidgetItem(QString::number(meta.scale, 'g', 12)));
+
+            auto* scaledItem = new QTableWidgetItem(value_formatter::formatScaledValue(item.value, meta, displayMode));
             scaledItem->setFlags(addrItem->flags());
-            d->dataTable->setItem(i, 5, scaledItem);
+            dataTable->setItem(i, 5, scaledItem);
 
-            d->dataTable->setItem(i, 6, new QTableWidgetItem(meta.description));
+            dataTable->setItem(i, 6, new QTableWidgetItem(meta.description));
 
-            d->applyMetadataToRow(i, item.value, meta);
+            applyMetadataToRow(i, item.value, meta);
         }
     }
 
-    d->isUpdatingDataTable = false;
-    if (!d->isLiveMode) {
+    isUpdatingDataTable = false;
+    if (!isLiveMode) {
         QString statusText = tr("Success (%1)").arg(protocolText);
         if (result.isForced) {
             statusText += QStringLiteral(" [") + tr("Forced Parsing") + QStringLiteral("]");
@@ -1093,47 +927,45 @@ void FrameAnalyzerWidget::renderResult(const ParseResult& result)
         if (!result.warnings.isEmpty()) {
             statusText += QStringLiteral(" (") + tr("Warnings") + QStringLiteral(")");
         }
-        d->statusLabel->setText(statusText);
-        d->statusLabel->setStyleSheet(result.warnings.isEmpty() ? 
-            QStringLiteral("color: #10B981; font-weight: bold;") : 
+        statusLabel->setText(statusText);
+        statusLabel->setStyleSheet(result.warnings.isEmpty() ?
+            QStringLiteral("color: #10B981; font-weight: bold;") :
             QStringLiteral("color: #F59E0B; font-weight: bold;"));
     }
 }
 
 void FrameAnalyzerWidget::clearResult()
 {
-    Q_D(FrameAnalyzerWidget);
-    d->statusLabel->setText(tr("Ready"));
-    d->statusLabel->setStyleSheet(QStringLiteral("color: gray;"));
-    
-    const bool wasLive = d->isLiveMode;
-    d->isLiveMode = false;
-    d->isLivePaused = false;
+    statusLabel->setText(tr("Ready"));
+    statusLabel->setStyleSheet(QStringLiteral("color: gray;"));
 
-    d->liveLabel->setVisible(false);
-    d->linkageStopBtn->setVisible(false);
-    if (d->linkageTipLabel) d->linkageTipLabel->setVisible(false);
-    if (d->linkagePauseBtn) {
-        d->linkagePauseBtn->setVisible(false);
-        d->linkagePauseBtn->setText(tr("Pause Refresh"));
-        d->linkagePauseBtn->setStyleSheet(QString());
-    }
-    
-    if (d->registerOrderCombo) d->registerOrderCombo->setEnabled(true);
+    const bool wasLive = isLiveMode;
+    isLiveMode = false;
+    isLivePaused = false;
 
-    if (wasLive && d->lastLiveResult.isValid) {
-        renderResult(d->lastLiveResult);
+    liveLabel->setVisible(false);
+    linkageStopBtn->setVisible(false);
+    if (linkageTipLabel) linkageTipLabel->setVisible(false);
+    if (linkagePauseBtn) {
+        linkagePauseBtn->setVisible(false);
+        linkagePauseBtn->setText(tr("Pause Refresh"));
+        linkagePauseBtn->setStyleSheet(QString());
     }
-    if (d->resultTabs) d->resultTabs->setTabText(0, tr("Structure"));
+
+    if (registerOrderCombo) registerOrderCombo->setEnabled(true);
+
+    if (wasLive && lastLiveResult.isValid) {
+        renderResult(lastLiveResult);
+    }
+    if (resultTabs) resultTabs->setTabText(0, tr("Structure"));
 }
 
 void FrameAnalyzerWidget::processLivePdu(const modbus::base::Pdu& pdu, modbus::parser::ProtocolType protocol, uint16_t addr)
 {
-    Q_D(FrameAnalyzerWidget);
-    d->isLiveMode = true;
-    if (d->resultTabs) d->resultTabs->setTabText(0, tr("Structure (Unavailable in Live Mode)"));
-    if (d->parseInProgress) return;
-    
+    isLiveMode = true;
+    if (resultTabs) resultTabs->setTabText(0, tr("Structure (Unavailable in Live Mode)"));
+    if (parseInProgress) return;
+
     ParseResult result;
     result.isValid = true;
     result.protocol = protocol;
@@ -1142,30 +974,30 @@ void FrameAnalyzerWidget::processLivePdu(const modbus::base::Pdu& pdu, modbus::p
     result.isException = pdu.isException();
     result.pduData = pdu.toByteArray();
     result.type = result.isException ? FrameType::Exception : FrameType::Response;
-    
+
     modbus::parser::parsePdu(result, result.pduData, addr, 0);
-    
+
     QString protocolStr =
         protocol == ProtocolType::Tcp ? QStringLiteral("TCP") :
         protocol == ProtocolType::Rtu ? QStringLiteral("RTU") :
         protocol == ProtocolType::Ascii ? QStringLiteral("ASCII") :
         QStringLiteral("Unknown");
-    if (d->liveLabel) {
-        d->liveLabel->setText(tr("LIVE: %1").arg(protocolStr));
-        d->liveLabel->setVisible(true);
+    if (liveLabel) {
+        liveLabel->setText(tr("LIVE: %1").arg(protocolStr));
+        liveLabel->setVisible(true);
     }
-    if (d->statusLabel) {
-        d->statusLabel->setText(tr("Live Data Received at %1").arg(result.timestamp.toLocalTime().toString("HH:mm:ss.zzz")));
-        d->statusLabel->setStyleSheet(QStringLiteral("color: #10B981; font-weight: bold;"));
+    if (statusLabel) {
+        statusLabel->setText(tr("Live Data Received at %1").arg(result.timestamp.toLocalTime().toString("HH:mm:ss.zzz")));
+        statusLabel->setStyleSheet(QStringLiteral("color: #10B981; font-weight: bold;"));
     }
-    if (d->linkageTipLabel) d->linkageTipLabel->setVisible(true);
-    if (d->linkagePauseBtn) d->linkagePauseBtn->setVisible(true);
-    if (d->linkageStopBtn) d->linkageStopBtn->setVisible(true);
-    
-    if (d->registerOrderCombo) d->registerOrderCombo->setEnabled(false); // 联动模式通常由会话层控制字节序
+    if (linkageTipLabel) linkageTipLabel->setVisible(true);
+    if (linkagePauseBtn) linkagePauseBtn->setVisible(true);
+    if (linkageStopBtn) linkageStopBtn->setVisible(true);
 
-    d->lastLiveResult = result;
-    if (!d->isLivePaused) renderResult(result);
+    if (registerOrderCombo) registerOrderCombo->setEnabled(false); // 联动模式通常由会话层控制字节序
+
+    lastLiveResult = result;
+    if (!isLivePaused) renderResult(result);
 }
 
 void FrameAnalyzerWidget::exitLiveMode()
@@ -1175,45 +1007,44 @@ void FrameAnalyzerWidget::exitLiveMode()
 
 void FrameAnalyzerWidget::setLivePaused(bool paused)
 {
-    Q_D(FrameAnalyzerWidget);
-    d->isLivePaused = paused;
-    if (d->linkagePauseBtn) {
-        d->linkagePauseBtn->setText(paused ? tr("Resume Refresh") : tr("Pause Refresh"));
+    isLivePaused = paused;
+    if (linkagePauseBtn) {
+        linkagePauseBtn->setText(paused ? tr("Resume Refresh") : tr("Pause Refresh"));
         if (paused) {
-            d->linkagePauseBtn->setStyleSheet("background-color: #F59E0B; color: white; border: 1px solid #D97706; font-weight: bold; border-radius: 4px;");
+            linkagePauseBtn->setStyleSheet("background-color: #F59E0B; color: white; border: 1px solid #D97706; font-weight: bold; border-radius: 4px;");
         } else {
-            d->linkagePauseBtn->setStyleSheet(QString());
+            linkagePauseBtn->setStyleSheet(QString());
         }
     }
 }
 
-void FrameAnalyzerWidget::FrameAnalyzerWidgetPrivate::loadSettings()
+void FrameAnalyzerWidget::loadSettings()
 {
-    if (!settingsService) return;
-    
+    if (!settingsService_) return;
+
     QSignalBlocker blocker(startAddrEdit);
-    const QString startAddr = settingsService->value(core::common::settings_keys::kFrameAnalyzerStartAddr).toString();
+    const QString startAddr = settingsService_->value(core::common::settings_keys::kFrameAnalyzerStartAddr).toString();
     if (!startAddr.isEmpty()) {
         startAddrEdit->setText(startAddr);
     } else {
         startAddrEdit->setText(QString::number(config::Modbus::kDefaultStandardStartAddress));
     }
 
-    const int mode = settingsService->value(core::common::settings_keys::kFrameAnalyzerDecodeMode).toInt();
+    const int mode = settingsService_->value(core::common::settings_keys::kFrameAnalyzerDecodeMode).toInt();
     if (displayModeCombo) displayModeCombo->setCurrentIndex(mode);
 }
 
-void FrameAnalyzerWidget::FrameAnalyzerWidgetPrivate::saveSettings()
+void FrameAnalyzerWidget::saveSettings()
 {
-    if (!settingsService) return;
-    settingsService->setValue(core::common::settings_keys::kFrameAnalyzerStartAddr, startAddrEdit->text());
-    settingsService->setValue(core::common::settings_keys::kFrameAnalyzerDecodeMode, displayModeCombo->currentIndex());
+    if (!settingsService_) return;
+    settingsService_->setValue(core::common::settings_keys::kFrameAnalyzerStartAddr, startAddrEdit->text());
+    settingsService_->setValue(core::common::settings_keys::kFrameAnalyzerDecodeMode, displayModeCombo->currentIndex());
 }
 
-void FrameAnalyzerWidget::FrameAnalyzerWidgetPrivate::updateAdaptiveLayout()
+void FrameAnalyzerWidget::updateAdaptiveLayout()
 {
     if (!contentSplitter || !toggleHistoryBtn) return;
-    const bool shouldCollapse = q_ptr->width() < 1000;
+    const bool shouldCollapse = width() < 1000;
     if (shouldCollapse != historyAutoCollapsed) {
         historyAutoCollapsed = shouldCollapse;
         setHistoryCollapsed(shouldCollapse);
@@ -1222,8 +1053,7 @@ void FrameAnalyzerWidget::FrameAnalyzerWidgetPrivate::updateAdaptiveLayout()
 
 void FrameAnalyzerWidget::resizeEvent(QResizeEvent* event)
 {
-    Q_D(FrameAnalyzerWidget);
-    d->updateAdaptiveLayout();
+    updateAdaptiveLayout();
     QWidget::resizeEvent(event);
 }
 
@@ -1237,83 +1067,82 @@ void FrameAnalyzerWidget::changeEvent(QEvent* event)
 
 void FrameAnalyzerWidget::retranslateUi()
 {
-    Q_D(FrameAnalyzerWidget);
-    if (d->inputGroup) d->inputGroup->setTitle(tr("Frame Input"));
-    if (d->protocolLabel) d->protocolLabel->setText(tr("Protocol:"));
-    if (d->protocolCombo) {
-        d->protocolCombo->setItemText(0, tr("Auto Detect"));
-        d->protocolCombo->setItemText(1, tr("Modbus TCP"));
-        d->protocolCombo->setItemText(2, tr("Modbus RTU"));
-        d->protocolCombo->setItemText(3, tr("Modbus ASCII"));
+    if (inputGroup) inputGroup->setTitle(tr("Frame Input"));
+    if (protocolLabel) protocolLabel->setText(tr("Protocol:"));
+    if (protocolCombo) {
+        protocolCombo->setItemText(0, tr("Auto Detect"));
+        protocolCombo->setItemText(1, tr("Modbus TCP"));
+        protocolCombo->setItemText(2, tr("Modbus RTU"));
+        protocolCombo->setItemText(3, tr("Modbus ASCII"));
     }
-    if (d->startAddrLabel) d->startAddrLabel->setText(tr("Start Address (for Response):"));
-    if (d->startAddrEdit) {
-        d->startAddrEdit->setToolTip(tr("Start Address (0-65535). Supports HEX (0x10 or 10H) and DEC (16)."));
+    if (startAddrLabel) startAddrLabel->setText(tr("Start Address (for Response):"));
+    if (startAddrEdit) {
+        startAddrEdit->setToolTip(tr("Start Address (0-65535). Supports HEX (0x10 or 10H) and DEC (16)."));
     }
-    if (d->displayModeLabel) d->displayModeLabel->setText(tr("Decode Mode:"));
-    if (d->displayModeCombo) {
-        d->displayModeCombo->setItemText(0, tr("Unsigned"));
-        d->displayModeCombo->setItemText(1, tr("Signed"));
+    if (displayModeLabel) displayModeLabel->setText(tr("Decode Mode:"));
+    if (displayModeCombo) {
+        displayModeCombo->setItemText(0, tr("Unsigned"));
+        displayModeCombo->setItemText(1, tr("Signed"));
     }
-    if (d->registerOrderLabel) d->registerOrderLabel->setText(tr("Byte Order:"));
-    if (d->registerOrderCombo) {
-        d->registerOrderCombo->setItemText(0, tr("ABCD(default)"));
-        d->registerOrderCombo->setItemText(1, "BADC");
-        d->registerOrderCombo->setItemText(2, "CDAB");
-        d->registerOrderCombo->setItemText(3, "DCBA");
+    if (registerOrderLabel) registerOrderLabel->setText(tr("Byte Order:"));
+    if (registerOrderCombo) {
+        registerOrderCombo->setItemText(0, tr("ABCD(default)"));
+        registerOrderCombo->setItemText(1, "BADC");
+        registerOrderCombo->setItemText(2, "CDAB");
+        registerOrderCombo->setItemText(3, "DCBA");
     }
-    if (d->formatBtn) d->formatBtn->setText(tr("Format Hex"));
-    if (d->importJsonBtn) d->importJsonBtn->setText(tr("Import Config"));
-    if (d->exportJsonBtn) d->exportJsonBtn->setText(tr("Export Config"));
-    if (d->exportCsvBtn) d->exportCsvBtn->setText(tr("Export CSV"));
-    
-    d->updateHistoryToggleText();
-    
-    if (d->linkageStopBtn) d->linkageStopBtn->setText(tr("Stop Link"));
-    if (d->linkagePauseBtn) {
-        d->linkagePauseBtn->setText(d->isLivePaused ? tr("Resume Refresh") : tr("Pause Refresh"));
+    if (formatBtn) formatBtn->setText(tr("Format Hex"));
+    if (importJsonBtn) importJsonBtn->setText(tr("Import Config"));
+    if (exportJsonBtn) exportJsonBtn->setText(tr("Export Config"));
+    if (exportCsvBtn) exportCsvBtn->setText(tr("Export CSV"));
+
+    updateHistoryToggleText();
+
+    if (linkageStopBtn) linkageStopBtn->setText(tr("Stop Link"));
+    if (linkagePauseBtn) {
+        linkagePauseBtn->setText(isLivePaused ? tr("Resume Refresh") : tr("Pause Refresh"));
     }
-    if (d->statusTitleLabel) d->statusTitleLabel->setText(tr("Status:"));
-    if (d->isLiveMode) {
+    if (statusTitleLabel) statusTitleLabel->setText(tr("Status:"));
+    if (isLiveMode) {
         QString protocolStr =
-            d->lastLiveResult.protocol == ProtocolType::Tcp ? tr("TCP") :
-            d->lastLiveResult.protocol == ProtocolType::Rtu ? tr("RTU") :
-            d->lastLiveResult.protocol == ProtocolType::Ascii ? tr("ASCII") :
+            lastLiveResult.protocol == ProtocolType::Tcp ? tr("TCP") :
+            lastLiveResult.protocol == ProtocolType::Rtu ? tr("RTU") :
+            lastLiveResult.protocol == ProtocolType::Ascii ? tr("ASCII") :
             tr("Unknown");
-        if (d->liveLabel) d->liveLabel->setText(tr("LIVE: %1").arg(protocolStr));
-        if (d->statusLabel && d->lastLiveResult.isValid) {
-            d->statusLabel->setText(tr("Live Data Received at %1").arg(d->lastLiveResult.timestamp.toLocalTime().toString("HH:mm:ss.zzz")));
+        if (liveLabel) liveLabel->setText(tr("LIVE: %1").arg(protocolStr));
+        if (statusLabel && lastLiveResult.isValid) {
+            statusLabel->setText(tr("Live Data Received at %1").arg(lastLiveResult.timestamp.toLocalTime().toString("HH:mm:ss.zzz")));
         }
     } else {
-        if (d->liveLabel) d->liveLabel->setText(QString());
-        if (d->statusLabel) d->statusLabel->setText(tr("Ready"));
+        if (liveLabel) liveLabel->setText(QString());
+        if (statusLabel) statusLabel->setText(tr("Ready"));
     }
-    
-    if (d->parseBtn) d->parseBtn->setText(tr("Parse"));
-    if (d->clearBtn) d->clearBtn->setText(tr("Clear"));
-    if (d->inputEditor) {
-        d->inputEditor->setPlaceholderText(
+
+    if (parseBtn) parseBtn->setText(tr("Parse"));
+    if (clearBtn) clearBtn->setText(tr("Clear"));
+    if (inputEditor) {
+        inputEditor->setPlaceholderText(
             tr("Enter Hex string (e.g., RTU: 01 03 00 00 00 01 84 0A, ASCII bytes: 3A 30 31 30 33 ... 0D 0A)"));
     }
 
-    if (d->resultGroup) d->resultGroup->setTitle(tr("Analysis Result"));
-    if (d->historyGroup) d->historyGroup->setTitle(tr("History"));
-    if (d->resultTabs) {
-        d->resultTabs->setTabText(0, d->isLiveMode ? tr("Structure (Unavailable in Live Mode)") : tr("Structure"));
-        d->resultTabs->setTabText(1, tr("Decoded Data"));
+    if (resultGroup) resultGroup->setTitle(tr("Analysis Result"));
+    if (historyGroup) historyGroup->setTitle(tr("History"));
+    if (resultTabs) {
+        resultTabs->setTabText(0, isLiveMode ? tr("Structure (Unavailable in Live Mode)") : tr("Structure"));
+        resultTabs->setTabText(1, tr("Decoded Data"));
     }
-    if (d->overviewTree) {
-        QTreeWidgetItem* header = d->overviewTree->headerItem();
+    if (overviewTree) {
+        QTreeWidgetItem* header = overviewTree->headerItem();
         header->setText(0, tr("Field"));
         header->setText(1, tr("Value"));
         header->setText(2, tr("Description"));
     }
-    if (d->dataTable) {
-        d->dataTable->setHorizontalHeaderLabels({tr("Address"), tr("Hex"), tr("Decimal"), tr("Binary"), tr("Scale"), tr("Value"), tr("Description")});
+    if (dataTable) {
+        dataTable->setHorizontalHeaderLabels({tr("Address"), tr("Hex"), tr("Decimal"), tr("Binary"), tr("Scale"), tr("Value"), tr("Description")});
     }
-    if (d->clearHistoryBtn) d->clearHistoryBtn->setText(tr("Clear History"));
-    
-    d->refreshHistoryList();
+    if (clearHistoryBtn) clearHistoryBtn->setText(tr("Clear History"));
+
+    refreshHistoryList();
 }
 
 } // namespace ui::widgets

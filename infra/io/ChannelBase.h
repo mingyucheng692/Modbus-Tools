@@ -86,7 +86,11 @@ private:
     std::mutex stateHandlersMutex_;
     HandlerId nextStateHandlerId_ = 1;
     std::vector<std::pair<HandlerId, std::function<void(ChannelState)>>> stateHandlers_;
-    QThread* deviceThread_ = nullptr;
+    // Owner thread starts as the constructing thread; moveToThread() updates
+    // it. Starting at the creator (not nullptr) keeps the destruction guard
+    // from firing for channels that are never moved off their birth thread
+    // (e.g. unit tests constructing and destroying in main()).
+    QThread* deviceThread_ = QThread::currentThread();
 };
 
 }

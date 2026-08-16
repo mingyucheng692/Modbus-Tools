@@ -149,7 +149,7 @@ TEST_F(ModbusSessionPresenterTest, ReleaseStack_ResetsPollingController) {
 TEST_F(ModbusSessionPresenterTest, SubmitRequest_NoWorker_DoesNotCrash) {
     ::modbus::base::Pdu pdu(static_cast<::modbus::base::FunctionCode>(0x03));
 
-    EXPECT_NO_THROW(tcpPresenter_->submitRequest(pdu, 1, 1));
+    EXPECT_NO_THROW(tcpPresenter_->submitRequest(pdu, 1, 1, 0));
 }
 
 TEST_F(ModbusSessionPresenterTest, SendRaw_NoWorker_DoesNotCrash) {

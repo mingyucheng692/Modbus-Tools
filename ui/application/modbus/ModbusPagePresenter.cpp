@@ -45,17 +45,18 @@ void ModbusPagePresenter::setup(ui::widgets::BaseConnectionWidget* connectionWid
 
 void ModbusPagePresenter::createServices() {
     sessionPresenter_ = new ModbusSessionPresenter(mode_, this);
-    requestService_ = new RequestSubmissionService(this);
-    pollingController_ = new PollingController(requestService_, this);
+    // Plain C++ service (Task 3.2): unique_ptr, no QObject parent.
+    requestService_ = std::make_unique<RequestSubmissionService>();
+    pollingController_ = new PollingController(requestService_.get(), this);
     trafficLogController_ = new TrafficLogController(
         trafficMonitor_, pollingController_, this);
     requestCoordinator_ = new RequestCoordinator(
-        sessionPresenter_, requestService_, pollingController_,
+        sessionPresenter_, requestService_.get(), pollingController_,
         trafficLogController_, controlWidget_, mode_, this);
 
     sessionPresenter_->setConnectionWidget(connectionWidget_);
     sessionPresenter_->setControlWidget(controlWidget_);
-    sessionPresenter_->setRequestService(requestService_);
+    sessionPresenter_->setRequestService(requestService_.get());
     sessionPresenter_->setPollingController(pollingController_);
     sessionPresenter_->setTrafficLogController(trafficLogController_);
 
@@ -68,8 +69,15 @@ void ModbusPagePresenter::createServices() {
 }
 
 void ModbusPagePresenter::wireConnections() {
-    connect(requestService_, &RequestSubmissionService::txCountUpdated,
-            controlWidget_, &ui::widgets::ControlWidget::recordTx);
+    // Task 3.2 / P1-6: RequestSubmissionService is no longer a QObject; the
+    // former txCountUpdated -> recordTx connection is a direct callback.
+    // Lifetime: controlWidget_ is owned by the View and outlives this
+    // presenter's services (torn down on switchMode before widgets change).
+    if (controlWidget_) {
+        requestService_->onTxCountUpdated = [controlWidget = controlWidget_]() {
+            controlWidget->recordTx();
+        };
+    }
 
     connect(pollingController_, &PollingController::submitPollRequest,
             this, [this](const ::modbus::base::Pdu& pdu, int slaveId, int requestId,
@@ -182,7 +190,7 @@ void ModbusPagePresenter::teardownServices() {
     if (requestCoordinator_) { delete requestCoordinator_; requestCoordinator_ = nullptr; }
     if (trafficLogController_) { delete trafficLogController_; trafficLogController_ = nullptr; }
     if (pollingController_) { delete pollingController_; pollingController_ = nullptr; }
-    if (requestService_) { delete requestService_; requestService_ = nullptr; }
+    requestService_.reset();
     if (sessionPresenter_) { delete sessionPresenter_; sessionPresenter_ = nullptr; }
 }
 
@@ -237,33 +245,11 @@ void ModbusPagePresenter::onStackReleasedForSwitch() {
     }, Qt::QueuedConnection);
 }
 
-void ModbusPagePresenter::requestConnect(const ModbusConnectionSpec& spec) {
-    if (sessionPresenter_) {
-        sessionPresenter_->requestConnect(spec);
-    }
-}
-
-void ModbusPagePresenter::requestDisconnect() {
-    if (sessionPresenter_) {
-        sessionPresenter_->requestDisconnect();
-    }
-}
-
-void ModbusPagePresenter::updateSettings(const ModbusTimingParams& params) {
-    if (sessionPresenter_) {
-        sessionPresenter_->updateSettings(params);
-    }
-}
-
 void ModbusPagePresenter::setLinked(bool linked) {
     linked_ = linked;
     if (sessionPresenter_) {
         sessionPresenter_->setLinked(linked);
     }
-}
-
-bool ModbusPagePresenter::isSessionConnected() const {
-    return sessionPresenter_ && sessionPresenter_->isSessionConnected();
 }
 
 bool ModbusPagePresenter::isLinked() const {

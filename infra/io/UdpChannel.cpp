@@ -77,7 +77,7 @@ bool UdpChannel::open()
     socket_.abort();
 
     if (!socket_.bind(localAddress_, localPort_, QUdpSocket::ShareAddress)) {
-        spdlog::error("UdpChannel: bind failed {}:{} error={}",
+        SPDLOG_ERROR("UdpChannel: bind failed {}:{} error={}",
                       localAddress_.toString().toStdString(),
                       localPort_,
                       socket_.errorString().toStdString());
@@ -149,7 +149,7 @@ bool UdpChannel::write(QByteArrayView data)
     }
 
     if (sent < 0) {
-        spdlog::error("UdpChannel: writeDatagram failed error={}",
+        SPDLOG_ERROR("UdpChannel: writeDatagram failed error={}",
                       socket_.errorString().toStdString());
         return false;
     }
@@ -190,7 +190,7 @@ void UdpChannel::onSocketError(QAbstractSocket::SocketError error)
     Q_UNUSED(error);
     if (closing_) return;
 
-    spdlog::error("UdpChannel: socket error {}",
+    SPDLOG_ERROR("UdpChannel: socket error {}",
                   socket_.errorString().toStdString());
     emitError(socket_.errorString());
 }

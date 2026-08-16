@@ -10,6 +10,7 @@
 #pragma once
 
 #include <QObject>
+#include <memory>
 #include "ModbusTypes.h"
 
 namespace ui::widgets {
@@ -67,12 +68,15 @@ public:
     void switchMode(SessionMode newMode,
                     ui::widgets::BaseConnectionWidget* newConnectionWidget);
 
-    // --- Delegating API for the View ---
-    void requestConnect(const ModbusConnectionSpec& spec);
-    void requestDisconnect();
-    void updateSettings(const ModbusTimingParams& params);
+    // --- API for the View ---
+    // Pure forwarding to sessionPresenter() was removed (Task 3.2 / P1-6):
+    // the View calls ModbusSessionPresenter directly via sessionPresenter().
+    // The two members below carry extra logic and are NOT pure forwards.
+    //
+    // setLinked() additionally mirrors the link flag into this presenter so
+    // linkageDataReceived() can be gated without querying the session.
     void setLinked(bool linked);
-    [[nodiscard]] bool isSessionConnected() const;
+    // isLinked() reports this presenter's mirrored flag, not the session's.
     [[nodiscard]] bool isLinked() const;
     [[nodiscard]] ModbusSessionPresenter* sessionPresenter() const;
 
@@ -98,7 +102,10 @@ private:
     ui::widgets::BaseConnectionWidget* pendingConnectionWidget_ = nullptr;
 
     ModbusSessionPresenter* sessionPresenter_ = nullptr;
-    RequestSubmissionService* requestService_ = nullptr;
+    // Plain C++ (non-QObject, Task 3.2): unique_ptr ownership; must never be
+    // deleteLater()'d. Destroyed in teardownServices() before the QObject
+    // services that hold raw pointers into it are recreated.
+    std::unique_ptr<RequestSubmissionService> requestService_;
     PollingController* pollingController_ = nullptr;
     TrafficLogController* trafficLogController_ = nullptr;
     RequestCoordinator* requestCoordinator_ = nullptr;

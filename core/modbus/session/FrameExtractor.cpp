@@ -128,7 +128,7 @@ void FrameExtractor::feed(QByteArrayView data)
             } else {
                 const auto interCharDelay = calculateInterCharacterDelay(config_);
                 if (silentInterval > interCharDelay) {
-                    spdlog::warn(
+                    SPDLOG_WARN(
                         "FrameExtractor: discarding RTU fragment after "
                         "inter-character gap violation");
                     buffer_.clear();
@@ -139,7 +139,7 @@ void FrameExtractor::feed(QByteArrayView data)
         buffer_.append(data);
 
         if (buffer_.size() > config::Modbus::kMaxAduSize) {
-            spdlog::error(
+            SPDLOG_ERROR(
                 "FrameExtractor: RTU buffer exceeded {} bytes limit, clearing",
                 config::Modbus::kMaxAduSize);
             buffer_.clear();
@@ -149,7 +149,7 @@ void FrameExtractor::feed(QByteArrayView data)
     } else if (mode_ == base::ModbusMode::ASCII) {
         buffer_.append(data);
         if (buffer_.size() > config::Modbus::kMaxAduSize * 2) {
-            spdlog::error(
+            SPDLOG_ERROR(
                 "FrameExtractor: ASCII buffer exceeded {} bytes limit, dropping oldest bytes",
                 config::Modbus::kMaxAduSize * 2);
             buffer_.remove(0, buffer_.size() - config::Modbus::kMaxAduSize * 2);
@@ -158,7 +158,7 @@ void FrameExtractor::feed(QByteArrayView data)
     } else {
         buffer_.append(data);
         if (buffer_.size() > config::Modbus::kMaxTcpBufferedBytes) {
-            spdlog::error(
+            SPDLOG_ERROR(
                 "FrameExtractor: TCP buffer exceeded {} bytes limit, "
                 "dropping oldest bytes",
                 config::Modbus::kMaxTcpBufferedBytes);
@@ -179,7 +179,7 @@ void FrameExtractor::processTcpBuffer()
         const int integrity = base::inspectTcpAdu(buffer_);
         if (integrity > 0) {
             if (integrity > config::Modbus::kMaxAduSize) {
-                spdlog::error(
+                SPDLOG_ERROR(
                     "FrameExtractor: TCP frame size {} exceeds ADPU limit {}, discarding",
                     integrity, config::Modbus::kMaxAduSize);
                 buffer_.remove(0, integrity);
@@ -192,7 +192,7 @@ void FrameExtractor::processTcpBuffer()
                 droppedInvalidBytes_ = 0;
             }
         } else if (integrity == -1) {
-            spdlog::warn(
+            SPDLOG_WARN(
                 "FrameExtractor: invalid TCP MBAP header, dropping first byte "
                 "[{}] of buffer totalDropped={}",
                 static_cast<int>(static_cast<uint8_t>(buffer_.at(0))),
@@ -200,7 +200,7 @@ void FrameExtractor::processTcpBuffer()
             buffer_.remove(0, 1);
             ++droppedInvalidBytes_;
             if (droppedInvalidBytes_ > config::Modbus::kMaxDroppedInvalidBytes) {
-                spdlog::error(
+                SPDLOG_ERROR(
                     "FrameExtractor: TCP invalid byte limit exceeded ({}), "
                     "clearing buffer",
                     droppedInvalidBytes_);
@@ -242,12 +242,12 @@ void FrameExtractor::processAsciiBuffer()
             continue;
         }
 
-        spdlog::warn(
+        SPDLOG_WARN(
             "FrameExtractor: invalid ASCII frame header/body, dropping start delimiter");
         buffer_.remove(0, 1);
         ++droppedInvalidBytes_;
         if (droppedInvalidBytes_ > config::Modbus::kMaxDroppedInvalidBytes) {
-            spdlog::error(
+            SPDLOG_ERROR(
                 "FrameExtractor: ASCII invalid byte limit exceeded ({}), clearing buffer",
                 droppedInvalidBytes_);
             buffer_.clear();
@@ -276,7 +276,7 @@ void FrameExtractor::processRtuBuffer(std::chrono::steady_clock::time_point now)
     }
 
     if (buffer_.size() > config::Modbus::kMaxAduSize) {
-        spdlog::error(
+        SPDLOG_ERROR(
             "FrameExtractor: RTU frame size {} exceeds ADPU limit {}, discarding",
             buffer_.size(), config::Modbus::kMaxAduSize);
         buffer_.clear();

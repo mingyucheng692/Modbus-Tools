@@ -169,13 +169,15 @@ public:
                              const QString& checksumsUrl,
                              const QString& fullPackageUrl,
                              const QString& releaseUrl) {
-        emit updateAvailable(currentVersion,
-                             latestVersion,
-                             updateOnlyUrl,
-                             updateOnlySha256,
-                             checksumsUrl,
-                             fullPackageUrl,
-                             releaseUrl);
+        core::update::UpdateInfo info;
+        info.currentVersion = currentVersion;
+        info.latestVersion = latestVersion;
+        info.updateOnlyUrl = updateOnlyUrl;
+        info.updateOnlySha256 = updateOnlySha256;
+        info.checksumsUrl = checksumsUrl;
+        info.fullPackageUrl = fullPackageUrl;
+        info.releaseUrl = releaseUrl;
+        emit updateAvailable(info);
     }
 
     void emitNoUpdateAvailable(const QString& currentVersion) {

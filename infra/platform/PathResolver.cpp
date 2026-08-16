@@ -91,7 +91,7 @@ void PathResolver::detectPortableMode(const QStringList& arguments)
         }
     }
 
-    spdlog::info("PathResolver: portable mode = {}", portableMode_);
+    SPDLOG_INFO("PathResolver: portable mode = {}", portableMode_);
 }
 
 QString PathResolver::resolveLogDir() const
@@ -139,7 +139,7 @@ QString PathResolver::resolveWritableDir(const QString& purpose,
     }
 
     if (!normalizedPreferredDir.isEmpty()) {
-        spdlog::warn("PathResolver: {} is not writable, falling back from {}",
+        SPDLOG_WARN("PathResolver: {} is not writable, falling back from {}",
                      purpose.toStdString(),
                      normalizedPreferredDir.toStdString());
     }
@@ -150,14 +150,14 @@ QString PathResolver::resolveWritableDir(const QString& purpose,
     }
 
     if (!normalizedFallbackDir.isEmpty()) {
-        spdlog::warn("PathResolver: {} fallback is not writable, using best-effort {}",
+        SPDLOG_WARN("PathResolver: {} fallback is not writable, using best-effort {}",
                      purpose.toStdString(),
                      normalizedFallbackDir.toStdString());
         QDir().mkpath(normalizedFallbackDir);
         return normalizedFallbackDir;
     }
 
-    spdlog::warn("PathResolver: {} resolution returned an empty path, using application directory",
+    SPDLOG_WARN("PathResolver: {} resolution returned an empty path, using application directory",
                  purpose.toStdString());
     return applicationDirPath_;
 }

@@ -17,8 +17,30 @@
 #include <cstdio>
 #include <QtEndian>
 #include <QCoreApplication>
+#include <QThread>
 
 namespace modbus::session {
+
+#ifndef NDEBUG
+void ModbusClient::assertSessionAffinity() {
+    std::lock_guard<std::mutex> lock(mutex_);
+    if (!sessionOwnerThread_) {
+        // Guard not armed yet: pre-live factory configuration or direct
+        // unit-test driving (ad-hoc threads exercising Busy/abort defense
+        // paths). Nothing to enforce.
+        return;
+    }
+    Q_ASSERT_X(sessionOwnerThread_ == QThread::currentThread(),
+               "ModbusClient",
+               "session-driving methods must run on the owning worker thread; "
+               "route the call through ModbusWorker (see @thread in ModbusClient.h)");
+}
+
+void ModbusClient::claimSessionOwnershipForCurrentThread() {
+    std::lock_guard<std::mutex> lock(mutex_);
+    sessionOwnerThread_ = QThread::currentThread();
+}
+#endif
 
 ModbusClient::ConnectionState ModbusClient::connectionState() const {
     return connectionStateMachine_.currentState();
@@ -65,7 +87,7 @@ ModbusClient::ModbusClient(std::shared_ptr<io::IChannel> channel,
           pendingMutex_,
           pendingRequests_,
           nextRequestId_}) {
-    
+
     // Channel callbacks
     channel_->setReadHandler([this](QByteArrayView data) {
         requestExecutor_.onDataReceived(data);
@@ -105,7 +127,7 @@ ModbusClient::~ModbusClient() {
                      "in-flight (state=%s). The worker thread must be joined "
                      "before destruction. This is a use-after-free.\n",
                      RequestStateMachine::toString(reqState));
-        spdlog::critical("ModbusClient::~ModbusClient: destroyed while request is "
+        SPDLOG_CRITICAL("ModbusClient::~ModbusClient: destroyed while request is "
                          "in-flight (state={}). The worker thread must be joined "
                          "before destruction. This is a use-after-free.",
                          RequestStateMachine::toString(reqState));
@@ -123,6 +145,7 @@ ModbusClient::~ModbusClient() {
 }
 
 bool ModbusClient::connect() {
+    assertSessionAffinity();
     if (!channel_) return false;
 
     aborted_ = false;
@@ -136,9 +159,10 @@ bool ModbusClient::connect() {
 }
 
 void ModbusClient::disconnect() {
+    assertSessionAffinity();
     // Lifecycle closure: pairs with the connect-side info logs so every
     // session has a visible start AND end in the log file.
-    spdlog::info("ModbusClient: disconnect requested, reason=user-request");
+    SPDLOG_INFO("ModbusClient: disconnect requested, reason=user-request");
     aborted_ = true;
     sessionHealth_.store(SessionHealth::Unknown, std::memory_order_release);
     connectionStateMachine_.tryTransition(ConnectionState::Disconnecting, "disconnect");
@@ -151,7 +175,7 @@ void ModbusClient::disconnect() {
         connectionStateMachine_.forceReset(ConnectionState::Disconnected);
     }
     requestStateMachine_.tryTransition(RequestState::Idle, "disconnect");
-    spdlog::info("ModbusClient: session disconnected");
+    SPDLOG_INFO("ModbusClient: session disconnected");
 }
 
 void ModbusClient::abort() {
@@ -167,6 +191,7 @@ QString ModbusClient::lastChannelError() const {
 }
 
 void ModbusClient::setConfig(const base::ModbusConfig& config) {
+    assertSessionAffinity();
     // Detect endpoint change before applying config so we can tear down
     // the stale connection before the new endpoint takes effect.
     const bool endpointChanged = (config_.ipAddress != config.ipAddress ||
@@ -185,7 +210,7 @@ void ModbusClient::setConfig(const base::ModbusConfig& config) {
         config.retryJitterPercent});
 
     if (endpointChanged && isConnected()) {
-        spdlog::info("ModbusClient::setConfig: endpoint changed while connected "
+        SPDLOG_INFO("ModbusClient::setConfig: endpoint changed while connected "
                      "(old={}:{} new={}:{}), disconnecting",
                      oldIp.toStdString(), oldPort,
                      config.ipAddress.toStdString(), config.port);
@@ -209,6 +234,7 @@ bool ModbusClient::waitForChannelState(io::ChannelState expectedState,
 }
 
 ModbusResponse ModbusClient::sendRequest(const base::Pdu& request, int slaveId) {
+    assertSessionAffinity();
     auto response = requestExecutor_.execute(request, slaveId);
     // Update session health based on the outcome of this request.
     // Busy (lock contention) is not a transport failure — don't downgrade.
@@ -221,6 +247,7 @@ ModbusResponse ModbusClient::sendRequest(const base::Pdu& request, int slaveId) 
 }
 
 void ModbusClient::sendRaw(const QByteArray& data) {
+    assertSessionAffinity();
     requestExecutor_.sendRaw(data);
 }
 

@@ -31,9 +31,9 @@ namespace common {
  * Usage:
  * @code
  *   if (dedupe.shouldLog(key, std::chrono::steady_clock::now())) {
- *       spdlog::warn(...);   // first occurrence or window expired -> full level
+ *       SPDLOG_WARN(...);   // first occurrence or window expired -> full level
  *   } else {
- *       spdlog::debug(...);  // duplicate within window -> demoted
+ *       SPDLOG_DEBUG(...);  // duplicate within window -> demoted
  *   }
  * @endcode
  */

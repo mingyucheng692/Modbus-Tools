@@ -135,7 +135,7 @@ ParseResult parseTcp(const QByteArray& frame, uint16_t startAddress, uint16_t ex
     const int integrity = base::inspectTcpAdu(frame, &fields);
     if (!force) {
         if (integrity == 0) {
-            spdlog::debug("FrameParser: reject reason=tcp_too_short frameLen={}", frame.size());
+            SPDLOG_DEBUG("FrameParser: reject reason=tcp_too_short frameLen={}", frame.size());
             result.isValid = false;
             result.error = QCoreApplication::translate(
                                "ModbusFrameParser",
@@ -144,13 +144,13 @@ ParseResult parseTcp(const QByteArray& frame, uint16_t startAddress, uint16_t ex
             return result;
         }
         if (integrity < 0) {
-            spdlog::debug("FrameParser: reject reason=tcp_invalid_mbap frameLen={}", frame.size());
+            SPDLOG_DEBUG("FrameParser: reject reason=tcp_invalid_mbap frameLen={}", frame.size());
             result.isValid = false;
             result.error = QCoreApplication::translate("ModbusFrameParser", "Invalid TCP MBAP header or length");
             return result;
         }
         if (integrity != frame.size()) {
-            spdlog::debug("FrameParser: reject reason=tcp_trailing_bytes expected={} frameLen={}", integrity, frame.size());
+            SPDLOG_DEBUG("FrameParser: reject reason=tcp_trailing_bytes expected={} frameLen={}", integrity, frame.size());
             result.isValid = false;
             result.error = QCoreApplication::translate("ModbusFrameParser", "TCP frame contains trailing bytes. Expected %1 bytes, got %2")
                                .arg(integrity)
@@ -278,7 +278,7 @@ ParseResult parseAscii(const QByteArray& frame,
     const int integrity = base::inspectAsciiAdu(frame, &fields);
     if (!force) {
         if (integrity == 0) {
-            spdlog::debug("FrameParser: reject reason=ascii_missing_crlf frameLen={}", frame.size());
+            SPDLOG_DEBUG("FrameParser: reject reason=ascii_missing_crlf frameLen={}", frame.size());
             result.isValid = false;
             result.error = QCoreApplication::translate(
                 "ModbusFrameParser",
@@ -286,7 +286,7 @@ ParseResult parseAscii(const QByteArray& frame,
             return result;
         }
         if (integrity < 0) {
-            spdlog::debug("FrameParser: reject reason=ascii_lrc_mismatch frameLen={}", frame.size());
+            SPDLOG_DEBUG("FrameParser: reject reason=ascii_lrc_mismatch frameLen={}", frame.size());
             result.isValid = false;
             result.error = QCoreApplication::translate(
                 "ModbusFrameParser",
@@ -294,7 +294,7 @@ ParseResult parseAscii(const QByteArray& frame,
             return result;
         }
         if (integrity != frame.size()) {
-            spdlog::debug("FrameParser: reject reason=ascii_trailing_bytes expected={} frameLen={}", integrity, frame.size());
+            SPDLOG_DEBUG("FrameParser: reject reason=ascii_trailing_bytes expected={} frameLen={}", integrity, frame.size());
             result.isValid = false;
             result.error = QCoreApplication::translate(
                 "ModbusFrameParser",
@@ -673,7 +673,7 @@ void parsePdu(ParseResult& result,
         break;
     }
     default:
-        spdlog::debug("FrameParser: reject reason=unsupported_fc fc=0x{:02x}", fcByte);
+        SPDLOG_DEBUG("FrameParser: reject reason=unsupported_fc fc=0x{:02x}", fcByte);
         result.error = QCoreApplication::translate(
                            "ModbusFrameParser",
                            "Unsupported function code 0x%1 for deep parsing")

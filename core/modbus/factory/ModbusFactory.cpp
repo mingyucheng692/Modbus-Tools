@@ -11,6 +11,7 @@
 #include "../transport/ModbusSerialTransport.h"
 #include "../transport/ModbusTcpTransport.h"
 #include "../session/ModbusClient.h"
+#include "common/ThreadGuard.h"
 #include "infra/io/SerialChannel.h"
 #include "infra/io/TcpChannel.h"
 #include <QMetaObject>
@@ -22,12 +23,11 @@ namespace modbus::factory {
 
 namespace {
 
-void cleanupThread(QThread* thread);
-void cleanupWorker(dispatch::ModbusWorker* worker);
-
+// Thread/worker teardown lives in core::common::ThreadGuard — the single
+// project-wide implementation of these sequences (see ThreadGuard.h).
 std::shared_ptr<QThread> makeManagedThread()
 {
-    return std::shared_ptr<QThread>(new QThread(), &cleanupThread);
+    return std::shared_ptr<QThread>(new QThread(), &core::common::ThreadGuard::releaseThread);
 }
 
 std::shared_ptr<dispatch::ModbusWorker> makeManagedWorker(
@@ -36,59 +36,23 @@ std::shared_ptr<dispatch::ModbusWorker> makeManagedWorker(
 {
     return std::shared_ptr<dispatch::ModbusWorker>(
         new dispatch::ModbusWorker(client, workerThread, nullptr),
-        &cleanupWorker);
+        [](dispatch::ModbusWorker* worker) {
+            core::common::ThreadGuard::releaseWorker(worker, [worker]() { worker->stop(); });
+        });
 }
 
-void cleanupThread(QThread* thread)
-{
-    if (!thread) {
-        return;
-    }
-
-    if (thread->isRunning()) {
-        thread->quit();
-        if (QThread::currentThread() != thread && thread->wait(1000)) {
-            delete thread;
-            return;
-        }
-        QObject::connect(thread, &QThread::finished, thread, &QObject::deleteLater, Qt::UniqueConnection);
-        return;
-    }
-
-    delete thread;
-}
-
-void cleanupWorker(dispatch::ModbusWorker* worker)
-{
-    if (!worker) {
-        return;
-    }
-
-    QThread* objectThread = worker->thread();
-    if (objectThread && objectThread->isRunning()) {
-        QMetaObject::invokeMethod(worker, [worker, objectThread]() {
-            QObject::connect(worker, &QObject::destroyed, objectThread, &QThread::quit, Qt::UniqueConnection);
-            worker->stop();
-            worker->deleteLater();
-        }, Qt::QueuedConnection);
-        return;
-    }
-
-    delete worker;
-}
-
-std::shared_ptr<io::IChannel> createChannel(const base::ModbusConfig& config, QThread* ioThread) {
+std::unique_ptr<io::IChannel> createChannel(const base::ModbusConfig& config, QThread* ioThread) {
     switch (config.mode) {
     case base::ModbusMode::RTU:
     case base::ModbusMode::ASCII: {
-        auto serial = std::make_shared<io::SerialChannel>();
+        auto serial = std::make_unique<io::SerialChannel>();
         io::SerialConfig serialConfig = io::toSerialConfig(config);
         serial->setConfig(serialConfig);
         serial->moveToThread(ioThread);
         return serial;
     }
     case base::ModbusMode::TCP: {
-        auto tcp = std::make_shared<io::TcpChannel>();
+        auto tcp = std::make_unique<io::TcpChannel>();
         tcp->setEndpoint(config.ipAddress, config.port);
         tcp->moveToThread(ioThread);
         return tcp;
@@ -120,17 +84,29 @@ std::optional<ModbusStack> createStack(const base::ModbusConfig& config) {
     QThread* ioThreadRaw = stack.ioThread.get();
 
     // 1. 创建底层通道 (IO)
-    stack.channel = createChannel(config, ioThreadRaw);
-    if (!stack.channel) {
-        spdlog::error("ModbusFactory: failed to create channel for mode={}",
+    auto channel = createChannel(config, ioThreadRaw);
+    if (!channel) {
+        SPDLOG_ERROR("ModbusFactory: failed to create channel for mode={}",
                       static_cast<int>(config.mode));
         return std::nullopt;
     }
+    // The channel's shared_ptr deliberately captures the IO thread's
+    // shared_ptr: ModbusClient keeps a channel reference and the async-
+    // deleted worker keeps the client, so the channel regularly OUTLIVES
+    // this stack's ioThread member. The capture keeps the QThread object
+    // alive until after channel deletion (no dangling owner-thread pointer
+    // in ChannelBase's guard) and ThreadGuard::releaseChannel performs the
+    // thread-affine teardown.
+    stack.channel = std::shared_ptr<io::IChannel>(
+        channel.release(),
+        [ioThread = stack.ioThread](io::IChannel* ch) {
+            core::common::ThreadGuard::releaseChannel(ch, ioThread);
+        });
 
     // 2. 创建传输层策略 (Protocol)
     auto transport = createTransport(config);
     if (!transport) {
-        spdlog::error("ModbusFactory: failed to create transport for mode={}",
+        SPDLOG_ERROR("ModbusFactory: failed to create transport for mode={}",
                       static_cast<int>(config.mode));
         return std::nullopt;
     }
@@ -141,7 +117,7 @@ std::optional<ModbusStack> createStack(const base::ModbusConfig& config) {
 
     // 4. 创建工作线程 (Dispatch)
     stack.worker = makeManagedWorker(stack.client, stack.thread.get());
-    spdlog::info("ModbusFactory: stack created mode={}", static_cast<int>(config.mode));
+    SPDLOG_INFO("ModbusFactory: stack created mode={}", static_cast<int>(config.mode));
     return std::move(stack);
 }
 

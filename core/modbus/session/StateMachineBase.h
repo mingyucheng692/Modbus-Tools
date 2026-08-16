@@ -55,7 +55,7 @@ public:
                 // trace_id is 0 for connection-lifecycle transitions (no
                 // request in flight); non-zero when a request drives the
                 // transition. Never required here — 0 is a valid value.
-                spdlog::error("{}: invalid transition {} -> {} ({}) trace_id={}",
+                SPDLOG_ERROR("{}: invalid transition {} -> {} ({}) trace_id={}",
                               Derived::kName,
                               Derived::toString(oldState),
                               Derived::toString(newState),
@@ -66,7 +66,7 @@ public:
 
             if (state_.compare_exchange_weak(oldState, newState,
                     std::memory_order_acq_rel, std::memory_order_relaxed)) {
-                spdlog::debug("{}: {} -> {} ({}) trace_id={}",
+                SPDLOG_DEBUG("{}: {} -> {} ({}) trace_id={}",
                               Derived::kName,
                               Derived::toString(oldState),
                               Derived::toString(newState),

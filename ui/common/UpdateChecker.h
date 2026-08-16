@@ -27,7 +27,9 @@ class UpdateChecker : public QObject {
 
 public:
     explicit UpdateChecker(QObject* parent = nullptr);
-    void checkForUpdates();
+    /// Virtual test seam: unit tests substitute FakeUpdateChecker to
+    /// intercept checks without touching the network.
+    virtual void checkForUpdates();
 
     static QString currentVersion();
     static QString packagePlatform();

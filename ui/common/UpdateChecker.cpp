@@ -57,7 +57,7 @@ UpdateChecker::UpdateChecker(QObject* parent)
 }
 
 void UpdateChecker::checkForUpdates() {
-    spdlog::info("UpdateChecker: Checking for updates at {}", MODBUS_TOOLS_RELEASES_API_URL);
+    SPDLOG_INFO("UpdateChecker: Checking for updates at {}", MODBUS_TOOLS_RELEASES_API_URL);
     QNetworkRequest request(QUrl(QStringLiteral(MODBUS_TOOLS_RELEASES_API_URL)));
     request.setHeader(QNetworkRequest::UserAgentHeader, QStringLiteral("Modbus-Tools/%1").arg(currentVersion()));
     request.setRawHeader("Accept", "application/vnd.github+json");
@@ -68,7 +68,7 @@ void UpdateChecker::checkForUpdates() {
 
         if (reply->error() != QNetworkReply::NoError) {
             const QString error = reply->errorString();
-            spdlog::error("UpdateChecker: Network error checking for updates: {}", error.toStdString());
+            SPDLOG_ERROR("UpdateChecker: Network error checking for updates: {}", error.toStdString());
             emit checkFailed(error);
             return;
         }
@@ -134,7 +134,7 @@ void UpdateChecker::checkForUpdates() {
         const int compareResult = core::update::release_parser::compareVersions(
             firstRelease.tagName, currentVer);
         if (compareResult > 0) {
-            spdlog::info("UpdateChecker: New version available: v{} (Current: v{})",
+            SPDLOG_INFO("UpdateChecker: New version available: v{} (Current: v{})",
                          latestVersion.toStdString(), currentVer);
             emit updateAvailable(core::update::UpdateInfo{
                 currentVersion(),
@@ -148,7 +148,7 @@ void UpdateChecker::checkForUpdates() {
             return;
         }
 
-        spdlog::info("UpdateChecker: No new version available (Current: v{})", currentVer);
+        SPDLOG_INFO("UpdateChecker: No new version available (Current: v{})", currentVer);
         emit noUpdateAvailable(currentVersion());
     });
 }

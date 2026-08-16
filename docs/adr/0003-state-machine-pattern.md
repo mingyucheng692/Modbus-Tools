@@ -2,7 +2,7 @@
 
 **Date:** 2026-06-28
 
-**Status:** Accepted (revised 2026-07-17 to reflect actual implementation)
+**Status:** Accepted (revised 2026-07-17 to reflect actual implementation; revised 2026-08-16 — `SessionConnectionStateMachine` removed, see Revision below)
 
 ---
 
@@ -57,4 +57,17 @@ Each derived class exposes:
 
 ## Note on SessionConnectionStateMachine
 
-The UI-layer `SessionConnectionStateMachine` (a `QObject`-based parallel FSM that bridged core session state to UI signals) was evaluated for removal (P0-3). It was deferred as a high-risk refactor with no correctness benefit. The bridge remains until a dedicated UI-state-derivation refactor is undertaken.
+**Revision (2026-08-16, Phase 3 / Task 3.1):** The UI-layer
+`SessionConnectionStateMachine` (a `QObject`-based parallel FSM that bridged
+core session state to UI signals) has been **removed**. Its transition table,
+state naming, and validation logic were absorbed into
+`ModbusSessionPresenter` as the private guard function
+`transitionConnectionStateTo()` (plus `forceConnectionStateTo()` for the
+core-wins fallback). The UI state remains a *derived* view: the core
+`ConnectionStateMachine` is the single source of truth, and
+`deriveUiState()`/`syncStateFromCore()` compute the UI state from it. The
+former dedicated UI-state-derivation refactor flagged below has now been
+undertaken.
+
+**Historical note:** it was originally deferred as a high-risk refactor with
+no correctness benefit.

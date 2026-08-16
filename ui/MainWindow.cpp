@@ -95,7 +95,10 @@ MainWindow::MainWindow(core::common::ISettingsService* settingsService,
       languageCoordinator_(std::make_unique<application::LanguageCoordinator>(settingsController_.get())),
       updateCoordinator_(std::make_unique<application::UpdateCoordinator>(
           updateInteractionView_.get(),
-          this,
+          // Task 3.2 / P1-7: replaces the IApplicationExitView* parameter.
+          // Safe capture: updateCoordinator_ is a member destroyed before
+          // the MainWindow base, so `this` outlives the callback holder.
+          [this] { requestQuit(); },
           updateChecker_.get(),
           updateManager_.get(),
           settingsController_.get())),
@@ -110,7 +113,7 @@ MainWindow::MainWindow(core::common::ISettingsService* settingsService,
 }
 
 MainWindow::~MainWindow() {
-    spdlog::info("MainWindow: Destructor entry");
+    SPDLOG_INFO("MainWindow: Destructor entry");
 }
 
 void MainWindow::initializeUi() {

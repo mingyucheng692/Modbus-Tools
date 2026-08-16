@@ -10,7 +10,6 @@
 #include "modbus/session/ConnectionStateMachine.h"
 #include "../../../infra/io/IChannel.h"
 #include "ModbusTypes.h"
-#include "SessionConnectionStateMachine.h"
 
 class QThread;
 class QWidget;
@@ -32,7 +31,21 @@ namespace modbus::session { class ModbusClient; }
 
 namespace ui::application::modbus {
 
-// SessionConnectionState is defined in SessionConnectionStateMachine.h.
+/**
+ * @brief UI-layer connection state, derived from the authoritative core
+ *        ConnectionStateMachine plus channel state and session health.
+ *
+ * Formerly owned by the deleted SessionConnectionStateMachine QObject FSM
+ * (P1-3 / Task 3.1). Transition validation now lives in the presenter's
+ * private guard function transitionConnectionStateTo().
+ */
+enum class SessionConnectionState {
+    Disconnected,
+    Connecting,
+    TransportConnected,
+    Connected,
+    Disconnecting
+};
 
 /**
  * @brief Session presenter bridging the UI layer and Modbus worker thread.
@@ -125,6 +138,21 @@ private:
 
     void onConnectionStateChanged(SessionConnectionState state);
     void syncConnectionWidget(SessionConnectionState state);
+
+    /// Validated UI connection-state transition (Task 3.1 guard function).
+    /// Rejects illegal transitions (returns false, state unchanged, logs an
+    /// error) and applies the state-entry side effects (alert-suppression
+    /// flags, widget sync) inline on success. No-op re-entry succeeds.
+    [[nodiscard]] bool transitionConnectionStateTo(SessionConnectionState target);
+
+    /// Forces the UI state without transition-rule validation. Only for use
+    /// when the core authoritative state conflicts with the UI transition
+    /// rules (core wins; safe fallback is Disconnected).
+    void forceConnectionStateTo(SessionConnectionState target);
+
+    /// Human-readable state name for logging.
+    [[nodiscard]] static const char* connectionStateName(SessionConnectionState s);
+
     bool hasLiveOrPendingStack() const;
     // Hands the current live stack off to releaseCoordinator_ for bounded
     // async teardown. Performs all session-state side effects (generation
@@ -143,7 +171,7 @@ private:
     std::shared_ptr<QThread> modbusWorkerThread_;
     ::modbus::base::ModbusConfig currentConfig_;
     quint64 connectionGeneration_ = 0;
-    std::unique_ptr<SessionConnectionStateMachine> connectionStateMachine_;
+    SessionConnectionState connectionState_ = SessionConnectionState::Disconnected;
     bool suppressDisconnectAlert_ = false;
     bool linked_ = false;
     int timeoutMs_;
@@ -152,7 +180,12 @@ private:
 
     QPointer<TrafficLogController> trafficLogController_;
     QPointer<PollingController> pollingController_;
-    QPointer<RequestSubmissionService> requestService_;
+    // Raw pointer: RequestSubmissionService is a plain C++ class owned by
+    // ModbusPagePresenter (std::unique_ptr). It outlives this presenter in
+    // every teardown path (services are deleted before the session
+    // presenter's queued handlers can run again), so no QPointer guard is
+    // possible or needed.
+    RequestSubmissionService* requestService_ = nullptr;
     QPointer<ui::widgets::BaseConnectionWidget> connectionWidget_;
     QPointer<ui::widgets::ControlWidget> controlWidget_;
     std::unique_ptr<WorkerReleaseCoordinator> releaseCoordinator_;

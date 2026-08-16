@@ -140,7 +140,7 @@ bool ConnectionManager::ensureConnected(bool allowReconnect) {
     if (lastChannelError_.isEmpty()) {
         lastChannelError_ = connectError.isEmpty() ? TrContext<kConnManagerCtx>::tr("Connect timeout") : connectError;
     }
-    spdlog::warn("ModbusClient: connect failed target={}:{} reason={} channelState={}",
+    SPDLOG_WARN("ModbusClient: connect failed target={}:{} reason={} channelState={}",
                  config_->ipAddress.toStdString(),
                  config_->port,
                  lastChannelError_.toStdString(),

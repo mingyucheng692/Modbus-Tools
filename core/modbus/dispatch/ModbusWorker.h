@@ -35,8 +35,17 @@ bool isCleanSuccess(const session::ModbusResponse& response);
  *         queued and executed on the worker thread. Results are signaled back
  *         to the caller via queued connections.
  *
- * @note The underlying ModbusClient is thread-safe; this worker serializes
- *       access through queued connections to avoid concurrent submit() calls.
+ * @note This worker's QueuedConnection serialization is the ONLY concurrency
+ *       boundary around the underlying ModbusClient: the client is
+ *       thread-compatible (see the @thread contract in ModbusClient.h) and
+ *       its session-driving methods must only be invoked from this worker
+ *       thread — which is exactly what the queued handlers below guarantee.
+ *       Cross-thread callers must go through submit()/requestConnect()/
+ *       requestDisconnect()/updateConfig()/stop(); the only direct foreign-
+ *       thread entry on the client is ModbusClient::abort() (called from
+ *       stop() before the queued shutdown handshake). Each queued handler
+ *       also calls ModbusClient::claimSessionOwnershipForCurrentThread(),
+ *       arming the client's Debug-only affinity guard.
  */
 class ModbusWorker : public QObject {
     Q_OBJECT

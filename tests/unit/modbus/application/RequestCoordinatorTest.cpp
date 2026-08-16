@@ -19,6 +19,7 @@ protected:
             presenter_.get(), requestService_,
             nullptr,  // pollingController
             nullptr,  // trafficLogController
+            nullptr,  // controlWidget
             SessionMode::Tcp);
     }
 

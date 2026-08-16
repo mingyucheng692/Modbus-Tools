@@ -186,21 +186,29 @@ void ChannelBase::emitMonitor(bool isTx, const QByteArray& data)
 
 void ChannelBase::assertOwnerThreadForDestruction(const char* className)
 {
-    if (deviceThread_ != QThread::currentThread()) {
-        // Double-write to stderr: this abort path bypasses QtMessageHandler,
-        // and the async queue may not flush the critical line in time.
-        std::fprintf(stderr,
-                     "%s::~%s: destroyed on non-owner thread. "
-                     "Cross-thread destruction is UAF. Ensure ioThread "
-                     "quit()+wait() completes before releasing the channel.\n",
-                     className, className);
-        spdlog::critical("{}::~{}: destroyed on non-owner thread. "
-                         "Cross-thread destruction is UAF. Ensure ioThread "
-                         "quit()+wait() completes before releasing the channel.",
-                         className, className);
-        spdlog::default_logger()->flush();
-        std::abort();
+    if (deviceThread_ == QThread::currentThread()) {
+        return;
     }
+    if (deviceThread_ && !deviceThread_->isRunning()) {
+        // Owner thread's event loop already terminated (quit()+wait()
+        // establishes happens-before) or never started: no concurrent
+        // access is possible, so destruction from the joining thread is
+        // safe (see core::common::ThreadGuard::releaseChannel).
+        return;
+    }
+    // Double-write to stderr: this abort path bypasses QtMessageHandler,
+    // and the async queue may not flush the critical line in time.
+    std::fprintf(stderr,
+                 "%s::~%s: destroyed on non-owner thread. "
+                 "Cross-thread destruction is UAF. Ensure ioThread "
+                 "quit()+wait() completes before releasing the channel.\n",
+                 className, className);
+    SPDLOG_CRITICAL("{}::~{}: destroyed on non-owner thread. "
+                    "Cross-thread destruction is UAF. Ensure ioThread "
+                    "quit()+wait() completes before releasing the channel.",
+                    className, className);
+    spdlog::default_logger()->flush();
+    std::abort();
 }
 
 }

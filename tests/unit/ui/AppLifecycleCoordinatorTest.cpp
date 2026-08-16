@@ -16,7 +16,7 @@ protected:
     void SetUp() override {
         settingsController_ = std::make_unique<core::common::SettingsController>(&settingsService_);
         updateCoordinator_ = std::make_unique<tests::mocks::MockUpdateCoordinator>(
-            &view_, &updateChecker_, &updateManager_, settingsController_.get());
+            &view_, [] {}, &updateChecker_, &updateManager_, settingsController_.get());
         languageCoordinator_ = std::make_unique<ui::application::LanguageCoordinator>(settingsController_.get());
         coordinator_ = std::make_unique<ui::application::AppLifecycleCoordinator>(
             &view_, settingsController_.get(), languageCoordinator_.get(), updateCoordinator_.get());

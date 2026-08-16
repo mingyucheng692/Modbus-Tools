@@ -16,10 +16,6 @@
 
 namespace ui::application::modbus {
 
-RequestSubmissionService::RequestSubmissionService(QObject* parent)
-    : QObject(parent) {
-}
-
 RequestSubmissionService::RequestBuildResult RequestSubmissionService::buildReadRequest(
     const PollSpec& spec, RequestKind kind) {
     RequestBuildResult result;
@@ -278,7 +274,9 @@ void RequestSubmissionService::trackRequest(int requestId, RequestKind kind, uin
     info.traceId = traceId;
     info.startTime = std::chrono::steady_clock::now();
     requestTracking_[requestId] = info;
-    emit txCountUpdated();
+    if (onTxCountUpdated) {
+        onTxCountUpdated();
+    }
 }
 
 } // namespace ui::application::modbus

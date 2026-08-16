@@ -15,7 +15,14 @@
 
 // Verbose runtime logging is gated by the CMake option
 // MODBUS_TOOLS_ENABLE_VERBOSE_RUNTIME_LOGS, which controls spdlog flush level
-// (info vs warn) in Logger.cpp. Call sites use spdlog::debug() directly.
+// (info vs warn) in Logger.cpp. Call sites use the SPDLOG_* macros so that
+// SPDLOG_ACTIVE_LEVEL (Debug -> SPDLOG_LEVEL_DEBUG, otherwise
+// SPDLOG_LEVEL_INFO, see modbus_tools_apply_logging_policy in the root
+// CMakeLists.txt) strips debug-level statements at compile time.
+//
+// Note on QT_MESSAGELOGCONTEXT: intentionally NOT defined; the Qt message
+// handler's file/line context is only reliable for Qt-internal warnings,
+// which is why LogBridge does not rely on it.
 
 namespace logging {
 

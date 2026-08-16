@@ -9,7 +9,6 @@
 
 #pragma once
 
-#include <QObject>
 #include <QString>
 #include <QVariant>
 #include <QByteArray>
@@ -43,12 +42,18 @@ namespace core::common {
  *      baking Modbus-specific limits into it would couple the storage
  *      interface to business rules. SettingsController is the appropriate
  *      home for these typed, validated accessors.
+ *
+ * @par QObject removed (Task 3.2 / P2-1)
+ *      This controller uses no signals, slots, or event-loop services — it
+ *      is a plain C++ class owned via std::unique_ptr (MainWindow). It must
+ *      never be deleteLater()'d; destruction order is the holder's member
+ *      declaration order (MainWindow: destroyed with the window, before
+ *      the coordinators that received raw pointers into it).
  */
-class SettingsController : public QObject {
-    Q_OBJECT
+class SettingsController {
 
 public:
-    explicit SettingsController(ISettingsService* settingsService, QObject* parent = nullptr);
+    explicit SettingsController(ISettingsService* settingsService);
 
     // Modbus Settings
     void setModbusSettings(int timeoutMs, int retries, int retryIntervalMs, bool retryEnabled);

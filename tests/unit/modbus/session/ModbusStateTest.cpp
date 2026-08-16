@@ -4,6 +4,10 @@
 #include "../../../mocks/MockChannel.h"
 #include "../../../mocks/MockTransport.h"
 #include <future>
+#include <thread>
+#if defined(_MSC_VER) && defined(_DEBUG)
+#include <crtdbg.h>
+#endif
 
 using namespace modbus::session;
 using namespace modbus::transport;
@@ -142,3 +146,42 @@ TEST_F(ModbusStateTest, AbortUnblocksConnectWaitWithoutProcessEvents) {
     EXPECT_FALSE(connectFuture.get());
     EXPECT_EQ(client_->connectionState(), ModbusClient::ConnectionState::Failed);
 }
+
+#if !defined(NDEBUG)
+namespace {
+
+// Death-test child hygiene (Windows/MSVC debug CRT only): without this,
+// abort() raises an invisible modal error dialog inside the re-spawned
+// child process and the death test hangs forever. Routes CRT reports to
+// the debugger stream and drops the WER/abort popup. No-op elsewhere.
+void suppressFatalDialogsForDeathTest()
+{
+#if defined(_MSC_VER) && defined(_DEBUG)
+    _CrtSetReportMode(_CRT_ASSERT, _CRTDBG_MODE_DEBUG);
+    _CrtSetReportMode(_CRT_ERROR, _CRTDBG_MODE_DEBUG);
+    _set_abort_behavior(0, _CALL_REPORTFAULT);
+#else
+    (void)0;
+#endif
+}
+
+} // namespace
+
+// Task 3.4 negative test: once ownership is claimed (as ModbusWorker does on
+// its thread), a session-driving call from a foreign thread must trip the
+// Debug affinity guard (Q_ASSERT → qFatal → process death). Runs as a death
+// test so the fatal exit happens in a re-spawned child process, not the test
+// binary. The match regex is ".*" because Qt routes the qFatal text through
+// its message handler, which may not reach the captured stderr pipe before
+// abort() — the death itself is the assertion.
+TEST_F(ModbusStateTest, SessionCallFromForeignThreadAfterClaimTripsDebugAssert) {
+    EXPECT_DEATH({
+        suppressFatalDialogsForDeathTest();
+        client_->claimSessionOwnershipForCurrentThread(); // claim on this thread
+        std::thread foreign([this]() {
+            client_->connect(); // foreign thread → affinity assert fires
+        });
+        foreign.join();
+    }, ".*");
+}
+#endif

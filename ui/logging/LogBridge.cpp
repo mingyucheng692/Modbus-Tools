@@ -40,13 +40,13 @@ void relay(const ui::common::TrafficEvent& event)
     switch (event.level) {
     case ui::common::TrafficEventLevel::Info:
         if (event.traceId != 0) {
-            spdlog::info("Traffic trace_id={} type={} dir={} summary={}",
+            SPDLOG_INFO("Traffic trace_id={} type={} dir={} summary={}",
                          static_cast<unsigned long long>(event.traceId),
                          ui::common::toString(event.requestType),
                          ui::common::toString(event.direction),
                          event.summary.toStdString());
         } else {
-            spdlog::info("Traffic type={} dir={} summary={}",
+            SPDLOG_INFO("Traffic type={} dir={} summary={}",
                          ui::common::toString(event.requestType),
                          ui::common::toString(event.direction),
                          event.summary.toStdString());
@@ -54,13 +54,13 @@ void relay(const ui::common::TrafficEvent& event)
         break;
     case ui::common::TrafficEventLevel::Warning:
         if (event.traceId != 0) {
-            spdlog::warn("Traffic trace_id={} type={} dir={} summary={}",
+            SPDLOG_WARN("Traffic trace_id={} type={} dir={} summary={}",
                          static_cast<unsigned long long>(event.traceId),
                          ui::common::toString(event.requestType),
                          ui::common::toString(event.direction),
                          event.summary.toStdString());
         } else {
-            spdlog::warn("Traffic type={} dir={} summary={}",
+            SPDLOG_WARN("Traffic type={} dir={} summary={}",
                          ui::common::toString(event.requestType),
                          ui::common::toString(event.direction),
                          event.summary.toStdString());
@@ -68,13 +68,13 @@ void relay(const ui::common::TrafficEvent& event)
         break;
     case ui::common::TrafficEventLevel::Error:
         if (event.traceId != 0) {
-            spdlog::error("Traffic trace_id={} type={} dir={} summary={}",
+            SPDLOG_ERROR("Traffic trace_id={} type={} dir={} summary={}",
                           static_cast<unsigned long long>(event.traceId),
                           ui::common::toString(event.requestType),
                           ui::common::toString(event.direction),
                           event.summary.toStdString());
         } else {
-            spdlog::error("Traffic type={} dir={} summary={}",
+            SPDLOG_ERROR("Traffic type={} dir={} summary={}",
                           ui::common::toString(event.requestType),
                           ui::common::toString(event.direction),
                           event.summary.toStdString());

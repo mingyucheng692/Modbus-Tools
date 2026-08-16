@@ -89,7 +89,9 @@ public:
      */
     void cancelUpdate();
 
-    [[nodiscard]] UpdateInstallMode installMode() const noexcept;
+    /// Virtual test seam: unit tests substitute FakeUpdateManager to
+    /// force DownloadOnly behavior per platform.
+    [[nodiscard]] virtual UpdateInstallMode installMode() const noexcept;
 
     /**
      * @brief Launches the external updater tool.

@@ -309,7 +309,7 @@ void PollingController::transitionTo(PollState newState) {
     Q_ASSERT(isLegalPollTransition(context_.state, newState));
     const auto oldState = context_.state;
     context_.state = newState;
-    spdlog::debug("PollingController: {} -> {}", toString(oldState), toString(newState));
+    SPDLOG_DEBUG("PollingController: {} -> {}", toString(oldState), toString(newState));
     emit stateChanged(oldState, newState);
 }
 

@@ -127,7 +127,7 @@ void GenericSerialView::onConnectClicked(const io::SerialConfig& config) {
     channelCtrl_.resetReconnect();
     reconnectConfig_ = config;
 
-    spdlog::info("GenericSerial: Connecting to {}", config.portName.toStdString());
+    SPDLOG_INFO("GenericSerial: Connecting to {}", config.portName.toStdString());
     if (monitor_) {
         monitor_->appendInfo(tr("Opening %1...").arg(config.portName));
     }
@@ -204,7 +204,7 @@ void GenericSerialView::onWorkerError(const QString& deviceHint, const QString& 
     if (monitor_) {
         monitor_->appendError(tr("Error: %1").arg(error));
     }
-    spdlog::error("{} Error: {}", hint.toStdString(), error.toStdString());
+    SPDLOG_ERROR("{} Error: {}", hint.toStdString(), error.toStdString());
 }
 
 void GenericSerialView::onWorkerMonitor(bool isTx, const QByteArray& data) {
@@ -257,7 +257,7 @@ void GenericSerialView::onReconnectTimerTick() {
         return;
     }
 
-    spdlog::info("GenericSerial: Auto-reconnecting to {} (attempt {})",
+    SPDLOG_INFO("GenericSerial: Auto-reconnecting to {} (attempt {})",
                  reconnectConfig_.portName.toStdString(),
                  channelCtrl_.reconnectPolicy().attemptCount());
 

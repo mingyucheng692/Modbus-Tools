@@ -56,7 +56,7 @@ void ModbusWorker::stop() {
     if (!stopping_.compare_exchange_strong(expectedStopping, true)) {
         return;
     }
-    spdlog::info("ModbusWorker: asynchronous stop requested");
+    SPDLOG_INFO("ModbusWorker: asynchronous stop requested");
 
     if (client_) {
         client_->abort();
@@ -68,7 +68,7 @@ void ModbusWorker::stop() {
     }
 
     if (!thread_->isRunning()) {
-        spdlog::info("ModbusWorker: stop requested with non-running thread");
+        SPDLOG_INFO("ModbusWorker: stop requested with non-running thread");
         handleStopInThread();
         return;
     }
@@ -85,7 +85,7 @@ void ModbusWorker::stop() {
 
 void ModbusWorker::submit(const base::Pdu& request, int slaveId, int requestId, quint64 traceId) {
     if (!isThreadReady(thread_)) {
-        spdlog::warn("ModbusWorker: reject request trace_id={} because worker thread is not running",
+        SPDLOG_WARN("ModbusWorker: reject request trace_id={} because worker thread is not running",
                      static_cast<unsigned long long>(traceId));
         emit requestFinished(requestId, session::ModbusResponse::Error("Worker thread not running"));
         return;
@@ -94,18 +94,18 @@ void ModbusWorker::submit(const base::Pdu& request, int slaveId, int requestId, 
         // Check stopped_ first — handleStopInThread sets stopped_=true and
         // clears stopping_, so a post-stop submit would otherwise slip through.
         if (stopped_.load()) {
-            spdlog::warn("ModbusWorker: reject request trace_id={} because worker has stopped",
+            SPDLOG_WARN("ModbusWorker: reject request trace_id={} because worker has stopped",
                          static_cast<unsigned long long>(traceId));
             emit requestFinished(requestId, session::ModbusResponse::Error("Worker has stopped"));
             return;
         }
         if (stopping_.load()) {
-            spdlog::warn("ModbusWorker: reject request trace_id={} because worker is stopping",
+            SPDLOG_WARN("ModbusWorker: reject request trace_id={} because worker is stopping",
                          static_cast<unsigned long long>(traceId));
             emit requestFinished(requestId, session::ModbusResponse::Error("Worker is stopping"));
             return;
         }
-        spdlog::info("ModbusWorker: enqueue request trace_id={} request_id={} slave={}",
+        SPDLOG_INFO("ModbusWorker: enqueue request trace_id={} request_id={} slave={}",
                      static_cast<unsigned long long>(traceId), requestId, slaveId);
         queuedRequests_.push_back(QueuedRequest{std::move(request), slaveId, requestId, traceId});
         // Draining runs inline on the worker thread. processQueue() re-arms
@@ -162,24 +162,29 @@ void ModbusWorker::handleSubmit(base::Pdu request, int slaveId, int requestId, q
     // on the worker thread. QueuedConnection guarantees that today; the
     // assert catches future regressions in debug builds.
     Q_ASSERT(!thread_ || QThread::currentThread() == thread_);
+    // Arm the client's Debug-only owner-thread contract (see the @thread
+    // docs in ModbusClient.h). Idempotent and a no-op in Release builds.
+    if (client_) {
+        client_->claimSessionOwnershipForCurrentThread();
+    }
     // Publish the trace id for the duration of this request so
     // RequestExecutor / state-machine log sites can correlate with the
     // UI-visible TrafficEvent.traceId.
     trace::Scope traceScope(traceId);
     if (stopping_.load()) {
-        spdlog::warn("ModbusWorker: fail request trace_id={} because worker is stopping",
+        SPDLOG_WARN("ModbusWorker: fail request trace_id={} because worker is stopping",
                      static_cast<unsigned long long>(traceId));
         emit requestFinished(requestId, session::ModbusResponse::Error("Worker is stopping"));
         return;
     }
     if (!client_) {
-        spdlog::warn("ModbusWorker: fail request trace_id={} because no client is attached",
+        SPDLOG_WARN("ModbusWorker: fail request trace_id={} because no client is attached",
                      static_cast<unsigned long long>(traceId));
         emit requestFinished(requestId, session::ModbusResponse::Error("No client attached"));
         return;
     }
     if (!client_->isConnected()) {
-        spdlog::warn("ModbusWorker: fail request trace_id={} because client is not connected",
+        SPDLOG_WARN("ModbusWorker: fail request trace_id={} because client is not connected",
                      static_cast<unsigned long long>(traceId));
         emit requestFinished(requestId, session::ModbusResponse::Error("Not connected"));
         return;
@@ -189,11 +194,11 @@ void ModbusWorker::handleSubmit(base::Pdu request, int slaveId, int requestId, q
     // log lines under polling; demote them to debug so production logs keep
     // signal density. Failures and retried requests stay at info.
     if (isCleanSuccess(response)) {
-        spdlog::debug("ModbusWorker: complete request trace_id={} request_id={} success=true",
+        SPDLOG_DEBUG("ModbusWorker: complete request trace_id={} request_id={} success=true",
                       static_cast<unsigned long long>(traceId),
                       requestId);
     } else {
-        spdlog::info("ModbusWorker: complete request trace_id={} request_id={} success={} retries={} error='{}'",
+        SPDLOG_INFO("ModbusWorker: complete request trace_id={} request_id={} success={} retries={} error='{}'",
                      static_cast<unsigned long long>(traceId),
                      requestId,
                      !response.isError(),
@@ -233,8 +238,9 @@ void ModbusWorker::handleSendRaw(QByteArray data) {
     if (!client_) {
         return;
     }
+    client_->claimSessionOwnershipForCurrentThread();
     if (!client_->isConnected()) {
-        spdlog::warn("ModbusWorker: sendRaw skipped — not connected");
+        SPDLOG_WARN("ModbusWorker: sendRaw skipped — not connected");
         return;
     }
     client_->sendRaw(data);
@@ -249,21 +255,25 @@ void ModbusWorker::handleConnect() {
         emit connectFinished(false, "No client attached");
         return;
     }
-    spdlog::info("ModbusWorker: connect requested");
+    client_->claimSessionOwnershipForCurrentThread();
+    SPDLOG_INFO("ModbusWorker: connect requested");
     const bool ok = client_->connect();
     if (ok) {
-        spdlog::info("ModbusWorker: connect succeeded");
+        SPDLOG_INFO("ModbusWorker: connect succeeded");
         emit connectFinished(true, QString());
         return;
     }
     const QString reason = client_->lastChannelError().isEmpty()
         ? QStringLiteral("Failed to connect")
         : client_->lastChannelError();
-    spdlog::warn("ModbusWorker: connect failed: {}", reason.toStdString());
+    SPDLOG_WARN("ModbusWorker: connect failed: {}", reason.toStdString());
     emit connectFinished(false, reason);
 }
 
 void ModbusWorker::handleDisconnect() {
+    if (client_) {
+        client_->claimSessionOwnershipForCurrentThread();
+    }
     if (client_ && client_->isConnected()) {
         client_->disconnect();
     }
@@ -294,6 +304,7 @@ void ModbusWorker::handleStopInThread() {
 
 void ModbusWorker::handleUpdateConfig(base::ModbusConfig config) {
     if (client_) {
+        client_->claimSessionOwnershipForCurrentThread();
         client_->setConfig(config);
     }
 }

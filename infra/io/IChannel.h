@@ -65,6 +65,12 @@ public:
     virtual ChannelKind kind() const = 0;
     virtual ChannelState state() const = 0;
     virtual bool open() = 0;
+    /// Moves the channel (and its underlying Qt I/O object) to the given
+    /// thread. NOTE: this contract is bound to Qt's event-loop thread model
+    /// — the I/O object's event-driven handlers (read/error/state) run on
+    /// whatever QThread owns it. A future non-Qt backend cannot simply
+    /// reimplement this method; the thread-affinity contract itself would
+    /// need to be redesigned.
     virtual void moveToThread(QThread* thread) = 0;
     virtual void close() = 0;
     virtual bool isOpen() const = 0;

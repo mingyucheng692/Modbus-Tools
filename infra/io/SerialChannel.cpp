@@ -67,7 +67,7 @@ bool SerialChannel::open() {
 
     QString errorMsg;
     if (!config_.isValid(&errorMsg)) {
-        spdlog::warn("SerialChannel: invalid config: {}", errorMsg.toStdString());
+        SPDLOG_WARN("SerialChannel: invalid config: {}", errorMsg.toStdString());
         setState(ChannelState::Error);
         emitError(errorMsg);
         return false;
@@ -89,7 +89,7 @@ bool SerialChannel::open() {
         return true;
     } else {
         const QString err = serial_.errorString();
-        spdlog::warn("SerialChannel: open failed port={} baud={} error={}",
+        SPDLOG_WARN("SerialChannel: open failed port={} baud={} error={}",
                      config_.portName.toStdString(), config_.baudRate, err.toStdString());
         setState(ChannelState::Error);
         emitError(err);
@@ -98,7 +98,7 @@ bool SerialChannel::open() {
 }
 
 void SerialChannel::moveToThread(QThread* thread) {
-    spdlog::debug("SerialChannel: moveToThread current={} target={}",
+    SPDLOG_DEBUG("SerialChannel: moveToThread current={} target={}",
                               threadToken(serial_.thread()),
                               threadToken(thread));
     ChannelBase::moveToThread(thread);
@@ -167,7 +167,7 @@ void SerialChannel::onReadyRead() {
     if (!data.isEmpty()) {
         // OS 驱动层推送上来的一批数据视为连续到达，分配统一时间戳
         // 这在 PC 平台上是唯一合理且高性能的做法
-        spdlog::debug("SerialChannel: Received {} bytes", data.size());
+        SPDLOG_DEBUG("SerialChannel: Received {} bytes", data.size());
         addRx(data.size());
         emitMonitor(false, data);
         emitRead(data);
@@ -182,7 +182,7 @@ void SerialChannel::onErrorOccurred(QSerialPort::SerialPortError error) {
         const QString errorText = serial_.errorString().isEmpty()
             ? QStringLiteral("Serial port error")
             : serial_.errorString();
-        spdlog::warn("SerialChannel: error code={} port={} message={}",
+        SPDLOG_WARN("SerialChannel: error code={} port={} message={}",
                      static_cast<int>(error),
                      config_.portName.toStdString(),
                      errorText.toStdString());

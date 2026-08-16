@@ -148,7 +148,7 @@ void UpdateManager::startUpdate(const QUrl& updateUrl,
 
     const QString updateFilePath = workingDir.filePath(updateFileName);
 
-    spdlog::info("UpdateManager: Starting download from {}", updateUrl.toString().toStdString());
+    SPDLOG_INFO("UpdateManager: Starting download from {}", updateUrl.toString().toStdString());
 
     downloadAsset(updateUrl, updateFilePath, [this, updateFilePath, expectedSha, checksumsUrl](bool success, const QString& error) {
         if (!success) {
@@ -170,7 +170,7 @@ void UpdateManager::startUpdate(const QUrl& updateUrl,
             return;
         }
 
-        spdlog::info("UpdateManager: Download finished, starting verification...");
+        SPDLOG_INFO("UpdateManager: Download finished, starting verification...");
         processDownloadedUpdate(updateFilePath, expectedSha, QString());
     });
 }
@@ -244,13 +244,13 @@ void UpdateManager::processDownloadedUpdate(const QString& updateFilePath, const
 
     connect(worker, &ChecksumWorker::finished, this, [this, updateFilePath, thread](bool success, const QString& error, const QString& expected, const QString& actual) {
         if (!success) {
-            spdlog::error("UpdateManager: Update verification failed: {}", error.toStdString());
+            SPDLOG_ERROR("UpdateManager: Update verification failed: {}", error.toStdString());
             emit updateFailed(error);
             thread->quit();
             return;
         }
 
-        spdlog::info("UpdateManager: Verification successful. Expected: {}, Actual: {}", expected.toStdString(), actual.toStdString());
+        SPDLOG_INFO("UpdateManager: Verification successful. Expected: {}, Actual: {}", expected.toStdString(), actual.toStdString());
 
         if (!installStrategy_) {
             emit updateFailed(tr("No update install strategy available"));
@@ -272,7 +272,7 @@ void UpdateManager::processDownloadedUpdate(const QString& updateFilePath, const
             return;
         }
 
-        spdlog::info("UpdateManager: Update install artifact created at {}",
+        SPDLOG_INFO("UpdateManager: Update install artifact created at {}",
                      installArtifactPath.toStdString());
         emit updateReadyToInstall(installArtifactPath);
         
@@ -295,14 +295,14 @@ bool UpdateManager::launchInstaller(const QString& installArtifactPath, const QS
     const bool launched = installStrategy_->launchInstallArtifact(
         installArtifactPath, langCode, processRunner_.get(), errorMessage);
     if (launched) {
-        spdlog::info("UpdateManager: Installer launched successfully. Artifact: {}",
+        SPDLOG_INFO("UpdateManager: Installer launched successfully. Artifact: {}",
                      installArtifactPath.toStdString());
     }
     return launched;
 }
 
 void UpdateManager::cleanupUpdateArtifacts() {
-    spdlog::info("UpdateManager: Cleaning up temporary update artifacts...");
+    SPDLOG_INFO("UpdateManager: Cleaning up temporary update artifacts...");
 
     const QString tempRoot = QStandardPaths::writableLocation(QStandardPaths::TempLocation);
     if (!tempRoot.isEmpty()) {

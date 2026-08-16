@@ -70,6 +70,7 @@ target_sources(core PRIVATE
     polling/PollingStrategy.cpp
     common/TrContext.h
     common/LogDedupe.h
+    common/ThreadGuard.h
     common/ISettingsService.h
     common/SettingsKeys.h
     common/SettingsController.h

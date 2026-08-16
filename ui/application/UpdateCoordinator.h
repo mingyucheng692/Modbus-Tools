@@ -3,7 +3,6 @@
 #include <QObject>
 #include <QString>
 #include <functional>
-#include "IApplicationExitView.h"
 #include "update/UpdateManager.h"
 
 class QUrl;
@@ -45,17 +44,23 @@ class UpdateCoordinator : public QObject {
     Q_OBJECT
 
 public:
+    /// @param requestQuit Replaces the former IApplicationExitView* (Task 3.2 /
+    ///        P1-7 single-method interface). Invoked on the GUI thread after
+    ///        the updater was launched successfully. The composition root must
+    ///        guarantee the captured target outlives this coordinator.
     explicit UpdateCoordinator(IUpdateInteractionView* view,
-                               IApplicationExitView* exitView,
+                               std::function<void()> requestQuit,
                                common::UpdateChecker* updateChecker,
                                core::update::UpdateManager* updateManager,
                                core::common::SettingsController* settingsController,
                                QObject* parent = nullptr);
 
-    void setCurrentLocale(const QString& locale);
-    void checkForUpdates();
-    void triggerAutoCheckIfNeeded();
-    void refreshIndicators();
+    /// Virtual test seam: AppLifecycleCoordinatorTest mocks these entry
+    /// points to verify delegation without driving real update flows.
+    virtual void setCurrentLocale(const QString& locale);
+    virtual void checkForUpdates();
+    virtual void triggerAutoCheckIfNeeded();
+    virtual void refreshIndicators();
 
     [[nodiscard]] bool updateAvailable() const;
 
@@ -71,7 +76,7 @@ private:
     void startSilentUpdate();
 
     IUpdateInteractionView* view_ = nullptr;
-    IApplicationExitView* exitView_ = nullptr;
+    std::function<void()> requestQuit_;
     common::UpdateChecker* updateChecker_ = nullptr;
     core::update::UpdateManager* updateManager_ = nullptr;
     core::common::SettingsController* settingsController_ = nullptr;

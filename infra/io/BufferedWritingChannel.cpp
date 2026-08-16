@@ -94,7 +94,7 @@ void BufferedWritingChannel::flushPendingWrites() {
             const QString err = dev->errorString().isEmpty()
                 ? QStringLiteral("%1 write failed").arg(errorPrefix())
                 : dev->errorString();
-            spdlog::error("{}: write failed {} error={}",
+            SPDLOG_ERROR("{}: write failed {} error={}",
                           errorPrefix().toStdString(),
                           logContext().toStdString(),
                           err.toStdString());
@@ -153,7 +153,7 @@ void BufferedWritingChannel::onWriteTimeout() {
     }
 
     const bool draining = dev->bytesToWrite() > 0;
-    spdlog::warn("{}: write timeout {} draining={} pendingWrites={}",
+    SPDLOG_WARN("{}: write timeout {} draining={} pendingWrites={}",
                  errorPrefix().toStdString(),
                  logContext().toStdString(),
                  draining,
@@ -195,11 +195,11 @@ void BufferedWritingChannel::logThreadContextOnce(const char* scope, bool& logge
     QThread* currentThread = QThread::currentThread();
     QThread* ownerThread = dev->thread();
     QThread* uiThread = QCoreApplication::instance() ? QCoreApplication::instance()->thread() : nullptr;
-    spdlog::debug("{} current={} owner={}",
+    SPDLOG_DEBUG("{} current={} owner={}",
                               scope,
                               threadToken(currentThread),
                               threadToken(ownerThread));
-    spdlog::debug("{} ui_thread={} current_is_ui={} owner_is_ui={}",
+    SPDLOG_DEBUG("{} ui_thread={} current_is_ui={} owner_is_ui={}",
                               scope,
                               threadToken(uiThread),
                               currentThread == uiThread,

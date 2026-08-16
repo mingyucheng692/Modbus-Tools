@@ -1,30 +1,55 @@
 /**
  * @file FrameAnalyzerWidget.h
  * @brief Header file for FrameAnalyzerWidget.
- * 
+ *
  * Copyright (c) 2025 - present mingyucheng692
- * 
+ *
  * Licensed under the MIT License. See LICENSE file in the project root for full license information.
  */
 
 #pragma once
 
 #include <QWidget>
-#include <QScopedPointer>
+#include <QList>
+#include <QMap>
 #include <cstdint>
 #include "modbus/base/ModbusFrame.h"
+#include "modbus/base/ModbusTypes.h"
 #include "modbus/parser/ModbusFrameParser.h"
+#include "analyzer/AnalyzerCommon.h"
+
+class QComboBox;
+class QGroupBox;
+class QLabel;
+class QLineEdit;
+class QListWidget;
+class QPlainTextEdit;
+class QPushButton;
+class QSplitter;
+class QTabWidget;
+class QTableWidget;
+class QTreeWidget;
 
 namespace core::common {
 class ISettingsService;
 }
 
+namespace ui::application::analyzer {
+class FrameAnalyzerPresenter;
+}
+
 namespace ui::widgets {
 
+/**
+ * @brief Modbus frame analyzer view: rendering and interaction only.
+ *
+ * The background parse QThread + FrameParseWorker pair and its teardown are
+ * owned by ui::application::analyzer::FrameAnalyzerPresenter (created as a
+ * child of this widget). No PIMPL: the application has no ABI-stability
+ * requirement, members are declared directly.
+ */
 class FrameAnalyzerWidget : public QWidget {
     Q_OBJECT
-    class FrameAnalyzerWidgetPrivate;
-    Q_DECLARE_PRIVATE(FrameAnalyzerWidget)
 
 public:
     explicit FrameAnalyzerWidget(core::common::ISettingsService* settingsService, QWidget* parent = nullptr);
@@ -51,7 +76,7 @@ private slots:
     void onHistorySelectionChanged(int row);
     void onClearHistoryClicked();
 
-    // 内部槽函数，由 Private 类进行跨线程桥接
+    // 由 FrameAnalyzerPresenter 在 GUI 线程上转发
     void onParseFinished(const modbus::parser::ParseResult& result, quint64 requestId);
 
 protected:
@@ -61,12 +86,83 @@ protected:
 private:
     void setupUi();
     void retranslateUi();
-    
-    // 渲染解析结果
     void renderResult(const modbus::parser::ParseResult& result);
     void clearResult();
 
-    QScopedPointer<FrameAnalyzerWidgetPrivate> d_ptr;
+    // --- Helpers ---
+    [[nodiscard]] uint16_t rowAddress(int row) const;
+    [[nodiscard]] QString historyItemText(const modbus::parser::ParseResult& result) const;
+    void applyMetadataToRow(int row, const QVariant& value, const modbus::analyzer::DataMetadata& meta);
+    void addToHistory(const modbus::parser::ParseResult& result);
+    void refreshHistoryList();
+    void setHistoryCollapsed(bool collapsed);
+    void updateHistoryToggleText();
+    void updateAdaptiveLayout();
+    void loadSettings();
+    void saveSettings();
+
+    // --- UI construction ---
+    void createInputGroup();
+    void createResultGroup();
+
+    // --- Services / threading ---
+    core::common::ISettingsService* settingsService_ = nullptr;
+    ui::application::analyzer::FrameAnalyzerPresenter* presenter_ = nullptr;
+
+    // --- Input controls ---
+    QGroupBox* inputGroup = nullptr;
+    QSplitter* mainSplitter = nullptr;
+    QLabel* protocolLabel = nullptr;
+    QLabel* startAddrLabel = nullptr;
+    QLabel* displayModeLabel = nullptr;
+    QPlainTextEdit* inputEditor = nullptr;
+    QComboBox* protocolCombo = nullptr;
+    QComboBox* displayModeCombo = nullptr;
+    QComboBox* registerOrderCombo = nullptr;
+    QPushButton* parseBtn = nullptr;
+    QPushButton* formatBtn = nullptr;
+    QPushButton* importJsonBtn = nullptr;
+    QPushButton* exportJsonBtn = nullptr;
+    QPushButton* exportCsvBtn = nullptr;
+    QPushButton* toggleHistoryBtn = nullptr;
+    QPushButton* clearBtn = nullptr;
+    QLabel* registerOrderLabel = nullptr;
+    QLineEdit* startAddrEdit = nullptr;
+
+    // --- Result controls ---
+    QGroupBox* resultGroup = nullptr;
+    QLabel* statusTitleLabel = nullptr;
+    QLabel* statusLabel = nullptr;
+    QWidget* structureTab = nullptr;
+    QTreeWidget* overviewTree = nullptr;
+    QTableWidget* dataTable = nullptr;
+    QTabWidget* resultTabs = nullptr;
+    QSplitter* contentSplitter = nullptr;
+    QGroupBox* historyGroup = nullptr;
+    QListWidget* historyList = nullptr;
+    QPushButton* clearHistoryBtn = nullptr;
+
+    // --- Live link UI ---
+    QLabel* liveLabel = nullptr;
+    QLabel* linkageTipLabel = nullptr;
+    QPushButton* linkagePauseBtn = nullptr;
+    QPushButton* linkageStopBtn = nullptr;
+
+    // --- State ---
+    bool historyCollapsed = false;
+    bool historyAutoCollapsed = false;
+    int lastHistoryPanelWidth = 0; // set in the constructor from config::Ui
+    modbus::analyzer::NumberDisplayMode displayMode = modbus::analyzer::NumberDisplayMode::Unsigned;
+    QMap<uint16_t, modbus::analyzer::DataMetadata> metadataByAddress;
+    QList<modbus::parser::ParseResult> historyResults;
+    modbus::parser::ParseResult currentResult;
+    quint64 latestParseRequestId = 0;
+    bool parseInProgress = false;
+    bool isUpdatingDataTable = false;
+    bool isLiveMode = false;
+    bool isLivePaused = false;
+    modbus::parser::ParseResult lastLiveResult;
+    modbus::base::RegisterOrder registerOrder = modbus::base::RegisterOrder::ABCD;
 };
 
 } // namespace ui::widgets

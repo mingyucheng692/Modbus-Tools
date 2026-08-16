@@ -21,19 +21,19 @@ constexpr char kMainWindowCtx[] = "ui::MainWindow";
 namespace ui::application {
 
 UpdateCoordinator::UpdateCoordinator(IUpdateInteractionView* view,
-                                     IApplicationExitView* exitView,
+                                     std::function<void()> requestQuit,
                                      common::UpdateChecker* updateChecker,
                                      core::update::UpdateManager* updateManager,
                                      core::common::SettingsController* settingsController,
                                      QObject* parent)
     : QObject(parent),
       view_(view),
-      exitView_(exitView),
+      requestQuit_(std::move(requestQuit)),
       updateChecker_(updateChecker),
       updateManager_(updateManager),
       settingsController_(settingsController) {
     Q_ASSERT(view_);
-    Q_ASSERT(exitView_);
+    Q_ASSERT(requestQuit_);
     Q_ASSERT(updateChecker_);
     Q_ASSERT(updateManager_);
     Q_ASSERT(settingsController_);
@@ -100,7 +100,7 @@ void UpdateCoordinator::performUpdateCheck(bool manual) {
 bool UpdateCoordinator::shouldAutoCheckUpdates() const {
     const QString freq = settingsController_->updateCheckFrequency();
     if (freq == config::App::kUpdateCheckNever) {
-        spdlog::info("UpdateCoordinator: Auto update check skipped because frequency is set to 'never'.");
+        SPDLOG_INFO("UpdateCoordinator: Auto update check skipped because frequency is set to 'never'.");
         return false;
     }
     if (freq == config::App::kUpdateCheckStartup) {
@@ -115,17 +115,17 @@ bool UpdateCoordinator::shouldAutoCheckUpdates() const {
     const qint64 days = lastCheck.daysTo(QDateTime::currentDateTimeUtc());
     if (freq == config::App::kUpdateCheckWeekly) {
         if (days >= 7) {
-            spdlog::info("UpdateCoordinator: Auto update check allowed for 'weekly' frequency ({} days since last check).", days);
+            SPDLOG_INFO("UpdateCoordinator: Auto update check allowed for 'weekly' frequency ({} days since last check).", days);
         } else {
-            spdlog::info("UpdateCoordinator: Auto update check skipped for 'weekly' frequency ({} days since last check, requires >= 7).", days);
+            SPDLOG_INFO("UpdateCoordinator: Auto update check skipped for 'weekly' frequency ({} days since last check, requires >= 7).", days);
         }
         return days >= 7;
     }
     if (freq == config::App::kUpdateCheckMonthly) {
         if (days >= 30) {
-            spdlog::info("UpdateCoordinator: Auto update check allowed for 'monthly' frequency ({} days since last check).", days);
+            SPDLOG_INFO("UpdateCoordinator: Auto update check allowed for 'monthly' frequency ({} days since last check).", days);
         } else {
-            spdlog::info("UpdateCoordinator: Auto update check skipped for 'monthly' frequency ({} days since last check, requires >= 30).", days);
+            SPDLOG_INFO("UpdateCoordinator: Auto update check skipped for 'monthly' frequency ({} days since last check, requires >= 30).", days);
         }
         return days >= 30;
     }
@@ -172,13 +172,15 @@ void UpdateCoordinator::handleUpdateReadyToInstall(const QString& taskFile) {
     if (view_) view_->hideUpdateProgress();
     QString error;
     if (updateManager_ != nullptr && updateManager_->launchInstaller(taskFile, currentLocale_, error)) {
-        spdlog::info("UpdateCoordinator: Updater launched successfully, terminating application to apply update.");
-        exitView_->requestQuit();
+        SPDLOG_INFO("UpdateCoordinator: Updater launched successfully, terminating application to apply update.");
+        if (requestQuit_) {
+            requestQuit_();
+        }
     } else {
         if (updateManager_ == nullptr && error.isEmpty()) {
             error = TrContext<kMainWindowCtx>::tr("Update service unavailable");
         }
-        spdlog::error("UpdateCoordinator: Failed to launch updater: {}", error.toStdString());
+        SPDLOG_ERROR("UpdateCoordinator: Failed to launch updater: {}", error.toStdString());
         if (view_) {
             view_->showUpdateCriticalMessage(TrContext<kMainWindowCtx>::tr("Update Failed"), error);
         }

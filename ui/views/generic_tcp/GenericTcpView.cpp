@@ -292,7 +292,7 @@ void GenericTcpView::onConnectClicked(const QString& ip, int port) {
     reconnectHost_ = ip;
     reconnectPort_ = port;
 
-    spdlog::info("GenericTcp: Connecting to {}:{}", ip.toStdString(), port);
+    SPDLOG_INFO("GenericTcp: Connecting to {}:{}", ip.toStdString(), port);
     suppressDisconnectAlert_ = false;
     const quint64 generation = ++connectionGeneration_;
     if (monitor_) {
@@ -310,7 +310,7 @@ void GenericTcpView::onConnectClicked(const QString& ip, int port) {
 void GenericTcpView::onStartListenClicked(const QString& ip, int port) {
     if (!serverWorker_) return;
 
-    spdlog::info("GenericTcp: Starting TCP server on {}:{}", ip.toStdString(), port);
+    SPDLOG_INFO("GenericTcp: Starting TCP server on {}:{}", ip.toStdString(), port);
     if (monitor_) {
         monitor_->appendInfo(tr("Starting TCP server on %1:%2...").arg(ip).arg(port));
     }
@@ -338,7 +338,7 @@ void GenericTcpView::onBindClicked(const QString& localIp, int localPort,
     auto* worker = channelCtrl_.worker();
     if (!worker) return;
 
-    spdlog::info("GenericTcp: Binding UDP {}:{}", localIp.toStdString(), localPort);
+    SPDLOG_INFO("GenericTcp: Binding UDP {}:{}", localIp.toStdString(), localPort);
     if (monitor_) {
         if (!remoteIp.isEmpty()) {
             monitor_->appendInfo(tr("Binding UDP %1:%2 -> %3:%4...")
@@ -512,7 +512,7 @@ void GenericTcpView::onWorkerError(const QString& deviceHint, const QString& err
     if (monitor_) {
         monitor_->appendError(tr("Error: %1").arg(error));
     }
-    spdlog::error("{} Error: {}", hint.toStdString(), error.toStdString());
+    SPDLOG_ERROR("{} Error: {}", hint.toStdString(), error.toStdString());
 }
 
 void GenericTcpView::onWorkerMonitor(bool isTx, const QByteArray& data) {
@@ -585,7 +585,7 @@ void GenericTcpView::onServerError(const QString& deviceHint, const QString& err
     if (monitor_) {
         monitor_->appendError(tr("Server Error: %1").arg(error));
     }
-    spdlog::error("{} Error: {}", hint.toStdString(), error.toStdString());
+    SPDLOG_ERROR("{} Error: {}", hint.toStdString(), error.toStdString());
 }
 
 void GenericTcpView::onDisconnectSelectedClientsRequested(const QList<int>& clientIds)
@@ -635,7 +635,7 @@ void GenericTcpView::onReconnectTimerTick() {
         return;
     }
 
-    spdlog::info("GenericTcp: Auto-reconnecting to {}:{} (attempt {})",
+    SPDLOG_INFO("GenericTcp: Auto-reconnecting to {}:{} (attempt {})",
                  reconnectHost_.toStdString(), reconnectPort_,
                  channelCtrl_.reconnectPolicy().attemptCount());
 

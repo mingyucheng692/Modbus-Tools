@@ -192,7 +192,7 @@ public:
         if (processRunner->startNonElevated(updaterPath, arguments, &errorMessage)) {
             return true;
         }
-        spdlog::info("PlatformUpdateInstallStrategy: non-elevated launch failed, "
+        SPDLOG_INFO("PlatformUpdateInstallStrategy: non-elevated launch failed, "
                       "falling back to elevated launch: {}",
                       errorMessage.toStdString());
         return processRunner->startElevated(updaterPath, arguments, &errorMessage);

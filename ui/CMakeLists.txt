@@ -78,7 +78,6 @@ target_sources(ui PRIVATE
     common/UpdateChecker.h
     application/AppLifecycleCoordinator.cpp
     application/AppLifecycleCoordinator.h
-    application/IApplicationExitView.h
     application/IMainWindowView.h
     application/LanguageCoordinator.cpp
     application/LanguageCoordinator.h
@@ -99,8 +98,6 @@ target_sources(ui PRIVATE
     application/modbus/ModbusTypes.h
     application/modbus/WorkerReleaseCoordinator.cpp
     application/modbus/WorkerReleaseCoordinator.h
-    application/modbus/SessionConnectionStateMachine.cpp
-    application/modbus/SessionConnectionStateMachine.h
     logging/LogBridge.cpp
     logging/LogBridge.h
     assets.qrc
@@ -109,6 +106,8 @@ target_sources(ui PRIVATE
     UpdateInteractionView.cpp
     application/AnalyzerLinkCoordinator.cpp
     application/AnalyzerLinkCoordinator.h
+    application/analyzer/FrameAnalyzerPresenter.cpp
+    application/analyzer/FrameAnalyzerPresenter.h
     shell/NavigationController.cpp
     shell/NavigationController.h
     shell/MainWindowPageBuilder.cpp

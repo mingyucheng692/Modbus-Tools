@@ -68,7 +68,7 @@ bool Win32ProcessRunner::startElevated(const QString& executablePath,
 
     if (!ShellExecuteExW(&shellExecInfo)) {
         const DWORD lastError = GetLastError();
-        spdlog::error("Win32ProcessRunner: ShellExecuteExW failed with error {}", static_cast<unsigned long>(lastError));
+        SPDLOG_ERROR("Win32ProcessRunner: ShellExecuteExW failed with error {}", static_cast<unsigned long>(lastError));
         if (errorMessage != nullptr) {
             *errorMessage = QStringLiteral("Failed to launch updater (Access Denied or System Error)");
         }
@@ -116,7 +116,7 @@ bool Win32ProcessRunner::startNonElevated(const QString& executablePath,
 
     if (!success) {
         const DWORD lastError = GetLastError();
-        spdlog::error("Win32ProcessRunner: CreateProcessW failed with error {}", static_cast<unsigned long>(lastError));
+        SPDLOG_ERROR("Win32ProcessRunner: CreateProcessW failed with error {}", static_cast<unsigned long>(lastError));
         if (errorMessage != nullptr) {
             *errorMessage = QStringLiteral("Failed to launch updater process (error %1)")
                                 .arg(static_cast<unsigned long>(lastError));

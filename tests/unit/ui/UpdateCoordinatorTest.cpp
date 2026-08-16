@@ -12,8 +12,12 @@ protected:
     void SetUp() override {
         settingsController_ = std::make_unique<core::common::SettingsController>(&settingsService_);
         coordinator_ = std::make_unique<ui::application::UpdateCoordinator>(
-            &view_, &view_, &updateChecker_, &updateManager_, settingsController_.get());
+            &view_,
+            [this] { ++requestQuitCallCount; },
+            &updateChecker_, &updateManager_, settingsController_.get());
     }
+
+    int requestQuitCallCount = 0;
 
     tests::mocks::FakeSettingsService settingsService_;
     tests::mocks::FakeMainWindowView view_;

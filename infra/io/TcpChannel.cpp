@@ -28,7 +28,7 @@ unsigned long long threadToken(QThread* thread)
 TcpChannel::TcpChannel() {
     connectTimer_.setSingleShot(true);
     connectTimer_.callOnTimeout([this]() {
-        spdlog::warn("TcpChannel: connect timeout to {}:{}", ip_.toStdString(), port_);
+        SPDLOG_WARN("TcpChannel: connect timeout to {}:{}", ip_.toStdString(), port_);
         socket_.abort();
         setState(ChannelState::Error);
         emitError(QStringLiteral("TCP connect timeout (%1:%2)").arg(ip_).arg(port_));
@@ -92,7 +92,7 @@ bool TcpChannel::open() {
     if (addr.isNull() || addr.protocol() == QAbstractSocket::UnknownNetworkLayerProtocol) {
         QString err = QCoreApplication::translate("TcpChannel",
             "Invalid IP address: %1").arg(ip_);
-        spdlog::warn("TcpChannel: {}", err.toStdString());
+        SPDLOG_WARN("TcpChannel: {}", err.toStdString());
         setState(ChannelState::Error);
         emitError(err);
         return false;
@@ -100,7 +100,7 @@ bool TcpChannel::open() {
     if (port_ < 1 || port_ > 65535) {
         QString err = QCoreApplication::translate("TcpChannel",
             "Invalid port: %1 (expected 1-65535)").arg(port_);
-        spdlog::warn("TcpChannel: {}", err.toStdString());
+        SPDLOG_WARN("TcpChannel: {}", err.toStdString());
         setState(ChannelState::Error);
         emitError(err);
         return false;
@@ -116,7 +116,7 @@ bool TcpChannel::open() {
 }
 
 void TcpChannel::moveToThread(QThread* thread) {
-    spdlog::debug("TcpChannel: moveToThread current={} target={}",
+    SPDLOG_DEBUG("TcpChannel: moveToThread current={} target={}",
                               threadToken(socket_.thread()),
                               threadToken(thread));
     ChannelBase::moveToThread(thread);
@@ -181,7 +181,7 @@ void TcpChannel::onReadyRead() {
     logThreadContextOnce("TcpChannel::onReadyRead", ioThreadLoggedFlag());
     QByteArray data = socket_.readAll();
     if (!data.isEmpty()) {
-        spdlog::debug("TcpChannel: Received {} bytes", data.size());
+        SPDLOG_DEBUG("TcpChannel: Received {} bytes", data.size());
         addRx(data.size());
         emitMonitor(false, data);
         emitRead(data);
@@ -209,7 +209,7 @@ void TcpChannel::onSocketError(QAbstractSocket::SocketError error) {
     const QString errorText = socket_.errorString().isEmpty()
         ? QStringLiteral("TCP socket error")
         : socket_.errorString();
-    spdlog::warn("TcpChannel: socket error code={} endpoint={} message={}",
+    SPDLOG_WARN("TcpChannel: socket error code={} endpoint={} message={}",
                  static_cast<int>(error),
                  endpoint.toStdString(),
                  errorText.toStdString());
@@ -250,7 +250,7 @@ bool TcpChannel::adoptSocketDescriptor(qintptr socketDescriptor) {
         return false;
     }
     if (!socket_.setSocketDescriptor(socketDescriptor)) {
-        spdlog::error("TcpChannel: setSocketDescriptor failed: {}",
+        SPDLOG_ERROR("TcpChannel: setSocketDescriptor failed: {}",
                       socket_.errorString().toStdString());
         return false;
     }

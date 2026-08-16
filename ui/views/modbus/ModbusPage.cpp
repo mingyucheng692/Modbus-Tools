@@ -206,7 +206,7 @@ void ModbusPage::setupUi() {
 void ModbusPage::setupViewOnlyConnections() {
     if (controlWidget_) {
         auto ensureConnected = [this]() {
-            if (pagePresenter_ && pagePresenter_->isSessionConnected()) {
+            if (sessionPresenter_ && sessionPresenter_->isSessionConnected()) {
                 return true;
             }
             ui::common::connection_alert::showNotConnected(this);
@@ -311,7 +311,7 @@ void ModbusPage::switchToProtocol(ui::application::modbus::SessionMode mode) {
 
     currentMode_ = mode;
 
-    spdlog::info("ModbusPage: switched to protocol {}", descriptor.logName);
+    SPDLOG_INFO("ModbusPage: switched to protocol {}", descriptor.logName);
 }
 
 void ModbusPage::onProtocolChanged(int index) {
@@ -324,7 +324,7 @@ void ModbusPage::onProtocolChanged(int index) {
 }
 
 void ModbusPage::onTcpConnectClicked(const QString& ip, int port) {
-    spdlog::info("ModbusPage: TCP connect requested to {}:{}", ip.toStdString(), port);
+    SPDLOG_INFO("ModbusPage: TCP connect requested to {}:{}", ip.toStdString(), port);
 
     ::modbus::base::ModbusConfig config;
     config.mode = ::modbus::base::ModbusMode::TCP;
@@ -344,7 +344,7 @@ void ModbusPage::onTcpConnectClicked(const QString& ip, int port) {
 
 void ModbusPage::onSerialConnectClicked(const io::SerialConfig& config) {
     const auto descriptor = ui::application::modbus::modeDescriptor(currentMode_);
-    spdlog::info("ModbusPage: {} connect requested to {}",
+    SPDLOG_INFO("ModbusPage: {} connect requested to {}",
                  descriptor.logName, config.portName.toStdString());
 
     ::modbus::base::ModbusConfig modbusConfig;
@@ -368,19 +368,19 @@ void ModbusPage::onSerialConnectClicked(const io::SerialConfig& config) {
 }
 
 void ModbusPage::onDisconnectClicked() {
-    spdlog::info("ModbusPage: disconnect requested");
+    SPDLOG_INFO("ModbusPage: disconnect requested");
     if (sessionPresenter_) {
         sessionPresenter_->requestDisconnect();
     }
 }
 
 void ModbusPage::updateModbusSettings(int timeoutMs, int retries, int retryIntervalMs) {
-    if (pagePresenter_) {
+    if (sessionPresenter_) {
         ui::application::modbus::ModbusTimingParams params;
         params.timeout = std::chrono::milliseconds(timeoutMs);
         params.retryCount = retries;
         params.retryInterval = std::chrono::milliseconds(retryIntervalMs);
-        pagePresenter_->updateSettings(params);
+        sessionPresenter_->updateSettings(params);
     }
 }
 

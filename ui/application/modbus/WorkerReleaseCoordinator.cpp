@@ -33,7 +33,7 @@ void WorkerReleaseCoordinator::requestRelease(StackHandle handle,
     pending->workerThreadFinished =
         !pending->workerThread || !pending->workerThread->isRunning();
 
-    spdlog::info(
+    SPDLOG_INFO(
         "WorkerReleaseCoordinator: release requested worker_present={} channel_present={} "
         "worker_thread_running={} channel_thread_running={}",
         pending->worker != nullptr,
@@ -47,7 +47,7 @@ void WorkerReleaseCoordinator::requestRelease(StackHandle handle,
     if (pending->workerStopped && pending->channelThreadFinished
         && pending->workerThreadFinished
         && !pending->channel && !pending->client && !pending->worker) {
-        spdlog::info("WorkerReleaseCoordinator: release completed immediately (empty handle)");
+        SPDLOG_INFO("WorkerReleaseCoordinator: release completed immediately (empty handle)");
         QMetaObject::invokeMethod(this, [this]() { emit releaseCompleted(); },
                                   Qt::QueuedConnection);
         return;
@@ -121,7 +121,7 @@ void WorkerReleaseCoordinator::onWorkerStopped(
     if (!pending) {
         return;
     }
-    spdlog::info("WorkerReleaseCoordinator: worker reported stopped");
+    SPDLOG_INFO("WorkerReleaseCoordinator: worker reported stopped");
     pending->workerStopped = true;
     if (pending->workerThread && pending->workerThread->isRunning()) {
         pending->workerThread->quit();
@@ -174,7 +174,7 @@ void WorkerReleaseCoordinator::onTimeout(
     }
     if (!pending->completionLogged) {
         pending->completionLogged = true;
-        spdlog::error(
+        SPDLOG_ERROR(
             "WorkerReleaseCoordinator: shutdown timed out; finalizing without terminate()");
         emit releaseTimedOut(pending->timeoutMessage);
     }
@@ -204,13 +204,13 @@ void WorkerReleaseCoordinator::finalize(
     if (pending->workerThread && pending->workerThread->isRunning()) {
         pending->workerThread->quit();
         if (!pending->workerThread->wait(1000)) {
-            spdlog::warn("WorkerReleaseCoordinator: worker thread did not finish in time");
+            SPDLOG_WARN("WorkerReleaseCoordinator: worker thread did not finish in time");
         }
     }
     if (pending->channelThread && pending->channelThread->isRunning()) {
         pending->channelThread->quit();
         if (!pending->channelThread->wait(1000)) {
-            spdlog::warn("WorkerReleaseCoordinator: channel thread did not finish in time");
+            SPDLOG_WARN("WorkerReleaseCoordinator: channel thread did not finish in time");
         }
     }
 
@@ -229,7 +229,7 @@ void WorkerReleaseCoordinator::finalize(
     pending->channelThread.reset();
     pending->workerThread.reset();
 
-    spdlog::info("WorkerReleaseCoordinator: release finalized");
+    SPDLOG_INFO("WorkerReleaseCoordinator: release finalized");
     emit releaseCompleted();
 }
 

@@ -32,7 +32,7 @@ bool TcpServerHandle::start(const QString& listenIp, int port, int maxClients)
 
     const QHostAddress addr(listenIp);
     if (!server_.listen(addr, static_cast<quint16>(port))) {
-        spdlog::error("TcpServerHandle: listen failed {}:{} error={}",
+        SPDLOG_ERROR("TcpServerHandle: listen failed {}:{} error={}",
                       listenIp.toStdString(), port,
                       server_.errorString().toStdString());
         emit errorOccurred(server_.errorString().isEmpty()
@@ -41,7 +41,7 @@ bool TcpServerHandle::start(const QString& listenIp, int port, int maxClients)
         return false;
     }
 
-    spdlog::info("TcpServerHandle: listening on {}:{} maxClients={}",
+    SPDLOG_INFO("TcpServerHandle: listening on {}:{} maxClients={}",
                  listenIp.toStdString(), port, maxClients);
     return true;
 }
@@ -92,7 +92,7 @@ void TcpServerHandle::onNewConnection()
         if (!socket) continue;
 
         if (maxClients_ > 0 && clients_.size() >= maxClients_) {
-            spdlog::warn("TcpServerHandle: rejecting connection from {}, max clients ({}) reached",
+            SPDLOG_WARN("TcpServerHandle: rejecting connection from {}, max clients ({}) reached",
                          socket->peerAddress().toString().toStdString(),
                          maxClients_);
             socket->close();
@@ -104,7 +104,7 @@ void TcpServerHandle::onNewConnection()
         auto channel = std::make_shared<TcpChannel>();
 
         if (!channel->adoptSocketDescriptor(socket->socketDescriptor())) {
-            spdlog::error("TcpServerHandle: failed to adopt socket for client {}", clientId);
+            SPDLOG_ERROR("TcpServerHandle: failed to adopt socket for client {}", clientId);
             socket->close();
             socket->deleteLater();
             continue;
@@ -120,7 +120,7 @@ void TcpServerHandle::onNewConnection()
         entry.info = info;
         clients_.insert(clientId, entry);
 
-        spdlog::info("TcpServerHandle: client {} connected from {}:{}",
+        SPDLOG_INFO("TcpServerHandle: client {} connected from {}:{}",
                      clientId,
                      info.peerAddress.toStdString(),
                      info.peerPort);
@@ -134,6 +134,8 @@ void TcpServerHandle::removeClient(int clientId)
 {
     auto it = clients_.find(clientId);
     if (it == clients_.end()) return;
+
+    SPDLOG_INFO("TcpServerHandle: client {} disconnected", clientId);
 
     if (auto* ch = it->channel.get()) {
         ch->close();

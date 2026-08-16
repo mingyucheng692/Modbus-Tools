@@ -9,7 +9,9 @@
 
 #pragma once
 
-#include <QObject>
+#include <QString>
+#include <QByteArray>
+#include <functional>
 #include <unordered_map>
 #include <chrono>
 #include <cstdint>
@@ -28,11 +30,23 @@ struct RequestTrackingInfo {
     std::chrono::steady_clock::time_point startTime{};
 };
 
-class RequestSubmissionService : public QObject {
-    Q_OBJECT
+/**
+ * @brief Plain C++ service for building Modbus requests and tracking
+ *        submissions.
+ *
+ * Deliberately NOT a QObject (Task 3.2 / P1-6): it has no signal/slot needs
+ * beyond a single notification, which is exposed as the
+ * `onTxCountUpdated` std::function callback. Ownership is std::unique_ptr;
+ * the class must never be deleteLater()'d (no event-loop protection).
+ *
+ * Lifetime contract: the composition root (ModbusPagePresenter) assigns
+ * `onTxCountUpdated` and must guarantee the captured target outlives this
+ * service, or capture a QPointer/weak guard inside the callback.
+ */
+class RequestSubmissionService {
 
 public:
-    explicit RequestSubmissionService(QObject* parent = nullptr);
+    RequestSubmissionService() = default;
 
     struct RequestBuildResult {
         bool ok = false;
@@ -52,8 +66,9 @@ public:
     std::optional<RequestTrackingInfo> lookupAndRemove(int requestId);
     void clearAll();
 
-signals:
-    void txCountUpdated();
+    /// Replaces the former txCountUpdated() Qt signal. Invoked on the GUI
+    /// thread whenever a new request is tracked. May be empty.
+    std::function<void()> onTxCountUpdated;
 
 private:
     int nextRequestId();

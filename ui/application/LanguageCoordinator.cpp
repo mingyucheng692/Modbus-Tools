@@ -102,11 +102,11 @@ bool LanguageCoordinator::loadAppTranslation(QTranslator& translator, const QStr
 
     const QString resourcePath = QStringLiteral(":/i18n/%1").arg(qmFileName);
     if (translator.load(resourcePath)) {
-        spdlog::info("Loaded app translation from embedded resource: {}", resourcePath.toStdString());
+        SPDLOG_INFO("Loaded app translation from embedded resource: {}", resourcePath.toStdString());
         return true;
     }
 
-    spdlog::warn("Failed to load app translation '{}' from embedded resource '{}'",
+    SPDLOG_WARN("Failed to load app translation '{}' from embedded resource '{}'",
                  qmFileName.toStdString(),
                  resourcePath.toStdString());
     return false;

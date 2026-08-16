@@ -65,7 +65,7 @@ int main(int argc, char *argv[])
         window.setWindowIcon(QIcon(":/assets/logo.svg"));
         window.show();
 
-        spdlog::info("Modbus-Tools initialized");
+        SPDLOG_INFO("Modbus-Tools initialized");
 
         exitCode = app.exec();
     }

@@ -56,7 +56,7 @@ ParseResponseResult ModbusSerialTransport::parseResponse(const QByteArray& adu) 
     if (framing_ == SerialFraming::Rtu) {
         base::RtuAduFields fields;
         if (base::inspectRtuAdu(adu, &fields) != adu.size()) {
-            spdlog::debug("RtuTransport: reject reason=crc_mismatch frameLen={}", adu.size());
+            SPDLOG_DEBUG("RtuTransport: reject reason=crc_mismatch frameLen={}", adu.size());
             return {ParseResponseStatus::Invalid, std::nullopt};
         }
 
@@ -65,7 +65,7 @@ ParseResponseResult ModbusSerialTransport::parseResponse(const QByteArray& adu) 
             return {ParseResponseStatus::Unmatched, std::nullopt};
         }
         if (outcome == PendingSlaveTracker::Outcome::SlaveMismatch) {
-            spdlog::debug("RtuTransport: reject reason=slave_mismatch expected={} actual={}",
+            SPDLOG_DEBUG("RtuTransport: reject reason=slave_mismatch expected={} actual={}",
                           tracker_.expectedSlaveId(), fields.slaveId);
             return {ParseResponseStatus::Unmatched, std::nullopt};
         }
@@ -75,7 +75,7 @@ ParseResponseResult ModbusSerialTransport::parseResponse(const QByteArray& adu) 
     } else {
         base::AsciiAduFields fields;
         if (base::inspectAsciiAdu(adu, &fields) != adu.size()) {
-            spdlog::debug("AsciiTransport: reject reason=lrc_mismatch frameLen={}", adu.size());
+            SPDLOG_DEBUG("AsciiTransport: reject reason=lrc_mismatch frameLen={}", adu.size());
             return {ParseResponseStatus::Invalid, std::nullopt};
         }
 
@@ -84,7 +84,7 @@ ParseResponseResult ModbusSerialTransport::parseResponse(const QByteArray& adu) 
             return {ParseResponseStatus::Unmatched, std::nullopt};
         }
         if (outcome == PendingSlaveTracker::Outcome::SlaveMismatch) {
-            spdlog::debug("AsciiTransport: reject reason=slave_mismatch expected={} actual={}",
+            SPDLOG_DEBUG("AsciiTransport: reject reason=slave_mismatch expected={} actual={}",
                           tracker_.expectedSlaveId(), fields.slaveId);
             return {ParseResponseStatus::Unmatched, std::nullopt};
         }
