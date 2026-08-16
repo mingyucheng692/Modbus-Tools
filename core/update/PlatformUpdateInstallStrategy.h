@@ -5,12 +5,12 @@
 
 #pragma once
 
-#include <QJsonObject>
 #include <QString>
 #include <memory>
 
 namespace infra::platform {
 class IPlatformProcessRunner;
+class PathResolver;
 }
 
 namespace core::update {
@@ -37,11 +37,13 @@ public:
                                                      const QString& langCode,
                                                      infra::platform::IPlatformProcessRunner* processRunner,
                                                      QString& errorMessage) const = 0;
-
-protected:
-    [[nodiscard]] static QJsonObject buildWindowsTaskDocument(const PreparedUpdateContext& context);
 };
 
-[[nodiscard]] std::unique_ptr<PlatformUpdateInstallStrategy> createPlatformUpdateInstallStrategy();
+/// Creates the install strategy for the compiled platform. The optional
+/// PathResolver supplies the application directory used to locate the bundled
+/// updater binary; when null the strategy falls back to
+/// QCoreApplication::applicationDirPath() (Task 2.1).
+[[nodiscard]] std::unique_ptr<PlatformUpdateInstallStrategy> createPlatformUpdateInstallStrategy(
+    const infra::platform::PathResolver* pathResolver = nullptr);
 
 } // namespace core::update

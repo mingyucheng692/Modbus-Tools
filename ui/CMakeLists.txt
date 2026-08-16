@@ -177,10 +177,8 @@ add_custom_target(release_bundle
 
 target_link_libraries(ui PUBLIC
     Qt6::Widgets
-    Qt6::Charts
     Qt6::Concurrent
     Qt6::Network
-    Qt6::StateMachine
     core
 )
 
@@ -201,7 +199,6 @@ if(MODBUS_TOOLS_ENABLE_PCH AND COMMAND target_precompile_headers)
         <QtWidgets/QLabel>
         <QtWidgets/QMenuBar>
         <QtWidgets/QListWidget>
-        <QtCharts/QChartView>
         <vector>
         <memory>
     )

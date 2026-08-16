@@ -86,7 +86,11 @@ MainWindow::MainWindow(core::common::ISettingsService* settingsService,
       themeController_(themeController),
       settingsController_(std::make_unique<core::common::SettingsController>(settingsService)),
       updateChecker_(std::make_unique<common::UpdateChecker>()),
-      updateManager_(std::make_unique<core::update::UpdateManager>()),
+      updateManager_(std::make_unique<core::update::UpdateManager>(
+          nullptr,
+          std::unique_ptr<infra::platform::IPlatformProcessRunner>{},
+          std::unique_ptr<core::update::PlatformUpdateInstallStrategy>{},
+          &pathResolver)),
       analyzerLinkCoordinator_(std::make_unique<application::AnalyzerLinkCoordinator>()),
       languageCoordinator_(std::make_unique<application::LanguageCoordinator>(settingsController_.get())),
       updateCoordinator_(std::make_unique<application::UpdateCoordinator>(

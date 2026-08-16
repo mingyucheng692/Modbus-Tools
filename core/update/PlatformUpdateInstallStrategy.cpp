@@ -5,8 +5,10 @@
 
 #include "PlatformUpdateInstallStrategy.h"
 
+#include "PlatformReleaseAssetStrategy.h"
 #include "UpdateManager.h"
 #include "infra/platform/IPlatformProcessRunner.h"
+#include "infra/platform/PathResolver.h"
 #include "infra/platform/PlatformInfo.h"
 
 #include <QCoreApplication>
@@ -14,6 +16,7 @@
 #include <QFile>
 #include <QFileInfo>
 #include <QJsonDocument>
+#include <QJsonObject>
 #include <QCryptographicHash>
 #include <spdlog/spdlog.h>
 
@@ -26,11 +29,6 @@ namespace {
 QString currentPackagePlatform()
 {
     return QStringLiteral(MODBUS_TOOLS_PLATFORM).toLower();
-}
-
-QString bundledUpdaterPath()
-{
-    return QDir(QCoreApplication::applicationDirPath()).filePath(QStringLiteral("updater.exe"));
 }
 
 /// Computes SHA256 of a file. Returns empty string on failure.
@@ -78,6 +76,14 @@ bool verifyUpdaterIntegrity(const QString& updaterPath, const QString& expectedS
 
 class WindowsUpdateInstallStrategy final : public core::update::PlatformUpdateInstallStrategy {
 public:
+    /// pathResolver supplies the application directory used to locate the
+    /// bundled updater binary; null falls back to
+    /// QCoreApplication::applicationDirPath() (Task 2.1).
+    explicit WindowsUpdateInstallStrategy(const infra::platform::PathResolver* pathResolver)
+        : pathResolver_(pathResolver)
+    {
+    }
+
     [[nodiscard]] core::update::UpdateInstallMode installMode(
         const infra::platform::IPlatformProcessRunner* processRunner) const noexcept override
     {
@@ -191,6 +197,46 @@ public:
                       errorMessage.toStdString());
         return processRunner->startElevated(updaterPath, arguments, &errorMessage);
     }
+
+private:
+    /// Resolves the bundled updater binary path via the injected PathResolver
+    /// (Task 2.1); falls back to QCoreApplication::applicationDirPath() when
+    /// no resolver was supplied. The binary name shares the release-asset
+    /// family dispatch ("updater.exe" on Windows, "updater" elsewhere).
+    [[nodiscard]] QString bundledUpdaterPath() const
+    {
+        const QString applicationDir = pathResolver_
+            ? pathResolver_->applicationDirPath()
+            : QCoreApplication::applicationDirPath();
+        return QDir(applicationDir).filePath(
+            core::update::release_asset::bundledUpdaterBinaryName(currentPackagePlatform()));
+    }
+
+    /// Windows Task Scheduler-style update task document (Task 2.2: moved out
+    /// of the platform-neutral base class; only this strategy knows the JSON
+    /// layout the Win32 updater consumes).
+    [[nodiscard]] static QJsonObject buildWindowsTaskDocument(
+        const core::update::PreparedUpdateContext& context)
+    {
+        const QString backupExePath = context.applicationFilePath + QStringLiteral(".bak");
+
+        QJsonObject root;
+        root.insert(QStringLiteral("schemaVersion"), 1);
+        root.insert(QStringLiteral("launcherPid"),
+                    static_cast<qint64>(QCoreApplication::applicationPid()));
+        root.insert(QStringLiteral("targetExePath"),
+                    QDir::toNativeSeparators(context.applicationFilePath));
+        root.insert(QStringLiteral("newExePath"),
+                    QDir::toNativeSeparators(context.updateFilePath));
+        root.insert(QStringLiteral("backupExePath"),
+                    QDir::toNativeSeparators(backupExePath));
+        root.insert(QStringLiteral("expectedVersion"), context.latestVersion);
+        root.insert(QStringLiteral("expectedSha256"), context.expectedSha256);
+        root.insert(QStringLiteral("restartAfterUpdate"), true);
+        return root;
+    }
+
+    const infra::platform::PathResolver* pathResolver_ = nullptr;
 };
 
 // P2-38: This strategy is a deliberate cross-platform fallback, not dead code.
@@ -241,30 +287,11 @@ public:
 
 namespace core::update {
 
-QJsonObject PlatformUpdateInstallStrategy::buildWindowsTaskDocument(const PreparedUpdateContext& context)
-{
-    const QString backupExePath = context.applicationFilePath + QStringLiteral(".bak");
-
-    QJsonObject root;
-    root.insert(QStringLiteral("schemaVersion"), 1);
-    root.insert(QStringLiteral("launcherPid"),
-                static_cast<qint64>(QCoreApplication::applicationPid()));
-    root.insert(QStringLiteral("targetExePath"),
-                QDir::toNativeSeparators(context.applicationFilePath));
-    root.insert(QStringLiteral("newExePath"),
-                QDir::toNativeSeparators(context.updateFilePath));
-    root.insert(QStringLiteral("backupExePath"),
-                QDir::toNativeSeparators(backupExePath));
-    root.insert(QStringLiteral("expectedVersion"), context.latestVersion);
-    root.insert(QStringLiteral("expectedSha256"), context.expectedSha256);
-    root.insert(QStringLiteral("restartAfterUpdate"), true);
-    return root;
-}
-
-std::unique_ptr<PlatformUpdateInstallStrategy> createPlatformUpdateInstallStrategy()
+std::unique_ptr<PlatformUpdateInstallStrategy> createPlatformUpdateInstallStrategy(
+    const infra::platform::PathResolver* pathResolver)
 {
     if (currentPackagePlatform().startsWith(QStringLiteral("windows-"))) {
-        return std::make_unique<WindowsUpdateInstallStrategy>();
+        return std::make_unique<WindowsUpdateInstallStrategy>(pathResolver);
     }
     return std::make_unique<DownloadOnlyInstallStrategy>();
 }

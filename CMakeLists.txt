@@ -110,7 +110,7 @@ set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/app)
 set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
 
 # Find Qt6
-find_package(Qt6 REQUIRED COMPONENTS Core Concurrent Network SerialPort Widgets Charts LinguistTools StateMachine Test)
+find_package(Qt6 REQUIRED COMPONENTS Core Concurrent Network SerialPort Widgets LinguistTools Test)
 
 # Add spdlog
 # Check if spdlog exists, if not, we might need to rely on system installed or header only

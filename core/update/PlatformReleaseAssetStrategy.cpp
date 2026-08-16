@@ -44,6 +44,21 @@ UpdatePlatformFamily familyFromPackagePlatform(const QString& packagePlatform)
 
 } // namespace
 
+QString bundledUpdaterBinaryName(const QString& packagePlatform)
+{
+    // Same family dispatch as the release asset names — keep both in sync
+    // (Task 2.1: no separate Q_OS_WIN ifdef chain).
+    switch (familyFromPackagePlatform(packagePlatform)) {
+    case UpdatePlatformFamily::Windows:
+        return QStringLiteral("updater.exe");
+    case UpdatePlatformFamily::MacOs:
+    case UpdatePlatformFamily::Linux:
+    case UpdatePlatformFamily::Unknown:
+    default:
+        return QStringLiteral("updater");
+    }
+}
+
 PlatformUpdateArtifactLayout layoutForPackage(const QString& version,
                                               const QString& packagePlatform)
 {

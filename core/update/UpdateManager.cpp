@@ -88,7 +88,8 @@ signals:
 
 UpdateManager::UpdateManager(QObject* parent,
                              std::unique_ptr<infra::platform::IPlatformProcessRunner> processRunner,
-                             std::unique_ptr<PlatformUpdateInstallStrategy> installStrategy)
+                             std::unique_ptr<PlatformUpdateInstallStrategy> installStrategy,
+                             const infra::platform::PathResolver* pathResolver)
     : QObject(parent),
       networkManager_(new QNetworkAccessManager(this)),
       cancelToken_(std::make_shared<std::atomic_bool>(false)),
@@ -98,7 +99,7 @@ UpdateManager::UpdateManager(QObject* parent,
         processRunner_ = infra::platform::createDefaultPlatformProcessRunner();
     }
     if (!installStrategy_) {
-        installStrategy_ = createPlatformUpdateInstallStrategy();
+        installStrategy_ = createPlatformUpdateInstallStrategy(pathResolver);
     }
 }
 

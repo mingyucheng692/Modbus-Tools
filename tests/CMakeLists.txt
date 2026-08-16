@@ -151,7 +151,7 @@ set_property(TARGET test_modbus_common_objects PROPERTY AUTOMOC ON)
 modbus_add_test_target(test_core_logic
     ${CMAKE_CURRENT_SOURCE_DIR}/TestMainCore.cpp
     SOURCES "${TEST_CORE_LOGIC_SOURCES}"
-    LIBS core ui Qt6::Core Qt6::StateMachine test_modbus_common_objects
+    LIBS core ui Qt6::Core test_modbus_common_objects
 )
 
 modbus_add_test_target(test_qt_core

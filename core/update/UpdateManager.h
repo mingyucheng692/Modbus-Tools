@@ -23,6 +23,10 @@ class QNetworkAccessManager;
 class QNetworkReply;
 class QFile;
 
+namespace infra::platform {
+class PathResolver;
+}
+
 namespace core::update {
 
 enum class UpdateInstallMode {
@@ -64,7 +68,8 @@ class UpdateManager : public QObject {
 public:
     explicit UpdateManager(QObject* parent = nullptr,
                            std::unique_ptr<infra::platform::IPlatformProcessRunner> processRunner = {},
-                           std::unique_ptr<PlatformUpdateInstallStrategy> installStrategy = {});
+                           std::unique_ptr<PlatformUpdateInstallStrategy> installStrategy = {},
+                           const infra::platform::PathResolver* pathResolver = nullptr);
     ~UpdateManager() noexcept override;
 
     /**

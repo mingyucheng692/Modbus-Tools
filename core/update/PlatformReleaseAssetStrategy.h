@@ -37,6 +37,10 @@ namespace release_asset {
 [[nodiscard]] QString resolveFullPackageUrl(const QJsonArray& assets,
                                             const PlatformUpdateArtifactLayout& layout,
                                             const QString& releaseUrl);
+/// Bundled updater binary name for the given package platform. Shares the
+/// same family dispatch as the release asset names: Windows appends ".exe",
+/// other families return the plain "updater" name (Task 2.1).
+[[nodiscard]] QString bundledUpdaterBinaryName(const QString& packagePlatform);
 
 } // namespace release_asset
 

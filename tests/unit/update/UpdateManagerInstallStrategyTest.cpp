@@ -1,6 +1,7 @@
 #include <gtest/gtest.h>
 
 #include "../../../core/update/PlatformUpdateInstallStrategy.h"
+#include "../../../core/update/PlatformReleaseAssetStrategy.h"
 #include "../../../core/update/UpdateManager.h"
 
 namespace {
@@ -123,4 +124,72 @@ TEST(UpdateManagerInstallStrategy, LaunchInstallerDelegatesToInjectedStrategy)
     EXPECT_EQ(installStrategyPtr->lastLaunchInstallArtifactPath_, QStringLiteral("prepared-task.json"));
     EXPECT_EQ(installStrategyPtr->lastLaunchLangCode_, QStringLiteral("zh_CN"));
     EXPECT_EQ(installStrategyPtr->lastLaunchProcessRunner_, processRunnerPtr);
+}
+
+// Task 2.1: bundled updater binary name shares the release-asset family
+// dispatch — Windows appends ".exe", other families stay extension-less.
+TEST(BundledUpdaterBinaryName, WindowsFamilyAppendsExeSuffix)
+{
+    EXPECT_EQ(core::update::release_asset::bundledUpdaterBinaryName(
+                  QStringLiteral("windows-x86_64")),
+              QStringLiteral("updater.exe"));
+    EXPECT_EQ(core::update::release_asset::bundledUpdaterBinaryName(
+                  QStringLiteral("Windows-ARM64")),
+              QStringLiteral("updater.exe"));
+}
+
+TEST(BundledUpdaterBinaryName, NonWindowsFamiliesStayExtensionLess)
+{
+    EXPECT_EQ(core::update::release_asset::bundledUpdaterBinaryName(
+                  QStringLiteral("macos-arm64")),
+              QStringLiteral("updater"));
+    EXPECT_EQ(core::update::release_asset::bundledUpdaterBinaryName(
+                  QStringLiteral("linux-x86_64")),
+              QStringLiteral("updater"));
+    EXPECT_EQ(core::update::release_asset::bundledUpdaterBinaryName(
+                  QStringLiteral("linux-arm64")),
+              QStringLiteral("updater"));
+}
+
+TEST(BundledUpdaterBinaryName, UnknownFamilyFallsBackToPlainUpdater)
+{
+    EXPECT_EQ(core::update::release_asset::bundledUpdaterBinaryName(QString()),
+              QStringLiteral("updater"));
+    EXPECT_EQ(core::update::release_asset::bundledUpdaterBinaryName(
+                  QStringLiteral("plan9-amd64")),
+              QStringLiteral("updater"));
+}
+
+// Task 2.2: a minimal stub strategy (the shape a future Linux strategy would
+// take) must be instantiable and keep UpdateManager usable in DownloadOnly.
+TEST(UpdateManagerInstallStrategy, StubStrategyRunsDownloadOnly)
+{
+    auto processRunner = std::make_unique<FakeProcessRunner>();
+
+    class StubLinuxStrategy final : public core::update::PlatformUpdateInstallStrategy {
+    public:
+        [[nodiscard]] core::update::UpdateInstallMode installMode(
+            const infra::platform::IPlatformProcessRunner*) const noexcept override
+        {
+            return core::update::UpdateInstallMode::DownloadOnly;
+        }
+        [[nodiscard]] bool createInstallArtifact(const core::update::PreparedUpdateContext&,
+                                                 QString&, QString& errorMessage) const override
+        {
+            errorMessage = QStringLiteral("not supported");
+            return false;
+        }
+        [[nodiscard]] bool launchInstallArtifact(const QString&, const QString&,
+                                                 infra::platform::IPlatformProcessRunner*,
+                                                 QString& errorMessage) const override
+        {
+            errorMessage = QStringLiteral("not supported");
+            return false;
+        }
+    };
+
+    core::update::UpdateManager manager(nullptr, std::move(processRunner),
+                                         std::make_unique<StubLinuxStrategy>());
+
+    EXPECT_EQ(manager.installMode(), core::update::UpdateInstallMode::DownloadOnly);
 }

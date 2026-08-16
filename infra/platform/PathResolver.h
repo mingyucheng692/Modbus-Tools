@@ -40,6 +40,11 @@ public:
     /// Returns true when portable mode was explicitly opted-in (marker file or --portable).
     [[nodiscard]] bool isPortableMode() const noexcept { return portableMode_; }
 
+    /// Application directory captured at construction. Exposed for consumers
+    /// that must resolve sibling binaries (e.g. the bundled updater) instead of
+    /// calling QCoreApplication::applicationDirPath() directly (Task 2.1).
+    [[nodiscard]] const QString& applicationDirPath() const noexcept { return applicationDirPath_; }
+
     [[nodiscard]] QString resolveLogDir() const;
     [[nodiscard]] QString resolveConfigDir() const;
     [[nodiscard]] QString resolveTempDir() const;
