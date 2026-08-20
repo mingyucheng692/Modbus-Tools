@@ -36,13 +36,20 @@ int main(int argc, char *argv[])
 
     QString loggingError;
     if (!logging::Init(pathResolver.resolveLogDir(), &loggingError)) {
-        QMessageBox::critical(
+        // Degraded mode, NOT fatal: Init failed before spdlog::set_default_logger
+        // ran, so SPDLOG_* macros fall through to spdlog's built-in stdout
+        // default logger — the app keeps running without file logs. The tool is
+        // portable-only (all data next to the exe); an unwritable exe dir also
+        // means settings won't persist, so suggest relocation.
+        QMessageBox::warning(
             nullptr,
-            QCoreApplication::translate("main", "Startup Error"),
-            loggingError.isEmpty()
-                ? QCoreApplication::translate("main", "Failed to initialize application logging.")
-                : QCoreApplication::translate("main", "Failed to initialize application logging.\n%1").arg(loggingError));
-        return 1;
+            QCoreApplication::translate("main", "Logging Unavailable"),
+            QCoreApplication::translate("main",
+                "Cannot write logs next to the program (%1).\n\n"
+                "This run will not create log files, and settings "
+                "changes will not be saved.\n"
+                "Move the program folder to a writable location "
+                "(e.g. Desktop) and restart.").arg(loggingError));
     }
 
     app.setWindowIcon(QIcon(":/assets/logo.svg"));

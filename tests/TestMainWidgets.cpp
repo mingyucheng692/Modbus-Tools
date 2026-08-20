@@ -2,7 +2,6 @@
 #include <gtest/gtest.h>
 
 #include <QtCore/QLoggingCategory>
-#include <QtCore/QStandardPaths>
 #include <QtWidgets/QApplication>
 
 #include "infra/logging/Logger.h"
@@ -10,7 +9,6 @@
 int main(int argc, char** argv)
 {
     QApplication app(argc, argv);
-    QStandardPaths::setTestModeEnabled(true);
     QLoggingCategory::setFilterRules(QStringLiteral("*.debug=false\nqt.*.debug=false"));
     spdlog::set_level(spdlog::level::warn);
 

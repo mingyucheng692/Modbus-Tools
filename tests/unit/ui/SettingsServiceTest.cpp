@@ -12,17 +12,12 @@
 
 namespace {
 
-// Builds a PathResolver whose config/log/temp directories live inside the
-// supplied sandbox, so tests never touch the developer's real user config.
+// Builds a PathResolver rooted at the supplied sandbox, so tests never
+// touch the developer's real application directory (portable-only layout:
+// config.ini lives directly in the resolver's application dir).
 infra::platform::PathResolver makeIsolatedResolver(const QString& sandboxPath)
 {
-    const QString dataDir = QDir(sandboxPath).filePath(QStringLiteral("data"));
-    const QString configDir = QDir(sandboxPath).filePath(QStringLiteral("config"));
-    const QString tempDir = QDir(sandboxPath).filePath(QStringLiteral("temp"));
-    auto appDataFn = [dataDir]() { return dataDir; };
-    auto appConfigFn = [configDir]() { return configDir; };
-    auto tempFn = [tempDir]() { return tempDir; };
-    return infra::platform::PathResolver(appDataFn, appConfigFn, tempFn, sandboxPath, {}, "Modbus-Tools-Test");
+    return infra::platform::PathResolver(sandboxPath);
 }
 
 // RAII guard that backs up and restores the sandbox "config.ini" so each test

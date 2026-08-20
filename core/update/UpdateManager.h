@@ -137,21 +137,27 @@ private:
                                  const QString& expectedSha,
                                  const QString& checksumsPath);
 
-    void downloadAsset(const QUrl& url, 
-                       const QString& filePath, 
+    void downloadAsset(const QUrl& url,
+                       const QString& filePath,
                        std::function<void(bool, const QString&)> onFinished);
 
     void onDownloadFinished(std::function<void(bool, const QString&)> onFinished);
 
+    /// Update staging dir via the injected resolver; falls back to a
+    /// default resolver rooted at applicationDirPath() when none was
+    /// supplied (unit tests).
+    [[nodiscard]] QString updateStagingDir() const;
+
     QString pendingLatestVersion_;
     std::shared_ptr<std::atomic_bool> cancelToken_;
-    
+
     // Low-level download state
     QNetworkAccessManager* networkManager_ = nullptr;
     QPointer<QNetworkReply> currentReply_;
     std::unique_ptr<QFile> outputFile_;
     std::unique_ptr<infra::platform::IPlatformProcessRunner> processRunner_;
     std::unique_ptr<PlatformUpdateInstallStrategy> installStrategy_;
+    const infra::platform::PathResolver* pathResolver_ = nullptr;
 };
 
 } // namespace core::update

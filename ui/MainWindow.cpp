@@ -48,7 +48,6 @@
 #include <QProgressDialog>
 #include <QPushButton>
 #include <QPointer>
-#include <QStandardPaths>
 #include <QDir>
 #include <QDesktopServices>
 #include <QUrl>

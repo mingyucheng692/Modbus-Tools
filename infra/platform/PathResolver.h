@@ -1,76 +1,49 @@
 /**
  * @file PathResolver.h
- * @brief Declares writable path resolution for portable and standard installs.
+ * @brief Declares writable path resolution for the portable-only deployment.
  *
- * Portable mode (`.portable` marker file or `--portable` CLI argument) uses
- * the application directory for config/logs. Standard mode uses
- * QStandardPaths-backed locations, with scoped temp as fallback.
+ * The application is a portable tool: every writable artifact (config, logs,
+ * update staging) lives next to the executable, typically on the Desktop or
+ * a USB drive. There is deliberately NO QStandardPaths/AppData branch and NO
+ * fallback chain — re-introducing one would silently scatter user data into
+ * %LOCALAPPDATA% again.
+ *
+ * Writability is not probed here. If the directory cannot be written, the
+ * log initialization surfaces a one-time dialog (see main.cpp) suggesting
+ * relocation to a writable folder, and the app keeps running in degraded
+ * mode.
  */
 
 #pragma once
 
-#include <functional>
-#include <utility>
 #include <QString>
-#include <QStringList>
 
 namespace infra::platform {
 
 class PathResolver final {
 public:
-    using StandardPathProvider = std::function<QString()>;
-
-    /// Default constructor: uses QCoreApplication for applicationDirPath,
-    /// arguments, applicationName, and QStandardPaths-backed standard dirs.
+    /// Default constructor: captures QCoreApplication::applicationDirPath().
     PathResolver();
 
     /// Constructor for tests and explicit injection.
-    PathResolver(QString applicationDirPath,
-                 QStringList arguments,
-                 QString applicationName);
-
-    /// Constructor for tests that need deterministic standard locations.
-    PathResolver(StandardPathProvider appDataDirProvider,
-                 StandardPathProvider appConfigDirProvider,
-                 StandardPathProvider tempDirProvider,
-                 QString applicationDirPath,
-                 QStringList arguments,
-                 QString applicationName);
-
-    /// Returns true when portable mode was explicitly opted-in (marker file or --portable).
-    [[nodiscard]] bool isPortableMode() const noexcept { return portableMode_; }
+    explicit PathResolver(QString applicationDirPath);
 
     /// Application directory captured at construction. Exposed for consumers
     /// that must resolve sibling binaries (e.g. the bundled updater) instead of
     /// calling QCoreApplication::applicationDirPath() directly (Task 2.1).
     [[nodiscard]] const QString& applicationDirPath() const noexcept { return applicationDirPath_; }
 
+    /// <exeDir>/logs/ — best-effort mkpath; callers own writability handling.
     [[nodiscard]] QString resolveLogDir() const;
+
+    /// <exeDir>/ — config.ini lives directly next to the executable.
     [[nodiscard]] QString resolveConfigDir() const;
-    [[nodiscard]] QString resolveTempDir() const;
+
+    /// <exeDir>/update/ — transient update download staging, removed after install.
+    [[nodiscard]] QString resolveUpdateStagingDir() const;
 
 private:
-    void detectPortableMode(const QStringList& arguments);
-
-    [[nodiscard]] QString resolveScopedTempDir() const;
-    [[nodiscard]] QString resolveWritableDir(const QString& purpose,
-                                            const QString& preferredDir,
-                                            const QString& fallbackDir) const;
-    [[nodiscard]] bool isWritableDirectory(const QString& directoryPath) const;
-
-    [[nodiscard]] static QString currentAppDataDirPath();
-    [[nodiscard]] static QString currentAppConfigDirPath();
-    [[nodiscard]] static QString currentApplicationDirPath();
-    [[nodiscard]] static QString currentApplicationName();
-    [[nodiscard]] static QStringList currentApplicationArguments();
-    [[nodiscard]] static QString currentTempRootDirPath();
-
     QString applicationDirPath_;
-    QString applicationName_;
-    StandardPathProvider appDataDirProvider_;
-    StandardPathProvider appConfigDirProvider_;
-    StandardPathProvider tempDirProvider_;
-    bool portableMode_ = false;
 };
 
 } // namespace infra::platform

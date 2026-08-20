@@ -10,12 +10,12 @@
 #include "UpdateManager.h"
 #include "../Config.h"
 #include "PlatformUpdateInstallStrategy.h"
+#include "infra/platform/PathResolver.h"
 #include <QNetworkAccessManager>
 #include <QNetworkReply>
 #include <QFile>
 #include <QFileInfo>
 #include <QDir>
-#include <QStandardPaths>
 #include <QCryptographicHash>
 #include <QCoreApplication>
 #include <QThread>
@@ -94,7 +94,8 @@ UpdateManager::UpdateManager(QObject* parent,
       networkManager_(new QNetworkAccessManager(this)),
       cancelToken_(std::make_shared<std::atomic_bool>(false)),
       processRunner_(std::move(processRunner)),
-      installStrategy_(std::move(installStrategy)) {
+      installStrategy_(std::move(installStrategy)),
+      pathResolver_(pathResolver) {
     if (!processRunner_) {
         processRunner_ = infra::platform::createDefaultPlatformProcessRunner();
     }
@@ -128,14 +129,11 @@ void UpdateManager::startUpdate(const QUrl& updateUrl,
     cancelToken_->store(false);
     pendingLatestVersion_ = latestVersion;
 
-    const QString tempRoot = QStandardPaths::writableLocation(QStandardPaths::TempLocation);
-    if (tempRoot.isEmpty()) {
-        emit updateFailed(tr("Failed to access system temporary directory"));
-        return;
-    }
-
-    const QDir workingDir(QStringLiteral("%1/ModbusToolsUpdate").arg(tempRoot));
-    if (!workingDir.exists() && !workingDir.mkpath(".")) {
+    // Staging area lives next to the executable (portable-only deployment,
+    // PathResolver facade); a null resolver (unit tests) falls back to the
+    // default resolver rooted at QCoreApplication::applicationDirPath().
+    const QDir workingDir(updateStagingDir());
+    if (!workingDir.exists() && !workingDir.mkpath(QStringLiteral("."))) {
         emit updateFailed(tr("Failed to create update directory"));
         return;
     }
@@ -304,10 +302,21 @@ bool UpdateManager::launchInstaller(const QString& installArtifactPath, const QS
 void UpdateManager::cleanupUpdateArtifacts() {
     SPDLOG_INFO("UpdateManager: Cleaning up temporary update artifacts...");
 
-    const QString tempRoot = QStandardPaths::writableLocation(QStandardPaths::TempLocation);
-    if (!tempRoot.isEmpty()) {
-        QDir(QStringLiteral("%1/ModbusToolsUpdate").arg(tempRoot)).removeRecursively();
+    // Static context: no member resolver available; a default-constructed
+    // resolver roots at QCoreApplication::applicationDirPath() — the same
+    // staging location UpdateManager instances resolve to in production.
+    const QString stagingDir = infra::platform::PathResolver{}.resolveUpdateStagingDir();
+    if (!stagingDir.isEmpty()) {
+        QDir(stagingDir).removeRecursively();
     }
+}
+
+QString UpdateManager::updateStagingDir() const
+{
+    if (pathResolver_ != nullptr) {
+        return pathResolver_->resolveUpdateStagingDir();
+    }
+    return infra::platform::PathResolver{}.resolveUpdateStagingDir();
 }
 
 } // namespace core::update
