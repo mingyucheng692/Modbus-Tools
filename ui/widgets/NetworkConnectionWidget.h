@@ -81,8 +81,8 @@ protected:
     void updateProtocolUi() override = 0;
 
     // ---- Display State (data hooks) ----
-    // applyDisplayState() skeleton and inputsLocked() live in BaseConnectionWidget
-    // (P2-44 hoist). NetworkConnectionWidget only contributes the per-protocol
+    // applyDisplayState() skeleton and inputsLocked() live in BaseConnectionWidget.
+    // NetworkConnectionWidget only contributes the per-protocol
     // data via the following pure-virtual hooks.
 
     /** @brief Return the display info for the given state. */

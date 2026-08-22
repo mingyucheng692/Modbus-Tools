@@ -8,7 +8,7 @@
  * an event crosses the bridge iff it is Warning, Error, a Connection
  * lifecycle event, or carries a non-zero traceId.
  *
- * Governance (Task 1.5): relay() is a stateless free function and the ONLY
+ * Governance: relay() is a stateless free function and the ONLY
  * legitimate entry point into this bridge is
  * TrafficLogController::publishEvent(). Producers must emit signals wired to
  * publishEvent; calling relay() directly from any other site is forbidden.

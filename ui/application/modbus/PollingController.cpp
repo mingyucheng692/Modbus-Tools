@@ -28,7 +28,7 @@ const char* toString(PollState s) {
     }
 }
 
-// Legal-transition table for the polling state machine (P2-45).
+// Legal-transition table for the polling state machine.
 // - Idle may only enter Polling (start); jumping Idle -> Degraded/Escalated
 //   is a logic error (cannot degrade/escalate without an active poll).
 // - Polling / Degraded / Escalated may move freely among themselves
@@ -195,7 +195,7 @@ void PollingController::handlePollCompletion(bool success, int rttMs, int retryC
             }
 
             if (shouldLogEscalatedError) {
-                // Task 1.5: no direct ui::logging::relay() here. The event flows
+                // No direct ui::logging::relay() here. The event flows
                 // along the signal chain (trafficEvent -> TrafficLogController
                 // ::publishEvent), which is the single legitimate bridge entry.
                 emit trafficEvent(event);

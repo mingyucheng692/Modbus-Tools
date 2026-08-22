@@ -167,7 +167,7 @@ void suppressFatalDialogsForDeathTest()
 
 } // namespace
 
-// Task 3.4 negative test: once ownership is claimed (as ModbusWorker does on
+// Negative test: once ownership is claimed (as ModbusWorker does on
 // its thread), a session-driving call from a foreign thread must trip the
 // Debug affinity guard (Q_ASSERT → qFatal → process death). Runs as a death
 // test so the fatal exit happens in a re-spawned child process, not the test

@@ -30,7 +30,7 @@ public:
 
     /// Application directory captured at construction. Exposed for consumers
     /// that must resolve sibling binaries (e.g. the bundled updater) instead of
-    /// calling QCoreApplication::applicationDirPath() directly (Task 2.1).
+    /// calling QCoreApplication::applicationDirPath() directly.
     [[nodiscard]] const QString& applicationDirPath() const noexcept { return applicationDirPath_; }
 
     /// <exeDir>/logs/ — best-effort mkpath; callers own writability handling.

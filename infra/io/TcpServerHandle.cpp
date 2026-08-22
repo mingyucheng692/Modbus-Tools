@@ -83,7 +83,7 @@ int TcpServerHandle::clientCount() const
 
 void TcpServerHandle::onNewConnection()
 {
-    // P2-4: implicit lifetime transfer — socket from nextPendingConnection()
+    // Implicit lifetime transfer — socket from nextPendingConnection()
     // is adopted via socketDescriptor() into TcpChannel, then the original
     // QTcpSocket is deleteLater()'d. Qt guarantees the native descriptor
     // remains valid for adoption via setSocketDescriptor().

@@ -94,7 +94,7 @@ MainWindow::MainWindow(infra::config::ISettingsService* settingsService,
       languageCoordinator_(std::make_unique<application::LanguageCoordinator>(settingsController_.get())),
       updateCoordinator_(std::make_unique<application::UpdateCoordinator>(
           updateInteractionView_.get(),
-          // Task 3.2 / P1-7: replaces the IApplicationExitView* parameter.
+          // Replaces the former IApplicationExitView* parameter.
           // Safe capture: updateCoordinator_ is a member destroyed before
           // the MainWindow base, so `this` outlives the callback holder.
           [this] { requestQuit(); },

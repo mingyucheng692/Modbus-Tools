@@ -35,8 +35,8 @@ namespace ui::application::modbus {
  * @brief UI-layer connection state, derived from the authoritative core
  *        ConnectionStateMachine plus channel state and session health.
  *
- * Formerly owned by the deleted SessionConnectionStateMachine QObject FSM
- * (P1-3 / Task 3.1). Transition validation now lives in the presenter's
+ * Formerly owned by the deleted SessionConnectionStateMachine QObject FSM.
+ * Transition validation now lives in the presenter's
  * private guard function transitionConnectionStateTo().
  */
 enum class SessionConnectionState {
@@ -139,7 +139,7 @@ private:
     void onConnectionStateChanged(SessionConnectionState state);
     void syncConnectionWidget(SessionConnectionState state);
 
-    /// Validated UI connection-state transition (Task 3.1 guard function).
+    /// Validated UI connection-state transition (guard function).
     /// Rejects illegal transitions (returns false, state unchanged, logs an
     /// error) and applies the state-entry side effects (alert-suppression
     /// flags, widget sync) inline on success. No-op re-entry succeeds.

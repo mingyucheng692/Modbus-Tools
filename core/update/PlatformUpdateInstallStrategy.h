@@ -42,7 +42,7 @@ public:
 /// Creates the install strategy for the compiled platform. The optional
 /// PathResolver supplies the application directory used to locate the bundled
 /// updater binary; when null the strategy falls back to
-/// QCoreApplication::applicationDirPath() (Task 2.1).
+/// QCoreApplication::applicationDirPath().
 [[nodiscard]] std::unique_ptr<PlatformUpdateInstallStrategy> createPlatformUpdateInstallStrategy(
     const infra::platform::PathResolver* pathResolver = nullptr);
 

@@ -22,9 +22,8 @@ public:
     virtual void openAboutDialog() = 0;
     [[nodiscard]] virtual bool showDisclaimerDialog() = 0;
     virtual void retranslateUi(const QString& effectiveLocale) = 0;
-    /// Formerly inherited from IApplicationExitView (removed in Task 3.2 /
-    /// P1-7); AppLifecycleCoordinator calls this when the disclaimer is
-    /// rejected and the app must terminate.
+    /// Formerly inherited from IApplicationExitView; AppLifecycleCoordinator
+    /// calls this when the disclaimer is rejected and the app must terminate.
     virtual void requestQuit() = 0;
 };
 

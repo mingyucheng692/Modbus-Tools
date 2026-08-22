@@ -31,8 +31,7 @@ struct TransitionRule {
 
 // Legal cross-state transitions for the UI connection state. Self-transitions
 // (re-entering the current state) are always allowed for idempotent re-entry
-// and are not listed here. Absorbed from the deleted
-// SessionConnectionStateMachine (Task 3.1 / P1-3).
+// and are not listed here. Absorbed from the deleted SessionConnectionStateMachine.
 constexpr TransitionRule kLegalTransitions[] = {
     {SessionConnectionState::Disconnected, SessionConnectionState::Connecting},
     // Disconnect requested while already disconnected: benign no-op, not an

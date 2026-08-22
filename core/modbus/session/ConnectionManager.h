@@ -24,7 +24,7 @@ namespace modbus::session {
  * @brief Encapsulates connection lifecycle: connect, disconnect, reconnect, and
  *        channel state waiting.
  *
- * @par Retry abstraction evaluation (P1-7)
+ * @par Retry abstraction evaluation
  *      ensureConnected() uses an inline for-loop with RetryStrategy's static
  *      calculateBackoffMs() for delay computation. This is intentionally NOT
  *      migrated to RetryStrategy's instance API (shouldRetry/recordAttempt/

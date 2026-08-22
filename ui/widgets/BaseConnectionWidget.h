@@ -42,7 +42,7 @@ enum class DisplayState {
 /**
  * @brief Per-state display texts returned by getStateDisplayInfo().
  *
- * Hoisted from NetworkConnectionWidget (P2-44) so SerialConnectionWidget can
+ * Hoisted so SerialConnectionWidget can
  * also participate in the applyDisplayState() template method without
  * duplicating the per-state switch.
  */
@@ -59,7 +59,7 @@ struct StateDisplayInfo {
  * Handles common behaviors such as collapsible section logic, auto-reconnect
  * configurations, settings group and settings loading/saving.
  *
- * @par Display-state template method (P2-44)
+ * @par Display-state template method
  *      applyDisplayState() is implemented in this base class as a template
  *      method: it queries getStateDisplayInfo() for the current state's
  *      button/status text and style, applies them to connectBtn_/statusLabel_,
@@ -138,7 +138,7 @@ protected:
 
     void changeEvent(QEvent* event) override;
 
-    // ---- Display-state template method (P2-44) ----
+    // ---- Display-state template method ----
     // Skeleton: queries subclass for state-specific data, applies common
     // widgets, delegates input-widget enabling and protocol refresh.
     void applyDisplayState();

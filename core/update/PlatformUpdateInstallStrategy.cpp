@@ -79,7 +79,7 @@ class WindowsUpdateInstallStrategy final : public core::update::PlatformUpdateIn
 public:
     /// pathResolver supplies the application directory used to locate the
     /// bundled updater binary; null falls back to
-    /// QCoreApplication::applicationDirPath() (Task 2.1).
+    /// QCoreApplication::applicationDirPath().
     explicit WindowsUpdateInstallStrategy(const infra::platform::PathResolver* pathResolver)
         : pathResolver_(pathResolver)
     {
@@ -200,8 +200,8 @@ public:
     }
 
 private:
-    /// Resolves the bundled updater binary path via the injected PathResolver
-    /// (Task 2.1); falls back to QCoreApplication::applicationDirPath() when
+    /// Resolves the bundled updater binary path via the injected PathResolver;
+    /// falls back to QCoreApplication::applicationDirPath() when
     /// no resolver was supplied. The binary name shares the release-asset
     /// family dispatch ("updater.exe" on Windows, "updater" elsewhere).
     [[nodiscard]] QString bundledUpdaterPath() const
@@ -217,7 +217,7 @@ private:
     mutable std::optional<core::update::PreparedUpdateContext> preparedContext_;
 };
 
-// P2-38: This strategy is a deliberate cross-platform fallback, not dead code.
+// This strategy is a deliberate cross-platform fallback, not dead code.
 // The application is currently Windows-only, but the update subsystem keeps a
 // platform abstraction so that a future Linux/macOS port only needs to provide
 // a real install strategy here. Until then every method returns a localised

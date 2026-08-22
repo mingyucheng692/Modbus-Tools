@@ -192,7 +192,7 @@ void TrafficMonitorWidget::setupUi() {
 }
 
 bool TrafficMonitorWidget::isRealtimeEvent(const ui::common::TrafficEvent& event) const {
-    // Task 1.4: the Warning/Error bypass is closed. Only low-frequency Connection
+    // The Warning/Error bypass is closed. Only low-frequency Connection
     // lifecycle events keep immediate rendering; everything else (including
     // Warning/Error storms) goes through the 120ms pendingEvents_ batch so the
     // UI thread is not re-entered per event.
@@ -277,7 +277,7 @@ void TrafficMonitorWidget::syncPauseUi() {
 void TrafficMonitorWidget::appendEventToHistory(const ui::common::TrafficEvent& event) {
     eventHistory_.append(event);
     const int maxRows = config::Ui::kTrafficMonitorMaxBlockCount;
-    // Task 1.4: trim in one batch instead of repeated removeFirst() (each of which
+    // Trim in one batch instead of repeated removeFirst() (each of which
     // is an O(n) shift). Normal flow overflows by at most 1, but the batch form
     // is correct for any overflow amount.
     const int overflow = eventHistory_.size() - maxRows;
@@ -464,10 +464,9 @@ void TrafficMonitorWidget::flushPendingEvents() {
     QList<LogEntry> batch;
     batch.reserve(pendingEvents_.size());
 
-    // Task 1.4 (error-storm merging): collapse runs of consecutive Error events
-    // that share the same summary into a single "[ERROR] xxx (xN)" line. Only
-    // adjacent events inside the current batch are merged; already-rendered
-    // history rows are never rescanned (see Plan_v2 Task 1.4 guideline).
+    // Collapse runs of consecutive Error events that share the same summary
+    // into a single "[ERROR] xxx (xN)" line. Only adjacent events inside the
+    // current batch are merged; already-rendered history rows are never rescanned.
     QString pendingErrorLine;
     QString pendingErrorSummary;
     QColor pendingErrorColor;

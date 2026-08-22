@@ -51,7 +51,7 @@ void TrafficLogController::logRawFrame(ui::common::TrafficDirection direction,
     const bool allowRawFrameLog = !suppressLog || rawFramesEnabled;
     if (!allowRawFrameLog) return;
 
-    // Task 1.4: sample poll frames (1 per kRawFrameSampleRate) so fast polling
+    // Sample poll frames (1 per kRawFrameSampleRate) so fast polling
     // with Raw Frames enabled does not flood the UI thread. Manual frames
     // (suppressLog == false) are never sampled. Dropped frames are counted and
     // reported by the next poll summary.
@@ -169,7 +169,7 @@ void TrafficLogController::logPollSummary(const PollSummary& summary) {
         .arg(summary.retryCount)
         .arg(avgRttText);
 
-    // Task 1.4: report Raw Frames sampling outcome for this window, then reset
+    // Report Raw Frames sampling outcome for this window, then reset
     // the per-window counters (phase is kept so the 1/N rhythm stays stable).
     if (rawFramesShown_ > 0 || rawFramesDropped_ > 0) {
         summaryText += tr(" | Raw frames shown %1, dropped %2")

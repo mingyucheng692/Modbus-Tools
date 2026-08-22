@@ -44,8 +44,8 @@ class UpdateCoordinator : public QObject {
     Q_OBJECT
 
 public:
-    /// @param requestQuit Replaces the former IApplicationExitView* (Task 3.2 /
-    ///        P1-7 single-method interface). Invoked on the GUI thread after
+    /// @param requestQuit Replaces the former IApplicationExitView*
+    ///        single-method interface. Invoked on the GUI thread after
     ///        the updater was launched successfully. The composition root must
     ///        guarantee the captured target outlives this coordinator.
     explicit UpdateCoordinator(IUpdateInteractionView* view,

@@ -69,7 +69,7 @@ public:
                     ui::widgets::BaseConnectionWidget* newConnectionWidget);
 
     // --- API for the View ---
-    // Pure forwarding to sessionPresenter() was removed (Task 3.2 / P1-6):
+    // Pure forwarding to sessionPresenter() was removed:
     // the View calls ModbusSessionPresenter directly via sessionPresenter().
     // The two members below carry extra logic and are NOT pure forwards.
     //
@@ -102,7 +102,7 @@ private:
     ui::widgets::BaseConnectionWidget* pendingConnectionWidget_ = nullptr;
 
     ModbusSessionPresenter* sessionPresenter_ = nullptr;
-    // Plain C++ (non-QObject, Task 3.2): unique_ptr ownership; must never be
+    // Plain C++ (non-QObject): unique_ptr ownership; must never be
     // deleteLater()'d. Destroyed in teardownServices() before the QObject
     // services that hold raw pointers into it are recreated.
     std::unique_ptr<RequestSubmissionService> requestService_;

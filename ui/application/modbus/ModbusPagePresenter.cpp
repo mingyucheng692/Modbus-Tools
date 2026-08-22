@@ -45,7 +45,7 @@ void ModbusPagePresenter::setup(ui::widgets::BaseConnectionWidget* connectionWid
 
 void ModbusPagePresenter::createServices() {
     sessionPresenter_ = new ModbusSessionPresenter(mode_, this);
-    // Plain C++ service (Task 3.2): unique_ptr, no QObject parent.
+    // Plain C++ service: unique_ptr, no QObject parent.
     requestService_ = std::make_unique<RequestSubmissionService>();
     pollingController_ = new PollingController(requestService_.get(), this);
     trafficLogController_ = new TrafficLogController(
@@ -60,16 +60,16 @@ void ModbusPagePresenter::createServices() {
     sessionPresenter_->setPollingController(pollingController_);
     sessionPresenter_->setTrafficLogController(trafficLogController_);
 
-    // Task 1.5: trafficEvent flows through TrafficLogController::publishEvent,
+    // TrafficEvent flows through TrafficLogController::publishEvent,
     // the single legitimate bridge entry (monitor append + LogBridge relay).
     // Wiring directly to the monitor would bypass relay() and re-create the
-    // dual-entry problem this task removes.
+    // dual-entry problem.
     connect(pollingController_, &PollingController::trafficEvent,
             trafficLogController_, &TrafficLogController::publishEvent);
 }
 
 void ModbusPagePresenter::wireConnections() {
-    // Task 3.2 / P1-6: RequestSubmissionService is no longer a QObject; the
+    // RequestSubmissionService is no longer a QObject; the
     // former txCountUpdated -> recordTx connection is a direct callback.
     // Lifetime: controlWidget_ is owned by the View and outlives this
     // presenter's services (torn down on switchMode before widgets change).

@@ -1,7 +1,7 @@
 /**
  * @file ThreadGuard.h
  * @brief Single project-wide implementation of the thread/worker teardown
- *        sequences (Plan v2 Task 3.5).
+ *        sequences.
  *
  * Copyright (c) 2025 - present mingyucheng692
  *

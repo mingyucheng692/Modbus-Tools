@@ -50,7 +50,7 @@ namespace {
 // UI-layer input preprocessing: strips bracketed metadata ([RX]/[TX]/timestamps),
 // 0x prefixes and non-hex characters; returns a contiguous lowercase/uppercase
 // hex string suitable for QByteArray::fromHex(), or a Latin-1 ASCII frame text
-// (":...\r\n") for Modbus ASCII frames. Kept here (P2-27) so the worker stays
+// (":...\r\n") for Modbus ASCII frames. Kept here so the worker stays
 // free of UI/input-format concerns.
 QString normalizeHexInput(const QString& input)
 {

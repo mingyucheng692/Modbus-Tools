@@ -1,7 +1,7 @@
 /**
  * @file TraceContextTest.cpp
  * @brief Unit tests for modbus::trace::Scope RAII semantics and the
- *        thread_local isolation of currentTraceId (Task 1.2).
+ *        thread_local isolation of currentTraceId.
  */
 
 #include <gtest/gtest.h>

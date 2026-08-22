@@ -1,6 +1,6 @@
 /**
  * @file WorkerLogDemotionTest.cpp
- * @brief Unit tests for the Task 1.1 log-demotion predicate: clean successes
+ * @brief Unit tests for the log-demotion predicate: clean successes
  *        (no error, no retry) go to debug; everything else keeps info.
  */
 

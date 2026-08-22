@@ -146,7 +146,7 @@ struct Ui {
     static constexpr int kDataMonitorFlushIntervalMs = 33;
     /// Raw Frames sampling: pass 1 poll frame per N, drop the rest (manual frames
     /// are never sampled). Keeps the UI thread responsive under fast polling while
-    /// Raw Frames mode is enabled. See Task 1.4.
+    /// Raw Frames mode is enabled.
     static constexpr int kRawFrameSampleRate = 10;
 };
 

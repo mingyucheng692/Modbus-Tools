@@ -47,7 +47,7 @@ protected:
     void loadSettings() override;
     void saveSettings() override;
 
-    // Display-state template method hooks (P2-44): Serial supplies the
+    // Display-state template method hooks: Serial supplies the
     // per-state display strings and its own input-widget list; the skeleton
     // lives in BaseConnectionWidget::applyDisplayState().
     [[nodiscard]] StateDisplayInfo getStateDisplayInfo(DisplayState state) const override;

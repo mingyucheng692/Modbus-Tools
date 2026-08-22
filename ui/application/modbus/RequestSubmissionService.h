@@ -34,7 +34,7 @@ struct RequestTrackingInfo {
  * @brief Plain C++ service for building Modbus requests and tracking
  *        submissions.
  *
- * Deliberately NOT a QObject (Task 3.2 / P1-6): it has no signal/slot needs
+ * Deliberately NOT a QObject: it has no signal/slot needs
  * beyond a single notification, which is exposed as the
  * `onTxCountUpdated` std::function callback. Ownership is std::unique_ptr;
  * the class must never be deleteLater()'d (no event-loop protection).

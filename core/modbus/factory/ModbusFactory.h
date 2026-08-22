@@ -30,8 +30,8 @@ struct ModbusStack {
 };
 
 // 工厂自由函数：根据配置创建并装配完整的 Modbus 协议栈。
-// Returns std::nullopt when the channel or transport cannot be created
-// (P2-36): callers never see a half-initialised stack, eliminating the
+// Returns std::nullopt when the channel or transport cannot be created:
+// callers never see a half-initialised stack, eliminating the
 // risk of dereferencing null channel/client/worker members.
 std::optional<ModbusStack> createStack(const base::ModbusConfig& config);
 

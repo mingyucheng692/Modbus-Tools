@@ -7,7 +7,7 @@ namespace ui::application {
 
 namespace {
 
-// Legal-transition table for the live-link state machine (P2-45).
+// Legal-transition table for the live-link state machine.
 // - Idle may only enter Live (start linkage); jumping Idle -> Paused is a
 //   logic error (cannot pause something that was never started).
 // - Live <-> Paused is the resume/pause cycle.

@@ -49,7 +49,7 @@ public:
     void logInfo(const QString& message);
     void logPollSummary(const PollSummary& summary);
 
-    /// Single legitimate entry point for traffic events (Task 1.5): appends to
+    /// Single legitimate entry point for traffic events: appends to
     /// the monitor and crosses the LogBridge into spdlog. Producers must emit
     /// signals wired here; calling ui::logging::relay() directly is forbidden.
     void publishEvent(ui::common::TrafficEvent event);
@@ -62,7 +62,7 @@ private:
     ui::widgets::TrafficMonitorWidget* monitor_ = nullptr;
     PollingController* pollingController_ = nullptr;
 
-    // Task 1.4 Raw Frames sampling state (poll frames only; manual frames are
+    // Raw Frames sampling state (poll frames only; manual frames are
     // never sampled). rawFramePhase_ keeps the 1/N rhythm across summary
     // windows; shown/dropped are per-window counters reported in the summary.
     int rawFramePhase_ = 0;

@@ -126,7 +126,7 @@ TEST(UpdateManagerInstallStrategy, LaunchInstallerDelegatesToInjectedStrategy)
     EXPECT_EQ(installStrategyPtr->lastLaunchProcessRunner_, processRunnerPtr);
 }
 
-// Task 2.1: bundled updater binary name shares the release-asset family
+// Bundled updater binary name shares the release-asset family
 // dispatch — Windows appends ".exe", other families stay extension-less.
 TEST(BundledUpdaterBinaryName, WindowsFamilyAppendsExeSuffix)
 {
@@ -160,7 +160,7 @@ TEST(BundledUpdaterBinaryName, UnknownFamilyFallsBackToPlainUpdater)
               QStringLiteral("updater"));
 }
 
-// Task 2.2: a minimal stub strategy (the shape a future Linux strategy would
+// A minimal stub strategy (the shape a future Linux strategy would
 // take) must be instantiable and keep UpdateManager usable in DownloadOnly.
 TEST(UpdateManagerInstallStrategy, StubStrategyRunsDownloadOnly)
 {

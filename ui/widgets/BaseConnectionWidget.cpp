@@ -57,7 +57,7 @@ bool BaseConnectionWidget::inputsLocked(DisplayState state) noexcept {
 }
 
 void BaseConnectionWidget::applyDisplayState() {
-    // Template method (P2-44): common skeleton shared by Serial and Network
+    // Template method: common skeleton shared by Serial and Network
     // connection widgets. Subclasses supply data via getStateDisplayInfo()
     // and per-widget enabling via applyInputWidgetsState(); protocol-specific
     // refresh is delegated to updateProtocolUi().
