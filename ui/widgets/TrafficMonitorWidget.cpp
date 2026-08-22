@@ -10,7 +10,7 @@
 #include "TrafficMonitorWidget.h"
 #include "Config.h"
 #include "CollapsibleSection.h"
-#include "../../core/common/ISettingsService.h"
+#include "infra/config/ISettingsService.h"
 #include <QVBoxLayout>
 #include <QHBoxLayout>
 #include <QListView>
@@ -46,7 +46,7 @@ constexpr int kUiFlushIntervalMs = 120;
 constexpr int kActionButtonMinWidth = 78;
 }
 
-TrafficMonitorWidget::TrafficMonitorWidget(core::common::ISettingsService* settingsService, QWidget *parent)
+TrafficMonitorWidget::TrafficMonitorWidget(infra::config::ISettingsService* settingsService, QWidget *parent)
     : QWidget(parent),
       settingsService_(settingsService) {
     setupUi();

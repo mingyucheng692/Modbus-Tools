@@ -13,7 +13,7 @@
 #include <QResource>
 #include <spdlog/spdlog.h>
 #include "MainWindow.h"
-#include "common/SettingsService.h"
+#include "infra/config/SettingsService.h"
 #include "common/ThemeController.h"
 #include "infra/platform/PathResolver.h"
 #include "infra/logging/Logger.h"
@@ -31,7 +31,7 @@ int main(int argc, char *argv[])
     app.setApplicationVersion(QStringLiteral(MODBUS_TOOLS_APP_VERSION));
 
     infra::platform::PathResolver pathResolver;
-    ui::common::SettingsService settingsService(pathResolver);
+    infra::config::SettingsService settingsService(pathResolver);
     ui::common::ThemeController themeController(settingsService);
 
     QString loggingError;

@@ -14,6 +14,7 @@
 #include <memory>
 
 namespace infra::platform { class PathResolver; }
+namespace infra::config { class ISettingsService; }
 
 class QStackedWidget;
 class QListWidget;
@@ -26,7 +27,7 @@ class QObject;
 class QWidget;
 class QToolButton;
 
-namespace core::common { class ISettingsService; class SettingsController; }
+namespace core::common { class SettingsController; }
 namespace core::update { class UpdateManager; }
 
 namespace ui {
@@ -47,7 +48,7 @@ class MainWindow : public QMainWindow,
     Q_OBJECT
 
 public:
-    explicit MainWindow(core::common::ISettingsService* settingsService,
+    explicit MainWindow(infra::config::ISettingsService* settingsService,
                         common::ThemeController* themeController,
                         infra::platform::PathResolver& pathResolver,
                         QWidget *parent = nullptr);
@@ -118,7 +119,7 @@ private:
     std::unique_ptr<application::AppLifecycleCoordinator> appLifecycleCoordinator_;
     // Original UI-layer pointer retained for UI-side builders that expect
     // the settings service interface.
-    core::common::ISettingsService* settingsService_ = nullptr;
+    infra::config::ISettingsService* settingsService_ = nullptr;
     infra::platform::PathResolver& pathResolver_;
     
     // Local State

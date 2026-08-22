@@ -9,7 +9,7 @@
 
 #include "FrameAnalyzerWidget.h"
 #include "Config.h"
-#include "../../core/common/ISettingsService.h"
+#include "infra/config/ISettingsService.h"
 #include "common/SettingsKeys.h"
 #include "common/ModbusDataHelper.h"
 #include "modbus/base/ModbusProtocolChecks.h"
@@ -123,7 +123,7 @@ QString normalizeHexInput(const QString& input)
 
 // --- FrameAnalyzerWidget Implementation ---
 
-FrameAnalyzerWidget::FrameAnalyzerWidget(core::common::ISettingsService* settingsService, QWidget* parent)
+FrameAnalyzerWidget::FrameAnalyzerWidget(infra::config::ISettingsService* settingsService, QWidget* parent)
     : QWidget(parent)
 {
     settingsService_ = settingsService;

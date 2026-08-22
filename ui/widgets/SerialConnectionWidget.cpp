@@ -11,7 +11,7 @@
 #include "Config.h"
 #include "CollapsibleSection.h"
 #include "common/SettingsKeys.h"
-#include "../../core/common/ISettingsService.h"
+#include "infra/config/ISettingsService.h"
 #include "../../core/common/TrContext.h"
 #include <QHBoxLayout>
 #include <QVBoxLayout>
@@ -100,7 +100,7 @@ bool usesDisconnectAction(SerialConnectionWidget::DisplayState state)
 
 } // namespace
 
-SerialConnectionWidget::SerialConnectionWidget(core::common::ISettingsService* settingsService, QWidget *parent)
+SerialConnectionWidget::SerialConnectionWidget(infra::config::ISettingsService* settingsService, QWidget *parent)
     : BaseConnectionWidget(settingsService, parent) {
     setupUi();
     refreshPorts();
@@ -313,12 +313,20 @@ void SerialConnectionWidget::loadSettings() {
     QSignalBlocker b4(stopBitsCombo_);
     QSignalBlocker b5(flowControlCombo_);
 
+    const QString baudKey = settingsGroup_.isEmpty() ? QString::fromLatin1(kModbusRtuBaudRate) : (settingsGroup_ + QStringLiteral("/baudRate"));
+    const QString dataBitsKey = settingsGroup_.isEmpty() ? QString::fromLatin1(kModbusRtuDataBits) : (settingsGroup_ + QStringLiteral("/dataBits"));
+    const QString parityKey = settingsGroup_.isEmpty() ? QString::fromLatin1(kModbusRtuParity) : (settingsGroup_ + QStringLiteral("/parity"));
+    const QString stopBitsKey = settingsGroup_.isEmpty() ? QString::fromLatin1(kModbusRtuStopBits) : (settingsGroup_ + QStringLiteral("/stopBits"));
+    const QString portKey = settingsGroup_.isEmpty() ? QString::fromLatin1(kModbusRtuPortName) : (settingsGroup_ + QStringLiteral("/portName"));
+    const QString flowKey = settingsGroup_.isEmpty() ? QString::fromLatin1(kModbusRtuFlowControl) : (settingsGroup_ + QStringLiteral("/flowControl"));
+
     const int fallbackBaud = settingsService_->value(kLegacySerialBaudRate).toInt();
-    const int baudRate = settingsService_->contains(kModbusRtuBaudRate) ? settingsService_->value(kModbusRtuBaudRate).toInt() : fallbackBaud;
-    const QString dataBits = settingsService_->value(kModbusRtuDataBits).toString();
-    const QString parity = settingsService_->value(kModbusRtuParity).toString();
-    const QString stopBits = settingsService_->value(kModbusRtuStopBits).toString();
-    const QString portName = settingsService_->value(kModbusRtuPortName).toString();
+    const int baudRate = settingsService_->contains(baudKey) ? settingsService_->value(baudKey).toInt() : fallbackBaud;
+    const QString dataBits = settingsService_->value(dataBitsKey).toString();
+    const QString parity = settingsService_->value(parityKey).toString();
+    const QString stopBits = settingsService_->value(stopBitsKey).toString();
+    const QString portName = settingsService_->value(portKey).toString();
+    const QString flowControl = settingsService_->value(flowKey).toString();
 
     const int baudIndex = baudCombo_->findText(QString::number(baudRate));
     if (baudIndex >= 0) {
@@ -343,7 +351,6 @@ void SerialConnectionWidget::loadSettings() {
         stopBitsCombo_->setCurrentIndex(stopIndex);
     }
 
-    const QString flowControl = settingsService_->value(kModbusRtuFlowControl).toString();
     int flowIndex = flowControl.isEmpty() ? 0 : flowControlCombo_->findData(flowControl);
     if (flowIndex < 0 && !flowControl.isEmpty()) {
         flowIndex = flowControlCombo_->findText(flowControl);
@@ -363,12 +370,20 @@ void SerialConnectionWidget::loadSettings() {
 void SerialConnectionWidget::saveSettings() {
     saveCommonSettings();
     if (!settingsService_) return;
-    settingsService_->setValue(kModbusRtuBaudRate, baudCombo_->currentText());
-    settingsService_->setValue(kModbusRtuDataBits, dataBitsCombo_->currentText());
-    settingsService_->setValue(kModbusRtuParity, parityCombo_->currentData().toString());
-    settingsService_->setValue(kModbusRtuStopBits, stopBitsCombo_->currentText());
-    settingsService_->setValue(kModbusRtuPortName, portCombo_->currentData().toString());
-    settingsService_->setValue(kModbusRtuFlowControl, flowControlCombo_->currentData().toString());
+
+    const QString baudKey = settingsGroup_.isEmpty() ? QString::fromLatin1(kModbusRtuBaudRate) : (settingsGroup_ + QStringLiteral("/baudRate"));
+    const QString dataBitsKey = settingsGroup_.isEmpty() ? QString::fromLatin1(kModbusRtuDataBits) : (settingsGroup_ + QStringLiteral("/dataBits"));
+    const QString parityKey = settingsGroup_.isEmpty() ? QString::fromLatin1(kModbusRtuParity) : (settingsGroup_ + QStringLiteral("/parity"));
+    const QString stopBitsKey = settingsGroup_.isEmpty() ? QString::fromLatin1(kModbusRtuStopBits) : (settingsGroup_ + QStringLiteral("/stopBits"));
+    const QString portKey = settingsGroup_.isEmpty() ? QString::fromLatin1(kModbusRtuPortName) : (settingsGroup_ + QStringLiteral("/portName"));
+    const QString flowKey = settingsGroup_.isEmpty() ? QString::fromLatin1(kModbusRtuFlowControl) : (settingsGroup_ + QStringLiteral("/flowControl"));
+
+    settingsService_->setValue(baudKey, baudCombo_->currentText());
+    settingsService_->setValue(dataBitsKey, dataBitsCombo_->currentText());
+    settingsService_->setValue(parityKey, parityCombo_->currentData().toString());
+    settingsService_->setValue(stopBitsKey, stopBitsCombo_->currentText());
+    settingsService_->setValue(portKey, portCombo_->currentData().toString());
+    settingsService_->setValue(flowKey, flowControlCombo_->currentData().toString());
 }
 
 void SerialConnectionWidget::retranslateUi() {

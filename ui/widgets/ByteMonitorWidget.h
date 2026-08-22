@@ -27,7 +27,7 @@ class QButtonGroup;
 class QTimer;
 class QEvent;
 
-namespace core::common {
+namespace infra::config {
 class ISettingsService;
 }
 
@@ -41,29 +41,32 @@ struct TrafficStats {
 
     qint64 txBytes = 0;
     qint64 rxBytes = 0;
+    qint64 txFrames = 0;
+    qint64 rxFrames = 0;
 
-    void update(Direction dir, int byteCount) {
-        if (byteCount <= 0) {
-            return;
-        }
+    void update(Direction dir, qint64 bytes) {
         if (dir == Direction::Tx) {
-            txBytes += byteCount;
+            txBytes += bytes;
+            ++txFrames;
         } else {
-            rxBytes += byteCount;
+            rxBytes += bytes;
+            ++rxFrames;
         }
     }
 
     QString formatStats() const {
         return QStringLiteral("TX: %1 | RX: %2")
-            .arg(formatSize(txBytes), formatSize(rxBytes));
+            .arg(formatBytes(txBytes), formatBytes(rxBytes));
     }
 
     void reset() {
         txBytes = 0;
         rxBytes = 0;
+        txFrames = 0;
+        rxFrames = 0;
     }
 
-    static QString formatSize(qint64 bytes) {
+    [[nodiscard]] static QString formatBytes(qint64 bytes) {
         if (bytes < 1024) {
             return QStringLiteral("%1 B").arg(bytes);
         }
@@ -72,18 +75,26 @@ struct TrafficStats {
         }
         return QStringLiteral("%1 MB").arg(bytes / (1024.0 * 1024.0), 0, 'f', 2);
     }
+
+    [[nodiscard]] static QString formatSize(qint64 bytes) {
+        return formatBytes(bytes);
+    }
 };
 
 struct PendingLine {
-    QString text;
-    QColor color;
+    enum class Kind { Tx, Rx, Info, Warn, Error };
+    Kind kind = Kind::Info;
+    QByteArray payload;
+    QString message;
+    qint64 elapsedMs = 0;
+    QString wallTimeString;
 };
 
 class ByteMonitorWidget : public QWidget {
     Q_OBJECT
 
 public:
-    explicit ByteMonitorWidget(core::common::ISettingsService* settingsService, QWidget* parent = nullptr);
+    explicit ByteMonitorWidget(infra::config::ISettingsService* settingsService, QWidget* parent = nullptr);
     ~ByteMonitorWidget() override;
 
     void appendTx(const QByteArray& data);
@@ -166,7 +177,7 @@ private:
     TimestampFormat timestampFormat_ = TimestampFormat::Absolute;
     bool paused_ = false;
     QString settingsGroup_;
-    core::common::ISettingsService* settingsService_ = nullptr;
+    infra::config::ISettingsService* settingsService_ = nullptr;
 };
 
 } // namespace ui::widgets

@@ -22,7 +22,7 @@ class QEvent;
 class QString;
 class QPoint;
 
-namespace core::common {
+namespace infra::config {
 class ISettingsService;
 }
 
@@ -32,7 +32,7 @@ class ControlWidget : public QWidget {
     Q_OBJECT
 
 public:
-    explicit ControlWidget(core::common::ISettingsService* settingsService, QWidget *parent = nullptr);
+    explicit ControlWidget(infra::config::ISettingsService* settingsService, QWidget *parent = nullptr);
     ~ControlWidget() override;
 
     void recordTx();
@@ -90,7 +90,7 @@ private:
     bool hasLastRtt_ = false;
 
     QString settingsGroup_;
-    core::common::ISettingsService* settingsService_ = nullptr;
+    infra::config::ISettingsService* settingsService_ = nullptr;
     std::function<bool()> connectionValidator_;
 
     bool skipAddrZeroWarning_ = false;

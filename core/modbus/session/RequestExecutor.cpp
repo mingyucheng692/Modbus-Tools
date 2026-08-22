@@ -140,9 +140,6 @@ RequestExecutor::RequestExecutor(const Dependencies& deps)
     , mutex_(deps.mutex)
     , cv_(deps.cv)
     , aborted_(deps.aborted)
-    , pendingMutex_(deps.pendingMutex)
-    , pendingRequests_(deps.pendingRequests)
-    , nextRequestId_(deps.nextRequestId)
     , exceptionDedupe_(kDupeTrackerSuppressionWindow)
     , failureDedupe_(kDupeTrackerSuppressionWindow) {
     Q_ASSERT(channel_);

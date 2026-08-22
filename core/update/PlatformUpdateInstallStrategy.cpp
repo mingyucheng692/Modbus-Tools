@@ -19,6 +19,7 @@
 #include <QJsonObject>
 #include <QCryptographicHash>
 #include <spdlog/spdlog.h>
+#include <optional>
 
 namespace {
 
@@ -96,18 +97,13 @@ public:
                                              QString& installArtifactPath,
                                              QString& errorMessage) const override
     {
-        const QString taskFilePath = QFileInfo(context.updateFilePath).dir().filePath(
-            QStringLiteral("update_task.json"));
-        QFile taskFile(taskFilePath);
-        if (!taskFile.open(QIODevice::WriteOnly | QIODevice::Truncate)) {
+        if (context.applicationFilePath.isEmpty() || context.updateFilePath.isEmpty() || context.expectedSha256.isEmpty()) {
             errorMessage = QCoreApplication::translate("core::update::UpdateManager",
-                                                       "Failed to create update task file");
+                                                       "Incomplete update task parameters");
             return false;
         }
-
-        taskFile.write(QJsonDocument(buildWindowsTaskDocument(context)).toJson());
-        taskFile.close();
-        installArtifactPath = taskFilePath;
+        preparedContext_ = context;
+        installArtifactPath = context.updateFilePath;
         return true;
     }
 
@@ -139,29 +135,34 @@ public:
             }
         }
 
-        // Read task.json to extract parameters, then pass them via CLI
-        // (not via --task file) to eliminate TOCTOU surface.
-        QFile taskFile(installArtifactPath);
-        if (!taskFile.open(QIODevice::ReadOnly)) {
-            errorMessage = QCoreApplication::translate("core::update::UpdateManager",
-                                                       "Failed to read update task file");
-            return false;
-        }
-        const QJsonDocument doc = QJsonDocument::fromJson(taskFile.readAll());
-        taskFile.close();
-        if (!doc.isObject()) {
-            errorMessage = QCoreApplication::translate("core::update::UpdateManager",
-                                                       "Invalid update task file");
-            return false;
-        }
-
-        const QJsonObject root = doc.object();
-        const QString targetExe = root.value(QStringLiteral("targetExePath")).toString();
-        const QString newExe = root.value(QStringLiteral("newExePath")).toString();
-        const QString backupExe = root.value(QStringLiteral("backupExePath")).toString();
-        const QString expectedSha256 = root.value(QStringLiteral("expectedSha256")).toString();
-        const QString expectedVersion = root.value(QStringLiteral("expectedVersion")).toString();
+        QString targetExe;
+        QString newExe;
+        QString backupExe;
+        QString expectedSha256;
+        QString expectedVersion;
         const qint64 launcherPid = static_cast<qint64>(QCoreApplication::applicationPid());
+
+        if (preparedContext_.has_value()) {
+            targetExe = preparedContext_->applicationFilePath;
+            newExe = preparedContext_->updateFilePath;
+            backupExe = targetExe + QStringLiteral(".bak");
+            expectedSha256 = preparedContext_->expectedSha256;
+            expectedVersion = preparedContext_->latestVersion;
+        } else if (QFileInfo::exists(installArtifactPath)) {
+            // Backward compatibility fallback in case an external task.json is supplied directly
+            QFile taskFile(installArtifactPath);
+            if (taskFile.open(QIODevice::ReadOnly)) {
+                const QJsonDocument doc = QJsonDocument::fromJson(taskFile.readAll());
+                if (doc.isObject()) {
+                    const QJsonObject root = doc.object();
+                    targetExe = root.value(QStringLiteral("targetExePath")).toString();
+                    newExe = root.value(QStringLiteral("newExePath")).toString();
+                    backupExe = root.value(QStringLiteral("backupExePath")).toString();
+                    expectedSha256 = root.value(QStringLiteral("expectedSha256")).toString();
+                    expectedVersion = root.value(QStringLiteral("expectedVersion")).toString();
+                }
+            }
+        }
 
         if (targetExe.isEmpty() || newExe.isEmpty() || expectedSha256.isEmpty()) {
             errorMessage = QCoreApplication::translate("core::update::UpdateManager",
@@ -212,31 +213,8 @@ private:
             core::update::release_asset::bundledUpdaterBinaryName(currentPackagePlatform()));
     }
 
-    /// Windows Task Scheduler-style update task document (Task 2.2: moved out
-    /// of the platform-neutral base class; only this strategy knows the JSON
-    /// layout the Win32 updater consumes).
-    [[nodiscard]] static QJsonObject buildWindowsTaskDocument(
-        const core::update::PreparedUpdateContext& context)
-    {
-        const QString backupExePath = context.applicationFilePath + QStringLiteral(".bak");
-
-        QJsonObject root;
-        root.insert(QStringLiteral("schemaVersion"), 1);
-        root.insert(QStringLiteral("launcherPid"),
-                    static_cast<qint64>(QCoreApplication::applicationPid()));
-        root.insert(QStringLiteral("targetExePath"),
-                    QDir::toNativeSeparators(context.applicationFilePath));
-        root.insert(QStringLiteral("newExePath"),
-                    QDir::toNativeSeparators(context.updateFilePath));
-        root.insert(QStringLiteral("backupExePath"),
-                    QDir::toNativeSeparators(backupExePath));
-        root.insert(QStringLiteral("expectedVersion"), context.latestVersion);
-        root.insert(QStringLiteral("expectedSha256"), context.expectedSha256);
-        root.insert(QStringLiteral("restartAfterUpdate"), true);
-        return root;
-    }
-
     const infra::platform::PathResolver* pathResolver_ = nullptr;
+    mutable std::optional<core::update::PreparedUpdateContext> preparedContext_;
 };
 
 // P2-38: This strategy is a deliberate cross-platform fallback, not dead code.

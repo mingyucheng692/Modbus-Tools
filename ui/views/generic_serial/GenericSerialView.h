@@ -24,7 +24,7 @@ class CollapsibleSection;
 class QCheckBox;
 class QGroupBox;
 
-namespace core::common {
+namespace infra::config {
 class ISettingsService;
 }
 
@@ -41,7 +41,7 @@ class GenericSerialView : public GenericChannelViewBase {
     Q_OBJECT
 
 public:
-    explicit GenericSerialView(core::common::ISettingsService* settingsService, QWidget *parent = nullptr);
+    explicit GenericSerialView(infra::config::ISettingsService* settingsService, QWidget *parent = nullptr);
     ~GenericSerialView() noexcept override;
 
 private slots:

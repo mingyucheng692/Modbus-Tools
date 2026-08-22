@@ -19,7 +19,7 @@ class QLabel;
 
 class QString;
 
-namespace core::common {
+namespace infra::config {
 class ISettingsService;
 }
 
@@ -31,7 +31,7 @@ class SerialConnectionWidget : public BaseConnectionWidget {
 public:
     using DisplayState = BaseConnectionWidget::DisplayState;
 
-    explicit SerialConnectionWidget(core::common::ISettingsService* settingsService, QWidget *parent = nullptr);
+    explicit SerialConnectionWidget(infra::config::ISettingsService* settingsService, QWidget *parent = nullptr);
     ~SerialConnectionWidget() override;
 
     [[nodiscard]] io::SerialConfig getConfig() const;

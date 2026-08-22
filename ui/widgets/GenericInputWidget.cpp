@@ -9,7 +9,7 @@
 
 #include "GenericInputWidget.h"
 #include "Config.h"
-#include "../../core/common/ISettingsService.h"
+#include "infra/config/ISettingsService.h"
 #include <QVBoxLayout>
 #include <QHBoxLayout>
 #include <QTextEdit>
@@ -28,7 +28,7 @@
 
 namespace ui::widgets {
 
-GenericInputWidget::GenericInputWidget(core::common::ISettingsService* settingsService, QWidget *parent)
+GenericInputWidget::GenericInputWidget(infra::config::ISettingsService* settingsService, QWidget *parent)
     : QWidget(parent),
       settingsService_(settingsService)
 {

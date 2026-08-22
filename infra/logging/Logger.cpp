@@ -179,17 +179,43 @@ bool Init(const QString& logDir, QString* errorMessage) noexcept
     logger->set_formatter(std::make_unique<spdlog::pattern_formatter>(
         "%Y-%m-%d %H:%M:%S.%eZ [%t] [%^%l%$] %v",
         spdlog::pattern_time_type::utc));
-    logger->set_level(kDefaultLogLevel);
+    auto effectiveLogLevel = kDefaultLogLevel;
+    const QByteArray envLevel = qgetenv("MODBUS_TOOLS_LOG_LEVEL").toUpper();
+    if (!envLevel.isEmpty()) {
+        if (envLevel == "TRACE") effectiveLogLevel = spdlog::level::trace;
+        else if (envLevel == "DEBUG") effectiveLogLevel = spdlog::level::debug;
+        else if (envLevel == "INFO") effectiveLogLevel = spdlog::level::info;
+        else if (envLevel == "WARN" || envLevel == "WARNING") effectiveLogLevel = spdlog::level::warn;
+        else if (envLevel == "ERR" || envLevel == "ERROR") effectiveLogLevel = spdlog::level::err;
+        else if (envLevel == "CRITICAL" || envLevel == "FATAL") effectiveLogLevel = spdlog::level::critical;
+        else if (envLevel == "OFF") effectiveLogLevel = spdlog::level::off;
+    }
+
+    logger->set_level(effectiveLogLevel);
     logger->flush_on(kDefaultFlushLevel);
     spdlog::set_error_handler([](const std::string& message) {
         fprintf(stderr, "spdlog failure: %s\n", message.c_str());
     });
 
     spdlog::set_default_logger(logger);
-    spdlog::set_level(kDefaultLogLevel);
+    spdlog::set_level(effectiveLogLevel);
 
     qInstallMessageHandler(QtMessageHandler);
     return true;
+}
+
+void SetLogLevel(spdlog::level::level_enum level) noexcept {
+    spdlog::set_level(level);
+    if (auto logger = spdlog::default_logger()) {
+        logger->set_level(level);
+    }
+}
+
+[[nodiscard]] spdlog::level::level_enum GetLogLevel() noexcept {
+    if (auto logger = spdlog::default_logger()) {
+        return logger->level();
+    }
+    return spdlog::get_level();
 }
 
 }

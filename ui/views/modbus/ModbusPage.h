@@ -27,7 +27,7 @@ class QStackedWidget;
 class QEvent;
 class QTimer;
 
-namespace core::common {
+namespace infra::config {
 class ISettingsService;
 }
 
@@ -63,7 +63,7 @@ class ModbusPage : public QWidget {
     Q_OBJECT
 
 public:
-    explicit ModbusPage(core::common::ISettingsService* settingsService, QWidget* parent = nullptr);
+    explicit ModbusPage(infra::config::ISettingsService* settingsService, QWidget* parent = nullptr);
     ~ModbusPage() noexcept override;
 
     void updateModbusSettings(int timeoutMs, int retries, int retryIntervalMs);
@@ -136,7 +136,7 @@ private:
     ui::application::modbus::ModbusSessionPresenter* sessionPresenter_ = nullptr;
     ui::application::modbus::ModbusPagePresenter* pagePresenter_ = nullptr;
 
-    core::common::ISettingsService* settingsService_ = nullptr;
+    infra::config::ISettingsService* settingsService_ = nullptr;
     ui::application::modbus::SessionMode currentMode_ = ui::application::modbus::SessionMode::Tcp;
 };
 

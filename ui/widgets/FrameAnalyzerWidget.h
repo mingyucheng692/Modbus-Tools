@@ -30,7 +30,7 @@ class QTabWidget;
 class QTableWidget;
 class QTreeWidget;
 
-namespace core::common {
+namespace infra::config {
 class ISettingsService;
 }
 
@@ -52,7 +52,7 @@ class FrameAnalyzerWidget : public QWidget {
     Q_OBJECT
 
 public:
-    explicit FrameAnalyzerWidget(core::common::ISettingsService* settingsService, QWidget* parent = nullptr);
+    explicit FrameAnalyzerWidget(infra::config::ISettingsService* settingsService, QWidget* parent = nullptr);
     ~FrameAnalyzerWidget() override;
 
     /**
@@ -106,7 +106,7 @@ private:
     void createResultGroup();
 
     // --- Services / threading ---
-    core::common::ISettingsService* settingsService_ = nullptr;
+    infra::config::ISettingsService* settingsService_ = nullptr;
     ui::application::analyzer::FrameAnalyzerPresenter* presenter_ = nullptr;
 
     // --- Input controls ---

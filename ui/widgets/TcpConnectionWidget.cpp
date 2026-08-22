@@ -8,7 +8,7 @@
  */
 
 #include "TcpConnectionWidget.h"
-#include "../../core/common/ISettingsService.h"
+#include "infra/config/ISettingsService.h"
 #include <QLabel>
 #include <QPushButton>
 #include <QLineEdit>
@@ -17,7 +17,7 @@
 
 namespace ui::widgets {
 
-TcpConnectionWidget::TcpConnectionWidget(TcpRole role, core::common::ISettingsService* settingsService, QWidget* parent)
+TcpConnectionWidget::TcpConnectionWidget(TcpRole role, infra::config::ISettingsService* settingsService, QWidget* parent)
     : NetworkConnectionWidget(settingsService, parent),
       role_(role) {
     setupNetworkUi();

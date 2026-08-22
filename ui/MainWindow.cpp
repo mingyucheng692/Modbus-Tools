@@ -27,7 +27,7 @@
 #include "common/ThemeController.h"
 #include "common/ThemeUi.h"
 #include "common/UpdateChecker.h"
-#include "../core/common/ISettingsService.h"
+#include "infra/config/ISettingsService.h"
 #include "../core/update/UpdateManager.h"
 #include "../core/common/SettingsController.h"
 #include "../infra/logging/Logger.h"
@@ -76,7 +76,7 @@ protected:
 
 namespace ui {
 
-MainWindow::MainWindow(core::common::ISettingsService* settingsService,
+MainWindow::MainWindow(infra::config::ISettingsService* settingsService,
                        common::ThemeController* themeController,
                        infra::platform::PathResolver& pathResolver,
                        QWidget *parent)
@@ -322,7 +322,7 @@ void MainWindow::applyModbusSettingsToViews(int timeoutMs, int retries, int retr
 void MainWindow::openModbusSettingsDialog() {
     int t, r, i; bool e;
     settingsController_->loadModbusSettings(t, r, i, e);
-    const auto currentLevel = spdlog::default_logger()->level();
+    const auto currentLevel = logging::GetLogLevel();
     const int currentLogLevel = static_cast<int>(currentLevel);
     widgets::ModbusSettingsDialog::Settings current{t, r, i, e, currentLogLevel};
 
@@ -332,10 +332,7 @@ void MainWindow::openModbusSettingsDialog() {
         settingsController_->setModbusSettings(s.timeoutMs, s.retries, s.retryIntervalMs, s.retryEnabled);
         applyModbusSettingsToViews(s.timeoutMs, s.retryEnabled ? s.retries : 0, s.retryIntervalMs);
         const auto newLevel = static_cast<spdlog::level::level_enum>(s.logLevel);
-        spdlog::set_level(newLevel);
-        if (auto logger = spdlog::default_logger()) {
-            logger->set_level(newLevel);
-        }
+        logging::SetLogLevel(newLevel);
     }
 }
 

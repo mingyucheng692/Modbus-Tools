@@ -1,6 +1,6 @@
 #include "shell/MainWindowPageBuilder.h"
 
-#include "../../core/common/ISettingsService.h"
+#include "infra/config/ISettingsService.h"
 #include "views/generic_serial/GenericSerialView.h"
 #include "views/generic_tcp/GenericTcpView.h"
 #include "views/modbus/ModbusPage.h"
@@ -30,7 +30,7 @@ int MainWindowPages::indexFor(MainPage page) const {
     return pageIndexByNavigationRow[static_cast<std::size_t>(page)];
 }
 
-MainWindowPages buildMainWindowPages(core::common::ISettingsService* settingsService,
+MainWindowPages buildMainWindowPages(infra::config::ISettingsService* settingsService,
                                      QStackedWidget* stackedWidget,
                                      QWidget* owner) {
     MainWindowPages pages;

@@ -29,6 +29,10 @@ target_sources(infra PRIVATE
     # logging
     logging/Logger.h
     logging/Logger.cpp
+    # config
+    config/ISettingsService.h
+    config/SettingsService.h
+    config/SettingsService.cpp
 )
 
 target_link_libraries(infra PUBLIC

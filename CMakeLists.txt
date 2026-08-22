@@ -29,7 +29,7 @@ function(modbus_tools_apply_logging_policy target_name)
 
     target_compile_definitions(${target_name} PRIVATE
         MODBUS_TOOLS_ENABLE_VERBOSE_RUNTIME_LOGS=$<IF:$<BOOL:${MODBUS_TOOLS_ENABLE_VERBOSE_RUNTIME_LOGS}>,1,0>
-        SPDLOG_ACTIVE_LEVEL=$<IF:$<CONFIG:Debug>,SPDLOG_LEVEL_DEBUG,SPDLOG_LEVEL_INFO>
+        SPDLOG_ACTIVE_LEVEL=SPDLOG_LEVEL_DEBUG
         $<$<NOT:$<CONFIG:Debug>>:QT_NO_DEBUG_OUTPUT>
     )
 endfunction()

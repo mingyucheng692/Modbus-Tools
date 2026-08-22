@@ -22,7 +22,7 @@ class QSpinBox;
 class QLabel;
 
 
-namespace core::common {
+namespace infra::config {
 class ISettingsService;
 }
 
@@ -41,7 +41,7 @@ class NetworkConnectionWidget : public BaseConnectionWidget {
 public:
     using DisplayState = BaseConnectionWidget::DisplayState;
 
-    explicit NetworkConnectionWidget(core::common::ISettingsService* settingsService, QWidget* parent = nullptr);
+    explicit NetworkConnectionWidget(infra::config::ISettingsService* settingsService, QWidget* parent = nullptr);
     ~NetworkConnectionWidget() override;
 
     void setDefaultPort(int port);

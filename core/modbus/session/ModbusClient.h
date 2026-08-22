@@ -178,12 +178,8 @@ private:
     RequestStateMachine requestStateMachine_;
     std::atomic<SessionHealth> sessionHealth_{SessionHealth::Unknown};
 
-    // @guarded_by pendingMutex_ — pendingRequests_, nextRequestId_
-    std::mutex pendingMutex_;
     FrameExtractor frameExtractor_;
     FlowController flowController_;
-    int nextRequestId_ = 1;
-    std::deque<PendingRequest> pendingRequests_;
 
     RequestExecutor requestExecutor_;
 };

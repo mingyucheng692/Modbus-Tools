@@ -9,12 +9,13 @@
 
 #include "GenericChannelViewBase.h"
 #include "ChannelController.h"
+#include "infra/config/ISettingsService.h"
 #include "../common/ConnectionAlert.h"
 #include <QEvent>
 
 namespace ui::views {
 
-GenericChannelViewBase::GenericChannelViewBase(core::common::ISettingsService* settingsService, QWidget* parent)
+GenericChannelViewBase::GenericChannelViewBase(infra::config::ISettingsService* settingsService, QWidget* parent)
     : QWidget(parent),
       settingsService_(settingsService) {
 }

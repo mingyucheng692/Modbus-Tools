@@ -25,7 +25,7 @@ class QString;
 class QTimer;
 class QColor;
 
-namespace core::common {
+namespace infra::config {
 class ISettingsService;
 }
 
@@ -36,7 +36,7 @@ class TrafficMonitorWidget : public QWidget {
     Q_OBJECT
 
 public:
-    explicit TrafficMonitorWidget(core::common::ISettingsService* settingsService, QWidget *parent = nullptr);
+    explicit TrafficMonitorWidget(infra::config::ISettingsService* settingsService, QWidget *parent = nullptr);
     ~TrafficMonitorWidget() override;
 
     void appendEvent(const ui::common::TrafficEvent& event);
@@ -107,7 +107,7 @@ private:
     bool rebuildScheduled_ = false;
 
     QString settingsGroup_;
-    core::common::ISettingsService* settingsService_ = nullptr;
+    infra::config::ISettingsService* settingsService_ = nullptr;
 };
 
 } // namespace ui::widgets

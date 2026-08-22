@@ -6,7 +6,7 @@
 class QStackedWidget;
 class QWidget;
 
-namespace core::common {
+namespace infra::config {
 class ISettingsService;
 }
 
@@ -50,7 +50,7 @@ struct MainWindowPages {
  * @param owner           QObject parent for the created pages.
  * @return MainWindowPages with pointers and navigation-row indices.
  */
-[[nodiscard]] MainWindowPages buildMainWindowPages(core::common::ISettingsService* settingsService,
+[[nodiscard]] MainWindowPages buildMainWindowPages(infra::config::ISettingsService* settingsService,
                                                     QStackedWidget* stackedWidget,
                                                     QWidget* owner);
 

@@ -83,10 +83,7 @@ ModbusClient::ModbusClient(std::shared_ptr<io::IChannel> channel,
           &config_,
           mutex_,
           cv_,
-          aborted_,
-          pendingMutex_,
-          pendingRequests_,
-          nextRequestId_}) {
+          aborted_}) {
 
     // Channel callbacks
     channel_->setReadHandler([this](QByteArrayView data) {

@@ -9,7 +9,7 @@
 
 #pragma once
 
-#include "../../core/common/ISettingsService.h"
+#include "infra/config/ISettingsService.h"
 #include "Theme.h"
 #include <QObject>
 #include <QPalette>
@@ -30,7 +30,7 @@ class ThemeController : public QObject {
     Q_OBJECT
 
 public:
-    explicit ThemeController(::core::common::ISettingsService& settingsService, QObject* parent = nullptr);
+    explicit ThemeController(infra::config::ISettingsService& settingsService, QObject* parent = nullptr);
 
     [[nodiscard]] Theme::Mode currentMode() const noexcept;
 
@@ -44,7 +44,7 @@ signals:
 private:
     void applyMode(Theme::Mode mode, bool persist);
 
-    ::core::common::ISettingsService& settingsService_;
+    infra::config::ISettingsService& settingsService_;
     Theme::Mode currentMode_ = Theme::Mode::Auto;
 };
 

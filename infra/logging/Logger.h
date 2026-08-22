@@ -28,4 +28,8 @@ namespace logging {
 
 [[nodiscard]] bool Init(const QString& logDir, QString* errorMessage = nullptr) noexcept;
 
+void SetLogLevel(spdlog::level::level_enum level) noexcept;
+
+[[nodiscard]] spdlog::level::level_enum GetLogLevel() noexcept;
+
 }

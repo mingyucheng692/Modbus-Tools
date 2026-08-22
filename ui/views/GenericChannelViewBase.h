@@ -13,7 +13,7 @@
 #include <QString>
 #include <QByteArray>
 
-namespace core::common {
+namespace infra::config {
 class ISettingsService;
 }
 
@@ -33,7 +33,7 @@ class GenericChannelViewBase : public QWidget {
     Q_OBJECT
 
 public:
-    explicit GenericChannelViewBase(core::common::ISettingsService* settingsService, QWidget* parent = nullptr);
+    explicit GenericChannelViewBase(infra::config::ISettingsService* settingsService, QWidget* parent = nullptr);
     ~GenericChannelViewBase() noexcept override;
 
 protected slots:
@@ -48,7 +48,7 @@ protected:
     ChannelController* channelController_ = nullptr;
 
     bool isConnected_ = false;
-    core::common::ISettingsService* settingsService_ = nullptr;
+    infra::config::ISettingsService* settingsService_ = nullptr;
 };
 
 } // namespace ui::views

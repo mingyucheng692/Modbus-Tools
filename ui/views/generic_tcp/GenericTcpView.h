@@ -32,7 +32,7 @@ class CollapsibleSection;
 
 class QThread;
 
-namespace core::common {
+namespace infra::config {
 class ISettingsService;
 }
 
@@ -56,7 +56,7 @@ public:
     };
     Q_ENUM(Protocol)
 
-    explicit GenericTcpView(core::common::ISettingsService* settingsService, QWidget *parent = nullptr);
+    explicit GenericTcpView(infra::config::ISettingsService* settingsService, QWidget *parent = nullptr);
     ~GenericTcpView() noexcept override;
 
 private slots:

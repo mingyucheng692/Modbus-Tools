@@ -8,7 +8,7 @@
  */
 
 #include "CollapsibleSection.h"
-#include "../../core/common/ISettingsService.h"
+#include "infra/config/ISettingsService.h"
 #include <QVBoxLayout>
 #include <QHBoxLayout>
 #include <QLabel>
@@ -18,7 +18,7 @@
 
 namespace ui::widgets {
 
-CollapsibleSection::CollapsibleSection(core::common::ISettingsService* settingsService, QWidget* parent)
+CollapsibleSection::CollapsibleSection(infra::config::ISettingsService* settingsService, QWidget* parent)
     : QWidget(parent),
       settingsService_(settingsService) {
     auto mainLayout = new QVBoxLayout(this);

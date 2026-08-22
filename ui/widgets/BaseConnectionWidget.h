@@ -19,7 +19,7 @@ class QPushButton;
 class QEvent;
 class QHBoxLayout;
 
-namespace core::common {
+namespace infra::config {
 class ISettingsService;
 }
 
@@ -75,7 +75,7 @@ class BaseConnectionWidget : public QWidget {
 public:
     using DisplayState = ui::widgets::DisplayState;
 
-    explicit BaseConnectionWidget(core::common::ISettingsService* settingsService, QWidget* parent = nullptr);
+    explicit BaseConnectionWidget(infra::config::ISettingsService* settingsService, QWidget* parent = nullptr);
     ~BaseConnectionWidget() override;
 
     /**
@@ -155,7 +155,7 @@ protected:
     /** @brief True when @p state should lock input widgets (i.e. not Disconnected). */
     [[nodiscard]] static bool inputsLocked(DisplayState state) noexcept;
 
-    core::common::ISettingsService* settingsService_ = nullptr;
+    infra::config::ISettingsService* settingsService_ = nullptr;
     QString settingsGroup_;
 
     CollapsibleSection* section_ = nullptr;

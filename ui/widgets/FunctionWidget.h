@@ -22,7 +22,7 @@ class QPushButton;
 class QEvent;
 class QString;
 
-namespace core::common {
+namespace infra::config {
 class ISettingsService;
 }
 
@@ -33,7 +33,7 @@ class FunctionWidget : public QWidget {
     Q_OBJECT
 
 public:
-    explicit FunctionWidget(core::common::ISettingsService* settingsService, QWidget *parent = nullptr);
+    explicit FunctionWidget(infra::config::ISettingsService* settingsService, QWidget *parent = nullptr);
     ~FunctionWidget() override;
 
     int getSlaveId() const;
@@ -102,7 +102,7 @@ private:
     QPushButton* addMbapBtn_ = nullptr;
 
     QString settingsGroup_;
-    core::common::ISettingsService* settingsService_ = nullptr;
+    infra::config::ISettingsService* settingsService_ = nullptr;
     ui::application::modbus::TransportUiMode transportMode_ =
         ui::application::modbus::TransportUiMode::Rtu;
 };

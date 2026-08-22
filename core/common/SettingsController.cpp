@@ -9,13 +9,14 @@
 
 #include "SettingsController.h"
 #include "SettingsKeys.h"
+#include "infra/config/ISettingsService.h"
 #include "../Config.h"
 
 namespace core::common {
 
 using namespace core::common::settings_keys;
 
-SettingsController::SettingsController(ISettingsService* settingsService)
+SettingsController::SettingsController(infra::config::ISettingsService* settingsService)
     : settingsService_(settingsService) {
     Q_ASSERT(settingsService_ != nullptr);
 }

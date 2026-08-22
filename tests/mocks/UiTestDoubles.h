@@ -3,7 +3,7 @@
 #include "../../ui/application/IMainWindowView.h"
 #include "../../ui/application/UpdateCoordinator.h"
 #include "../../core/update/UpdateManager.h"
-#include "../../core/common/ISettingsService.h"
+#include "infra/config/ISettingsService.h"
 #include "../../ui/common/UpdateChecker.h"
 
 #include <QHash>
@@ -12,7 +12,7 @@
 
 namespace tests::mocks {
 
-class FakeSettingsService final : public ::core::common::ISettingsService {
+class FakeSettingsService final : public ::infra::config::ISettingsService {
 public:
     QVariant value(const QString& key) const override { return values_.value(key); }
     bool contains(const QString& key) const override { return values_.contains(key); }

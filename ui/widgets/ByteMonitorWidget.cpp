@@ -9,7 +9,7 @@
 
 #include "ByteMonitorWidget.h"
 #include "Config.h"
-#include "../../core/common/ISettingsService.h"
+#include "infra/config/ISettingsService.h"
 #include <QVBoxLayout>
 #include <QHBoxLayout>
 #include <QListView>
@@ -43,7 +43,7 @@ QColor colorForWarn() { return QColor(255, 140, 0); }
 
 } // anonymous namespace
 
-ByteMonitorWidget::ByteMonitorWidget(core::common::ISettingsService* settingsService, QWidget* parent)
+ByteMonitorWidget::ByteMonitorWidget(infra::config::ISettingsService* settingsService, QWidget* parent)
     : QWidget(parent),
       settingsService_(settingsService) {
     elapsedTimer_.start();
@@ -229,8 +229,13 @@ void ByteMonitorWidget::onTxData(QByteArray data) {
         return;
     }
     stats_.update(TrafficStats::Direction::Tx, data.size());
-    const QString text = tr("[%1] [TX] %2").arg(formatTimestamp(), formatData(data));
-    appendLogLine(text, colorForTx());
+    const QString wallTime = (timestampFormat_ == TimestampFormat::Absolute)
+        ? QDateTime::currentDateTimeUtc().toLocalTime().toString("HH:mm:ss.zzz")
+        : QString();
+    pendingLines_.append({PendingLine::Kind::Tx, std::move(data), {}, elapsedTimer_.elapsed(), wallTime});
+    if (flushTimer_ && !flushTimer_->isActive()) {
+        flushTimer_->start();
+    }
 }
 
 void ByteMonitorWidget::onRxData(QByteArray data) {
@@ -238,29 +243,43 @@ void ByteMonitorWidget::onRxData(QByteArray data) {
         return;
     }
     stats_.update(TrafficStats::Direction::Rx, data.size());
-    const QString text = tr("[%1] [RX] %2").arg(formatTimestamp(), formatData(data));
-    appendLogLine(text, colorForRx());
+    const QString wallTime = (timestampFormat_ == TimestampFormat::Absolute)
+        ? QDateTime::currentDateTimeUtc().toLocalTime().toString("HH:mm:ss.zzz")
+        : QString();
+    pendingLines_.append({PendingLine::Kind::Rx, std::move(data), {}, elapsedTimer_.elapsed(), wallTime});
+    if (flushTimer_ && !flushTimer_->isActive()) {
+        flushTimer_->start();
+    }
 }
 
 void ByteMonitorWidget::onInfoMessage(QString message) {
-    const QString text = timestampFormat_ == TimestampFormat::None
-        ? tr("[INFO] %1").arg(message)
-        : tr("[%1] [INFO] %2").arg(formatTimestamp(), message);
-    appendLogLine(text, colorForInfo());
+    const QString wallTime = (timestampFormat_ == TimestampFormat::Absolute)
+        ? QDateTime::currentDateTimeUtc().toLocalTime().toString("HH:mm:ss.zzz")
+        : QString();
+    pendingLines_.append({PendingLine::Kind::Info, {}, std::move(message), elapsedTimer_.elapsed(), wallTime});
+    if (flushTimer_ && !flushTimer_->isActive()) {
+        flushTimer_->start();
+    }
 }
 
 void ByteMonitorWidget::onErrorMessage(QString message) {
-    const QString text = timestampFormat_ == TimestampFormat::None
-        ? tr("[ERROR] %1").arg(message)
-        : tr("[%1] [ERROR] %2").arg(formatTimestamp(), message);
-    appendLogLine(text, colorForError());
+    const QString wallTime = (timestampFormat_ == TimestampFormat::Absolute)
+        ? QDateTime::currentDateTimeUtc().toLocalTime().toString("HH:mm:ss.zzz")
+        : QString();
+    pendingLines_.append({PendingLine::Kind::Error, {}, std::move(message), elapsedTimer_.elapsed(), wallTime});
+    if (flushTimer_ && !flushTimer_->isActive()) {
+        flushTimer_->start();
+    }
 }
 
 void ByteMonitorWidget::onWarnMessage(QString message) {
-    const QString text = timestampFormat_ == TimestampFormat::None
-        ? tr("[WARN] %1").arg(message)
-        : tr("[%1] [WARN] %2").arg(formatTimestamp(), message);
-    appendLogLine(text, colorForWarn());
+    const QString wallTime = (timestampFormat_ == TimestampFormat::Absolute)
+        ? QDateTime::currentDateTimeUtc().toLocalTime().toString("HH:mm:ss.zzz")
+        : QString();
+    pendingLines_.append({PendingLine::Kind::Warn, {}, std::move(message), elapsedTimer_.elapsed(), wallTime});
+    if (flushTimer_ && !flushTimer_->isActive()) {
+        flushTimer_->start();
+    }
 }
 
 void ByteMonitorWidget::onFlushPending() {
@@ -336,10 +355,8 @@ void ByteMonitorWidget::onCopyClicked() {
 }
 
 void ByteMonitorWidget::appendLogLine(const QString& text, const QColor& color) {
-    pendingLines_.append({text, color});
-    if (flushTimer_ && !flushTimer_->isActive()) {
-        flushTimer_->start();
-    }
+    Q_UNUSED(color);
+    onInfoMessage(text);
 }
 
 void ByteMonitorWidget::flushPending() {
@@ -353,7 +370,46 @@ void ByteMonitorWidget::flushPending() {
     QList<LogEntry> batch;
     batch.reserve(pendingLines_.size());
     for (const auto& line : pendingLines_) {
-        batch.append({line.text, line.color});
+        QString ts;
+        if (timestampFormat_ == TimestampFormat::Relative) {
+            const qint64 delta = (lastAppendTimeMs_ == 0) ? 0 : (line.elapsedMs - lastAppendTimeMs_);
+            lastAppendTimeMs_ = line.elapsedMs;
+            ts = QStringLiteral("+%1ms").arg(delta);
+        } else if (timestampFormat_ == TimestampFormat::Absolute) {
+            lastAppendTimeMs_ = line.elapsedMs;
+            ts = line.wallTimeString;
+        }
+
+        QString text;
+        QColor color;
+        switch (line.kind) {
+        case PendingLine::Kind::Tx:
+            text = ts.isEmpty() ? tr("[TX] %1").arg(formatData(line.payload))
+                                : tr("[%1] [TX] %2").arg(ts, formatData(line.payload));
+            color = colorForTx();
+            break;
+        case PendingLine::Kind::Rx:
+            text = ts.isEmpty() ? tr("[RX] %1").arg(formatData(line.payload))
+                                : tr("[%1] [RX] %2").arg(ts, formatData(line.payload));
+            color = colorForRx();
+            break;
+        case PendingLine::Kind::Info:
+            text = ts.isEmpty() ? tr("[INFO] %1").arg(line.message)
+                                : tr("[%1] [INFO] %2").arg(ts, line.message);
+            color = colorForInfo();
+            break;
+        case PendingLine::Kind::Warn:
+            text = ts.isEmpty() ? tr("[WARN] %1").arg(line.message)
+                                : tr("[%1] [WARN] %2").arg(ts, line.message);
+            color = colorForWarn();
+            break;
+        case PendingLine::Kind::Error:
+            text = ts.isEmpty() ? tr("[ERROR] %1").arg(line.message)
+                                : tr("[%1] [ERROR] %2").arg(ts, line.message);
+            color = colorForError();
+            break;
+        }
+        batch.append({std::move(text), color});
     }
     pendingLines_.clear();
     if (flushTimer_) {

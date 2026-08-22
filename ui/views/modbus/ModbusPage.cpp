@@ -9,7 +9,7 @@
 
 #include "ModbusPage.h"
 #include "Config.h"
-#include "../../../core/common/ISettingsService.h"
+#include "infra/config/ISettingsService.h"
 #include "../../application/modbus/ModbusPagePresenter.h"
 #include "../../application/modbus/ModbusSessionPresenter.h"
 #include "../../widgets/BaseConnectionWidget.h"
@@ -38,15 +38,15 @@ namespace {
 
 constexpr bool kDataMonitorHexDisplay = true;
 
-void initializeAsciiSerialDefaults(core::common::ISettingsService* settingsService)
+void initializeAsciiSerialDefaults(infra::config::ISettingsService* settingsService)
 {
     if (!settingsService) {
         return;
     }
 
-    const auto ensureValue = [settingsService](const QString& key, const QVariant& value) {
+    const auto ensureValue = [settingsService](const QString& key, const QVariant& defaultValue) {
         if (!settingsService->contains(key)) {
-            settingsService->setValue(key, value);
+            settingsService->setValue(key, defaultValue);
         }
     };
 
@@ -61,7 +61,7 @@ void initializeAsciiSerialDefaults(core::common::ISettingsService* settingsServi
 
 namespace ui::views::modbus {
 
-ModbusPage::ModbusPage(core::common::ISettingsService* settingsService, QWidget* parent)
+ModbusPage::ModbusPage(infra::config::ISettingsService* settingsService, QWidget* parent)
     : QWidget(parent),
       settingsService_(settingsService) {
     initializeAsciiSerialDefaults(settingsService_);

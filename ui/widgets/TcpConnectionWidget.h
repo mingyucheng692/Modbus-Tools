@@ -14,7 +14,7 @@
 
 #include "NetworkConnectionWidget.h"
 
-namespace core::common {
+namespace infra::config {
 class ISettingsService;
 }
 
@@ -28,7 +28,7 @@ class TcpConnectionWidget : public NetworkConnectionWidget {
 public:
     using DisplayState = BaseConnectionWidget::DisplayState;
 
-    explicit TcpConnectionWidget(TcpRole role, core::common::ISettingsService* settingsService, QWidget* parent = nullptr);
+    explicit TcpConnectionWidget(TcpRole role, infra::config::ISettingsService* settingsService, QWidget* parent = nullptr);
     ~TcpConnectionWidget() override;
 
     [[nodiscard]] TcpRole role() const noexcept { return role_; }

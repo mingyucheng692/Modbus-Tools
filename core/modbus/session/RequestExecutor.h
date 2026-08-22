@@ -52,36 +52,27 @@ public:
         std::chrono::steady_clock::time_point enqueueAt{};
     };
 
-    /// @brief Aggregated dependencies for RequestExecutor (16 fields in 3 groups).
+    /// @brief Aggregated dependencies for RequestExecutor.
     ///
-    /// Group 1 (protocol stack, 10 fields): channel through config — non-owning
+    /// Group 1 (protocol stack): channel through config — non-owning
     /// references to the protocol stack collaborators owned by ModbusClient.
-    /// Group 2 (sync primitives, 3 fields): mutex/cv/aborted — owned by
-    /// ModbusClient, passed by reference. Not extracted into a wrapper class
-    /// because 3 primitives do not justify a SessionSynchronizationContext.
-    /// Group 3 (request queue, 3 fields): pendingMutex/pendingRequests/
-    /// nextRequestId — owned by ModbusClient, passed by reference.
+    /// Group 2 (sync primitives): mutex/cv/aborted — owned by ModbusClient.
     struct Dependencies {
         // 1. Protocol stack references (non-owning)
-        io::IChannel* channel;
-        transport::ITransport* transport;
-        FrameExtractor* frameExtractor;
-        FlowController* flowController;
-        RetryStrategy* retryStrategy;
-        ConnectionStateMachine* connStateMachine;
-        RequestStateMachine* reqStateMachine;
-        ConnectionManager* connectionManager;
-        const base::ModbusConfig* config;
+        io::IChannel* channel = nullptr;
+        transport::ITransport* transport = nullptr;
+        FrameExtractor* frameExtractor = nullptr;
+        FlowController* flowController = nullptr;
+        RetryStrategy* retryStrategy = nullptr;
+        ConnectionStateMachine* connStateMachine = nullptr;
+        RequestStateMachine* reqStateMachine = nullptr;
+        ConnectionManager* connectionManager = nullptr;
+        const base::ModbusConfig* config = nullptr;
 
         // 2. Synchronization primitives (owned by ModbusClient)
         std::mutex& mutex;
         std::condition_variable& cv;
         std::atomic<bool>& aborted;
-
-        // 3. Request queue (owned by ModbusClient)
-        std::mutex& pendingMutex;
-        std::deque<PendingRequest>& pendingRequests;
-        int& nextRequestId;
     };
 
     explicit RequestExecutor(const Dependencies& deps);
@@ -169,12 +160,12 @@ private:
     std::mutex& mutex_;
     std::condition_variable& cv_;
     std::atomic<bool>& aborted_;
-    // 3. Request queue
-    std::mutex& pendingMutex_;
-    std::deque<PendingRequest>& pendingRequests_;
-    int& nextRequestId_;
 
-    // --- Owned member ---
+    // --- Owned members ---
+    std::mutex pendingMutex_;
+    std::deque<PendingRequest> pendingRequests_;
+    int nextRequestId_ = 1;
+
     std::mutex requestMutex_;
     std::atomic<bool> requestLocked_{false};
     // Deduplication keys are integer tuples by design: shouldLog() is called
