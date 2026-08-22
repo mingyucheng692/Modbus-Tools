@@ -43,23 +43,22 @@ void LogListModel::appendEntries(const QList<LogEntry>& newEntries) {
     }
     const int maxRows = maxBlockCount_;
     QList<LogEntry> entriesToAppend = newEntries;
-    while (entriesToAppend.size() > maxRows) {
-        entriesToAppend.removeFirst();
+    if (entriesToAppend.size() > maxRows) {
+        entriesToAppend.erase(entriesToAppend.begin(), entriesToAppend.begin() + (entriesToAppend.size() - maxRows));
     }
     const int overflow = qMax(0, entries_.size() + entriesToAppend.size() - maxRows);
     if (overflow > 0) {
         beginRemoveRows(QModelIndex(), 0, overflow - 1);
-        for (int i = 0; i < overflow; ++i) {
-            entries_.removeFirst();
-        }
+        entries_.erase(entries_.begin(), entries_.begin() + overflow);
         endRemoveRows();
     }
 
     const int beginRow = entries_.size();
     const int endRow = beginRow + entriesToAppend.size() - 1;
     beginInsertRows(QModelIndex(), beginRow, endRow);
-    for (const auto& entry : entriesToAppend) {
-        entries_.append(entry);
+    entries_.reserve(entries_.size() + entriesToAppend.size());
+    for (auto&& entry : entriesToAppend) {
+        entries_.append(std::move(entry));
     }
     endInsertRows();
 }
@@ -91,12 +90,10 @@ void LogListModel::setMaxBlockCount(int count) {
         return;
     }
     maxBlockCount_ = count;
-    while (entries_.size() > maxBlockCount_) {
-        const int removeEnd = entries_.size() - maxBlockCount_ - 1;
-        beginRemoveRows(QModelIndex(), 0, removeEnd);
-        for (int i = 0; i <= removeEnd; ++i) {
-            entries_.removeFirst();
-        }
+    if (entries_.size() > maxBlockCount_) {
+        const int excess = entries_.size() - maxBlockCount_;
+        beginRemoveRows(QModelIndex(), 0, excess - 1);
+        entries_.erase(entries_.begin(), entries_.begin() + excess);
         endRemoveRows();
     }
 }

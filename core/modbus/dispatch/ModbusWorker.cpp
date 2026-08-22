@@ -198,12 +198,27 @@ void ModbusWorker::handleSubmit(base::Pdu request, int slaveId, int requestId, q
                       static_cast<unsigned long long>(traceId),
                       requestId);
     } else {
-        SPDLOG_INFO("ModbusWorker: complete request trace_id={} request_id={} success={} retries={} error='{}'",
-                     static_cast<unsigned long long>(traceId),
-                     requestId,
-                     !response.isError(),
-                     response.retryCount(),
-                     response.error.toStdString());
+        const auto key = std::make_tuple(
+            static_cast<uint8_t>(slaveId >= 0 ? slaveId : 0),
+            static_cast<uint8_t>(request.functionCode()),
+            static_cast<uint8_t>(response.errorCode));
+        const auto now = std::chrono::steady_clock::now();
+        if (failureDedupe_.shouldLog(key, now)) {
+            SPDLOG_INFO("ModbusWorker: complete request trace_id={} request_id={} success={} retries={} error='{}'",
+                         static_cast<unsigned long long>(traceId),
+                         requestId,
+                         !response.isError(),
+                         response.retryCount(),
+                         response.error.toStdString());
+        } else {
+            SPDLOG_DEBUG("ModbusWorker: complete request (suppressed) trace_id={} request_id={} success={} retries={} error='{}'",
+                          static_cast<unsigned long long>(traceId),
+                          requestId,
+                          !response.isError(),
+                          response.retryCount(),
+                          response.error.toStdString());
+        }
+        failureDedupe_.prune(now, 100);
     }
     emit requestFinished(requestId, response);
 }
@@ -277,6 +292,7 @@ void ModbusWorker::handleDisconnect() {
     if (client_ && client_->isConnected()) {
         client_->disconnect();
     }
+    failureDedupe_.clear();
     emit disconnectFinished();
 }
 

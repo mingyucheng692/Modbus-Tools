@@ -18,73 +18,93 @@
 #include <QDir>
 #include <QCryptographicHash>
 #include <QCoreApplication>
-#include <QThread>
 #include <QRegularExpression>
 #include <QStringList>
+#include <QtConcurrent/QtConcurrent>
+#include <QFutureWatcher>
 #include <spdlog/spdlog.h>
 
 namespace core::update {
 
-/**
- * @brief Worker for CPU-intensive checksum calculations.
- */
-class ChecksumWorker : public QObject {
-    Q_OBJECT
-public:
-    explicit ChecksumWorker(QObject* parent = nullptr) : QObject(parent) {}
+namespace {
 
-    void calculateSha256(const QString& filePath, const QString& expectedSha, const QString& checksumsPath, const QString& targetFileName) {
-        QString actualSha;
-        QString resolvedExpectedSha = expectedSha.trimmed().toLower();
+struct ChecksumResult {
+    bool success = false;
+    QString error;
+    QString expected;
+    QString actual;
+};
 
-        // Resolve expected SHA from file if needed
-        if (resolvedExpectedSha.isEmpty() && !checksumsPath.isEmpty()) {
-            QFile file(checksumsPath);
-            if (file.open(QIODevice::ReadOnly | QIODevice::Text)) {
-                const QStringList lines = QString::fromUtf8(file.readAll()).split('\n');
-                const QRegularExpression pattern(QStringLiteral("^\\s*([a-fA-F0-9]{64})\\s+\\*?(.+?)\\s*$"));
-                for (const QString& line : lines) {
-                    const QRegularExpressionMatch match = pattern.match(line);
-                    if (match.hasMatch()) {
-                        const QString fileName = QFileInfo(match.captured(2).trimmed()).fileName();
-                        if (fileName.compare(targetFileName, Qt::CaseInsensitive) == 0) {
-                            resolvedExpectedSha = match.captured(1).toLower();
-                            break;
-                        }
+ChecksumResult computeSha256WithCancel(const QString& filePath,
+                                       const QString& expectedSha,
+                                       const QString& checksumsPath,
+                                       const QString& targetFileName,
+                                       std::shared_ptr<std::atomic_bool> cancelToken) {
+    QString actualSha;
+    QString resolvedExpectedSha = expectedSha.trimmed().toLower();
+
+    // Resolve expected SHA from file if needed
+    if (resolvedExpectedSha.isEmpty() && !checksumsPath.isEmpty()) {
+        QFile file(checksumsPath);
+        if (file.open(QIODevice::ReadOnly | QIODevice::Text)) {
+            const QStringList lines = QString::fromUtf8(file.readAll()).split('\n');
+            const QRegularExpression pattern(QStringLiteral("^\\s*([a-fA-F0-9]{64})\\s+\\*?(.+?)\\s*$"));
+            for (const QString& line : lines) {
+                const QRegularExpressionMatch match = pattern.match(line);
+                if (match.hasMatch()) {
+                    const QString fileName = QFileInfo(match.captured(2).trimmed()).fileName();
+                    if (fileName.compare(targetFileName, Qt::CaseInsensitive) == 0) {
+                        resolvedExpectedSha = match.captured(1).toLower();
+                        break;
                     }
                 }
             }
         }
-
-        if (resolvedExpectedSha.isEmpty()) {
-            emit finished(false, tr("Missing or invalid expected checksum"), {}, {});
-            return;
-        }
-
-        // Calculate actual SHA
-        QFile file(filePath);
-        if (file.open(QIODevice::ReadOnly)) {
-            QCryptographicHash hash(QCryptographicHash::Sha256);
-            if (hash.addData(&file)) {
-                actualSha = hash.result().toHex();
-            }
-        }
-
-        if (actualSha.isEmpty()) {
-            emit finished(false, tr("Failed to calculate file checksum"), {}, {});
-            return;
-        }
-
-        if (actualSha.compare(resolvedExpectedSha, Qt::CaseInsensitive) != 0) {
-            emit finished(false, tr("Checksum mismatch. Expected: %1, Actual: %2").arg(resolvedExpectedSha, actualSha), resolvedExpectedSha, actualSha);
-        } else {
-            emit finished(true, {}, resolvedExpectedSha, actualSha);
-        }
     }
 
-signals:
-    void finished(bool success, const QString& error, const QString& expected, const QString& actual);
-};
+    if (resolvedExpectedSha.isEmpty()) {
+        return {false, QObject::tr("Missing or invalid expected checksum"), {}, {}};
+    }
+
+    if (cancelToken && cancelToken->load(std::memory_order_relaxed)) {
+        return {false, QObject::tr("Canceled"), {}, {}};
+    }
+
+    // Calculate actual SHA with block-by-block reading for responsive cancellation
+    QFile file(filePath);
+    if (!file.open(QIODevice::ReadOnly)) {
+        return {false, QObject::tr("Failed to open file for checksum calculation"), {}, {}};
+    }
+
+    QCryptographicHash hash(QCryptographicHash::Sha256);
+    constexpr qint64 kChunkSize = 64 * 1024;
+    while (!file.atEnd()) {
+        if (cancelToken && cancelToken->load(std::memory_order_relaxed)) {
+            return {false, QObject::tr("Canceled"), {}, {}};
+        }
+        const QByteArray chunk = file.read(kChunkSize);
+        if (chunk.isEmpty() && !file.atEnd()) {
+            return {false, QObject::tr("Failed to read file chunk"), {}, {}};
+        }
+        hash.addData(chunk);
+    }
+
+    actualSha = hash.result().toHex();
+    if (actualSha.isEmpty()) {
+        return {false, QObject::tr("Failed to calculate file checksum"), {}, {}};
+    }
+
+    if (actualSha.compare(resolvedExpectedSha, Qt::CaseInsensitive) != 0) {
+        return {false,
+                QObject::tr("Checksum mismatch. Expected: %1, Actual: %2").arg(resolvedExpectedSha, actualSha),
+                resolvedExpectedSha,
+                actualSha};
+    }
+
+    return {true, {}, resolvedExpectedSha, actualSha};
+}
+
+} // anonymous namespace
 
 UpdateManager::UpdateManager(QObject* parent,
                              std::unique_ptr<infra::platform::IPlatformProcessRunner> processRunner,
@@ -233,55 +253,57 @@ void UpdateManager::onDownloadFinished(std::function<void(bool, const QString&)>
 }
 
 void UpdateManager::processDownloadedUpdate(const QString& updateFilePath, const QString& expectedSha, const QString& checksumsPath) {
-    auto* thread = new QThread(this);
-    auto* worker = new ChecksumWorker();
-    worker->moveToThread(thread);
+    const QString fileName = QFileInfo(updateFilePath).fileName();
+    auto* watcher = new QFutureWatcher<ChecksumResult>(this);
+    const QPointer<UpdateManager> weakThis(this);
 
-    connect(thread, &QThread::finished, worker, &QObject::deleteLater);
-    connect(thread, &QThread::finished, thread, &QObject::deleteLater);
-
-    connect(worker, &ChecksumWorker::finished, this, [this, updateFilePath, thread](bool success, const QString& error, const QString& expected, const QString& actual) {
-        if (!success) {
-            SPDLOG_ERROR("UpdateManager: Update verification failed: {}", error.toStdString());
-            emit updateFailed(error);
-            thread->quit();
+    connect(watcher, &QFutureWatcher<ChecksumResult>::finished, this, [this, watcher, weakThis, updateFilePath]() {
+        const ChecksumResult res = watcher->result();
+        watcher->deleteLater();
+        if (!weakThis) {
             return;
         }
 
-        SPDLOG_INFO("UpdateManager: Verification successful. Expected: {}, Actual: {}", expected.toStdString(), actual.toStdString());
+        if (cancelToken_->load(std::memory_order_relaxed)) {
+            emit updateCanceled();
+            return;
+        }
+
+        if (!res.success) {
+            SPDLOG_ERROR("UpdateManager: Update verification failed: {}", res.error.toStdString());
+            emit updateFailed(res.error);
+            return;
+        }
+
+        SPDLOG_INFO("UpdateManager: Verification successful. Expected: {}, Actual: {}",
+                     res.expected.toStdString(), res.actual.toStdString());
 
         if (!installStrategy_) {
             emit updateFailed(tr("No update install strategy available"));
-            thread->quit();
             return;
         }
 
         PreparedUpdateContext context;
         context.updateFilePath = updateFilePath;
         context.latestVersion = pendingLatestVersion_;
-        context.expectedSha256 = expected;
+        context.expectedSha256 = res.expected;
         context.applicationFilePath = QCoreApplication::applicationFilePath();
 
         QString installArtifactPath;
         QString errorMessage;
         if (!installStrategy_->createInstallArtifact(context, installArtifactPath, errorMessage)) {
             emit updateFailed(errorMessage);
-            thread->quit();
             return;
         }
 
         SPDLOG_INFO("UpdateManager: Update install artifact created at {}",
                      installArtifactPath.toStdString());
         emit updateReadyToInstall(installArtifactPath);
-        
-        thread->quit();
     });
 
-    thread->start();
-    const QString fileName = QFileInfo(updateFilePath).fileName();
-    QMetaObject::invokeMethod(worker, [worker, updateFilePath, expectedSha, checksumsPath, fileName]() {
-        worker->calculateSha256(updateFilePath, expectedSha, checksumsPath, fileName);
-    }, Qt::QueuedConnection);
+    watcher->setFuture(QtConcurrent::run([updateFilePath, expectedSha, checksumsPath, fileName, cancelToken = cancelToken_]() {
+        return computeSha256WithCancel(updateFilePath, expectedSha, checksumsPath, fileName, cancelToken);
+    }));
 }
 
 bool UpdateManager::launchInstaller(const QString& installArtifactPath, const QString& langCode, QString& errorMessage) {
@@ -320,5 +342,3 @@ QString UpdateManager::updateStagingDir() const
 }
 
 } // namespace core::update
-
-#include "UpdateManager.moc"

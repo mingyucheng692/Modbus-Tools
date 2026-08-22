@@ -79,6 +79,7 @@ target_sources(core PRIVATE
 
 target_link_libraries(core PUBLIC
     Qt6::Core
+    Qt6::Concurrent
     Qt6::Network
     Qt6::SerialPort
     infra

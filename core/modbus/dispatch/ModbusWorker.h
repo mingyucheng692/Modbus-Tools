@@ -10,9 +10,12 @@
 #pragma once
 
 #include "../session/SessionTypes.h"
+#include "common/LogDedupe.h"
 #include <memory>
 #include <deque>
 #include <atomic>
+#include <tuple>
+#include <chrono>
 #include <QObject>
 #include <QPointer>
 #include <QThread>
@@ -95,6 +98,9 @@ private:
     std::atomic_bool stopping_ {false};
     std::atomic_bool stopped_ {false};
     std::deque<QueuedRequest> queuedRequests_;
+
+    using WorkerDedupeKey = std::tuple<uint8_t, uint8_t, uint8_t>; // (slaveId, fc, errorCode)
+    ::common::LogDedupe<WorkerDedupeKey> failureDedupe_{std::chrono::seconds(5)};
 };
 
 } // namespace modbus::dispatch
