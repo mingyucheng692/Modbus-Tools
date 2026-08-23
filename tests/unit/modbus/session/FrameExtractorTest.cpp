@@ -128,7 +128,7 @@ TEST(FrameExtractorTest, AsciiFeedCompleteFrame_ExtractsImmediately) {
     auto cfg = modbus::test::MakeModbusConfig(ModbusMode::ASCII);
     extractor.setConfig(cfg);
 
-    const QByteArray frame(":010302007BFD\r\n");
+    const QByteArray frame(":010302007B7F\r\n");
     extractor.feed(frame);
 
     ASSERT_TRUE(extractor.hasCompleteFrame());
@@ -142,10 +142,10 @@ TEST(FrameExtractorTest, AsciiFeedWithLeadingNoise_RecoversNextFrame) {
     auto cfg = modbus::test::MakeModbusConfig(ModbusMode::ASCII);
     extractor.setConfig(cfg);
 
-    extractor.feed(QByteArray("noise:010302007BFD\r\n"));
+    extractor.feed(QByteArray("noise:010302007B7F\r\n"));
 
     ASSERT_TRUE(extractor.hasCompleteFrame());
     const auto extracted = extractor.popFrame();
     ASSERT_TRUE(extracted.has_value());
-    EXPECT_EQ(*extracted, QByteArray(":010302007BFD\r\n"));
+    EXPECT_EQ(*extracted, QByteArray(":010302007B7F\r\n"));
 }

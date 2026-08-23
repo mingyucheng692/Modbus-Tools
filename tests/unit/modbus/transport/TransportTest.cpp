@@ -151,17 +151,17 @@ TEST_F(TransportTest, AsciiBuildRequest) {
 }
 
 TEST_F(TransportTest, AsciiIntegrityCheck) {
-    const QByteArray fullAdu(":010302007BFD\r\n");
+    const QByteArray fullAdu(":010302007B7F\r\n");
     EXPECT_EQ(ascii_->checkIntegrity(fullAdu), fullAdu.size());
-    EXPECT_EQ(ascii_->checkIntegrity(QByteArray(":010302007BFD")), 0);
-    EXPECT_EQ(ascii_->checkIntegrity(QByteArray(":010302007BFC\r\n")), -1);
+    EXPECT_EQ(ascii_->checkIntegrity(QByteArray(":010302007B7F")), 0);
+    EXPECT_EQ(ascii_->checkIntegrity(QByteArray(":010302007BFE\r\n")), -1);
 }
 
 TEST_F(TransportTest, AsciiParseResponse_MatchingSlave_ReturnsParsedPdu) {
     Pdu request(FunctionCode::ReadHoldingRegisters, QByteArray::fromHex("00000001"));
     ascii_->buildRequest(request, 1);
 
-    ParseResponseResult result = ascii_->parseResponse(QByteArray(":010302007BFD\r\n"));
+    ParseResponseResult result = ascii_->parseResponse(QByteArray(":010302007B7F\r\n"));
     ASSERT_EQ(result.status, ParseResponseStatus::Ok);
     ASSERT_TRUE(result.pdu.has_value());
     EXPECT_EQ(result.pdu->functionCode(), FunctionCode::ReadHoldingRegisters);

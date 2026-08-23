@@ -70,7 +70,7 @@ TEST_F(FrameParserTest, ParseExceptionResponse) {
 }
 
 TEST_F(FrameParserTest, ParseAsciiResponseSuccess) {
-    QByteArray frame(":010304007B01C855\r\n");
+    QByteArray frame(":010304007B01C8B4\r\n");
 
     ParseResult result = parse(frame, ProtocolType::Ascii, 40001, 2);
 

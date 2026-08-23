@@ -21,8 +21,6 @@
 #include "../base/ModbusConfig.h"
 #include "common/LogDedupe.h"
 #include "infra/io/IChannel.h"
-#include <mutex>
-#include <condition_variable>
 #include <atomic>
 #include <deque>
 #include <chrono>
@@ -70,8 +68,6 @@ public:
         const base::ModbusConfig* config = nullptr;
 
         // 2. Synchronization primitives (owned by ModbusClient)
-        std::mutex& mutex;
-        std::condition_variable& cv;
         std::atomic<bool>& aborted;
     };
 
@@ -113,9 +109,9 @@ public:
 
 private:
     struct RequestLockGuard {
-        std::atomic<bool>& flag;
-        explicit RequestLockGuard(std::atomic<bool>& f) : flag(f) {}
-        ~RequestLockGuard() { flag.store(false, std::memory_order_release); }
+        bool& flag;
+        explicit RequestLockGuard(bool& f) : flag(f) {}
+        ~RequestLockGuard() { flag = false; }
     };
 
     [[nodiscard]] bool tryAcquireRequestLock();
@@ -157,17 +153,13 @@ private:
     ConnectionManager* connectionManager_;
     const base::ModbusConfig* config_;
     // 2. Synchronization primitives
-    std::mutex& mutex_;
-    std::condition_variable& cv_;
     std::atomic<bool>& aborted_;
 
     // --- Owned members ---
-    std::mutex pendingMutex_;
     std::deque<PendingRequest> pendingRequests_;
     int nextRequestId_ = 1;
 
-    std::mutex requestMutex_;
-    std::atomic<bool> requestLocked_{false};
+    bool requestLocked_{false};
     // Deduplication keys are integer tuples by design: shouldLog() is called
     // while holding mutex_, so keys must never involve QString hashing/copy.
     // exceptionDedupe_: (slave, fc, exceptionCode) for Modbus exception responses.

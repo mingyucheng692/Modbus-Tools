@@ -22,55 +22,35 @@ ConnectionManager::ConnectionManager(io::IChannel* channel,
                                      ConnectionStateMachine* stateMachine,
                                      std::atomic<bool>& aborted,
                                      RetryStrategy* retryStrategy,
-                                     const base::ModbusConfig* config,
-                                     std::mutex& mutex,
-                                     std::condition_variable& cv)
+                                     const base::ModbusConfig* config)
     : channel_(channel)
     , stateMachine_(stateMachine)
     , aborted_(aborted)
     , retryStrategy_(retryStrategy)
-    , config_(config)
-    , mutex_(mutex)
-    , cv_(cv) {}
+    , config_(config) {}
 
 bool ConnectionManager::isConnected() const {
     return channel_ && channel_->isOpen();
 }
 
 QString ConnectionManager::lastChannelError() const {
-    std::lock_guard<std::mutex> lock(mutex_);
     return lastChannelError_;
 }
 
-QString ConnectionManager::lastChannelErrorLocked() const {
-    return lastChannelError_;
-}
-
-bool ConnectionManager::hasChannelErrorLocked() const {
+bool ConnectionManager::hasChannelError() const {
     return !lastChannelError_.isEmpty();
 }
 
 void ConnectionManager::clearError() {
-    std::lock_guard<std::mutex> lock(mutex_);
-    lastChannelError_.clear();
-}
-
-void ConnectionManager::clearErrorLocked() {
     lastChannelError_.clear();
 }
 
 void ConnectionManager::setError(const QString& error) {
-    std::lock_guard<std::mutex> lock(mutex_);
-    lastChannelError_ = error;
-}
-
-void ConnectionManager::setErrorLocked(const QString& error) {
     lastChannelError_ = error;
 }
 
 bool ConnectionManager::ensureConnected(bool allowReconnect) {
     if (!channel_) {
-        std::lock_guard<std::mutex> lock(mutex_);
         lastChannelError_ = TrContext<kConnManagerCtx>::tr("No channel attached");
         stateMachine_->tryTransition(ConnectionStateMachine::State::Failed, "no-channel");
         return false;
@@ -89,10 +69,7 @@ bool ConnectionManager::ensureConnected(bool allowReconnect) {
     const int attempts = allowReconnect ? std::max(1, config_->retries + 1) : 1;
     QString connectError;
     for (int attempt = 0; attempt < attempts; ++attempt) {
-        {
-            std::lock_guard<std::mutex> lock(mutex_);
-            clearErrorLocked();
-        }
+        clearError();
 
         stateMachine_->tryTransition(
             attempt == 0 ? ConnectionStateMachine::State::Connecting
@@ -123,9 +100,7 @@ bool ConnectionManager::ensureConnected(bool allowReconnect) {
         reconnectBackoffCfg.backoffFactor = config_->retryBackoffFactor;
         reconnectBackoffCfg.jitterPercent = config_->retryJitterPercent;
         const int reconnectDelayMs = retryStrategy_->calculateBackoffMs(reconnectBackoffCfg, attempt);
-        if (!waitForAbortableDelay(mutex_, cv_, aborted_,
-                std::chrono::milliseconds(reconnectDelayMs))) {
-            std::lock_guard<std::mutex> lock(mutex_);
+        if (!waitForAbortableDelay(aborted_, std::chrono::milliseconds(reconnectDelayMs))) {
             lastChannelError_ = TrContext<kConnManagerCtx>::tr("Aborted");
             stateMachine_->tryTransition(ConnectionStateMachine::State::Failed,
                                          "reconnect-aborted");
@@ -133,7 +108,6 @@ bool ConnectionManager::ensureConnected(bool allowReconnect) {
         }
     }
 
-    std::lock_guard<std::mutex> lock(mutex_);
     // Preserve the most specific error already captured by waitForChannelState()
     // (e.g. "Aborted", channel error). Only synthesize a generic timeout message
     // when no specific reason was recorded, and never overwrite an existing error.
@@ -156,15 +130,12 @@ bool ConnectionManager::waitForChannelState(io::ChannelState expectedState,
             || (expectedState == io::ChannelState::Open && channel_->isOpen())) {
             return true;
         }
-        {
-            std::lock_guard<std::mutex> lock(mutex_);
-            if (hasChannelErrorLocked()) {
-                if (errorOut) {
-                    *errorOut = lastChannelErrorLocked();
-                }
-                clearErrorLocked();
-                return false;
+        if (hasChannelError()) {
+            if (errorOut) {
+                *errorOut = lastChannelError();
             }
+            clearError();
+            return false;
         }
         if (channel_->state() == io::ChannelState::Error) {
             if (errorOut && errorOut->isEmpty()) {
@@ -173,7 +144,7 @@ bool ConnectionManager::waitForChannelState(io::ChannelState expectedState,
             return false;
         }
 
-        waitForCondition(mutex_, cv_, [this, expectedState]() {
+        waitForCondition([this, expectedState]() {
             return !lastChannelError_.isEmpty()
                 || channel_->state() == io::ChannelState::Error
                 || channel_->state() == expectedState

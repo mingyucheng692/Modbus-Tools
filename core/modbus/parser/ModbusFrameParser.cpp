@@ -313,7 +313,7 @@ ParseResult parseAscii(const QByteArray& frame,
     result.calculatedChecksum = fields.calculatedLrc;
     result.checksumValid = (integrity > 0);
 
-    const int pduLen = qMax(0, fields.binaryAdu.size() - 3);
+    const int pduLen = qMax(0, fields.binaryAdu.size() - 2);
     const QByteArray pdu = fields.binaryAdu.mid(1, pduLen);
     parsePdu(result, pdu, startAddress, expectedQuantity, order);
     return result;

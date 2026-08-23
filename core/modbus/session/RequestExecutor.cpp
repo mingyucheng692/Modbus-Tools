@@ -23,7 +23,6 @@
 #include "common/TrContext.h"
 #include "../TraceContext.h"
 #include <QtGlobal>
-#include <mutex>
 
 namespace modbus::session {
 namespace {
@@ -137,8 +136,6 @@ RequestExecutor::RequestExecutor(const Dependencies& deps)
     , reqStateMachine_(deps.reqStateMachine)
     , connectionManager_(deps.connectionManager)
     , config_(deps.config)
-    , mutex_(deps.mutex)
-    , cv_(deps.cv)
     , aborted_(deps.aborted)
     , exceptionDedupe_(kDupeTrackerSuppressionWindow)
     , failureDedupe_(kDupeTrackerSuppressionWindow) {
@@ -156,7 +153,9 @@ RequestExecutor::RequestExecutor(const Dependencies& deps)
 // --- Public API ---
 
 bool RequestExecutor::tryAcquireRequestLock() {
-    return !requestLocked_.exchange(true, std::memory_order_acq_rel);
+    if (requestLocked_) return false;
+    requestLocked_ = true;
+    return true;
 }
 
 ModbusResponse RequestExecutor::execute(const base::Pdu& request, int slaveId) {
@@ -166,7 +165,6 @@ ModbusResponse RequestExecutor::execute(const base::Pdu& request, int slaveId) {
         return ModbusResponse::Busy(TrContext<kReqExecCtx>::tr("Request already in progress"));
     }
     RequestLockGuard unlockGuard(requestLocked_);
-    std::lock_guard<std::mutex> lock(requestMutex_);
     if (aborted_.load(std::memory_order_acquire)) {
         // Abort was requested before we acquired the lock; don't reset it.
         reqStateMachine_->tryTransition(RequestStateMachine::State::Aborted,
@@ -223,7 +221,7 @@ ModbusResponse RequestExecutor::execute(const base::Pdu& request, int slaveId) {
                               lastResponse.error.toStdString(),
                               kDupeTrackerSuppressionWindowSeconds);
             }
-            if (!waitForAbortableDelay(mutex_, cv_, aborted_, retryDelay)) {
+            if (!waitForAbortableDelay(aborted_, retryDelay)) {
                 reqStateMachine_->tryTransition(RequestStateMachine::State::Aborted,
                                                 "request-aborted-during-backoff");
                 finishPendingRequest(requestId, false, "Aborted");
@@ -251,17 +249,13 @@ void RequestExecutor::sendRaw(const QByteArray& data) {
         return;
     }
     RequestLockGuard unlockGuard(requestLocked_);
-    std::lock_guard<std::mutex> lock(requestMutex_);
     if (connectionManager_->isConnected()) {
         if (!flowController_->isRtuSendWindowOpen(std::chrono::steady_clock::now())) {
-            waitForAbortableDelay(mutex_, cv_, aborted_,
+            waitForAbortableDelay(aborted_,
                 flowController_->rtuSendWindowOpensAt() - std::chrono::steady_clock::now());
         }
-        {
-            std::lock_guard<std::mutex> stateLock(mutex_);
-            if (config_->mode == base::ModbusMode::RTU) {
-                flowController_->markWritePending();
-            }
+        if (config_->mode == base::ModbusMode::RTU) {
+            flowController_->markWritePending();
         }
         writeRtuFrameWithDrain(data, nullptr);
     }
@@ -277,13 +271,11 @@ void RequestExecutor::abort() {
         && current != RequestStateMachine::State::Failed) {
         reqStateMachine_->tryTransition(RequestStateMachine::State::Aborted, "abort");
     }
-    cv_.notify_all();
 }
 
 // --- Callbacks ---
 
 void RequestExecutor::onDataReceived(QByteArrayView data) {
-    std::lock_guard<std::mutex> lock(mutex_);
     // Channel callback: trace_id is 0 when data arrives outside a request.
     SPDLOG_DEBUG("ModbusClient: Data received, size={}, notifying loop trace_id={}",
                   data.size(), currentTrace());
@@ -291,14 +283,10 @@ void RequestExecutor::onDataReceived(QByteArrayView data) {
     frameExtractor_->feed(data);
     responseReady_ = frameExtractor_->hasCompleteFrame()
         || (config_->mode == base::ModbusMode::RTU && frameExtractor_->bufferSize() > 0);
-    cv_.notify_one();
 }
 
 void RequestExecutor::onChannelError(const QString& error) {
-    {
-        std::lock_guard<std::mutex> lock(mutex_);
-        connectionManager_->setErrorLocked(error);
-    }
+    connectionManager_->setError(error);
     // trace_id is 0 when the error arrives outside a request context
     // (channel callbacks run on the channel thread); non-zero when a request
     // is in flight on the worker thread.
@@ -307,16 +295,13 @@ void RequestExecutor::onChannelError(const QString& error) {
                  static_cast<int>(channel_->state()),
                  static_cast<int>(connStateMachine_->currentState()),
                  currentTrace());
-    cv_.notify_one();
 }
 
 void RequestExecutor::resetState(bool clearPendingQueue) {
-    std::lock_guard<std::mutex> lock(mutex_);
     responseReady_ = false;
     exceptionDedupe_.clear();
     failureDedupe_.clear();
     if (clearPendingQueue) {
-        std::lock_guard<std::mutex> pendingLock(pendingMutex_);
         pendingRequests_.clear();
     }
 }
@@ -341,20 +326,17 @@ ModbusResponse RequestExecutor::sendRequestInternal(const base::Pdu& request, in
     }
 
     // 1. Cleanup old buffers and state
-    {
-        std::lock_guard<std::mutex> lock(mutex_);
-        if (aborted_) {
-            reqStateMachine_->tryTransition(RequestStateMachine::State::Aborted,
-                                            "aborted-before-build");
-            return ModbusResponse::Error(TrContext<kReqExecCtx>::tr("Aborted"));
-        }
-        frameExtractor_->reset();
-        responseReady_ = false;
-        if (config_->mode == base::ModbusMode::RTU) {
-            flowController_->markWritePending();
-        }
-        transport_->resetPendingState();
+    if (aborted_) {
+        reqStateMachine_->tryTransition(RequestStateMachine::State::Aborted,
+                                        "aborted-before-build");
+        return ModbusResponse::Error(TrContext<kReqExecCtx>::tr("Aborted"));
     }
+    frameExtractor_->reset();
+    responseReady_ = false;
+    if (config_->mode == base::ModbusMode::RTU) {
+        flowController_->markWritePending();
+    }
+    transport_->resetPendingState();
 
     // 2. Build ADU
     if (isBroadcastRequest(targetSlaveId, request.functionCode())
@@ -367,7 +349,7 @@ ModbusResponse RequestExecutor::sendRequestInternal(const base::Pdu& request, in
     QByteArray adu = transport_->buildRequest(request, targetSlaveId);
 
     if (!flowController_->isRtuSendWindowOpen(std::chrono::steady_clock::now())) {
-        waitForAbortableDelay(mutex_, cv_, aborted_,
+        waitForAbortableDelay(aborted_,
             flowController_->rtuSendWindowOpensAt() - std::chrono::steady_clock::now());
     }
 
@@ -377,9 +359,8 @@ ModbusResponse RequestExecutor::sendRequestInternal(const base::Pdu& request, in
                                         config_->mode == base::ModbusMode::RTU
                                             ? "write-drain-timeout"
                                             : "write-failed");
-        std::lock_guard<std::mutex> lock(mutex_);
-        const QString error = connectionManager_->hasChannelErrorLocked()
-            ? connectionManager_->lastChannelErrorLocked()
+        const QString error = connectionManager_->hasChannelError()
+            ? connectionManager_->lastChannelError()
             : TrContext<kReqExecCtx>::tr(config_->mode == base::ModbusMode::RTU
                         ? "Write drain timeout"
                         : "Write failed");
@@ -408,14 +389,11 @@ ModbusResponse RequestExecutor::sendRequestInternal(const base::Pdu& request, in
                               config_->timeoutMs, currentTrace());
 
     while (true) {
-        std::unique_lock<std::mutex> lock(mutex_);
         const auto now = std::chrono::steady_clock::now();
         const bool serialFrameReady = frameExtractor_->isRtuFrameReadyToParse(now);
         if (!serialFrameReady && !responseReady_
-            && !connectionManager_->hasChannelErrorLocked() && !aborted_.load()) {
-            lock.unlock();
+            && !connectionManager_->hasChannelError() && !aborted_.load()) {
             const bool stillWaiting = waitForEventOrTimeout(deadline);
-            lock.lock();
             if (!stillWaiting && std::chrono::steady_clock::now() >= deadline) {
                 reqStateMachine_->tryTransition(RequestStateMachine::State::Failed, "timeout");
                 // Dedupe: polling a dead device fires this on every request.
@@ -442,9 +420,7 @@ ModbusResponse RequestExecutor::sendRequestInternal(const base::Pdu& request, in
             responseReady_ = false;
             const auto frameDeadline = std::min(deadline,
                                                 frameExtractor_->nextRtuFrameBoundary());
-            lock.unlock();
             const bool stillWaiting = waitForEventOrTimeout(frameDeadline);
-            lock.lock();
             if (!stillWaiting && std::chrono::steady_clock::now() >= deadline) {
                 reqStateMachine_->tryTransition(RequestStateMachine::State::Failed, "timeout");
                 const auto key = std::make_tuple(
@@ -471,9 +447,9 @@ ModbusResponse RequestExecutor::sendRequestInternal(const base::Pdu& request, in
                                             "aborted-during-wait");
             return ModbusResponse::Error(TrContext<kReqExecCtx>::tr("Aborted"));
         }
-        {
-            const QString chErr = connectionManager_->lastChannelErrorLocked();
-            if (!chErr.isEmpty()) {
+        
+        const QString chErr = connectionManager_->lastChannelError();
+        if (!chErr.isEmpty()) {
                 reqStateMachine_->tryTransition(RequestStateMachine::State::Failed,
                                                 "channel-error");
                 // Lifecycle closure: a channel error tearing down the session
@@ -483,7 +459,6 @@ ModbusResponse RequestExecutor::sendRequestInternal(const base::Pdu& request, in
                              chErr.toStdString(), currentTrace());
                 return ModbusResponse::Error(chErr);
             }
-        }
 
         if (frameExtractor_->hasExceededDropLimit()) {
             reqStateMachine_->tryTransition(RequestStateMachine::State::Failed,
@@ -502,10 +477,8 @@ ModbusResponse RequestExecutor::sendRequestInternal(const base::Pdu& request, in
                 || config_->mode == base::ModbusMode::ASCII) {
                 auto frameOpt = frameExtractor_->tryPopRtuResponseFrame(now);
                 if (frameOpt) {
-                    lock.unlock();
                     auto result = handleParsedFrame(*frameOpt, request, slaveId, start);
                     if (result) return *result;
-                    lock.lock();
                     continue;
                 }
                 break;
@@ -513,10 +486,8 @@ ModbusResponse RequestExecutor::sendRequestInternal(const base::Pdu& request, in
 
             auto frameOpt = frameExtractor_->popFrame();
             if (frameOpt) {
-                lock.unlock();
                 auto result = handleParsedFrame(*frameOpt, request, slaveId, start);
                 if (result) return *result;
-                lock.lock();
                 continue;
             }
             if (config_->mode == base::ModbusMode::RTU
@@ -596,7 +567,6 @@ ModbusResponse RequestExecutor::handleExceptionResponse(const base::Pdu& respons
     // Read the trace id before taking the lock — a pure thread_local read,
     // keeps the critical section free of any trace-context access.
     const unsigned long long traceId = currentTrace();
-    std::lock_guard<std::mutex> lock(mutex_);
     const QString exceptionMessage = buildExceptionMessage(
         slaveId,
         requestPdu.functionCode(),
@@ -658,33 +628,29 @@ bool RequestExecutor::waitForWriteDrain(std::chrono::steady_clock::time_point de
         if (aborted_.load()) {
             return false;
         }
-        {
-            std::lock_guard<std::mutex> lock(mutex_);
-            if (flowController_->isWriteDrained()) {
-                if (drainedAt) {
-                    const auto da = flowController_->drainedAt();
-                    *drainedAt = (da == std::chrono::steady_clock::time_point{})
-                        ? std::chrono::steady_clock::now()
-                        : da;
-                }
-                return true;
+        if (flowController_->isWriteDrained()) {
+            if (drainedAt) {
+                const auto da = flowController_->drainedAt();
+                *drainedAt = (da == std::chrono::steady_clock::time_point{})
+                    ? std::chrono::steady_clock::now()
+                    : da;
             }
-            if (connectionManager_->hasChannelErrorLocked()) {
-                return false;
-            }
+            return true;
+        }
+        if (connectionManager_->hasChannelError()) {
+            return false;
         }
         if (channel_->state() == io::ChannelState::Error) {
             return false;
         }
 
-        waitForCondition(mutex_, cv_, [this]() {
+        waitForCondition([this]() {
             return aborted_.load() || flowController_->isWriteDrained()
-                || connectionManager_->hasChannelErrorLocked()
+                || connectionManager_->hasChannelError()
                 || channel_->state() == io::ChannelState::Error;
         }, deadline);
     }
 
-    std::lock_guard<std::mutex> lock(mutex_);
     if (flowController_->isWriteDrained()) {
         if (drainedAt) {
             const auto da = flowController_->drainedAt();
@@ -699,18 +665,15 @@ bool RequestExecutor::waitForWriteDrain(std::chrono::steady_clock::time_point de
 
 bool RequestExecutor::waitForEventOrTimeout(std::chrono::steady_clock::time_point deadline) {
     while (std::chrono::steady_clock::now() < deadline) {
-        {
-            std::lock_guard<std::mutex> lock(mutex_);
-            if (aborted_.load() || responseReady_
-                || connectionManager_->hasChannelErrorLocked()
-                || channel_->state() == io::ChannelState::Error) {
-                return true;
-            }
+        if (aborted_.load() || responseReady_
+            || connectionManager_->hasChannelError()
+            || channel_->state() == io::ChannelState::Error) {
+            return true;
         }
 
-        waitForCondition(mutex_, cv_, [this]() {
+        waitForCondition([this]() {
             return aborted_.load() || responseReady_
-                || connectionManager_->hasChannelErrorLocked()
+                || connectionManager_->hasChannelError()
                 || channel_->state() == io::ChannelState::Error;
         }, deadline);
     }
@@ -718,7 +681,6 @@ bool RequestExecutor::waitForEventOrTimeout(std::chrono::steady_clock::time_poin
 }
 
 int RequestExecutor::enqueuePendingRequest(const base::Pdu& request, int slaveId) {
-    std::lock_guard<std::mutex> pendingLock(pendingMutex_);
     PendingRequest item;
     item.requestId = nextRequestId_++;
     item.functionCode = request.functionCode();
@@ -738,7 +700,6 @@ int RequestExecutor::enqueuePendingRequest(const base::Pdu& request, int slaveId
 
 void RequestExecutor::finishPendingRequest(int requestId, bool success,
                                            const QString& error) {
-    std::lock_guard<std::mutex> pendingLock(pendingMutex_);
     auto it = std::find_if(pendingRequests_.begin(), pendingRequests_.end(),
                            [requestId](const PendingRequest& item) {
                                return item.requestId == requestId;

@@ -79,12 +79,11 @@ std::shared_ptr<transport::ITransport> createTransport(const base::ModbusConfig&
 
 std::optional<ModbusStack> createStack(const base::ModbusConfig& config) {
     ModbusStack stack;
-    stack.ioThread = makeManagedThread();
     stack.thread = makeManagedThread();
-    QThread* ioThreadRaw = stack.ioThread.get();
+    QThread* threadRaw = stack.thread.get();
 
     // 1. 创建底层通道 (IO)
-    auto channel = createChannel(config, ioThreadRaw);
+    auto channel = createChannel(config, threadRaw);
     if (!channel) {
         SPDLOG_ERROR("ModbusFactory: failed to create channel for mode={}",
                       static_cast<int>(config.mode));
@@ -93,14 +92,14 @@ std::optional<ModbusStack> createStack(const base::ModbusConfig& config) {
     // The channel's shared_ptr deliberately captures the IO thread's
     // shared_ptr: ModbusClient keeps a channel reference and the async-
     // deleted worker keeps the client, so the channel regularly OUTLIVES
-    // this stack's ioThread member. The capture keeps the QThread object
+    // this stack's thread member. The capture keeps the QThread object
     // alive until after channel deletion (no dangling owner-thread pointer
     // in ChannelBase's guard) and ThreadGuard::releaseChannel performs the
     // thread-affine teardown.
     stack.channel = std::shared_ptr<io::IChannel>(
         channel.release(),
-        [ioThread = stack.ioThread](io::IChannel* ch) {
-            core::common::ThreadGuard::releaseChannel(ch, ioThread);
+        [thread = stack.thread](io::IChannel* ch) {
+            core::common::ThreadGuard::releaseChannel(ch, thread);
         });
 
     // 2. 创建传输层策略 (Protocol)

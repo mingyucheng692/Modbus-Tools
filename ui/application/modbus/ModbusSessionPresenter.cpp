@@ -533,7 +533,7 @@ void ModbusSessionPresenter::initStack(const ::modbus::base::ModbusConfig& confi
     channel_ = std::move(stack.channel);
     client_ = std::move(stack.client);
     worker_ = std::move(stack.worker);
-    channelThread_ = std::move(stack.ioThread);
+    channelThread_ = stack.thread;
     modbusWorkerThread_ = std::move(stack.thread);
 }
 

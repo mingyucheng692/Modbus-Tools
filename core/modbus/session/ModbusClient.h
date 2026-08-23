@@ -21,8 +21,6 @@
 #include "RequestExecutor.h"
 #include "../transport/ITransport.h"
 #include "infra/io/IChannel.h"
-#include <mutex>
-#include <condition_variable>
 #include <atomic>
 #include <deque>
 #include <chrono>
@@ -148,10 +146,9 @@ private:
     void assertSessionAffinity() {}
 #else
     // Debug-only owner-thread guard (see the @thread contract above). Armed
-    // by claimSessionOwnershipForCurrentThread(); reuses mutex_ instead of
-    // adding a new synchronization primitive.
+    // by claimSessionOwnershipForCurrentThread().
     void assertSessionAffinity();
-    QThread* sessionOwnerThread_ = nullptr; // @guarded_by mutex_
+    QThread* sessionOwnerThread_ = nullptr;
 #endif
 
     bool ensureConnected(bool allowReconnect);
@@ -167,8 +164,6 @@ private:
     // 同步机制：等待响应。所有权归 ModbusClient；RequestExecutor 与
     // ConnectionManager 通过 Dependencies 按引用获得授权使用权（见类注释
     // "Synchronization primitive ownership"）——它们不是公开的线程安全承诺。
-    std::mutex mutex_;
-    std::condition_variable cv_;
     io::IChannel::HandlerId stateHandlerId_ = 0;
     
     std::atomic<bool> aborted_ {false};

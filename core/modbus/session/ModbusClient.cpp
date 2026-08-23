@@ -23,7 +23,6 @@ namespace modbus::session {
 
 #ifndef NDEBUG
 void ModbusClient::assertSessionAffinity() {
-    std::lock_guard<std::mutex> lock(mutex_);
     if (!sessionOwnerThread_) {
         // Guard not armed yet: pre-live factory configuration or direct
         // unit-test driving (ad-hoc threads exercising Busy/abort defense
@@ -37,7 +36,6 @@ void ModbusClient::assertSessionAffinity() {
 }
 
 void ModbusClient::claimSessionOwnershipForCurrentThread() {
-    std::lock_guard<std::mutex> lock(mutex_);
     sessionOwnerThread_ = QThread::currentThread();
 }
 #endif
@@ -51,11 +49,8 @@ ModbusClient::RequestState ModbusClient::requestState() const {
 }
 
 void ModbusClient::clearRuntimeState(bool clearPendingQueue) {
-    {
-        std::lock_guard<std::mutex> lock(mutex_);
-        frameExtractor_.reset();
-        flowController_.reset();
-    }
+    frameExtractor_.reset();
+    flowController_.reset();
     connectionManager_.clearError();
     requestExecutor_.resetState(clearPendingQueue);
     if (transport_) {
@@ -70,7 +65,7 @@ ModbusClient::ModbusClient(std::shared_ptr<io::IChannel> channel,
     , retryStrategy_(RetryStrategy::Config{})
     , flowController_(base::ModbusMode::TCP)
     , connectionManager_(channel_.get(), &connectionStateMachine_,
-                         aborted_, &retryStrategy_, &config_, mutex_, cv_)
+                         aborted_, &retryStrategy_, &config_)
     , requestExecutor_(RequestExecutor::Dependencies{
           channel_.get(),
           transport_.get(),
@@ -81,8 +76,6 @@ ModbusClient::ModbusClient(std::shared_ptr<io::IChannel> channel,
           &requestStateMachine_,
           &connectionManager_,
           &config_,
-          mutex_,
-          cv_,
           aborted_}) {
 
     // Channel callbacks
@@ -95,13 +88,10 @@ ModbusClient::ModbusClient(std::shared_ptr<io::IChannel> channel,
     });
 
     channel_->setWriteDrainedHandler([this]() {
-        std::lock_guard<std::mutex> lock(mutex_);
         flowController_.markWriteDrained(std::chrono::steady_clock::now());
-        cv_.notify_one();
     });
     stateHandlerId_ = channel_->addStateHandler([this](io::ChannelState) {
-        std::lock_guard<std::mutex> lock(mutex_);
-        cv_.notify_all();
+        // State changes are now handled locally by event loop polling
     });
 }
 

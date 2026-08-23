@@ -180,16 +180,16 @@ TEST(ModbusEndianCodecTest, CalculateAsciiLrc_ComputesExpectedChecksum) {
 
 TEST(ModbusEndianCodecTest, InspectAsciiAdu_ReadsDecodedFields) {
     AsciiAduFields fields;
-    const QByteArray frame(":010302007BFD\r\n");
+    const QByteArray frame(":010302007B7F\r\n");
 
     const int fullLength = inspectAsciiAdu(QByteArrayView(frame), &fields);
 
     EXPECT_EQ(fullLength, frame.size());
     EXPECT_EQ(fields.slaveId, 0x01);
     EXPECT_EQ(fields.functionCode, 0x03);
-    EXPECT_EQ(fields.receivedLrc, 0xFD);
-    EXPECT_EQ(fields.calculatedLrc, 0xFD);
-    EXPECT_EQ(fields.binaryAdu, QByteArray::fromHex("010302007BFD"));
+    EXPECT_EQ(fields.receivedLrc, 0x7F);
+    EXPECT_EQ(fields.calculatedLrc, 0x7F);
+    EXPECT_EQ(fields.binaryAdu, QByteArray::fromHex("010302007B7F"));
 }
 
 TEST(ModbusEndianCodecTest, InspectAsciiAdu_InvalidLrc_ReturnsMinusOne) {

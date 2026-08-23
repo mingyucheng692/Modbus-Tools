@@ -15,8 +15,6 @@
 #include "infra/io/IChannel.h"
 #include "../base/ModbusConfig.h"
 #include <QString>
-#include <mutex>
-#include <condition_variable>
 
 namespace modbus::session {
 
@@ -46,9 +44,7 @@ public:
                       ConnectionStateMachine* stateMachine,
                       std::atomic<bool>& aborted,
                       RetryStrategy* retryStrategy,
-                      const base::ModbusConfig* config,
-                      std::mutex& mutex,
-                      std::condition_variable& cv);
+                      const base::ModbusConfig* config);
 
     /**
      * @brief Attempt to establish a connection with retry support.
@@ -67,20 +63,17 @@ public:
      * @note Thread-safe via internal mutex.
      */
     QString lastChannelError() const;
-    QString lastChannelErrorLocked() const;
-    bool hasChannelErrorLocked() const;
+    bool hasChannelError() const;
 
     /**
      * @brief Clear the last channel error.
      */
     void clearError();
-    void clearErrorLocked();
 
     /**
      * @brief Set the last channel error (called from error callback).
      */
     void setError(const QString& error);
-    void setErrorLocked(const QString& error);
 
     /**
      * @brief Wait for the channel to reach a specific state.
@@ -99,8 +92,6 @@ private:
     std::atomic<bool>& aborted_;
     RetryStrategy* retryStrategy_;
     const base::ModbusConfig* config_;
-    std::mutex& mutex_;
-    std::condition_variable& cv_;
     QString lastChannelError_;
 };
 

@@ -33,13 +33,10 @@ TEST(ModbusFactoryThreadingTest, CreateTcpStack_UsesDedicatedIoAndWorkerThreads)
     ASSERT_TRUE(stack.channel);
     ASSERT_TRUE(stack.client);
     ASSERT_TRUE(stack.worker);
-    ASSERT_TRUE(stack.ioThread);
     ASSERT_TRUE(stack.thread);
-    EXPECT_NE(stack.ioThread.get(), stack.thread.get());
 }
 
 TEST(ModbusFactoryThreadingTest, DestroyUnstartedStack_DeletesWorkerAndThreadsSynchronously) {
-    QPointer<QThread> ioThread;
     QPointer<QThread> workerThread;
     QPointer<modbus::dispatch::ModbusWorker> worker;
 
@@ -49,16 +46,13 @@ TEST(ModbusFactoryThreadingTest, DestroyUnstartedStack_DeletesWorkerAndThreadsSy
         ASSERT_TRUE(stackOpt);
         ModbusStack stack = std::move(*stackOpt);
 
-        ASSERT_TRUE(stack.ioThread);
         ASSERT_TRUE(stack.thread);
         ASSERT_TRUE(stack.worker);
 
-        ioThread = stack.ioThread.get();
         workerThread = stack.thread.get();
         worker = stack.worker.get();
     }
 
-    EXPECT_TRUE(ioThread.isNull());
     EXPECT_TRUE(workerThread.isNull());
     EXPECT_TRUE(worker.isNull());
 }
@@ -69,31 +63,26 @@ TEST(ModbusFactoryThreadingTest, DestroyStoppedStartedStack_ReleasesWorkerAndThr
     ASSERT_TRUE(stackOpt);
     ModbusStack stack = std::move(*stackOpt);
 
-    ASSERT_TRUE(stack.ioThread);
     ASSERT_TRUE(stack.thread);
     ASSERT_TRUE(stack.worker);
 
-    QPointer<QThread> ioThread = stack.ioThread.get();
     QPointer<QThread> workerThread = stack.thread.get();
     QPointer<modbus::dispatch::ModbusWorker> worker = stack.worker.get();
 
-    stack.ioThread->start();
+    stack.thread->start();
     stack.worker->start();
 
     ASSERT_TRUE(waitForCondition([&]() {
-        return stack.ioThread->isRunning() && stack.thread->isRunning();
+        return stack.thread->isRunning();
     }));
 
     stack.worker->stop();
     stack.thread->quit();
-    stack.ioThread->quit();
 
     ASSERT_TRUE(stack.thread->wait(1000));
-    ASSERT_TRUE(stack.ioThread->wait(1000));
 
     stack = ModbusStack{};
 
-    EXPECT_TRUE(ioThread.isNull());
     EXPECT_TRUE(workerThread.isNull());
     EXPECT_TRUE(worker.isNull());
 }
@@ -104,26 +93,22 @@ TEST(ModbusFactoryThreadingTest, ReleasingStartedStack_ShutsDownWorkerAndIoThrea
     ASSERT_TRUE(stackOpt);
     ModbusStack stack = std::move(*stackOpt);
 
-    ASSERT_TRUE(stack.ioThread);
     ASSERT_TRUE(stack.thread);
     ASSERT_TRUE(stack.worker);
 
-    QPointer<QThread> ioThread = stack.ioThread.get();
     QPointer<QThread> workerThread = stack.thread.get();
     QPointer<modbus::dispatch::ModbusWorker> worker = stack.worker.get();
 
-    stack.ioThread->start();
+    stack.thread->start();
     stack.worker->start();
 
     ASSERT_TRUE(waitForCondition([&]() {
-        return ioThread && ioThread->isRunning()
-            && workerThread && workerThread->isRunning();
+        return workerThread && workerThread->isRunning();
     }));
 
     stack = ModbusStack{};
 
     ASSERT_TRUE(waitForCondition([&]() { return worker.isNull(); }));
-    ASSERT_TRUE(waitForCondition([&]() { return ioThread.isNull(); }));
     ASSERT_TRUE(waitForCondition([&]() { return workerThread.isNull(); }));
 }
 
@@ -138,7 +123,5 @@ TEST(ModbusFactoryThreadingTest, CreateRtuStack_UsesDedicatedIoAndWorkerThreads)
     ASSERT_TRUE(stack.channel);
     ASSERT_TRUE(stack.client);
     ASSERT_TRUE(stack.worker);
-    ASSERT_TRUE(stack.ioThread);
     ASSERT_TRUE(stack.thread);
-    EXPECT_NE(stack.ioThread.get(), stack.thread.get());
 }
