@@ -77,18 +77,6 @@ void AppLifecycleCoordinator::onNavigationToggleRequested() {
     settingsController_->setNavigationCollapsed(nextCollapsed);
 }
 
-void AppLifecycleCoordinator::onModbusSettingsRequested() {
-    view_->openModbusSettingsDialog();
-}
-
-void AppLifecycleCoordinator::onUpdateSettingsRequested() {
-    view_->openUpdateSettingsDialog();
-}
-
-void AppLifecycleCoordinator::onAboutRequested() {
-    view_->openAboutDialog();
-}
-
 void AppLifecycleCoordinator::onCheckForUpdatesRequested() {
     if (updateCoordinator_) {
         updateCoordinator_->checkForUpdates();

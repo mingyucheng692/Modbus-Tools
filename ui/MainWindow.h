@@ -64,9 +64,9 @@ private:
     [[nodiscard]] QByteArray saveWindowGeometry() const override;
     [[nodiscard]] QByteArray saveWindowState() const override;
     void applyModbusSettings(int timeoutMs, int retries, int retryIntervalMs) override;
-    void openModbusSettingsDialog() override;
-    void openUpdateSettingsDialog() override;
-    void openAboutDialog() override;
+    void openModbusSettingsDialog();
+    void openUpdateSettingsDialog();
+    void openAboutDialog();
     [[nodiscard]] bool showDisclaimerDialog() override;
     void requestQuit() override;
     void retranslateUi(const QString& effectiveLocale) override;

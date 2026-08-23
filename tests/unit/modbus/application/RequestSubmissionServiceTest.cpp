@@ -316,4 +316,9 @@ TEST_F(RequestSubmissionServiceTest, ValidateRawData_NonEmptyData_ReturnsTrue) {
     EXPECT_TRUE(ok);
 }
 
+TEST_F(RequestSubmissionServiceTest, ModeDescriptor_MapsAsciiProtocolType) {
+    EXPECT_EQ(modeDescriptor(SessionMode::Ascii).protocolType,
+              modbus::parser::ProtocolType::Ascii);
+}
+
 } // namespace

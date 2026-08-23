@@ -26,9 +26,6 @@ public:
 
     void initialize();
     void onNavigationToggleRequested();
-    void onModbusSettingsRequested();
-    void onUpdateSettingsRequested();
-    void onAboutRequested();
     void onCheckForUpdatesRequested();
     void onLanguageSelected(const QString& locale);
     void onCloseRequested();

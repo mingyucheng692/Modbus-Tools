@@ -9,7 +9,7 @@
 
 #pragma once
 
-#include "../TraceContext.h"
+#include "infra/logging/TraceContext.h"
 #include <atomic>
 #include <spdlog/spdlog.h>
 #include <string_view>

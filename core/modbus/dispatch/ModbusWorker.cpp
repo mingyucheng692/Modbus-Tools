@@ -9,7 +9,7 @@
 
 #include "ModbusWorker.h"
 #include "../session/ModbusClient.h"
-#include "../TraceContext.h"
+#include "infra/logging/TraceContext.h"
 #include <spdlog/spdlog.h>
 #include <QMetaObject>
 #include <QThread>
@@ -286,6 +286,7 @@ void ModbusWorker::handleConnect() {
 }
 
 void ModbusWorker::handleDisconnect() {
+    SPDLOG_INFO("ModbusWorker: disconnect initiated for session");
     if (client_) {
         client_->claimSessionOwnershipForCurrentThread();
     }
@@ -293,6 +294,7 @@ void ModbusWorker::handleDisconnect() {
         client_->disconnect();
     }
     failureDedupe_.clear();
+    SPDLOG_INFO("ModbusWorker: disconnect completed cleanly");
     emit disconnectFinished();
 }
 

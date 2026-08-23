@@ -13,8 +13,9 @@
 #pragma once
 
 #include "ITransport.h"
-#include "PendingSlaveTracker.h"
 #include <QByteArray>
+#include <cstdint>
+#include <optional>
 
 namespace modbus::transport {
 
@@ -31,9 +32,6 @@ enum class SerialFraming {
  *
  * Uses SerialFraming to select between RTU (CRC-16, binary) and ASCII
  * (LRC, hex-encoded with ':' / "\\r\\n") framing.
- *
- * @thread buildRequest() and parseResponse() are safe to call from any thread.
- *         Internal pending-response state is protected by PendingSlaveTracker.
  */
 class ModbusSerialTransport : public ITransport {
 public:
@@ -46,7 +44,7 @@ public:
 
 private:
     SerialFraming framing_;
-    PendingSlaveTracker tracker_;
+    std::optional<uint8_t> pendingSlave_;
 };
 
 } // namespace modbus::transport

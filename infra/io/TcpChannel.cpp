@@ -9,6 +9,7 @@
 
 #include "TcpChannel.h"
 #include "infra/logging/Logger.h"
+#include "infra/logging/TraceContext.h"
 #include <spdlog/spdlog.h>
 #include <QCoreApplication>
 #include <QThread>
@@ -209,7 +210,8 @@ void TcpChannel::onSocketError(QAbstractSocket::SocketError error) {
     const QString errorText = socket_.errorString().isEmpty()
         ? QStringLiteral("TCP socket error")
         : socket_.errorString();
-    SPDLOG_WARN("TcpChannel: socket error code={} endpoint={} message={}",
+    SPDLOG_WARN("TcpChannel: socket error trace_id={} code={} endpoint={} message={}",
+                 static_cast<unsigned long long>(modbus::trace::currentTraceId),
                  static_cast<int>(error),
                  endpoint.toStdString(),
                  errorText.toStdString());

@@ -29,6 +29,7 @@ target_sources(infra PRIVATE
     # logging
     logging/Logger.h
     logging/Logger.cpp
+    logging/TraceContext.h
     # config
     config/ISettingsService.h
     config/SettingsService.h

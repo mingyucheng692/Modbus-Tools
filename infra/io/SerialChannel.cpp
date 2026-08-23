@@ -9,6 +9,7 @@
 
 #include "SerialChannel.h"
 #include "infra/logging/Logger.h"
+#include "infra/logging/TraceContext.h"
 #include <spdlog/spdlog.h>
 #include <QThread>
 #include <QMetaObject>
@@ -182,7 +183,8 @@ void SerialChannel::onErrorOccurred(QSerialPort::SerialPortError error) {
         const QString errorText = serial_.errorString().isEmpty()
             ? QStringLiteral("Serial port error")
             : serial_.errorString();
-        SPDLOG_WARN("SerialChannel: error code={} port={} message={}",
+        SPDLOG_WARN("SerialChannel: error trace_id={} code={} port={} message={}",
+                     static_cast<unsigned long long>(modbus::trace::currentTraceId),
                      static_cast<int>(error),
                      config_.portName.toStdString(),
                      errorText.toStdString());

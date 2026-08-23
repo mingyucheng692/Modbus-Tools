@@ -21,6 +21,7 @@ class TrafficMonitorWidget;
 }
 
 namespace ui::views::modbus { class ModbusPage; }
+namespace modbus::session { struct ModbusResponse; }
 
 namespace ui::application::modbus {
 
@@ -28,7 +29,6 @@ class ModbusSessionPresenter;
 class RequestSubmissionService;
 class PollingController;
 class TrafficLogController;
-class RequestCoordinator;
 
 /**
  * @brief Composition root for the Modbus page — owns backend services and
@@ -96,6 +96,15 @@ private:
     void teardownServices();
     void onStackReleasedForSwitch();
 
+    void handleReadRequest(uint8_t fc, int addr, int qty, int slaveId);
+    void handleWriteRequest(uint8_t fc, int addr, const QString& dataStr,
+                            const QString& fmt, int slaveId, int quantity);
+    void handleRawSendRequest(const QByteArray& data);
+    void handlePollRequest(uint8_t fc, int addr, int qty, int intervalMs);
+    void handleRequestFinished(int requestId,
+                               const ::modbus::session::ModbusResponse& response);
+    [[nodiscard]] bool ensureConnected() const;
+
     ui::views::modbus::ModbusPage* view_ = nullptr;
     SessionMode mode_;
     SessionMode pendingMode_{};
@@ -108,7 +117,6 @@ private:
     std::unique_ptr<RequestSubmissionService> requestService_;
     PollingController* pollingController_ = nullptr;
     TrafficLogController* trafficLogController_ = nullptr;
-    RequestCoordinator* requestCoordinator_ = nullptr;
 
     ui::widgets::BaseConnectionWidget* connectionWidget_ = nullptr;
     ui::widgets::ControlWidget* controlWidget_ = nullptr;

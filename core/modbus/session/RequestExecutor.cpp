@@ -21,7 +21,7 @@
 #include <tuple>
 #include <QtEndian>
 #include "common/TrContext.h"
-#include "../TraceContext.h"
+#include "infra/logging/TraceContext.h"
 #include <QtGlobal>
 
 namespace modbus::session {

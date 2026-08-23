@@ -26,7 +26,7 @@ ModbusSerialTransport::ModbusSerialTransport(SerialFraming framing)
 }
 
 QByteArray ModbusSerialTransport::buildRequest(const base::Pdu& pdu, uint8_t slaveId) {
-    tracker_.setPending(slaveId);
+    pendingSlave_ = slaveId;
 
     // --- common binary ADU body (slaveId + functionCode + data) ---
     QByteArray binaryAdu;
@@ -60,15 +60,15 @@ ParseResponseResult ModbusSerialTransport::parseResponse(const QByteArray& adu) 
             return {ParseResponseStatus::Invalid, std::nullopt};
         }
 
-        const auto outcome = tracker_.check(fields.slaveId);
-        if (outcome == PendingSlaveTracker::Outcome::NoPending) {
+        if (!pendingSlave_.has_value()) {
             return {ParseResponseStatus::Unmatched, std::nullopt};
         }
-        if (outcome == PendingSlaveTracker::Outcome::SlaveMismatch) {
+        if (*pendingSlave_ != fields.slaveId) {
             SPDLOG_DEBUG("RtuTransport: reject reason=slave_mismatch expected={} actual={}",
-                          tracker_.expectedSlaveId(), fields.slaveId);
+                          *pendingSlave_, fields.slaveId);
             return {ParseResponseStatus::Unmatched, std::nullopt};
         }
+        pendingSlave_.reset();
 
         QByteArray payload = adu.mid(2, adu.size() - 4);
         return {ParseResponseStatus::Ok, base::Pdu(static_cast<base::FunctionCode>(fields.functionCode), payload)};
@@ -79,15 +79,15 @@ ParseResponseResult ModbusSerialTransport::parseResponse(const QByteArray& adu) 
             return {ParseResponseStatus::Invalid, std::nullopt};
         }
 
-        const auto outcome = tracker_.check(fields.slaveId);
-        if (outcome == PendingSlaveTracker::Outcome::NoPending) {
+        if (!pendingSlave_.has_value()) {
             return {ParseResponseStatus::Unmatched, std::nullopt};
         }
-        if (outcome == PendingSlaveTracker::Outcome::SlaveMismatch) {
+        if (*pendingSlave_ != fields.slaveId) {
             SPDLOG_DEBUG("AsciiTransport: reject reason=slave_mismatch expected={} actual={}",
-                          tracker_.expectedSlaveId(), fields.slaveId);
+                          *pendingSlave_, fields.slaveId);
             return {ParseResponseStatus::Unmatched, std::nullopt};
         }
+        pendingSlave_.reset();
 
         const QByteArray payload = fields.binaryAdu.mid(2, fields.binaryAdu.size() - 3);
         return {
@@ -107,7 +107,7 @@ int ModbusSerialTransport::checkIntegrity(const QByteArray& data) {
 }
 
 void ModbusSerialTransport::resetPendingState() {
-    tracker_.reset();
+    pendingSlave_.reset();
 }
 
 } // namespace modbus::transport

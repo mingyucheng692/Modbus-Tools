@@ -46,9 +46,6 @@ public:
         appliedRetryIntervalMs = retryIntervalMs;
         ++applyModbusSettingsCallCount;
     }
-    void openModbusSettingsDialog() override { ++openModbusSettingsDialogCallCount; }
-    void openUpdateSettingsDialog() override { ++openUpdateSettingsDialogCallCount; }
-    void openAboutDialog() override { ++openAboutDialogCallCount; }
     [[nodiscard]] bool showDisclaimerDialog() override {
         ++showDisclaimerDialogCallCount;
         return disclaimerDialogResult;
@@ -138,9 +135,6 @@ public:
     int restoreWindowGeometryCallCount = 0;
     int restoreWindowStateCallCount = 0;
     int applyModbusSettingsCallCount = 0;
-    int openModbusSettingsDialogCallCount = 0;
-    int openUpdateSettingsDialogCallCount = 0;
-    int openAboutDialogCallCount = 0;
     int showDisclaimerDialogCallCount = 0;
     int retranslateUiCallCount = 0;
     int requestQuitCallCount = 0;

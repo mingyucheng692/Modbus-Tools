@@ -230,16 +230,11 @@ void MainWindow::applyModbusSettings(int timeoutMs, int retries, int retryInterv
 
 void MainWindow::setupSettingsMenu() {
     settingsMenu_ = menuBar()->addMenu(tr("Settings"));
-    auto invoke = [this](auto fn, auto&&... args) {
-        if (appLifecycleCoordinator_) {
-            (appLifecycleCoordinator_.get()->*fn)(std::forward<decltype(args)>(args)...);
-        }
-    };
-    modbusSettingsAction_ = settingsMenu_->addAction(tr("Modbus Settings"), this, [invoke]() {
-        invoke(&application::AppLifecycleCoordinator::onModbusSettingsRequested);
+    modbusSettingsAction_ = settingsMenu_->addAction(tr("Modbus Settings"), this, [this]() {
+        openModbusSettingsDialog();
     });
-    updateSettingsAction_ = settingsMenu_->addAction(tr("Update Settings"), this, [invoke]() {
-        invoke(&application::AppLifecycleCoordinator::onUpdateSettingsRequested);
+    updateSettingsAction_ = settingsMenu_->addAction(tr("Update Settings"), this, [this]() {
+        openUpdateSettingsDialog();
     });
     settingsMenu_->addSeparator();
     openLogFolderAction_ = settingsMenu_->addAction(tr("Open Log Folder"), this, [this]() {
@@ -288,8 +283,8 @@ void MainWindow::setupAboutMenu() {
         invoke(&application::AppLifecycleCoordinator::onCheckForUpdatesRequested);
     });
     aboutMenu_->addSeparator();
-    aboutAction_ = aboutMenu_->addAction(tr("About"), this, [invoke]() {
-        invoke(&application::AppLifecycleCoordinator::onAboutRequested);
+    aboutAction_ = aboutMenu_->addAction(tr("About"), this, [this]() {
+        openAboutDialog();
     });
 }
 

@@ -81,8 +81,6 @@ target_sources(ui PRIVATE
     application/LanguageCoordinator.h
     application/UpdateCoordinator.cpp
     application/UpdateCoordinator.h
-    application/modbus/RequestCoordinator.cpp
-    application/modbus/RequestCoordinator.h
     application/modbus/RequestSubmissionService.cpp
     application/modbus/RequestSubmissionService.h
     application/modbus/PollingController.cpp

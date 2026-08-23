@@ -14,14 +14,10 @@ target_sources(core PRIVATE
     modbus/base/ModbusPduBuilder.cpp
     # modbus transport
     modbus/transport/ITransport.h
-    modbus/transport/PendingSlaveTracker.h
-    modbus/transport/PendingSlaveTracker.cpp
     modbus/transport/ModbusSerialTransport.h
     modbus/transport/ModbusSerialTransport.cpp
     modbus/transport/ModbusTcpTransport.h
     modbus/transport/ModbusTcpTransport.cpp
-    # modbus trace context
-    modbus/TraceContext.h
     # modbus session
     modbus/session/SessionTypes.h
     modbus/session/ModbusClient.h

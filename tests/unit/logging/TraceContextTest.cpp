@@ -6,7 +6,7 @@
 
 #include <gtest/gtest.h>
 
-#include "modbus/TraceContext.h"
+#include "infra/logging/TraceContext.h"
 
 #include <thread>
 
