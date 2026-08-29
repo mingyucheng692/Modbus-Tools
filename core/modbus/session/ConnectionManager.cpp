@@ -33,6 +33,48 @@ bool ConnectionManager::isConnected() const {
     return channel_ && channel_->isOpen();
 }
 
+void ConnectionManager::onRequestTimeout() {
+    using CS = ConnectionStateMachine::State;
+    // Only timeouts of an established session count toward eviction: while
+    // connecting/reconnecting the connect attempt loop already owns the FSM
+    // and its own failure handling.
+    if (stateMachine_->currentState() != CS::Connected) {
+        return;
+    }
+    const int threshold = config_->unresponsiveThreshold;
+    if (threshold <= 0) {
+        return; // feature disabled
+    }
+    ++consecutiveTimeoutCount_;
+    if (consecutiveTimeoutCount_ < threshold) {
+        return;
+    }
+
+    // Evict the half-open session: the peer is a black hole (no RST, no
+    // response), so the socket outlives its usefulness even though the
+    // kernel still reports it connected. Transition first so the channel
+    // -lost handler (fired by close() on the channel owner thread) sees a
+    // terminal state and stays a no-op.
+    consecutiveTimeoutCount_ = 0;
+    SPDLOG_WARN(
+        "ConnectionManager: {} consecutive request timeouts — evicting "
+        "half-open session target={}:{}",
+        threshold,
+        config_->ipAddress.toStdString(),
+        config_->port);
+    if (!transitionChecked(CS::Failed, "unresponsive")) {
+        // A concurrent passive-loss transition already left Connected, which
+        // by definition means the channel already reported Closed/Error —
+        // the teardown this eviction would perform has happened.
+        return;
+    }
+    channel_->close();
+}
+
+void ConnectionManager::onRequestSuccess() {
+    consecutiveTimeoutCount_ = 0;
+}
+
 QString ConnectionManager::lastChannelError() const {
     return lastChannelError_;
 }
@@ -162,6 +204,7 @@ bool ConnectionManager::ensureConnected(bool allowReconnect) {
                 // Channel is genuinely open; if a channel-lost handler raced
                 // the success detection the FSM self-heals on the next
                 // already-open fast path.
+                consecutiveTimeoutCount_ = 0; // fresh session
                 transitionChecked(CS::Connected, "connect-success");
                 return true;
             }

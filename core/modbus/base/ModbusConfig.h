@@ -67,6 +67,11 @@ struct ModbusConfig {
     // 自动重连最大间隔 (毫秒)
     int reconnectMaxMs = config::Modbus::kDefaultReconnectMaxMs;
 
+    // 半开检测：会话报告已连接时连续请求超时的驱逐阈值。
+    // 达到阈值即判定半开连接（对端消失但无 RST）并拆除会话；
+    // 0 表示禁用。每次成功请求会将计数清零。
+    int unresponsiveThreshold = config::Modbus::kDefaultUnresponsiveThreshold;
+
     // 帧间隔 (RTU only, micro-seconds or char times)
     // 通常由驱动层处理，但在某些应用层实现中可能需要
     int interFrameDelayUs = 0;

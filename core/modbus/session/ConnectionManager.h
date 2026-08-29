@@ -59,6 +59,33 @@ public:
     bool isConnected() const;
 
     /**
+     * @brief Half-open detection: report a request timeout.
+     *
+     * Counts consecutive timeouts observed while the FSM reports Connected.
+     * When the count reaches config->unresponsiveThreshold the session is
+     * declared half-open (peer vanished without an RST — the socket stays
+     * "connected" but is a black hole) and is evicted: FSM
+     * Connected -> Failed ("unresponsive") followed by channel close(). The
+     * next request then re-establishes the session through the lazy
+     * reconnect path in RequestExecutor::sendRequestInternal().
+     *
+     * Timeouts observed outside Connected (connecting/reconnecting attempts
+     * already own the FSM) do not count. Threshold <= 0 disables eviction.
+     *
+     * @thread Invoked by RequestExecutor on the worker thread. The counter is
+     *         plain state guarded by that single-threaded driving contract.
+     */
+    void onRequestTimeout();
+
+    /**
+     * @brief Half-open detection: report a successful request.
+     *
+     * Any successful response proves the session is live and resets the
+     * consecutive-timeout counter.
+     */
+    void onRequestSuccess();
+
+    /**
      * @brief Get the last channel error message.
      * @note Thread-safe via internal mutex.
      */
@@ -93,6 +120,9 @@ private:
     RetryStrategy* retryStrategy_;
     const base::ModbusConfig* config_;
     QString lastChannelError_;
+    /// Consecutive request timeouts observed while Connected (half-open
+    /// detection). Worker-thread-only state — see onRequestTimeout().
+    int consecutiveTimeoutCount_ = 0;
 
     /**
      * @brief Checked transition wrapper: logs (in addition to the FSM's own

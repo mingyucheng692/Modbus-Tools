@@ -73,6 +73,19 @@ public:
     /// need to be redesigned.
     virtual void moveToThread(QThread* thread) = 0;
     virtual void close() = 0;
+    /// Transport-level liveness fact: the underlying link is currently
+    /// usable (channel FSM reached Open). This is the LOWEST of the three
+    /// connection vocabularies and is purely about the transport — it says
+    /// nothing about Modbus session state. Compare:
+    ///   - io::IChannel::isOpen()      (this) — transport link usable
+    ///   - ModbusClient::isConnected()         — delegates to isOpen(); a
+    ///     convenience alias for callers of the client facade
+    ///   - ConnectionStateMachine Connected  — session-level fact: a session
+    ///     was established over the transport and has not been declared
+    ///     lost (passive channel loss / eviction). A half-open TCP socket
+    ///     can have isOpen()==true while the FSM already reports Failed.
+    /// isOpen() may also transiently be true after a passive loss until the
+    /// channel's close handshake completes.
     virtual bool isOpen() const = 0;
     virtual void setTimeouts(const Timeouts& timeouts) = 0;
     virtual Timeouts timeouts() const = 0;

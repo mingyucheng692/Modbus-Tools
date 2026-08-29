@@ -464,4 +464,138 @@ TEST_F(ModbusClientBoundaryTest, Abort_WhenIdle_DoesNotCrash) {
     // abort() transitions Idle->Aborted since Idle != Completed and != Failed
 }
 
+// ============================================================================
+// P3: half-open detection (T2.1/T2.2) — consecutive timeout eviction
+// ============================================================================
+
+// A session that times out unresponsiveThreshold times in a row while the
+// FSM reports Connected is declared half-open and evicted: Connected ->
+// Failed + channel close. The mock channel never answers, so every request
+// runs the full response-wait timeout.
+TEST_F(ModbusClientBoundaryTest, UnresponsiveThreshold_ClosesAndFails) {
+    cfg_.mode = ModbusMode::TCP; // no RTU write-drain / frame-boundary waits
+    cfg_.timeoutMs = 100;
+    cfg_.autoReconnect = false;
+    cfg_.unresponsiveThreshold = 3;
+    client_->setConfig(cfg_);
+    connectClient();
+
+    EXPECT_CALL(*mockTransport_, buildRequest(_, _))
+        .Times(3)
+        .WillRepeatedly(Return(QByteArray::fromHex("010300000001840A")));
+    EXPECT_CALL(*mockChannel_, write(_)).Times(3).WillRepeatedly(Return(true));
+    EXPECT_CALL(*mockChannel_, close()).Times(1); // the eviction teardown
+
+    for (int i = 0; i < 3; ++i) {
+        auto resp = client_->sendRequest(makeRhrPdu());
+        EXPECT_TRUE(resp.isError());
+    }
+
+    EXPECT_EQ(client_->connectionState(), ModbusClient::ConnectionState::Failed)
+        << "half-open session must be evicted after the threshold";
+}
+
+// A successful response resets the consecutive-timeout counter: two
+// timeouts, one success, two more timeouts never reach a threshold of 3 and
+// the session stays Connected with no eviction close.
+TEST_F(ModbusClientBoundaryTest, UnresponsiveThreshold_SuccessResetsCounter) {
+    cfg_.mode = ModbusMode::TCP;
+    cfg_.timeoutMs = 100;
+    cfg_.autoReconnect = false;
+    cfg_.unresponsiveThreshold = 3;
+    client_->setConfig(cfg_);
+    connectClient();
+
+    EXPECT_CALL(*mockTransport_, buildRequest(_, _))
+        .Times(5)
+        .WillRepeatedly(Return(QByteArray::fromHex("010300000001840A")));
+    EXPECT_CALL(*mockChannel_, write(_)).Times(5).WillRepeatedly(Return(true));
+    EXPECT_CALL(*mockChannel_, close()).Times(0); // never evicted
+    // Only the third request is answered (valid TCP MBAP frame for the
+    // FC=03 / qty=2 request; the mock transport returns the matching Pdu).
+    EXPECT_CALL(*mockTransport_, parseResponse(_))
+        .WillOnce(Return(ParseResponseResult{
+            ParseResponseStatus::Ok,
+            Pdu(FunctionCode::ReadHoldingRegisters,
+                QByteArray::fromHex("04000A000B"))}));
+
+    for (int i = 0; i < 2; ++i) { // timeouts 1..2
+        EXPECT_TRUE(client_->sendRequest(makeRhrPdu()).isError());
+    }
+
+    {
+        std::thread responder([this]() {
+            std::this_thread::sleep_for(std::chrono::milliseconds(30));
+            if (readHandler_) {
+                readHandler_(QByteArray::fromHex("000100000007010304000A000B"));
+            }
+        });
+        auto resp = client_->sendRequest(makeRhrPdu());
+        responder.join();
+        ASSERT_FALSE(resp.isError()) << resp.error.toStdString();
+    }
+
+    for (int i = 0; i < 2; ++i) { // timeouts would be 3..4 — still below a
+        EXPECT_TRUE(client_->sendRequest(makeRhrPdu()).isError()); // fresh counter
+    }
+
+    EXPECT_EQ(client_->connectionState(), ModbusClient::ConnectionState::Connected);
+}
+
+// unresponsiveThreshold = 0 disables the eviction: a timeout storm leaves
+// the session Connected (legacy behavior preserved for opt-out).
+TEST_F(ModbusClientBoundaryTest, UnresponsiveThreshold_DisabledWhenZero) {
+    cfg_.mode = ModbusMode::TCP;
+    cfg_.timeoutMs = 100;
+    cfg_.autoReconnect = false;
+    cfg_.unresponsiveThreshold = 0;
+    client_->setConfig(cfg_);
+    connectClient();
+
+    EXPECT_CALL(*mockTransport_, buildRequest(_, _))
+        .Times(4)
+        .WillRepeatedly(Return(QByteArray::fromHex("010300000001840A")));
+    EXPECT_CALL(*mockChannel_, write(_)).Times(4).WillRepeatedly(Return(true));
+    EXPECT_CALL(*mockChannel_, close()).Times(0);
+
+    for (int i = 0; i < 4; ++i) {
+        EXPECT_TRUE(client_->sendRequest(makeRhrPdu()).isError());
+    }
+
+    EXPECT_EQ(client_->connectionState(), ModbusClient::ConnectionState::Connected);
+}
+
+// ============================================================================
+// P3: lazy reconnect (T2.3) — a request against a dead session rebuilds it
+// ============================================================================
+
+// With no pre-established session, the first request must transparently
+// reconnect (ensureConnected inside sendRequestInternal) instead of failing
+// with "Not connected": after the reconnect the request executes against
+// the open channel and only times out because the mock never answers.
+TEST_F(ModbusClientBoundaryTest, SendRequest_WhileDisconnected_LazyReconnects) {
+    cfg_.mode = ModbusMode::TCP;
+    cfg_.timeoutMs = 100;
+    cfg_.autoReconnect = false;
+    client_->setConfig(cfg_);
+    ASSERT_FALSE(client_->isConnected()); // no session yet
+
+    EXPECT_CALL(*mockChannel_, open()).WillOnce(Invoke([this]() {
+        currentState_ = ChannelState::Open;
+        if (stateHandler_) stateHandler_(ChannelState::Open);
+        return true;
+    }));
+    EXPECT_CALL(*mockTransport_, buildRequest(_, _))
+        .WillOnce(Return(QByteArray::fromHex("010300000001840A")));
+    EXPECT_CALL(*mockChannel_, write(_)).WillOnce(Return(true));
+
+    auto resp = client_->sendRequest(makeRhrPdu());
+    // The request reached the response wait (timeout), proving the lazy
+    // reconnect succeeded — the old behavior failed here immediately with
+    // "Not connected" without ever dispatching the request.
+    EXPECT_THAT(resp.error.toStdString(), AnyOf(HasSubstr("Timeout"), HasSubstr("timeout")));
+    EXPECT_EQ(client_->connectionState(), ModbusClient::ConnectionState::Connected);
+    EXPECT_TRUE(client_->isConnected());
+}
+
 } // namespace

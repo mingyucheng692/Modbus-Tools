@@ -61,6 +61,10 @@ private:
         Transition{State::Idle,      State::Failed},
         Transition{State::Idle,      State::Aborted},
         Transition{State::Sending,   State::Waiting},
+        // Broadcast writes (RTU/ASCII slave 0) complete at send time: no
+        // response will ever arrive, so the request skips Waiting and ends
+        // here directly.
+        Transition{State::Sending,   State::Completed},
         Transition{State::Sending,   State::Failed},
         Transition{State::Sending,   State::Aborted},
         Transition{State::Waiting,   State::Completed},

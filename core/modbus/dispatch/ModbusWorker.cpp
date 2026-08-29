@@ -183,12 +183,11 @@ void ModbusWorker::handleSubmit(base::Pdu request, int slaveId, int requestId, q
         emit requestFinished(requestId, session::ModbusResponse::Error("No client attached"));
         return;
     }
-    if (!client_->isConnected()) {
-        SPDLOG_WARN("ModbusWorker: fail request trace_id={} because client is not connected",
-                     static_cast<unsigned long long>(traceId));
-        emit requestFinished(requestId, session::ModbusResponse::Error("Not connected"));
-        return;
-    }
+    // No isConnected() gate here (lazy reconnect, T2.3): a request against a
+    // dead/closed session is routed into sendRequest ->
+    // ensureConnected(autoReconnect), which performs a bounded blocking
+    // reconnect instead of failing immediately. The stopping-worker
+    // fast path stays above; aborted_ inside execute() covers the rest.
     auto response = client_->sendRequest(request, slaveId);
     // Clean successes (no error, no retry) are the steady-state majority of
     // log lines under polling; demote them to debug so production logs keep

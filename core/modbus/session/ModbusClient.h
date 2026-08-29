@@ -32,6 +32,21 @@ namespace modbus::session {
 /**
  * @brief Core Modbus client with full session management.
  *
+ * @par Lazy reconnect contract (sendRequest)
+ *      sendRequest() does NOT require a pre-established session: every
+ *      request enters RequestExecutor::sendRequestInternal(), which calls
+ *      ConnectionManager::ensureConnected(autoReconnect). With
+ *      autoReconnect enabled a request against a dead session performs a
+ *      bounded BLOCKING reconnect (attempts = retries+1 with reconnect
+ *      backoff) before failing; with autoReconnect disabled it is a single
+ *      attempt. Callers must therefore not gate submissions on
+ *      isConnected() — that would defeat recovery under polling (the
+ *      poller would spin on "Not connected" errors instead of rebuilding
+ *      the session). The unresponsive eviction (half-open detection) and
+ *      this lazy path together implement automatic recovery: consecutive
+ *      timeouts evict the dead session, the next poll transparently
+ *      reconnects.
+ *
  * @thread thread-compatible, NOT thread-safe. The session-driving methods
  *         (connect, disconnect, sendRequest, sendRaw, setConfig) must be
  *         invoked from a single owning thread. In the application that owner
@@ -113,6 +128,11 @@ public:
     void sendRaw(const QByteArray& data);
     bool connect();
     void disconnect();
+    /// Transport-level fact (delegates to ConnectionManager ->
+    /// IChannel::isOpen()). NOT the session-level truth: a half-open socket
+    /// reports connected here while ConnectionState already says Failed, and
+    /// a session declared dead by the unresponsive eviction reports false
+    /// here. For session truth use connectionState() == Connected.
     bool isConnected() const;
     QString lastChannelError() const;
     void abort();

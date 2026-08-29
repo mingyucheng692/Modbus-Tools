@@ -79,6 +79,10 @@ struct Modbus {
     static constexpr bool kDefaultAutoReconnect = true;
     static constexpr int kDefaultReconnectBaseMs = 250;
     static constexpr int kDefaultReconnectMaxMs = 5000;
+    /// Half-open eviction: consecutive request timeouts (while the session
+    /// reports Connected) after which the session is declared half-open and
+    /// torn down. 0 disables the eviction.
+    static constexpr int kDefaultUnresponsiveThreshold = 3;
     static constexpr int kDefaultStandardStartAddress = 0;
     static constexpr int kDefaultStandardQuantity = 10;
     static constexpr int kDefaultStandardFormatIndex = 0;

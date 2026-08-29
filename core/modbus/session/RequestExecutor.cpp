@@ -160,7 +160,12 @@ bool RequestExecutor::tryAcquireRequestLock() {
 
 ModbusResponse RequestExecutor::execute(const base::Pdu& request, int slaveId) {
     if (!tryAcquireRequestLock()) {
-        SPDLOG_WARN("RequestExecutor: rejected concurrent sendRequest while another request is active trace_id={}",
+        // Busy, not an error: while a request blocks in waitForCondition()
+        // (which still pumps the worker event loop), re-entrant submits are
+        // an expected artifact of that wait — answer them with the
+        // structured Busy response instead of a warn-level rejection log,
+        // so a connect-wait storm does not flood production logs.
+        SPDLOG_DEBUG("RequestExecutor: rejected concurrent sendRequest while another request is active trace_id={}",
                      currentTrace());
         return ModbusResponse::Busy(TrContext<kReqExecCtx>::tr("Request already in progress"));
     }
@@ -244,7 +249,8 @@ ModbusResponse RequestExecutor::execute(const base::Pdu& request, int slaveId) {
 
 void RequestExecutor::sendRaw(const QByteArray& data) {
     if (!tryAcquireRequestLock()) {
-        SPDLOG_WARN("RequestExecutor: rejected sendRaw while another request is active trace_id={}",
+        // Same busy-mitigation rationale as execute(): see the comment there.
+        SPDLOG_DEBUG("RequestExecutor: rejected sendRaw while another request is active trace_id={}",
                      currentTrace());
         return;
     }
@@ -396,6 +402,12 @@ ModbusResponse RequestExecutor::sendRequestInternal(const base::Pdu& request, in
             const bool stillWaiting = waitForEventOrTimeout(deadline);
             if (!stillWaiting && std::chrono::steady_clock::now() >= deadline) {
                 reqStateMachine_->tryTransition(RequestStateMachine::State::Failed, "timeout");
+                // Half-open detection feed (T2.2): a genuine response-wait
+                // timeout of an established session. Early exits of
+                // waitForEventOrTimeout() (abort / data / channel error) do
+                // not reach this site, so only real timeouts count toward
+                // the consecutive-timeout eviction.
+                connectionManager_->onRequestTimeout();
                 // Dedupe: polling a dead device fires this on every request.
                 const auto key = std::make_tuple(
                     static_cast<uint8_t>(slaveId),
@@ -423,6 +435,8 @@ ModbusResponse RequestExecutor::sendRequestInternal(const base::Pdu& request, in
             const bool stillWaiting = waitForEventOrTimeout(frameDeadline);
             if (!stillWaiting && std::chrono::steady_clock::now() >= deadline) {
                 reqStateMachine_->tryTransition(RequestStateMachine::State::Failed, "timeout");
+                // Half-open detection feed (T2.2), see the main timeout site.
+                connectionManager_->onRequestTimeout();
                 const auto key = std::make_tuple(
                     static_cast<uint8_t>(slaveId),
                     static_cast<uint8_t>(request.functionCode()),
@@ -506,6 +520,8 @@ ModbusResponse RequestExecutor::sendRequestInternal(const base::Pdu& request, in
         if (std::chrono::steady_clock::now() >= deadline) {
             reqStateMachine_->tryTransition(RequestStateMachine::State::Failed,
                                             "timeout-full-packet");
+            // Half-open detection feed (T2.2), see the main timeout site.
+            connectionManager_->onRequestTimeout();
             const auto key = std::make_tuple(
                 static_cast<uint8_t>(slaveId),
                 static_cast<uint8_t>(request.functionCode()),
@@ -549,6 +565,9 @@ std::optional<ModbusResponse> RequestExecutor::handleParsedFrame(
         }
         auto rttMs = std::chrono::duration_cast<std::chrono::milliseconds>(
             std::chrono::steady_clock::now() - start).count();
+        // Half-open detection feed (T2.2): a validated response proves the
+        // session is live — reset the consecutive-timeout counter.
+        connectionManager_->onRequestSuccess();
         reqStateMachine_->tryTransition(
             RequestStateMachine::State::Completed, "response-parsed");
         return ModbusResponse::Success(pdu, static_cast<int>(rttMs));
