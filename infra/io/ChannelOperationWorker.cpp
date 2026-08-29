@@ -48,9 +48,10 @@ void ChannelOperationWorker::openTcp(const QString& ip, int port, quint64 genera
     }
 }
 
-void ChannelOperationWorker::openSerial(const SerialConfig& config)
+void ChannelOperationWorker::openSerial(const SerialConfig& config, quint64 generation)
 {
     cleanupChannel();
+    channelGeneration_ = generation;
     deviceHint_ = config.portName;
 
     auto serial = std::make_shared<SerialChannel>();
@@ -137,12 +138,18 @@ void ChannelOperationWorker::setupChannel()
 void ChannelOperationWorker::cleanupChannel()
 {
     if (channel_) {
+        // Order matters: removeStateHandler() BEFORE close(). close()
+        // synchronously fires Closing/Closed through the state handlers;
+        // with the handler still attached, a torn-down channel would emit
+        // stateChangedWithGeneration with the OLD generation after the new
+        // open*() has already bumped channelGeneration_, letting stale
+        // events race the fresh connect attempt on the consumer side.
+        channel_->removeStateHandler(stateHandlerId_);
+        stateHandlerId_ = 0;
         channel_->close();
         channel_->setReadHandler(nullptr);
         channel_->setErrorHandler(nullptr);
         channel_->setMonitor(nullptr);
-        channel_->removeStateHandler(stateHandlerId_);
-        stateHandlerId_ = 0;
         channel_.reset();
     }
     deviceHint_.clear();

@@ -115,7 +115,7 @@ void GenericSerialView::startWorker() {
             this, &GenericSerialView::onWorkerError);
     connect(worker, &io::ChannelOperationWorker::monitor,
             this, &GenericSerialView::onWorkerMonitor);
-    connect(worker, &io::ChannelOperationWorker::stateChanged,
+    connect(worker, &io::ChannelOperationWorker::stateChangedWithGeneration,
             this, &GenericSerialView::onWorkerStateChanged);
 }
 
@@ -127,18 +127,28 @@ void GenericSerialView::onConnectClicked(const io::SerialConfig& config) {
     channelCtrl_.resetReconnect();
     reconnectConfig_ = config;
 
+    // Fresh user intent: a prior manual disconnect is superseded, so a
+    // later passive loss may trigger the reconnect loop again (NEW-C).
+    manualDisconnectRequested_ = false;
+    const quint64 generation = ++connectionGeneration_;
+
     SPDLOG_INFO("GenericSerial: Connecting to {}", config.portName.toStdString());
     if (monitor_) {
         monitor_->appendInfo(tr("Opening %1...").arg(config.portName));
     }
     connectionWidget_->setDisplayState(widgets::SerialConnectionWidget::DisplayState::Connecting);
-    
-    QMetaObject::invokeMethod(worker, "openSerial", 
-                              Qt::QueuedConnection, 
-                              Q_ARG(io::SerialConfig, config));
+
+    QMetaObject::invokeMethod(worker, "openSerial",
+                              Qt::QueuedConnection,
+                              Q_ARG(io::SerialConfig, config),
+                              Q_ARG(quint64, generation));
 }
 
-void GenericSerialView::onWorkerStateChanged(io::ChannelState state) {
+void GenericSerialView::onWorkerStateChanged(io::ChannelState state, quint64 generation) {
+    if (generation != connectionGeneration_) {
+        return;
+    }
+
     const bool wasConnected = isConnected_;
 
     isConnected_ = (state == io::ChannelState::Open);
@@ -176,8 +186,12 @@ void GenericSerialView::onWorkerStateChanged(io::ChannelState state) {
     }
 
     if (isConnected_) {
+        // A live session invalidates any prior manual-disconnect intent;
+        // subsequent losses are passive again (reconnect eligible).
+        manualDisconnectRequested_ = false;
         channelCtrl_.reconnectPolicy().onSuccess();
     } else if (wasConnected
+               && !manualDisconnectRequested_ // NEW-C: passive losses only
                && connectionWidget_->autoReconnectEnabled()
                && !channelCtrl_.reconnectTimer()->isActive()) {
         auto& policy = channelCtrl_.reconnectPolicy();
@@ -261,6 +275,8 @@ void GenericSerialView::onReconnectTimerTick() {
                  reconnectConfig_.portName.toStdString(),
                  channelCtrl_.reconnectPolicy().attemptCount());
 
+    manualDisconnectRequested_ = false; // reconnect tick = fresh intent
+    const quint64 generation = ++connectionGeneration_;
     if (monitor_) {
         monitor_->appendInfo(tr("Reconnecting to %1...").arg(reconnectConfig_.portName));
     }
@@ -268,7 +284,8 @@ void GenericSerialView::onReconnectTimerTick() {
 
     QMetaObject::invokeMethod(worker, "openSerial",
                               Qt::QueuedConnection,
-                              Q_ARG(io::SerialConfig, reconnectConfig_));
+                              Q_ARG(io::SerialConfig, reconnectConfig_),
+                              Q_ARG(quint64, generation));
 }
 
 } // namespace ui::views::generic_serial

@@ -46,7 +46,7 @@ public:
 
 private slots:
     void onConnectClicked(const io::SerialConfig& config);
-    void onWorkerStateChanged(io::ChannelState state);
+    void onWorkerStateChanged(io::ChannelState state, quint64 generation);
     void onWorkerError(const QString& deviceHint, const QString& error);
     void onWorkerMonitor(bool isTx, const QByteArray& data);
     void onReconnectTimerTick();
@@ -76,6 +76,12 @@ private:
     ChannelController channelCtrl_;
 
     io::SerialConfig reconnectConfig_;
+
+    /// Monotonic connection-attempt counter, bumped on every user connect /
+    /// reconnect tick. Stale worker emissions from a torn-down channel carry
+    /// an older generation and are dropped in onWorkerStateChanged() — the
+    /// same mechanism GenericTcpView uses for rapid open/close sequences.
+    quint64 connectionGeneration_ = 0;
 };
 
 } // namespace ui::views::generic_serial

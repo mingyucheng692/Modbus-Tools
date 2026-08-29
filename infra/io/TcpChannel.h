@@ -38,8 +38,15 @@ namespace io {
  */
 class TcpChannel : public BufferedWritingChannel {
 public:
-    TcpChannel();
+    /// @param closeLingerMs  Fallback timer that force-aborts a socket stuck
+    ///                       in Closing (e.g. disconnectFromHost blocked on a
+    ///                       full kernel send buffer). Production default is
+    ///                       kDefaultCloseLingerMs; tests inject a short value.
+    explicit TcpChannel(int closeLingerMs = kDefaultCloseLingerMs);
     ~TcpChannel() noexcept override;
+
+    /// Production close-linger fallback (see constructor parameter).
+    static constexpr int kDefaultCloseLingerMs = 2000;
 
     ChannelKind kind() const override { return ChannelKind::Tcp; }
     bool open() override;
@@ -60,9 +67,15 @@ private:
     void onConnected();
     void onSocketError(QAbstractSocket::SocketError error);
     void onStateChanged(QAbstractSocket::SocketState state);
+    void onLingerTimeout();
 
     QTcpSocket socket_;
     QTimer connectTimer_;
+    /// Close fallback: force-aborts the socket if disconnectFromHost() cannot
+    /// complete within closeLingerMs_ (stale kernel buffers, unresponsive peer)
+    /// so the channel can never be stranded in Closing forever.
+    QTimer lingerTimer_;
+    int closeLingerMs_ = kDefaultCloseLingerMs;
     QString ip_;
     int port_ = config::Network::kDefaultModbusTcpPort;
 };

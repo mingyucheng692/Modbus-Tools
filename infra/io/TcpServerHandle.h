@@ -36,6 +36,10 @@ public:
     void stop();
     bool isListening() const;
 
+    /// Port the listener is bound to (valid after a successful start()).
+    /// Mainly for tests that pass 0 to request an ephemeral port.
+    quint16 listenPort() const { return server_.serverPort(); }
+
     IChannel* clientChannel(int clientId) const;
     QList<ClientInfo> clientList() const;
     int clientCount() const;
@@ -55,6 +59,14 @@ private:
     struct ClientEntry {
         std::shared_ptr<TcpChannel> channel;
         ClientInfo info;
+        IChannel::HandlerId stateHandlerId = 0;
+        /// The QTcpServer-spawned socket whose native descriptor was adopted
+        /// by @p channel. Ownership stays HERE (never deleteLater in
+        /// onNewConnection): both objects reference the same OS socket
+        /// handle, and destroying the source socket first closes the
+        /// descriptor out from under the channel, silently killing all
+        /// passive-loss notifications. Teardown order lives in removeClient().
+        QTcpSocket* sourceSocket = nullptr;
     };
 
     QTcpServer server_;

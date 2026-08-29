@@ -55,7 +55,7 @@ TEST_F(ChannelOperationWorkerTest, OpenSerial_InvalidPort_EmitsError) {
 
     SerialConfig cfg;
     cfg.portName = QStringLiteral("COM_NONEXISTENT_99999");
-    worker_->openSerial(cfg);
+    worker_->openSerial(cfg, 1);
 
     // Serial open failure emits error synchronously (or very quickly)
     // Allow some async processing
@@ -71,13 +71,62 @@ TEST_F(ChannelOperationWorkerTest, OpenSerial_EmptyPortName_EmitsError) {
 
     SerialConfig cfg;
     cfg.portName.clear();
-    worker_->openSerial(cfg);
+    worker_->openSerial(cfg, 1);
 
     for (int i = 0; i < 10 && errorSpy.count() == 0; ++i) {
         QCoreApplication::processEvents();
     }
 
     EXPECT_GE(errorSpy.count(), 1);
+}
+
+// ---------------------------------------------------------------------------
+// Generation plumbing (T3.4): openSerial now carries the same monotonic
+// attempt counter as openTcp, and the channel state handler is detached
+// BEFORE close during cleanup so a torn-down channel cannot emit stale
+// generation-tagged states.
+// ---------------------------------------------------------------------------
+
+TEST_F(ChannelOperationWorkerTest, OpenSerial_Failure_StatesCarryGeneration) {
+    QSignalSpy spy(worker_.get(), &ChannelOperationWorker::stateChangedWithGeneration);
+
+    SerialConfig cfg;
+    cfg.portName = QStringLiteral("COM_NONEXISTENT_99999");
+    worker_->openSerial(cfg, 42);
+
+    for (int i = 0; i < 10 && spy.count() == 0; ++i) {
+        QCoreApplication::processEvents();
+    }
+
+    ASSERT_GT(spy.count(), 0);
+    for (const auto& args : spy) {
+        EXPECT_EQ(args.at(1).toULongLong(), 42u);
+    }
+}
+
+TEST_F(ChannelOperationWorkerTest, OpenSerial_SecondAttempt_NoStaleGenerationEvents) {
+    QSignalSpy spy(worker_.get(), &ChannelOperationWorker::stateChangedWithGeneration);
+
+    SerialConfig cfg;
+    cfg.portName = QStringLiteral("COM_NONEXISTENT_99999");
+    worker_->openSerial(cfg, 1);
+    for (int i = 0; i < 10; ++i) {
+        QCoreApplication::processEvents();
+    }
+    spy.clear();
+
+    // Attempt 2: cleanupChannel() detaches the old state handler before
+    // close(), so the torn-down channel must not emit Closing/Closed
+    // tagged with the OLD generation (stale event suppression).
+    worker_->openSerial(cfg, 2);
+    for (int i = 0; i < 10; ++i) {
+        QCoreApplication::processEvents();
+    }
+
+    for (const auto& args : spy) {
+        EXPECT_EQ(args.at(1).toULongLong(), 2u)
+            << "stale generation-1 event leaked from the torn-down channel";
+    }
 }
 
 // ---------------------------------------------------------------------------

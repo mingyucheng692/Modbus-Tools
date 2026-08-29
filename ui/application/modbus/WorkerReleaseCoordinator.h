@@ -68,6 +68,12 @@ public:
     /// without terminate() and emits releaseTimedOut.
     static constexpr int kDefaultTimeoutMs = 5000;
 
+    /// Backstop budget for the channel shutdown sequence (close() -> Closed
+    /// -> IO thread quit). TcpChannel's close linger lands Closed within
+    /// kDefaultCloseLingerMs (2s); this timer fires only when the IO loop is
+    /// fully wedged and forces the thread quit so finalize() still runs.
+    static constexpr int kChannelShutdownForceMs = 3000;
+
     /**
      * @brief Begin an asynchronous, bounded teardown of @p handle.
      *
@@ -116,8 +122,18 @@ private:
         bool channelThreadFinished = false;
         bool workerThreadFinished = false;
         bool completionLogged = false;
+        /// Guards beginChannelShutdown() against re-entry (it is triggered
+        /// from three paths: worker stopped, worker thread finished, timeout).
+        bool channelShutdownStarted = false;
         QString timeoutMessage;
         QTimer* timeoutTimer = nullptr;
+        /// Second-chance timer for the channel shutdown sequence: if Closed
+        /// does not arrive in time (close linger should land within 2s), the
+        /// IO thread is quit regardless so finalize() can still proceed.
+        QTimer* channelForceTimer = nullptr;
+        /// Channel state-handler subscription watching for the terminal
+        /// Closed state that gates channelThread quit().
+        io::IChannel::HandlerId channelStateHandlerId = 0;
     };
 
     void startRelease(std::shared_ptr<PendingReleaseContext> pending);
@@ -127,6 +143,24 @@ private:
     void tryComplete(const std::shared_ptr<PendingReleaseContext>& pending);
     void onTimeout(const std::shared_ptr<PendingReleaseContext>& pending);
     void finalize(const std::shared_ptr<PendingReleaseContext>& pending);
+
+    /// @brief Drive the channel's graceful shutdown and only then quit the
+    ///        IO thread.
+    ///
+    /// The channel thread MUST stay alive until the channel actually reached
+    /// Closed: TcpChannel::close() (and its linger fallback) are event-loop
+    /// driven, so quitting the IO thread first strands the socket in
+    /// ConnectedState forever. A channel destroyed in that state from the
+    /// GUI thread trips QCoreApplication's cross-thread sendEvent assert
+    /// while the socket engine's notifier children are torn down (observed
+    /// crash with an unresponsive Modbus TCP peer). The sequence is:
+    /// close() (queued to the IO thread) -> Closed observed -> quit().
+    /// A bounded force timer aborts the wait so finalize() can still run.
+    void beginChannelShutdown(const std::shared_ptr<PendingReleaseContext>& pending);
+
+    /// Detaches the channel state-handler subscription and the force timer;
+    /// called from finalize() and the Closed observer.
+    void detachChannelWatchers(const std::shared_ptr<PendingReleaseContext>& pending);
 
     std::vector<std::shared_ptr<PendingReleaseContext>> pending_;
 };

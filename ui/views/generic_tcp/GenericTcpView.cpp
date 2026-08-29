@@ -238,7 +238,14 @@ void GenericTcpView::stopServerWorker() {
     auto* serverWorker = serverWorker_;
     serverThread_ = nullptr;
     serverWorker_ = nullptr;
-    channelCtrl_.stopWorkerPair(thread, serverWorker);
+    // Explicit teardown on the server thread BEFORE deleteLater(): stopping
+    // the listener and closing every client channel is a visible state
+    // change (clientDisconnected emissions) that must not depend on the
+    // destructor running during thread drain (NEW-B shutdown race).
+    channelCtrl_.stopWorkerPair(thread, serverWorker, {}, [serverWorker](QObject*) {
+        QMetaObject::invokeMethod(serverWorker, "closeAllClients",
+                                  Qt::DirectConnection);
+    });
 }
 
 void GenericTcpView::switchToProtocol(Protocol protocol) {
@@ -294,6 +301,9 @@ void GenericTcpView::onConnectClicked(const QString& ip, int port) {
 
     SPDLOG_INFO("GenericTcp: Connecting to {}:{}", ip.toStdString(), port);
     suppressDisconnectAlert_ = false;
+    // Fresh user intent: any prior manual disconnect is superseded, so a
+    // later passive loss is allowed to trigger the reconnect loop again.
+    manualDisconnectRequested_ = false;
     const quint64 generation = ++connectionGeneration_;
     if (monitor_) {
         monitor_->appendInfo(tr("Connecting to %1:%2...").arg(ip).arg(port));
@@ -417,7 +427,7 @@ void GenericTcpView::onWorkerStateChanged(io::ChannelState state, quint64 genera
     const auto transition = computeTcpStateTransition(
         state,
         wasConnected,
-        suppressDisconnectAlert_);
+        suppressDisconnectAlert_ || manualDisconnectRequested_);
 
     isConnected_ = (state == io::ChannelState::Open);
     if (transition.clearSuppressDisconnectAlert) {
@@ -482,6 +492,10 @@ void GenericTcpView::onWorkerStateChanged(io::ChannelState state, quint64 genera
     if (!isConnected_ && wasConnected
         && currentProtocol_ == Protocol::TcpClient
         && activeWidget->autoReconnectEnabled()
+        // NEW-C: auto-reconnect reacts to passive losses only. A manual
+        // disconnect (onDisconnectClicked set the flag) must keep the
+        // channel down until the user explicitly connects again.
+        && !manualDisconnectRequested_
         && !suppressDisconnectAlert_
         && !channelCtrl_.reconnectTimer()->isActive()) {
         auto& policy = channelCtrl_.reconnectPolicy();
@@ -503,6 +517,9 @@ void GenericTcpView::onWorkerStateChanged(io::ChannelState state, quint64 genera
     }
 
     if (state == io::ChannelState::Open) {
+        // A live session invalidates any prior manual-disconnect intent;
+        // subsequent losses are passive again (alert + reconnect eligible).
+        manualDisconnectRequested_ = false;
         channelCtrl_.reconnectPolicy().onSuccess();
     }
 }
@@ -544,6 +561,9 @@ void GenericTcpView::onServerMonitorWithClient(bool isTx, const QByteArray& data
 }
 
 void GenericTcpView::onServerStateChanged(io::ChannelState state) {
+    // The worker's state contract (see ServerChannelWorker.h) emits only
+    // Open and Closed; the Opening/Closing branches below are defensive
+    // in case an intermediate listen state is ever introduced.
     isConnected_ = (state == io::ChannelState::Open);
 
     QString stateStr;
@@ -641,6 +661,7 @@ void GenericTcpView::onReconnectTimerTick() {
 
     suppressDisconnectAlert_ = false;
     const quint64 generation = ++connectionGeneration_;
+    manualDisconnectRequested_ = false; // reconnect tick = fresh intent
     if (monitor_) {
         monitor_->appendInfo(tr("Auto-reconnecting to %1:%2 (attempt %3)...")
                                  .arg(reconnectHost_)

@@ -27,6 +27,12 @@ void GenericChannelViewBase::onDisconnectClicked() {
         return;
     }
 
+    // User intent flag (NEW-C): a manual disconnect must not be overridden
+    // by the auto-reconnect loop. The loop only reacts to passive losses;
+    // this flag is cleared on the next user-initiated connect. It also
+    // suppresses the "connection lost" alert since the user caused it.
+    manualDisconnectRequested_ = true;
+
     channelController_->stopReconnectTimer();
     channelController_->resetReconnect();
     channelController_->disconnect();

@@ -48,6 +48,14 @@ protected:
     ChannelController* channelController_ = nullptr;
 
     bool isConnected_ = false;
+
+    /// Set by onDisconnectClicked(), cleared on the next user-initiated
+    /// connect or on reaching Open. While true, the auto-reconnect loop
+    /// stays suppressed: reconnects react to passive losses only (NEW-C),
+    /// so a manual disconnect keeps the channel down until the user
+    /// explicitly connects again.
+    bool manualDisconnectRequested_ = false;
+
     infra::config::ISettingsService* settingsService_ = nullptr;
 };
 

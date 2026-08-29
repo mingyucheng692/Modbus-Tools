@@ -49,7 +49,11 @@ public:
 
 public slots:
     void openTcp(const QString& ip, int port, quint64 generation);
-    void openSerial(const SerialConfig& config);
+    /// @param generation  Monotonic UI-side connection attempt counter,
+    ///                    identical in role to openTcp's generation: stale
+    ///                    stateChangedWithGeneration emissions from a torn-down
+    ///                    serial channel are dropped by the view layer.
+    void openSerial(const SerialConfig& config, quint64 generation);
     void openUdp(const QString& localIp, int localPort,
                  const QString& remoteIp = {}, int remotePort = 0);
     void close();

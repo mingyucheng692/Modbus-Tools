@@ -26,7 +26,8 @@ unsigned long long threadToken(QThread* thread)
 
 } // namespace
 
-TcpChannel::TcpChannel() {
+TcpChannel::TcpChannel(int closeLingerMs)
+    : closeLingerMs_(closeLingerMs > 0 ? closeLingerMs : kDefaultCloseLingerMs) {
     connectTimer_.setSingleShot(true);
     connectTimer_.callOnTimeout([this]() {
         SPDLOG_WARN("TcpChannel: connect timeout to {}:{}", ip_.toStdString(), port_);
@@ -34,6 +35,9 @@ TcpChannel::TcpChannel() {
         setState(ChannelState::Error);
         emitError(QStringLiteral("TCP connect timeout (%1:%2)").arg(ip_).arg(port_));
     });
+
+    lingerTimer_.setSingleShot(true);
+    lingerTimer_.callOnTimeout([this]() { onLingerTimeout(); });
 
     QObject::connect(&socket_, &QTcpSocket::connected, &socket_, [this]() {
         onConnected();
@@ -75,6 +79,7 @@ bool TcpChannel::open() {
     logThreadContextOnce("TcpChannel::open", openThreadLoggedFlag());
 
     connectTimer_.stop();
+    lingerTimer_.stop();
 
     if (socket_.state() == QAbstractSocket::ConnectedState) {
         setState(ChannelState::Open);
@@ -112,7 +117,10 @@ bool TcpChannel::open() {
     socket_.setSocketOption(QAbstractSocket::LowDelayOption, 1);
     socket_.setSocketOption(QAbstractSocket::KeepAliveOption, 1);
     socket_.connectToHost(ip_, port_);
-    connectTimer_.start(std::max(3000, timeouts().readMs));
+    // The hidden 3000ms floor silently overrode short user-configured
+    // timeouts (e.g. ModbusConfig.timeoutMs = 1000). Floor at 1000ms so a
+    // configured connect timeout is honored unless degenerate.
+    connectTimer_.start(std::max(1000, timeouts().readMs));
     return true;
 }
 
@@ -123,6 +131,7 @@ void TcpChannel::moveToThread(QThread* thread) {
     ChannelBase::moveToThread(thread);
     socket_.moveToThread(thread);
     connectTimer_.moveToThread(thread);
+    lingerTimer_.moveToThread(thread);
     moveWriteInfrastructureToThread(thread);
     // Invariant: socket_ and writeTimeoutTimer_ now both live on @p thread.
     // moveWriteInfrastructureToThread moves the timer to the same target, so
@@ -163,7 +172,27 @@ void TcpChannel::close() {
         socket_.close();
         setClosing(false);
         setState(ChannelState::Closed);
+        return;
     }
+    // disconnectFromHost() could not complete synchronously (typically the
+    // kernel send buffer still holds unflushed data). Arm the linger
+    // fallback: if the graceful close does not land in Closed within
+    // closeLingerMs_, onLingerTimeout() force-aborts so the channel can
+    // never be stranded in Closing forever.
+    lingerTimer_.start(closeLingerMs_);
+}
+
+void TcpChannel::onLingerTimeout() {
+    assertOwnerThread(socket_, __func__);
+    SPDLOG_WARN("TcpChannel: close linger expired ({}ms), force-aborting socket {}:{}",
+                closeLingerMs_, ip_.toStdString(), port_);
+    lingerTimer_.stop();
+    socket_.abort();
+    if (socket_.state() == QAbstractSocket::UnconnectedState) {
+        socket_.close();
+    }
+    setClosing(false);
+    setState(ChannelState::Closed);
 }
 
 void TcpChannel::setEndpoint(const QString& ip, int port) {
@@ -215,6 +244,14 @@ void TcpChannel::onSocketError(QAbstractSocket::SocketError error) {
                  static_cast<int>(error),
                  endpoint.toStdString(),
                  errorText.toStdString());
+    // Stale socket errors (e.g. the abort() issued by the close-linger
+    // fallback, or a duplicate notification after the connect-timeout path
+    // already landed the FSM in Error) must not repaint a terminal state.
+    // Only an in-flight or established session can transition to Error.
+    const ChannelState current = state();
+    if (current != ChannelState::Opening && current != ChannelState::Open) {
+        return;
+    }
     resetWriteState();
     disarmWriteTimeout();
     setState(ChannelState::Error);
@@ -223,9 +260,17 @@ void TcpChannel::onSocketError(QAbstractSocket::SocketError error) {
                   .arg(errorText));
 }
 
-void TcpChannel::onStateChanged(QAbstractSocket::SocketState state) {
+void TcpChannel::onStateChanged(QAbstractSocket::SocketState socketState) {
     assertOwnerThread(socket_, __func__);
-    switch (state) {
+    // Error is sticky: once the channel-layer FSM is in Error (peer reset,
+    // connect timeout, socket failure) subsequent QAbstractSocket state
+    // notifications (e.g. UnconnectedState after abort()) must not silently
+    // repaint the failure into a healthy Closed/Open. Error is left only
+    // through open() (new attempt) or close() (user-initiated teardown).
+    if (state() == ChannelState::Error) {
+        return;
+    }
+    switch (socketState) {
         case QAbstractSocket::ConnectedState:
             setState(ChannelState::Open);
             flushPendingWrites();
@@ -233,6 +278,16 @@ void TcpChannel::onStateChanged(QAbstractSocket::SocketState state) {
         case QAbstractSocket::UnconnectedState:
             resetWriteState();
             disarmWriteTimeout();
+            lingerTimer_.stop();
+            // Drop the socket engine and its notifier children NOW, while we
+            // are still on the IO thread. After a graceful disconnect the
+            // QNativeSocketEngine (with its QSocketNotifier children) would
+            // otherwise survive until socket_ destruction — and a channel
+            // whose IO thread already quit is destroyed cross-thread, which
+            // trips QCoreApplication's sendEvent assert (notifier teardown
+            // delivers events to objects owned by the dead thread). abort()
+            // on an unconnected socket only discards leftover engine state.
+            socket_.abort();
             setClosing(false);
             setState(ChannelState::Closed);
             break;

@@ -28,8 +28,27 @@ class TcpServerHandle;
  *     traffic from different peers.
  *   - Provides per-client write and disconnect operations.
  *
+ * State contract (channel-level states emitted via stateChanged):
+ *   - openTcpServer success: Closed -> Open.
+ *   - openTcpServer failure: channelErrorOccurred + Closed (terminal — the
+ *     view must fall back to its disconnected display, never stay on
+ *     "Connecting").
+ *   - closeAllClients: Closed (after every client channel and the listener
+ *     have been torn down).
+ *   Opening/Closing are never emitted; there is no intermediate listen state.
+ *
  * Public slots:
  *   openTcpServer, closeClient, closeAllClients, writeToClient.
+ *
+ * @thread This worker must be moved to a dedicated server thread via
+ *         moveToThread(); all slots execute on that thread. The worker and
+ *         its TcpServerHandle (including every adopted client channel) share
+ *         that single thread, so no cross-thread locking is required.
+ *         Signals are emitted to the GUI thread via Qt::AutoConnection.
+ *         Shutdown order: the owner queues closeAllClients() on the server
+ *         thread (explicit teardown) BEFORE deleteLater(); relying on the
+ *         destructor alone leaves the listener running until the thread
+ *         drains its remaining events.
  *
  * NOT in scope:
  *   - Single-channel operations (see ChannelOperationWorker).

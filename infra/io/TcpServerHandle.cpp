@@ -9,6 +9,7 @@
 
 #include "TcpServerHandle.h"
 #include "TcpChannel.h"
+#include <QMetaObject>
 #include <QTcpSocket>
 #include <spdlog/spdlog.h>
 
@@ -32,12 +33,14 @@ bool TcpServerHandle::start(const QString& listenIp, int port, int maxClients)
 
     const QHostAddress addr(listenIp);
     if (!server_.listen(addr, static_cast<quint16>(port))) {
+        // Synchronous failure: reported through the return value so the
+        // caller (ServerChannelWorker::openTcpServer) can emit ONE coherent
+        // error + terminal stateChanged(Closed) pair. Emitting errorOccurred
+        // here as well used to produce a duplicate channelErrorOccurred and
+        // an Error state that left the UI stranded on "Connecting".
         SPDLOG_ERROR("TcpServerHandle: listen failed {}:{} error={}",
                       listenIp.toStdString(), port,
                       server_.errorString().toStdString());
-        emit errorOccurred(server_.errorString().isEmpty()
-                               ? QStringLiteral("TCP server listen failed")
-                               : server_.errorString());
         return false;
     }
 
@@ -49,11 +52,12 @@ bool TcpServerHandle::start(const QString& listenIp, int port, int maxClients)
 void TcpServerHandle::stop()
 {
     server_.close();
+    // removeClient() erases each entry (and detaches its state handler),
+    // so iterating a snapshot of the ids is safe; clients_ ends up empty.
     const auto clientIds = clients_.keys();
     for (int id : clientIds) {
         removeClient(id);
     }
-    clients_.clear();
 }
 
 bool TcpServerHandle::isListening() const
@@ -83,10 +87,12 @@ int TcpServerHandle::clientCount() const
 
 void TcpServerHandle::onNewConnection()
 {
-    // Implicit lifetime transfer — socket from nextPendingConnection()
-    // is adopted via socketDescriptor() into TcpChannel, then the original
-    // QTcpSocket is deleteLater()'d. Qt guarantees the native descriptor
-    // remains valid for adoption via setSocketDescriptor().
+    // The socket from nextPendingConnection() and the TcpChannel share
+    // one native descriptor after adoptSocketDescriptor(). The source
+    // QTcpSocket is retained in ClientEntry (NOT deleteLater'd here):
+    // destroying it would close the shared descriptor out from under
+    // the channel and kill all passive-loss notifications. Teardown
+    // order lives in removeClient().
     while (server_.hasPendingConnections()) {
         QTcpSocket* socket = server_.nextPendingConnection();
         if (!socket) continue;
@@ -118,15 +124,45 @@ void TcpServerHandle::onNewConnection()
         ClientEntry entry;
         entry.channel = channel;
         entry.info = info;
-        clients_.insert(clientId, entry);
+        entry.sourceSocket = socket;
+        // Passive-loss subscription: when the peer goes away (RST, cable
+        // pull, orderly FIN) the adopted TcpChannel reports Closed/Error
+        // and the client is removed here. Active removals (removeClient)
+        // erase the entry BEFORE closing the channel, so the contains()
+        // check inside the handler distinguishes user-initiated closes
+        // from passive losses and cannot re-enter.
+        //
+        // The removal itself MUST be deferred: this handler runs inside
+        // the channel socket's own error/state notification dispatch, and
+        // removeClient() destroys the TcpChannel (with its member
+        // QTcpSocket) at scope exit — tearing the socket down in the
+        // middle of its own signal dispatch wedges the Windows event
+        // dispatcher (processEvents never returns). Queuing to the next
+        // event-loop turn lets the current socket dispatch complete
+        // first.
+        entry.stateHandlerId = channel->addStateHandler(
+            [this, clientId](ChannelState state) {
+                if (state != ChannelState::Closed
+                    && state != ChannelState::Error) {
+                    return;
+                }
+                if (!clients_.contains(clientId)) {
+                    return; // user-initiated removal path
+                }
+                QMetaObject::invokeMethod(this, [this, clientId]() {
+                    if (!clients_.contains(clientId)) {
+                        return; // removed by stop()/removeClient meanwhile
+                    }
+                    removeClient(clientId);
+                }, Qt::QueuedConnection);
+            });
+        clients_.insert(clientId, std::move(entry));
 
         SPDLOG_INFO("TcpServerHandle: client {} connected from {}:{}",
                      clientId,
                      info.peerAddress.toStdString(),
                      info.peerPort);
         emit clientConnected(clientId, info.peerAddress, info.peerPort);
-
-        socket->deleteLater();
     }
 }
 
@@ -137,10 +173,28 @@ void TcpServerHandle::removeClient(int clientId)
 
     SPDLOG_INFO("TcpServerHandle: client {} disconnected", clientId);
 
-    if (auto* ch = it->channel.get()) {
+    // Erase BEFORE closing: the channel state handler installed in
+    // onNewConnection() treats a close of a still-registered client as a
+    // passive loss and would re-enter removeClient; erasing first makes the
+    // contains() check fail so the close is treated as user-initiated.
+    auto entry = std::move(it.value());
+    clients_.erase(it);
+
+    if (auto* ch = entry.channel.get()) {
+        ch->removeStateHandler(entry.stateHandlerId);
         ch->close();
     }
-    clients_.erase(it);
+    if (entry.sourceSocket) {
+        // The source socket and the channel share one OS socket handle.
+        // The channel's close() above is the FIRST (and only legal)
+        // closesocket(); closing the source socket afterwards makes the
+        // second closesocket() hit an already-dead descriptor on this same
+        // thread, which Windows safely reports as an error instead of
+        // closing a recycled handle. Deleting the source socket here also
+        // retires the QTcpServer child ownership.
+        entry.sourceSocket->close();
+        delete entry.sourceSocket;
+    }
     emit clientDisconnected(clientId);
 }
 

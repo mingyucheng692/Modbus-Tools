@@ -62,6 +62,10 @@ void ServerChannelWorker::openTcpServer(const QString& listenIp, int port, int m
         emit channelErrorOccurred(
             QStringLiteral("TCP Server"),
             QStringLiteral("Failed to start TCP server"));
+        // Terminal state after a failed listen: without this emission the
+        // view never hears back from the worker and stays stuck on the
+        // "Connecting" display state set when Start was clicked.
+        emit stateChanged(ChannelState::Closed);
         return;
     }
 
@@ -72,8 +76,11 @@ void ServerChannelWorker::closeClient(int clientId)
 {
     auto* channel = serverHandle_->clientChannel(clientId);
     if (channel) {
+        // Closing the channel fires its Closed state; TcpServerHandle's
+        // passive-loss subscription then removes the client and emits
+        // clientDisconnected exactly once. Do NOT emit here as well —
+        // that would double-report the disconnect.
         channel->close();
-        emit clientDisconnected(clientId);
     }
 }
 
