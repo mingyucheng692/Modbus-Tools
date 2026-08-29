@@ -652,6 +652,13 @@ void ModbusSessionPresenter::handleChannelStateTransition(io::ChannelState state
     assertGuiThread("handleChannelStateTransition must run on the GUI thread");
     Q_UNUSED(generation);
 
+    // Edge detection must read the UI state BEFORE core derivation: on a
+    // passive channel loss the client's channel-state handler has already
+    // moved the core FSM Connected -> Failed, so syncStateFromCore() below
+    // lands connectionState_ in Disconnected — the pre-sync value is the only
+    // record of "an established session just died".
+    const auto stateBeforeSync = connectionState_;
+
     // Core FSM is the single source of truth — derive UI state from it.
     syncStateFromCore();
 
@@ -674,28 +681,42 @@ void ModbusSessionPresenter::handleChannelStateTransition(io::ChannelState state
         return;
     case io::ChannelState::Closed:
     case io::ChannelState::Error: {
-        const bool wasConnected = (currentState == SessionConnectionState::Connected);
-        if (wasConnected || currentState != SessionConnectionState::Disconnected) {
-            const bool shouldShowDisconnectAlert = isTcp && wasConnected && !suppressDisconnectAlert_;
-            if (controlWidget_) {
-                controlWidget_->setPollingEnabled(false);
-            }
-            // Attribute the disconnection reason: prefer the last channel
-            // error, fall back to a generic message.
-            const QString reason = client_
-                ? client_->lastChannelError()
-                : QString();
-            if (isTcp && trafficLogController_) {
-                const QString logMsg = reason.isEmpty()
-                    ? tr("Disconnected")
-                    : tr("Disconnected: %1").arg(reason);
-                trafficLogController_->logConnectionInfo(logMsg);
-            }
-            if (shouldShowDisconnectAlert) {
-                ui::common::connection_alert::showDisconnected(qApp->activeWindow());
-            }
-            emit sessionDisconnected(reason);
+        // Only react when an established session died. Mid-connect failures
+        // are reported through handleConnectFinished(false) with the connect
+        // error attached; reacting here too would double-emit
+        // sessionDisconnected. The Error-then-Closed event pair of a TCP
+        // passive close deduplicates itself: the first event lands the UI in
+        // Disconnected, the second sees stateBeforeSync == Disconnected.
+        const bool wasEstablished = (stateBeforeSync == SessionConnectionState::Connected
+                                     || stateBeforeSync == SessionConnectionState::TransportConnected);
+        if (!wasEstablished) {
+            return;
         }
+        const bool wasConnected = (stateBeforeSync == SessionConnectionState::Connected);
+        const bool shouldShowDisconnectAlert = isTcp && wasConnected && !suppressDisconnectAlert_;
+        if (controlWidget_) {
+            controlWidget_->setPollingEnabled(false);
+        }
+        // Stop the poll loop outright (not just disable the control): an
+        // in-flight request may be blocked on the dead channel.
+        if (pollingController_) {
+            pollingController_->stopPoll();
+        }
+        // Attribute the disconnection reason: prefer the last channel
+        // error, fall back to a generic message.
+        const QString reason = client_
+            ? client_->lastChannelError()
+            : QString();
+        if (isTcp && trafficLogController_) {
+            const QString logMsg = reason.isEmpty()
+                ? tr("Disconnected")
+                : tr("Disconnected: %1").arg(reason);
+            trafficLogController_->logConnectionInfo(logMsg);
+        }
+        if (shouldShowDisconnectAlert) {
+            ui::common::connection_alert::showDisconnected(qApp->activeWindow());
+        }
+        emit sessionDisconnected(reason);
         return;
     }
     }

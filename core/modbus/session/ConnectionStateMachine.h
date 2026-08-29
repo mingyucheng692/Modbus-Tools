@@ -65,6 +65,12 @@ private:
         Transition{State::Connected,     State::Disconnecting},
         Transition{State::Connected,     State::Failed},
         Transition{State::Disconnecting, State::Disconnected},
+        // Failed -> Connecting: a user-initiated retry from a failed session
+        // (distinct from Failed -> Reconnecting, which is an automatic retry
+        // inside a reconnect loop). Without this edge the machine gets stuck
+        // in Failed after the first failed connect() and every subsequent
+        // attempt logs an invalid transition.
+        Transition{State::Failed,        State::Connecting},
         Transition{State::Failed,        State::Reconnecting},
         Transition{State::Failed,        State::Disconnecting},
         Transition{State::Failed,        State::Disconnected},

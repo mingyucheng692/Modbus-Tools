@@ -232,6 +232,25 @@ jobs:
             }
           }
 
+      - name: Validate state machine invariants
+        if: steps.ci_options.outputs.should_run == 'true'
+        shell: pwsh
+        run: |
+          # ConnectionStateMachine must be the single source of truth for the
+          # connection lifecycle: production code may only move it through
+          # tryTransition() (checked, logged edges). forceReset() bypasses
+          # the transition table and is test-only. Invalid-transition log
+          # gating is enforced at runtime by unit tests (log-capture sink in
+          # ModbusStateTest); this static gate covers the API misuse.
+          $forceResetMatches = Get-ChildItem core,infra,ui,app -Recurse -Include *.cpp,*.h |
+            Where-Object { $_.Name -ne 'StateMachineBase.h' } |
+            Select-String -Pattern 'forceReset\s*\('
+          if ($forceResetMatches) {
+            Write-Error "forceReset() used in production code (test-only API); use tryTransition() with checked returns"
+            $forceResetMatches | ForEach-Object { Write-Host $_ }
+            exit 1
+          }
+
       - name: Build release bundle (Windows)
         if: runner.os == 'Windows' && steps.ci_options.outputs.should_run == 'true'
         run: >

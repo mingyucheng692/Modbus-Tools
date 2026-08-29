@@ -90,8 +90,20 @@ ModbusClient::ModbusClient(std::shared_ptr<io::IChannel> channel,
     channel_->setWriteDrainedHandler([this]() {
         flowController_.markWriteDrained(std::chrono::steady_clock::now());
     });
-    stateHandlerId_ = channel_->addStateHandler([this](io::ChannelState) {
-        // State changes are now handled locally by event loop polling
+    // Passive channel-loss detection: Closed/Error observed while the FSM
+    // reports Connected is the authoritative signal that the session died
+    // (peer RST, cable pull, driver error). Without this the FSM stays
+    // Connected forever and every UI derivation keeps reporting a live
+    // session. tryTransition() is an atomic CAS, so this is safe even though
+    // the handler runs on the channel's owner thread.
+    stateHandlerId_ = channel_->addStateHandler([this](io::ChannelState channelState) {
+        if (channelState != io::ChannelState::Closed
+            && channelState != io::ChannelState::Error) {
+            return;
+        }
+        if (connectionStateMachine_.currentState() == ConnectionState::Connected) {
+            connectionStateMachine_.tryTransition(ConnectionState::Failed, "channel-lost");
+        }
     });
 }
 
@@ -140,7 +152,13 @@ bool ModbusClient::connect() {
     const bool connected = ensureConnected(config_.autoReconnect);
     if (connected) {
         clearRuntimeState(false);
-        requestStateMachine_.tryTransition(RequestState::Idle, "connect");
+        if (!requestStateMachine_.tryTransition(RequestState::Idle, "connect")) {
+            // Serialized worker-thread driving makes this unreachable
+            // (no request can be in flight here); log loudly if that
+            // invariant ever breaks.
+            SPDLOG_ERROR("ModbusClient::connect: request FSM is {}, cannot reset to Idle",
+                         RequestStateMachine::toString(requestStateMachine_.currentState()));
+        }
     }
     return connected;
 }
@@ -152,16 +170,30 @@ void ModbusClient::disconnect() {
     SPDLOG_INFO("ModbusClient: disconnect requested, reason=user-request");
     aborted_ = true;
     sessionHealth_.store(SessionHealth::Unknown, std::memory_order_release);
-    connectionStateMachine_.tryTransition(ConnectionState::Disconnecting, "disconnect");
+    // Every state has a legal edge into Disconnecting, so this cannot fail
+    // against a quiescent machine; a failure would mean a concurrent
+    // transition (checked below before the terminal edge).
+    if (!connectionStateMachine_.tryTransition(ConnectionState::Disconnecting, "disconnect")) {
+        SPDLOG_ERROR("ModbusClient::disconnect: transition to Disconnecting rejected, current={}",
+                     ConnectionStateMachine::toString(connectionStateMachine_.currentState()));
+    }
     if (channel_) {
         channel_->close();
     }
     clearRuntimeState(true);
     aborted_ = false;
+    // Disconnecting -> Disconnected is a legal edge; the channel-lost handler
+    // only fires out of Connected, so it cannot interleave between the two
+    // transitions above. A failure therefore indicates an invariant break —
+    // log it; the next ensureConnected() normalizes any residual drift.
     if (!connectionStateMachine_.tryTransition(ConnectionState::Disconnected, "disconnect")) {
-        connectionStateMachine_.forceReset(ConnectionState::Disconnected);
+        SPDLOG_ERROR("ModbusClient::disconnect: terminal state is {}, expected Disconnected",
+                     ConnectionStateMachine::toString(connectionStateMachine_.currentState()));
     }
-    requestStateMachine_.tryTransition(RequestState::Idle, "disconnect");
+    if (!requestStateMachine_.tryTransition(RequestState::Idle, "disconnect")) {
+        SPDLOG_ERROR("ModbusClient::disconnect: request FSM is {}, cannot reset to Idle",
+                     RequestStateMachine::toString(requestStateMachine_.currentState()));
+    }
     SPDLOG_INFO("ModbusClient: session disconnected");
 }
 

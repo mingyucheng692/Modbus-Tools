@@ -93,6 +93,26 @@ private:
     RetryStrategy* retryStrategy_;
     const base::ModbusConfig* config_;
     QString lastChannelError_;
+
+    /**
+     * @brief Checked transition wrapper: logs (in addition to the FSM's own
+     *        invalid-transition error) when a transition is rejected, so a
+     *        rejected edge is never silently swallowed.
+     * @return the tryTransition() result.
+     */
+    bool transitionChecked(ConnectionStateMachine::State to, const char* reason);
+
+    /**
+     * @brief Walk the FSM out of states that cannot legally enter a connect
+     *        attempt (Connected / Reconnecting / Disconnecting while the
+     *        channel is closed) so the attempt loop always starts from
+     *        Disconnected or Failed.
+     *
+     * Defensive only: real channels report Closed/Error through the state
+     * handler (ModbusClient wires Connected -> Failed), so the common entry
+     * states are Disconnected and Failed.
+     */
+    void normalizeBeforeConnectAttempt();
 };
 
 } // namespace modbus::session
