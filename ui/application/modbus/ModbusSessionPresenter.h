@@ -97,6 +97,7 @@ public:
 signals:
     void sessionConnected();
     void sessionDisconnected(const QString& reason);
+    void sessionTransientDisconnect(const QString& reason);
     void connectFinished(bool ok, const QString& error);
     void requestFinished(int requestId, const ::modbus::session::ModbusResponse& response);
     void rawFrameReceived(bool isTx, const QByteArray& data);

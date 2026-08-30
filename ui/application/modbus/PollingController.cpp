@@ -71,9 +71,14 @@ void PollingController::handleSessionDisconnected(const QString& reason) {
     setSessionConnectedInternal(false, true);
 }
 
+void PollingController::handleTransientDisconnect(const QString& reason) {
+    Q_UNUSED(reason);
+    setSessionConnectedInternal(false, false);
+}
+
 void PollingController::handlePollRequest(const PollSpec& spec) {
     if (context_.requestInFlight) return;
-    if (!context_.sessionConnected) return;
+    if (!context_.sessionConnected && context_.state == PollState::Idle) return;
 
     context_.currentSpec = spec;
 

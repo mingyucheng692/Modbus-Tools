@@ -87,6 +87,7 @@ signals:
 public slots:
     void handleSessionConnected();
     void handleSessionDisconnected(const QString& reason = QString());
+    void handleTransientDisconnect(const QString& reason = QString());
 
 private:
     void buildAndSubmit();

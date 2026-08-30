@@ -175,4 +175,59 @@ TEST_F(PollingControllerTest, MultipleStopPolls_DoNotCrash) {
     EXPECT_EQ(controller_->currentState(), PollState::Idle);
 }
 
+TEST_F(PollingControllerTest, HandleTransientDisconnect_DoesNotStopActivePolling) {
+    QSignalSpy stopSpy(controller_.get(), &PollingController::stopRequested);
+    QSignalSpy submitSpy(controller_.get(), &PollingController::submitPollRequest);
+
+    controller_->handleSessionConnected();
+    const auto spec = makePollSpec();
+    controller_->handlePollRequest(spec);
+    processStateMachine();
+    ASSERT_EQ(controller_->currentState(), PollState::Polling);
+    ASSERT_EQ(submitSpy.count(), 1);
+
+    // Transient disconnect occurs mid-session
+    controller_->handleTransientDisconnect(QStringLiteral("tcp closed"));
+    processStateMachine();
+
+    // Should NOT stop poll or transition to Idle
+    EXPECT_EQ(stopSpy.count(), 0);
+    EXPECT_FALSE(controller_->context().sessionConnected);
+    EXPECT_NE(controller_->currentState(), PollState::Idle);
+
+    // Complete in-flight request with error
+    controller_->handleResponse(false, 0, 0, QStringLiteral("closed"));
+    processStateMachine();
+    EXPECT_EQ(controller_->currentState(), PollState::Escalated);
+
+    // Next periodic poll request is STILL submitted to drive self-healing
+    controller_->handlePollRequest(spec);
+    processStateMachine();
+    EXPECT_EQ(submitSpy.count(), 2);
+}
+
+TEST_F(PollingControllerTest, TransientDisconnect_RecoversOnReconnection) {
+    controller_->handleSessionConnected();
+    const auto spec = makePollSpec();
+    controller_->handlePollRequest(spec);
+    controller_->handleResponse(true, 10, 0, QString());
+    ASSERT_EQ(controller_->currentState(), PollState::Polling);
+
+    // Transient fault
+    controller_->handleTransientDisconnect(QStringLiteral("link lost"));
+    controller_->handlePollRequest(spec);
+    controller_->handleResponse(false, 0, 0, QStringLiteral("link lost"));
+    EXPECT_EQ(controller_->currentState(), PollState::Escalated);
+
+    // Reconnection signal arrives from core
+    controller_->handleSessionConnected();
+    EXPECT_TRUE(controller_->context().sessionConnected);
+
+    // Next poll request succeeds -> recovers to Polling
+    controller_->handlePollRequest(spec);
+    controller_->handleResponse(true, 15, 0, QString());
+    EXPECT_EQ(controller_->currentState(), PollState::Polling);
+    EXPECT_EQ(controller_->context().consecutiveErrorCount, 0);
+}
+
 } // namespace

@@ -345,6 +345,8 @@ void ModbusSessionPresenter::setPollingController(PollingController* controller)
                    pollingController_, &PollingController::handleSessionConnected);
         disconnect(this, &ModbusSessionPresenter::sessionDisconnected,
                    pollingController_, &PollingController::handleSessionDisconnected);
+        disconnect(this, &ModbusSessionPresenter::sessionTransientDisconnect,
+                   pollingController_, &PollingController::handleTransientDisconnect);
     }
 
     pollingController_ = controller;
@@ -356,6 +358,8 @@ void ModbusSessionPresenter::setPollingController(PollingController* controller)
             pollingController_, &PollingController::handleSessionConnected);
     connect(this, &ModbusSessionPresenter::sessionDisconnected,
             pollingController_, &PollingController::handleSessionDisconnected);
+    connect(this, &ModbusSessionPresenter::sessionTransientDisconnect,
+            pollingController_, &PollingController::handleTransientDisconnect);
     pollingController_->setSessionConnected(isSessionConnected());
 }
 
@@ -700,14 +704,7 @@ void ModbusSessionPresenter::handleChannelStateTransition(io::ChannelState state
         }
         const bool wasConnected = (stateBeforeSync == SessionConnectionState::Connected);
         const bool shouldShowDisconnectAlert = isTcp && wasConnected && !suppressDisconnectAlert_;
-        if (controlWidget_) {
-            controlWidget_->setPollingEnabled(false);
-        }
-        // Stop the poll loop outright (not just disable the control): an
-        // in-flight request may be blocked on the dead channel.
-        if (pollingController_) {
-            pollingController_->stopPoll();
-        }
+
         // Attribute the disconnection reason: prefer the last channel
         // error, fall back to a generic message.
         const QString reason = client_
@@ -722,7 +719,22 @@ void ModbusSessionPresenter::handleChannelStateTransition(io::ChannelState state
         if (shouldShowDisconnectAlert) {
             ui::common::connection_alert::showDisconnected(qApp->activeWindow());
         }
-        emit sessionDisconnected(reason);
+
+        if (suppressDisconnectAlert_) {
+            // Explicit / user-initiated teardown: stop polling and disable widget.
+            if (controlWidget_) {
+                controlWidget_->setPollingEnabled(false);
+            }
+            if (pollingController_) {
+                pollingController_->stopPoll();
+            }
+            emit sessionDisconnected(reason);
+        } else {
+            // Passive / transient channel loss: notify polling controller of transient disconnect
+            // so it updates connectionFault and logs degradation, but do not stop active polling.
+            // This allows the polling loop to drive core ensureConnected() self-healing on next cycle.
+            emit sessionTransientDisconnect(reason);
+        }
         return;
     }
     }
