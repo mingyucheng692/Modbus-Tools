@@ -50,6 +50,8 @@ struct PollContext {
     std::chrono::steady_clock::time_point lastErrorLogTime{};
     std::chrono::steady_clock::time_point lastSuccessTime{};
     std::chrono::steady_clock::time_point failureStreakStartTime{};
+    std::chrono::steady_clock::time_point connectionFaultStartTime{};
+    bool fatalDisconnectEmitted = false;
     std::chrono::steady_clock::time_point summaryWindowStart{};
     int summarySuccessCount = 0;
     int summaryErrorCount = 0;
@@ -66,6 +68,10 @@ public:
 
     void setSessionConnected(bool connected);
     void setPollingInterval(int ms);
+    /// Self-healing window for transient disconnects, in milliseconds. When
+    /// polling has stayed Escalated with a dead session longer than this,
+    /// pollingFatalDisconnect is emitted (once per fault window).
+    void setFatalDisconnectTimeoutMs(int ms);
 
     void handlePollRequest(const PollSpec& spec);
     void handleResponse(bool success, int rttMs, int retryCount, const QString& error);
@@ -83,6 +89,11 @@ signals:
     void stateChanged(PollState oldState, PollState newState);
     void summaryReady(const PollSummary& summary);
     void stopRequested();
+    /// Fatal downgrade: the self-healing window for a transient disconnect
+    /// has expired while polling stayed Escalated. The owner should downgrade
+    /// to a full disconnect instead of zombie-polling a dead link forever.
+    /// Emitted at most once per connection-fault window; re-armed on recovery.
+    void pollingFatalDisconnect(const QString& reason);
 
 public slots:
     void handleSessionConnected();
@@ -101,6 +112,9 @@ private:
     RequestSubmissionService* requestService_ = nullptr;
 
     int pollingIntervalMs_ = 1000;
+    /// Self-healing window before a persistent connection fault is declared
+    /// fatal. Initialized from config::Polling in the constructor.
+    int fatalDisconnectTimeoutMs_ = 0;
     PollContext context_{};
 };
 

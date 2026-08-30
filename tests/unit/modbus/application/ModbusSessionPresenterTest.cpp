@@ -272,6 +272,44 @@ TEST_F(ModbusSessionPresenterTest, DeriveUiState_RtuMode_NoTransportConnectedPha
               SessionConnectionState::Connected);
 }
 
+TEST_F(ModbusSessionPresenterTest, CommandGuard_RejectsIllegalCommandSequences) {
+    using S = SessionConnectionState;
+    // Reconnect-style shortcuts are illegal on the command path: the user
+    // must go through Disconnecting / Disconnected first.
+    EXPECT_FALSE(ModbusSessionPresenter::isLegalUiTransition(S::Connected, S::Connecting));
+    EXPECT_FALSE(ModbusSessionPresenter::isLegalUiTransition(S::Disconnected, S::Connected));
+    EXPECT_FALSE(ModbusSessionPresenter::isLegalUiTransition(S::TransportConnected, S::Connecting));
+    EXPECT_FALSE(ModbusSessionPresenter::isLegalUiTransition(S::Disconnecting, S::Connecting));
+
+    // The legal command lifecycle stays intact.
+    EXPECT_TRUE(ModbusSessionPresenter::isLegalUiTransition(S::Disconnected, S::Connecting));
+    EXPECT_TRUE(ModbusSessionPresenter::isLegalUiTransition(S::Connecting, S::TransportConnected));
+    EXPECT_TRUE(ModbusSessionPresenter::isLegalUiTransition(S::Connecting, S::Connected));
+    EXPECT_TRUE(ModbusSessionPresenter::isLegalUiTransition(S::TransportConnected, S::Connected));
+    EXPECT_TRUE(ModbusSessionPresenter::isLegalUiTransition(S::Connected, S::Disconnecting));
+    EXPECT_TRUE(ModbusSessionPresenter::isLegalUiTransition(S::Disconnecting, S::Disconnected));
+    EXPECT_TRUE(ModbusSessionPresenter::isLegalUiTransition(S::Disconnected, S::Disconnecting));
+
+    // Idempotent re-entry is always allowed.
+    EXPECT_TRUE(ModbusSessionPresenter::isLegalUiTransition(S::Connected, S::Connected));
+}
+
+TEST_F(ModbusSessionPresenterTest, DerivedStates_MayExceedCommandGuardRules) {
+    // The event path (syncStateFromCore) applies core-derived states directly,
+    // bypassing the command guard: when the core FSM enters Reconnecting the
+    // UI lands on Connecting even though Connected -> Connecting has no edge
+    // in the command table. The two rule sets must stay separate — this is
+    // the Command-vs-Event segregation the Phase 2 refactor established.
+    using Core = ::modbus::session::ConnectionStateMachine::State;
+    using Health = ::modbus::session::SessionHealth;
+
+    EXPECT_FALSE(ModbusSessionPresenter::isLegalUiTransition(
+        SessionConnectionState::Connected, SessionConnectionState::Connecting));
+    EXPECT_EQ(ModbusSessionPresenter::deriveUiState(
+                  Core::Reconnecting, io::ChannelState::Closed, Health::Unknown, SessionMode::Tcp),
+              SessionConnectionState::Connecting);
+}
+
 TEST_F(ModbusSessionPresenterTest, DefaultCoreRetries_IsConservativeZero) {
     ::modbus::base::ModbusConfig config;
     EXPECT_EQ(config.retries, 0);
@@ -281,6 +319,29 @@ TEST_F(ModbusSessionPresenterTest, DefaultCoreRetries_IsConservativeZero) {
 TEST_F(ModbusSessionPresenterTest, StackReleaseTimedOut_SignalIsDefined) {
     QSignalSpy spy(tcpPresenter_.get(), &ModbusSessionPresenter::stackReleaseTimedOut);
     EXPECT_TRUE(spy.isValid());
+}
+
+TEST_F(ModbusSessionPresenterTest, PollingFatalDisconnect_DowngradesToFullDisconnect) {
+    QSignalSpy releasedSpy(tcpPresenter_.get(), &ModbusSessionPresenter::stackReleased);
+
+    // Force the self-healing window to expire immediately.
+    pollingController_->setFatalDisconnectTimeoutMs(0);
+    pollingController_->handleSessionConnected();
+    PollSpec spec;
+    spec.functionCode = 0x03;
+    spec.startAddress = 0;
+    spec.quantity = 1;
+    spec.slaveId = 1;
+    pollingController_->handlePollRequest(spec);
+    pollingController_->handleTransientDisconnect(QStringLiteral("link lost"));
+    pollingController_->handleResponse(false, 0, 0, QStringLiteral("link lost"));
+    QCoreApplication::processEvents();
+
+    // Fatal downgrade routes through the standard disconnect path: the
+    // (empty) stack is released inline and polling is stopped.
+    EXPECT_GE(releasedSpy.count(), 1);
+    EXPECT_EQ(pollingController_->currentState(), PollState::Idle);
+    EXPECT_FALSE(tcpPresenter_->isSessionConnected());
 }
 
 } // namespace

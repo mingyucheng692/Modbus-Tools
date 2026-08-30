@@ -48,6 +48,7 @@ PollingController::PollingController(RequestSubmissionService* requestService,
                                      QObject* parent)
     : QObject(parent)
     , requestService_(requestService) {
+    fatalDisconnectTimeoutMs_ = config::Polling::kDefaultFatalDisconnectTimeoutMs;
 }
 
 void PollingController::setSessionConnected(bool connected) {
@@ -56,6 +57,10 @@ void PollingController::setSessionConnected(bool connected) {
 
 void PollingController::setPollingInterval(int ms) {
     pollingIntervalMs_ = std::max(1, ms);
+}
+
+void PollingController::setFatalDisconnectTimeoutMs(int ms) {
+    fatalDisconnectTimeoutMs_ = std::max(0, ms);
 }
 
 const PollContext& PollingController::context() const {
@@ -222,6 +227,24 @@ void PollingController::handlePollCompletion(bool success, int rttMs, int retryC
                 transitionTo(PollState::Degraded);
             }
         }
+
+        // Fatal downgrade: a connection fault that outlives the self-healing
+        // window while polling stays Escalated means ensureConnected() cannot
+        // bring the session back. Notify the owner once so it can downgrade
+        // to a full disconnect instead of zombie-polling forever.
+        if (connectionFault
+            && context_.state == PollState::Escalated
+            && !context_.fatalDisconnectEmitted
+            && context_.connectionFaultStartTime != std::chrono::steady_clock::time_point{}
+            && (now - context_.connectionFaultStartTime)
+                   >= std::chrono::milliseconds(fatalDisconnectTimeoutMs_)) {
+            context_.fatalDisconnectEmitted = true;
+            const auto faultSeconds = std::chrono::duration_cast<std::chrono::seconds>(
+                now - context_.connectionFaultStartTime).count();
+            emit pollingFatalDisconnect(
+                tr("Connection unavailable for %1 s; self-healing window expired")
+                    .arg(static_cast<qulonglong>(faultSeconds)));
+        }
     }
     flushPollSummary(false);
 }
@@ -235,6 +258,8 @@ void PollingController::resetPollErrorTracking() {
     context_.lastErrorText.clear();
     context_.lastErrorLogTime = std::chrono::steady_clock::time_point{};
     context_.failureStreakStartTime = std::chrono::steady_clock::time_point{};
+    context_.connectionFaultStartTime = std::chrono::steady_clock::time_point{};
+    context_.fatalDisconnectEmitted = false;
 }
 
 void PollingController::flushPollSummary(bool force) {
@@ -299,6 +324,15 @@ bool PollingController::isSuppressingTrafficLog() const {
 
 void PollingController::setSessionConnectedInternal(bool connected, bool stopActivePolling) {
     context_.sessionConnected = connected;
+    if (connected) {
+        // Recovery: clear the fault window and re-arm the fatal notifier.
+        context_.connectionFaultStartTime = std::chrono::steady_clock::time_point{};
+        context_.fatalDisconnectEmitted = false;
+    } else if (context_.connectionFaultStartTime == std::chrono::steady_clock::time_point{}) {
+        // Fault window opens: poll requests keep flowing to drive the core
+        // ensureConnected() self-healing, but only for a bounded time.
+        context_.connectionFaultStartTime = std::chrono::steady_clock::now();
+    }
     if (!connected
         && stopActivePolling
         && (context_.requestInFlight || context_.state != PollState::Idle)) {

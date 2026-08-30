@@ -94,6 +94,26 @@ public:
     void setLinked(bool linked);
     bool isLinked() const;
 
+    /// Derives the UI connection state from the authoritative core
+    /// ConnectionStateMachine::State, the current channel state, the
+    /// session health (whether the Modbus device is actually responding),
+    /// and the active session mode (TCP vs Serial).
+    /// This is the single source of truth for UI state. Public static test
+    /// seam.
+    static SessionConnectionState deriveUiState(
+        ::modbus::session::ConnectionStateMachine::State coreState,
+        io::ChannelState channelState,
+        ::modbus::session::SessionHealth health,
+        SessionMode mode = SessionMode::Tcp);
+
+    /// Command-path transition guard: reports whether from -> to is a legal
+    /// user-command sequence (connect/disconnect button flows). The
+    /// event-driven path (syncStateFromCore) deliberately bypasses this
+    /// guard — the core FSM is authoritative there. Public static test
+    /// seam, mirroring deriveUiState.
+    [[nodiscard]] static bool isLegalUiTransition(SessionConnectionState from,
+                                                  SessionConnectionState to);
+
 signals:
     void sessionConnected();
     void sessionDisconnected(const QString& reason);
@@ -122,18 +142,11 @@ private:
     void handleConnectFinished(bool ok, const QString& error, quint64 generation);
     void handleRequestFinished(int requestId, const ::modbus::session::ModbusResponse& response,
                                quint64 generation);
+    /// Terminal handler for PollingController::pollingFatalDisconnect: the
+    /// self-healing window of a transient disconnect expired, so downgrade
+    /// to a full disconnect via the standard user-teardown path.
+    void handlePollingFatalDisconnect(const QString& reason);
     void assertGuiThread(const char* context) const;
-
-    /// Derives the UI connection state from the authoritative core
-    /// ConnectionStateMachine::State, the current channel state, the
-    /// session health (whether the Modbus device is actually responding),
-    /// and the active session mode (TCP vs Serial).
-    /// This is the single source of truth for UI state.
-    static SessionConnectionState deriveUiState(
-        ::modbus::session::ConnectionStateMachine::State coreState,
-        io::ChannelState channelState,
-        ::modbus::session::SessionHealth health,
-        SessionMode mode = SessionMode::Tcp);
 
     /// Queries client_->connectionState() (thread-safe via std::atomic) and
     /// transitions the UI FSM to the derived state. If the derived state

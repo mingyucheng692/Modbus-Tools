@@ -227,6 +227,22 @@ void ModbusSessionPresenter::requestDisconnect() {
     shutdown();
 }
 
+void ModbusSessionPresenter::handlePollingFatalDisconnect(const QString& reason) {
+    assertGuiThread("handlePollingFatalDisconnect must run on the GUI thread");
+    const ModbusModeDescriptor descriptor = modeDescriptor(mode_);
+    SPDLOG_WARN("ModbusSessionPresenter[{}]: polling fatal disconnect ({}); "
+                "downgrading to full disconnect",
+                descriptor.logName, reason.toStdString());
+    if (trafficLogController_) {
+        trafficLogController_->logError(reason);
+    }
+    // The self-healing window expired: route through the standard user
+    // teardown (requestRelease stops polling, disables the control widget,
+    // and releases the stack) instead of leaving a zombie stack
+    // auto-reconnecting forever with nobody driving it.
+    requestDisconnect();
+}
+
 void ModbusSessionPresenter::shutdown() {
     assertGuiThread("shutdown must be called on the GUI thread");
     requestRelease(tr("Shutdown timed out; restart recommended"));
@@ -354,6 +370,8 @@ void ModbusSessionPresenter::setPollingController(PollingController* controller)
                    pollingController_, &PollingController::handleSessionDisconnected);
         disconnect(this, &ModbusSessionPresenter::sessionTransientDisconnect,
                    pollingController_, &PollingController::handleTransientDisconnect);
+        disconnect(pollingController_, &PollingController::pollingFatalDisconnect,
+                   this, &ModbusSessionPresenter::handlePollingFatalDisconnect);
     }
 
     pollingController_ = controller;
@@ -367,6 +385,8 @@ void ModbusSessionPresenter::setPollingController(PollingController* controller)
             pollingController_, &PollingController::handleSessionDisconnected);
     connect(this, &ModbusSessionPresenter::sessionTransientDisconnect,
             pollingController_, &PollingController::handleTransientDisconnect);
+    connect(pollingController_, &PollingController::pollingFatalDisconnect,
+            this, &ModbusSessionPresenter::handlePollingFatalDisconnect);
     pollingController_->setSessionConnected(isSessionConnected());
 }
 
@@ -396,6 +416,11 @@ void ModbusSessionPresenter::assertGuiThread(const char* context) const {
 
 const char* ModbusSessionPresenter::connectionStateName(SessionConnectionState s) {
     return connectionStateNameImpl(s);
+}
+
+bool ModbusSessionPresenter::isLegalUiTransition(SessionConnectionState from,
+                                                 SessionConnectionState to) {
+    return isLegalConnectionTransition(from, to);
 }
 
 bool ModbusSessionPresenter::transitionConnectionStateTo(SessionConnectionState target) {

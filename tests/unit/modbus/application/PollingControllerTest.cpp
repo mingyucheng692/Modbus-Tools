@@ -230,4 +230,63 @@ TEST_F(PollingControllerTest, TransientDisconnect_RecoversOnReconnection) {
     EXPECT_EQ(controller_->context().consecutiveErrorCount, 0);
 }
 
+TEST_F(PollingControllerTest, TransientDisconnect_WithinHealingWindow_NoFatalSignal) {
+    QSignalSpy fatalSpy(controller_.get(), &PollingController::pollingFatalDisconnect);
+
+    // Default 30 s self-healing window: an Escalated fault right after the
+    // transient disconnect must NOT be declared fatal yet.
+    controller_->handleSessionConnected();
+    const auto spec = makePollSpec();
+    controller_->handlePollRequest(spec);
+    controller_->handleTransientDisconnect(QStringLiteral("link lost"));
+    controller_->handleResponse(false, 0, 0, QStringLiteral("link lost"));
+
+    EXPECT_EQ(controller_->currentState(), PollState::Escalated);
+    EXPECT_EQ(fatalSpy.count(), 0);
+}
+
+TEST_F(PollingControllerTest, TransientDisconnect_HealingWindowExceeded_DeclaresFatalOnce) {
+    QSignalSpy fatalSpy(controller_.get(), &PollingController::pollingFatalDisconnect);
+
+    // Expire the self-healing window immediately.
+    controller_->setFatalDisconnectTimeoutMs(0);
+    controller_->handleSessionConnected();
+    const auto spec = makePollSpec();
+    controller_->handlePollRequest(spec);
+    controller_->handleTransientDisconnect(QStringLiteral("link lost"));
+    controller_->handleResponse(false, 0, 0, QStringLiteral("link lost"));
+
+    EXPECT_EQ(controller_->currentState(), PollState::Escalated);
+    ASSERT_EQ(fatalSpy.count(), 1);
+
+    // Guarded: further failures in the same fault window do not re-emit.
+    controller_->handlePollRequest(spec);
+    controller_->handleResponse(false, 0, 0, QStringLiteral("link lost"));
+    EXPECT_EQ(fatalSpy.count(), 1);
+
+    // Recovery re-arms the notifier for the next fault window.
+    controller_->handleSessionConnected();
+    controller_->handleTransientDisconnect(QStringLiteral("link lost again"));
+    controller_->handlePollRequest(spec);
+    controller_->handleResponse(false, 0, 0, QStringLiteral("link lost again"));
+    EXPECT_EQ(fatalSpy.count(), 2);
+}
+
+TEST_F(PollingControllerTest, PersistentFailures_WhileSessionConnected_NeverDeclareFatal) {
+    // Fatal is reserved for connection faults; protocol-level failures (CRC
+    // errors, slave exceptions) must not trigger a teardown even in Escalated.
+    QSignalSpy fatalSpy(controller_.get(), &PollingController::pollingFatalDisconnect);
+
+    controller_->setFatalDisconnectTimeoutMs(0);
+    controller_->handleSessionConnected();
+    const auto spec = makePollSpec();
+    for (int i = 0; i < 6; ++i) {
+        controller_->handlePollRequest(spec);
+        controller_->handleResponse(false, 0, 0, QStringLiteral("crc error"));
+    }
+
+    EXPECT_EQ(controller_->currentState(), PollState::Escalated);
+    EXPECT_EQ(fatalSpy.count(), 0);
+}
+
 } // namespace

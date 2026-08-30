@@ -125,6 +125,11 @@ struct Polling {
     static constexpr int kMinIntervalMs = 100;
     static constexpr int kMaxIntervalMs = 60000;
     static constexpr int kIntervalStepMs = 100;
+    /// Self-healing window for transient connection loss: when polling stays
+    /// Escalated with a dead session longer than this, the owner downgrades
+    /// to a full disconnect. Bounds the zombie-polling window while the core
+    /// auto-reconnect loop would otherwise keep retrying indefinitely.
+    static constexpr int kDefaultFatalDisconnectTimeoutMs = 30000;
 };
 
 struct Ui {
