@@ -218,6 +218,60 @@ TEST_F(ModbusSessionPresenterTest, DefaultTimingParams_AreFromConstants) {
     EXPECT_NO_THROW(rtuPresenter_->updateSettings(defaultParams));
 }
 
+TEST_F(ModbusSessionPresenterTest, DeriveUiState_TcpMode_Transitions) {
+    using Core = ::modbus::session::ConnectionStateMachine::State;
+    using Health = ::modbus::session::SessionHealth;
+
+    // Disconnected
+    EXPECT_EQ(ModbusSessionPresenter::deriveUiState(Core::Disconnected, io::ChannelState::Closed, Health::Unknown, SessionMode::Tcp),
+              SessionConnectionState::Disconnected);
+
+    // Connecting + Channel Opening -> Connecting
+    EXPECT_EQ(ModbusSessionPresenter::deriveUiState(Core::Connecting, io::ChannelState::Opening, Health::Unknown, SessionMode::Tcp),
+              SessionConnectionState::Connecting);
+
+    // Connecting + Channel Open -> TransportConnected (TCP has transport phase)
+    EXPECT_EQ(ModbusSessionPresenter::deriveUiState(Core::Connecting, io::ChannelState::Open, Health::Unknown, SessionMode::Tcp),
+              SessionConnectionState::TransportConnected);
+
+    // Connected + Health Unknown -> TransportConnected
+    EXPECT_EQ(ModbusSessionPresenter::deriveUiState(Core::Connected, io::ChannelState::Open, Health::Unknown, SessionMode::Tcp),
+              SessionConnectionState::TransportConnected);
+
+    // Connected + Health Healthy -> Connected
+    EXPECT_EQ(ModbusSessionPresenter::deriveUiState(Core::Connected, io::ChannelState::Open, Health::Healthy, SessionMode::Tcp),
+              SessionConnectionState::Connected);
+
+    // Reconnecting -> Connecting
+    EXPECT_EQ(ModbusSessionPresenter::deriveUiState(Core::Reconnecting, io::ChannelState::Closed, Health::Unknown, SessionMode::Tcp),
+              SessionConnectionState::Connecting);
+
+    // Failed -> Disconnected
+    EXPECT_EQ(ModbusSessionPresenter::deriveUiState(Core::Failed, io::ChannelState::Error, Health::Unknown, SessionMode::Tcp),
+              SessionConnectionState::Disconnected);
+
+    // Disconnecting -> Disconnecting
+    EXPECT_EQ(ModbusSessionPresenter::deriveUiState(Core::Disconnecting, io::ChannelState::Closing, Health::Unknown, SessionMode::Tcp),
+              SessionConnectionState::Disconnecting);
+}
+
+TEST_F(ModbusSessionPresenterTest, DeriveUiState_RtuMode_NoTransportConnectedPhase) {
+    using Core = ::modbus::session::ConnectionStateMachine::State;
+    using Health = ::modbus::session::SessionHealth;
+
+    // RTU Connecting + Channel Open -> Connecting (does not stop at TransportConnected)
+    EXPECT_EQ(ModbusSessionPresenter::deriveUiState(Core::Connecting, io::ChannelState::Open, Health::Unknown, SessionMode::Rtu),
+              SessionConnectionState::Connecting);
+
+    // RTU Connected + Health Unknown -> Connected directly (Serial port open = Connected)
+    EXPECT_EQ(ModbusSessionPresenter::deriveUiState(Core::Connected, io::ChannelState::Open, Health::Unknown, SessionMode::Rtu),
+              SessionConnectionState::Connected);
+
+    // RTU Connected + Health Healthy -> Connected
+    EXPECT_EQ(ModbusSessionPresenter::deriveUiState(Core::Connected, io::ChannelState::Open, Health::Healthy, SessionMode::Rtu),
+              SessionConnectionState::Connected);
+}
+
 } // namespace
 
 #include "ModbusSessionPresenterTest.moc"

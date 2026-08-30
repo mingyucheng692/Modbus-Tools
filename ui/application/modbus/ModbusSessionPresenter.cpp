@@ -588,24 +588,31 @@ void ModbusSessionPresenter::setupWorkerSignals(quint64 generation) {
 SessionConnectionState ModbusSessionPresenter::deriveUiState(
     ::modbus::session::ConnectionStateMachine::State coreState,
     io::ChannelState channelState,
-    ::modbus::session::SessionHealth health) {
+    ::modbus::session::SessionHealth health,
+    SessionMode mode) {
     using Core = ::modbus::session::ConnectionStateMachine::State;
+    const bool hasTransportPhase = (modeDescriptor(mode).transportUiMode == TransportUiMode::Tcp);
+
     switch (coreState) {
     case Core::Disconnected:
         return SessionConnectionState::Disconnected;
     case Core::Connecting:
-        // Channel Open → TransportConnected (session not yet validated)
-        if (channelState == io::ChannelState::Open) {
+        // Channel Open → TransportConnected (TCP session not yet validated)
+        if (hasTransportPhase && channelState == io::ChannelState::Open) {
             return SessionConnectionState::TransportConnected;
         }
         return SessionConnectionState::Connecting;
     case Core::Connected:
-        // Transport is up, but the Modbus session may not be healthy.
+        // Transport is up. For TCP, Modbus session may not be healthy yet.
         // Only show "Connected" when the device has actually responded.
         if (health == ::modbus::session::SessionHealth::Healthy) {
             return SessionConnectionState::Connected;
         }
-        return SessionConnectionState::TransportConnected;
+        if (hasTransportPhase) {
+            return SessionConnectionState::TransportConnected;
+        }
+        // RTU/ASCII: Serial port open + core connected = Connected
+        return SessionConnectionState::Connected;
     case Core::Reconnecting:
         return SessionConnectionState::Connecting;
     case Core::Disconnecting:
@@ -630,21 +637,20 @@ void ModbusSessionPresenter::syncStateFromCore() {
     const auto chanState = channel_ ? channel_->state() : io::ChannelState::Closed;
     const auto health = client_->sessionHealth();
 
-    const auto derivedUi = deriveUiState(coreState, chanState, health);
-    const auto currentUi = connectionState_;
-
-    if (derivedUi != currentUi) {
-        const auto oldUi = currentUi;
-        if (!transitionConnectionStateTo(derivedUi)) {
-            SPDLOG_WARN("ModbusSessionPresenter: core-state-derived UI transition "
-                         "{} -> {} rejected by UI transition rules; forcing disconnect",
-                         connectionStateNameImpl(oldUi),
-                         connectionStateNameImpl(derivedUi));
-            // Core is authoritative — force the UI into Disconnected as a
-            // safe fallback.
-            forceConnectionStateTo(SessionConnectionState::Disconnected);
-        }
+    const auto derived = deriveUiState(coreState, chanState, health, mode_);
+    if (derived == connectionState_) {
+        return;
     }
+
+    SPDLOG_DEBUG("ModbusSessionPresenter: UI connection state {} -> {} (derived from core={}, chan={}, health={})",
+                 connectionStateNameImpl(connectionState_),
+                 connectionStateNameImpl(derived),
+                 ::modbus::session::ConnectionStateMachine::toString(coreState),
+                 static_cast<int>(chanState),
+                 static_cast<int>(health));
+
+    connectionState_ = derived;
+    onConnectionStateChanged(derived);
 }
 
 void ModbusSessionPresenter::handleChannelStateTransition(io::ChannelState state,
