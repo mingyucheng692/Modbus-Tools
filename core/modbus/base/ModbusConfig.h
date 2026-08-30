@@ -43,8 +43,8 @@ struct ModbusConfig {
     // 超时时间 (毫秒)
     int timeoutMs = config::Modbus::kDefaultTimeoutMs;
 
-    // 重试次数
-    int retries = 0;
+    // 重试次数 (0 表示不自动重试)
+    int retries = config::Modbus::kDefaultCoreRetries;
 
     // 重试间隔 (毫秒)
     int retryIntervalMs = config::Modbus::kDefaultRetryIntervalMs;

@@ -272,6 +272,17 @@ TEST_F(ModbusSessionPresenterTest, DeriveUiState_RtuMode_NoTransportConnectedPha
               SessionConnectionState::Connected);
 }
 
+TEST_F(ModbusSessionPresenterTest, DefaultCoreRetries_IsConservativeZero) {
+    ::modbus::base::ModbusConfig config;
+    EXPECT_EQ(config.retries, 0);
+    EXPECT_EQ(config.retries, config::Modbus::kDefaultCoreRetries);
+}
+
+TEST_F(ModbusSessionPresenterTest, StackReleaseTimedOut_SignalIsDefined) {
+    QSignalSpy spy(tcpPresenter_.get(), &ModbusSessionPresenter::stackReleaseTimedOut);
+    EXPECT_TRUE(spy.isValid());
+}
+
 } // namespace
 
 #include "ModbusSessionPresenterTest.moc"

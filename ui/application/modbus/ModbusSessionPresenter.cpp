@@ -86,7 +86,7 @@ ModbusSessionPresenter::ModbusSessionPresenter(SessionMode mode,
     : QObject(parent),
       mode_(mode),
       timeoutMs_(config::Modbus::kDefaultTimeoutMs),
-      retries_(0),
+      retries_(config::Modbus::kDefaultCoreRetries),
       retryIntervalMs_(config::Modbus::kDefaultRetryIntervalMs) {
     releaseCoordinator_ = std::make_unique<WorkerReleaseCoordinator>(this);
     connect(releaseCoordinator_.get(), &WorkerReleaseCoordinator::releaseCompleted,
@@ -132,6 +132,13 @@ void ModbusSessionPresenter::startTcpConnect(const QString& ip, int port,
 void ModbusSessionPresenter::requestConnect(const ModbusConnectionSpec& spec) {
     assertGuiThread("requestConnect must be called on the GUI thread");
     if (hasLiveOrPendingStack()) {
+        // NOTE: If a new connect is requested while a prior release is still in flight,
+        // the new spec overwrites any pending deferredAction_ — this is intentional
+        // Last-Write-Wins semantics. The previous spec is silently superseded.
+        if (deferredAction_) {
+            SPDLOG_WARN("ModbusSessionPresenter[{}]: pending connect superseded by new request (Last-Write-Wins)",
+                        modeDescriptor(mode_).logName);
+        }
         deferredAction_ = [this, spec]() {
             startConnect(spec);
         };
@@ -494,7 +501,7 @@ void ModbusSessionPresenter::onReleaseTimedOut(const QString& message) {
     if (trafficLogController_) {
         trafficLogController_->logError(message);
     }
-    emit sessionDisconnected(message);
+    emit stackReleaseTimedOut(message);
 }
 
 void ModbusSessionPresenter::maybeRunDeferredAction() {

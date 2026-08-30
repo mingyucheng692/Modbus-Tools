@@ -71,6 +71,8 @@ struct Modbus {
     static constexpr int kMaxWriteCoilsQuantity = 1968;
     static constexpr int kDefaultTimeoutMs = 1000;
     static constexpr int kDefaultRetryCount = 3;
+    /// Default retry count for core ModbusConfig (conservative industrial default: no retries).
+    static constexpr int kDefaultCoreRetries = 0;
     static constexpr int kDefaultRetryIntervalMs = 100;
     static constexpr int kDefaultMaxRetryIntervalMs = 5000;
     static constexpr double kDefaultRetryBackoffFactor = 2.0;

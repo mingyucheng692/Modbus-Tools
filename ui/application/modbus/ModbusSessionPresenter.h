@@ -102,6 +102,7 @@ signals:
     void requestFinished(int requestId, const ::modbus::session::ModbusResponse& response);
     void rawFrameReceived(bool isTx, const QByteArray& data);
     void stackReleased();
+    void stackReleaseTimedOut(const QString& message);
     void linkageSourceDisconnected();
 
 private:
