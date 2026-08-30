@@ -160,6 +160,17 @@ modbus_target_embed_translations(ui
         ${ui_translation_ts}
 )
 
+add_custom_target(update_translations
+    COMMAND Qt6::lupdate
+            "${CMAKE_CURRENT_SOURCE_DIR}"
+            "${CMAKE_SOURCE_DIR}/core"
+            -ts ${ui_translation_ts}
+            -no-obsolete
+    WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
+    COMMENT "Updating translations using lupdate"
+    VERBATIM
+)
+
 set(modbus_tools_release_bundle_dependencies Modbus-Tools)
 if(MODBUS_TOOLS_UPDATER_ENABLED)
     list(APPEND modbus_tools_release_bundle_dependencies updater)

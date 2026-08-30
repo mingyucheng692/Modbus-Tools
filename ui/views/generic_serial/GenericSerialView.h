@@ -47,7 +47,7 @@ public:
 private slots:
     void onConnectClicked(const io::SerialConfig& config);
     void onWorkerStateChanged(io::ChannelState state, quint64 generation);
-    void onWorkerError(const QString& deviceHint, const QString& error);
+    void onWorkerError(const QString& deviceHint, io::ChannelErrorCode code, const QString& error);
     void onWorkerMonitor(bool isTx, const QByteArray& data);
     void onReconnectTimerTick();
     

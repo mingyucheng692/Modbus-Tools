@@ -91,7 +91,7 @@ public:
     virtual Timeouts timeouts() const = 0;
     virtual bool write(QByteArrayView data) = 0;
     virtual void setReadHandler(std::function<void(QByteArrayView)> handler) = 0;
-    virtual void setErrorHandler(std::function<void(const QString&)> handler) = 0;
+    virtual void setErrorHandler(std::function<void(const ChannelError&)> handler) = 0;
     virtual void setWriteDrainedHandler(std::function<void()> handler) = 0;
     virtual HandlerId addStateHandler(std::function<void(ChannelState)> handler) = 0;
     virtual void removeStateHandler(HandlerId handlerId) = 0;

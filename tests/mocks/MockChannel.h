@@ -17,7 +17,7 @@ public:
     MOCK_METHOD(Timeouts, timeouts, (), (const, override));
     MOCK_METHOD(bool, write, (QByteArrayView), (override));
     MOCK_METHOD(void, setReadHandler, (std::function<void(QByteArrayView)>), (override));
-    MOCK_METHOD(void, setErrorHandler, (std::function<void(const QString&)>), (override));
+    MOCK_METHOD(void, setErrorHandler, (std::function<void(const io::ChannelError&)>), (override));
     MOCK_METHOD(void, setWriteDrainedHandler, (std::function<void()>), (override));
     MOCK_METHOD(HandlerId, addStateHandler, (std::function<void(ChannelState)>), (override));
     MOCK_METHOD(void, removeStateHandler, (HandlerId), (override));

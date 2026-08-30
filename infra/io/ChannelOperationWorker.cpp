@@ -44,7 +44,7 @@ void ChannelOperationWorker::openTcp(const QString& ip, int port, quint64 genera
     setupChannel();
 
     if (!channel_->open()) {
-        emitError("Failed to open TCP connection");
+        emitError(io::ChannelErrorCode::ConnectionFailed, "Failed to open TCP connection");
     }
 }
 
@@ -61,7 +61,7 @@ void ChannelOperationWorker::openSerial(const SerialConfig& config, quint64 gene
     setupChannel();
 
     if (!channel_->open()) {
-        emitError("Failed to open serial port");
+        emitError(io::ChannelErrorCode::ConnectionFailed, "Failed to open serial port");
     }
 }
 
@@ -79,7 +79,7 @@ void ChannelOperationWorker::openUdp(const QString& localIp, int localPort,
     setupChannel();
 
     if (!channel_->open()) {
-        emitError("Failed to open UDP channel");
+        emitError(io::ChannelErrorCode::ConnectionFailed, "Failed to open UDP channel");
     }
 }
 
@@ -96,10 +96,10 @@ void ChannelOperationWorker::write(const QByteArray& data)
         if (channel_->write(data)) {
             emit bytesQueued(data.size());
         } else {
-            emitError("Write failed");
+            emitError(io::ChannelErrorCode::WriteFailed, "Write failed");
         }
     } else {
-        emitError("Channel not open");
+        emitError(io::ChannelErrorCode::Unknown, "Channel not open");
     }
 }
 
@@ -121,8 +121,8 @@ void ChannelOperationWorker::setupChannel()
 {
     if (!channel_) return;
 
-    channel_->setErrorHandler([this](const QString& err) {
-        emitError(err);
+    channel_->setErrorHandler([this](const ChannelError& err) {
+        emitError(err.code, err.message);
     });
 
     channel_->setMonitor([this](bool isTx, const QByteArray& data) {
@@ -155,9 +155,9 @@ void ChannelOperationWorker::cleanupChannel()
     deviceHint_.clear();
 }
 
-void ChannelOperationWorker::emitError(const QString& error)
+void ChannelOperationWorker::emitError(io::ChannelErrorCode code, const QString& error)
 {
-    emit channelErrorOccurred(deviceHint_, error);
+    emit channelErrorOccurred(deviceHint_, code, error);
 }
 
 } // namespace io

@@ -81,7 +81,7 @@ bool UdpChannel::open()
                       localAddress_.toString().toStdString(),
                       localPort_,
                       socket_.errorString().toStdString());
-        emitError(socket_.errorString().isEmpty()
+        emitError(ChannelErrorCode::ConnectionFailed, socket_.errorString().isEmpty()
                       ? QStringLiteral("UDP bind failed")
                       : socket_.errorString());
         return false;
@@ -192,7 +192,7 @@ void UdpChannel::onSocketError(QAbstractSocket::SocketError error)
 
     SPDLOG_ERROR("UdpChannel: socket error {}",
                   socket_.errorString().toStdString());
-    emitError(socket_.errorString());
+    emitError(ChannelErrorCode::ConnectionFailed, socket_.errorString());
 }
 
 void UdpChannel::onStateChanged(QAbstractSocket::SocketState socketState)

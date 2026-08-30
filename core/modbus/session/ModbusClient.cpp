@@ -83,8 +83,8 @@ ModbusClient::ModbusClient(std::shared_ptr<io::IChannel> channel,
         requestExecutor_.onDataReceived(data);
     });
     
-    channel_->setErrorHandler([this](const QString& error) {
-        requestExecutor_.onChannelError(error);
+    channel_->setErrorHandler([this](const io::ChannelError& err) {
+        requestExecutor_.onChannelError(err.message);
     });
 
     channel_->setWriteDrainedHandler([this]() {

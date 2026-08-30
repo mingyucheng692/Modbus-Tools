@@ -101,7 +101,7 @@ void BufferedWritingChannel::flushPendingWrites() {
             resetWriteState();
             disarmWriteTimeout();
             setState(ChannelState::Error);
-            emitError(err);
+            emitError(ChannelErrorCode::WriteFailed, err);
             return;
         }
         if (accepted == 0) {
@@ -161,7 +161,7 @@ void BufferedWritingChannel::onWriteTimeout() {
     resetWriteState();
     disarmWriteTimeout();
     setState(ChannelState::Error);
-    emitError(draining
+    emitError(ChannelErrorCode::Timeout, draining
         ? QStringLiteral("%1 write drain timeout").arg(errorPrefix())
         : QStringLiteral("%1 write timeout").arg(errorPrefix()));
 }

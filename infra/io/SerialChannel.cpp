@@ -70,7 +70,7 @@ bool SerialChannel::open() {
     if (!config_.isValid(&errorMsg)) {
         SPDLOG_WARN("SerialChannel: invalid config: {}", errorMsg.toStdString());
         setState(ChannelState::Error);
-        emitError(errorMsg);
+        emitError(ChannelErrorCode::ConnectionFailed, errorMsg);
         return false;
     }
 
@@ -93,7 +93,7 @@ bool SerialChannel::open() {
         SPDLOG_WARN("SerialChannel: open failed port={} baud={} error={}",
                      config_.portName.toStdString(), config_.baudRate, err.toStdString());
         setState(ChannelState::Error);
-        emitError(err);
+        emitError(ChannelErrorCode::ConnectionFailed, err);
         return false;
     }
 }
@@ -191,7 +191,7 @@ void SerialChannel::onErrorOccurred(QSerialPort::SerialPortError error) {
         resetWriteState();
         disarmWriteTimeout();
         setState(ChannelState::Error);
-        emitError(errorText);
+        emitError(ChannelErrorCode::ConnectionFailed, errorText);
     }
 }
 

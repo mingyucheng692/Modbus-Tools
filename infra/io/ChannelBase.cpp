@@ -47,7 +47,7 @@ void ChannelBase::setReadHandler(std::function<void(QByteArrayView)> handler)
     readHandler_ = std::move(handler);
 }
 
-void ChannelBase::setErrorHandler(std::function<void(const QString&)> handler)
+void ChannelBase::setErrorHandler(std::function<void(const ChannelError&)> handler)
 {
     std::lock_guard<std::mutex> lock(handlerMutex_);
     errorHandler_ = std::move(handler);
@@ -148,15 +148,15 @@ void ChannelBase::emitRead(QByteArrayView data)
     }
 }
 
-void ChannelBase::emitError(const QString& error)
+void ChannelBase::emitError(ChannelErrorCode code, const QString& error)
 {
-    std::function<void(const QString&)> handler;
+    std::function<void(const ChannelError&)> handler;
     {
         std::lock_guard<std::mutex> lock(handlerMutex_);
         handler = errorHandler_;
     }
     if (handler) {
-        handler(error);
+        handler(ChannelError{code, error});
     }
 }
 

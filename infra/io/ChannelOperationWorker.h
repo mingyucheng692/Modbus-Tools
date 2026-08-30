@@ -66,14 +66,14 @@ public slots:
 signals:
     void stateChanged(ChannelState state);
     void stateChangedWithGeneration(ChannelState state, quint64 generation);
-    void channelErrorOccurred(const QString& deviceHint, const QString& error);
+    void channelErrorOccurred(const QString& deviceHint, io::ChannelErrorCode code, const QString& error);
     void monitor(bool isTx, const QByteArray& data);
     void bytesQueued(qint64 bytes);
 
 private:
     void setupChannel();
     void cleanupChannel();
-    void emitError(const QString& error);
+    void emitError(io::ChannelErrorCode code, const QString& error);
 
     std::shared_ptr<IChannel> channel_;
     quint64 channelGeneration_ = 0;

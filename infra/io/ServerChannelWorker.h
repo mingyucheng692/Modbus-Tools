@@ -73,7 +73,7 @@ signals:
     void clientConnected(int clientId, const QString& peerInfo);
     void clientDisconnected(int clientId);
     void stateChanged(ChannelState state);
-    void channelErrorOccurred(const QString& deviceHint, const QString& error);
+    void channelErrorOccurred(const QString& deviceHint, io::ChannelErrorCode code, const QString& error);
 
 private:
     TcpServerHandle* serverHandle_ = nullptr;

@@ -33,7 +33,7 @@ TcpChannel::TcpChannel(int closeLingerMs)
         SPDLOG_WARN("TcpChannel: connect timeout to {}:{}", ip_.toStdString(), port_);
         socket_.abort();
         setState(ChannelState::Error);
-        emitError(QStringLiteral("TCP connect timeout (%1:%2)").arg(ip_).arg(port_));
+        emitError(ChannelErrorCode::Timeout, QStringLiteral("TCP connect timeout (%1:%2)").arg(ip_).arg(port_));
     });
 
     lingerTimer_.setSingleShot(true);
@@ -100,7 +100,7 @@ bool TcpChannel::open() {
             "Invalid IP address: %1").arg(ip_);
         SPDLOG_WARN("TcpChannel: {}", err.toStdString());
         setState(ChannelState::Error);
-        emitError(err);
+        emitError(ChannelErrorCode::ConnectionFailed, err);
         return false;
     }
     if (port_ < 1 || port_ > 65535) {
@@ -108,7 +108,7 @@ bool TcpChannel::open() {
             "Invalid port: %1 (expected 1-65535)").arg(port_);
         SPDLOG_WARN("TcpChannel: {}", err.toStdString());
         setState(ChannelState::Error);
-        emitError(err);
+        emitError(ChannelErrorCode::ConnectionFailed, err);
         return false;
     }
 
@@ -255,9 +255,9 @@ void TcpChannel::onSocketError(QAbstractSocket::SocketError error) {
     resetWriteState();
     disarmWriteTimeout();
     setState(ChannelState::Error);
-    emitError(QStringLiteral("TCP socket error (%1): %2")
-                  .arg(static_cast<int>(error))
-                  .arg(errorText));
+    emitError(ChannelErrorCode::ConnectionFailed, QStringLiteral("TCP socket error (%1): %2")
+        .arg(static_cast<int>(error))
+        .arg(errorText));
 }
 
 void TcpChannel::onStateChanged(QAbstractSocket::SocketState socketState) {

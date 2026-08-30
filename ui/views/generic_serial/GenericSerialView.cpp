@@ -213,12 +213,23 @@ void GenericSerialView::onWorkerStateChanged(io::ChannelState state, quint64 gen
     }
 }
 
-void GenericSerialView::onWorkerError(const QString& deviceHint, const QString& error) {
-    const QString hint = deviceHint.isEmpty() ? QStringLiteral("Channel") : deviceHint;
+void GenericSerialView::onWorkerError(const QString& deviceHint, io::ChannelErrorCode code, const QString& error) {
     if (monitor_) {
-        monitor_->appendError(tr("Error: %1").arg(error));
+        QString localizedMsg;
+        switch (code) {
+            case io::ChannelErrorCode::ConnectionFailed: localizedMsg = tr("Connection failed"); break;
+            case io::ChannelErrorCode::Timeout: localizedMsg = tr("Connection timeout"); break;
+            case io::ChannelErrorCode::WriteFailed: localizedMsg = tr("Write failed"); break;
+            case io::ChannelErrorCode::ReadFailed: localizedMsg = tr("Read failed"); break;
+            case io::ChannelErrorCode::PortNotFound: localizedMsg = tr("Port not found"); break;
+            case io::ChannelErrorCode::PermissionDenied: localizedMsg = tr("Permission denied"); break;
+            case io::ChannelErrorCode::ConnectionReset: localizedMsg = tr("Connection reset"); break;
+            default: localizedMsg = tr("Unknown error"); break;
+        }
+        monitor_->appendError(tr("Error: %1").arg(localizedMsg));
     }
-    SPDLOG_ERROR("{} Error: {}", hint.toStdString(), error.toStdString());
+    const QString hint = deviceHint.isEmpty() ? QStringLiteral("Serial Worker") : deviceHint;
+    SPDLOG_ERROR("{} Error (code={}): {}", hint.toStdString(), static_cast<int>(code), error.toStdString());
 }
 
 void GenericSerialView::onWorkerMonitor(bool isTx, const QByteArray& data) {

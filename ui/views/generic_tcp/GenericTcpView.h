@@ -71,13 +71,13 @@ private slots:
     void onSendRequested(const QByteArray& data) override;
 
     void onWorkerStateChanged(io::ChannelState state, quint64 generation);
-    void onWorkerError(const QString& deviceHint, const QString& error);
+    void onWorkerError(const QString& deviceHint, io::ChannelErrorCode code, const QString& error);
     void onWorkerMonitor(bool isTx, const QByteArray& data);
     void onServerClientConnected(int clientId, const QString& peerInfo);
     void onServerClientDisconnected(int clientId);
     void onServerMonitorWithClient(bool isTx, const QByteArray& data, int clientId);
     void onServerStateChanged(io::ChannelState state);
-    void onServerError(const QString& deviceHint, const QString& error);
+    void onServerError(const QString& deviceHint, io::ChannelErrorCode code, const QString& error);
     void onDisconnectSelectedClientsRequested(const QList<int>& clientIds);
     void onDisconnectAllClientsRequested();
     void onReconnectTimerTick();

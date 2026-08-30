@@ -26,7 +26,7 @@ public:
     void setTimeouts(const Timeouts& timeouts) override;
     Timeouts timeouts() const override;
     void setReadHandler(std::function<void(QByteArrayView)> handler) override;
-    void setErrorHandler(std::function<void(const QString&)> handler) override;
+    void setErrorHandler(std::function<void(const ChannelError&)> handler) override;
     void setWriteDrainedHandler(std::function<void()> handler) override;
     HandlerId addStateHandler(std::function<void(ChannelState)> handler) override;
     void removeStateHandler(HandlerId handlerId) override;
@@ -38,7 +38,7 @@ protected:
     void addTx(qsizetype bytes);
     void addRx(qsizetype bytes);
     void emitRead(QByteArrayView data);
-    void emitError(const QString& error);
+    void emitError(ChannelErrorCode code, const QString& error);
     void emitWriteDrained();
     void emitMonitor(bool isTx, const QByteArray& data);
 
@@ -79,7 +79,7 @@ private:
     std::atomic<quint64> bytesTx_{0};
     std::atomic<quint64> bytesRx_{0};
     std::function<void(QByteArrayView)> readHandler_;
-    std::function<void(const QString&)> errorHandler_;
+    std::function<void(const ChannelError&)> errorHandler_;
     std::function<void()> writeDrainedHandler_;
     std::function<void(bool, const QByteArray&)> monitor_;
     std::mutex handlerMutex_;  // protects readHandler_, errorHandler_, writeDrainedHandler_, monitor_

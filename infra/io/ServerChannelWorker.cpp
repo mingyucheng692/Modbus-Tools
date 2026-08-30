@@ -33,8 +33,8 @@ ServerChannelWorker::ServerChannelWorker(QObject* parent)
             emit monitorWithClient(isTx, data, clientId);
         });
 
-        channel->setErrorHandler([this](const QString& err) {
-            emit channelErrorOccurred(QStringLiteral("TCP Server"), err);
+        channel->setErrorHandler([this](const ChannelError& err) {
+            emit channelErrorOccurred(QStringLiteral("TCP Server"), err.code, err.message);
         });
 
         const QString peerInfo = QStringLiteral("%1:%2").arg(peerAddress).arg(peerPort);
@@ -46,7 +46,7 @@ ServerChannelWorker::ServerChannelWorker(QObject* parent)
 
     QObject::connect(serverHandle_, &TcpServerHandle::errorOccurred,
                      this, [this](const QString& error) {
-        emit channelErrorOccurred(QStringLiteral("TCP Server"), error);
+        emit channelErrorOccurred(QStringLiteral("TCP Server"), io::ChannelErrorCode::ConnectionFailed, error);
         emit stateChanged(ChannelState::Error);
     });
 }
@@ -61,6 +61,7 @@ void ServerChannelWorker::openTcpServer(const QString& listenIp, int port, int m
     if (!serverHandle_->start(listenIp, port, maxClients)) {
         emit channelErrorOccurred(
             QStringLiteral("TCP Server"),
+            io::ChannelErrorCode::ConnectionFailed,
             QStringLiteral("Failed to start TCP server"));
         // Terminal state after a failed listen: without this emission the
         // view never hears back from the worker and stays stuck on the
@@ -96,18 +97,21 @@ void ServerChannelWorker::writeToClient(int clientId, const QByteArray& data)
     if (!channel) {
         emit channelErrorOccurred(
             QStringLiteral("TCP Server"),
+            io::ChannelErrorCode::Unknown,
             QStringLiteral("Client not found"));
         return;
     }
     if (!channel->isOpen()) {
         emit channelErrorOccurred(
             QStringLiteral("TCP Server"),
+            io::ChannelErrorCode::Unknown,
             QStringLiteral("Client channel not open"));
         return;
     }
     if (!channel->write(data)) {
         emit channelErrorOccurred(
             QStringLiteral("TCP Server"),
+            io::ChannelErrorCode::WriteFailed,
             QStringLiteral("Write to client failed"));
         return;
     }
