@@ -357,6 +357,25 @@ TEST_F(ModbusClientBoundaryTest, RequestState_InvalidTransition_IsRejected) {
 }
 
 // ============================================================================
+// 11b. RequestStateMachine — Failed -> Aborted transition is valid
+// ============================================================================
+
+TEST_F(ModbusClientBoundaryTest, RequestState_FailedToAborted_IsValid) {
+    RequestStateMachine rsm;
+    EXPECT_EQ(rsm.currentState(), RequestStateMachine::State::Idle);
+
+    rsm.tryTransition(RequestStateMachine::State::Sending, "start");
+    rsm.tryTransition(RequestStateMachine::State::Failed, "error");
+    EXPECT_EQ(rsm.currentState(), RequestStateMachine::State::Failed);
+
+    rsm.tryTransition(RequestStateMachine::State::Aborted, "abort-during-backoff");
+    EXPECT_EQ(rsm.currentState(), RequestStateMachine::State::Aborted);
+
+    rsm.tryTransition(RequestStateMachine::State::Idle, "reset");
+    EXPECT_EQ(rsm.currentState(), RequestStateMachine::State::Idle);
+}
+
+// ============================================================================
 // 12. Write failure -> error without timeout
 // ============================================================================
 

@@ -71,6 +71,7 @@ private:
         Transition{State::Waiting,   State::Failed},
         Transition{State::Waiting,   State::Aborted},
         Transition{State::Failed,    State::Sending},
+        Transition{State::Failed,    State::Aborted},
         Transition{State::Failed,    State::Idle},
         Transition{State::Completed, State::Idle},
         Transition{State::Aborted,   State::Idle},
