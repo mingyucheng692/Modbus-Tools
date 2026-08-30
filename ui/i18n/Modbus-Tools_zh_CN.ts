@@ -918,7 +918,7 @@
         <location filename="../MainWindow.cpp" line="240" />
         <location filename="../MainWindow.cpp" line="372" />
         <source>Open Log Folder</source>
-        <translation>Open Log Folder</translation>
+        <translation>打开日志文件夹</translation>
     </message>
     <message>
         <location filename="../MainWindow.cpp" line="261" />
@@ -2951,22 +2951,22 @@ Choose update method:</source>
     <message>
         <location filename="../widgets/ServerClientPanel.cpp" line="211" />
         <source>Select one or more clients for directed send, or enable broadcast.</source>
-        <translation>Select one or more clients for directed send, or enable broadcast.</translation>
+        <translation>选择一个或多个客户端进行定向发送，或启用广播。</translation>
     </message>
     <message>
         <location filename="../widgets/ServerClientPanel.cpp" line="214" />
         <source>Broadcast To All Clients</source>
-        <translation>Broadcast To All Clients</translation>
+        <translation>向所有客户端广播</translation>
     </message>
     <message>
         <location filename="../widgets/ServerClientPanel.cpp" line="217" />
         <source>Disconnect Selected</source>
-        <translation>Disconnect Selected</translation>
+        <translation>断开选中的客户端</translation>
     </message>
     <message>
         <location filename="../widgets/ServerClientPanel.cpp" line="220" />
         <source>Disconnect All Clients</source>
-        <translation>Disconnect All Clients</translation>
+        <translation>断开所有客户端</translation>
     </message>
     <message>
         <location filename="../widgets/ServerClientPanel.cpp" line="238" />
@@ -2981,7 +2981,7 @@ Choose update method:</source>
     <message>
         <location filename="../widgets/ServerClientPanel.cpp" line="240" />
         <source>Connected Clients: %1 | Send Target: %2</source>
-        <translation>Connected Clients: %1 | Send Target: %2</translation>
+        <translation>已连接客户端: %1 | 发送目标: %2</translation>
     </message>
     <message>
         <location filename="../widgets/ServerClientPanel.cpp" line="272" />
