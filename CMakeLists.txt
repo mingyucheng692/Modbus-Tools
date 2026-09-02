@@ -1,10 +1,13 @@
-cmake_minimum_required(VERSION 3.16)
+cmake_minimum_required(VERSION 3.25)
 
 if(WIN32 AND CMAKE_GENERATOR MATCHES "Ninja")
     set(CMAKE_NINJA_CMCLDEPS_RC 0)
 endif()
 
-project(ModbusTools VERSION 1.0.7 LANGUAGES CXX RC)
+project(ModbusTools VERSION 1.0.7 LANGUAGES CXX)
+if(WIN32)
+    enable_language(RC)
+endif()
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)

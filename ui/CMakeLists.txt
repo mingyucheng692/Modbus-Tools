@@ -15,6 +15,7 @@ function(modbus_target_embed_translations target_name)
     if(NOT I18N_OUTPUT_DIR)
         set(I18N_OUTPUT_DIR "${CMAKE_BINARY_DIR}/translations")
     endif()
+    file(MAKE_DIRECTORY "${I18N_OUTPUT_DIR}")
 
     set(qm_files "")
     foreach(ts_file IN LISTS I18N_TS_FILES)
