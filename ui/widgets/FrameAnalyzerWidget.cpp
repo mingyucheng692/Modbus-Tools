@@ -38,6 +38,8 @@
 #include <QFileDialog>
 #include <QListWidget>
 #include <QResizeEvent>
+#include <QClipboard>
+#include <QGuiApplication>
 #include <QSplitter>
 
 using namespace modbus::parser;
@@ -208,15 +210,23 @@ void FrameAnalyzerWidget::createInputGroup()
     formatBtn->setMinimumWidth(86);
     actionsLayout->addWidget(formatBtn);
 
-    parseBtn = new QPushButton(tr("Parse"), this);
-    connect(parseBtn, &QPushButton::clicked, this, &FrameAnalyzerWidget::onParseClicked);
-    parseBtn->setMinimumWidth(86);
-    actionsLayout->addWidget(parseBtn);
-
     clearBtn = new QPushButton(tr("Clear"), this);
     connect(clearBtn, &QPushButton::clicked, this, &FrameAnalyzerWidget::onClearClicked);
     clearBtn->setMinimumWidth(86);
     actionsLayout->addWidget(clearBtn);
+
+    parseBtn = new QPushButton(tr("Parse"), this);
+    connect(parseBtn, &QPushButton::clicked, this, &FrameAnalyzerWidget::onParseClicked);
+    parseBtn->setMinimumWidth(86);
+    parseBtn->setShortcut(QKeySequence(Qt::CTRL | Qt::Key_Return));
+    actionsLayout->addWidget(parseBtn);
+
+    pasteAndParseBtn = new QPushButton(tr("Paste & Parse"), this);
+    connect(pasteAndParseBtn, &QPushButton::clicked, this, &FrameAnalyzerWidget::onPasteAndParseClicked);
+    pasteAndParseBtn->setMinimumWidth(100);
+    pasteAndParseBtn->setShortcut(QKeySequence(Qt::CTRL | Qt::SHIFT | Qt::Key_V));
+    pasteAndParseBtn->setDefault(true);
+    actionsLayout->addWidget(pasteAndParseBtn);
 
     controlsLayout->addWidget(actionsContainer, 0, Qt::AlignRight);
     groupLayout->addLayout(controlsLayout);
@@ -534,11 +544,28 @@ void FrameAnalyzerWidget::onFormatClicked()
     inputEditor->setPlainText(formatted.toUpper());
 }
 
+void FrameAnalyzerWidget::onPasteAndParseClicked()
+{
+    auto* clipboard = QGuiApplication::clipboard();
+    if (!clipboard) return;
+
+    const QString text = clipboard->text().trimmed();
+    if (text.isEmpty()) {
+        statusLabel->setText(tr("Clipboard is empty"));
+        statusLabel->setStyleSheet(QStringLiteral("color: red;"));
+        return;
+    }
+
+    inputEditor->setPlainText(text);
+    onParseClicked();
+}
+
 void FrameAnalyzerWidget::onClearClicked()
 {
     ++latestParseRequestId;
     parseInProgress = false;
     if (parseBtn) parseBtn->setEnabled(true);
+    if (pasteAndParseBtn) pasteAndParseBtn->setEnabled(true);
     inputEditor->clear();
     clearResult();
 }
@@ -569,6 +596,7 @@ void FrameAnalyzerWidget::onParseClicked()
     statusLabel->setText(tr("Parsing..."));
     statusLabel->setStyleSheet(QStringLiteral("color: gray;"));
     if (parseBtn) parseBtn->setEnabled(false);
+    if (pasteAndParseBtn) pasteAndParseBtn->setEnabled(false);
 
     // Pass the pre-normalized hex string so the worker does not need to
     // repeat input-format cleanup (see FrameParseWorker contract). The
@@ -582,6 +610,7 @@ void FrameAnalyzerWidget::onParseFinished(const ParseResult& result, quint64 req
 
     parseInProgress = false;
     if (parseBtn) parseBtn->setEnabled(true);
+    if (pasteAndParseBtn) pasteAndParseBtn->setEnabled(true);
 
     currentResult = result;
     renderResult(result);
@@ -1091,7 +1120,6 @@ void FrameAnalyzerWidget::retranslateUi()
         registerOrderCombo->setItemText(2, "CDAB");
         registerOrderCombo->setItemText(3, "DCBA");
     }
-    if (formatBtn) formatBtn->setText(tr("Format Hex"));
     if (importJsonBtn) importJsonBtn->setText(tr("Import Config"));
     if (exportJsonBtn) exportJsonBtn->setText(tr("Export Config"));
     if (exportCsvBtn) exportCsvBtn->setText(tr("Export CSV"));
@@ -1118,8 +1146,16 @@ void FrameAnalyzerWidget::retranslateUi()
         if (statusLabel) statusLabel->setText(tr("Ready"));
     }
 
-    if (parseBtn) parseBtn->setText(tr("Parse"));
+    if (formatBtn) formatBtn->setText(tr("Format Hex"));
     if (clearBtn) clearBtn->setText(tr("Clear"));
+    if (parseBtn) {
+        parseBtn->setText(tr("Parse"));
+        parseBtn->setToolTip(tr("Parse current input (Ctrl+Enter)"));
+    }
+    if (pasteAndParseBtn) {
+        pasteAndParseBtn->setText(tr("Paste & Parse"));
+        pasteAndParseBtn->setToolTip(tr("Paste clipboard content and parse immediately (Ctrl+Shift+V)"));
+    }
     if (inputEditor) {
         inputEditor->setPlaceholderText(
             tr("Enter Hex string (e.g., RTU: 01 03 00 00 00 01 84 0A, ASCII bytes: 3A 30 31 30 33 ... 0D 0A)"));

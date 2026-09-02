@@ -2031,6 +2031,22 @@ Choose update method:</source>
         <translation>格式化 Hex</translation>
     </message>
     <message>
+        <source>Paste &amp; Parse</source>
+        <translation>貼上並解析</translation>
+    </message>
+    <message>
+        <source>Paste clipboard content and parse immediately (Ctrl+Shift+V)</source>
+        <translation>貼上剪貼簿內容並立即解析 (Ctrl+Shift+V)</translation>
+    </message>
+    <message>
+        <source>Parse current input (Ctrl+Enter)</source>
+        <translation>解析目前輸入 (Ctrl+Enter)</translation>
+    </message>
+    <message>
+        <source>Clipboard is empty</source>
+        <translation>剪貼簿為空</translation>
+    </message>
+    <message>
         <location filename="../widgets/FrameAnalyzerWidget.cpp" line="211" />
         <location filename="../widgets/FrameAnalyzerWidget.cpp" line="1121" />
         <source>Parse</source>

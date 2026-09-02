@@ -96,7 +96,7 @@ protected:
     ChannelState currentState_ = ChannelState::Closed;
     std::function<void(ChannelState)> stateHandler_;
     std::function<void(QByteArrayView)> readHandler_;
-    std::function<void(const QString&)> errorHandler_;
+    std::function<void(const io::ChannelError&)> errorHandler_;
     std::function<void()> writeDrainedHandler_;
 
     std::shared_ptr<NiceMock<MockChannel>> mockChannel_;
@@ -294,7 +294,7 @@ TEST_F(ModbusClientBoundaryTest, ChannelError_DuringRequest_ReturnsError) {
     });
 
     std::this_thread::sleep_for(std::chrono::milliseconds(30));
-    if (errorHandler_) errorHandler_("Connection reset by peer");
+    if (errorHandler_) errorHandler_(io::ChannelError{io::ChannelErrorCode::ConnectionReset, QStringLiteral("Connection reset by peer")});
 
     auto resp = future.get();
     EXPECT_TRUE(resp.isError());

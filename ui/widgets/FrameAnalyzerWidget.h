@@ -68,6 +68,7 @@ signals:
 
 private slots:
     void onParseClicked();
+    void onPasteAndParseClicked();
     void onClearClicked();
     void onFormatClicked();
     void onExportJsonClicked();
@@ -120,6 +121,7 @@ private:
     QComboBox* displayModeCombo = nullptr;
     QComboBox* registerOrderCombo = nullptr;
     QPushButton* parseBtn = nullptr;
+    QPushButton* pasteAndParseBtn = nullptr;
     QPushButton* formatBtn = nullptr;
     QPushButton* importJsonBtn = nullptr;
     QPushButton* exportJsonBtn = nullptr;
