@@ -60,6 +60,15 @@ class WorkerReleaseCoordinator : public QObject {
     Q_OBJECT
 
 public:
+    enum class ReleaseStage {
+        Initial,
+        StoppingWorker,
+        ClosingChannel,
+        JoiningThreads,
+        TimedOut,
+        Finalized
+    };
+
     explicit WorkerReleaseCoordinator(QObject* parent = nullptr);
     ~WorkerReleaseCoordinator() noexcept override;
 
@@ -102,6 +111,10 @@ public:
     /// @return true if at least one release is still outstanding.
     bool hasPending() const noexcept;
 
+    /// Test seam / observability: returns the current stage of the first active pending release,
+    /// or ReleaseStage::Initial if no release is pending.
+    [[nodiscard]] ReleaseStage currentStage() const noexcept;
+
 signals:
     /// Emitted once per requestRelease() when the worker stack has fully
     /// stopped (or was empty to begin with).
@@ -118,24 +131,28 @@ private:
         std::shared_ptr<::modbus::dispatch::ModbusWorker> worker;
         std::shared_ptr<QThread> channelThread;
         std::shared_ptr<QThread> workerThread;
-        bool workerStopped = false;
-        bool channelThreadFinished = false;
-        bool workerThreadFinished = false;
-        bool completionLogged = false;
-        /// Guards beginChannelShutdown() against re-entry (it is triggered
-        /// from three paths: worker stopped, worker thread finished, timeout).
-        bool channelShutdownStarted = false;
+
+        ReleaseStage stage = ReleaseStage::Initial;
+        bool workerStopped = false;         // ModbusWorker::stopped() 信号到达，或 workerThread 已退出
+        bool channelThreadFinished = false; // IO 线程 finished() 信号到达，是 finalize() 的必要条件之一
+        bool workerThreadFinished = false;  // Worker 线程 finished() 信号到达
+        bool completionLogged = false;      // 防止 onTimeout/tryComplete 双重发射 releaseTimedOut
+        bool channelShutdownStarted = false;// 防止 beginChannelShutdown() 从多个路径重入
+        // ⚠️ 注意：以上 5 个 flag 是并发完成条件，非互斥状态机；
+        //         tryComplete() 等待全部满足才可 finalize()。
+
         QString timeoutMessage;
         QTimer* timeoutTimer = nullptr;
-        /// Second-chance timer for the channel shutdown sequence: if Closed
-        /// does not arrive in time (close linger should land within 2s), the
+        /// Second-chance timer for the channel shutdown sequence (3-second fallback
+        /// started in beginChannelShutdown): if Closed does not arrive in time, the
         /// IO thread is quit regardless so finalize() can still proceed.
         QTimer* channelForceTimer = nullptr;
         /// Channel state-handler subscription watching for the terminal
-        /// Closed state that gates channelThread quit().
+        /// Closed state that gates channelThread quit() (detached in detachChannelWatchers).
         io::IChannel::HandlerId channelStateHandlerId = 0;
     };
 
+    void advanceStage(const std::shared_ptr<PendingReleaseContext>& pending, ReleaseStage next);
     void startRelease(std::shared_ptr<PendingReleaseContext> pending);
     void onWorkerStopped(const std::shared_ptr<PendingReleaseContext>& pending);
     void onThreadFinished(const std::shared_ptr<PendingReleaseContext>& pending,

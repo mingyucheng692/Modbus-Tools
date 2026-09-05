@@ -258,3 +258,45 @@ TEST_F(WorkerReleaseCoordinatorTest,
     // reset drops the test's own reference in the correct order.
     channel.reset();
 }
+
+TEST_F(WorkerReleaseCoordinatorTest, ReleaseStage_AdvancesMonotonically) {
+    auto thread = std::make_shared<QThread>();
+    auto* parked = new QObject();
+    parked->moveToThread(thread.get());
+    thread->start();
+    QCoreApplication::processEvents(QEventLoop::AllEvents, 20);
+
+    StackHandle handle;
+    handle.channelThread = thread;
+
+    coordinator_->requestRelease(std::move(handle), QStringLiteral("stage_test"));
+    EXPECT_TRUE(coordinator_->hasPending());
+    // Active stage should be at least StoppingWorker or JoiningThreads
+    const auto stageDuringWait = coordinator_->currentStage();
+    EXPECT_TRUE(stageDuringWait == WorkerReleaseCoordinator::ReleaseStage::StoppingWorker
+                || stageDuringWait == WorkerReleaseCoordinator::ReleaseStage::JoiningThreads);
+
+    thread->quit();
+    waitForSignals(*completedSpy_, 1, 500);
+
+    EXPECT_EQ(completedSpy_->count(), 1);
+    EXPECT_FALSE(coordinator_->hasPending());
+
+    if (thread->isRunning()) {
+        thread->wait(2000);
+    }
+    delete parked;
+    thread.reset();
+}
+
+TEST_F(WorkerReleaseCoordinatorTest, ConcurrentRapidRequestRelease_Idempotent) {
+    // Calling requestRelease repeatedly with empty handles must be strictly idempotent
+    for (int i = 0; i < 5; ++i) {
+        StackHandle empty;
+        coordinator_->requestRelease(std::move(empty), QStringLiteral("rapid"));
+    }
+    waitForSignals(*completedSpy_, 5, 500);
+    EXPECT_EQ(completedSpy_->count(), 5);
+    EXPECT_EQ(timedOutSpy_->count(), 0);
+    EXPECT_FALSE(coordinator_->hasPending());
+}

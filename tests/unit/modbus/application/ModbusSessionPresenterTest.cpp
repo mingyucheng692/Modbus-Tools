@@ -272,42 +272,41 @@ TEST_F(ModbusSessionPresenterTest, DeriveUiState_RtuMode_NoTransportConnectedPha
               SessionConnectionState::Connected);
 }
 
-TEST_F(ModbusSessionPresenterTest, CommandGuard_RejectsIllegalCommandSequences) {
-    using S = SessionConnectionState;
-    // Reconnect-style shortcuts are illegal on the command path: the user
-    // must go through Disconnecting / Disconnected first.
-    EXPECT_FALSE(ModbusSessionPresenter::isLegalUiTransition(S::Connected, S::Connecting));
-    EXPECT_FALSE(ModbusSessionPresenter::isLegalUiTransition(S::Disconnected, S::Connected));
-    EXPECT_FALSE(ModbusSessionPresenter::isLegalUiTransition(S::TransportConnected, S::Connecting));
-    EXPECT_FALSE(ModbusSessionPresenter::isLegalUiTransition(S::Disconnecting, S::Connecting));
-
-    // The legal command lifecycle stays intact.
-    EXPECT_TRUE(ModbusSessionPresenter::isLegalUiTransition(S::Disconnected, S::Connecting));
-    EXPECT_TRUE(ModbusSessionPresenter::isLegalUiTransition(S::Connecting, S::TransportConnected));
-    EXPECT_TRUE(ModbusSessionPresenter::isLegalUiTransition(S::Connecting, S::Connected));
-    EXPECT_TRUE(ModbusSessionPresenter::isLegalUiTransition(S::TransportConnected, S::Connected));
-    EXPECT_TRUE(ModbusSessionPresenter::isLegalUiTransition(S::Connected, S::Disconnecting));
-    EXPECT_TRUE(ModbusSessionPresenter::isLegalUiTransition(S::Disconnecting, S::Disconnected));
-    EXPECT_TRUE(ModbusSessionPresenter::isLegalUiTransition(S::Disconnected, S::Disconnecting));
-
-    // Idempotent re-entry is always allowed.
-    EXPECT_TRUE(ModbusSessionPresenter::isLegalUiTransition(S::Connected, S::Connected));
-}
-
-TEST_F(ModbusSessionPresenterTest, DerivedStates_MayExceedCommandGuardRules) {
-    // The event path (syncStateFromCore) applies core-derived states directly,
-    // bypassing the command guard: when the core FSM enters Reconnecting the
-    // UI lands on Connecting even though Connected -> Connecting has no edge
-    // in the command table. The two rule sets must stay separate — this is
-    // the Command-vs-Event segregation the Phase 2 refactor established.
+TEST_F(ModbusSessionPresenterTest, DeriveUiState_CoreFsmIsSingleSourceOfTruth) {
     using Core = ::modbus::session::ConnectionStateMachine::State;
     using Health = ::modbus::session::SessionHealth;
 
-    EXPECT_FALSE(ModbusSessionPresenter::isLegalUiTransition(
-        SessionConnectionState::Connected, SessionConnectionState::Connecting));
-    EXPECT_EQ(ModbusSessionPresenter::deriveUiState(
-                  Core::Reconnecting, io::ChannelState::Closed, Health::Unknown, SessionMode::Tcp),
+    // Disconnected / Failed always map to UI Disconnected
+    EXPECT_EQ(ModbusSessionPresenter::deriveUiState(Core::Disconnected, io::ChannelState::Closed, Health::Unknown, SessionMode::Tcp),
+              SessionConnectionState::Disconnected);
+    EXPECT_EQ(ModbusSessionPresenter::deriveUiState(Core::Failed, io::ChannelState::Error, Health::Unknown, SessionMode::Tcp),
+              SessionConnectionState::Disconnected);
+
+    // Reconnecting maps directly to UI Connecting
+    EXPECT_EQ(ModbusSessionPresenter::deriveUiState(Core::Reconnecting, io::ChannelState::Closed, Health::Unknown, SessionMode::Tcp),
               SessionConnectionState::Connecting);
+
+    // Connecting + Channel Open (TCP) maps to TransportConnected
+    EXPECT_EQ(ModbusSessionPresenter::deriveUiState(Core::Connecting, io::ChannelState::Open, Health::Unknown, SessionMode::Tcp),
+              SessionConnectionState::TransportConnected);
+
+    // Connected maps to Connected
+    EXPECT_EQ(ModbusSessionPresenter::deriveUiState(Core::Connected, io::ChannelState::Open, Health::Healthy, SessionMode::Tcp),
+              SessionConnectionState::Connected);
+
+    // Disconnecting maps to Disconnecting
+    EXPECT_EQ(ModbusSessionPresenter::deriveUiState(Core::Disconnecting, io::ChannelState::Closing, Health::Unknown, SessionMode::Tcp),
+              SessionConnectionState::Disconnecting);
+}
+
+TEST_F(ModbusSessionPresenterTest, RequestDisconnect_TriggersExplicitTeardown) {
+    QSignalSpy releasedSpy(tcpPresenter_.get(), &ModbusSessionPresenter::stackReleased);
+    tcpPresenter_->requestDisconnect();
+    QCoreApplication::processEvents();
+
+    // Explicit disconnect should not emit transient disconnect alerts, and should finalize empty stack
+    EXPECT_GE(releasedSpy.count(), 1);
+    EXPECT_FALSE(tcpPresenter_->isSessionConnected());
 }
 
 TEST_F(ModbusSessionPresenterTest, DefaultCoreRetries_IsConservativeZero) {

@@ -103,6 +103,7 @@ void WorkerReleaseCoordinator::requestRelease(StackHandle handle,
         && !pending->channel) {
         pending->channelThread->quit();
     }
+    advanceStage(pending, ReleaseStage::StoppingWorker);
     tryComplete(pending);
 }
 
@@ -124,6 +125,61 @@ bool WorkerReleaseCoordinator::hasPending() const noexcept {
     return !pending_.empty();
 }
 
+WorkerReleaseCoordinator::ReleaseStage WorkerReleaseCoordinator::currentStage() const noexcept {
+    if (!pending_.empty() && pending_.front()) {
+        return pending_.front()->stage;
+    }
+    return ReleaseStage::Initial;
+}
+
+void WorkerReleaseCoordinator::advanceStage(
+    const std::shared_ptr<PendingReleaseContext>& pending, ReleaseStage next) {
+    if (!pending) {
+        return;
+    }
+    // Terminal idempotency: once finalized, ignore any further stage advances.
+    if (pending->stage == ReleaseStage::Finalized) {
+        return;
+    }
+
+    // Monotonic progression:
+    // TimedOut and Finalized can always be transitioned to from active stages.
+    if (next != ReleaseStage::TimedOut && next != ReleaseStage::Finalized
+        && static_cast<int>(next) <= static_cast<int>(pending->stage)) {
+        return;
+    }
+
+    const auto prevStage = pending->stage;
+    pending->stage = next;
+    SPDLOG_DEBUG("WorkerReleaseCoordinator: stage {} -> {}",
+                 static_cast<int>(prevStage), static_cast<int>(next));
+
+    switch (next) {
+    case ReleaseStage::Initial:
+    case ReleaseStage::StoppingWorker:
+    case ReleaseStage::JoiningThreads:
+        break;
+    case ReleaseStage::ClosingChannel:
+        beginChannelShutdown(pending);
+        break;
+    case ReleaseStage::Finalized:
+        finalize(pending);
+        break;
+    case ReleaseStage::TimedOut:
+        if (!pending->completionLogged) {
+            pending->completionLogged = true;
+            SPDLOG_ERROR(
+                "WorkerReleaseCoordinator: shutdown timed out; finalizing without terminate()");
+            emit releaseTimedOut(pending->timeoutMessage);
+        }
+        if (pending->workerThread && pending->workerThread->isRunning()) {
+            pending->workerThread->quit();
+        }
+        beginChannelShutdown(pending);
+        break;
+    }
+}
+
 void WorkerReleaseCoordinator::onWorkerStopped(
     const std::shared_ptr<PendingReleaseContext>& pending) {
     if (!pending) {
@@ -134,7 +190,7 @@ void WorkerReleaseCoordinator::onWorkerStopped(
     if (pending->workerThread && pending->workerThread->isRunning()) {
         pending->workerThread->quit();
     }
-    beginChannelShutdown(pending);
+    advanceStage(pending, ReleaseStage::ClosingChannel);
     tryComplete(pending);
 }
 
@@ -147,11 +203,11 @@ void WorkerReleaseCoordinator::onThreadFinished(
         pending->channelThreadFinished = true;
     } else {
         pending->workerThreadFinished = true;
-        // The worker thread ended without a observed stopped() signal
+        // The worker thread ended without an observed stopped() signal
         // (e.g. queued signal lost across thread teardown). The channel is
         // now unsupervised — start its shutdown sequence from here.
         if (!pending->workerStopped) {
-            beginChannelShutdown(pending);
+            advanceStage(pending, ReleaseStage::ClosingChannel);
         }
     }
     tryComplete(pending);
@@ -174,9 +230,12 @@ void WorkerReleaseCoordinator::tryComplete(
         pending->workerThreadFinished || !pending->workerThread
         || !pending->workerThread->isRunning();
     if (!workerDone || !channelDone || !workerThreadDone) {
+        if (pending->stage == ReleaseStage::StoppingWorker && workerDone) {
+            advanceStage(pending, ReleaseStage::JoiningThreads);
+        }
         return;
     }
-    finalize(pending);
+    advanceStage(pending, ReleaseStage::Finalized);
 }
 
 void WorkerReleaseCoordinator::onTimeout(
@@ -188,21 +247,7 @@ void WorkerReleaseCoordinator::onTimeout(
     if (it == pending_.end()) {
         return;
     }
-    if (!pending->completionLogged) {
-        pending->completionLogged = true;
-        SPDLOG_ERROR(
-            "WorkerReleaseCoordinator: shutdown timed out; finalizing without terminate()");
-        emit releaseTimedOut(pending->timeoutMessage);
-    }
-    if (pending->workerThread && pending->workerThread->isRunning()) {
-        pending->workerThread->quit();
-    }
-    // Do NOT finalize() directly: the channel may not be Closed yet, and
-    // destroying a still-connected socket from the GUI thread crashes in
-    // QCoreApplication::sendEvent. Drive the channel shutdown instead;
-    // finalize() runs when the IO thread reports finished (with the force
-    // timer as the ultimate backstop).
-    beginChannelShutdown(pending);
+    advanceStage(pending, ReleaseStage::TimedOut);
 }
 
 void WorkerReleaseCoordinator::beginChannelShutdown(
@@ -268,6 +313,7 @@ void WorkerReleaseCoordinator::beginChannelShutdown(
     pending->channelForceTimer->setSingleShot(true);
     QObject::connect(pending->channelForceTimer, &QTimer::timeout, this,
                      [this, pending]() {
+                         advanceStage(pending, ReleaseStage::TimedOut);
                          detachChannelWatchers(pending);
                          if (pending->workerThread
                              && pending->workerThread->isRunning()) {
@@ -365,6 +411,7 @@ void WorkerReleaseCoordinator::finalize(
     }
     pending->channelThread.reset();
     pending->workerThread.reset();
+    pending->stage = ReleaseStage::Finalized;
 
     SPDLOG_INFO("WorkerReleaseCoordinator: release finalized");
     emit releaseCompleted();

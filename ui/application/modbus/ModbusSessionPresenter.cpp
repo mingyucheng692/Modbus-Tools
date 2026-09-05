@@ -24,38 +24,6 @@ void assertObjectThread(const QObject* object, const char* context) {
                context);
 }
 
-struct TransitionRule {
-    SessionConnectionState from;
-    SessionConnectionState to;
-};
-
-// Legal cross-state transitions for the UI connection state. Self-transitions
-// (re-entering the current state) are always allowed for idempotent re-entry
-// and are not listed here. Absorbed from the deleted SessionConnectionStateMachine.
-constexpr TransitionRule kLegalTransitions[] = {
-    {SessionConnectionState::Disconnected, SessionConnectionState::Connecting},
-    // Disconnect requested while already disconnected: benign no-op, not an
-    // error (original code tolerated this path).
-    {SessionConnectionState::Disconnected, SessionConnectionState::Disconnecting},
-
-    {SessionConnectionState::Connecting, SessionConnectionState::TransportConnected},
-    {SessionConnectionState::Connecting, SessionConnectionState::Connected},
-    {SessionConnectionState::Connecting, SessionConnectionState::Disconnected},
-    {SessionConnectionState::Connecting, SessionConnectionState::Disconnecting},
-
-    {SessionConnectionState::TransportConnected, SessionConnectionState::Connected},
-    {SessionConnectionState::TransportConnected, SessionConnectionState::Disconnected},
-    {SessionConnectionState::TransportConnected, SessionConnectionState::Disconnecting},
-
-    {SessionConnectionState::Connected, SessionConnectionState::Disconnected},
-    {SessionConnectionState::Connected, SessionConnectionState::Disconnecting},
-    // A spurious channel-Open while already Connected must not be rejected
-    // (the original code tolerated this); it re-affirms transport state.
-    {SessionConnectionState::Connected, SessionConnectionState::TransportConnected},
-
-    {SessionConnectionState::Disconnecting, SessionConnectionState::Disconnected},
-};
-
 constexpr const char* connectionStateNameImpl(SessionConnectionState s) {
     switch (s) {
     case SessionConnectionState::Disconnected: return "Disconnected";
@@ -65,18 +33,6 @@ constexpr const char* connectionStateNameImpl(SessionConnectionState s) {
     case SessionConnectionState::Disconnecting: return "Disconnecting";
     }
     return "Unknown";
-}
-
-bool isLegalConnectionTransition(SessionConnectionState from, SessionConnectionState to) {
-    if (from == to) {
-        return true; // idempotent re-entry
-    }
-    for (const auto& rule : kLegalTransitions) {
-        if (rule.from == from && rule.to == to) {
-            return true;
-        }
-    }
-    return false;
 }
 
 } // namespace
@@ -111,8 +67,9 @@ void ModbusSessionPresenter::startTcpConnect(const QString& ip, int port,
     assertGuiThread("startTcpConnect must run on the GUI thread");
     Q_ASSERT(mode_ == SessionMode::Tcp);
     SPDLOG_INFO("ModbusSessionPresenter[TCP]: Connect requested to {}:{}", ip.toStdString(), port);
-    // suppressDisconnectAlert_ is reset by the Connecting state-entry handler.
-    [[maybe_unused]] const bool _conn = transitionConnectionStateTo(SessionConnectionState::Connecting);
+    // disconnectIsExplicit_ is reset by the Connecting state-entry handler.
+    connectionState_ = SessionConnectionState::Connecting;
+    onConnectionStateChanged(SessionConnectionState::Connecting);
     const quint64 generation = connectionGeneration_;
 
     if (trafficLogController_) {
@@ -121,7 +78,8 @@ void ModbusSessionPresenter::startTcpConnect(const QString& ip, int port,
 
     initStack(config);
     if (!worker_ || !channel_) {
-        [[maybe_unused]] const bool _disc = transitionConnectionStateTo(SessionConnectionState::Disconnected);
+        connectionState_ = SessionConnectionState::Disconnected;
+        onConnectionStateChanged(SessionConnectionState::Disconnected);
         emit connectFinished(false, tr("Failed to create Modbus stack"));
         return;
     }
@@ -178,7 +136,8 @@ void ModbusSessionPresenter::startSerialConnect(const io::SerialConfig& serialCo
     SPDLOG_INFO("ModbusSessionPresenter[{}]: Connect requested to {}",
                  descriptor.logName,
                  serialConfig.portName.toStdString());
-    [[maybe_unused]] const bool _conn = transitionConnectionStateTo(SessionConnectionState::Connecting);
+    connectionState_ = SessionConnectionState::Connecting;
+    onConnectionStateChanged(SessionConnectionState::Connecting);
 
     if (trafficLogController_) {
         trafficLogController_->logConnectionInfo(tr("Opening %1...").arg(serialConfig.portName));
@@ -187,7 +146,8 @@ void ModbusSessionPresenter::startSerialConnect(const io::SerialConfig& serialCo
 
     initStack(modbusConfig);
     if (!worker_ || !channel_) {
-        [[maybe_unused]] const bool _disc = transitionConnectionStateTo(SessionConnectionState::Disconnected);
+        connectionState_ = SessionConnectionState::Disconnected;
+        onConnectionStateChanged(SessionConnectionState::Disconnected);
         emit connectFinished(false, tr("Failed to create Modbus stack"));
         return;
     }
@@ -219,8 +179,9 @@ void ModbusSessionPresenter::requestDisconnect() {
     SPDLOG_INFO("ModbusSessionPresenter[{}]: Disconnect requested",
                  descriptor.logName);
     deferredAction_ = nullptr;
-    // suppressDisconnectAlert_ is set by the Disconnecting state-entry handler.
-    [[maybe_unused]] const bool _disc = transitionConnectionStateTo(SessionConnectionState::Disconnecting);
+    // disconnectIsExplicit_ is set by the Disconnecting state-entry handler.
+    connectionState_ = SessionConnectionState::Disconnecting;
+    onConnectionStateChanged(SessionConnectionState::Disconnecting);
     if (trafficLogController_) {
         trafficLogController_->logConnectionInfo(tr("Disconnecting..."));
     }
@@ -267,8 +228,9 @@ void ModbusSessionPresenter::requestRelease(const QString& timeoutMessage) {
                  static_cast<unsigned long long>(connectionGeneration_ + 1));
     if (pollingController_) pollingController_->reset();
     ++connectionGeneration_;
-    suppressDisconnectAlert_ = true;
-    [[maybe_unused]] const bool _disc = transitionConnectionStateTo(SessionConnectionState::Disconnected);
+    disconnectIsExplicit_ = true;
+    connectionState_ = SessionConnectionState::Disconnected;
+    onConnectionStateChanged(SessionConnectionState::Disconnected);
     const bool wasLinked = linked_;
     linked_ = false;
     if (controlWidget_) {
@@ -418,58 +380,23 @@ const char* ModbusSessionPresenter::connectionStateName(SessionConnectionState s
     return connectionStateNameImpl(s);
 }
 
-bool ModbusSessionPresenter::isLegalUiTransition(SessionConnectionState from,
-                                                 SessionConnectionState to) {
-    return isLegalConnectionTransition(from, to);
-}
-
-bool ModbusSessionPresenter::transitionConnectionStateTo(SessionConnectionState target) {
-    assertGuiThread("transitionConnectionStateTo must run on the GUI thread");
-    if (target == connectionState_) {
-        return true; // no-op re-entry
-    }
-
-    if (!isLegalConnectionTransition(connectionState_, target)) {
-        SPDLOG_ERROR("ModbusSessionPresenter: rejected illegal UI connection transition {} -> {}",
-                      connectionStateNameImpl(connectionState_),
-                      connectionStateNameImpl(target));
-        return false;
-    }
-
-    SPDLOG_DEBUG("ModbusSessionPresenter: UI connection state {} -> {}",
-                  connectionStateNameImpl(connectionState_), connectionStateNameImpl(target));
-    connectionState_ = target;
-    onConnectionStateChanged(target); // side effects applied inline
-    return true;
-}
-
-void ModbusSessionPresenter::forceConnectionStateTo(SessionConnectionState target) {
-    assertGuiThread("forceConnectionStateTo must run on the GUI thread");
-    if (target == connectionState_) {
-        return;
-    }
-    SPDLOG_WARN("ModbusSessionPresenter: forced UI connection transition {} -> {}",
-                 connectionStateNameImpl(connectionState_), connectionStateNameImpl(target));
-    connectionState_ = target;
-    onConnectionStateChanged(target);
-}
-
 void ModbusSessionPresenter::onConnectionStateChanged(SessionConnectionState state) {
     assertGuiThread("onConnectionStateChanged must run on the GUI thread");
-    // State-driven derived flags. suppressDisconnectAlert_ is path-dependent
-    // for Disconnected (release-initiated vs channel-error) and is therefore
-    // set explicitly by the release path before transitioning, not here.
+    // State-driven derived flags. disconnectIsExplicit_ is path-dependent:
+    // 1. User disconnect: set to true in Disconnecting (covers requestDisconnect)
+    // 2. Release path: set to true in requestRelease()
+    // 3. New connection: reset to false in Connecting / Connected
     switch (state) {
     case SessionConnectionState::Connecting:
     case SessionConnectionState::Connected:
-        suppressDisconnectAlert_ = false;
+        disconnectIsExplicit_ = false;
         break;
     case SessionConnectionState::Disconnecting:
-        suppressDisconnectAlert_ = true;
+        disconnectIsExplicit_ = true;
         break;
     case SessionConnectionState::Disconnected:
     case SessionConnectionState::TransportConnected:
-        break; // path-dependent / intermediate — do not touch suppress here
+        break; // path-dependent / intermediate — do not touch disconnectIsExplicit_ here
     }
     // TransportConnected has a conditional UI sync (only when not already
     // Connected) applied by the channel-Open handler, so do not sync here.
@@ -735,7 +662,7 @@ void ModbusSessionPresenter::handleChannelStateTransition(io::ChannelState state
             return;
         }
         const bool wasConnected = (stateBeforeSync == SessionConnectionState::Connected);
-        const bool shouldShowDisconnectAlert = isTcp && wasConnected && !suppressDisconnectAlert_;
+        const bool shouldShowDisconnectAlert = isTcp && wasConnected && !disconnectIsExplicit_;
 
         // Attribute the disconnection reason: prefer the last channel
         // error, fall back to a generic message.
@@ -752,7 +679,7 @@ void ModbusSessionPresenter::handleChannelStateTransition(io::ChannelState state
             ui::common::connection_alert::showDisconnected(qApp->activeWindow());
         }
 
-        if (suppressDisconnectAlert_) {
+        if (disconnectIsExplicit_) {
             // Explicit / user-initiated teardown: stop polling and disable widget.
             if (controlWidget_) {
                 controlWidget_->setPollingEnabled(false);

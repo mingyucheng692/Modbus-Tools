@@ -35,9 +35,8 @@ namespace ui::application::modbus {
  * @brief UI-layer connection state, derived from the authoritative core
  *        ConnectionStateMachine plus channel state and session health.
  *
- * Formerly owned by the deleted SessionConnectionStateMachine QObject FSM.
- * Transition validation now lives in the presenter's
- * private guard function transitionConnectionStateTo().
+ * The core FSM is the single source of truth; the UI connection state is
+ * purely projected via deriveUiState().
  */
 enum class SessionConnectionState {
     Disconnected,
@@ -106,14 +105,6 @@ public:
         ::modbus::session::SessionHealth health,
         SessionMode mode = SessionMode::Tcp);
 
-    /// Command-path transition guard: reports whether from -> to is a legal
-    /// user-command sequence (connect/disconnect button flows). The
-    /// event-driven path (syncStateFromCore) deliberately bypasses this
-    /// guard — the core FSM is authoritative there. Public static test
-    /// seam, mirroring deriveUiState.
-    [[nodiscard]] static bool isLegalUiTransition(SessionConnectionState from,
-                                                  SessionConnectionState to);
-
 signals:
     void sessionConnected();
     void sessionDisconnected(const QString& reason);
@@ -156,17 +147,6 @@ private:
     void onConnectionStateChanged(SessionConnectionState state);
     void syncConnectionWidget(SessionConnectionState state);
 
-    /// Validated UI connection-state transition (guard function).
-    /// Rejects illegal transitions (returns false, state unchanged, logs an
-    /// error) and applies the state-entry side effects (alert-suppression
-    /// flags, widget sync) inline on success. No-op re-entry succeeds.
-    [[nodiscard]] bool transitionConnectionStateTo(SessionConnectionState target);
-
-    /// Forces the UI state without transition-rule validation. Only for use
-    /// when the core authoritative state conflicts with the UI transition
-    /// rules (core wins; safe fallback is Disconnected).
-    void forceConnectionStateTo(SessionConnectionState target);
-
     /// Human-readable state name for logging.
     [[nodiscard]] static const char* connectionStateName(SessionConnectionState s);
 
@@ -189,7 +169,7 @@ private:
     ::modbus::base::ModbusConfig currentConfig_;
     quint64 connectionGeneration_ = 0;
     SessionConnectionState connectionState_ = SessionConnectionState::Disconnected;
-    bool suppressDisconnectAlert_ = false;
+    bool disconnectIsExplicit_ = false;
     bool linked_ = false;
     int timeoutMs_;
     int retries_;
