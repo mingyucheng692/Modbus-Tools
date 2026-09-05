@@ -105,29 +105,32 @@ bool ConnectionManager::transitionChecked(ConnectionStateMachine::State to, cons
     return true;
 }
 
-void ConnectionManager::normalizeBeforeConnectAttempt() {
+void ConnectionManager::assertCleanEntryState() {
     using CS = ConnectionStateMachine::State;
-    switch (stateMachine_->currentState()) {
+    const auto current = stateMachine_->currentState();
+    switch (current) {
     case CS::Disconnected:
     case CS::Failed:
-        // Legal attempt-loop entry states: Disconnected -> Connecting and
-        // Failed -> Connecting (user retry) are both valid edges.
+        // Clean attempt-loop entry states: zero correction needed.
         return;
     case CS::Connecting:
     case CS::Reconnecting:
-        // A previous attempt was abandoned mid-flight (e.g. abort() without
-        // a follow-up disconnect): route through Failed, which is a legal
-        // entry state for the next attempt.
-        transitionChecked(CS::Failed, "normalize-abandoned-attempt");
+        // A previous attempt was abandoned mid-flight without proper abort cleanup.
+        // In normal execution, abort() guarantees terminal Failed state.
+        SPDLOG_ERROR("ConnectionManager::assertCleanEntryState: unexpected in-flight state {}, forcing self-heal to Failed",
+                     ConnectionStateMachine::toString(current));
+        transitionChecked(CS::Failed, "assert-clean-heal-abandoned");
         return;
     case CS::Connected:
         // Channel is closed but the FSM still claims Connected: the passive
         // loss the state handler normally reports was missed. Route through
         // Failed so the retry can legally proceed.
-        transitionChecked(CS::Failed, "normalize-stale-session");
+        SPDLOG_ERROR("ConnectionManager::assertCleanEntryState: channel closed but state is Connected, forcing self-heal to Failed");
+        transitionChecked(CS::Failed, "assert-clean-heal-stale");
         return;
     case CS::Disconnecting:
-        transitionChecked(CS::Disconnected, "normalize");
+        SPDLOG_ERROR("ConnectionManager::assertCleanEntryState: unexpected Disconnecting state, forcing self-heal to Disconnected");
+        transitionChecked(CS::Disconnected, "assert-clean-heal-disconnecting");
         return;
     }
 }
@@ -175,8 +178,8 @@ bool ConnectionManager::ensureConnected(bool allowReconnect) {
         return true;
     }
 
-    // Defensive normalization of stale states (see header comment).
-    normalizeBeforeConnectAttempt();
+    // Defensive check of entry state (assert clean state or self-heal).
+    assertCleanEntryState();
 
     const int attempts = allowReconnect ? std::max(1, config_->retries + 1) : 1;
     QString connectError;
@@ -188,7 +191,7 @@ bool ConnectionManager::ensureConnected(bool allowReconnect) {
                                attempt == 0 ? "connect-attempt" : "reconnect-attempt")) {
             // A concurrent transition (channel-lost handler on a foreign
             // thread) raced us; retry once from the normalized state.
-            normalizeBeforeConnectAttempt();
+            assertCleanEntryState();
             if (!transitionChecked(attemptState, "connect-attempt-retry")) {
                 lastChannelError_ = TrContext<kConnManagerCtx>::tr("State machine busy");
                 return false;
@@ -206,6 +209,7 @@ bool ConnectionManager::ensureConnected(bool allowReconnect) {
                 // already-open fast path.
                 consecutiveTimeoutCount_ = 0; // fresh session
                 transitionChecked(CS::Connected, "connect-success");
+                connectFailureLogged_ = false; // 成功建立连接，重置 Latch
                 return true;
             }
         }
@@ -235,11 +239,14 @@ bool ConnectionManager::ensureConnected(bool allowReconnect) {
     if (lastChannelError_.isEmpty()) {
         lastChannelError_ = connectError.isEmpty() ? TrContext<kConnManagerCtx>::tr("Connect timeout") : connectError;
     }
-    SPDLOG_WARN("ModbusClient: connect failed target={}:{} reason={} channelState={}",
-                 config_->ipAddress.toStdString(),
-                 config_->port,
-                 lastChannelError_.toStdString(),
-                 static_cast<int>(channel_->state()));
+    if (!connectFailureLogged_) {
+        SPDLOG_WARN("ModbusClient: connect failed target={}:{} reason={} channelState={}",
+                    config_->ipAddress.toStdString(),
+                    config_->port,
+                    lastChannelError_.toStdString(),
+                    static_cast<int>(channel_->state()));
+        connectFailureLogged_ = true; // 锁存：轮询高频失败时完全静默，消除刷盘与 fmt 格式化 CPU 开销
+    }
     return false;
 }
 

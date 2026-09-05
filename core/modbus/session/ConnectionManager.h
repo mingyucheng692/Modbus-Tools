@@ -98,6 +98,11 @@ public:
     void clearError();
 
     /**
+     * @brief Reset the failure latch so the next connection failure logs a warning.
+     */
+    void resetFailureLatch() noexcept { connectFailureLogged_ = false; }
+
+    /**
      * @brief Set the last channel error (called from error callback).
      */
     void setError(const QString& error);
@@ -133,16 +138,17 @@ private:
     bool transitionChecked(ConnectionStateMachine::State to, const char* reason);
 
     /**
-     * @brief Walk the FSM out of states that cannot legally enter a connect
-     *        attempt (Connected / Reconnecting / Disconnecting while the
-     *        channel is closed) so the attempt loop always starts from
-     *        Disconnected or Failed.
+     * @brief Assert the FSM is in a clean entry state before a connect attempt.
      *
-     * Defensive only: real channels report Closed/Error through the state
-     * handler (ModbusClient wires Connected -> Failed), so the common entry
-     * states are Disconnected and Failed.
+     * In normal operation (with abort guaranteeing terminal states), this is a
+     * pass-through check. If a stale or intermediate state is detected, logs an
+     * error and performs defensive self-healing to maintain production robustness.
      */
-    void normalizeBeforeConnectAttempt();
+    void assertCleanEntryState();
+
+    /// Failure latch: silences repetitive connection failure warnings under
+    /// high-frequency polling when the peer is offline. Reset on connection success.
+    bool connectFailureLogged_ = false;
 };
 
 } // namespace modbus::session

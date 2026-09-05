@@ -121,7 +121,7 @@ TEST_F(TcpChannelTest, SetReadHandler_NoCrash) {
 
 TEST_F(TcpChannelTest, SetErrorHandler_NoCrash) {
     bool called = false;
-    channel_->setErrorHandler([&called](const QString&) { called = true; });
+    channel_->setErrorHandler([&called](const io::ChannelError&) { called = true; });
     SUCCEED();
 }
 
@@ -142,7 +142,7 @@ TEST_F(TcpChannelTest, RemoveStateHandler_NoCrash) {
 
 TEST_F(TcpChannelTest, TcpChannel_InvalidIpAddress_ReturnsError) {
     bool errorEmitted = false;
-    channel_->setErrorHandler([&errorEmitted](const QString&) {
+    channel_->setErrorHandler([&errorEmitted](const io::ChannelError&) {
         errorEmitted = true;
     });
 
@@ -154,7 +154,7 @@ TEST_F(TcpChannelTest, TcpChannel_InvalidIpAddress_ReturnsError) {
 
 TEST_F(TcpChannelTest, TcpChannel_InvalidPort_ReturnsError) {
     bool errorEmitted = false;
-    channel_->setErrorHandler([&errorEmitted](const QString&) {
+    channel_->setErrorHandler([&errorEmitted](const io::ChannelError&) {
         errorEmitted = true;
     });
 
@@ -166,7 +166,7 @@ TEST_F(TcpChannelTest, TcpChannel_InvalidPort_ReturnsError) {
 
 TEST_F(TcpChannelTest, TcpChannel_ValidParams_OpensSuccessfully) {
     bool errorEmitted = false;
-    channel_->setErrorHandler([&errorEmitted](const QString&) {
+    channel_->setErrorHandler([&errorEmitted](const io::ChannelError&) {
         errorEmitted = true;
     });
 
@@ -205,7 +205,7 @@ TEST_F(TcpChannelTest, SocketError_StickyAgainstLateSocketStateChange) {
     // (Before the sticky guard the repaint silently converted failures
     // into "clean" disconnects.)
     bool errorEmitted = false;
-    channel_->setErrorHandler([&errorEmitted](const QString&) {
+    channel_->setErrorHandler([&errorEmitted](const io::ChannelError&) {
         errorEmitted = true;
     });
 

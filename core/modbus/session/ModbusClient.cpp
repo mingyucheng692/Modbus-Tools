@@ -49,9 +49,14 @@ ModbusClient::RequestState ModbusClient::requestState() const {
 }
 
 void ModbusClient::clearRuntimeState(bool clearPendingQueue) {
+    const auto cs = connectionStateMachine_.currentState();
+    if (cs == ConnectionState::Connecting || cs == ConnectionState::Reconnecting) {
+        connectionStateMachine_.tryTransition(ConnectionState::Failed, "aborted");
+    }
     frameExtractor_.reset();
     flowController_.reset();
     connectionManager_.clearError();
+    connectionManager_.resetFailureLatch();
     requestExecutor_.resetState(clearPendingQueue);
     if (transport_) {
         transport_->resetPendingState();
@@ -198,6 +203,10 @@ void ModbusClient::disconnect() {
 }
 
 void ModbusClient::abort() {
+    const auto cs = connectionStateMachine_.currentState();
+    if (cs == ConnectionState::Connecting || cs == ConnectionState::Reconnecting) {
+        connectionStateMachine_.tryTransition(ConnectionState::Failed, "aborted");
+    }
     requestExecutor_.abort();
 }
 

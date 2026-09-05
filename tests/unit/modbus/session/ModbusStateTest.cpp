@@ -71,6 +71,14 @@ public:
                           });
     }
 
+    [[nodiscard]] size_t count(std::string_view needle) const {
+        const auto lines = sink_->lines();
+        return static_cast<size_t>(std::count_if(lines.begin(), lines.end(),
+                                  [needle](const std::string& line) {
+                                      return line.find(needle) != std::string::npos;
+                                  }));
+    }
+
 private:
     std::shared_ptr<CapturingLogSink> sink_;
 };
@@ -114,7 +122,7 @@ protected:
     ChannelState currentState_ = ChannelState::Closed;
     std::function<void(ChannelState)> stateHandler_;
     std::function<void(QByteArrayView)> readHandler_;
-    std::function<void(const QString&)> errorHandler_;
+    std::function<void(const io::ChannelError&)> errorHandler_;
     std::function<void()> writeDrainedHandler_;
     std::shared_ptr<NiceMock<MockChannel>> mockChannel_;
     std::shared_ptr<NiceMock<MockTransport>> mockTransport_;
@@ -361,6 +369,105 @@ TEST_F(ModbusStateTest, FullLifecycle_NoInvalidTransitionLogs) {
 
     EXPECT_FALSE(logCapture.contains("invalid transition"))
         << "connection FSM performed a rejected transition across the lifecycle";
+}
+
+TEST_F(ModbusStateTest, AbortGuaranteesTerminalState) {
+    // In Connecting state, abort() must force terminal Failed state.
+    EXPECT_CALL(*mockChannel_, open()).WillOnce(Invoke([&]() {
+        EXPECT_EQ(client_->connectionState(), ModbusClient::ConnectionState::Connecting);
+        client_->abort();
+        EXPECT_EQ(client_->connectionState(), ModbusClient::ConnectionState::Failed);
+        return false;
+    }));
+    EXPECT_FALSE(client_->connect());
+    EXPECT_EQ(client_->connectionState(), ModbusClient::ConnectionState::Failed);
+
+    // Verify clearRuntimeState() / subsequent abort while in terminal state remains safe
+    client_->abort();
+    EXPECT_EQ(client_->connectionState(), ModbusClient::ConnectionState::Failed);
+}
+
+TEST_F(ModbusStateTest, FastPathConsistencyUnderOpenChannel) {
+    ScopedLogCapture logCapture;
+
+    // Case 1: Channel is already open while FSM is Disconnected
+    EXPECT_EQ(client_->connectionState(), ModbusClient::ConnectionState::Disconnected);
+    currentState_ = ChannelState::Open;
+    EXPECT_TRUE(client_->connect());
+    EXPECT_EQ(client_->connectionState(), ModbusClient::ConnectionState::Connected);
+    EXPECT_FALSE(logCapture.contains("invalid transition"));
+
+    // Case 2: Channel is already open while FSM is Failed
+    currentState_ = ChannelState::Closed;
+    stateHandler_(ChannelState::Closed);
+    EXPECT_EQ(client_->connectionState(), ModbusClient::ConnectionState::Failed);
+
+    currentState_ = ChannelState::Open;
+    EXPECT_TRUE(client_->connect());
+    EXPECT_EQ(client_->connectionState(), ModbusClient::ConnectionState::Connected);
+    EXPECT_FALSE(logCapture.contains("invalid transition"));
+}
+
+TEST_F(ModbusStateTest, FailureLatchSilencesRepetitiveWarnings) {
+    ScopedLogCapture logCapture;
+    EXPECT_CALL(*mockChannel_, open()).WillRepeatedly(Return(false));
+    currentState_ = ChannelState::Error;
+
+    // 10 consecutive failures should only log 1 warning due to Failure Latch
+    for (int i = 0; i < 10; ++i) {
+        EXPECT_FALSE(client_->connect());
+        EXPECT_EQ(client_->connectionState(), ModbusClient::ConnectionState::Failed);
+    }
+    EXPECT_EQ(logCapture.count("ModbusClient: connect failed"), 1u);
+
+    // Connecting successfully resets the latch
+    EXPECT_CALL(*mockChannel_, open()).WillOnce(Invoke([&]() {
+        currentState_ = ChannelState::Open;
+        if (stateHandler_) stateHandler_(ChannelState::Open);
+        return true;
+    }));
+    EXPECT_TRUE(client_->connect());
+    EXPECT_EQ(client_->connectionState(), ModbusClient::ConnectionState::Connected);
+
+    // Passive loss causes failure
+    currentState_ = ChannelState::Closed;
+    stateHandler_(ChannelState::Closed);
+    EXPECT_EQ(client_->connectionState(), ModbusClient::ConnectionState::Failed);
+
+    // Next connection attempt fails: latch was reset, so 1 new warning is logged (total 2)
+    EXPECT_CALL(*mockChannel_, open()).WillRepeatedly(Return(false));
+    EXPECT_FALSE(client_->connect());
+    EXPECT_EQ(logCapture.count("ModbusClient: connect failed"), 2u);
+
+    // Subsequent failure is silenced again
+    EXPECT_FALSE(client_->connect());
+    EXPECT_EQ(logCapture.count("ModbusClient: connect failed"), 2u);
+}
+
+TEST_F(ModbusStateTest, AssertCleanEntryStateLogsErrorOnStaleState) {
+    // Connect successfully first
+    EXPECT_CALL(*mockChannel_, open()).WillOnce(Invoke([&]() {
+        currentState_ = ChannelState::Open;
+        if (stateHandler_) stateHandler_(ChannelState::Open);
+        return true;
+    }));
+    ASSERT_TRUE(client_->connect());
+    ASSERT_EQ(client_->connectionState(), ModbusClient::ConnectionState::Connected);
+
+    // Channel becomes closed silently without stateHandler notification
+    // (simulating missed channel-lost callback, leaving FSM in stale Connected state)
+    currentState_ = ChannelState::Closed;
+
+    ScopedLogCapture logCapture;
+    EXPECT_CALL(*mockChannel_, open()).WillRepeatedly(Return(false));
+
+    // Calling ensureConnected() finds channel closed while FSM is Connected.
+    // assertCleanEntryState() detects stale Connected state, logs SPDLOG_ERROR,
+    // and self-heals into Failed before the connect attempt without crashing.
+    EXPECT_FALSE(client_->connect());
+    EXPECT_EQ(client_->connectionState(), ModbusClient::ConnectionState::Failed);
+    EXPECT_TRUE(logCapture.contains("assertCleanEntryState"));
+    EXPECT_TRUE(logCapture.contains("channel closed but state is Connected"));
 }
 
 #if !defined(NDEBUG)
