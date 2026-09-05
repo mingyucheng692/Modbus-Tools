@@ -17,6 +17,7 @@
 #include "common/ThemeController.h"
 #include "infra/platform/PathResolver.h"
 #include "infra/logging/Logger.h"
+#include "core/common/SettingsController.h"
 
 #ifndef MODBUS_TOOLS_APP_VERSION
 #error "MODBUS_TOOLS_APP_VERSION must be defined by CMake"
@@ -50,6 +51,11 @@ int main(int argc, char *argv[])
                 "changes will not be saved.\n"
                 "Move the program folder to a writable location "
                 "(e.g. Desktop) and restart.").arg(loggingError));
+    } else {
+        core::common::SettingsController startupSettings(&settingsService);
+        if (const auto savedLogLevel = startupSettings.logLevel(); savedLogLevel.has_value()) {
+            logging::SetLogLevel(static_cast<spdlog::level::level_enum>(*savedLogLevel));
+        }
     }
 
     app.setWindowIcon(QIcon(":/assets/logo.svg"));

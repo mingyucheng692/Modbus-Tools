@@ -5,6 +5,8 @@
 #include "application/UpdateCoordinator.h"
 #include "../core/common/SettingsController.h"
 #include "../core/update/UpdateManager.h"
+#include "../infra/logging/Logger.h"
+#include <spdlog/spdlog.h>
 
 #include <QApplication>
 #include <QtGlobal>
@@ -28,6 +30,10 @@ void AppLifecycleCoordinator::restoreFromSettings() {
     view_->restoreWindowGeometry(settingsController_->mainWindowGeometry());
     view_->restoreWindowState(settingsController_->mainWindowState());
     view_->setNavigationCollapsed(settingsController_->navigationCollapsed());
+
+    if (const auto savedLogLevel = settingsController_->logLevel(); savedLogLevel.has_value()) {
+        logging::SetLogLevel(static_cast<spdlog::level::level_enum>(*savedLogLevel));
+    }
 
     int timeoutMs = 0;
     int retries = 0;

@@ -328,6 +328,7 @@ void MainWindow::openModbusSettingsDialog() {
         applyModbusSettingsToViews(s.timeoutMs, s.retryEnabled ? s.retries : 0, s.retryIntervalMs);
         const auto newLevel = static_cast<spdlog::level::level_enum>(s.logLevel);
         logging::SetLogLevel(newLevel);
+        settingsController_->setLogLevel(s.logLevel);
     }
 }
 

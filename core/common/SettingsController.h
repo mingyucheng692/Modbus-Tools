@@ -12,6 +12,7 @@
 #include <QString>
 #include <QVariant>
 #include <QByteArray>
+#include <optional>
 
 namespace infra::config {
 class ISettingsService;
@@ -55,6 +56,10 @@ public:
 
     bool disclaimerAccepted() const;
     void setDisclaimerAccepted(bool accepted);
+
+    // Logging Settings
+    [[nodiscard]] std::optional<int> logLevel() const;
+    void setLogLevel(int level);
 
     // Persistence
     void sync();

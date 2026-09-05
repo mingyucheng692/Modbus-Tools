@@ -108,6 +108,22 @@ void SettingsController::setDisclaimerAccepted(bool accepted) {
     settingsService_->setValue(kAppDisclaimerAccepted, accepted);
 }
 
+std::optional<int> SettingsController::logLevel() const {
+    if (!settingsService_->contains(kLoggingLevel)) {
+        return std::nullopt;
+    }
+    bool ok = false;
+    const int val = settingsService_->value(kLoggingLevel).toInt(&ok);
+    if (!ok) {
+        return std::nullopt;
+    }
+    return val;
+}
+
+void SettingsController::setLogLevel(int level) {
+    settingsService_->setValue(kLoggingLevel, level);
+}
+
 void SettingsController::sync() {
     settingsService_->sync();
 }

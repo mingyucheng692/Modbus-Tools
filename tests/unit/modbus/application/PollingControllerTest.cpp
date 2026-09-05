@@ -289,4 +289,54 @@ TEST_F(PollingControllerTest, PersistentFailures_WhileSessionConnected_NeverDecl
     EXPECT_EQ(fatalSpy.count(), 0);
 }
 
+TEST_F(PollingControllerTest, DegradedState_IdenticalErrorsRateLimitedToOncePerFiveSeconds) {
+    QSignalSpy trafficSpy(controller_.get(), &PollingController::trafficEvent);
+
+    controller_->setPollingInterval(100);
+    controller_->handleSessionConnected();
+    const auto spec = makePollSpec();
+
+    // 1st failure enters Degraded state and emits trafficEvent immediately
+    controller_->handlePollRequest(spec);
+    controller_->handleResponse(false, 0, 0, QStringLiteral("crc error"));
+    processStateMachine();
+
+    EXPECT_EQ(controller_->currentState(), PollState::Degraded);
+    EXPECT_EQ(trafficSpy.count(), 1);
+
+    // Rapid successive identical failures within the Degraded window (consecutiveErrorCount stays below threshold=10)
+    for (int i = 0; i < 5; ++i) {
+        controller_->handlePollRequest(spec);
+        controller_->handleResponse(false, 0, 0, QStringLiteral("crc error"));
+        processStateMachine();
+    }
+
+    // Still in Degraded (consecutiveErrorCount is 6 < threshold=10), warning must be suppressed by 5s rate limiter
+    EXPECT_EQ(controller_->currentState(), PollState::Degraded);
+    EXPECT_EQ(trafficSpy.count(), 1);
+}
+
+TEST_F(PollingControllerTest, DegradedState_DifferentiatingErrorsReportImmediately) {
+    QSignalSpy trafficSpy(controller_.get(), &PollingController::trafficEvent);
+
+    controller_->handleSessionConnected();
+    const auto spec = makePollSpec();
+
+    // 1st failure: crc error enters Degraded
+    controller_->handlePollRequest(spec);
+    controller_->handleResponse(false, 0, 0, QStringLiteral("crc error"));
+    processStateMachine();
+
+    EXPECT_EQ(controller_->currentState(), PollState::Degraded);
+    EXPECT_EQ(trafficSpy.count(), 1);
+
+    // 2nd failure with a different error text should bypass rate limiter and report immediately
+    controller_->handlePollRequest(spec);
+    controller_->handleResponse(false, 0, 0, QStringLiteral("parity error"));
+    processStateMachine();
+
+    EXPECT_EQ(controller_->currentState(), PollState::Degraded);
+    EXPECT_EQ(trafficSpy.count(), 2);
+}
+
 } // namespace

@@ -23,6 +23,7 @@ inline constexpr char kAppUpdateLastCheckUtc[] = "app/updateLastCheckUtc";
 inline constexpr char kAppDisclaimerAccepted[] = "app/disclaimerAccepted";
 inline constexpr char kAppMainWindowGeometry[] = "app/mainWindowGeometry";
 inline constexpr char kAppMainWindowState[] = "app/mainWindowState";
+inline constexpr char kLoggingLevel[] = "Logging/Level";
 
 inline constexpr char kModbusTimeoutMs[] = "modbus/timeoutMs";
 inline constexpr char kModbusRetryCount[] = "modbus/retryCount";

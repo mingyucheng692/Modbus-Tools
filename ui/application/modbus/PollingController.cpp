@@ -109,7 +109,9 @@ void PollingController::buildAndSubmit() {
     }
     context_.requestInFlight = true;
     context_.suppressTrafficLog = true;
-    transitionTo(PollState::Polling);
+    if (context_.state == PollState::Idle) {
+        transitionTo(PollState::Polling);
+    }
     emit submitPollRequest(result.pdu, context_.currentSpec.slaveId, result.requestId,
                            result.traceId);
 }
@@ -221,13 +223,37 @@ void PollingController::handlePollCompletion(bool success, int rttMs, int retryC
             event.summary = tr("Poll Warning: %1 consecutive failure(s): %2")
                 .arg(context_.consecutiveErrorCount)
                 .arg(error);
-            emit trafficEvent(event);
+
+            // Rate-limit degraded warnings (Task 3.1):
+            // - Report immediately when error text changes (differentiate fault types)
+            // - Report immediately on first entry into Degraded (context_.state is still Polling)
+            // - Cap repetitive identical errors at once per 5 seconds
+            //
+            // No direct ui::logging::relay() here. The event flows along the
+            // signal chain (trafficEvent -> TrafficLogController::publishEvent),
+            // which is the single legitimate bridge entry.
+            const bool shouldLogDegraded = (error != context_.lastErrorText)
+                || (context_.state != PollState::Degraded)
+                || (now - context_.lastErrorLogTime) >= std::chrono::seconds(5);
+
+            if (shouldLogDegraded) {
+                emit trafficEvent(event);
+                context_.lastErrorLogTime = now;
+            }
+
             context_.lastErrorText = error;
             if (context_.state == PollState::Polling) {
                 transitionTo(PollState::Degraded);
             }
         }
 
+        // Architecture Contract: Dual-Track Self-Healing (Task 3.2)
+        // - Core layer (onRequestTimeout / ensureConnected): Responsible for physical
+        //   eviction and half-open socket detection on each individual request.
+        // - UI layer (pollingFatalDisconnect): Responsible for final state fallback
+        //   after self-healing window expiration (fatalDisconnectTimeoutMs_).
+        // These two tracks cooperate and complement each other; neither may be removed.
+        //
         // Fatal downgrade: a connection fault that outlives the self-healing
         // window while polling stays Escalated means ensureConnected() cannot
         // bring the session back. Notify the owner once so it can downgrade

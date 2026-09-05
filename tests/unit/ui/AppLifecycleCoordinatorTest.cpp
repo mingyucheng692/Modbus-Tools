@@ -4,6 +4,8 @@
 #include "../../../core/common/SettingsController.h"
 #include "../../../ui/application/AppLifecycleCoordinator.h"
 #include "../../../ui/application/LanguageCoordinator.h"
+#include "../../../infra/logging/Logger.h"
+#include <spdlog/spdlog.h>
 #include "../../mocks/MockUpdateCoordinator.h"
 #include "../../mocks/UiTestDoubles.h"
 
@@ -112,6 +114,21 @@ TEST_F(AppLifecycleCoordinatorTest, CheckForUpdatesEntryDelegatesToCoordinator) 
     EXPECT_CALL(*updateCoordinator_, checkForUpdates());
 
     coordinator_->onCheckForUpdatesRequested();
+}
+
+TEST_F(AppLifecycleCoordinatorTest, LogLevelPersistenceAndRestoration) {
+    EXPECT_FALSE(settingsController_->logLevel().has_value());
+
+    settingsController_->setLogLevel(static_cast<int>(spdlog::level::debug));
+    ASSERT_TRUE(settingsController_->logLevel().has_value());
+    EXPECT_EQ(*settingsController_->logLevel(), static_cast<int>(spdlog::level::debug));
+
+    EXPECT_CALL(*updateCoordinator_, setCurrentLocale(testing::_));
+    EXPECT_CALL(*updateCoordinator_, refreshIndicators());
+    EXPECT_CALL(*updateCoordinator_, triggerAutoCheckIfNeeded());
+
+    coordinator_->initialize();
+    EXPECT_EQ(logging::GetLogLevel(), spdlog::level::debug);
 }
 
 } // namespace
