@@ -11,6 +11,7 @@
 
 #include <QWidget>
 #include <functional>
+#include "modbus/base/ModbusAddressMapping.h"
 
 class QCheckBox;
 class QSpinBox;
@@ -43,6 +44,7 @@ public:
     void setPollingEnabled(bool enabled);
     void setConnectionValidator(const std::function<bool()>& validator);
     int pollingIntervalMs() const;
+    void setAddressBase(modbus::address::AddressBase base);
 
 signals:
     // Poll Requested: Function Code, Address, Quantity
@@ -93,7 +95,8 @@ private:
     infra::config::ISettingsService* settingsService_ = nullptr;
     std::function<bool()> connectionValidator_;
 
-    bool skipAddrZeroWarning_ = false;
+    modbus::address::AddressBase addressBase_ = modbus::address::AddressBase::Offset0Based;
+    void updateAddressPlaceholder();
 };
 
 } // namespace ui::widgets

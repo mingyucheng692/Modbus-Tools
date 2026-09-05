@@ -131,4 +131,14 @@ TEST_F(AppLifecycleCoordinatorTest, LogLevelPersistenceAndRestoration) {
     EXPECT_EQ(logging::GetLogLevel(), spdlog::level::debug);
 }
 
+TEST_F(AppLifecycleCoordinatorTest, AddressBasePersistenceAndRestoration) {
+    EXPECT_EQ(settingsController_->addressBase(), modbus::address::AddressBase::Offset0Based);
+
+    settingsController_->setAddressBase(modbus::address::AddressBase::PlcAddress1Based);
+    EXPECT_EQ(settingsController_->addressBase(), modbus::address::AddressBase::PlcAddress1Based);
+
+    settingsController_->setAddressBase(modbus::address::AddressBase::Offset0Based);
+    EXPECT_EQ(settingsController_->addressBase(), modbus::address::AddressBase::Offset0Based);
+}
+
 } // namespace

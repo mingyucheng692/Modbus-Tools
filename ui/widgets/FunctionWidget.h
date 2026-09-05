@@ -12,6 +12,7 @@
 #include <QWidget>
 #include <cstdint>
 #include "../application/modbus/ModbusTypes.h"
+#include "modbus/base/ModbusAddressMapping.h"
 
 class QSpinBox;
 class QLineEdit;
@@ -42,6 +43,7 @@ public:
     int getFormatIndex() const;
     void setSettingsGroup(const QString& group);
     void setTransportMode(ui::application::modbus::TransportUiMode mode);
+    void setAddressBase(modbus::address::AddressBase base);
 
 signals:
     // Read: Function Code, Address, Quantity
@@ -105,6 +107,8 @@ private:
     infra::config::ISettingsService* settingsService_ = nullptr;
     ui::application::modbus::TransportUiMode transportMode_ =
         ui::application::modbus::TransportUiMode::Rtu;
+    modbus::address::AddressBase addressBase_ = modbus::address::AddressBase::Offset0Based;
+    void updateAddressPlaceholder();
 };
 
 } // namespace ui::widgets

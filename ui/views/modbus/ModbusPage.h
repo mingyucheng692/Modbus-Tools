@@ -18,6 +18,8 @@
 #include "../../application/modbus/ModbusTypes.h"
 #include "../../application/modbus/ModbusSessionPresenter.h"
 
+#include "modbus/base/ModbusAddressMapping.h"
+
 class QVBoxLayout;
 class QGroupBox;
 class QTextEdit;
@@ -67,6 +69,7 @@ public:
     ~ModbusPage() noexcept override;
 
     void updateModbusSettings(int timeoutMs, int retries, int retryIntervalMs);
+    void updateAddressBase(::modbus::address::AddressBase base);
     void setLinked(bool linked);
     [[nodiscard]] bool isLinked() const;
     void appendTrafficData(bool isTx, const QByteArray& data);

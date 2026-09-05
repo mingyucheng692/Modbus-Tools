@@ -29,6 +29,7 @@ inline constexpr char kModbusTimeoutMs[] = "modbus/timeoutMs";
 inline constexpr char kModbusRetryCount[] = "modbus/retryCount";
 inline constexpr char kModbusRetryIntervalMs[] = "modbus/retryIntervalMs";
 inline constexpr char kModbusRetryEnabled[] = "modbus/retryEnabled";
+inline constexpr char kModbusAddressBase[] = "modbus/addressBase";
 
 inline constexpr char kFrameAnalyzerStartAddr[] = "frame_analyzer/startAddr";
 inline constexpr char kFrameAnalyzerDecodeMode[] = "frame_analyzer/decodeMode";

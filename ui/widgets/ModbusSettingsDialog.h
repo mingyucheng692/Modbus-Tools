@@ -30,6 +30,7 @@ public:
         int retryIntervalMs;
         bool retryEnabled;
         int logLevel;  // 0=Debug, 1=Info, 2=Warning, 3=Error
+        int addressBase = 0; // 0=Offset0Based, 1=PlcAddress1Based
     };
 
     explicit ModbusSettingsDialog(const Settings& current, QWidget* parent = nullptr);
@@ -45,6 +46,7 @@ private:
     QSpinBox* retryIntervalSpin_ = nullptr;
     QCheckBox* retryEnableCheck_ = nullptr;
     QComboBox* logLevelCombo_ = nullptr;
+    QComboBox* addressBaseCombo_ = nullptr;
 };
 
 } // namespace ui::widgets

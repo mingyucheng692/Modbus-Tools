@@ -106,50 +106,20 @@ void ControlWidget::onTimer() {
         default: fc = 0x03; break;
     }
     
-    bool ok = false;
-    int addr = ui::common::data_helper::parseSmartInt(addrEdit_->text(), &ok);
-    
-    if (!ok || addr < config::Modbus::kMinAddress || addr > config::Modbus::kMaxAddress) {
-        emit logMessageRequested(tr("Invalid Address format or range (0-65535): %1").arg(addrEdit_->text()), true);
+    const auto addrResult = modbus::address::toPduAddress(addrEdit_->text(), addressBase_);
+    if (!addrResult.isValid) {
+        emit logMessageRequested(tr("Invalid Polling Address: %1 (%2)").arg(addrEdit_->text(), addrResult.errorMessage), true);
+        if (enablePollCheck_) {
+            QSignalBlocker blocker(enablePollCheck_);
+            enablePollCheck_->setChecked(false);
+        }
+        if (pollTimer_) {
+            pollTimer_->stop();
+        }
         return;
     }
-
-    // Address 0 Confirmation Logic
-    if (addr == 0 && !skipAddrZeroWarning_) {
-        // Pause timer to avoid multiple dialogs
-        bool wasActive = pollTimer_->isActive();
-        if (wasActive) pollTimer_->stop();
-
-        QMessageBox msgBox(this);
-        msgBox.setIcon(QMessageBox::Question);
-        msgBox.setWindowTitle(tr("Confirm Address"));
-        msgBox.setText(tr("The polling address is set to 0. Are you sure you want to continue?"));
-        msgBox.setStandardButtons(QMessageBox::Yes | QMessageBox::No);
-        msgBox.setDefaultButton(QMessageBox::No);
-
-        QCheckBox* cb = new QCheckBox(tr("Do not show this again"), &msgBox);
-        msgBox.setCheckBox(cb);
-
-        int res = msgBox.exec();
-        if (cb->isChecked()) {
-            skipAddrZeroWarning_ = true;
-            saveSettings();
-        }
-
-        if (res != QMessageBox::Yes) {
-            // User cancelled, keep polling disabled or just skip this one
-            if (enablePollCheck_) {
-                QSignalBlocker blocker(enablePollCheck_);
-                enablePollCheck_->setChecked(false);
-            }
-            return;
-        }
-
-        // Resume if it was active
-        if (wasActive) pollTimer_->start();
-    }
     
-    emit pollRequested(fc, addr, qtySpin_->value());
+    emit pollRequested(fc, addrResult.pduAddress, qtySpin_->value());
 }
 
 void ControlWidget::updateStatsLabel() {
@@ -228,7 +198,6 @@ void ControlWidget::loadSettings() {
     const QString addrKey = settingsGroup_ + "/addr";
     const QString addrStrKey = settingsGroup_ + "/pollAddrStr";
     const QString qtyKey = settingsGroup_ + "/qty";
-    const QString skipKey = settingsGroup_ + "/skipAddrZeroPollWarning";
 
     auto getVal = [this](const QString& key, const QVariant& defaultVal) {
         QVariant v = settingsService_->value(key);
@@ -245,8 +214,6 @@ void ControlWidget::loadSettings() {
         int oldAddr = getVal(addrKey, config::Modbus::kDefaultControlAddress).toInt();
         addrStr = QString::number(oldAddr);
     }
-
-    skipAddrZeroWarning_ = getVal(skipKey, false).toBool();
 
     enablePollCheck_->setChecked(false); // Always OFF on startup
     linkCheck_->setChecked(false);       // Always OFF on startup
@@ -275,7 +242,22 @@ void ControlWidget::saveSettings() {
     }
     
     settingsService_->setValue(settingsGroup_ + "/qty", qtySpin_->value());
-    settingsService_->setValue(settingsGroup_ + "/skipAddrZeroPollWarning", skipAddrZeroWarning_);
+}
+
+void ControlWidget::setAddressBase(modbus::address::AddressBase base) {
+    if (addressBase_ != base) {
+        addressBase_ = base;
+        updateAddressPlaceholder();
+    }
+}
+
+void ControlWidget::updateAddressPlaceholder() {
+    if (!addrEdit_) return;
+    if (addressBase_ == modbus::address::AddressBase::Offset0Based) {
+        addrEdit_->setPlaceholderText(tr("0-65535"));
+    } else {
+        addrEdit_->setPlaceholderText(tr("1-65536 or 40001"));
+    }
 }
 
 void ControlWidget::setupUi() {
@@ -320,6 +302,7 @@ void ControlWidget::setupUi() {
     
     auto hexValidator = new QRegularExpressionValidator(QRegularExpression("[0-9a-fA-FxXHh]*"), this);
     addrEdit_->setValidator(hexValidator);
+    updateAddressPlaceholder();
     
     layout->addWidget(addrEdit_);
     

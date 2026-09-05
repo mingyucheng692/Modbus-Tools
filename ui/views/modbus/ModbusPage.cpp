@@ -20,6 +20,7 @@
 #include "../../widgets/ControlWidget.h"
 #include "../../widgets/CollapsibleSection.h"
 #include "../../common/ConnectionAlert.h"
+#include "common/SettingsKeys.h"
 #include <QVBoxLayout>
 #include <QHBoxLayout>
 #include <QGroupBox>
@@ -198,7 +199,21 @@ void ModbusPage::setupUi() {
     connect(serialConnectionWidget_, &widgets::SerialConnectionWidget::disconnectClicked,
             this, &ModbusPage::onDisconnectClicked);
 
-    mainLayout_->addStretch();
+    int baseVal = 0;
+    if (settingsService_) {
+        const QVariant v = settingsService_->value(core::common::settings_keys::kModbusAddressBase);
+        if (v.isValid()) {
+            baseVal = v.toInt();
+        }
+    }
+    const auto addrBase = (baseVal == 1) ? ::modbus::address::AddressBase::PlcAddress1Based
+                                         : ::modbus::address::AddressBase::Offset0Based;
+    if (functionWidget_) {
+        functionWidget_->setAddressBase(addrBase);
+    }
+    if (controlWidget_) {
+        controlWidget_->setAddressBase(addrBase);
+    }
 
     retranslateUi();
 }
@@ -381,6 +396,15 @@ void ModbusPage::updateModbusSettings(int timeoutMs, int retries, int retryInter
         params.retryCount = retries;
         params.retryInterval = std::chrono::milliseconds(retryIntervalMs);
         sessionPresenter_->updateSettings(params);
+    }
+}
+
+void ModbusPage::updateAddressBase(::modbus::address::AddressBase base) {
+    if (functionWidget_) {
+        functionWidget_->setAddressBase(base);
+    }
+    if (controlWidget_) {
+        controlWidget_->setAddressBase(base);
     }
 }
 

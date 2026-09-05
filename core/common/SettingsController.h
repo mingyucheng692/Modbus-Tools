@@ -14,6 +14,8 @@
 #include <QByteArray>
 #include <optional>
 
+#include "modbus/base/ModbusAddressMapping.h"
+
 namespace infra::config {
 class ISettingsService;
 }
@@ -32,6 +34,10 @@ public:
     // Modbus Settings
     void setModbusSettings(int timeoutMs, int retries, int retryIntervalMs, bool retryEnabled);
     void loadModbusSettings(int& timeoutMs, int& retries, int& retryIntervalMs, bool& retryEnabled);
+
+    // Modbus Address Base
+    [[nodiscard]] modbus::address::AddressBase addressBase() const;
+    void setAddressBase(modbus::address::AddressBase base);
 
     // Update Settings
     QString updateCheckFrequency() const;

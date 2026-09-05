@@ -67,6 +67,13 @@ void ModbusSettingsDialog::setupUi() {
     logLevelCombo_->setCurrentIndex(logIdx >= 0 ? logIdx : static_cast<int>(spdlog::level::info));
     formLayout->addRow(QCoreApplication::translate("ui::MainWindow", "Log Level:"), logLevelCombo_);
 
+    addressBaseCombo_ = new QComboBox(this);
+    addressBaseCombo_->addItem(QCoreApplication::translate("ui::MainWindow", "Offset (0-based)"), 0);
+    addressBaseCombo_->addItem(QCoreApplication::translate("ui::MainWindow", "PLC Address (1-based)"), 1);
+    const int addrIdx = addressBaseCombo_->findData(initialSettings_.addressBase);
+    addressBaseCombo_->setCurrentIndex(addrIdx >= 0 ? addrIdx : 0);
+    formLayout->addRow(QCoreApplication::translate("ui::MainWindow", "Address Mode:"), addressBaseCombo_);
+
     layout->addLayout(formLayout);
 
     auto* buttonBox = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel, this);
@@ -81,7 +88,8 @@ ModbusSettingsDialog::Settings ModbusSettingsDialog::settings() const {
         retryCountSpin_->value(),
         retryIntervalSpin_->value(),
         retryEnableCheck_->isChecked(),
-        logLevelCombo_->currentData().toInt()
+        logLevelCombo_->currentData().toInt(),
+        addressBaseCombo_->currentData().toInt()
     };
 }
 

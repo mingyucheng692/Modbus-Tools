@@ -41,6 +41,17 @@ void SettingsController::loadModbusSettings(int& timeoutMs, int& retries, int& r
     retryEnabled = settingsService_->value(kModbusRetryEnabled).toBool();
 }
 
+modbus::address::AddressBase SettingsController::addressBase() const {
+    const QVariant v = settingsService_->value(kModbusAddressBase);
+    const int val = v.isValid() ? v.toInt() : 0;
+    return (val == 1) ? modbus::address::AddressBase::PlcAddress1Based
+                      : modbus::address::AddressBase::Offset0Based;
+}
+
+void SettingsController::setAddressBase(modbus::address::AddressBase base) {
+    settingsService_->setValue(kModbusAddressBase, static_cast<int>(base));
+}
+
 QString SettingsController::updateCheckFrequency() const {
     QString freq = settingsService_->value(kAppUpdateCheckFrequency).toString();
     if (freq.isEmpty()) {

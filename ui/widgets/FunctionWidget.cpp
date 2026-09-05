@@ -92,6 +92,7 @@ void FunctionWidget::setupStandardUi(QWidget* parent) {
     paramLayout->addWidget(addressLabel_);
     addressEdit_ = new QLineEdit(parent);
     addressEdit_->setFixedWidth(88); // Wide enough for 0xFFFF/65535
+    updateAddressPlaceholder();
     paramLayout->addWidget(addressEdit_);
 
     quantityLabel_ = new QLabel(parent);
@@ -247,9 +248,8 @@ int FunctionWidget::getSlaveId() const {
 
 int FunctionWidget::getStartAddress() const {
     if (!addressEdit_) return 0;
-    bool ok;
-    int val = ui::common::data_helper::parseSmartInt(addressEdit_->text(), &ok);
-    return ok ? val : 0;
+    const auto res = modbus::address::toPduAddress(addressEdit_->text(), addressBase_);
+    return res.isValid ? res.pduAddress : 0;
 }
 
 int FunctionWidget::getQuantity() const {
@@ -326,10 +326,25 @@ void FunctionWidget::saveSettings() {
     settingsService_->setValue(settingsGroup_ + "/formatIndex", dataFormatBox_->currentIndex());
 }
 
+void FunctionWidget::setAddressBase(modbus::address::AddressBase base) {
+    if (addressBase_ != base) {
+        addressBase_ = base;
+        updateAddressPlaceholder();
+    }
+}
+
+void FunctionWidget::updateAddressPlaceholder() {
+    if (!addressEdit_) return;
+    if (addressBase_ == modbus::address::AddressBase::Offset0Based) {
+        addressEdit_->setPlaceholderText(tr("0-65535"));
+    } else {
+        addressEdit_->setPlaceholderText(tr("1-65536 or 40001"));
+    }
+}
+
 void FunctionWidget::onReadClicked(uint8_t functionCode) {
-    bool slaveOk, addrOk;
+    bool slaveOk = false;
     int slaveId = ui::common::data_helper::parseSmartInt(slaveIdEdit_->text(), &slaveOk);
-    int address = ui::common::data_helper::parseSmartInt(addressEdit_->text(), &addrOk);
 
     if (!slaveOk || slaveId < config::Modbus::kMinSlaveId || slaveId > 255) {
         emit logMessageRequested(usesUnitIdLabel(transportMode_)
@@ -337,18 +352,19 @@ void FunctionWidget::onReadClicked(uint8_t functionCode) {
                                  : tr("Invalid Slave ID format or range (0-255): %1").arg(slaveIdEdit_->text()), true);
         return;
     }
-    if (!addrOk || address < config::Modbus::kMinAddress || address > config::Modbus::kMaxAddress) {
-        emit logMessageRequested(tr("Invalid Address format or range (0-65535): %1").arg(addressEdit_->text()), true);
+
+    const auto addrResult = modbus::address::toPduAddress(addressEdit_->text(), addressBase_);
+    if (!addrResult.isValid) {
+        emit logMessageRequested(tr("Invalid Address: %1 (%2)").arg(addressEdit_->text(), addrResult.errorMessage), true);
         return;
     }
 
-    emit readRequested(functionCode, address, quantityEdit_->value(), slaveId);
+    emit readRequested(functionCode, addrResult.pduAddress, quantityEdit_->value(), slaveId);
 }
 
 void FunctionWidget::onWriteClicked(uint8_t functionCode) {
-    bool slaveOk, addrOk;
+    bool slaveOk = false;
     int slaveId = ui::common::data_helper::parseSmartInt(slaveIdEdit_->text(), &slaveOk);
-    int address = ui::common::data_helper::parseSmartInt(addressEdit_->text(), &addrOk);
 
     if (!slaveOk || slaveId < config::Modbus::kMinSlaveId || slaveId > 255) {
         emit logMessageRequested(usesUnitIdLabel(transportMode_)
@@ -356,12 +372,14 @@ void FunctionWidget::onWriteClicked(uint8_t functionCode) {
                                  : tr("Invalid Slave ID format or range (0-255): %1").arg(slaveIdEdit_->text()), true);
         return;
     }
-    if (!addrOk || address < config::Modbus::kMinAddress || address > config::Modbus::kMaxAddress) {
-        emit logMessageRequested(tr("Invalid Address format or range (0-65535): %1").arg(addressEdit_->text()), true);
+
+    const auto addrResult = modbus::address::toPduAddress(addressEdit_->text(), addressBase_);
+    if (!addrResult.isValid) {
+        emit logMessageRequested(tr("Invalid Address: %1 (%2)").arg(addressEdit_->text(), addrResult.errorMessage), true);
         return;
     }
 
-    emit writeRequested(functionCode, address, writeDataEdit_->text(), dataFormatBox_->currentData().toString(), slaveId);
+    emit writeRequested(functionCode, addrResult.pduAddress, writeDataEdit_->text(), dataFormatBox_->currentData().toString(), slaveId);
 }
 
 void FunctionWidget::onRawSendClicked() {

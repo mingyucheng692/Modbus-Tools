@@ -10,6 +10,7 @@
 #pragma once
 
 #include "application/IMainWindowView.h"
+#include "modbus/base/ModbusAddressMapping.h"
 #include <QMainWindow>
 #include <memory>
 
@@ -82,6 +83,7 @@ private:
 
     // Logic Bridge / Delegation
     void applyModbusSettingsToViews(int timeoutMs, int retries, int retryIntervalMs);
+    void applyAddressBaseToViews(::modbus::address::AddressBase base);
     void changeEvent(QEvent* event) override;
     void closeEvent(QCloseEvent* event) override;
 

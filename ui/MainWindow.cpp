@@ -143,6 +143,7 @@ void MainWindow::initializeUi() {
     if (analyzerLinkCoordinator_) {
         analyzerLinkCoordinator_->bind(modbusView_, frameAnalyzer_);
     }
+    applyAddressBaseToViews(settingsController_->addressBase());
 
     if (navigationController_) {
         navigationController_->bindToStack(stackedWidget_,
@@ -314,12 +315,19 @@ void MainWindow::applyModbusSettingsToViews(int timeoutMs, int retries, int retr
     if (modbusView_) modbusView_->updateModbusSettings(timeoutMs, retries, retryIntervalMs);
 }
 
+void MainWindow::applyAddressBaseToViews(::modbus::address::AddressBase base) {
+    if (modbusView_) {
+        modbusView_->updateAddressBase(base);
+    }
+}
+
 void MainWindow::openModbusSettingsDialog() {
     int t, r, i; bool e;
     settingsController_->loadModbusSettings(t, r, i, e);
     const auto currentLevel = logging::GetLogLevel();
     const int currentLogLevel = static_cast<int>(currentLevel);
-    widgets::ModbusSettingsDialog::Settings current{t, r, i, e, currentLogLevel};
+    const int currentAddrBase = static_cast<int>(settingsController_->addressBase());
+    widgets::ModbusSettingsDialog::Settings current{t, r, i, e, currentLogLevel, currentAddrBase};
 
     widgets::ModbusSettingsDialog dialog(current, this);
     if (dialog.exec() == QDialog::Accepted) {
@@ -329,6 +337,9 @@ void MainWindow::openModbusSettingsDialog() {
         const auto newLevel = static_cast<spdlog::level::level_enum>(s.logLevel);
         logging::SetLogLevel(newLevel);
         settingsController_->setLogLevel(s.logLevel);
+        const auto newAddrBase = static_cast<modbus::address::AddressBase>(s.addressBase);
+        settingsController_->setAddressBase(newAddrBase);
+        applyAddressBaseToViews(newAddrBase);
     }
 }
 
