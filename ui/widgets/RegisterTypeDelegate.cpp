@@ -23,6 +23,12 @@ QWidget* RegisterTypeDelegate::createEditor(
     const QModelIndex& /*index*/) const
 {
     auto* combo = new QComboBox(parent);
+    combo->setAutoFillBackground(true);
+    QPalette pal = combo->palette();
+    pal.setColor(QPalette::Window, pal.color(QPalette::Base));
+    combo->setPalette(pal);
+    combo->setStyleSheet(QStringLiteral("QComboBox { background-color: palette(base); }"));
+
     combo->addItem(tr("Default"), -1);
     combo->addItem(QStringLiteral("UInt16"), static_cast<int>(modbus::analyzer::RegisterDataType::UInt16));
     combo->addItem(QStringLiteral("Int16"), static_cast<int>(modbus::analyzer::RegisterDataType::Int16));
