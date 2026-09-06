@@ -79,6 +79,9 @@ private:
 
     // Quick Presets
     QGroupBox* presetsGroup_ = nullptr;
+    QPushButton* maxNormalBtn_ = nullptr;
+    QPushButton* infBtn_ = nullptr;
+    QPushButton* nanBtn_ = nullptr;
 
     // Reactive Input Area
     QGroupBox* inputGroup_ = nullptr;

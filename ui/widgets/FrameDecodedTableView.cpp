@@ -70,6 +70,10 @@ void FrameDecodedTableView::retranslateUi()
         tr("Value"),
         tr("Description")
     });
+
+    if (currentResult_.isValid) {
+        renderData(currentResult_, globalDataType_, registerOrder_, addressBase_);
+    }
 }
 
 void FrameDecodedTableView::setMetadataMap(const QMap<uint16_t, DataMetadata>& meta)
@@ -182,8 +186,8 @@ void FrameDecodedTableView::renderData(const ParseResult& result,
 
             // 4: Type
             const QString typeDesc = (subordinateWordIndex == 2 && registerWordsCount(subordinateParentType) == 2)
-                ? QStringLiteral("[%1 Low-Word]").arg(registerDataTypeToString(subordinateParentType))
-                : QStringLiteral("[%1 W%2]").arg(registerDataTypeToString(subordinateParentType)).arg(subordinateWordIndex);
+                ? tr("[%1 Low-Word]").arg(registerDataTypeToString(subordinateParentType))
+                : tr("[%1 W%2]").arg(registerDataTypeToString(subordinateParentType)).arg(subordinateWordIndex);
             auto* typeItem = new QTableWidgetItem(typeDesc);
             typeItem->setFlags(addrItem->flags());
             typeItem->setForeground(QColor(128, 128, 128));
@@ -233,7 +237,7 @@ void FrameDecodedTableView::renderData(const ParseResult& result,
                 valText = itemData.value.toBool() ? QStringLiteral("1") : QStringLiteral("0");
                 tooltip = meta.description;
             } else if (availableWords < wordsNeeded) {
-                valText = QStringLiteral("<Incomplete>");
+                valText = tr("<Incomplete>");
                 tooltip = tr("Incomplete register bytes for %1").arg(registerDataTypeToString(effectiveType));
             } else {
                 subordinateRemaining = wordsNeeded - 1;

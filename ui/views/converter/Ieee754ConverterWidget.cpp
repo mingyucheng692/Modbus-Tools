@@ -87,13 +87,14 @@ void Ieee754ConverterWidget::setupUi()
     presetsLayout->setContentsMargins(10, 6, 10, 6);
     presetsLayout->setSpacing(6);
 
-    auto addPreset = [this, presetsLayout](const QString& label, double val, bool isSpecial = false, uint64_t specialRaw = 0) {
+    auto addPreset = [this, presetsLayout](const QString& label, double val, bool isSpecial = false, uint64_t specialRaw = 0) -> QPushButton* {
         auto* btn = new QPushButton(label, presetsGroup_);
         btn->setFixedHeight(24);
         connect(btn, &QPushButton::clicked, this, [this, val, isSpecial, specialRaw]() {
             onPresetClicked(val, isSpecial, specialRaw);
         });
         presetsLayout->addWidget(btn);
+        return btn;
     };
 
     addPreset(QStringLiteral("0.0"), 0.0);
@@ -102,9 +103,9 @@ void Ieee754ConverterWidget::setupUi()
     addPreset(QStringLiteral("100.0"), 100.0);
     addPreset(QStringLiteral("123.456"), 123.456);
     addPreset(QStringLiteral("π"), 3.141592653589793);
-    addPreset(QStringLiteral("Max Normal"), std::numeric_limits<float>::max());
-    addPreset(QStringLiteral("+Infinity"), std::numeric_limits<double>::infinity());
-    addPreset(QStringLiteral("NaN"), std::numeric_limits<double>::quiet_NaN());
+    maxNormalBtn_ = addPreset(tr("Max Normal"), std::numeric_limits<float>::max());
+    infBtn_ = addPreset(tr("+Infinity"), std::numeric_limits<double>::infinity());
+    nanBtn_ = addPreset(tr("NaN"), std::numeric_limits<double>::quiet_NaN());
 
     presetsLayout->addStretch();
     topLayout->addWidget(presetsGroup_, 1);
@@ -216,6 +217,9 @@ void Ieee754ConverterWidget::retranslateUi()
     if (radioFloat32_) radioFloat32_->setText(tr("Float32 (32-bit, 2 Regs)"));
     if (radioFloat64_) radioFloat64_->setText(tr("Float64 (64-bit, 4 Regs)"));
     if (presetsGroup_) presetsGroup_->setTitle(tr("Quick Presets"));
+    if (maxNormalBtn_) maxNormalBtn_->setText(tr("Max Normal"));
+    if (infBtn_) infBtn_->setText(tr("+Infinity"));
+    if (nanBtn_) nanBtn_->setText(tr("NaN"));
     if (inputGroup_) inputGroup_->setTitle(tr("Interactive Inputs (Two-Way Live Sync)"));
     if (floatLabel_) floatLabel_->setText(tr("Floating Point:"));
     if (hexLabel_) hexLabel_->setText(tr("Hex (Big-Endian):"));
@@ -705,7 +709,7 @@ void Ieee754ConverterWidget::updateBitfieldBreakdown()
         // Exponent details
         if (exp == 0xFF) {
             expBitsLabel_->setText(tr("Exp [Bits 30-23]: 0xFF (Special: %1)")
-                                       .arg(frac == 0 ? QStringLiteral("Infinity") : QStringLiteral("NaN")));
+                                       .arg(frac == 0 ? tr("Infinity") : tr("NaN")));
         } else if (exp == 0) {
             expBitsLabel_->setText(tr("Exp [Bits 30-23]: 0 (Subnormal, 2^-126)"));
         } else {
@@ -753,7 +757,7 @@ void Ieee754ConverterWidget::updateBitfieldBreakdown()
 
         if (exp == 0x7FF) {
             expBitsLabel_->setText(tr("Exp [Bits 62-52]: 0x7FF (Special: %1)")
-                                       .arg(frac == 0 ? QStringLiteral("Infinity") : QStringLiteral("NaN")));
+                                       .arg(frac == 0 ? tr("Infinity") : tr("NaN")));
         } else if (exp == 0) {
             expBitsLabel_->setText(tr("Exp [Bits 62-52]: 0 (Subnormal, 2^-1022)"));
         } else {
