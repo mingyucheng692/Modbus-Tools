@@ -17,6 +17,7 @@ It currently provides:
 - `Modbus TCP Client` for active Modbus TCP requests
 - `Modbus RTU Master` for serial Modbus requests
 - `Frame Analyzer` for parsing raw Modbus TCP / RTU frames
+- `IEEE 754 Converter` standalone utility for Float32/Float64 and 4-byte/8-byte endianness matrix calculations
 - `Link to Analyzer` for pushing live Modbus responses into the analyzer
 - Generic `TCP Client / TCP Server / UDP` tooling
 - A separate `Serial Debugger` page
@@ -28,8 +29,18 @@ The project is intended for debugging, validation, and lab or field troubleshoot
 - Visual request building for common Modbus read/write workflows
 - Raw frame sending helpers, including `CRC16` append for RTU and `MBAP` encapsulation for TCP
 - Polling workflows with response/error tracking
-- Analyzer support for field breakdown, endianness handling, and scale-based value conversion
-- Three UI languages: English, Simplified Chinese, and Traditional Chinese
+- **Frame Analyzer**:
+  - Offline / Paste & Parse and real-time live linkage from Modbus sessions with pause/resume support
+  - Protocol auto-detection and frame breakdown (Header, Function Code, Exception, Data payload, Checksum)
+  - Multi-type decoded data grid supporting UInt16, Int16, Float32, Int32, UInt32, and Float64
+  - Stride-aware batch register type assignment, row multi-selection, and `Delete` shortcut to reset custom types
+  - Endianness / Byte Order switching (`ABCD`, `CDAB`, `BADC`, `DCBA`)
+  - Configurable scaling factor, register description editing, and import/export via JSON config and CSV
+  - Parsing history tracking with quick recall and collapsible sidebar
+- **IEEE 754 Converter**:
+  - Standalone bidirectional converter for Float32/Float64, Hex, Signed/Unsigned Int, and byte order matrices
+  - Real-time synchronization, edge case detection (NaN, Infinity, Denormalized), and quick preset values
+- Three UI languages with seamless runtime switching: English, Simplified Chinese, and Traditional Chinese
 
 ## Platform Scope
 

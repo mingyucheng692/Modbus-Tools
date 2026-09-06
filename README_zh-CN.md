@@ -17,6 +17,7 @@
 - `Modbus TCP Client`
 - `Modbus RTU Master`
 - `Frame Analyzer`，用于解析 Modbus TCP / RTU 原始报文
+- `IEEE 754 浮点转换器`，用于单/双精度浮点数与 4 字节/8 字节字节序矩阵计算
 - `Link to Analyzer`，用于把实时 Modbus 响应联动到解析器
 - 通用 `TCP Client / TCP Server / UDP` 调试页面
 - 独立的 `Serial Debugger` 页面
@@ -28,8 +29,18 @@
 - 常见 Modbus 读写流程的可视化请求构建
 - RTU `CRC16` 追加与 TCP `MBAP` 封装等原始报文辅助能力
 - 轮询请求与响应/错误跟踪
-- 报文解析、字节序处理和缩放因子换算
-- 英文、简体中文、繁体中文三语界面
+- **报文分析器 (Frame Analyzer)**：
+  - 离线/剪贴板快速解析（Paste & Parse）与 Modbus 实时会话联动（支持暂停/恢复刷新）
+  - 协议自动识别与报文全字段解构（报头、功能码、异常码、数据载荷、校验和等）
+  - 解码数据网格支持 UInt16、Int16、Float32、Int32、UInt32、Float64 等多种数据类型呈现与从属字标注
+  - 跨步感知（Stride-Aware）多选批量设置寄存器类型，支持 `Delete` / `Backspace` 快捷键复位自定义类型
+  - 4 种常用字节序矩阵实时切换（`ABCD`、`CDAB`、`BADC`、`DCBA`）
+  - 缩放因子（Scale）换算、寄存器描述编辑，以及 JSON 配置文件与 CSV 报表导出/导入
+  - 历史解析记录快速回溯与侧边栏折叠收起
+- **独立 IEEE 754 浮点转换器 (IEEE 754 Converter)**：
+  - 支持 Float32/Float64、十六进制、有符号/无符号整型及 4 种字节序互转双向实时联动
+  - 边界特殊值识别（NaN、Infinity、非规格化数）与常用常数预置
+- 英文、简体中文、繁体中文三语界面无缝热切换
 
 ## 平台范围
 
