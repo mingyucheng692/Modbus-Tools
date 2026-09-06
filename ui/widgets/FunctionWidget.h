@@ -44,6 +44,8 @@ public:
     void setSettingsGroup(const QString& group);
     void setTransportMode(ui::application::modbus::TransportUiMode mode);
     void setAddressBase(modbus::address::AddressBase base);
+    void setReadOpsEnabled(bool enabled, const QString& disabledTooltip = {});
+    void setWriteOpsEnabled(bool enabled, const QString& disabledTooltip = {});
 
 signals:
     // Read: Function Code, Address, Quantity
@@ -108,6 +110,8 @@ private:
     ui::application::modbus::TransportUiMode transportMode_ =
         ui::application::modbus::TransportUiMode::Rtu;
     modbus::address::AddressBase addressBase_ = modbus::address::AddressBase::Offset0Based;
+    bool readOpsEnabled_ = false;
+    bool writeOpsEnabled_ = false;
     void updateAddressPlaceholder();
 };
 

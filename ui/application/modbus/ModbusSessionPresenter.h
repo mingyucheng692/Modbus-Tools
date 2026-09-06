@@ -32,21 +32,6 @@ namespace modbus::session { class ModbusClient; }
 namespace ui::application::modbus {
 
 /**
- * @brief UI-layer connection state, derived from the authoritative core
- *        ConnectionStateMachine plus channel state and session health.
- *
- * The core FSM is the single source of truth; the UI connection state is
- * purely projected via deriveUiState().
- */
-enum class SessionConnectionState {
-    Disconnected,
-    Connecting,
-    TransportConnected,
-    Connected,
-    Disconnecting
-};
-
-/**
  * @brief Session presenter bridging the UI layer and Modbus worker thread.
  *
  * @thread Lives on the GUI thread. All public methods must be called from the
@@ -77,6 +62,7 @@ public:
     void updateSettings(const ModbusTimingParams& params);
 
     bool isSessionConnected() const;
+    [[nodiscard]] SessionConnectionState connectionState() const noexcept;
     quint64 connectionGeneration() const;
     SessionMode mode() const;
 
@@ -146,9 +132,6 @@ private:
 
     void onConnectionStateChanged(SessionConnectionState state);
     void syncConnectionWidget(SessionConnectionState state);
-
-    /// Human-readable state name for logging.
-    [[nodiscard]] static const char* connectionStateName(SessionConnectionState s);
 
     bool hasLiveOrPendingStack() const;
     // Hands the current live stack off to releaseCoordinator_ for bounded

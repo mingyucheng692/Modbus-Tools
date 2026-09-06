@@ -52,6 +52,8 @@ FunctionWidget::FunctionWidget(infra::config::ISettingsService* settingsService,
     : QWidget(parent),
       settingsService_(settingsService) {
     setupUi();
+    setReadOpsEnabled(false, tr("Connect device to send commands."));
+    setWriteOpsEnabled(false, tr("Connect device to send commands."));
 }
 
 FunctionWidget::~FunctionWidget() = default;
@@ -408,18 +410,56 @@ void FunctionWidget::onFormatChanged() {
         writeDataEdit_->setPlaceholderText(tr("Bit string (e.g., 1 1 0 1)"));
     }
     
-    const QList<QPushButton*> others = {
-        readBtn01_, readBtn02_, readBtn03_, readBtn04_,
-        writeBtn06_, writeBtn10_
+    const QList<QPushButton*> readBtns = {
+        readBtn01_, readBtn02_, readBtn03_, readBtn04_
     };
-    
-    for (auto* btn : others) {
-        if (btn) btn->setEnabled(!isBinary);
+
+    for (auto* btn : readBtns) {
+        if (btn) btn->setEnabled(readOpsEnabled_ && !isBinary);
     }
-    
-    // Always enable 0x05 / 0x0F since they are coil-relative
-    if (writeBtn05_) writeBtn05_->setEnabled(true);
-    if (writeBtn0F_) writeBtn0F_->setEnabled(true);
+
+    if (writeBtn06_) writeBtn06_->setEnabled(writeOpsEnabled_ && !isBinary);
+    if (writeBtn10_) writeBtn10_->setEnabled(writeOpsEnabled_ && !isBinary);
+    if (writeBtn05_) writeBtn05_->setEnabled(writeOpsEnabled_);
+    if (writeBtn0F_) writeBtn0F_->setEnabled(writeOpsEnabled_);
+}
+
+void FunctionWidget::setReadOpsEnabled(bool enabled, const QString& disabledTooltip) {
+    readOpsEnabled_ = enabled;
+    const bool isBinary = (dataFormatBox_ && dataFormatBox_->currentIndex() == 2);
+    const QList<QPushButton*> readBtns = {readBtn01_, readBtn02_, readBtn03_, readBtn04_};
+    for (auto* btn : readBtns) {
+        if (!btn) continue;
+        btn->setEnabled(readOpsEnabled_ && !isBinary);
+        if (!enabled && !disabledTooltip.isEmpty()) {
+            btn->setToolTip(disabledTooltip);
+        }
+    }
+}
+
+void FunctionWidget::setWriteOpsEnabled(bool enabled, const QString& disabledTooltip) {
+    writeOpsEnabled_ = enabled;
+    const bool isBinary = (dataFormatBox_ && dataFormatBox_->currentIndex() == 2);
+    if (writeBtn05_) {
+        writeBtn05_->setEnabled(writeOpsEnabled_);
+        if (!enabled && !disabledTooltip.isEmpty()) writeBtn05_->setToolTip(disabledTooltip);
+    }
+    if (writeBtn0F_) {
+        writeBtn0F_->setEnabled(writeOpsEnabled_);
+        if (!enabled && !disabledTooltip.isEmpty()) writeBtn0F_->setToolTip(disabledTooltip);
+    }
+    if (writeBtn06_) {
+        writeBtn06_->setEnabled(writeOpsEnabled_ && !isBinary);
+        if (!enabled && !disabledTooltip.isEmpty()) writeBtn06_->setToolTip(disabledTooltip);
+    }
+    if (writeBtn10_) {
+        writeBtn10_->setEnabled(writeOpsEnabled_ && !isBinary);
+        if (!enabled && !disabledTooltip.isEmpty()) writeBtn10_->setToolTip(disabledTooltip);
+    }
+    if (rawSendBtn_) {
+        rawSendBtn_->setEnabled(writeOpsEnabled_);
+        if (!enabled && !disabledTooltip.isEmpty()) rawSendBtn_->setToolTip(disabledTooltip);
+    }
 }
 
 void FunctionWidget::retranslateUi() {

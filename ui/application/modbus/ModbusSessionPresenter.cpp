@@ -24,17 +24,6 @@ void assertObjectThread(const QObject* object, const char* context) {
                context);
 }
 
-constexpr const char* connectionStateNameImpl(SessionConnectionState s) {
-    switch (s) {
-    case SessionConnectionState::Disconnected: return "Disconnected";
-    case SessionConnectionState::Connecting: return "Connecting";
-    case SessionConnectionState::TransportConnected: return "TransportConnected";
-    case SessionConnectionState::Connected: return "Connected";
-    case SessionConnectionState::Disconnecting: return "Disconnecting";
-    }
-    return "Unknown";
-}
-
 } // namespace
 
 ModbusSessionPresenter::ModbusSessionPresenter(SessionMode mode,
@@ -291,6 +280,10 @@ bool ModbusSessionPresenter::isSessionConnected() const {
     return connectionState_ == SessionConnectionState::Connected;
 }
 
+SessionConnectionState ModbusSessionPresenter::connectionState() const noexcept {
+    return connectionState_;
+}
+
 quint64 ModbusSessionPresenter::connectionGeneration() const {
     return connectionGeneration_;
 }
@@ -374,10 +367,6 @@ void ModbusSessionPresenter::setControlWidget(ui::widgets::ControlWidget* widget
 
 void ModbusSessionPresenter::assertGuiThread(const char* context) const {
     assertObjectThread(this, context);
-}
-
-const char* ModbusSessionPresenter::connectionStateName(SessionConnectionState s) {
-    return connectionStateNameImpl(s);
 }
 
 void ModbusSessionPresenter::onConnectionStateChanged(SessionConnectionState state) {
@@ -606,8 +595,8 @@ void ModbusSessionPresenter::syncStateFromCore() {
     }
 
     SPDLOG_DEBUG("ModbusSessionPresenter: UI connection state {} -> {} (derived from core={}, chan={}, health={})",
-                 connectionStateNameImpl(connectionState_),
-                 connectionStateNameImpl(derived),
+                 connectionStateName(connectionState_),
+                 connectionStateName(derived),
                  ::modbus::session::ConnectionStateMachine::toString(coreState),
                  static_cast<int>(chanState),
                  static_cast<int>(health));

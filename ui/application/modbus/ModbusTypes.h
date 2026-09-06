@@ -128,4 +128,32 @@ struct ModbusConnectionSpec {
     return modeDescriptor(sessionModeFor(mode));
 }
 
+/**
+ * @brief UI-layer connection state, derived from the authoritative core
+ *        ConnectionStateMachine plus channel state and session health.
+ *
+ * The core FSM is the single source of truth; the UI connection state is
+ * purely projected via ModbusSessionPresenter::deriveUiState().
+ */
+enum class SessionConnectionState {
+    Disconnected,
+    Connecting,
+    TransportConnected,
+    Connected,
+    Disconnecting
+};
+
+/// Returns a stable, compile-time string representation of a SessionConnectionState.
+/// Safe to call from any context (no QObject dependency, constexpr, inline).
+[[nodiscard]] constexpr const char* connectionStateName(SessionConnectionState state) noexcept {
+    switch (state) {
+    case SessionConnectionState::Disconnected:       return "Disconnected";
+    case SessionConnectionState::Connecting:         return "Connecting";
+    case SessionConnectionState::TransportConnected: return "TransportConnected";
+    case SessionConnectionState::Connected:          return "Connected";
+    case SessionConnectionState::Disconnecting:      return "Disconnecting";
+    }
+    return "Unknown";
+}
+
 } // namespace ui::application::modbus

@@ -19,7 +19,6 @@
 #include "../../widgets/TrafficMonitorWidget.h"
 #include "../../widgets/ControlWidget.h"
 #include "../../widgets/CollapsibleSection.h"
-#include "../../common/ConnectionAlert.h"
 #include "common/SettingsKeys.h"
 #include <QVBoxLayout>
 #include <QHBoxLayout>
@@ -219,17 +218,6 @@ void ModbusPage::setupUi() {
 }
 
 void ModbusPage::setupViewOnlyConnections() {
-    if (controlWidget_) {
-        auto ensureConnected = [this]() {
-            if (sessionPresenter_ && sessionPresenter_->isSessionConnected()) {
-                return true;
-            }
-            ui::common::connection_alert::showNotConnected(this);
-            return false;
-        };
-        controlWidget_->setConnectionValidator(ensureConnected);
-    }
-
     connect(clearReceiveButton_, &QPushButton::clicked, this, [this]() {
         receiveDirty_ = false;
         lastReceiveFrame_.clear();

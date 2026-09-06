@@ -42,7 +42,7 @@ public:
     void setSettingsGroup(const QString& group);
     void setLinked(bool active);
     void setPollingEnabled(bool enabled);
-    void setConnectionValidator(const std::function<bool()>& validator);
+    void setInteractionsEnabled(bool enabled);
     int pollingIntervalMs() const;
     void setAddressBase(modbus::address::AddressBase base);
 
@@ -93,7 +93,6 @@ private:
 
     QString settingsGroup_;
     infra::config::ISettingsService* settingsService_ = nullptr;
-    std::function<bool()> connectionValidator_;
 
     modbus::address::AddressBase addressBase_ = modbus::address::AddressBase::Offset0Based;
     void updateAddressPlaceholder();

@@ -33,6 +33,7 @@ ControlWidget::ControlWidget(infra::config::ISettingsService* settingsService, Q
     : QWidget(parent),
       settingsService_(settingsService) {
     setupUi();
+    setInteractionsEnabled(false);
     
     pollTimer_ = new QTimer(this);
     connect(pollTimer_, &QTimer::timeout, this, &ControlWidget::onTimer);
@@ -40,15 +41,6 @@ ControlWidget::ControlWidget(infra::config::ISettingsService* settingsService, Q
     // Connect Enable Checkbox
     connect(enablePollCheck_, &QCheckBox::clicked, [this](bool checked) {
         if (checked) {
-            bool ok = true;
-            if (connectionValidator_) {
-                ok = connectionValidator_();
-            }
-            if (!ok) {
-                QSignalBlocker blocker(enablePollCheck_);
-                enablePollCheck_->setChecked(false);
-                return;
-            }
             pollTimer_->start(intervalSpin_->value());
         } else {
             pollTimer_->stop();
@@ -176,8 +168,13 @@ void ControlWidget::setPollingEnabled(bool enabled) {
     }
 }
 
-void ControlWidget::setConnectionValidator(const std::function<bool()>& validator) {
-    connectionValidator_ = validator;
+void ControlWidget::setInteractionsEnabled(bool enabled) {
+    if (enablePollCheck_) {
+        enablePollCheck_->setEnabled(enabled);
+    }
+    if (!enabled) {
+        setPollingEnabled(false);
+    }
 }
 
 int ControlWidget::pollingIntervalMs() const {
