@@ -13,6 +13,10 @@ class ISettingsService;
 namespace ui::views::modbus {
 class ModbusPage;
 }
+ 
+namespace ui::views::converter {
+class Ieee754ConverterWidget;
+}
 
 namespace ui::widgets {
 class FrameAnalyzerWidget;
@@ -25,6 +29,7 @@ enum class MainPage : std::size_t {
     GenericTcp,
     GenericSerial,
     FrameAnalyzer,
+    Ieee754Converter,
     Count
 };
 
@@ -33,6 +38,7 @@ constexpr std::size_t kMainPageCount = static_cast<std::size_t>(MainPage::Count)
 struct MainWindowPages {
     views::modbus::ModbusPage* modbusView = nullptr;
     widgets::FrameAnalyzerWidget* frameAnalyzer = nullptr;
+    views::converter::Ieee754ConverterWidget* ieee754Converter = nullptr;
     std::array<int, kMainPageCount> pageIndexByNavigationRow = {};
 
     [[nodiscard]] int indexFor(MainPage page) const;

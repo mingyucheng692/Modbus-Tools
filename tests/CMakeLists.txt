@@ -119,6 +119,7 @@ set(TEST_UI_WIDGETS_SOURCES
     unit/ui/NavigationControllerTest.cpp
     unit/ui/ServerClientPanelTest.cpp
     unit/ui/test_ConnectionStateGuarding.cpp
+    unit/ui/test_Ieee754Converter.cpp
 )
 
 set(TEST_INTEGRATION_SOURCES

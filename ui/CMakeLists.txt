@@ -119,6 +119,8 @@ target_sources(ui PRIVATE
     views/generic_tcp/GenericTcpView.h
     views/generic_serial/GenericSerialView.cpp
     views/generic_serial/GenericSerialView.h
+    views/converter/Ieee754ConverterWidget.cpp
+    views/converter/Ieee754ConverterWidget.h
     widgets/BaseConnectionWidget.cpp
     widgets/BaseConnectionWidget.h
     widgets/NetworkConnectionWidget.cpp

@@ -30,6 +30,7 @@ constexpr NavigationItemMetadata kNavigationItems[] = {
     {":/assets/TCP-Client.ico", "#06B6D4"},
     {":/assets/Serial-Port.ico", "#F59E0B"},
     {":/assets/Frame-Analyzer.ico", "#10B981"},
+    {":/assets/Frame-Analyzer.ico", "#8B5CF6"},
 };
 
 QIcon buildNavigationIcon(const QString& resourcePath, const QColor& accentColor) {

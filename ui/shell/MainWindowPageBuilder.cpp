@@ -5,6 +5,7 @@
 #include "views/generic_tcp/GenericTcpView.h"
 #include "views/modbus/ModbusPage.h"
 #include "widgets/FrameAnalyzerWidget.h"
+#include "views/converter/Ieee754ConverterWidget.h"
 
 #include <QFrame>
 #include <QScrollArea>
@@ -50,6 +51,10 @@ MainWindowPages buildMainWindowPages(infra::config::ISettingsService* settingsSe
     pages.frameAnalyzer = new widgets::FrameAnalyzerWidget(settingsService, owner);
     pages.pageIndexByNavigationRow[static_cast<std::size_t>(MainPage::FrameAnalyzer)] =
         stackedWidget->addWidget(createScrollablePage(pages.frameAnalyzer, stackedWidget));
+
+    pages.ieee754Converter = new views::converter::Ieee754ConverterWidget(owner);
+    pages.pageIndexByNavigationRow[static_cast<std::size_t>(MainPage::Ieee754Converter)] =
+        stackedWidget->addWidget(createScrollablePage(pages.ieee754Converter, stackedWidget));
 
     return pages;
 }
