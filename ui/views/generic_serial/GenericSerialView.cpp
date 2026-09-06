@@ -226,7 +226,8 @@ void GenericSerialView::onWorkerError(const QString& deviceHint, io::ChannelErro
             case io::ChannelErrorCode::ConnectionReset: localizedMsg = tr("Connection reset"); break;
             default: localizedMsg = tr("Unknown error"); break;
         }
-        monitor_->appendError(tr("Error: %1").arg(localizedMsg));
+        const QString displayMsg = error.isEmpty() ? localizedMsg : error;
+        monitor_->appendError(tr("Error: %1").arg(displayMsg));
     }
     const QString hint = deviceHint.isEmpty() ? QStringLiteral("Serial Worker") : deviceHint;
     SPDLOG_ERROR("{} Error (code={}): {}", hint.toStdString(), static_cast<int>(code), error.toStdString());

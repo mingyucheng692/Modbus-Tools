@@ -89,11 +89,19 @@ bool SerialChannel::open() {
         setState(ChannelState::Open);
         return true;
     } else {
-        const QString err = serial_.errorString();
+        const auto serialErr = serial_.error();
+        QString err = serial_.errorString();
+        ChannelErrorCode errCode = ChannelErrorCode::ConnectionFailed;
+        if (serialErr == QSerialPort::PermissionError) {
+            errCode = ChannelErrorCode::PermissionDenied;
+            err = QObject::tr("%1 is busy or in use, unable to open").arg(config_.portName);
+        } else if (serialErr == QSerialPort::DeviceNotFoundError) {
+            errCode = ChannelErrorCode::PortNotFound;
+        }
         SPDLOG_WARN("SerialChannel: open failed port={} baud={} error={}",
                      config_.portName.toStdString(), config_.baudRate, err.toStdString());
         setState(ChannelState::Error);
-        emitError(ChannelErrorCode::ConnectionFailed, err);
+        emitError(errCode, err);
         return false;
     }
 }
@@ -180,9 +188,16 @@ void SerialChannel::onErrorOccurred(QSerialPort::SerialPortError error) {
         if (isClosing()) {
             return;
         }
-        const QString errorText = serial_.errorString().isEmpty()
+        QString errorText = serial_.errorString().isEmpty()
             ? QStringLiteral("Serial port error")
             : serial_.errorString();
+        ChannelErrorCode errCode = ChannelErrorCode::ConnectionFailed;
+        if (error == QSerialPort::PermissionError) {
+            errCode = ChannelErrorCode::PermissionDenied;
+            errorText = QObject::tr("%1 is busy or in use, unable to open").arg(config_.portName);
+        } else if (error == QSerialPort::DeviceNotFoundError) {
+            errCode = ChannelErrorCode::PortNotFound;
+        }
         SPDLOG_WARN("SerialChannel: error trace_id={} code={} port={} message={}",
                      static_cast<unsigned long long>(modbus::trace::currentTraceId),
                      static_cast<int>(error),
@@ -191,7 +206,7 @@ void SerialChannel::onErrorOccurred(QSerialPort::SerialPortError error) {
         resetWriteState();
         disarmWriteTimeout();
         setState(ChannelState::Error);
-        emitError(ChannelErrorCode::ConnectionFailed, errorText);
+        emitError(errCode, errorText);
     }
 }
 

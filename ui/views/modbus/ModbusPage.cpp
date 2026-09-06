@@ -172,7 +172,6 @@ void ModbusPage::setupUi() {
         this, currentMode_, this);
     pagePresenter_->setup(connectionWidget_, controlWidget_,
                           functionWidget_, trafficMonitor_);
-    sessionPresenter_ = pagePresenter_->sessionPresenter();
 
     // Forward Presenter linkage signals.
     connect(pagePresenter_, &ui::application::modbus::ModbusPagePresenter::linkageDataReceived,
@@ -309,7 +308,6 @@ void ModbusPage::switchToProtocol(ui::application::modbus::SessionMode mode) {
     // no longer load-bearing for the coordinator's state machine.
     if (pagePresenter_) {
         pagePresenter_->switchMode(mode, connectionWidget_);
-        sessionPresenter_ = pagePresenter_->sessionPresenter();
     }
 
     currentMode_ = mode;
@@ -340,8 +338,8 @@ void ModbusPage::onTcpConnectClicked(const QString& ip, int port) {
 
     ui::application::modbus::ModbusConnectionSpec spec;
     spec.config = config;
-    if (sessionPresenter_) {
-        sessionPresenter_->requestConnect(spec);
+    if (pagePresenter_) {
+        pagePresenter_->requestConnect(spec);
     }
 }
 
@@ -365,25 +363,25 @@ void ModbusPage::onSerialConnectClicked(const io::SerialConfig& config) {
     ui::application::modbus::ModbusConnectionSpec spec;
     spec.config = modbusConfig;
     spec.serialConfig = config;
-    if (sessionPresenter_) {
-        sessionPresenter_->requestConnect(spec);
+    if (pagePresenter_) {
+        pagePresenter_->requestConnect(spec);
     }
 }
 
 void ModbusPage::onDisconnectClicked() {
     SPDLOG_INFO("ModbusPage: disconnect requested");
-    if (sessionPresenter_) {
-        sessionPresenter_->requestDisconnect();
+    if (pagePresenter_) {
+        pagePresenter_->requestDisconnect();
     }
 }
 
 void ModbusPage::updateModbusSettings(int timeoutMs, int retries, int retryIntervalMs) {
-    if (sessionPresenter_) {
+    if (pagePresenter_) {
         ui::application::modbus::ModbusTimingParams params;
         params.timeout = std::chrono::milliseconds(timeoutMs);
         params.retryCount = retries;
         params.retryInterval = std::chrono::milliseconds(retryIntervalMs);
-        sessionPresenter_->updateSettings(params);
+        pagePresenter_->updateSettings(params);
     }
 }
 

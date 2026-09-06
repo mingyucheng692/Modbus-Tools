@@ -277,7 +277,8 @@ void ModbusSessionPresenter::updateSettings(const ModbusTimingParams& params) {
 }
 
 bool ModbusSessionPresenter::isSessionConnected() const {
-    return connectionState_ == SessionConnectionState::Connected;
+    return connectionState_ == SessionConnectionState::Connected
+           || connectionState_ == SessionConnectionState::TransportConnected;
 }
 
 SessionConnectionState ModbusSessionPresenter::connectionState() const noexcept {
@@ -387,11 +388,7 @@ void ModbusSessionPresenter::onConnectionStateChanged(SessionConnectionState sta
     case SessionConnectionState::TransportConnected:
         break; // path-dependent / intermediate — do not touch disconnectIsExplicit_ here
     }
-    // TransportConnected has a conditional UI sync (only when not already
-    // Connected) applied by the channel-Open handler, so do not sync here.
-    if (state != SessionConnectionState::TransportConnected) {
-        syncConnectionWidget(state);
-    }
+    syncConnectionWidget(state);
 }
 
 void ModbusSessionPresenter::syncConnectionWidget(SessionConnectionState state) {
@@ -405,13 +402,11 @@ void ModbusSessionPresenter::syncConnectionWidget(SessionConnectionState state) 
         connectionWidget_->setConnected(false);
         return;
     case SessionConnectionState::Connected:
+    case SessionConnectionState::TransportConnected:
         connectionWidget_->setConnected(true);
         return;
     case SessionConnectionState::Connecting:
         connectionWidget_->setDisplayState(ui::widgets::DisplayState::Connecting);
-        return;
-    case SessionConnectionState::TransportConnected:
-        connectionWidget_->setDisplayState(ui::widgets::DisplayState::TransportConnected);
         return;
     case SessionConnectionState::Disconnecting:
         connectionWidget_->setDisplayState(ui::widgets::DisplayState::Disconnecting);
@@ -555,15 +550,7 @@ SessionConnectionState ModbusSessionPresenter::deriveUiState(
         }
         return SessionConnectionState::Connecting;
     case Core::Connected:
-        // Transport is up. For TCP, Modbus session may not be healthy yet.
-        // Only show "Connected" when the device has actually responded.
-        if (health == ::modbus::session::SessionHealth::Healthy) {
-            return SessionConnectionState::Connected;
-        }
-        if (hasTransportPhase) {
-            return SessionConnectionState::TransportConnected;
-        }
-        // RTU/ASCII: Serial port open + core connected = Connected
+        // 策略 B: 传输/物理通道建立完成即具备通信能力，直接进入 Connected
         return SessionConnectionState::Connected;
     case Core::Reconnecting:
         return SessionConnectionState::Connecting;
@@ -710,6 +697,7 @@ void ModbusSessionPresenter::handleConnectFinished(bool ok, const QString& error
         }
         emit sessionDisconnected(error);
         emit connectFinished(false, error);
+        releaseStack();
         return;
     }
 

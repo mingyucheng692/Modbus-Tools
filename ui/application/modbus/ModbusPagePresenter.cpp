@@ -147,10 +147,7 @@ void ModbusPagePresenter::wireConnections() {
         connect(sessionPresenter_, &ModbusSessionPresenter::connectFinished, this,
                 [this](bool ok, const QString&) {
                     if (!ok) return;
-                    const auto actualState = sessionPresenter_
-                        ? sessionPresenter_->connectionState()
-                        : SessionConnectionState::Disconnected;
-                    syncWidgetGuards(actualState);
+                    syncWidgetGuards(SessionConnectionState::Connected);
                 });
         connect(sessionPresenter_, &ModbusSessionPresenter::sessionConnected, this,
                 [this]() { syncWidgetGuards(SessionConnectionState::Connected); });
@@ -250,6 +247,31 @@ bool ModbusPagePresenter::isLinked() const {
 
 ModbusSessionPresenter* ModbusPagePresenter::sessionPresenter() const {
     return sessionPresenter_;
+}
+
+void ModbusPagePresenter::requestConnect(const ModbusConnectionSpec& spec) {
+    if (!sessionPresenter_) {
+        SPDLOG_WARN("ModbusPagePresenter: requestConnect dropped (no session presenter)");
+        return;
+    }
+    // 防重入保护：如果当前正在 Connecting 阶段，忽略重复连击
+    if (sessionPresenter_->connectionState() == SessionConnectionState::Connecting) {
+        SPDLOG_INFO("ModbusPagePresenter: connect request ignored (already connecting)");
+        return;
+    }
+    sessionPresenter_->requestConnect(spec);
+}
+
+void ModbusPagePresenter::requestDisconnect() {
+    if (sessionPresenter_) {
+        sessionPresenter_->requestDisconnect();
+    }
+}
+
+void ModbusPagePresenter::updateSettings(const ModbusTimingParams& params) {
+    if (sessionPresenter_) {
+        sessionPresenter_->updateSettings(params);
+    }
 }
 
 bool ModbusPagePresenter::ensureConnected() {

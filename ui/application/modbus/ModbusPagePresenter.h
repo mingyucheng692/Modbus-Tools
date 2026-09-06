@@ -71,10 +71,10 @@ public:
                     ui::widgets::BaseConnectionWidget* newConnectionWidget);
 
     // --- API for the View ---
-    // Pure forwarding to sessionPresenter() was removed:
-    // the View calls ModbusSessionPresenter directly via sessionPresenter().
-    // The two members below carry extra logic and are NOT pure forwards.
-    //
+    void requestConnect(const ModbusConnectionSpec& spec);
+    void requestDisconnect();
+    void updateSettings(const ModbusTimingParams& params);
+
     // setLinked() additionally mirrors the link flag into this presenter so
     // linkageDataReceived() can be gated without querying the session.
     void setLinked(bool linked);

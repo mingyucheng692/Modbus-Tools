@@ -16,7 +16,6 @@
 #include "modbus/base/ModbusFrame.h"
 #include "modbus/parser/ModbusFrameParser.h"
 #include "../../application/modbus/ModbusTypes.h"
-#include "../../application/modbus/ModbusSessionPresenter.h"
 
 #include "modbus/base/ModbusAddressMapping.h"
 
@@ -135,8 +134,6 @@ private:
     bool receiveDirty_ = false;
     bool sendDirty_ = false;
 
-    // Non-owning reference to the session presenter (owned by pagePresenter_).
-    ui::application::modbus::ModbusSessionPresenter* sessionPresenter_ = nullptr;
     ui::application::modbus::ModbusPagePresenter* pagePresenter_ = nullptr;
 
     infra::config::ISettingsService* settingsService_ = nullptr;

@@ -240,11 +240,18 @@ bool ConnectionManager::ensureConnected(bool allowReconnect) {
         lastChannelError_ = connectError.isEmpty() ? TrContext<kConnManagerCtx>::tr("Connect timeout") : connectError;
     }
     if (!connectFailureLogged_) {
-        SPDLOG_WARN("ModbusClient: connect failed target={}:{} reason={} channelState={}",
-                    config_->ipAddress.toStdString(),
-                    config_->port,
-                    lastChannelError_.toStdString(),
-                    static_cast<int>(channel_->state()));
+        if (channel_ && channel_->kind() == io::ChannelKind::Serial) {
+            SPDLOG_WARN("ModbusClient: connect failed port={} reason={} channelState={}",
+                        config_->portName.toStdString(),
+                        lastChannelError_.toStdString(),
+                        static_cast<int>(channel_->state()));
+        } else {
+            SPDLOG_WARN("ModbusClient: connect failed target={}:{} reason={} channelState={}",
+                        config_->ipAddress.toStdString(),
+                        config_->port,
+                        lastChannelError_.toStdString(),
+                        static_cast<int>(channel_ ? channel_->state() : io::ChannelState::Closed));
+        }
         connectFailureLogged_ = true; // 锁存：轮询高频失败时完全静默，消除刷盘与 fmt 格式化 CPU 开销
     }
     return false;
