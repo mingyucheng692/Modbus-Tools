@@ -82,6 +82,13 @@ public:
     [[nodiscard]] bool isLinked() const;
     [[nodiscard]] ModbusSessionPresenter* sessionPresenter() const;
 
+    /// State-driven guarding entry (test seam & session connection sink).
+    void syncWidgetGuards(SessionConnectionState state);
+    [[nodiscard]] bool ensureConnected();
+
+    /// Test seam for verifying QPointer lifecycle & null-fallback behavior.
+    void setTrafficLogControllerForTest(TrafficLogController* controller);
+
 signals:
     /// Forwarded from RequestCoordinator (gated by linked_ state).
     void linkageDataReceived(const ::modbus::base::Pdu& pdu,
@@ -105,8 +112,6 @@ private:
     void handlePollRequest(uint8_t fc, int addr, int qty, int intervalMs);
     void handleRequestFinished(int requestId,
                                const ::modbus::session::ModbusResponse& response);
-    void syncWidgetGuards(SessionConnectionState state);
-    [[nodiscard]] bool ensureConnected();
 
     ui::views::modbus::ModbusPage* view_ = nullptr;
     SessionMode mode_;

@@ -118,6 +118,7 @@ set(TEST_UI_WIDGETS_SOURCES
     unit/ui/I18nWidgetTest.cpp
     unit/ui/NavigationControllerTest.cpp
     unit/ui/ServerClientPanelTest.cpp
+    unit/ui/test_ConnectionStateGuarding.cpp
 )
 
 set(TEST_INTEGRATION_SOURCES

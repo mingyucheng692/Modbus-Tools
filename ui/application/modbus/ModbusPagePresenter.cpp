@@ -30,7 +30,9 @@ ModbusPagePresenter::ModbusPagePresenter(ui::views::modbus::ModbusPage* view,
       mode_(mode) {
 }
 
-ModbusPagePresenter::~ModbusPagePresenter() noexcept = default;
+ModbusPagePresenter::~ModbusPagePresenter() noexcept {
+    teardownServices();
+}
 
 void ModbusPagePresenter::setup(ui::widgets::BaseConnectionWidget* connectionWidget,
                                 ui::widgets::ControlWidget* controlWidget,
@@ -465,4 +467,9 @@ void ModbusPagePresenter::handleRequestFinished(int requestId,
     }
 }
 
+void ModbusPagePresenter::setTrafficLogControllerForTest(TrafficLogController* controller) {
+    trafficLogController_ = controller;
+}
+
 } // namespace ui::application::modbus
+
