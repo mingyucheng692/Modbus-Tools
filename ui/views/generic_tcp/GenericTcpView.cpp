@@ -381,7 +381,8 @@ void GenericTcpView::onUnbindClicked() {
 
 void GenericTcpView::onSendRequested(const QByteArray& data) {
     if (!isConnected_) {
-        ui::common::connection_alert::showNotConnected(this);
+        SPDLOG_WARN("GenericTcpView: send rejected (isConnected={}, protocol={}, dataSize={})",
+                    isConnected_, static_cast<int>(currentProtocol_), data.size());
         return;
     }
 

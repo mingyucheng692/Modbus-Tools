@@ -10,7 +10,9 @@
 #pragma once
 
 #include <QObject>
+#include <QPointer>
 #include <memory>
+#include <optional>
 #include "ModbusTypes.h"
 
 namespace ui::widgets {
@@ -103,7 +105,8 @@ private:
     void handlePollRequest(uint8_t fc, int addr, int qty, int intervalMs);
     void handleRequestFinished(int requestId,
                                const ::modbus::session::ModbusResponse& response);
-    [[nodiscard]] bool ensureConnected() const;
+    void syncWidgetGuards(SessionConnectionState state);
+    [[nodiscard]] bool ensureConnected();
 
     ui::views::modbus::ModbusPage* view_ = nullptr;
     SessionMode mode_;
@@ -116,7 +119,8 @@ private:
     // services that hold raw pointers into it are recreated.
     std::unique_ptr<RequestSubmissionService> requestService_;
     PollingController* pollingController_ = nullptr;
-    TrafficLogController* trafficLogController_ = nullptr;
+    QPointer<TrafficLogController> trafficLogController_;
+    std::optional<SessionConnectionState> lastSyncedState_ = std::nullopt;
 
     ui::widgets::BaseConnectionWidget* connectionWidget_ = nullptr;
     ui::widgets::ControlWidget* controlWidget_ = nullptr;

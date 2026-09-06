@@ -13,7 +13,7 @@
 #include "PollingController.h"
 #include "TrafficLogController.h"
 #include "modbus/session/SessionTypes.h"
-#include "../../common/ConnectionAlert.h"
+#include <spdlog/spdlog.h>
 #include "../../widgets/BaseConnectionWidget.h"
 #include "../../widgets/ControlWidget.h"
 #include "../../widgets/FunctionWidget.h"
@@ -64,6 +64,8 @@ void ModbusPagePresenter::createServices() {
     // dual-entry problem.
     connect(pollingController_, &PollingController::trafficEvent,
             trafficLogController_, &TrafficLogController::publishEvent);
+
+    syncWidgetGuards(SessionConnectionState::Disconnected);
 }
 
 void ModbusPagePresenter::wireConnections() {
@@ -139,6 +141,19 @@ void ModbusPagePresenter::wireConnections() {
         connect(sessionPresenter_,
                 &ModbusSessionPresenter::requestFinished,
                 this, &ModbusPagePresenter::handleRequestFinished);
+
+        connect(sessionPresenter_, &ModbusSessionPresenter::connectFinished, this,
+                [this](bool ok, const QString&) {
+                    if (!ok) return;
+                    const auto actualState = sessionPresenter_
+                        ? sessionPresenter_->connectionState()
+                        : SessionConnectionState::Disconnected;
+                    syncWidgetGuards(actualState);
+                });
+        connect(sessionPresenter_, &ModbusSessionPresenter::sessionConnected, this,
+                [this]() { syncWidgetGuards(SessionConnectionState::Connected); });
+        connect(sessionPresenter_, &ModbusSessionPresenter::sessionDisconnected, this,
+                [this](const QString&) { syncWidgetGuards(SessionConnectionState::Disconnected); });
     }
 
     if (functionWidget_) {
@@ -188,11 +203,11 @@ void ModbusPagePresenter::switchMode(SessionMode newMode,
         return;
     }
 
-    // No session presenter yet — rebuild directly.
     teardownServices();
     mode_ = newMode;
     connectionWidget_ = newConnectionWidget;
     linked_ = false;
+    lastSyncedState_.reset();
     createServices();
     wireConnections();
 }
@@ -213,6 +228,7 @@ void ModbusPagePresenter::onStackReleasedForSwitch() {
         mode_ = pendingMode_;
         connectionWidget_ = pendingConnectionWidget_;
         linked_ = false;
+        lastSyncedState_.reset();
 
         createServices();
         wireConnections();
@@ -234,12 +250,69 @@ ModbusSessionPresenter* ModbusPagePresenter::sessionPresenter() const {
     return sessionPresenter_;
 }
 
-bool ModbusPagePresenter::ensureConnected() const {
+bool ModbusPagePresenter::ensureConnected() {
     if (sessionPresenter_ && sessionPresenter_->isSessionConnected()) {
         return true;
     }
-    ui::common::connection_alert::showNotConnected(nullptr);
+    const auto state = sessionPresenter_
+        ? sessionPresenter_->connectionState()
+        : SessionConnectionState::Disconnected;
+    const QString msg = [state, this]() -> QString {
+        switch (state) {
+        case SessionConnectionState::Connecting:
+            return tr("Request rejected: connection in progress, please wait.");
+        case SessionConnectionState::Disconnecting:
+            return tr("Request rejected: disconnecting in progress.");
+        default:
+            return tr("Request rejected: device not connected.");
+        }
+    }();
+    if (trafficLogController_) {
+        trafficLogController_->logInfo(msg);
+    } else {
+        SPDLOG_WARN("ensureConnected (TLC unavailable): {}", msg.toStdString());
+    }
     return false;
+}
+
+void ModbusPagePresenter::syncWidgetGuards(SessionConnectionState state) {
+    if (lastSyncedState_.has_value() && *lastSyncedState_ == state) {
+        return;
+    }
+    lastSyncedState_ = state;
+
+    const bool readEnabled  = (state == SessionConnectionState::Connected
+                               || state == SessionConnectionState::TransportConnected);
+    const bool writeEnabled = (state == SessionConnectionState::Connected);
+    const bool pollEnabled  = (state == SessionConnectionState::Connected);
+
+    SPDLOG_DEBUG("ModbusPagePresenter::syncWidgetGuards state={} read={} write={} poll={}",
+                 connectionStateName(state), readEnabled, writeEnabled, pollEnabled);
+
+    if (functionWidget_) {
+        if (state == SessionConnectionState::TransportConnected) {
+            const QString writeTip = tr("Device is establishing session. "
+                                        "Read commands available; write commands locked until ready.");
+            functionWidget_->setReadOpsEnabled(true);
+            functionWidget_->setWriteOpsEnabled(false, writeTip);
+        } else {
+            const QString tip = [state, this]() -> QString {
+                switch (state) {
+                case SessionConnectionState::Connecting:
+                    return tr("Connecting — please wait before sending commands.");
+                case SessionConnectionState::Disconnecting:
+                    return tr("Disconnecting...");
+                default:
+                    return tr("Connect device to send commands.");
+                }
+            }();
+            functionWidget_->setReadOpsEnabled(readEnabled, tip);
+            functionWidget_->setWriteOpsEnabled(writeEnabled, tip);
+        }
+    }
+    if (controlWidget_) {
+        controlWidget_->setInteractionsEnabled(pollEnabled);
+    }
 }
 
 void ModbusPagePresenter::handleReadRequest(uint8_t fc, int addr, int qty, int slaveId) {

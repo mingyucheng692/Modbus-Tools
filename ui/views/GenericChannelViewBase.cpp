@@ -10,7 +10,7 @@
 #include "GenericChannelViewBase.h"
 #include "ChannelController.h"
 #include "infra/config/ISettingsService.h"
-#include "../common/ConnectionAlert.h"
+#include <spdlog/spdlog.h>
 #include <QEvent>
 
 namespace ui::views {
@@ -43,7 +43,8 @@ void GenericChannelViewBase::onSendRequested(const QByteArray& data) {
         return;
     }
     if (!isConnected_) {
-        ui::common::connection_alert::showNotConnected(this);
+        SPDLOG_WARN("{}: send rejected (isConnected={}, dataSize={})",
+                    metaObject()->className(), isConnected_, data.size());
         return;
     }
     channelController_->write(data);
