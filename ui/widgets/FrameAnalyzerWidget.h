@@ -76,6 +76,9 @@ private slots:
     void onExportCsvClicked();
     void onHistorySelectionChanged(int row);
     void onClearHistoryClicked();
+    void onSelectionChanged();
+    void onTableContextMenuRequested(const QPoint& pos);
+    void onResetTypesClicked();
 
     // 由 FrameAnalyzerPresenter 在 GUI 线程上转发
     void onParseFinished(const modbus::parser::ParseResult& result, quint64 requestId);
@@ -83,6 +86,7 @@ private slots:
 protected:
     void changeEvent(QEvent* event) override;
     void resizeEvent(QResizeEvent* event) override;
+    bool eventFilter(QObject* watched, QEvent* event) override;
 
 private:
     void setupUi();
@@ -101,6 +105,11 @@ private:
     void updateAdaptiveLayout();
     void loadSettings();
     void saveSettings();
+    void updateResetButtonState();
+    void resetSelectedRowsToDefault();
+    void resetAllRowsToDefault();
+    void batchSetSelectedRowsType(modbus::analyzer::RegisterDataType targetType);
+    [[nodiscard]] QList<int> getSelectedPrimaryRowsSorted() const;
 
     // --- UI construction ---
     void createInputGroup();
@@ -128,6 +137,7 @@ private:
     QPushButton* exportCsvBtn = nullptr;
     QPushButton* toggleHistoryBtn = nullptr;
     QPushButton* clearBtn = nullptr;
+    QPushButton* resetTypesBtn = nullptr;
     QLabel* registerOrderLabel = nullptr;
     QLineEdit* startAddrEdit = nullptr;
 

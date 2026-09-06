@@ -234,9 +234,9 @@ TEST_F(ModbusSessionPresenterTest, DeriveUiState_TcpMode_Transitions) {
     EXPECT_EQ(ModbusSessionPresenter::deriveUiState(Core::Connecting, io::ChannelState::Open, Health::Unknown, SessionMode::Tcp),
               SessionConnectionState::TransportConnected);
 
-    // Connected + Health Unknown -> TransportConnected
+    // Connected + Health Unknown -> Connected (Strategy B: transport established is connected)
     EXPECT_EQ(ModbusSessionPresenter::deriveUiState(Core::Connected, io::ChannelState::Open, Health::Unknown, SessionMode::Tcp),
-              SessionConnectionState::TransportConnected);
+              SessionConnectionState::Connected);
 
     // Connected + Health Healthy -> Connected
     EXPECT_EQ(ModbusSessionPresenter::deriveUiState(Core::Connected, io::ChannelState::Open, Health::Healthy, SessionMode::Tcp),

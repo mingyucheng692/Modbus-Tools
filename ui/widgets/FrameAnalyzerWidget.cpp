@@ -44,6 +44,10 @@
 #include <QClipboard>
 #include <QGuiApplication>
 #include <QSplitter>
+#include <QMenu>
+#include <QAction>
+#include <QKeyEvent>
+#include <QItemSelectionModel>
 
 using namespace modbus::parser;
 using namespace modbus::analyzer;
@@ -352,6 +356,14 @@ void FrameAnalyzerWidget::createResultGroup()
 
     resultToolbarLayout->addWidget(displayModeLabel);
     resultToolbarLayout->addWidget(displayModeCombo);
+
+    resetTypesBtn = new QPushButton(tr("Reset All"), this);
+    resetTypesBtn->setMinimumHeight(28);
+    resetTypesBtn->setEnabled(false);
+    resetTypesBtn->setToolTip(tr("Reset all custom register types to Default"));
+    connect(resetTypesBtn, &QPushButton::clicked, this, &FrameAnalyzerWidget::onResetTypesClicked);
+    resultToolbarLayout->addWidget(resetTypesBtn);
+
     resultToolbarLayout->addSpacing(16);
     resultToolbarLayout->addWidget(registerOrderLabel);
     resultToolbarLayout->addWidget(registerOrderCombo);
@@ -405,6 +417,14 @@ void FrameAnalyzerWidget::createResultGroup()
     });
     dataTable->setItemDelegateForColumn(4, new RegisterTypeDelegate(this));
     dataTable->horizontalHeader()->setStretchLastSection(true);
+    dataTable->setSelectionBehavior(QAbstractItemView::SelectRows);
+    dataTable->setSelectionMode(QAbstractItemView::ExtendedSelection);
+    dataTable->setContextMenuPolicy(Qt::CustomContextMenu);
+    dataTable->installEventFilter(this);
+    connect(dataTable, &QTableWidget::customContextMenuRequested, this, &FrameAnalyzerWidget::onTableContextMenuRequested);
+    if (dataTable->selectionModel()) {
+        connect(dataTable->selectionModel(), &QItemSelectionModel::selectionChanged, this, &FrameAnalyzerWidget::onSelectionChanged);
+    }
     connect(dataTable, &QTableWidget::itemChanged, this, [this](QTableWidgetItem* item) {
         if (isUpdatingDataTable || !item) return;
         const int col = item->column();
@@ -422,6 +442,7 @@ void FrameAnalyzerWidget::createResultGroup()
             if (currentResult.isValid) {
                 renderResult(currentResult);
             }
+            updateResetButtonState();
             return;
         } else if (col == 5) {
             bool ok = false;
@@ -711,6 +732,7 @@ void FrameAnalyzerWidget::onImportJsonClicked()
     }
 
     metadataByAddress = result.metadata;
+    updateResetButtonState();
     if (!inputEditor->toPlainText().trimmed().isEmpty()) {
         onParseClicked();
     } else {
@@ -751,6 +773,245 @@ void FrameAnalyzerWidget::onExportCsvClicked()
     }
 }
 
+void FrameAnalyzerWidget::onSelectionChanged()
+{
+    updateResetButtonState();
+}
+
+void FrameAnalyzerWidget::updateResetButtonState()
+{
+    if (!resetTypesBtn) return;
+
+    bool hasCustom = false;
+    for (auto it = metadataByAddress.cbegin(); it != metadataByAddress.cend(); ++it) {
+        if (it.value().customType.has_value()) {
+            hasCustom = true;
+            break;
+        }
+    }
+
+    const auto selectedRows = (dataTable && dataTable->selectionModel())
+        ? dataTable->selectionModel()->selectedRows()
+        : QModelIndexList{};
+    const int count = selectedRows.size();
+
+    if (count > 0) {
+        resetTypesBtn->setText(tr("Reset Selected (%1)").arg(count));
+        resetTypesBtn->setToolTip(tr("Reset selected %1 register type(s) to Default (Delete)").arg(count));
+        resetTypesBtn->setEnabled(true);
+    } else {
+        resetTypesBtn->setText(tr("Reset All"));
+        resetTypesBtn->setToolTip(tr("Reset all custom register types to Default"));
+        resetTypesBtn->setEnabled(hasCustom);
+    }
+}
+
+void FrameAnalyzerWidget::onResetTypesClicked()
+{
+    const auto selectedRows = (dataTable && dataTable->selectionModel())
+        ? dataTable->selectionModel()->selectedRows()
+        : QModelIndexList{};
+    if (!selectedRows.isEmpty()) {
+        resetSelectedRowsToDefault();
+    } else {
+        resetAllRowsToDefault();
+    }
+}
+
+QList<int> FrameAnalyzerWidget::getSelectedPrimaryRowsSorted() const
+{
+    if (!dataTable || !dataTable->selectionModel()) return {};
+    const auto selectedIndexes = dataTable->selectionModel()->selectedRows();
+    QList<int> rows;
+    rows.reserve(selectedIndexes.size());
+    for (const auto& idx : selectedIndexes) {
+        rows.append(idx.row());
+    }
+    std::sort(rows.begin(), rows.end());
+    return rows;
+}
+
+void FrameAnalyzerWidget::resetSelectedRowsToDefault()
+{
+    const auto selectedRows = getSelectedPrimaryRowsSorted();
+    if (selectedRows.isEmpty()) return;
+
+    for (int r : selectedRows) {
+        const uint16_t addr = rowAddress(r);
+        if (metadataByAddress.contains(addr)) {
+            auto meta = metadataByAddress.value(addr);
+            meta.customType = std::nullopt;
+            metadataByAddress.insert(addr, meta);
+        }
+
+        // If this row is a subordinate row, also find and reset its primary row
+        const auto* typeItem = dataTable->item(r, 4);
+        if (typeItem && !(typeItem->flags() & Qt::ItemIsEditable)) {
+            for (int p = r - 1; p >= 0; --p) {
+                const auto* pItem = dataTable->item(p, 4);
+                if (pItem && (pItem->flags() & Qt::ItemIsEditable)) {
+                    const uint16_t pAddr = rowAddress(p);
+                    if (metadataByAddress.contains(pAddr)) {
+                        auto pMeta = metadataByAddress.value(pAddr);
+                        pMeta.customType = std::nullopt;
+                        metadataByAddress.insert(pAddr, pMeta);
+                    }
+                    break;
+                }
+            }
+        }
+    }
+
+    if (currentResult.isValid) {
+        renderResult(currentResult);
+        // Restore row selections
+        if (dataTable && dataTable->selectionModel()) {
+            QItemSelection selection;
+            for (int r : selectedRows) {
+                if (r < dataTable->rowCount()) {
+                    selection.select(dataTable->model()->index(r, 0), dataTable->model()->index(r, dataTable->columnCount() - 1));
+                }
+            }
+            dataTable->selectionModel()->select(selection, QItemSelectionModel::ClearAndSelect);
+        }
+    }
+    updateResetButtonState();
+}
+
+void FrameAnalyzerWidget::resetAllRowsToDefault()
+{
+    for (auto it = metadataByAddress.begin(); it != metadataByAddress.end(); ++it) {
+        it.value().customType = std::nullopt;
+    }
+    if (currentResult.isValid) {
+        renderResult(currentResult);
+    }
+    updateResetButtonState();
+}
+
+void FrameAnalyzerWidget::batchSetSelectedRowsType(RegisterDataType targetType)
+{
+    const auto selectedRows = getSelectedPrimaryRowsSorted();
+    if (selectedRows.isEmpty()) return;
+
+    const int wordsNeeded = registerWordsCount(targetType);
+
+    for (int i = 0; i < selectedRows.size(); ) {
+        int curRow = selectedRows[i];
+        uint16_t primaryAddr = rowAddress(curRow);
+
+        DataMetadata meta = metadataByAddress.value(primaryAddr);
+        meta.customType = targetType;
+        metadataByAddress.insert(primaryAddr, meta);
+
+        // Clear customType on subsequent subordinate addresses if present in selection
+        for (int w = 1; w < wordsNeeded; ++w) {
+            if (i + w < selectedRows.size() && selectedRows[i + w] == curRow + w) {
+                uint16_t subAddr = rowAddress(curRow + w);
+                if (metadataByAddress.contains(subAddr)) {
+                    auto subMeta = metadataByAddress.value(subAddr);
+                    subMeta.customType = std::nullopt;
+                    metadataByAddress.insert(subAddr, subMeta);
+                }
+            }
+        }
+
+        if (wordsNeeded > 1 && i + 1 < selectedRows.size() && selectedRows[i + 1] == curRow + 1) {
+            int advance = 0;
+            while (advance < wordsNeeded && (i + advance) < selectedRows.size()
+                   && selectedRows[i + advance] == curRow + advance) {
+                advance++;
+            }
+            i += advance;
+        } else {
+            i++;
+        }
+    }
+
+    if (currentResult.isValid) {
+        renderResult(currentResult);
+        if (dataTable && dataTable->selectionModel()) {
+            QItemSelection selection;
+            for (int r : selectedRows) {
+                if (r < dataTable->rowCount()) {
+                    selection.select(dataTable->model()->index(r, 0), dataTable->model()->index(r, dataTable->columnCount() - 1));
+                }
+            }
+            dataTable->selectionModel()->select(selection, QItemSelectionModel::ClearAndSelect);
+        }
+    }
+    updateResetButtonState();
+}
+
+void FrameAnalyzerWidget::onTableContextMenuRequested(const QPoint& pos)
+{
+    if (!dataTable || dataTable->rowCount() == 0) return;
+
+    const auto selectedRows = getSelectedPrimaryRowsSorted();
+    const int count = selectedRows.size();
+
+    bool hasAnyCustom = false;
+    for (auto it = metadataByAddress.cbegin(); it != metadataByAddress.cend(); ++it) {
+        if (it.value().customType.has_value()) {
+            hasAnyCustom = true;
+            break;
+        }
+    }
+
+    QMenu menu(this);
+
+    auto* resetSelectedAction = menu.addAction(
+        count > 0 ? tr("Reset Selected Type to Default (%1)\tDelete").arg(count)
+                  : tr("Reset Selected Type to Default\tDelete"));
+    resetSelectedAction->setEnabled(count > 0);
+    connect(resetSelectedAction, &QAction::triggered, this, &FrameAnalyzerWidget::resetSelectedRowsToDefault);
+
+    menu.addSeparator();
+
+    auto* batchMenu = menu.addMenu(tr("Batch Set Selected Type to..."));
+    batchMenu->setEnabled(count > 0);
+
+    auto addBatchTypeAction = [this, batchMenu](const QString& text, RegisterDataType type) {
+        auto* action = batchMenu->addAction(text);
+        connect(action, &QAction::triggered, this, [this, type]() {
+            batchSetSelectedRowsType(type);
+        });
+    };
+
+    addBatchTypeAction(tr("UInt16 (1 Reg)"), RegisterDataType::UInt16);
+    addBatchTypeAction(tr("Int16 (1 Reg)"), RegisterDataType::Int16);
+    addBatchTypeAction(tr("Float32 (Real, 2 Regs)"), RegisterDataType::Float32);
+    addBatchTypeAction(tr("Int32 (DInt, 2 Regs)"), RegisterDataType::Int32);
+    addBatchTypeAction(tr("UInt32 (UDInt, 2 Regs)"), RegisterDataType::UInt32);
+    addBatchTypeAction(tr("Float64 (Double, 4 Regs)"), RegisterDataType::Float64);
+
+    menu.addSeparator();
+
+    auto* resetAllAction = menu.addAction(tr("Reset All Custom Types to Default"));
+    resetAllAction->setEnabled(hasAnyCustom);
+    connect(resetAllAction, &QAction::triggered, this, &FrameAnalyzerWidget::resetAllRowsToDefault);
+
+    menu.exec(dataTable->mapToGlobal(pos));
+}
+
+bool FrameAnalyzerWidget::eventFilter(QObject* watched, QEvent* event)
+{
+    if (watched == dataTable && event->type() == QEvent::KeyPress) {
+        auto* keyEvent = static_cast<QKeyEvent*>(event);
+        if (keyEvent->key() == Qt::Key_Delete || keyEvent->key() == Qt::Key_Backspace) {
+            QWidget* fw = QApplication::focusWidget();
+            if (fw && fw != dataTable && fw != dataTable->viewport()) {
+                return false;
+            }
+            if (dataTable->selectionModel() && !dataTable->selectionModel()->selectedRows().isEmpty()) {
+                resetSelectedRowsToDefault();
+                return true;
+            }
+        }
+    }
+    return QWidget::eventFilter(watched, event);
+}
+
 void FrameAnalyzerWidget::renderResult(const ParseResult& result)
 {
     isUpdatingDataTable = true;
@@ -764,6 +1025,7 @@ void FrameAnalyzerWidget::renderResult(const ParseResult& result)
 
     if (!result.isValid) {
         isUpdatingDataTable = false;
+        updateResetButtonState();
         if (!isLiveMode) {
             statusLabel->setText(tr("Parse Failed: %1").arg(result.error));
             statusLabel->setStyleSheet(QStringLiteral("color: red; font-weight: bold;"));
@@ -1101,6 +1363,7 @@ void FrameAnalyzerWidget::renderResult(const ParseResult& result)
     }
 
     isUpdatingDataTable = false;
+    updateResetButtonState();
     if (!isLiveMode) {
         QString statusText = tr("Success (%1)").arg(protocolText);
         if (result.isForced) {
@@ -1140,6 +1403,7 @@ void FrameAnalyzerWidget::clearResult()
         renderResult(lastLiveResult);
     }
     if (resultTabs) resultTabs->setTabText(0, tr("Structure"));
+    updateResetButtonState();
 }
 
 void FrameAnalyzerWidget::processLivePdu(const modbus::base::Pdu& pdu, modbus::parser::ProtocolType protocol, uint16_t addr)
@@ -1348,6 +1612,7 @@ void FrameAnalyzerWidget::retranslateUi()
     }
     if (clearHistoryBtn) clearHistoryBtn->setText(tr("Clear History"));
 
+    updateResetButtonState();
     refreshHistoryList();
 }
 
