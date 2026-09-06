@@ -74,9 +74,9 @@ QString LanguageCoordinator::effectiveAppLocale(const QString& locale) {
     const QLocale systemLocale = QLocale::system();
     if (systemLocale.language() == QLocale::Chinese) {
         if (systemLocale.script() == QLocale::TraditionalChineseScript ||
-            systemLocale.country() == QLocale::Taiwan ||
-            systemLocale.country() == QLocale::HongKong ||
-            systemLocale.country() == QLocale::Macau) {
+            systemLocale.territory() == QLocale::Taiwan ||
+            systemLocale.territory() == QLocale::HongKong ||
+            systemLocale.territory() == QLocale::Macau) {
             return QLatin1String(config::App::kLocaleZhTw);
         }
         return QLatin1String(config::App::kLocaleZhCn);
