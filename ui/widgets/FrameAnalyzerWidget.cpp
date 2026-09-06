@@ -18,6 +18,9 @@
 #include "analyzer/AnalyzerCommon.h"
 #include "analyzer/AnalyzerExporter.h"
 #include "analyzer/ValueFormatter.h"
+#include "widgets/RegisterTypeDelegate.h"
+#include "modbus/base/ModbusAddressMapping.h"
+#include "modbus/base/RegisterValueDecoder.h"
 #include <QVBoxLayout>
 #include <QHBoxLayout>
 #include <QGroupBox>
@@ -312,17 +315,22 @@ void FrameAnalyzerWidget::createResultGroup()
 
     displayModeLabel = new QLabel(tr("Decode Mode:"), this);
     displayModeCombo = new QComboBox(this);
-    displayModeCombo->addItem(tr("Unsigned"), static_cast<int>(NumberDisplayMode::Unsigned));
-    displayModeCombo->addItem(tr("Signed"), static_cast<int>(NumberDisplayMode::Signed));
+    displayModeCombo->addItem(tr("UInt16 (Unsigned)"), static_cast<int>(RegisterDataType::UInt16));
+    displayModeCombo->addItem(tr("Int16 (Signed)"), static_cast<int>(RegisterDataType::Int16));
+    displayModeCombo->addItem(tr("Float32 (Real)"), static_cast<int>(RegisterDataType::Float32));
+    displayModeCombo->addItem(tr("Int32 (DInt)"), static_cast<int>(RegisterDataType::Int32));
+    displayModeCombo->addItem(tr("UInt32 (UDInt)"), static_cast<int>(RegisterDataType::UInt32));
+    displayModeCombo->addItem(tr("Float64 (Double)"), static_cast<int>(RegisterDataType::Float64));
     displayModeCombo->setCurrentIndex(0);
-    displayModeCombo->setMinimumContentsLength(8);
+    displayModeCombo->setMinimumContentsLength(10);
     displayModeCombo->setSizeAdjustPolicy(QComboBox::AdjustToMinimumContentsLengthWithIcon);
     connect(displayModeCombo, qOverload<int>(&QComboBox::currentIndexChanged), this, [this]() {
-        displayMode = static_cast<NumberDisplayMode>(displayModeCombo->currentData().toInt());
+        globalDataType = static_cast<RegisterDataType>(displayModeCombo->currentData().toInt());
+        displayMode = (globalDataType == RegisterDataType::Int16) ? NumberDisplayMode::Signed : NumberDisplayMode::Unsigned;
         if (!isLiveMode && !inputEditor->toPlainText().trimmed().isEmpty()) {
             onParseClicked();
-        } else if (isLiveMode && lastLiveResult.isValid) {
-            renderResult(lastLiveResult);
+        } else if (currentResult.isValid) {
+            renderResult(currentResult);
         }
     });
 
@@ -337,6 +345,8 @@ void FrameAnalyzerWidget::createResultGroup()
         registerOrder = static_cast<modbus::base::RegisterOrder>(registerOrderCombo->itemData(index).toInt());
         if (!isLiveMode && !inputEditor->toPlainText().trimmed().isEmpty()) {
             onParseClicked();
+        } else if (currentResult.isValid) {
+            renderResult(currentResult);
         }
     });
 
@@ -382,16 +392,38 @@ void FrameAnalyzerWidget::createResultGroup()
     resultTabs->addTab(structureTab, tr("Structure"));
 
     dataTable = new QTableWidget(this);
-    dataTable->setColumnCount(7);
-    dataTable->setHorizontalHeaderLabels({tr("Address"), tr("Hex"), tr("Decimal"), tr("Binary"), tr("Scale"), tr("Value"), tr("Description")});
+    dataTable->setColumnCount(8);
+    dataTable->setHorizontalHeaderLabels({
+        tr("Address"),
+        tr("Hex"),
+        tr("Decimal"),
+        tr("Binary"),
+        tr("Type"),
+        tr("Scale"),
+        tr("Value"),
+        tr("Description")
+    });
+    dataTable->setItemDelegateForColumn(4, new RegisterTypeDelegate(this));
     dataTable->horizontalHeader()->setStretchLastSection(true);
     connect(dataTable, &QTableWidget::itemChanged, this, [this](QTableWidgetItem* item) {
         if (isUpdatingDataTable || !item) return;
         const int col = item->column();
-        if (col != 4 && col != 6) return;
+        if (col != 4 && col != 5 && col != 7) return;
         const uint16_t address = rowAddress(item->row());
         DataMetadata meta = metadataByAddress.value(address);
         if (col == 4) {
+            const QVariant typeVal = item->data(Qt::UserRole);
+            if (typeVal.isValid() && typeVal.toInt() >= 0) {
+                meta.customType = static_cast<RegisterDataType>(typeVal.toInt());
+            } else {
+                meta.customType = std::nullopt;
+            }
+            metadataByAddress.insert(address, meta);
+            if (currentResult.isValid) {
+                renderResult(currentResult);
+            }
+            return;
+        } else if (col == 5) {
             bool ok = false;
             const double parsedScale = item->text().toDouble(&ok);
             if (!ok) {
@@ -400,14 +432,15 @@ void FrameAnalyzerWidget::createResultGroup()
                 return;
             }
             meta.scale = parsedScale;
-        } else if (col == 6) {
+            metadataByAddress.insert(address, meta);
+            if (currentResult.isValid) {
+                renderResult(currentResult);
+            }
+            return;
+        } else if (col == 7) {
             meta.description = item->text();
+            metadataByAddress.insert(address, meta);
         }
-        metadataByAddress.insert(address, meta);
-        QTableWidgetItem* decItem = dataTable->item(item->row(), 2);
-        QVariant value;
-        if (decItem && decItem->text() != "-") value = decItem->text().toDouble();
-        applyMetadataToRow(item->row(), value, meta);
     });
     resultTabs->addTab(dataTable, tr("Decoded Data"));
 
@@ -436,17 +469,17 @@ void FrameAnalyzerWidget::applyMetadataToRow(int row, const QVariant& value, con
 {
     if (!dataTable || row < 0 || row >= dataTable->rowCount()) return;
 
-    QTableWidgetItem* descItem = dataTable->item(row, 6);
+    QTableWidgetItem* descItem = dataTable->item(row, 7);
     if (descItem) {
         descItem->setToolTip(value_formatter::buildDescriptionTooltip(value, meta, displayMode));
     }
 
-    QTableWidgetItem* scaledItem = dataTable->item(row, 5);
+    QTableWidgetItem* scaledItem = dataTable->item(row, 6);
     if (scaledItem) {
         scaledItem->setText(value_formatter::formatScaledValue(value, meta, displayMode));
     }
 
-    QTableWidgetItem* scaleItem = dataTable->item(row, 4);
+    QTableWidgetItem* scaleItem = dataTable->item(row, 5);
     if (scaleItem && scaleItem->text().trimmed().isEmpty()) {
         scaleItem->setText(QString::number(meta.scale, 'g', 12));
     }
@@ -643,7 +676,7 @@ void FrameAnalyzerWidget::onExportJsonClicked()
     QString error;
     bool ok = exporter::saveMetadataJson(filePath,
                                          startAddrEdit->text(),
-                                         (displayMode == NumberDisplayMode::Signed ? QStringLiteral("signed") : QStringLiteral("unsigned")),
+                                         registerDataTypeToString(globalDataType),
                                          metadataByAddress,
                                          &error);
     if (!ok) {
@@ -664,8 +697,17 @@ void FrameAnalyzerWidget::onImportJsonClicked()
 
     if (startAddrEdit) startAddrEdit->setText(result.startAddress);
     if (displayModeCombo) {
-        int idx = (result.displayMode == QStringLiteral("signed")) ? 1 : 0;
-        displayModeCombo->setCurrentIndex(idx);
+        auto importedType = stringToRegisterDataType(result.displayMode);
+        if (importedType.has_value()) {
+            int idx = displayModeCombo->findData(static_cast<int>(*importedType));
+            if (idx >= 0) displayModeCombo->setCurrentIndex(idx);
+        } else if (result.displayMode == QStringLiteral("signed")) {
+            int idx = displayModeCombo->findData(static_cast<int>(RegisterDataType::Int16));
+            if (idx >= 0) displayModeCombo->setCurrentIndex(idx);
+        } else {
+            int idx = displayModeCombo->findData(static_cast<int>(RegisterDataType::UInt16));
+            if (idx >= 0) displayModeCombo->setCurrentIndex(idx);
+        }
     }
 
     metadataByAddress = result.metadata;
@@ -912,38 +954,142 @@ void FrameAnalyzerWidget::renderResult(const ParseResult& result)
 
     if (dataTable) {
         dataTable->setRowCount(result.dataItems.size());
+        modbus::address::AddressBase addressBase = modbus::address::AddressBase::Offset0Based;
+        if (settingsService_) {
+            const QVariant val = settingsService_->value(core::common::settings_keys::kModbusAddressBase);
+            if (val.isValid()) {
+                addressBase = static_cast<modbus::address::AddressBase>(val.toInt());
+            }
+        }
+
+        int subordinateRemaining = 0;
+        RegisterDataType subordinateParentType = RegisterDataType::UInt16;
+        int subordinateWordIndex = 0;
+        uint16_t parentAddress = 0;
+
         for (int i = 0; i < result.dataItems.size(); ++i) {
             const auto& item = result.dataItems[i];
-            DataMetadata meta = metadataByAddress.value(item.address);
+            const DataMetadata meta = metadataByAddress.value(item.address);
 
+            // 0: Address
+            const QString dispAddr = modbus::address::toDisplayAddress(item.address, addressBase, false);
             auto* addrItem = new QTableWidgetItem(QStringLiteral("%1 (0x%2)")
-                .arg(item.address)
+                .arg(dispAddr)
                 .arg(QString::number(item.address, 16).toUpper().rightJustified(4, QLatin1Char('0'))));
             addrItem->setData(Qt::UserRole, item.address);
             addrItem->setFlags(addrItem->flags() & ~Qt::ItemIsEditable);
             dataTable->setItem(i, 0, addrItem);
 
+            // 1: Hex
             auto* hexItem = new QTableWidgetItem(value_formatter::formatHexValue(item.rawBytes, item.hexString));
             hexItem->setFlags(addrItem->flags());
             dataTable->setItem(i, 1, hexItem);
 
-            auto* decItem = new QTableWidgetItem(value_formatter::formatDecimalValue(item.value, displayMode));
+            // 2: Decimal (16-bit raw decimal representation of this word)
+            const NumberDisplayMode decMode = (globalDataType == RegisterDataType::Int16) ? NumberDisplayMode::Signed : NumberDisplayMode::Unsigned;
+            auto* decItem = new QTableWidgetItem(value_formatter::formatDecimalValue(item.value, decMode));
             decItem->setFlags(addrItem->flags());
             dataTable->setItem(i, 2, decItem);
 
+            // 3: Binary
             auto* binItem = new QTableWidgetItem(value_formatter::formatBinaryValue(item.rawBytes, item.binaryString));
             binItem->setFlags(addrItem->flags());
             dataTable->setItem(i, 3, binItem);
 
-            dataTable->setItem(i, 4, new QTableWidgetItem(QString::number(meta.scale, 'g', 12)));
+            if (subordinateRemaining > 0) {
+                // Subordinate / occupied word of a preceding multi-register value
+                subordinateWordIndex++;
+                subordinateRemaining--;
 
-            auto* scaledItem = new QTableWidgetItem(value_formatter::formatScaledValue(item.value, meta, displayMode));
-            scaledItem->setFlags(addrItem->flags());
-            dataTable->setItem(i, 5, scaledItem);
+                // 4: Type
+                const QString typeDesc = (subordinateWordIndex == 2 && registerWordsCount(subordinateParentType) == 2)
+                    ? QStringLiteral("[%1 Low-Word]").arg(registerDataTypeToString(subordinateParentType))
+                    : QStringLiteral("[%1 W%2]").arg(registerDataTypeToString(subordinateParentType)).arg(subordinateWordIndex);
+                auto* typeItem = new QTableWidgetItem(typeDesc);
+                typeItem->setFlags(addrItem->flags());
+                typeItem->setForeground(QColor(128, 128, 128));
+                dataTable->setItem(i, 4, typeItem);
 
-            dataTable->setItem(i, 6, new QTableWidgetItem(meta.description));
+                // 5: Scale
+                auto* scaleItem = new QTableWidgetItem(QStringLiteral("-"));
+                scaleItem->setFlags(addrItem->flags());
+                scaleItem->setForeground(QColor(128, 128, 128));
+                dataTable->setItem(i, 5, scaleItem);
 
-            applyMetadataToRow(i, item.value, meta);
+                // 6: Value
+                auto* valItem = new QTableWidgetItem(QStringLiteral("-"));
+                valItem->setFlags(addrItem->flags());
+                valItem->setForeground(QColor(128, 128, 128));
+                dataTable->setItem(i, 6, valItem);
+
+                // 7: Description
+                const QString descText = meta.description.isEmpty()
+                    ? tr("(Subordinate word of address %1)").arg(parentAddress)
+                    : meta.description;
+                auto* descItem = new QTableWidgetItem(descText);
+                descItem->setFlags(descItem->flags() | Qt::ItemIsEditable);
+                descItem->setForeground(QColor(128, 128, 128));
+                dataTable->setItem(i, 7, descItem);
+            } else {
+                // Primary register row
+                const bool isBoolType = (item.value.typeId() == QMetaType::Bool);
+                const RegisterDataType effectiveType = meta.customType.value_or(globalDataType);
+                const int wordsNeeded = isBoolType ? 1 : registerWordsCount(effectiveType);
+
+                QByteArray combinedBytes;
+                const int availableWords = qMin(wordsNeeded, result.dataItems.size() - i);
+                for (int w = 0; w < availableWords; ++w) {
+                    combinedBytes.append(result.dataItems[i + w].rawBytes);
+                }
+
+                QString valText;
+                QString tooltip;
+                if (isBoolType) {
+                    valText = item.value.toBool() ? QStringLiteral("1") : QStringLiteral("0");
+                    tooltip = meta.description;
+                } else if (availableWords < wordsNeeded) {
+                    valText = QStringLiteral("<Incomplete>");
+                    tooltip = tr("Incomplete register bytes for %1").arg(registerDataTypeToString(effectiveType));
+                } else {
+                    subordinateRemaining = wordsNeeded - 1;
+                    subordinateParentType = effectiveType;
+                    subordinateWordIndex = 1;
+                    parentAddress = item.address;
+
+                    valText = value_formatter::formatScaledValue(combinedBytes, meta, effectiveType, registerOrder);
+                    tooltip = value_formatter::buildDescriptionTooltip(combinedBytes, meta, effectiveType, registerOrder);
+                }
+
+                // 4: Type
+                auto* typeItem = new QTableWidgetItem();
+                if (meta.customType.has_value()) {
+                    typeItem->setText(registerDataTypeToString(*meta.customType));
+                    typeItem->setData(Qt::UserRole, static_cast<int>(*meta.customType));
+                } else {
+                    typeItem->setText(tr("Default (%1)").arg(registerDataTypeToString(globalDataType)));
+                    typeItem->setData(Qt::UserRole, -1);
+                }
+                typeItem->setFlags(typeItem->flags() | Qt::ItemIsEditable);
+                dataTable->setItem(i, 4, typeItem);
+
+                // 5: Scale
+                auto* scaleItem = new QTableWidgetItem(QString::number(meta.scale, 'g', 12));
+                scaleItem->setFlags(scaleItem->flags() | Qt::ItemIsEditable);
+                dataTable->setItem(i, 5, scaleItem);
+
+                // 6: Value
+                auto* valItem = new QTableWidgetItem(valText);
+                valItem->setFlags(addrItem->flags());
+                dataTable->setItem(i, 6, valItem);
+
+                // 7: Description
+                auto* descItem = new QTableWidgetItem(meta.description);
+                descItem->setFlags(descItem->flags() | Qt::ItemIsEditable);
+                if (!tooltip.isEmpty()) {
+                    descItem->setToolTip(tooltip);
+                }
+                dataTable->setItem(i, 7, descItem);
+            }
         }
     }
 
@@ -1060,7 +1206,11 @@ void FrameAnalyzerWidget::loadSettings()
     }
 
     const int mode = settingsService_->value(core::common::settings_keys::kFrameAnalyzerDecodeMode).toInt();
-    if (displayModeCombo) displayModeCombo->setCurrentIndex(mode);
+    if (displayModeCombo && mode >= 0 && mode < displayModeCombo->count()) {
+        displayModeCombo->setCurrentIndex(mode);
+        globalDataType = static_cast<RegisterDataType>(displayModeCombo->currentData().toInt());
+        displayMode = (globalDataType == RegisterDataType::Int16) ? NumberDisplayMode::Signed : NumberDisplayMode::Unsigned;
+    }
 }
 
 void FrameAnalyzerWidget::saveSettings()
@@ -1110,8 +1260,12 @@ void FrameAnalyzerWidget::retranslateUi()
     }
     if (displayModeLabel) displayModeLabel->setText(tr("Decode Mode:"));
     if (displayModeCombo) {
-        displayModeCombo->setItemText(0, tr("Unsigned"));
-        displayModeCombo->setItemText(1, tr("Signed"));
+        displayModeCombo->setItemText(0, tr("UInt16 (Unsigned)"));
+        displayModeCombo->setItemText(1, tr("Int16 (Signed)"));
+        displayModeCombo->setItemText(2, tr("Float32 (Real)"));
+        displayModeCombo->setItemText(3, tr("Int32 (DInt)"));
+        displayModeCombo->setItemText(4, tr("UInt32 (UDInt)"));
+        displayModeCombo->setItemText(5, tr("Float64 (Double)"));
     }
     if (registerOrderLabel) registerOrderLabel->setText(tr("Byte Order:"));
     if (registerOrderCombo) {
@@ -1174,7 +1328,16 @@ void FrameAnalyzerWidget::retranslateUi()
         header->setText(2, tr("Description"));
     }
     if (dataTable) {
-        dataTable->setHorizontalHeaderLabels({tr("Address"), tr("Hex"), tr("Decimal"), tr("Binary"), tr("Scale"), tr("Value"), tr("Description")});
+        dataTable->setHorizontalHeaderLabels({
+            tr("Address"),
+            tr("Hex"),
+            tr("Decimal"),
+            tr("Binary"),
+            tr("Type"),
+            tr("Scale"),
+            tr("Value"),
+            tr("Description")
+        });
     }
     if (clearHistoryBtn) clearHistoryBtn->setText(tr("Clear History"));
 

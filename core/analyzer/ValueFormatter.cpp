@@ -6,6 +6,7 @@
  */
 
 #include "ValueFormatter.h"
+#include "modbus/base/RegisterValueDecoder.h"
 #include <QRegularExpression>
 
 namespace modbus::analyzer {
@@ -52,6 +53,19 @@ QString value_formatter::formatScaledValue(const QVariant& value, const DataMeta
     return QString::number(raw * meta.scale, 'g', 12);
 }
 
+QString value_formatter::formatScaledValue(
+    QByteArrayView rawBytes,
+    const DataMetadata& meta,
+    RegisterDataType type,
+    modbus::base::RegisterOrder order)
+{
+    const auto decoded = modbus::codec::decodeRegister(rawBytes, type, order);
+    if (!decoded.isValid) {
+        return decoded.displayText;
+    }
+    return modbus::codec::formatEngineeringValue(decoded, meta.scale, type);
+}
+
 QString value_formatter::buildDescriptionTooltip(const QVariant& value, const DataMetadata& meta, NumberDisplayMode mode)
 {
     QStringList lines;
@@ -65,6 +79,29 @@ QString value_formatter::buildDescriptionTooltip(const QVariant& value, const Da
         lines << tr("Raw: %1").arg(QString::number(raw, 'g', 12));
         lines << tr("Scale: %1").arg(QString::number(meta.scale, 'g', 12));
         lines << tr("Scaled: %1").arg(QString::number(scaled, 'g', 12));
+    }
+    return lines.join('\n');
+}
+
+QString value_formatter::buildDescriptionTooltip(
+    QByteArrayView rawBytes,
+    const DataMetadata& meta,
+    RegisterDataType type,
+    modbus::base::RegisterOrder order)
+{
+    QStringList lines;
+    if (!meta.description.trimmed().isEmpty()) {
+        lines << tr("Description: %1").arg(meta.description.trimmed());
+    }
+    const auto decoded = modbus::codec::decodeRegister(rawBytes, type, order);
+    if (decoded.isValid) {
+        lines << tr("Raw: %1").arg(decoded.displayText);
+        lines << tr("Scale: %1").arg(QString::number(meta.scale, 'g', 12));
+        if (decoded.isNanOrInf) {
+            lines << tr("Scaled: %1").arg(decoded.displayText);
+        } else {
+            lines << tr("Scaled: %1").arg(modbus::codec::formatEngineeringValue(decoded, meta.scale, type));
+        }
     }
     return lines.join('\n');
 }

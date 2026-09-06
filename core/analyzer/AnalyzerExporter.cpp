@@ -32,6 +32,9 @@ bool exporter::saveMetadataJson(const QString& filePath,
         item.insert(QStringLiteral("address"), static_cast<int>(it.key()));
         item.insert(QStringLiteral("description"), it.value().description);
         item.insert(QStringLiteral("scale"), it.value().scale);
+        if (it.value().customType.has_value()) {
+            item.insert(QStringLiteral("type"), registerDataTypeToString(*it.value().customType));
+        }
         items.append(item);
     }
     root.insert(QStringLiteral("items"), items);
@@ -92,6 +95,9 @@ ImportResult exporter::loadMetadataJson(const QString& filePath) {
         DataMetadata meta;
         meta.description = itemObj.value(QStringLiteral("description")).toString();
         meta.scale = itemObj.value(QStringLiteral("scale")).toDouble(1.0);
+        if (itemObj.contains(QStringLiteral("type"))) {
+            meta.customType = stringToRegisterDataType(itemObj.value(QStringLiteral("type")).toString());
+        }
         result.metadata.insert(static_cast<uint16_t>(addressValue), meta);
     }
 

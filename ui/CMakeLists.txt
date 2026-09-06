@@ -148,6 +148,8 @@ target_sources(ui PRIVATE
     widgets/AboutDialog.h
     widgets/FrameAnalyzerWidget.cpp
     widgets/FrameAnalyzerWidget.h
+    widgets/RegisterTypeDelegate.cpp
+    widgets/RegisterTypeDelegate.h
 )
 
 set(ui_translation_ts

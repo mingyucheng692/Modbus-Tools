@@ -154,6 +154,7 @@ private:
     bool historyCollapsed = false;
     bool historyAutoCollapsed = false;
     int lastHistoryPanelWidth = 0; // set in the constructor from config::Ui
+    modbus::analyzer::RegisterDataType globalDataType = modbus::analyzer::RegisterDataType::UInt16;
     modbus::analyzer::NumberDisplayMode displayMode = modbus::analyzer::NumberDisplayMode::Unsigned;
     QMap<uint16_t, modbus::analyzer::DataMetadata> metadataByAddress;
     QList<modbus::parser::ParseResult> historyResults;

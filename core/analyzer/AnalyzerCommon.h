@@ -35,6 +35,47 @@ enum class NumberDisplayMode {
     Signed
 };
 
+inline QString registerDataTypeToString(RegisterDataType type)
+{
+    switch (type) {
+        case RegisterDataType::UInt16: return QStringLiteral("UInt16");
+        case RegisterDataType::Int16: return QStringLiteral("Int16");
+        case RegisterDataType::Float32: return QStringLiteral("Float32");
+        case RegisterDataType::Int32: return QStringLiteral("Int32");
+        case RegisterDataType::UInt32: return QStringLiteral("UInt32");
+        case RegisterDataType::Float64: return QStringLiteral("Float64");
+    }
+    return QStringLiteral("UInt16");
+}
+
+inline std::optional<RegisterDataType> stringToRegisterDataType(const QString& str)
+{
+    const QString lower = str.trimmed().toLower();
+    if (lower == QStringLiteral("uint16") || lower == QStringLiteral("unsigned")) return RegisterDataType::UInt16;
+    if (lower == QStringLiteral("int16") || lower == QStringLiteral("signed")) return RegisterDataType::Int16;
+    if (lower == QStringLiteral("float32") || lower == QStringLiteral("float") || lower == QStringLiteral("real")) return RegisterDataType::Float32;
+    if (lower == QStringLiteral("int32") || lower == QStringLiteral("dint")) return RegisterDataType::Int32;
+    if (lower == QStringLiteral("uint32") || lower == QStringLiteral("udint")) return RegisterDataType::UInt32;
+    if (lower == QStringLiteral("float64") || lower == QStringLiteral("double")) return RegisterDataType::Float64;
+    return std::nullopt;
+}
+
+inline int registerWordsCount(RegisterDataType type)
+{
+    switch (type) {
+        case RegisterDataType::Float64:
+            return 4;
+        case RegisterDataType::Float32:
+        case RegisterDataType::Int32:
+        case RegisterDataType::UInt32:
+            return 2;
+        case RegisterDataType::UInt16:
+        case RegisterDataType::Int16:
+        default:
+            return 1;
+    }
+}
+
 /**
  * @brief Metadata for parsed register data.
  */

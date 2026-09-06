@@ -9,8 +9,11 @@
 
 #include <QString>
 #include <QVariant>
+#include <QByteArray>
+#include <QByteArrayView>
 #include <QCoreApplication>
 #include "analyzer/AnalyzerCommon.h"
+#include "modbus/base/ModbusTypes.h"
 
 namespace modbus::analyzer::value_formatter {
 
@@ -30,14 +33,24 @@ QString formatDecimalValue(const QVariant& value, NumberDisplayMode mode);
 double numericValueForDisplay(const QVariant& value, NumberDisplayMode mode, bool* ok = nullptr);
 
 /**
- * @brief 格式化为缩放后的物理值。
+ * @brief 格式化为缩放后的物理值（16位兼容重载）。
  */
 QString formatScaledValue(const QVariant& value, const DataMetadata& meta, NumberDisplayMode mode);
 
 /**
- * @brief 生成包含原始值、缩放系数和结果的 Tooltip。
+ * @brief 格式化为缩放后的物理值（支持多寄存器强类型与字序重排）。
+ */
+QString formatScaledValue(QByteArrayView rawBytes, const DataMetadata& meta, RegisterDataType type, modbus::base::RegisterOrder order);
+
+/**
+ * @brief 生成包含原始值、缩放系数和结果的 Tooltip（16位兼容重载）。
  */
 QString buildDescriptionTooltip(const QVariant& value, const DataMetadata& meta, NumberDisplayMode mode);
+
+/**
+ * @brief 生成包含原始值、缩放系数和结果的 Tooltip（多寄存器与字序支持）。
+ */
+QString buildDescriptionTooltip(QByteArrayView rawBytes, const DataMetadata& meta, RegisterDataType type, modbus::base::RegisterOrder order);
 
 /**
  * @brief 格式化为十六进制字符串（带 0x 前缀，保持位宽）。
