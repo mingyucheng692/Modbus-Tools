@@ -497,6 +497,9 @@ void parsePdu(ParseResult& result,
                     DataItem item;
                     item.address = effectiveStartAddress + i;
                     item.value = val;
+                    item.rawBytes.resize(2);
+                    item.rawBytes[0] = static_cast<char>((val >> 8) & 0xFF);
+                    item.rawBytes[1] = static_cast<char>(val & 0xFF);
                     item.hexString = QString("%1").arg(val, 4, 16, QChar('0')).toUpper();
                     
                     // Binary string
@@ -535,6 +538,7 @@ void parsePdu(ParseResult& result,
                         DataItem item;
                         item.address = effectiveStartAddress + currentBitAddress;
                         item.value = isOn;
+                        item.rawBytes = QByteArray(1, static_cast<char>(isOn ? 1 : 0));
                         item.hexString = isOn ? "01" : "00";
                         item.binaryString = isOn ? "1" : "0";
                         result.dataItems.append(item);
@@ -568,8 +572,12 @@ void parsePdu(ParseResult& result,
         
         if (result.functionCode == FunctionCode::WriteSingleCoil) {
             bool isOn = (val == 0xFF00);
+            item.rawBytes = QByteArray(1, static_cast<char>(isOn ? 1 : 0));
             item.binaryString = isOn ? "1" : "0";
         } else {
+            item.rawBytes.resize(2);
+            item.rawBytes[0] = static_cast<char>((val >> 8) & 0xFF);
+            item.rawBytes[1] = static_cast<char>(val & 0xFF);
             QString binStr = QString::number(val, 2).rightJustified(16, '0');
             for (int k = 12; k > 0; k -= 4) binStr.insert(k, ' ');
             item.binaryString = binStr;
@@ -630,6 +638,9 @@ void parsePdu(ParseResult& result,
                     DataItem item;
                     item.address = start + i;
                     item.value = val;
+                    item.rawBytes.resize(2);
+                    item.rawBytes[0] = static_cast<char>((val >> 8) & 0xFF);
+                    item.rawBytes[1] = static_cast<char>(val & 0xFF);
                     item.hexString = QString("%1").arg(val, 4, 16, QChar('0')).toUpper();
                     
                     QString binStr = QString::number(val, 2).rightJustified(16, '0');
@@ -662,6 +673,7 @@ void parsePdu(ParseResult& result,
                          DataItem item;
                          item.address = start + currentBitAddress;
                          item.value = isOn;
+                         item.rawBytes = QByteArray(1, static_cast<char>(isOn ? 1 : 0));
                          item.hexString = isOn ? "01" : "00";
                          item.binaryString = isOn ? "1" : "0";
                          result.dataItems.append(item);
@@ -705,6 +717,9 @@ void applyRegisterOrder(ParseResult& result, modbus::base::RegisterOrder order)
         uint16_t val = item.value.toUInt();
         uint16_t swapped = static_cast<uint16_t>((val << 8) | (val >> 8));
         item.value = swapped;
+        item.rawBytes.resize(2);
+        item.rawBytes[0] = static_cast<char>((swapped >> 8) & 0xFF);
+        item.rawBytes[1] = static_cast<char>(swapped & 0xFF);
         item.hexString = QString("%1").arg(swapped, 4, 16, QChar('0')).toUpper();
         
         QString binStr = QString::number(swapped, 2).rightJustified(16, '0');

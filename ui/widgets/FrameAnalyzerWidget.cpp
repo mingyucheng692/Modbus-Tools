@@ -634,7 +634,7 @@ void FrameAnalyzerWidget::onParseClicked()
     // Pass the pre-normalized hex string so the worker does not need to
     // repeat input-format cleanup (see FrameParseWorker contract). The
     // presenter marshals the request onto the worker thread.
-    presenter_->enqueueParse(hexStr, type, static_cast<uint16_t>(addrVal), registerOrder, latestParseRequestId);
+    presenter_->enqueueParse(hexStr, type, static_cast<uint16_t>(addrVal), modbus::base::RegisterOrder::ABCD, latestParseRequestId);
 }
 
 void FrameAnalyzerWidget::onParseFinished(const ParseResult& result, quint64 requestId)
@@ -1039,7 +1039,14 @@ void FrameAnalyzerWidget::renderResult(const ParseResult& result)
                 QByteArray combinedBytes;
                 const int availableWords = qMin(wordsNeeded, result.dataItems.size() - i);
                 for (int w = 0; w < availableWords; ++w) {
-                    combinedBytes.append(result.dataItems[i + w].rawBytes);
+                    const auto& wItem = result.dataItems[i + w];
+                    if (wItem.rawBytes.size() >= 2) {
+                        combinedBytes.append(wItem.rawBytes.left(2));
+                    } else if (wItem.value.isValid()) {
+                        const uint16_t v = static_cast<uint16_t>(wItem.value.toUInt());
+                        combinedBytes.append(static_cast<char>((v >> 8) & 0xFF));
+                        combinedBytes.append(static_cast<char>(v & 0xFF));
+                    }
                 }
 
                 QString valText;
