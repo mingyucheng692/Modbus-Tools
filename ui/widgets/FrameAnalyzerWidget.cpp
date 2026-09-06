@@ -17,10 +17,8 @@
 #include "application/analyzer/FrameAnalyzerPresenter.h"
 #include "analyzer/AnalyzerCommon.h"
 #include "analyzer/AnalyzerExporter.h"
-#include "analyzer/ValueFormatter.h"
-#include "widgets/RegisterTypeDelegate.h"
+#include "widgets/FrameDecodedTableView.h"
 #include "modbus/base/ModbusAddressMapping.h"
-#include "modbus/base/RegisterValueDecoder.h"
 #include <QVBoxLayout>
 #include <QHBoxLayout>
 #include <QGroupBox>
@@ -31,7 +29,6 @@
 #include <QRegularExpressionValidator>
 #include <QPushButton>
 #include <QTreeWidget>
-#include <QTableWidget>
 #include <QHeaderView>
 #include <QTabWidget>
 #include <QMessageBox>
@@ -44,10 +41,6 @@
 #include <QClipboard>
 #include <QGuiApplication>
 #include <QSplitter>
-#include <QMenu>
-#include <QAction>
-#include <QKeyEvent>
-#include <QItemSelectionModel>
 
 using namespace modbus::parser;
 using namespace modbus::analyzer;
@@ -403,65 +396,10 @@ void FrameAnalyzerWidget::createResultGroup()
     structureLayout->addWidget(overviewTree);
     resultTabs->addTab(structureTab, tr("Structure"));
 
-    dataTable = new QTableWidget(this);
-    dataTable->setColumnCount(8);
-    dataTable->setHorizontalHeaderLabels({
-        tr("Address"),
-        tr("Hex"),
-        tr("Decimal"),
-        tr("Binary"),
-        tr("Type"),
-        tr("Scale"),
-        tr("Value"),
-        tr("Description")
-    });
-    dataTable->setItemDelegateForColumn(4, new RegisterTypeDelegate(this));
-    dataTable->horizontalHeader()->setStretchLastSection(true);
-    dataTable->setSelectionBehavior(QAbstractItemView::SelectRows);
-    dataTable->setSelectionMode(QAbstractItemView::ExtendedSelection);
-    dataTable->setContextMenuPolicy(Qt::CustomContextMenu);
-    dataTable->installEventFilter(this);
-    connect(dataTable, &QTableWidget::customContextMenuRequested, this, &FrameAnalyzerWidget::onTableContextMenuRequested);
-    if (dataTable->selectionModel()) {
-        connect(dataTable->selectionModel(), &QItemSelectionModel::selectionChanged, this, &FrameAnalyzerWidget::onSelectionChanged);
-    }
-    connect(dataTable, &QTableWidget::itemChanged, this, [this](QTableWidgetItem* item) {
-        if (isUpdatingDataTable || !item) return;
-        const int col = item->column();
-        if (col != 4 && col != 5 && col != 7) return;
-        const uint16_t address = rowAddress(item->row());
-        DataMetadata meta = metadataByAddress.value(address);
-        if (col == 4) {
-            const QVariant typeVal = item->data(Qt::UserRole);
-            if (typeVal.isValid() && typeVal.toInt() >= 0) {
-                meta.customType = static_cast<RegisterDataType>(typeVal.toInt());
-            } else {
-                meta.customType = std::nullopt;
-            }
-            metadataByAddress.insert(address, meta);
-            if (currentResult.isValid) {
-                renderResult(currentResult);
-            }
-            updateResetButtonState();
-            return;
-        } else if (col == 5) {
-            bool ok = false;
-            const double parsedScale = item->text().toDouble(&ok);
-            if (!ok) {
-                QSignalBlocker blocker(dataTable);
-                item->setText(QString::number(meta.scale, 'g', 12));
-                return;
-            }
-            meta.scale = parsedScale;
-            metadataByAddress.insert(address, meta);
-            if (currentResult.isValid) {
-                renderResult(currentResult);
-            }
-            return;
-        } else if (col == 7) {
-            meta.description = item->text();
-            metadataByAddress.insert(address, meta);
-        }
+    dataTable = new FrameDecodedTableView(this);
+    connect(dataTable, &FrameDecodedTableView::selectionOrCustomTypeStateChanged,
+            this, [this](int count, bool hasCustom) {
+        updateResetButtonState(count, hasCustom);
     });
     resultTabs->addTab(dataTable, tr("Decoded Data"));
 
@@ -486,34 +424,6 @@ void FrameAnalyzerWidget::createResultGroup()
     updateAdaptiveLayout();
 }
 
-void FrameAnalyzerWidget::applyMetadataToRow(int row, const QVariant& value, const DataMetadata& meta)
-{
-    if (!dataTable || row < 0 || row >= dataTable->rowCount()) return;
-
-    QTableWidgetItem* descItem = dataTable->item(row, 7);
-    if (descItem) {
-        descItem->setToolTip(value_formatter::buildDescriptionTooltip(value, meta, displayMode));
-    }
-
-    QTableWidgetItem* scaledItem = dataTable->item(row, 6);
-    if (scaledItem) {
-        scaledItem->setText(value_formatter::formatScaledValue(value, meta, displayMode));
-    }
-
-    QTableWidgetItem* scaleItem = dataTable->item(row, 5);
-    if (scaleItem && scaleItem->text().trimmed().isEmpty()) {
-        scaleItem->setText(QString::number(meta.scale, 'g', 12));
-    }
-}
-
-uint16_t FrameAnalyzerWidget::rowAddress(int row) const
-{
-    if (!dataTable || row < 0 || row >= dataTable->rowCount()) return 0;
-    const QTableWidgetItem* addrItem = dataTable->item(row, 0);
-    if (!addrItem) return 0;
-    const QVariant data = addrItem->data(Qt::UserRole);
-    return data.isValid() ? static_cast<uint16_t>(data.toUInt()) : 0;
-}
 
 void FrameAnalyzerWidget::setHistoryCollapsed(bool collapsed)
 {
@@ -695,10 +605,11 @@ void FrameAnalyzerWidget::onExportJsonClicked()
     if (filePath.isEmpty()) return;
 
     QString error;
+    const auto meta = dataTable ? dataTable->metadataMap() : QMap<uint16_t, DataMetadata>{};
     bool ok = exporter::saveMetadataJson(filePath,
                                          startAddrEdit->text(),
                                          registerDataTypeToString(globalDataType),
-                                         metadataByAddress,
+                                         meta,
                                          &error);
     if (!ok) {
         QMessageBox::warning(this, tr("Export Failed"), error);
@@ -731,7 +642,9 @@ void FrameAnalyzerWidget::onImportJsonClicked()
         }
     }
 
-    metadataByAddress = result.metadata;
+    if (dataTable) {
+        dataTable->setMetadataMap(result.metadata);
+    }
     updateResetButtonState();
     if (!inputEditor->toPlainText().trimmed().isEmpty()) {
         onParseClicked();
@@ -742,62 +655,18 @@ void FrameAnalyzerWidget::onImportJsonClicked()
 
 void FrameAnalyzerWidget::onExportCsvClicked()
 {
-    if (!currentResult.isValid || !dataTable || dataTable->rowCount() == 0) {
-        QMessageBox::information(this, tr("No Data"), tr("There is no data to export."));
-        return;
-    }
-
-    const QString filePath = QFileDialog::getSaveFileName(this, tr("Export CSV"),
-        QStringLiteral("analysis_%1.csv").arg(QDateTime::currentDateTimeUtc().toString(QStringLiteral("yyyyMMdd_HHmmss'Z'"))),
-        tr("CSV Files (*.csv)"));
-    if (filePath.isEmpty()) return;
-
-    QStringList lines;
-    QStringList headers;
-    for (int c = 0; c < dataTable->columnCount(); ++c) {
-        headers << exporter::escapeCsvValue(dataTable->horizontalHeaderItem(c)->text());
-    }
-    lines << headers.join(QLatin1Char(','));
-
-    for (int r = 0; r < dataTable->rowCount(); ++r) {
-        QStringList row;
-        for (int c = 0; c < dataTable->columnCount(); ++c) {
-            row << exporter::escapeCsvValue(dataTable->item(r, c)->text());
-        }
-        lines << row.join(QLatin1Char(','));
-    }
-
-    QString error;
-    if (!exporter::writeCsvChunk(filePath, lines, true, &error)) {
-        QMessageBox::warning(this, tr("Export Failed"), error);
+    if (dataTable) {
+        dataTable->exportCsv();
     }
 }
 
-void FrameAnalyzerWidget::onSelectionChanged()
-{
-    updateResetButtonState();
-}
-
-void FrameAnalyzerWidget::updateResetButtonState()
+void FrameAnalyzerWidget::updateResetButtonState(int selectedCount, bool hasCustom)
 {
     if (!resetTypesBtn) return;
 
-    bool hasCustom = false;
-    for (auto it = metadataByAddress.cbegin(); it != metadataByAddress.cend(); ++it) {
-        if (it.value().customType.has_value()) {
-            hasCustom = true;
-            break;
-        }
-    }
-
-    const auto selectedRows = (dataTable && dataTable->selectionModel())
-        ? dataTable->selectionModel()->selectedRows()
-        : QModelIndexList{};
-    const int count = selectedRows.size();
-
-    if (count > 0) {
-        resetTypesBtn->setText(tr("Reset Selected (%1)").arg(count));
-        resetTypesBtn->setToolTip(tr("Reset selected %1 register type(s) to Default (Delete)").arg(count));
+    if (selectedCount > 0) {
+        resetTypesBtn->setText(tr("Reset Selected (%1)").arg(selectedCount));
+        resetTypesBtn->setToolTip(tr("Reset selected %1 register type(s) to Default (Delete)").arg(selectedCount));
         resetTypesBtn->setEnabled(true);
     } else {
         resetTypesBtn->setText(tr("Reset All"));
@@ -806,225 +675,35 @@ void FrameAnalyzerWidget::updateResetButtonState()
     }
 }
 
+void FrameAnalyzerWidget::updateResetButtonState()
+{
+    if (!dataTable) {
+        updateResetButtonState(0, false);
+        return;
+    }
+    updateResetButtonState(dataTable->selectedRowCount(), dataTable->hasCustomTypes());
+}
+
 void FrameAnalyzerWidget::onResetTypesClicked()
 {
-    const auto selectedRows = (dataTable && dataTable->selectionModel())
-        ? dataTable->selectionModel()->selectedRows()
-        : QModelIndexList{};
-    if (!selectedRows.isEmpty()) {
-        resetSelectedRowsToDefault();
+    if (!dataTable) return;
+    if (dataTable->selectedRowCount() > 0) {
+        dataTable->resetSelectedToDefault();
     } else {
-        resetAllRowsToDefault();
+        dataTable->resetAllToDefault();
     }
-}
-
-QList<int> FrameAnalyzerWidget::getSelectedPrimaryRowsSorted() const
-{
-    if (!dataTable || !dataTable->selectionModel()) return {};
-    const auto selectedIndexes = dataTable->selectionModel()->selectedRows();
-    QList<int> rows;
-    rows.reserve(selectedIndexes.size());
-    for (const auto& idx : selectedIndexes) {
-        rows.append(idx.row());
-    }
-    std::sort(rows.begin(), rows.end());
-    return rows;
-}
-
-void FrameAnalyzerWidget::resetSelectedRowsToDefault()
-{
-    const auto selectedRows = getSelectedPrimaryRowsSorted();
-    if (selectedRows.isEmpty()) return;
-
-    for (int r : selectedRows) {
-        const uint16_t addr = rowAddress(r);
-        if (metadataByAddress.contains(addr)) {
-            auto meta = metadataByAddress.value(addr);
-            meta.customType = std::nullopt;
-            metadataByAddress.insert(addr, meta);
-        }
-
-        // If this row is a subordinate row, also find and reset its primary row
-        const auto* typeItem = dataTable->item(r, 4);
-        if (typeItem && !(typeItem->flags() & Qt::ItemIsEditable)) {
-            for (int p = r - 1; p >= 0; --p) {
-                const auto* pItem = dataTable->item(p, 4);
-                if (pItem && (pItem->flags() & Qt::ItemIsEditable)) {
-                    const uint16_t pAddr = rowAddress(p);
-                    if (metadataByAddress.contains(pAddr)) {
-                        auto pMeta = metadataByAddress.value(pAddr);
-                        pMeta.customType = std::nullopt;
-                        metadataByAddress.insert(pAddr, pMeta);
-                    }
-                    break;
-                }
-            }
-        }
-    }
-
-    if (currentResult.isValid) {
-        renderResult(currentResult);
-        // Restore row selections
-        if (dataTable && dataTable->selectionModel()) {
-            QItemSelection selection;
-            for (int r : selectedRows) {
-                if (r < dataTable->rowCount()) {
-                    selection.select(dataTable->model()->index(r, 0), dataTable->model()->index(r, dataTable->columnCount() - 1));
-                }
-            }
-            dataTable->selectionModel()->select(selection, QItemSelectionModel::ClearAndSelect);
-        }
-    }
-    updateResetButtonState();
-}
-
-void FrameAnalyzerWidget::resetAllRowsToDefault()
-{
-    for (auto it = metadataByAddress.begin(); it != metadataByAddress.end(); ++it) {
-        it.value().customType = std::nullopt;
-    }
-    if (currentResult.isValid) {
-        renderResult(currentResult);
-    }
-    updateResetButtonState();
-}
-
-void FrameAnalyzerWidget::batchSetSelectedRowsType(RegisterDataType targetType)
-{
-    const auto selectedRows = getSelectedPrimaryRowsSorted();
-    if (selectedRows.isEmpty()) return;
-
-    const int wordsNeeded = registerWordsCount(targetType);
-
-    for (int i = 0; i < selectedRows.size(); ) {
-        int curRow = selectedRows[i];
-        uint16_t primaryAddr = rowAddress(curRow);
-
-        DataMetadata meta = metadataByAddress.value(primaryAddr);
-        meta.customType = targetType;
-        metadataByAddress.insert(primaryAddr, meta);
-
-        // Clear customType on subsequent subordinate addresses if present in selection
-        for (int w = 1; w < wordsNeeded; ++w) {
-            if (i + w < selectedRows.size() && selectedRows[i + w] == curRow + w) {
-                uint16_t subAddr = rowAddress(curRow + w);
-                if (metadataByAddress.contains(subAddr)) {
-                    auto subMeta = metadataByAddress.value(subAddr);
-                    subMeta.customType = std::nullopt;
-                    metadataByAddress.insert(subAddr, subMeta);
-                }
-            }
-        }
-
-        if (wordsNeeded > 1 && i + 1 < selectedRows.size() && selectedRows[i + 1] == curRow + 1) {
-            int advance = 0;
-            while (advance < wordsNeeded && (i + advance) < selectedRows.size()
-                   && selectedRows[i + advance] == curRow + advance) {
-                advance++;
-            }
-            i += advance;
-        } else {
-            i++;
-        }
-    }
-
-    if (currentResult.isValid) {
-        renderResult(currentResult);
-        if (dataTable && dataTable->selectionModel()) {
-            QItemSelection selection;
-            for (int r : selectedRows) {
-                if (r < dataTable->rowCount()) {
-                    selection.select(dataTable->model()->index(r, 0), dataTable->model()->index(r, dataTable->columnCount() - 1));
-                }
-            }
-            dataTable->selectionModel()->select(selection, QItemSelectionModel::ClearAndSelect);
-        }
-    }
-    updateResetButtonState();
-}
-
-void FrameAnalyzerWidget::onTableContextMenuRequested(const QPoint& pos)
-{
-    if (!dataTable || dataTable->rowCount() == 0) return;
-
-    const auto selectedRows = getSelectedPrimaryRowsSorted();
-    const int count = selectedRows.size();
-
-    bool hasAnyCustom = false;
-    for (auto it = metadataByAddress.cbegin(); it != metadataByAddress.cend(); ++it) {
-        if (it.value().customType.has_value()) {
-            hasAnyCustom = true;
-            break;
-        }
-    }
-
-    QMenu menu(this);
-
-    auto* resetSelectedAction = menu.addAction(
-        count > 0 ? tr("Reset Selected Type to Default (%1)\tDelete").arg(count)
-                  : tr("Reset Selected Type to Default\tDelete"));
-    resetSelectedAction->setEnabled(count > 0);
-    connect(resetSelectedAction, &QAction::triggered, this, &FrameAnalyzerWidget::resetSelectedRowsToDefault);
-
-    menu.addSeparator();
-
-    auto* batchMenu = menu.addMenu(tr("Batch Set Selected Type to..."));
-    batchMenu->setEnabled(count > 0);
-
-    auto addBatchTypeAction = [this, batchMenu](const QString& text, RegisterDataType type) {
-        auto* action = batchMenu->addAction(text);
-        connect(action, &QAction::triggered, this, [this, type]() {
-            batchSetSelectedRowsType(type);
-        });
-    };
-
-    addBatchTypeAction(tr("UInt16 (1 Reg)"), RegisterDataType::UInt16);
-    addBatchTypeAction(tr("Int16 (1 Reg)"), RegisterDataType::Int16);
-    addBatchTypeAction(tr("Float32 (Real, 2 Regs)"), RegisterDataType::Float32);
-    addBatchTypeAction(tr("Int32 (DInt, 2 Regs)"), RegisterDataType::Int32);
-    addBatchTypeAction(tr("UInt32 (UDInt, 2 Regs)"), RegisterDataType::UInt32);
-    addBatchTypeAction(tr("Float64 (Double, 4 Regs)"), RegisterDataType::Float64);
-
-    menu.addSeparator();
-
-    auto* resetAllAction = menu.addAction(tr("Reset All Custom Types to Default"));
-    resetAllAction->setEnabled(hasAnyCustom);
-    connect(resetAllAction, &QAction::triggered, this, &FrameAnalyzerWidget::resetAllRowsToDefault);
-
-    menu.exec(dataTable->mapToGlobal(pos));
-}
-
-bool FrameAnalyzerWidget::eventFilter(QObject* watched, QEvent* event)
-{
-    if (watched == dataTable && event->type() == QEvent::KeyPress) {
-        auto* keyEvent = static_cast<QKeyEvent*>(event);
-        if (keyEvent->key() == Qt::Key_Delete || keyEvent->key() == Qt::Key_Backspace) {
-            QWidget* fw = QApplication::focusWidget();
-            if (fw && fw != dataTable && fw != dataTable->viewport()) {
-                return false;
-            }
-            if (dataTable->selectionModel() && !dataTable->selectionModel()->selectedRows().isEmpty()) {
-                resetSelectedRowsToDefault();
-                return true;
-            }
-        }
-    }
-    return QWidget::eventFilter(watched, event);
 }
 
 void FrameAnalyzerWidget::renderResult(const ParseResult& result)
 {
-    isUpdatingDataTable = true;
-
     if (overviewTree) {
         overviewTree->clear();
     }
     if (dataTable) {
-        dataTable->setRowCount(0);
+        dataTable->clearTable();
     }
 
     if (!result.isValid) {
-        isUpdatingDataTable = false;
         updateResetButtonState();
         if (!isLiveMode) {
             statusLabel->setText(tr("Parse Failed: %1").arg(result.error));
@@ -1215,7 +894,6 @@ void FrameAnalyzerWidget::renderResult(const ParseResult& result)
     }
 
     if (dataTable) {
-        dataTable->setRowCount(result.dataItems.size());
         modbus::address::AddressBase addressBase = modbus::address::AddressBase::Offset0Based;
         if (settingsService_) {
             const QVariant val = settingsService_->value(core::common::settings_keys::kModbusAddressBase);
@@ -1223,146 +901,9 @@ void FrameAnalyzerWidget::renderResult(const ParseResult& result)
                 addressBase = static_cast<modbus::address::AddressBase>(val.toInt());
             }
         }
-
-        int subordinateRemaining = 0;
-        RegisterDataType subordinateParentType = RegisterDataType::UInt16;
-        int subordinateWordIndex = 0;
-        uint16_t parentAddress = 0;
-
-        for (int i = 0; i < result.dataItems.size(); ++i) {
-            const auto& item = result.dataItems[i];
-            const DataMetadata meta = metadataByAddress.value(item.address);
-
-            // 0: Address
-            const QString dispAddr = modbus::address::toDisplayAddress(item.address, addressBase, false);
-            auto* addrItem = new QTableWidgetItem(QStringLiteral("%1 (0x%2)")
-                .arg(dispAddr)
-                .arg(QString::number(item.address, 16).toUpper().rightJustified(4, QLatin1Char('0'))));
-            addrItem->setData(Qt::UserRole, item.address);
-            addrItem->setFlags(addrItem->flags() & ~Qt::ItemIsEditable);
-            dataTable->setItem(i, 0, addrItem);
-
-            // 1: Hex
-            auto* hexItem = new QTableWidgetItem(value_formatter::formatHexValue(item.rawBytes, item.hexString));
-            hexItem->setFlags(addrItem->flags());
-            dataTable->setItem(i, 1, hexItem);
-
-            // 2: Decimal (16-bit raw decimal representation of this word)
-            const NumberDisplayMode decMode = (globalDataType == RegisterDataType::Int16) ? NumberDisplayMode::Signed : NumberDisplayMode::Unsigned;
-            auto* decItem = new QTableWidgetItem(value_formatter::formatDecimalValue(item.value, decMode));
-            decItem->setFlags(addrItem->flags());
-            dataTable->setItem(i, 2, decItem);
-
-            // 3: Binary
-            auto* binItem = new QTableWidgetItem(value_formatter::formatBinaryValue(item.rawBytes, item.binaryString));
-            binItem->setFlags(addrItem->flags());
-            dataTable->setItem(i, 3, binItem);
-
-            if (subordinateRemaining > 0) {
-                // Subordinate / occupied word of a preceding multi-register value
-                subordinateWordIndex++;
-                subordinateRemaining--;
-
-                // 4: Type
-                const QString typeDesc = (subordinateWordIndex == 2 && registerWordsCount(subordinateParentType) == 2)
-                    ? QStringLiteral("[%1 Low-Word]").arg(registerDataTypeToString(subordinateParentType))
-                    : QStringLiteral("[%1 W%2]").arg(registerDataTypeToString(subordinateParentType)).arg(subordinateWordIndex);
-                auto* typeItem = new QTableWidgetItem(typeDesc);
-                typeItem->setFlags(addrItem->flags());
-                typeItem->setForeground(QColor(128, 128, 128));
-                dataTable->setItem(i, 4, typeItem);
-
-                // 5: Scale
-                auto* scaleItem = new QTableWidgetItem(QStringLiteral("-"));
-                scaleItem->setFlags(addrItem->flags());
-                scaleItem->setForeground(QColor(128, 128, 128));
-                dataTable->setItem(i, 5, scaleItem);
-
-                // 6: Value
-                auto* valItem = new QTableWidgetItem(QStringLiteral("-"));
-                valItem->setFlags(addrItem->flags());
-                valItem->setForeground(QColor(128, 128, 128));
-                dataTable->setItem(i, 6, valItem);
-
-                // 7: Description
-                const QString descText = meta.description.isEmpty()
-                    ? tr("(Subordinate word of address %1)").arg(parentAddress)
-                    : meta.description;
-                auto* descItem = new QTableWidgetItem(descText);
-                descItem->setFlags(descItem->flags() | Qt::ItemIsEditable);
-                descItem->setForeground(QColor(128, 128, 128));
-                dataTable->setItem(i, 7, descItem);
-            } else {
-                // Primary register row
-                const bool isBoolType = (item.value.typeId() == QMetaType::Bool);
-                const RegisterDataType effectiveType = meta.customType.value_or(globalDataType);
-                const int wordsNeeded = isBoolType ? 1 : registerWordsCount(effectiveType);
-
-                QByteArray combinedBytes;
-                const int availableWords = qMin(wordsNeeded, result.dataItems.size() - i);
-                for (int w = 0; w < availableWords; ++w) {
-                    const auto& wItem = result.dataItems[i + w];
-                    if (wItem.rawBytes.size() >= 2) {
-                        combinedBytes.append(wItem.rawBytes.left(2));
-                    } else if (wItem.value.isValid()) {
-                        const uint16_t v = static_cast<uint16_t>(wItem.value.toUInt());
-                        combinedBytes.append(static_cast<char>((v >> 8) & 0xFF));
-                        combinedBytes.append(static_cast<char>(v & 0xFF));
-                    }
-                }
-
-                QString valText;
-                QString tooltip;
-                if (isBoolType) {
-                    valText = item.value.toBool() ? QStringLiteral("1") : QStringLiteral("0");
-                    tooltip = meta.description;
-                } else if (availableWords < wordsNeeded) {
-                    valText = QStringLiteral("<Incomplete>");
-                    tooltip = tr("Incomplete register bytes for %1").arg(registerDataTypeToString(effectiveType));
-                } else {
-                    subordinateRemaining = wordsNeeded - 1;
-                    subordinateParentType = effectiveType;
-                    subordinateWordIndex = 1;
-                    parentAddress = item.address;
-
-                    valText = value_formatter::formatScaledValue(combinedBytes, meta, effectiveType, registerOrder);
-                    tooltip = value_formatter::buildDescriptionTooltip(combinedBytes, meta, effectiveType, registerOrder);
-                }
-
-                // 4: Type
-                auto* typeItem = new QTableWidgetItem();
-                if (meta.customType.has_value()) {
-                    typeItem->setText(registerDataTypeToString(*meta.customType));
-                    typeItem->setData(Qt::UserRole, static_cast<int>(*meta.customType));
-                } else {
-                    typeItem->setText(tr("Default (%1)").arg(registerDataTypeToString(globalDataType)));
-                    typeItem->setData(Qt::UserRole, -1);
-                }
-                typeItem->setFlags(typeItem->flags() | Qt::ItemIsEditable);
-                dataTable->setItem(i, 4, typeItem);
-
-                // 5: Scale
-                auto* scaleItem = new QTableWidgetItem(QString::number(meta.scale, 'g', 12));
-                scaleItem->setFlags(scaleItem->flags() | Qt::ItemIsEditable);
-                dataTable->setItem(i, 5, scaleItem);
-
-                // 6: Value
-                auto* valItem = new QTableWidgetItem(valText);
-                valItem->setFlags(addrItem->flags());
-                dataTable->setItem(i, 6, valItem);
-
-                // 7: Description
-                auto* descItem = new QTableWidgetItem(meta.description);
-                descItem->setFlags(descItem->flags() | Qt::ItemIsEditable);
-                if (!tooltip.isEmpty()) {
-                    descItem->setToolTip(tooltip);
-                }
-                dataTable->setItem(i, 7, descItem);
-            }
-        }
+        dataTable->renderData(result, globalDataType, registerOrder, addressBase);
     }
 
-    isUpdatingDataTable = false;
     updateResetButtonState();
     if (!isLiveMode) {
         QString statusText = tr("Success (%1)").arg(protocolText);
@@ -1401,6 +942,9 @@ void FrameAnalyzerWidget::clearResult()
 
     if (wasLive && lastLiveResult.isValid) {
         renderResult(lastLiveResult);
+    } else {
+        if (dataTable) dataTable->clearTable();
+        if (overviewTree) overviewTree->clear();
     }
     if (resultTabs) resultTabs->setTabText(0, tr("Structure"));
     updateResetButtonState();
@@ -1599,16 +1143,7 @@ void FrameAnalyzerWidget::retranslateUi()
         header->setText(2, tr("Description"));
     }
     if (dataTable) {
-        dataTable->setHorizontalHeaderLabels({
-            tr("Address"),
-            tr("Hex"),
-            tr("Decimal"),
-            tr("Binary"),
-            tr("Type"),
-            tr("Scale"),
-            tr("Value"),
-            tr("Description")
-        });
+        dataTable->retranslateUi();
     }
     if (clearHistoryBtn) clearHistoryBtn->setText(tr("Clear History"));
 

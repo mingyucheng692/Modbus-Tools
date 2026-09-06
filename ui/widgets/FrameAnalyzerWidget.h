@@ -40,6 +40,8 @@ class FrameAnalyzerPresenter;
 
 namespace ui::widgets {
 
+class FrameDecodedTableView;
+
 /**
  * @brief Modbus frame analyzer view: rendering and interaction only.
  *
@@ -76,8 +78,6 @@ private slots:
     void onExportCsvClicked();
     void onHistorySelectionChanged(int row);
     void onClearHistoryClicked();
-    void onSelectionChanged();
-    void onTableContextMenuRequested(const QPoint& pos);
     void onResetTypesClicked();
 
     // 由 FrameAnalyzerPresenter 在 GUI 线程上转发
@@ -86,7 +86,6 @@ private slots:
 protected:
     void changeEvent(QEvent* event) override;
     void resizeEvent(QResizeEvent* event) override;
-    bool eventFilter(QObject* watched, QEvent* event) override;
 
 private:
     void setupUi();
@@ -95,9 +94,7 @@ private:
     void clearResult();
 
     // --- Helpers ---
-    [[nodiscard]] uint16_t rowAddress(int row) const;
     [[nodiscard]] QString historyItemText(const modbus::parser::ParseResult& result) const;
-    void applyMetadataToRow(int row, const QVariant& value, const modbus::analyzer::DataMetadata& meta);
     void addToHistory(const modbus::parser::ParseResult& result);
     void refreshHistoryList();
     void setHistoryCollapsed(bool collapsed);
@@ -105,11 +102,8 @@ private:
     void updateAdaptiveLayout();
     void loadSettings();
     void saveSettings();
+    void updateResetButtonState(int selectedCount, bool hasCustom);
     void updateResetButtonState();
-    void resetSelectedRowsToDefault();
-    void resetAllRowsToDefault();
-    void batchSetSelectedRowsType(modbus::analyzer::RegisterDataType targetType);
-    [[nodiscard]] QList<int> getSelectedPrimaryRowsSorted() const;
 
     // --- UI construction ---
     void createInputGroup();
@@ -147,7 +141,7 @@ private:
     QLabel* statusLabel = nullptr;
     QWidget* structureTab = nullptr;
     QTreeWidget* overviewTree = nullptr;
-    QTableWidget* dataTable = nullptr;
+    FrameDecodedTableView* dataTable = nullptr;
     QTabWidget* resultTabs = nullptr;
     QSplitter* contentSplitter = nullptr;
     QGroupBox* historyGroup = nullptr;
@@ -166,12 +160,10 @@ private:
     int lastHistoryPanelWidth = 0; // set in the constructor from config::Ui
     modbus::analyzer::RegisterDataType globalDataType = modbus::analyzer::RegisterDataType::UInt16;
     modbus::analyzer::NumberDisplayMode displayMode = modbus::analyzer::NumberDisplayMode::Unsigned;
-    QMap<uint16_t, modbus::analyzer::DataMetadata> metadataByAddress;
     QList<modbus::parser::ParseResult> historyResults;
     modbus::parser::ParseResult currentResult;
     quint64 latestParseRequestId = 0;
     bool parseInProgress = false;
-    bool isUpdatingDataTable = false;
     bool isLiveMode = false;
     bool isLivePaused = false;
     modbus::parser::ParseResult lastLiveResult;

@@ -148,6 +148,8 @@ target_sources(ui PRIVATE
     widgets/AboutDialog.h
     widgets/FrameAnalyzerWidget.cpp
     widgets/FrameAnalyzerWidget.h
+    widgets/FrameDecodedTableView.cpp
+    widgets/FrameDecodedTableView.h
     widgets/RegisterTypeDelegate.cpp
     widgets/RegisterTypeDelegate.h
 )
