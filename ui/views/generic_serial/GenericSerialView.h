@@ -30,7 +30,7 @@ class ISettingsService;
 
 namespace ui::views::generic_serial {
 
-// ADR 0004 (design note): GenericSerialView / GenericTcpView deliberately hold
+// ADR 0004 (design note): GenericSerialView / NetworkDebuggerView deliberately hold
 // their worker/channel directly and bypass the Presenter layer used by
 // ModbusPage. Presenter is reserved for views with cross-cutting application
 // state (session lifecycle, update flow, navigation); the generic_* views are
@@ -80,7 +80,7 @@ private:
     /// Monotonic connection-attempt counter, bumped on every user connect /
     /// reconnect tick. Stale worker emissions from a torn-down channel carry
     /// an older generation and are dropped in onWorkerStateChanged() — the
-    /// same mechanism GenericTcpView uses for rapid open/close sequences.
+    /// same mechanism NetworkDebuggerView uses for rapid open/close sequences.
     quint64 connectionGeneration_ = 0;
 };
 

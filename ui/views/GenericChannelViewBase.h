@@ -23,7 +23,7 @@ class ChannelController;
 
 /**
  * @class GenericChannelViewBase
- * @brief Common base class for GenericSerialView and GenericTcpView.
+ * @brief Common base class for GenericSerialView and NetworkDebuggerView.
  *
  * Provides shared connection state tracking, settings access, and the
  * ChannelController pointer that subclasses initialize and use for worker

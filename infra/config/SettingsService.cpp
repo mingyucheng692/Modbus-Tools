@@ -150,14 +150,39 @@ void SettingsService::initializeDefaults() {
     defaults_.insert(kModbusRtuControlQty, ::config::Modbus::kDefaultControlQuantity);
     defaults_.insert(kModbusRtuDataMonitorCollapsed, false);
 
-    // New string-based keys for smart hex/dec input support
     defaults_.insert(QString(kModbusTcpStandardSlaveId) + "Str", QString::number(::config::Modbus::kDefaultSlaveId));
     defaults_.insert(QString(kModbusTcpStandardStartAddr) + "Str", QString::number(::config::Modbus::kDefaultStandardStartAddress));
     defaults_.insert(QString(kModbusRtuStandardSlaveId) + "Str", QString::number(::config::Modbus::kDefaultSlaveId));
     defaults_.insert(QString(kModbusRtuStandardStartAddr) + "Str", QString::number(::config::Modbus::kDefaultStandardStartAddress));
 
+    // Modbus ASCII mode defaults (symmetric with RTU serial transport + standard/traffic/control)
+    defaults_.insert(QStringLiteral("modbus/ascii/serial/baudRate"), QString::fromLatin1(::config::Serial::kDefaultBaudRateText));
+    defaults_.insert(QStringLiteral("modbus/ascii/serial/dataBits"), QString::fromLatin1(::config::Serial::kDefaultDataBitsText));
+    defaults_.insert(QStringLiteral("modbus/ascii/serial/parity"), QString::fromLatin1(::config::Serial::kDefaultParityText));
+    defaults_.insert(QStringLiteral("modbus/ascii/serial/stopBits"), QString::fromLatin1(::config::Serial::kDefaultStopBitsText));
+    defaults_.insert(QStringLiteral("modbus/ascii/serial/portName"), QString());
+    defaults_.insert(QStringLiteral("modbus/ascii/serial/ui/connectionSettingsCollapsed"), false);
+    defaults_.insert(QStringLiteral("modbus/ascii/standard/slaveId"), ::config::Modbus::kDefaultSlaveId);
+    defaults_.insert(QStringLiteral("modbus/ascii/standard/startAddr"), ::config::Modbus::kDefaultStandardStartAddress);
+    defaults_.insert(QStringLiteral("modbus/ascii/standard/quantity"), ::config::Modbus::kDefaultStandardQuantity);
+    defaults_.insert(QStringLiteral("modbus/ascii/standard/formatIndex"), ::config::Modbus::kDefaultStandardFormatIndex);
+    defaults_.insert(QStringLiteral("modbus/ascii/standard/ui/standardCollapsed"), false);
+    defaults_.insert(QStringLiteral("modbus/ascii/standard/ui/rawCollapsed"), true);
+    defaults_.insert(QStringLiteral("modbus/ascii/traffic/autoScroll"), true);
+    defaults_.insert(QStringLiteral("modbus/ascii/traffic/showTx"), true);
+    defaults_.insert(QStringLiteral("modbus/ascii/traffic/showRx"), true);
+    defaults_.insert(QStringLiteral("modbus/ascii/traffic/ui/trafficMonitorCollapsed"), false);
+    defaults_.insert(QStringLiteral("modbus/ascii/control/enablePoll"), false);
+    defaults_.insert(QStringLiteral("modbus/ascii/control/intervalMs"), ::config::Modbus::kDefaultControlIntervalMs);
+    defaults_.insert(QStringLiteral("modbus/ascii/control/fcIndex"), ::config::Modbus::kDefaultControlFunctionIndex);
+    defaults_.insert(QStringLiteral("modbus/ascii/control/addr"), ::config::Modbus::kDefaultControlAddress);
+    defaults_.insert(QStringLiteral("modbus/ascii/control/qty"), ::config::Modbus::kDefaultControlQuantity);
+    defaults_.insert(QStringLiteral("modbus/ascii/ui/dataMonitorCollapsed"), false);
+    defaults_.insert(QStringLiteral("modbus/ascii/standard/slaveIdStr"), QString::number(::config::Modbus::kDefaultSlaveId));
+    defaults_.insert(QStringLiteral("modbus/ascii/standard/startAddrStr"), QString::number(::config::Modbus::kDefaultStandardStartAddress));
+
     defaults_.insert(kTcpClientIp, QString::fromLatin1(::config::Network::kDefaultDeviceAddress));
-    defaults_.insert(kTcpClientPort, ::config::Network::kDefaultGenericTcpPort);
+    defaults_.insert(kTcpClientPort, ::config::Network::kDefaultNetworkDebuggerPort);
     defaults_.insert(kTcpClientConnectionCollapsed, false);
     defaults_.insert(kTcpClientTrafficAutoScroll, true);
     defaults_.insert(kTcpClientTrafficShowTx, true);

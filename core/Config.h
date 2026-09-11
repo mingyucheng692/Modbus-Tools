@@ -32,8 +32,11 @@ struct Settings {
 
 struct Network {
     static constexpr char kDefaultDeviceAddress[] = "192.168.10.1";
+    /// Standard IANA port for Modbus TCP (network transport layer only).
+    /// NOTE: Modbus RTU and ASCII use physical serial lines (portName and
+    /// config::Serial parameters) and do not use this network TCP port.
     static constexpr int kDefaultModbusTcpPort = 502;
-    static constexpr int kDefaultGenericTcpPort = 8080;
+    /// Default port for Network Debugger (generic TCP/UDP client and server).
     static constexpr int kDefaultNetworkDebuggerPort = 8080;
     static constexpr int kMinTcpPort = 1;
     static constexpr int kMaxTcpPort = 65535;

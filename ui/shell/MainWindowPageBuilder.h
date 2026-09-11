@@ -45,7 +45,7 @@ struct MainWindowPages {
 };
 
 /**
- * @brief Builds the main window's stacked pages (Modbus, GenericTcp,
+ * @brief Builds the main window's stacked pages (Modbus, NetworkDebugger,
  *        GenericSerial, FrameAnalyzer) and registers them with @p stackedWidget.
  *
  * Replaces the former MainWindowPageBuilder class — a stateless 20-LOC factory

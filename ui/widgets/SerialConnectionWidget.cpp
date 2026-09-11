@@ -298,8 +298,13 @@ void SerialConnectionWidget::setupUi() {
     setupCommonConnections();
     repopulateParityOptions(parityCombo_);
     repopulateFlowControlOptions(flowControlCombo_);
+    if (section_) {
+        const QString collapseKey = settingsGroup_.isEmpty()
+            ? QString::fromLatin1(core::common::settings_keys::kSerialPortConnectionCollapsed)
+            : (settingsGroup_ + QStringLiteral("/ui/connectionSettingsCollapsed"));
+        section_->setSettingsKey(collapseKey);
+    }
     loadSettings();
-    section_->setSettingsKey(kModbusRtuConnectionCollapsed);
 
     retranslateUi();
 }
@@ -313,12 +318,14 @@ void SerialConnectionWidget::loadSettings() {
     QSignalBlocker b4(stopBitsCombo_);
     QSignalBlocker b5(flowControlCombo_);
 
-    const QString baudKey = settingsGroup_.isEmpty() ? QString::fromLatin1(kModbusRtuBaudRate) : (settingsGroup_ + QStringLiteral("/baudRate"));
-    const QString dataBitsKey = settingsGroup_.isEmpty() ? QString::fromLatin1(kModbusRtuDataBits) : (settingsGroup_ + QStringLiteral("/dataBits"));
-    const QString parityKey = settingsGroup_.isEmpty() ? QString::fromLatin1(kModbusRtuParity) : (settingsGroup_ + QStringLiteral("/parity"));
-    const QString stopBitsKey = settingsGroup_.isEmpty() ? QString::fromLatin1(kModbusRtuStopBits) : (settingsGroup_ + QStringLiteral("/stopBits"));
-    const QString portKey = settingsGroup_.isEmpty() ? QString::fromLatin1(kModbusRtuPortName) : (settingsGroup_ + QStringLiteral("/portName"));
-    const QString flowKey = settingsGroup_.isEmpty() ? QString::fromLatin1(kModbusRtuFlowControl) : (settingsGroup_ + QStringLiteral("/flowControl"));
+    const QString defaultGroup = QStringLiteral("serial_port");
+    const QString group = settingsGroup_.isEmpty() ? defaultGroup : settingsGroup_;
+    const QString baudKey = group + QStringLiteral("/baudRate");
+    const QString dataBitsKey = group + QStringLiteral("/dataBits");
+    const QString parityKey = group + QStringLiteral("/parity");
+    const QString stopBitsKey = group + QStringLiteral("/stopBits");
+    const QString portKey = group + QStringLiteral("/portName");
+    const QString flowKey = group + QStringLiteral("/flowControl");
 
     const int fallbackBaud = settingsService_->value(kLegacySerialBaudRate).toInt();
     const int baudRate = settingsService_->contains(baudKey) ? settingsService_->value(baudKey).toInt() : fallbackBaud;
@@ -371,12 +378,14 @@ void SerialConnectionWidget::saveSettings() {
     saveCommonSettings();
     if (!settingsService_) return;
 
-    const QString baudKey = settingsGroup_.isEmpty() ? QString::fromLatin1(kModbusRtuBaudRate) : (settingsGroup_ + QStringLiteral("/baudRate"));
-    const QString dataBitsKey = settingsGroup_.isEmpty() ? QString::fromLatin1(kModbusRtuDataBits) : (settingsGroup_ + QStringLiteral("/dataBits"));
-    const QString parityKey = settingsGroup_.isEmpty() ? QString::fromLatin1(kModbusRtuParity) : (settingsGroup_ + QStringLiteral("/parity"));
-    const QString stopBitsKey = settingsGroup_.isEmpty() ? QString::fromLatin1(kModbusRtuStopBits) : (settingsGroup_ + QStringLiteral("/stopBits"));
-    const QString portKey = settingsGroup_.isEmpty() ? QString::fromLatin1(kModbusRtuPortName) : (settingsGroup_ + QStringLiteral("/portName"));
-    const QString flowKey = settingsGroup_.isEmpty() ? QString::fromLatin1(kModbusRtuFlowControl) : (settingsGroup_ + QStringLiteral("/flowControl"));
+    const QString defaultGroup = QStringLiteral("serial_port");
+    const QString group = settingsGroup_.isEmpty() ? defaultGroup : settingsGroup_;
+    const QString baudKey = group + QStringLiteral("/baudRate");
+    const QString dataBitsKey = group + QStringLiteral("/dataBits");
+    const QString parityKey = group + QStringLiteral("/parity");
+    const QString stopBitsKey = group + QStringLiteral("/stopBits");
+    const QString portKey = group + QStringLiteral("/portName");
+    const QString flowKey = group + QStringLiteral("/flowControl");
 
     settingsService_->setValue(baudKey, baudCombo_->currentText());
     settingsService_->setValue(dataBitsKey, dataBitsCombo_->currentText());

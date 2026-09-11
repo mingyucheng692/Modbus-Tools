@@ -29,7 +29,7 @@ namespace ui::views {
  *
  * Owns the worker QThread, ChannelOperationWorker, reconnect QTimer, and
  * ReconnectPolicy. Used as a member of channel view subclasses (GenericSerialView,
- * GenericTcpView) to eliminate duplicated worker lifecycle code.
+ * NetworkDebuggerView) to eliminate duplicated worker lifecycle code.
  */
 class ChannelController : public QObject {
     Q_OBJECT
