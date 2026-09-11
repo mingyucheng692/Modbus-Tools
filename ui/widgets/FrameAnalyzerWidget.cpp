@@ -524,6 +524,15 @@ void FrameAnalyzerWidget::onPasteAndParseClicked()
     onParseClicked();
 }
 
+void FrameAnalyzerWidget::loadAndParseHex(const QString& hex)
+{
+    exitLiveMode();
+    if (inputEditor) {
+        inputEditor->setPlainText(hex);
+    }
+    onParseClicked();
+}
+
 void FrameAnalyzerWidget::onClearClicked()
 {
     ++latestParseRequestId;

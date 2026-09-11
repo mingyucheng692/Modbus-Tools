@@ -121,6 +121,10 @@ target_sources(ui PRIVATE
     views/generic_serial/GenericSerialView.h
     views/converter/Ieee754ConverterWidget.cpp
     views/converter/Ieee754ConverterWidget.h
+    views/converter/ModbusFrameBuilderWidget.cpp
+    views/converter/ModbusFrameBuilderWidget.h
+    views/tools/UtilitiesView.cpp
+    views/tools/UtilitiesView.h
     widgets/BaseConnectionWidget.cpp
     widgets/BaseConnectionWidget.h
     widgets/NetworkConnectionWidget.cpp

@@ -32,6 +32,7 @@ namespace core::common { class SettingsController; }
 namespace core::update { class UpdateManager; }
 
 namespace ui {
+enum class MainPage : std::size_t;
 namespace views::modbus { class ModbusPage; }
 namespace widgets { class FrameAnalyzerWidget; }
 namespace common { class ThemeController; }
@@ -74,6 +75,7 @@ private:
 
     // UI Setup
     void createNavigation();
+    void navigateTo(MainPage page);
     void setupSettingsMenu();
     void setupLanguageMenu();
     void setupAboutMenu();

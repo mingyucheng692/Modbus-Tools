@@ -16,6 +16,7 @@
 #include "application/UpdateCoordinator.h"
 #include "shell/NavigationController.h"
 #include "shell/MainWindowPageBuilder.h"
+#include "views/tools/UtilitiesView.h"
 #include "views/modbus/ModbusPage.h"
 #include "widgets/FrameAnalyzerWidget.h"
 #include "widgets/DisclaimerDialog.h"
@@ -145,6 +146,16 @@ void MainWindow::initializeUi() {
     }
     applyAddressBaseToViews(settingsController_->addressBase());
 
+    if (pages.utilities) {
+        connect(pages.utilities, &views::tools::UtilitiesView::inspectInAnalyzerRequested,
+                this, [this](const QString& hex) {
+                    if (frameAnalyzer_) {
+                        frameAnalyzer_->loadAndParseHex(hex);
+                    }
+                    navigateTo(MainPage::FrameAnalyzer);
+                });
+    }
+
     if (navigationController_) {
         navigationController_->bindToStack(stackedWidget_,
                                            std::vector<int>(pages.pageIndexByNavigationRow.begin(),
@@ -182,7 +193,7 @@ void MainWindow::createNavigation() {
 
     navigationController_ = std::make_unique<shell::NavigationController>(navigationList_, navigationPane_, navigationToggleButton_);
     navigationController_->initialize(
-        {tr("Modbus"), tr("Network Debugger"), tr("Serial Debugger"), tr("Frame Analyzer"), tr("IEEE 754 Converter")});
+        {tr("Modbus"), tr("Network Debugger"), tr("Serial Debugger"), tr("Frame Analyzer"), tr("Utilities")});
 
     common::theme_ui::applyNavigationTheme(navigationList_->palette(), navigationPane_, navigationToggleButton_, navigationList_);
     auto invoke = [this](auto fn, auto&&... args) {
@@ -193,6 +204,13 @@ void MainWindow::createNavigation() {
     connect(navigationToggleButton_, &QToolButton::clicked, this, [invoke]() {
         invoke(&application::AppLifecycleCoordinator::onNavigationToggleRequested);
     });
+}
+
+void MainWindow::navigateTo(MainPage page) {
+    const int row = static_cast<int>(page);
+    if (navigationList_ && row >= 0 && row < navigationList_->count()) {
+        navigationList_->setCurrentRow(row);
+    }
 }
 
 void MainWindow::setNavigationCollapsed(bool collapsed) {
@@ -372,7 +390,7 @@ void MainWindow::retranslateUi(const QString& effectiveLocale) {
         tr("Network Debugger"),
         tr("Serial Debugger"),
         tr("Frame Analyzer"),
-        tr("IEEE 754 Converter")
+        tr("Utilities")
     };
     if (navigationController_) {
         navigationController_->retranslateUi(titles, tr("Expand Navigation"), tr("Collapse Navigation"));

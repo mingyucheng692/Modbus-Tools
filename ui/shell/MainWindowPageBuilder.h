@@ -14,8 +14,8 @@ namespace ui::views::modbus {
 class ModbusPage;
 }
  
-namespace ui::views::converter {
-class Ieee754ConverterWidget;
+namespace ui::views::tools {
+class UtilitiesView;
 }
 
 namespace ui::widgets {
@@ -29,7 +29,7 @@ enum class MainPage : std::size_t {
     NetworkDebugger,
     GenericSerial,
     FrameAnalyzer,
-    Ieee754Converter,
+    Utilities,
     Count
 };
 
@@ -38,7 +38,7 @@ constexpr std::size_t kMainPageCount = static_cast<std::size_t>(MainPage::Count)
 struct MainWindowPages {
     views::modbus::ModbusPage* modbusView = nullptr;
     widgets::FrameAnalyzerWidget* frameAnalyzer = nullptr;
-    views::converter::Ieee754ConverterWidget* ieee754Converter = nullptr;
+    views::tools::UtilitiesView* utilities = nullptr;
     std::array<int, kMainPageCount> pageIndexByNavigationRow = {};
 
     [[nodiscard]] int indexFor(MainPage page) const;
@@ -46,7 +46,7 @@ struct MainWindowPages {
 
 /**
  * @brief Builds the main window's stacked pages (Modbus, NetworkDebugger,
- *        GenericSerial, FrameAnalyzer) and registers them with @p stackedWidget.
+ *        GenericSerial, FrameAnalyzer, Utilities) and registers them with @p stackedWidget.
  *
  * Replaces the former MainWindowPageBuilder class — a stateless 20-LOC factory
  * that did not earn its existence as a class.

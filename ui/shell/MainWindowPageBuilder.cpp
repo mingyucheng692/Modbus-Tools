@@ -5,7 +5,7 @@
 #include "views/network/NetworkDebuggerView.h"
 #include "views/modbus/ModbusPage.h"
 #include "widgets/FrameAnalyzerWidget.h"
-#include "views/converter/Ieee754ConverterWidget.h"
+#include "views/tools/UtilitiesView.h"
 
 #include <QFrame>
 #include <QScrollArea>
@@ -52,9 +52,9 @@ MainWindowPages buildMainWindowPages(infra::config::ISettingsService* settingsSe
     pages.pageIndexByNavigationRow[static_cast<std::size_t>(MainPage::FrameAnalyzer)] =
         stackedWidget->addWidget(createScrollablePage(pages.frameAnalyzer, stackedWidget));
 
-    pages.ieee754Converter = new views::converter::Ieee754ConverterWidget(owner);
-    pages.pageIndexByNavigationRow[static_cast<std::size_t>(MainPage::Ieee754Converter)] =
-        stackedWidget->addWidget(createScrollablePage(pages.ieee754Converter, stackedWidget));
+    pages.utilities = new views::tools::UtilitiesView(settingsService, owner);
+    pages.pageIndexByNavigationRow[static_cast<std::size_t>(MainPage::Utilities)] =
+        stackedWidget->addWidget(createScrollablePage(pages.utilities, stackedWidget));
 
     return pages;
 }

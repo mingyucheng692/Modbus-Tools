@@ -61,6 +61,13 @@ public:
      * @brief 处理来自外部（如会话视图）的实时 PDU 数据。
      */
     void processLivePdu(const modbus::base::Pdu& pdu, modbus::parser::ProtocolType protocol, uint16_t addr);
+    /**
+     * @brief Loads a raw or spaced hexadecimal frame string and immediately parses it.
+     *        Dedicated entry point for cross-tool linkage (e.g. Frame Builder).
+     * @param hex The hex frame string.
+     */
+    void loadAndParseHex(const QString& hex);
+
     void exitLiveMode();
     void setLivePaused(bool paused);
 
