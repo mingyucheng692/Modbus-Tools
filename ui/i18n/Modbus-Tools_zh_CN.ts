@@ -738,8 +738,8 @@
     <message>
         <location filename="../MainWindow.cpp" line="185" />
         <location filename="../MainWindow.cpp" line="372" />
-        <source>TCP/UDP Tool</source>
-        <translation>TCP/UDP 工具</translation>
+        <source>Network Debugger</source>
+        <translation>网络调试器</translation>
     </message>
     <message>
         <location filename="../MainWindow.cpp" line="185" />

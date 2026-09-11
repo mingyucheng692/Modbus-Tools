@@ -2,7 +2,7 @@
 
 #include "infra/config/ISettingsService.h"
 #include "views/generic_serial/GenericSerialView.h"
-#include "views/generic_tcp/GenericTcpView.h"
+#include "views/network/NetworkDebuggerView.h"
 #include "views/modbus/ModbusPage.h"
 #include "widgets/FrameAnalyzerWidget.h"
 #include "views/converter/Ieee754ConverterWidget.h"
@@ -40,9 +40,9 @@ MainWindowPages buildMainWindowPages(infra::config::ISettingsService* settingsSe
     pages.pageIndexByNavigationRow[static_cast<std::size_t>(MainPage::Modbus)] =
         stackedWidget->addWidget(createScrollablePage(pages.modbusView, stackedWidget));
 
-    auto* genericTcpView = new views::generic_tcp::GenericTcpView(settingsService, owner);
-    pages.pageIndexByNavigationRow[static_cast<std::size_t>(MainPage::GenericTcp)] =
-        stackedWidget->addWidget(createScrollablePage(genericTcpView, stackedWidget));
+    auto* networkDebuggerView = new views::network::NetworkDebuggerView(settingsService, owner);
+    pages.pageIndexByNavigationRow[static_cast<std::size_t>(MainPage::NetworkDebugger)] =
+        stackedWidget->addWidget(createScrollablePage(networkDebuggerView, stackedWidget));
 
     auto* genericSerialView = new views::generic_serial::GenericSerialView(settingsService, owner);
     pages.pageIndexByNavigationRow[static_cast<std::size_t>(MainPage::GenericSerial)] =

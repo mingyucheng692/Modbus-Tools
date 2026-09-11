@@ -115,8 +115,8 @@ target_sources(ui PRIVATE
     views/ChannelController.h
     views/GenericChannelViewBase.cpp
     views/GenericChannelViewBase.h
-    views/generic_tcp/GenericTcpView.cpp
-    views/generic_tcp/GenericTcpView.h
+    views/network/NetworkDebuggerView.cpp
+    views/network/NetworkDebuggerView.h
     views/generic_serial/GenericSerialView.cpp
     views/generic_serial/GenericSerialView.h
     views/converter/Ieee754ConverterWidget.cpp

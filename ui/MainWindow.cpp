@@ -182,7 +182,7 @@ void MainWindow::createNavigation() {
 
     navigationController_ = std::make_unique<shell::NavigationController>(navigationList_, navigationPane_, navigationToggleButton_);
     navigationController_->initialize(
-        {tr("Modbus"), tr("TCP/UDP Tool"), tr("Serial Debugger"), tr("Frame Analyzer"), tr("IEEE 754 Converter")});
+        {tr("Modbus"), tr("Network Debugger"), tr("Serial Debugger"), tr("Frame Analyzer"), tr("IEEE 754 Converter")});
 
     common::theme_ui::applyNavigationTheme(navigationList_->palette(), navigationPane_, navigationToggleButton_, navigationList_);
     auto invoke = [this](auto fn, auto&&... args) {
@@ -369,7 +369,7 @@ void MainWindow::retranslateUi(const QString& effectiveLocale) {
     setWindowTitle(tr("Modbus Tools"));
     const QStringList titles = {
         tr("Modbus"),
-        tr("TCP/UDP Tool"),
+        tr("Network Debugger"),
         tr("Serial Debugger"),
         tr("Frame Analyzer"),
         tr("IEEE 754 Converter")

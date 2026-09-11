@@ -1,6 +1,6 @@
 /**
- * @file GenericTcpView.h
- * @brief Header file for GenericTcpView.
+ * @file NetworkDebuggerView.h
+ * @brief Header file for NetworkDebuggerView.
  * 
  * Copyright (c) 2025 - present mingyucheng692
  * 
@@ -36,16 +36,16 @@ namespace infra::config {
 class ISettingsService;
 }
 
-namespace ui::views::generic_tcp {
+namespace ui::views::network {
 
-// ADR 0004 (design note): GenericTcpView / GenericSerialView deliberately hold
+// ADR 0004 (design note): NetworkDebuggerView / GenericSerialView deliberately hold
 // their worker/channel directly and bypass the Presenter layer used by
 // ModbusPage. Presenter is reserved for views with cross-cutting application
-// state (session lifecycle, update flow, navigation); the generic_* views are
+// state (session lifecycle, update flow, navigation); the generic channel views are
 // self-contained channel pages with no shared presenter-worthy state, so a
 // presenter here would be pure ceremony. Do not retro-fit a presenter without
 // first extracting state worth abstracting.
-class GenericTcpView : public GenericChannelViewBase {
+class NetworkDebuggerView : public GenericChannelViewBase {
     Q_OBJECT
 
 public:
@@ -56,8 +56,8 @@ public:
     };
     Q_ENUM(Protocol)
 
-    explicit GenericTcpView(infra::config::ISettingsService* settingsService, QWidget *parent = nullptr);
-    ~GenericTcpView() noexcept override;
+    explicit NetworkDebuggerView(infra::config::ISettingsService* settingsService, QWidget *parent = nullptr);
+    ~NetworkDebuggerView() noexcept override;
 
 private slots:
     void onConnectClicked(const QString& ip, int port);
@@ -122,4 +122,4 @@ private:
     int reconnectPort_ = 0;
 };
 
-} // namespace ui::views::generic_tcp
+} // namespace ui::views::network

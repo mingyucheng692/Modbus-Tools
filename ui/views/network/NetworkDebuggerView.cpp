@@ -1,13 +1,13 @@
 /**
- * @file GenericTcpView.cpp
- * @brief Implementation of GenericTcpView.
+ * @file NetworkDebuggerView.cpp
+ * @brief Implementation of NetworkDebuggerView.
  *
  * Copyright (c) 2025 - present mingyucheng692
  *
  * Licensed under the MIT License. See LICENSE file in the project root for full license information.
  */
 
-#include "GenericTcpView.h"
+#include "NetworkDebuggerView.h"
 #include "Config.h"
 #include "infra/config/ISettingsService.h"
 #include "../../widgets/TcpConnectionWidget.h"
@@ -31,7 +31,7 @@
 #include <spdlog/spdlog.h>
 #include "../../../infra/io/IChannel.h"
 
-namespace ui::views::generic_tcp {
+namespace ui::views::network {
 
 namespace {
 
@@ -61,29 +61,29 @@ TcpConnectionStateTransition computeTcpStateTransition(io::ChannelState state,
     return result;
 }
 
-constexpr auto kTcpClientText = QT_TRANSLATE_NOOP("ui::views::generic_tcp::Protocol", "TCP Client");
-constexpr auto kTcpServerText = QT_TRANSLATE_NOOP("ui::views::generic_tcp::Protocol", "TCP Server");
-constexpr auto kUdpText = QT_TRANSLATE_NOOP("ui::views::generic_tcp::Protocol", "UDP");
+constexpr auto kTcpClientText = QT_TRANSLATE_NOOP("ui::views::network::Protocol", "TCP Client");
+constexpr auto kTcpServerText = QT_TRANSLATE_NOOP("ui::views::network::Protocol", "TCP Server");
+constexpr auto kUdpText = QT_TRANSLATE_NOOP("ui::views::network::Protocol", "UDP");
 
 void populateProtocolOptions(QComboBox* combo) {
     if (!combo) return;
     const int currentValue = combo->count() > 0
         ? combo->currentData().toInt()
-        : static_cast<int>(GenericTcpView::Protocol::TcpClient);
+        : static_cast<int>(NetworkDebuggerView::Protocol::TcpClient);
     combo->clear();
-    combo->addItem(QCoreApplication::translate("ui::views::generic_tcp::Protocol", kTcpClientText),
-                   static_cast<int>(GenericTcpView::Protocol::TcpClient));
-    combo->addItem(QCoreApplication::translate("ui::views::generic_tcp::Protocol", kTcpServerText),
-                   static_cast<int>(GenericTcpView::Protocol::TcpServer));
-    combo->addItem(QCoreApplication::translate("ui::views::generic_tcp::Protocol", kUdpText),
-                   static_cast<int>(GenericTcpView::Protocol::Udp));
+    combo->addItem(QCoreApplication::translate("ui::views::network::Protocol", kTcpClientText),
+                   static_cast<int>(NetworkDebuggerView::Protocol::TcpClient));
+    combo->addItem(QCoreApplication::translate("ui::views::network::Protocol", kTcpServerText),
+                   static_cast<int>(NetworkDebuggerView::Protocol::TcpServer));
+    combo->addItem(QCoreApplication::translate("ui::views::network::Protocol", kUdpText),
+                   static_cast<int>(NetworkDebuggerView::Protocol::Udp));
     const int currentIndex = combo->findData(currentValue);
     combo->setCurrentIndex(currentIndex >= 0 ? currentIndex : 0);
 }
 
 } // namespace
 
-GenericTcpView::GenericTcpView(infra::config::ISettingsService* settingsService, QWidget *parent)
+NetworkDebuggerView::NetworkDebuggerView(infra::config::ISettingsService* settingsService, QWidget *parent)
     : GenericChannelViewBase(settingsService, parent),
       channelCtrl_(this) {
     channelController_ = &channelCtrl_;
@@ -92,22 +92,22 @@ GenericTcpView::GenericTcpView(infra::config::ISettingsService* settingsService,
     startServerWorker();
 }
 
-GenericTcpView::~GenericTcpView() noexcept {
+NetworkDebuggerView::~NetworkDebuggerView() noexcept {
     stopServerWorker();
     // channelCtrl_ is a value member, destroyed automatically.
 }
 
-void GenericTcpView::startWorker() {
+void NetworkDebuggerView::startWorker() {
     auto* worker = channelCtrl_.createWorker();
     connect(worker, &io::ChannelOperationWorker::channelErrorOccurred,
-            this, &GenericTcpView::onWorkerError);
+            this, &NetworkDebuggerView::onWorkerError);
     connect(worker, &io::ChannelOperationWorker::monitor,
-            this, &GenericTcpView::onWorkerMonitor);
+            this, &NetworkDebuggerView::onWorkerMonitor);
     connect(worker, &io::ChannelOperationWorker::stateChangedWithGeneration,
-            this, &GenericTcpView::onWorkerStateChanged);
+            this, &NetworkDebuggerView::onWorkerStateChanged);
 }
 
-void GenericTcpView::setupUi() {
+void NetworkDebuggerView::setupUi() {
     auto mainLayout = new QVBoxLayout(this);
     mainLayout->setContentsMargins(6, 6, 6, 6);
     mainLayout->setSpacing(4);
@@ -128,17 +128,17 @@ void GenericTcpView::setupUi() {
 
     tcpClientWidget_ = new widgets::TcpConnectionWidget(widgets::TcpRole::Client, settingsService_, connectionStack_);
     tcpClientWidget_->setSettingsGroup(QStringLiteral("tcp_client"));
-    tcpClientWidget_->setDefaultPort(config::Network::kDefaultGenericTcpPort);
+    tcpClientWidget_->setDefaultPort(config::Network::kDefaultNetworkDebuggerPort);
     connectionStack_->addWidget(tcpClientWidget_);
 
     tcpServerWidget_ = new widgets::TcpConnectionWidget(widgets::TcpRole::Server, settingsService_, connectionStack_);
     tcpServerWidget_->setSettingsGroup(QStringLiteral("tcp_server"));
-    tcpServerWidget_->setDefaultPort(config::Network::kDefaultGenericTcpPort);
+    tcpServerWidget_->setDefaultPort(config::Network::kDefaultNetworkDebuggerPort);
     connectionStack_->addWidget(tcpServerWidget_);
 
     udpWidget_ = new widgets::UdpConnectionWidget(settingsService_, connectionStack_);
     udpWidget_->setSettingsGroup(QStringLiteral("udp"));
-    udpWidget_->setDefaultPort(config::Network::kDefaultGenericTcpPort);
+    udpWidget_->setDefaultPort(config::Network::kDefaultNetworkDebuggerPort);
     connectionStack_->addWidget(udpWidget_);
 
     connectionStack_->setCurrentIndex(0);
@@ -176,64 +176,64 @@ void GenericTcpView::setupUi() {
 
     // Protocol combo signal
     connect(protocolCombo_, QOverload<int>::of(&QComboBox::currentIndexChanged),
-            this, &GenericTcpView::onProtocolChanged);
+            this, &NetworkDebuggerView::onProtocolChanged);
 
     // Client mode connections
     connect(tcpClientWidget_, &widgets::TcpConnectionWidget::connectClicked,
-            this, &GenericTcpView::onConnectClicked);
+            this, &NetworkDebuggerView::onConnectClicked);
     connect(tcpClientWidget_, &widgets::TcpConnectionWidget::disconnectClicked,
-            this, &GenericTcpView::onDisconnectClicked);
+            this, &NetworkDebuggerView::onDisconnectClicked);
 
     // Server mode connections
     connect(tcpServerWidget_, &widgets::TcpConnectionWidget::startListenClicked,
-            this, &GenericTcpView::onStartListenClicked);
+            this, &NetworkDebuggerView::onStartListenClicked);
     connect(tcpServerWidget_, &widgets::TcpConnectionWidget::stopListenClicked,
-            this, &GenericTcpView::onStopListenClicked);
+            this, &NetworkDebuggerView::onStopListenClicked);
 
     // UDP mode connections
     connect(udpWidget_, &widgets::UdpConnectionWidget::bindClicked,
-            this, &GenericTcpView::onBindClicked);
+            this, &NetworkDebuggerView::onBindClicked);
     connect(udpWidget_, &widgets::UdpConnectionWidget::unbindClicked,
-            this, &GenericTcpView::onUnbindClicked);
+            this, &NetworkDebuggerView::onUnbindClicked);
 
     connect(inputWidget_, &widgets::GenericInputWidget::sendRequested,
-            this, &GenericTcpView::onSendRequested);
+            this, &NetworkDebuggerView::onSendRequested);
     connect(serverClientPanel_, &widgets::ServerClientPanel::disconnectClientsRequested,
-            this, &GenericTcpView::onDisconnectSelectedClientsRequested);
+            this, &NetworkDebuggerView::onDisconnectSelectedClientsRequested);
     connect(serverClientPanel_, &widgets::ServerClientPanel::disconnectAllClientsRequested,
-            this, &GenericTcpView::onDisconnectAllClientsRequested);
+            this, &NetworkDebuggerView::onDisconnectAllClientsRequested);
 
     retranslateUi();
 
     // Reconnect timer is managed by ChannelController; connect its signal to our slot.
     connect(&channelCtrl_, &ChannelController::reconnectTimeout,
-            this, &GenericTcpView::onReconnectTimerTick);
+            this, &NetworkDebuggerView::onReconnectTimerTick);
 
     onProtocolChanged(protocolCombo_->currentIndex());
 }
 
-void GenericTcpView::startServerWorker() {
+void NetworkDebuggerView::startServerWorker() {
     serverThread_ = new QThread();
     auto* serverWorker = new io::ServerChannelWorker();
     serverWorker->moveToThread(serverThread_);
     connect(serverThread_, &QThread::finished, serverThread_, &QObject::deleteLater);
 
     connect(serverWorker, &io::ServerChannelWorker::clientConnected,
-            this, &GenericTcpView::onServerClientConnected);
+            this, &NetworkDebuggerView::onServerClientConnected);
     connect(serverWorker, &io::ServerChannelWorker::clientDisconnected,
-            this, &GenericTcpView::onServerClientDisconnected);
+            this, &NetworkDebuggerView::onServerClientDisconnected);
     connect(serverWorker, &io::ServerChannelWorker::monitorWithClient,
-            this, &GenericTcpView::onServerMonitorWithClient);
+            this, &NetworkDebuggerView::onServerMonitorWithClient);
     connect(serverWorker, &io::ServerChannelWorker::stateChanged,
-            this, &GenericTcpView::onServerStateChanged);
+            this, &NetworkDebuggerView::onServerStateChanged);
     connect(serverWorker, &io::ServerChannelWorker::channelErrorOccurred,
-            this, &GenericTcpView::onServerError);
+            this, &NetworkDebuggerView::onServerError);
 
     serverThread_->start();
     serverWorker_ = serverWorker;
 }
 
-void GenericTcpView::stopServerWorker() {
+void NetworkDebuggerView::stopServerWorker() {
     auto* thread = serverThread_;
     auto* serverWorker = serverWorker_;
     serverThread_ = nullptr;
@@ -248,7 +248,7 @@ void GenericTcpView::stopServerWorker() {
     });
 }
 
-void GenericTcpView::switchToProtocol(Protocol protocol) {
+void NetworkDebuggerView::switchToProtocol(Protocol protocol) {
     currentProtocol_ = protocol;
 
     switch (protocol) {
@@ -284,13 +284,13 @@ void GenericTcpView::switchToProtocol(Protocol protocol) {
     }
 }
 
-void GenericTcpView::onProtocolChanged(int index) {
+void NetworkDebuggerView::onProtocolChanged(int index) {
     if (isConnected_) return;
     currentProtocol_ = static_cast<Protocol>(protocolCombo_->itemData(index).toInt());
     switchToProtocol(currentProtocol_);
 }
 
-void GenericTcpView::onConnectClicked(const QString& ip, int port) {
+void NetworkDebuggerView::onConnectClicked(const QString& ip, int port) {
     auto* worker = channelCtrl_.worker();
     if (!worker) return;
 
@@ -299,7 +299,7 @@ void GenericTcpView::onConnectClicked(const QString& ip, int port) {
     reconnectHost_ = ip;
     reconnectPort_ = port;
 
-    SPDLOG_INFO("GenericTcp: Connecting to {}:{}", ip.toStdString(), port);
+    SPDLOG_INFO("NetworkDebugger: Connecting to {}:{}", ip.toStdString(), port);
     suppressDisconnectAlert_ = false;
     // Fresh user intent: any prior manual disconnect is superseded, so a
     // later passive loss is allowed to trigger the reconnect loop again.
@@ -317,10 +317,10 @@ void GenericTcpView::onConnectClicked(const QString& ip, int port) {
                               Q_ARG(quint64, generation));
 }
 
-void GenericTcpView::onStartListenClicked(const QString& ip, int port) {
+void NetworkDebuggerView::onStartListenClicked(const QString& ip, int port) {
     if (!serverWorker_) return;
 
-    SPDLOG_INFO("GenericTcp: Starting TCP server on {}:{}", ip.toStdString(), port);
+    SPDLOG_INFO("NetworkDebugger: Starting TCP server on {}:{}", ip.toStdString(), port);
     if (monitor_) {
         monitor_->appendInfo(tr("Starting TCP server on %1:%2...").arg(ip).arg(port));
     }
@@ -333,7 +333,7 @@ void GenericTcpView::onStartListenClicked(const QString& ip, int port) {
                               Q_ARG(int, 0));
 }
 
-void GenericTcpView::onStopListenClicked() {
+void NetworkDebuggerView::onStopListenClicked() {
     if (!serverWorker_) return;
 
     if (monitor_) {
@@ -343,12 +343,12 @@ void GenericTcpView::onStopListenClicked() {
     QMetaObject::invokeMethod(serverWorker_, "closeAllClients", Qt::QueuedConnection);
 }
 
-void GenericTcpView::onBindClicked(const QString& localIp, int localPort,
+void NetworkDebuggerView::onBindClicked(const QString& localIp, int localPort,
                                     const QString& remoteIp, int remotePort) {
     auto* worker = channelCtrl_.worker();
     if (!worker) return;
 
-    SPDLOG_INFO("GenericTcp: Binding UDP {}:{}", localIp.toStdString(), localPort);
+    SPDLOG_INFO("NetworkDebugger: Binding UDP {}:{}", localIp.toStdString(), localPort);
     if (monitor_) {
         if (!remoteIp.isEmpty()) {
             monitor_->appendInfo(tr("Binding UDP %1:%2 -> %3:%4...")
@@ -370,7 +370,7 @@ void GenericTcpView::onBindClicked(const QString& localIp, int localPort,
                               Q_ARG(int, remotePort));
 }
 
-void GenericTcpView::onUnbindClicked() {
+void NetworkDebuggerView::onUnbindClicked() {
     auto* worker = channelCtrl_.worker();
     if (!worker) return;
 
@@ -379,9 +379,9 @@ void GenericTcpView::onUnbindClicked() {
     QMetaObject::invokeMethod(worker, "close", Qt::QueuedConnection);
 }
 
-void GenericTcpView::onSendRequested(const QByteArray& data) {
+void NetworkDebuggerView::onSendRequested(const QByteArray& data) {
     if (!isConnected_) {
-        SPDLOG_WARN("GenericTcpView: send rejected (isConnected={}, protocol={}, dataSize={})",
+        SPDLOG_WARN("NetworkDebuggerView: send rejected (isConnected={}, protocol={}, dataSize={})",
                     isConnected_, static_cast<int>(currentProtocol_), data.size());
         return;
     }
@@ -419,7 +419,7 @@ void GenericTcpView::onSendRequested(const QByteArray& data) {
     }
 }
 
-void GenericTcpView::onWorkerStateChanged(io::ChannelState state, quint64 generation) {
+void NetworkDebuggerView::onWorkerStateChanged(io::ChannelState state, quint64 generation) {
     if (generation != connectionGeneration_) {
         return;
     }
@@ -525,7 +525,7 @@ void GenericTcpView::onWorkerStateChanged(io::ChannelState state, quint64 genera
     }
 }
 
-void GenericTcpView::onWorkerError(const QString& deviceHint, io::ChannelErrorCode code, const QString& error) {
+void NetworkDebuggerView::onWorkerError(const QString& deviceHint, io::ChannelErrorCode code, const QString& error) {
     if (monitor_) {
         QString localizedMsg;
         switch (code) {
@@ -544,13 +544,13 @@ void GenericTcpView::onWorkerError(const QString& deviceHint, io::ChannelErrorCo
     SPDLOG_ERROR("{} Error (code={}): {}", hint.toStdString(), static_cast<int>(code), error.toStdString());
 }
 
-void GenericTcpView::onWorkerMonitor(bool isTx, const QByteArray& data) {
+void NetworkDebuggerView::onWorkerMonitor(bool isTx, const QByteArray& data) {
     if (monitor_) {
         monitor_->appendMessage(isTx, data);
     }
 }
 
-void GenericTcpView::onServerClientConnected(int clientId, const QString& peerInfo) {
+void NetworkDebuggerView::onServerClientConnected(int clientId, const QString& peerInfo) {
     if (serverClientPanel_) {
         serverClientPanel_->addOrUpdateClient(clientId, peerInfo);
     }
@@ -559,20 +559,20 @@ void GenericTcpView::onServerClientConnected(int clientId, const QString& peerIn
     }
 }
 
-void GenericTcpView::onServerClientDisconnected(int clientId) {
+void NetworkDebuggerView::onServerClientDisconnected(int clientId) {
     const bool removed = serverClientPanel_ ? serverClientPanel_->removeClient(clientId) : true;
     if (removed && monitor_) {
         monitor_->appendInfo(tr("Client #%1 disconnected").arg(clientId));
     }
 }
 
-void GenericTcpView::onServerMonitorWithClient(bool isTx, const QByteArray& data, int clientId) {
+void NetworkDebuggerView::onServerMonitorWithClient(bool isTx, const QByteArray& data, int clientId) {
     if (monitor_) {
         monitor_->appendMessageWithClient(isTx, data, clientId);
     }
 }
 
-void GenericTcpView::onServerStateChanged(io::ChannelState state) {
+void NetworkDebuggerView::onServerStateChanged(io::ChannelState state) {
     // The worker's state contract (see ServerChannelWorker.h) emits only
     // Open and Closed; the Opening/Closing branches below are defensive
     // in case an intermediate listen state is ever introduced.
@@ -612,7 +612,7 @@ void GenericTcpView::onServerStateChanged(io::ChannelState state) {
     }
 }
 
-void GenericTcpView::onServerError(const QString& deviceHint, io::ChannelErrorCode code, const QString& error) {
+void NetworkDebuggerView::onServerError(const QString& deviceHint, io::ChannelErrorCode code, const QString& error) {
     if (monitor_) {
         QString localizedMsg;
         switch (code) {
@@ -631,7 +631,7 @@ void GenericTcpView::onServerError(const QString& deviceHint, io::ChannelErrorCo
     SPDLOG_ERROR("{} Error (code={}): {}", hint.toStdString(), static_cast<int>(code), error.toStdString());
 }
 
-void GenericTcpView::onDisconnectSelectedClientsRequested(const QList<int>& clientIds)
+void NetworkDebuggerView::onDisconnectSelectedClientsRequested(const QList<int>& clientIds)
 {
     if (!serverWorker_) {
         return;
@@ -644,7 +644,7 @@ void GenericTcpView::onDisconnectSelectedClientsRequested(const QList<int>& clie
     }
 }
 
-void GenericTcpView::onDisconnectAllClientsRequested()
+void NetworkDebuggerView::onDisconnectAllClientsRequested()
 {
     if (!serverWorker_ || !serverClientPanel_) {
         return;
@@ -658,12 +658,12 @@ void GenericTcpView::onDisconnectAllClientsRequested()
     }
 }
 
-void GenericTcpView::retranslateUi() {
+void NetworkDebuggerView::retranslateUi() {
     if (inputSection_) inputSection_->setTitle(tr("Send Data"));
     populateProtocolOptions(protocolCombo_);
 }
 
-void GenericTcpView::onReconnectTimerTick() {
+void NetworkDebuggerView::onReconnectTimerTick() {
     auto* activeWidget = tcpClientWidget_;
     auto* worker = channelCtrl_.worker();
     if (!activeWidget || !worker) return;
@@ -678,7 +678,7 @@ void GenericTcpView::onReconnectTimerTick() {
         return;
     }
 
-    SPDLOG_INFO("GenericTcp: Auto-reconnecting to {}:{} (attempt {})",
+    SPDLOG_INFO("NetworkDebugger: Auto-reconnecting to {}:{} (attempt {})",
                  reconnectHost_.toStdString(), reconnectPort_,
                  channelCtrl_.reconnectPolicy().attemptCount());
 
@@ -703,4 +703,4 @@ void GenericTcpView::onReconnectTimerTick() {
     channelCtrl_.reconnectTimer()->start();
 }
 
-} // namespace ui::views::generic_tcp
+} // namespace ui::views::network

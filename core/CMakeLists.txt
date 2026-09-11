@@ -12,6 +12,8 @@ target_sources(core PRIVATE
     modbus/base/ModbusLrc.h
     modbus/base/ModbusPduBuilder.h
     modbus/base/ModbusPduBuilder.cpp
+    modbus/base/ModbusAduBuilder.h
+    modbus/base/ModbusAduBuilder.cpp
     modbus/base/ModbusAddressMapping.h
     modbus/base/ModbusAddressMapping.cpp
     modbus/base/RegisterValueDecoder.h

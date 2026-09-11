@@ -26,7 +26,7 @@ namespace ui {
 
 enum class MainPage : std::size_t {
     Modbus = 0,
-    GenericTcp,
+    NetworkDebugger,
     GenericSerial,
     FrameAnalyzer,
     Ieee754Converter,

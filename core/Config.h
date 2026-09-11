@@ -34,6 +34,7 @@ struct Network {
     static constexpr char kDefaultDeviceAddress[] = "192.168.10.1";
     static constexpr int kDefaultModbusTcpPort = 502;
     static constexpr int kDefaultGenericTcpPort = 8080;
+    static constexpr int kDefaultNetworkDebuggerPort = 8080;
     static constexpr int kMinTcpPort = 1;
     static constexpr int kMaxTcpPort = 65535;
 };
