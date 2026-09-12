@@ -13,6 +13,7 @@
 #include "modbus/base/ModbusCrc.h"
 #include "modbus/base/ModbusLrc.h"
 #include "modbus/base/ModbusTypes.h"
+#include "modbus/parser/ModbusFrameParser.h"
 
 using namespace modbus::base;
 
@@ -144,4 +145,14 @@ TEST(ModbusFrameBuilderPureLogic, AsciiAdu_LrcCalculation_MatchesSpec) {
     const QByteArray testData = QByteArray::fromHex("1103006B0003");
     const uint8_t lrc = calculateModbusAsciiLrc(testData);
     EXPECT_EQ(lrc, 0x7E);
+}
+
+TEST(ModbusFrameBuilderPureLogic, AutoDetect_AmbiguousMbapShapeRetainsValidRtuRequest) {
+    for (const auto fc : {FunctionCode::ReadCoils, FunctionCode::ReadDiscreteInputs, FunctionCode::ReadInputRegisters}) {
+        const auto pdu = pdu_builder::buildReadRequest(fc, 0, 2);
+        ASSERT_TRUE(pdu.has_value());
+        const auto result = modbus::parser::parse(buildRtuAdu(1, *pdu), modbus::parser::ProtocolType::Unknown);
+        EXPECT_TRUE(result.isValid) << result.error.toStdString();
+        EXPECT_EQ(result.protocol, modbus::parser::ProtocolType::Rtu);
+    }
 }

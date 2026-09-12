@@ -35,7 +35,8 @@ function(modbus_add_test_target target_name main_source)
     )
 
     if(MSVC)
-        target_compile_options(${target_name} PRIVATE /utf-8)
+        # GTest uses exceptions even though production targets intentionally do not.
+        target_compile_options(${target_name} PRIVATE /utf-8 /EHsc)
     endif()
 
     set_property(TARGET ${target_name} PROPERTY AUTOMOC ON)
@@ -121,6 +122,7 @@ set(TEST_UI_WIDGETS_SOURCES
     unit/ui/ServerClientPanelTest.cpp
     unit/ui/test_ConnectionStateGuarding.cpp
     unit/ui/test_Ieee754Converter.cpp
+    unit/ui/test_ModbusFrameBuilder.cpp
 )
 
 set(TEST_INTEGRATION_SOURCES
@@ -149,7 +151,7 @@ target_include_directories(test_modbus_common_objects PRIVATE
 )
 target_link_libraries(test_modbus_common_objects PUBLIC core GTest::gtest GTest::gmock)
 if(MSVC)
-    target_compile_options(test_modbus_common_objects PRIVATE /utf-8)
+    target_compile_options(test_modbus_common_objects PRIVATE /utf-8 /EHsc)
 endif()
 set_property(TARGET test_modbus_common_objects PROPERTY AUTOMOC ON)
 
@@ -173,7 +175,6 @@ modbus_add_test_target(test_ui_widgets
 
 modbus_add_test_target(test_integration
     ${CMAKE_CURRENT_SOURCE_DIR}/TestMainCore.cpp
-    SKIP_DISCOVERY
     SOURCES "${TEST_INTEGRATION_SOURCES}"
     LIBS core Qt6::Core
 )
@@ -185,7 +186,16 @@ modbus_add_test_target(test_integration
 
 modbus_add_test_target(test_modbus_fuzz
     ${CMAKE_CURRENT_SOURCE_DIR}/TestMainCore.cpp
-    SKIP_DISCOVERY
     SOURCES "${TEST_MODBUS_FUZZ_SOURCES}"
     LIBS core Qt6::Core
 )
+
+# Instrument production code as well as the test drivers; otherwise the
+# coverage switch measures assertions, not the codec being exercised.
+if(ENABLE_COVERAGE AND CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
+    foreach(target_name IN ITEMS core ui infra infra_platform Modbus-Tools updater test_modbus_common_objects)
+        if(TARGET ${target_name})
+            modbus_add_coverage(${target_name})
+        endif()
+    endforeach()
+endif()

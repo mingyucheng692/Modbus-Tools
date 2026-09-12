@@ -23,6 +23,7 @@ class QLabel;
 class QPushButton;
 class QTableWidget;
 class QGroupBox;
+class QTimer;
 
 namespace infra::config {
 class ISettingsService;
@@ -79,6 +80,7 @@ private:
 
     // --- State ---
     bool isSyncing_ = false;
+    QTimer* rebuildTimer_ = nullptr;
     QByteArray currentAdu_;
     QString currentSpacedHex_;
 

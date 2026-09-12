@@ -527,6 +527,10 @@ void FrameAnalyzerWidget::onPasteAndParseClicked()
 void FrameAnalyzerWidget::loadAndParseHex(const QString& hex)
 {
     exitLiveMode();
+    // A builder frame is self-contained. A previous manual protocol selection
+    // or invalid response address must not prevent the cross-tool round trip.
+    if (protocolCombo) protocolCombo->setCurrentIndex(0);
+    if (startAddrEdit) startAddrEdit->setText(QStringLiteral("0"));
     if (inputEditor) {
         inputEditor->setPlainText(hex);
     }

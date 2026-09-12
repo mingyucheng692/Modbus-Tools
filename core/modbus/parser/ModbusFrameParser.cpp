@@ -343,7 +343,13 @@ ParseResult parse(const QByteArray& frame,
     // 1. 协议检测
     if (type == ProtocolType::Unknown) {
         if (detectTcp(frame)) {
-            type = ProtocolType::Tcp;
+            // An eight-byte RTU request at address zero with quantity two can
+            // also look like an MBAP header. Validate the TCP PDU before giving
+            // it priority over a CRC-valid RTU frame. Explicit type bounds this
+            // probe to one call (it cannot enter auto-detection again).
+            auto tcpCandidate = parse(frame, ProtocolType::Tcp, startAddress, expectedQuantity, force, order);
+            if (tcpCandidate.isValid || !detectRtu(frame)) return tcpCandidate;
+            type = ProtocolType::Rtu;
         } else if (detectAscii(frame)) {
             type = ProtocolType::Ascii;
         } else if (detectRtu(frame)) {

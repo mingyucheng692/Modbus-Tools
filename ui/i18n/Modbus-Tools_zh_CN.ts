@@ -1692,6 +1692,22 @@ Choose update method:</source>
 <context>
     <name>ui::views::converter::ModbusFrameBuilderWidget</name>
     <message>
+        <source>Invalid coil value. Use ON/OFF, 1/0, or FF00/0000 in the selected format.</source>
+        <translation>线圈值无效。请输入 ON/OFF、1/0，或所选格式下的 FF00/0000。</translation>
+    </message>
+    <message>
+        <source>Invalid register data or count. Use Hex bytes, Decimal values (0-65535), or 16 MSB-first bits per register.</source>
+        <translation>寄存器数据或数量无效。请输入十六进制字节、十进制数值（0-65535），或每个寄存器 16 位高位在前的二进制数据。</translation>
+    </message>
+    <message>
+        <source>Invalid coil data or count. Use packed Hex bytes or one Decimal/Binary 0 or 1 per coil.</source>
+        <translation>线圈数据或数量无效。请输入打包的十六进制字节，或为每个线圈输入一个十进制/二进制 0 或 1。</translation>
+    </message>
+    <message>
+        <source>Address range exceeds 65535.</source>
+        <translation>地址范围超出 65535。</translation>
+    </message>
+    <message>
         <location filename="../views/converter/ModbusFrameBuilderWidget.cpp" line="43"/>
         <source>Read Coils (0x01)</source>
         <translation>读线圈 (0x01)</translation>

@@ -1,11 +1,16 @@
+/**
+ * @file ClientIntegrationTest.cpp
+ * @brief Event-driven client integration tests with valid TCP ADUs and mocked I/O.
+ */
 #include <gtest/gtest.h>
 #include <gmock/gmock.h>
 #include "modbus/session/ModbusClient.h"
+#include "modbus/base/ModbusAduBuilder.h"
+#include "logging/TraceContext.h"
 #include "../../mocks/MockChannel.h"
 #include "../../mocks/MockTransport.h"
-#include <thread>
-#include <future>
-#include <chrono>
+#include <QObject>
+#include <QTimer>
 
 using namespace modbus::session;
 using namespace modbus::base;
@@ -18,120 +23,87 @@ protected:
     void SetUp() override {
         mockChannel_ = std::make_shared<NiceMock<MockChannel>>();
         mockTransport_ = std::make_shared<NiceMock<MockTransport>>();
-        
-        // Capture handlers BEFORE client construction as it hooks them in the constructor
         EXPECT_CALL(*mockChannel_, setReadHandler(_)).WillRepeatedly(SaveArg<0>(&readHandler_));
         EXPECT_CALL(*mockChannel_, addStateHandler(_)).WillRepeatedly(DoAll(SaveArg<0>(&stateHandler_), Return(1)));
-
         client_ = std::make_unique<ModbusClient>(mockChannel_, mockTransport_);
-        
-        modbus::base::ModbusConfig config;
+
+        ModbusConfig config;
         config.mode = ModbusMode::TCP;
-        config.timeoutMs = 1000; // Increased to 1000ms for stable ASan execution
+        config.timeoutMs = 100;
         config.retries = 1;
+        config.retryIntervalMs = 1;
         client_->setConfig(config);
-
         ON_CALL(*mockChannel_, state()).WillByDefault(ReturnPointee(&currentChannelState_));
-        ON_CALL(*mockChannel_, isOpen()).WillByDefault(Invoke([this](){ return currentChannelState_ == ChannelState::Open; }));
-        
-        ON_CALL(*mockTransport_, buildRequest(_, _)).WillByDefault(Return(QByteArray::fromHex("010300000001")));
-        ON_CALL(*mockTransport_, parseResponse(_)).WillByDefault(Return(ParseResponseResult{ParseResponseStatus::Ok, Pdu(FunctionCode::ReadHoldingRegisters, QByteArray::fromHex("02007B"))}));
-        ON_CALL(*mockTransport_, checkIntegrity(_)).WillByDefault(Invoke([](const QByteArray& data){ return data.size(); }));
-
-        // Trigger successful connection setup by default
-        EXPECT_CALL(*mockChannel_, open()).WillRepeatedly(Invoke([this](){
+        ON_CALL(*mockChannel_, isOpen()).WillByDefault(Invoke([this]() { return currentChannelState_ == ChannelState::Open; }));
+        ON_CALL(*mockTransport_, buildRequest(_, _)).WillByDefault(Return(QByteArray::fromHex("000100000006010300000001")));
+        ON_CALL(*mockTransport_, parseResponse(_)).WillByDefault(Return(ParseResponseResult{
+            ParseResponseStatus::Ok, Pdu(FunctionCode::ReadHoldingRegisters, QByteArray::fromHex("02007B"))}));
+        ON_CALL(*mockTransport_, checkIntegrity(_)).WillByDefault(Invoke([](const QByteArray& data) { return data.size(); }));
+        EXPECT_CALL(*mockChannel_, open()).WillRepeatedly(Invoke([this]() {
             currentChannelState_ = ChannelState::Open;
             if (stateHandler_) stateHandler_(ChannelState::Open);
             return true;
         }));
-        
-        // Suppress mock leaks for integration tests as we handle destruction manually
-        Mock::AllowLeak(mockChannel_.get());
-        Mock::AllowLeak(mockTransport_.get());
     }
 
     void TearDown() override {
-        // Joining all simulation threads before destroying objects
-        simulationThreads_.clear();
-        
-        if (client_) {
-            client_->abort(); // Secure shutdown for industrial standard
-            client_.reset();
-        }
+        client_->abort();
+        client_.reset();
         mockChannel_.reset();
         mockTransport_.reset();
     }
 
+    void queueResponse() {
+        // Deliver in the client's event loop after write returns. No sleeps,
+        // cross-thread callbacks or leaked mocks; the context cancels on teardown.
+        QTimer::singleShot(0, &callbackContext_, [this]() {
+            if (readHandler_) {
+                const QByteArray response = buildTcpAdu(1,
+                    Pdu(FunctionCode::ReadHoldingRegisters, QByteArray::fromHex("02007B")), 1);
+                readHandler_(response);
+            }
+        });
+    }
+
+    QObject callbackContext_;
     ChannelState currentChannelState_ = ChannelState::Closed;
     std::shared_ptr<NiceMock<MockChannel>> mockChannel_;
     std::shared_ptr<NiceMock<MockTransport>> mockTransport_;
     std::unique_ptr<ModbusClient> client_;
-    std::vector<std::jthread> simulationThreads_;
-    std::function<void(ChannelState)> stateHandler_;
     std::function<void(QByteArrayView)> readHandler_;
+    std::function<void(ChannelState)> stateHandler_;
 };
 
 TEST_F(ClientIntegrationTest, SuccessfulRequestAsync) {
-    client_->connect(); 
-    
-    // ASYNC SIMULATION: 
-    // Trigger the mock response with a small delay to simulate real hardware latency.
-    // Use AtLeast(1) and WillRepeatedly to handle potential internal retries in high-load CI.
-    EXPECT_CALL(*mockChannel_, write(_)).Times(AtLeast(1)).WillRepeatedly(Invoke([this](QByteArrayView){
-        simulationThreads_.emplace_back([this]() {
-            std::this_thread::sleep_for(std::chrono::milliseconds(20));
-            if (this->readHandler_) {
-                QByteArray data = QByteArray::fromHex("010302007B");
-                this->readHandler_(data);
-            }
-        });
+    client_->connect();
+    EXPECT_CALL(*mockChannel_, write(_)).WillOnce(Invoke([this](QByteArrayView) {
+        queueResponse();
         return true;
     }));
-    
-    Pdu request(FunctionCode::ReadHoldingRegisters, QByteArray::fromHex("00000001"));
-    ModbusResponse response = client_->sendRequest(request, 1);
-    
+    modbus::trace::Scope trace(1);
+    const auto response = client_->sendRequest(Pdu(FunctionCode::ReadHoldingRegisters, QByteArray::fromHex("00000001")), 1);
     EXPECT_FALSE(response.isError());
     EXPECT_EQ(response.pdu.functionCode(), FunctionCode::ReadHoldingRegisters);
 }
 
 TEST_F(ClientIntegrationTest, TimeoutHandlingAsync) {
     client_->connect();
-    
-    // No mock response will be triggered, expecting timeout
-    EXPECT_CALL(*mockChannel_, write(_)).WillRepeatedly(Return(true));
-    
-    Pdu request(FunctionCode::ReadHoldingRegisters, QByteArray::fromHex("00000001"));
-    ModbusResponse response = client_->sendRequest(request, 1);
-
+    EXPECT_CALL(*mockChannel_, write(_)).Times(2).WillRepeatedly(Return(true));
+    modbus::trace::Scope trace(1);
+    const auto response = client_->sendRequest(Pdu(FunctionCode::ReadHoldingRegisters, QByteArray::fromHex("00000001")), 1);
     EXPECT_TRUE(response.isError());
 }
 
 TEST_F(ClientIntegrationTest, RetryLogicAsync) {
-    client_->connect(); 
-
-    // Use InSequence to strictly control the flow: First call times out, second call succeeds.
-    {
-        InSequence seq;
-        
-        // 1st Write: Standard timeout simulation (returns true but never triggers callback)
-        EXPECT_CALL(*mockChannel_, write(_)).WillOnce(Return(true));
-        
-        // 2nd Write (Retry): Success simulation (triggers callback after 20ms)
-        EXPECT_CALL(*mockChannel_, write(_)).WillOnce(Invoke([this](QByteArrayView){
-            simulationThreads_.emplace_back([this]() {
-                std::this_thread::sleep_for(std::chrono::milliseconds(20));
-                if (this->readHandler_) {
-                    QByteArray data = QByteArray::fromHex("010302007B");
-                    this->readHandler_(data);
-                }
-            });
-            return true;
-        }));
-    }
-    
-    Pdu request(FunctionCode::ReadHoldingRegisters, QByteArray::fromHex("00000001"));
-    ModbusResponse response = client_->sendRequest(request, 1);
-
+    client_->connect();
+    InSequence sequence;
+    EXPECT_CALL(*mockChannel_, write(_)).WillOnce(Return(true));
+    EXPECT_CALL(*mockChannel_, write(_)).WillOnce(Invoke([this](QByteArrayView) {
+        queueResponse();
+        return true;
+    }));
+    modbus::trace::Scope trace(1);
+    const auto response = client_->sendRequest(Pdu(FunctionCode::ReadHoldingRegisters, QByteArray::fromHex("00000001")), 1);
     EXPECT_FALSE(response.isError());
+    EXPECT_EQ(response.attemptCount, 2);
 }

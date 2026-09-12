@@ -28,5 +28,6 @@ Error handling uses `std::optional`, result types with error strings, and return
 
 - **Positive**: Smaller binary, predictable control flow, no hidden exception paths.
 - **Positive**: Aligns with Qt's no-exception philosophy.
+- **Neutral**: Test targets are exempt from this decision. Test executables and the bundled GTest/GMock libraries compile with exceptions enabled (`/EHsc` on MSVC; GCC/Clang keeps the default) because GTest's assertion and mocking machinery requires working exception semantics. These are developer-only artifacts and are never shipped, so the no-exception contract of distributed binaries is unaffected.
 - **Negative**: Cannot use standard library APIs that throw (e.g., `std::stoi`). Must use `QMutexLocker` instead of `std::lock_guard` in exception-free code.
 - **Negative**: Error propagation requires explicit checking, which can be verbose.
