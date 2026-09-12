@@ -149,19 +149,19 @@ void UdpConnectionWidget::loadSettings() {
     QSignalBlocker b1(remoteIpEdit_);
     QSignalBlocker b2(remotePortEdit_);
 
-    remoteIpEdit_->setText(settingsService_->value(kUdpRemoteIp).toString());
-    remotePortEdit_->setValue(settingsService_->contains(kUdpRemotePort)
-        ? settingsService_->value(kUdpRemotePort).toInt() : 0);
+    remoteIpEdit_->setText(settingsService_->value(kNetworkDebuggerUdpRemoteIp).toString());
+    remotePortEdit_->setValue(settingsService_->contains(kNetworkDebuggerUdpRemotePort)
+        ? settingsService_->value(kNetworkDebuggerUdpRemotePort).toInt() : 0);
 }
 
 void UdpConnectionWidget::saveSettings() {
     NetworkConnectionWidget::saveSettings();
     if (!settingsService_) return;
     if (remoteIpEdit_) {
-        settingsService_->setValue(kUdpRemoteIp, remoteIpEdit_->text());
+        settingsService_->setValue(kNetworkDebuggerUdpRemoteIp, remoteIpEdit_->text());
     }
     if (remotePortEdit_) {
-        settingsService_->setValue(kUdpRemotePort, remotePortEdit_->value());
+        settingsService_->setValue(kNetworkDebuggerUdpRemotePort, remotePortEdit_->value());
     }
 }
 

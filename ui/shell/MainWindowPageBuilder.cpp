@@ -1,7 +1,7 @@
 #include "shell/MainWindowPageBuilder.h"
 
 #include "infra/config/ISettingsService.h"
-#include "views/generic_serial/GenericSerialView.h"
+#include "views/serial/SerialDebuggerView.h"
 #include "views/network/NetworkDebuggerView.h"
 #include "views/modbus/ModbusPage.h"
 #include "widgets/FrameAnalyzerWidget.h"
@@ -44,9 +44,9 @@ MainWindowPages buildMainWindowPages(infra::config::ISettingsService* settingsSe
     pages.pageIndexByNavigationRow[static_cast<std::size_t>(MainPage::NetworkDebugger)] =
         stackedWidget->addWidget(createScrollablePage(networkDebuggerView, stackedWidget));
 
-    auto* genericSerialView = new views::generic_serial::GenericSerialView(settingsService, owner);
-    pages.pageIndexByNavigationRow[static_cast<std::size_t>(MainPage::GenericSerial)] =
-        stackedWidget->addWidget(createScrollablePage(genericSerialView, stackedWidget));
+    auto* serialDebuggerView = new views::serial::SerialDebuggerView(settingsService, owner);
+    pages.pageIndexByNavigationRow[static_cast<std::size_t>(MainPage::SerialDebugger)] =
+        stackedWidget->addWidget(createScrollablePage(serialDebuggerView, stackedWidget));
 
     pages.frameAnalyzer = new widgets::FrameAnalyzerWidget(settingsService, owner);
     pages.pageIndexByNavigationRow[static_cast<std::size_t>(MainPage::FrameAnalyzer)] =

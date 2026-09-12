@@ -38,10 +38,10 @@ class ISettingsService;
 
 namespace ui::views::network {
 
-// ADR 0004 (design note): NetworkDebuggerView / GenericSerialView deliberately hold
+// ADR 0004 (design note): NetworkDebuggerView / SerialDebuggerView deliberately hold
 // their worker/channel directly and bypass the Presenter layer used by
 // ModbusPage. Presenter is reserved for views with cross-cutting application
-// state (session lifecycle, update flow, navigation); the generic channel views are
+// state (session lifecycle, update flow, navigation); the channel debugger views are
 // self-contained channel pages with no shared presenter-worthy state, so a
 // presenter here would be pure ceremony. Do not retro-fit a presenter without
 // first extracting state worth abstracting.

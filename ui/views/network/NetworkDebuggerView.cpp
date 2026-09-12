@@ -127,17 +127,17 @@ void NetworkDebuggerView::setupUi() {
     connectionStack_->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);
 
     tcpClientWidget_ = new widgets::TcpConnectionWidget(widgets::TcpRole::Client, settingsService_, connectionStack_);
-    tcpClientWidget_->setSettingsGroup(QStringLiteral("tcp_client"));
+    tcpClientWidget_->setSettingsGroup(QStringLiteral("network_debugger/client"));
     tcpClientWidget_->setDefaultPort(config::Network::kDefaultNetworkDebuggerPort);
     connectionStack_->addWidget(tcpClientWidget_);
 
     tcpServerWidget_ = new widgets::TcpConnectionWidget(widgets::TcpRole::Server, settingsService_, connectionStack_);
-    tcpServerWidget_->setSettingsGroup(QStringLiteral("tcp_server"));
+    tcpServerWidget_->setSettingsGroup(QStringLiteral("network_debugger/server"));
     tcpServerWidget_->setDefaultPort(config::Network::kDefaultNetworkDebuggerPort);
     connectionStack_->addWidget(tcpServerWidget_);
 
     udpWidget_ = new widgets::UdpConnectionWidget(settingsService_, connectionStack_);
-    udpWidget_->setSettingsGroup(QStringLiteral("udp"));
+    udpWidget_->setSettingsGroup(QStringLiteral("network_debugger/udp"));
     udpWidget_->setDefaultPort(config::Network::kDefaultNetworkDebuggerPort);
     connectionStack_->addWidget(udpWidget_);
 
@@ -150,7 +150,7 @@ void NetworkDebuggerView::setupUi() {
     centerSplitter->setChildrenCollapsible(false);
 
     monitor_ = new widgets::ByteMonitorWidget(settingsService_, centerSplitter);
-    monitor_->setSettingsGroup(QStringLiteral("tcp_client/traffic"));
+    monitor_->setSettingsGroup(QStringLiteral("network_debugger/client/traffic"));
     centerSplitter->addWidget(monitor_);
 
     serverClientPanel_ = new widgets::ServerClientPanel(centerSplitter);
@@ -163,11 +163,11 @@ void NetworkDebuggerView::setupUi() {
 
     // 3. Input Section (Bottom)
     inputSection_ = new widgets::CollapsibleSection(settingsService_, this);
-    inputSection_->setSettingsKey(QStringLiteral("tcp_client/ui/inputCollapsed"));
+    inputSection_->setSettingsKey(QStringLiteral("network_debugger/client/ui/inputCollapsed"));
     auto inputLayout = new QVBoxLayout(inputSection_->contentWidget());
     inputLayout->setContentsMargins(0, 0, 0, 0);
     inputWidget_ = new widgets::GenericInputWidget(settingsService_, inputSection_->contentWidget());
-    inputWidget_->setSettingsGroup(QStringLiteral("tcp_client/input"));
+    inputWidget_->setSettingsGroup(QStringLiteral("network_debugger/client/input"));
     inputLayout->addWidget(inputWidget_);
     mainLayout->addWidget(inputSection_);
     mainLayout->setStretch(0, 0);
@@ -254,9 +254,9 @@ void NetworkDebuggerView::switchToProtocol(Protocol protocol) {
     switch (protocol) {
     case Protocol::TcpClient:
         connectionStack_->setCurrentWidget(tcpClientWidget_);
-        monitor_->setSettingsGroup(QStringLiteral("tcp_client/traffic"));
-        inputSection_->setSettingsKey(QStringLiteral("tcp_client/ui/inputCollapsed"));
-        inputWidget_->setSettingsGroup(QStringLiteral("tcp_client/input"));
+        monitor_->setSettingsGroup(QStringLiteral("network_debugger/client/traffic"));
+        inputSection_->setSettingsKey(QStringLiteral("network_debugger/client/ui/inputCollapsed"));
+        inputWidget_->setSettingsGroup(QStringLiteral("network_debugger/client/input"));
         if (serverClientPanel_) {
             serverClientPanel_->clearClients();
             serverClientPanel_->hide();
@@ -264,18 +264,18 @@ void NetworkDebuggerView::switchToProtocol(Protocol protocol) {
         break;
     case Protocol::TcpServer:
         connectionStack_->setCurrentWidget(tcpServerWidget_);
-        monitor_->setSettingsGroup(QStringLiteral("tcp_server/traffic"));
-        inputSection_->setSettingsKey(QStringLiteral("tcp_server/ui/inputCollapsed"));
-        inputWidget_->setSettingsGroup(QStringLiteral("tcp_server/input"));
+        monitor_->setSettingsGroup(QStringLiteral("network_debugger/server/traffic"));
+        inputSection_->setSettingsKey(QStringLiteral("network_debugger/server/ui/inputCollapsed"));
+        inputWidget_->setSettingsGroup(QStringLiteral("network_debugger/server/input"));
         if (serverClientPanel_) {
             serverClientPanel_->show();
         }
         break;
     case Protocol::Udp:
         connectionStack_->setCurrentWidget(udpWidget_);
-        monitor_->setSettingsGroup(QStringLiteral("udp/traffic"));
-        inputSection_->setSettingsKey(QStringLiteral("udp/ui/inputCollapsed"));
-        inputWidget_->setSettingsGroup(QStringLiteral("udp/input"));
+        monitor_->setSettingsGroup(QStringLiteral("network_debugger/udp/traffic"));
+        inputSection_->setSettingsKey(QStringLiteral("network_debugger/udp/ui/inputCollapsed"));
+        inputWidget_->setSettingsGroup(QStringLiteral("network_debugger/udp/input"));
         if (serverClientPanel_) {
             serverClientPanel_->clearClients();
             serverClientPanel_->hide();

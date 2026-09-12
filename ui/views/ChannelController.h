@@ -28,7 +28,7 @@ namespace ui::views {
  * @brief Composite class that manages worker thread lifecycle and reconnect timer.
  *
  * Owns the worker QThread, ChannelOperationWorker, reconnect QTimer, and
- * ReconnectPolicy. Used as a member of channel view subclasses (GenericSerialView,
+ * ReconnectPolicy. Used as a member of channel view subclasses (SerialDebuggerView,
  * NetworkDebuggerView) to eliminate duplicated worker lifecycle code.
  */
 class ChannelController : public QObject {

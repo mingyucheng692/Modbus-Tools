@@ -27,7 +27,7 @@ namespace ui {
 enum class MainPage : std::size_t {
     Modbus = 0,
     NetworkDebugger,
-    GenericSerial,
+    SerialDebugger,
     FrameAnalyzer,
     Utilities,
     Count
@@ -46,7 +46,7 @@ struct MainWindowPages {
 
 /**
  * @brief Builds the main window's stacked pages (Modbus, NetworkDebugger,
- *        GenericSerial, FrameAnalyzer, Utilities) and registers them with @p stackedWidget.
+ *        SerialDebugger, FrameAnalyzer, Utilities) and registers them with @p stackedWidget.
  *
  * Replaces the former MainWindowPageBuilder class — a stateless 20-LOC factory
  * that did not earn its existence as a class.

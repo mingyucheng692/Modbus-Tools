@@ -2224,124 +2224,124 @@ Choose update method:</source>
     </message>
 </context>
 <context>
-    <name>ui::views::generic_serial::GenericSerialView</name>
+    <name>ui::views::serial::SerialDebuggerView</name>
     <message>
-        <location filename="../views/generic_serial/GenericSerialView.cpp" line="137"/>
+        <location filename="../views/serial/SerialDebuggerView.cpp" line="137"/>
         <source>Opening %1...</source>
         <translation>正在打开 %1...</translation>
     </message>
     <message>
-        <location filename="../views/generic_serial/GenericSerialView.cpp" line="160"/>
+        <location filename="../views/serial/SerialDebuggerView.cpp" line="160"/>
         <source>Closed</source>
         <translation>已关闭</translation>
     </message>
     <message>
-        <location filename="../views/generic_serial/GenericSerialView.cpp" line="161"/>
+        <location filename="../views/serial/SerialDebuggerView.cpp" line="161"/>
         <source>Opening</source>
         <translation>正在打开</translation>
     </message>
     <message>
-        <location filename="../views/generic_serial/GenericSerialView.cpp" line="162"/>
+        <location filename="../views/serial/SerialDebuggerView.cpp" line="162"/>
         <source>Open</source>
         <translation>已打开</translation>
     </message>
     <message>
-        <location filename="../views/generic_serial/GenericSerialView.cpp" line="163"/>
+        <location filename="../views/serial/SerialDebuggerView.cpp" line="163"/>
         <source>Closing</source>
         <translation>正在关闭</translation>
     </message>
     <message>
-        <location filename="../views/generic_serial/GenericSerialView.cpp" line="164"/>
+        <location filename="../views/serial/SerialDebuggerView.cpp" line="164"/>
         <source>Error</source>
         <translation>错误</translation>
     </message>
     <message>
-        <location filename="../views/generic_serial/GenericSerialView.cpp" line="165"/>
+        <location filename="../views/serial/SerialDebuggerView.cpp" line="165"/>
         <source>Unknown</source>
         <translation>未知</translation>
     </message>
     <message>
-        <location filename="../views/generic_serial/GenericSerialView.cpp" line="185"/>
+        <location filename="../views/serial/SerialDebuggerView.cpp" line="185"/>
         <source>State changed: %1</source>
         <translation>状态已变更：%1</translation>
     </message>
     <message>
-        <location filename="../views/generic_serial/GenericSerialView.cpp" line="200"/>
+        <location filename="../views/serial/SerialDebuggerView.cpp" line="200"/>
         <source>Auto-reconnect exhausted (%1 attempts)</source>
         <translation>Auto-reconnect exhausted (%1 attempts)</translation>
     </message>
     <message>
-        <location filename="../views/generic_serial/GenericSerialView.cpp" line="208"/>
+        <location filename="../views/serial/SerialDebuggerView.cpp" line="208"/>
         <source>Auto-reconnect in %1ms (%2)</source>
         <translation>Auto-reconnect in %1ms (%2)</translation>
     </message>
     <message>
-        <location filename="../views/generic_serial/GenericSerialView.cpp" line="220"/>
+        <location filename="../views/serial/SerialDebuggerView.cpp" line="220"/>
         <source>Connection failed</source>
         <translation>连接失败</translation>
     </message>
     <message>
-        <location filename="../views/generic_serial/GenericSerialView.cpp" line="221"/>
+        <location filename="../views/serial/SerialDebuggerView.cpp" line="221"/>
         <source>Connection timeout</source>
         <translation>连接超时</translation>
     </message>
     <message>
-        <location filename="../views/generic_serial/GenericSerialView.cpp" line="222"/>
+        <location filename="../views/serial/SerialDebuggerView.cpp" line="222"/>
         <source>Write failed</source>
         <translation>写入失败</translation>
     </message>
     <message>
-        <location filename="../views/generic_serial/GenericSerialView.cpp" line="223"/>
+        <location filename="../views/serial/SerialDebuggerView.cpp" line="223"/>
         <source>Read failed</source>
         <translation>读取失败</translation>
     </message>
     <message>
-        <location filename="../views/generic_serial/GenericSerialView.cpp" line="224"/>
+        <location filename="../views/serial/SerialDebuggerView.cpp" line="224"/>
         <source>Port not found</source>
         <translation>找不到端口</translation>
     </message>
     <message>
-        <location filename="../views/generic_serial/GenericSerialView.cpp" line="225"/>
+        <location filename="../views/serial/SerialDebuggerView.cpp" line="225"/>
         <source>Permission denied</source>
         <translation>权限被拒绝</translation>
     </message>
     <message>
-        <location filename="../views/generic_serial/GenericSerialView.cpp" line="226"/>
+        <location filename="../views/serial/SerialDebuggerView.cpp" line="226"/>
         <source>Connection reset</source>
         <translation>连接重置</translation>
     </message>
     <message>
-        <location filename="../views/generic_serial/GenericSerialView.cpp" line="227"/>
+        <location filename="../views/serial/SerialDebuggerView.cpp" line="227"/>
         <source>Unknown error</source>
         <translation>未知错误</translation>
     </message>
     <message>
-        <location filename="../views/generic_serial/GenericSerialView.cpp" line="230"/>
+        <location filename="../views/serial/SerialDebuggerView.cpp" line="230"/>
         <source>Error: %1</source>
         <translation>错误：%1</translation>
     </message>
     <message>
-        <location filename="../views/generic_serial/GenericSerialView.cpp" line="265"/>
+        <location filename="../views/serial/SerialDebuggerView.cpp" line="265"/>
         <source>Control</source>
         <translation>控制</translation>
     </message>
     <message>
-        <location filename="../views/generic_serial/GenericSerialView.cpp" line="266"/>
+        <location filename="../views/serial/SerialDebuggerView.cpp" line="266"/>
         <source>Send Data</source>
         <translation>发送数据</translation>
     </message>
     <message>
-        <location filename="../views/generic_serial/GenericSerialView.cpp" line="267"/>
+        <location filename="../views/serial/SerialDebuggerView.cpp" line="267"/>
         <source>DTR</source>
         <translation>DTR</translation>
     </message>
     <message>
-        <location filename="../views/generic_serial/GenericSerialView.cpp" line="268"/>
+        <location filename="../views/serial/SerialDebuggerView.cpp" line="268"/>
         <source>RTS</source>
         <translation>RTS</translation>
     </message>
     <message>
-        <location filename="../views/generic_serial/GenericSerialView.cpp" line="293"/>
+        <location filename="../views/serial/SerialDebuggerView.cpp" line="293"/>
         <source>Reconnecting to %1...</source>
         <translation>Reconnecting to %1...</translation>
     </message>

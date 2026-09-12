@@ -300,7 +300,7 @@ void SerialConnectionWidget::setupUi() {
     repopulateFlowControlOptions(flowControlCombo_);
     if (section_) {
         const QString collapseKey = settingsGroup_.isEmpty()
-            ? QString::fromLatin1(core::common::settings_keys::kSerialPortConnectionCollapsed)
+            ? QString::fromLatin1(core::common::settings_keys::kSerialDebuggerConnectionCollapsed)
             : (settingsGroup_ + QStringLiteral("/ui/connectionSettingsCollapsed"));
         section_->setSettingsKey(collapseKey);
     }
@@ -318,7 +318,7 @@ void SerialConnectionWidget::loadSettings() {
     QSignalBlocker b4(stopBitsCombo_);
     QSignalBlocker b5(flowControlCombo_);
 
-    const QString defaultGroup = QStringLiteral("serial_port");
+    const QString defaultGroup = QStringLiteral("serial_debugger");
     const QString group = settingsGroup_.isEmpty() ? defaultGroup : settingsGroup_;
     const QString baudKey = group + QStringLiteral("/baudRate");
     const QString dataBitsKey = group + QStringLiteral("/dataBits");
@@ -327,8 +327,12 @@ void SerialConnectionWidget::loadSettings() {
     const QString portKey = group + QStringLiteral("/portName");
     const QString flowKey = group + QStringLiteral("/flowControl");
 
-    const int fallbackBaud = settingsService_->value(kLegacySerialBaudRate).toInt();
-    const int baudRate = settingsService_->contains(baudKey) ? settingsService_->value(baudKey).toInt() : fallbackBaud;
+    // The truly ancient "serial/baudRate" fallback read was removed in Phase 9:
+    // the in-flight migration now carries that legacy value into
+    // modbus/rtu/serial/baudRate at load time, and pages without a saved
+    // baudRate simply keep their combo-box default.
+    const int baudRate = settingsService_->contains(baudKey)
+        ? settingsService_->value(baudKey).toInt() : 0;
     const QString dataBits = settingsService_->value(dataBitsKey).toString();
     const QString parity = settingsService_->value(parityKey).toString();
     const QString stopBits = settingsService_->value(stopBitsKey).toString();
@@ -378,7 +382,7 @@ void SerialConnectionWidget::saveSettings() {
     saveCommonSettings();
     if (!settingsService_) return;
 
-    const QString defaultGroup = QStringLiteral("serial_port");
+    const QString defaultGroup = QStringLiteral("serial_debugger");
     const QString group = settingsGroup_.isEmpty() ? defaultGroup : settingsGroup_;
     const QString baudKey = group + QStringLiteral("/baudRate");
     const QString dataBitsKey = group + QStringLiteral("/dataBits");

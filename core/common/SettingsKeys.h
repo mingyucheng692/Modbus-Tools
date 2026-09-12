@@ -78,40 +78,46 @@ inline constexpr char kModbusRtuControlAddr[] = "modbus/rtu/control/addr";
 inline constexpr char kModbusRtuControlQty[] = "modbus/rtu/control/qty";
 inline constexpr char kModbusRtuDataMonitorCollapsed[] = "modbus/rtu/ui/dataMonitorCollapsed";
 
-inline constexpr char kTcpClientIp[] = "tcp_client/ip";
-inline constexpr char kTcpClientPort[] = "tcp_client/port";
-inline constexpr char kTcpClientConnectionCollapsed[] = "tcp_client/ui/connectionSettingsCollapsed";
-inline constexpr char kTcpClientTrafficAutoScroll[] = "tcp_client/traffic/autoScroll";
-inline constexpr char kTcpClientTrafficShowTx[] = "tcp_client/traffic/showTx";
-inline constexpr char kTcpClientTrafficShowRx[] = "tcp_client/traffic/showRx";
-inline constexpr char kTcpClientTrafficCollapsed[] = "tcp_client/traffic/ui/trafficMonitorCollapsed";
-inline constexpr char kTcpClientInputFormat[] = "tcp_client/input/format";
-inline constexpr char kTcpClientInputAutoSend[] = "tcp_client/input/autoSend";
-inline constexpr char kTcpClientInputIntervalMs[] = "tcp_client/input/intervalMs";
-inline constexpr char kTcpClientInputCollapsed[] = "tcp_client/ui/inputCollapsed";
+// Network Debugger (TCP client mode) — canonical keys (Phase 9).
+// NOTE: the tcp_server and udp traffic/input/ui/autoReconnect/reconnectDelay
+// keys are composed dynamically by BaseConnectionWidget / ByteMonitorWidget /
+// GenericInputWidget from the settings group, so they intentionally have no
+// static constants here. The prefix-based migration in SettingsService covers
+// them as whole families (network_debugger/server/, network_debugger/udp/).
+inline constexpr char kNetworkDebuggerClientIp[] = "network_debugger/client/ip";
+inline constexpr char kNetworkDebuggerClientPort[] = "network_debugger/client/port";
+inline constexpr char kNetworkDebuggerClientConnectionCollapsed[] = "network_debugger/client/ui/connectionSettingsCollapsed";
+inline constexpr char kNetworkDebuggerClientTrafficAutoScroll[] = "network_debugger/client/traffic/autoScroll";
+inline constexpr char kNetworkDebuggerClientTrafficShowTx[] = "network_debugger/client/traffic/showTx";
+inline constexpr char kNetworkDebuggerClientTrafficShowRx[] = "network_debugger/client/traffic/showRx";
+inline constexpr char kNetworkDebuggerClientTrafficCollapsed[] = "network_debugger/client/traffic/ui/trafficMonitorCollapsed";
+inline constexpr char kNetworkDebuggerClientInputFormat[] = "network_debugger/client/input/format";
+inline constexpr char kNetworkDebuggerClientInputAutoSend[] = "network_debugger/client/input/autoSend";
+inline constexpr char kNetworkDebuggerClientInputIntervalMs[] = "network_debugger/client/input/intervalMs";
+inline constexpr char kNetworkDebuggerClientInputCollapsed[] = "network_debugger/client/ui/inputCollapsed";
 
-inline constexpr char kSerialPortBaudRate[] = "serial_port/baudRate";
-inline constexpr char kSerialPortDataBits[] = "serial_port/dataBits";
-inline constexpr char kSerialPortParity[] = "serial_port/parity";
-inline constexpr char kSerialPortStopBits[] = "serial_port/stopBits";
-inline constexpr char kSerialPortPortName[] = "serial_port/portName";
-inline constexpr char kSerialPortConnectionCollapsed[] = "serial_port/ui/connectionSettingsCollapsed";
-inline constexpr char kSerialPortTrafficAutoScroll[] = "serial_port/traffic/autoScroll";
-inline constexpr char kSerialPortTrafficShowTx[] = "serial_port/traffic/showTx";
-inline constexpr char kSerialPortTrafficShowRx[] = "serial_port/traffic/showRx";
-inline constexpr char kSerialPortTrafficCollapsed[] = "serial_port/traffic/ui/trafficMonitorCollapsed";
-inline constexpr char kSerialPortInputFormat[] = "serial_port/input/format";
-inline constexpr char kSerialPortInputAutoSend[] = "serial_port/input/autoSend";
-inline constexpr char kSerialPortInputIntervalMs[] = "serial_port/input/intervalMs";
-inline constexpr char kSerialPortInputCollapsed[] = "serial_port/ui/inputCollapsed";
-inline constexpr char kSerialPortDtr[] = "serial_port/dtr";
-inline constexpr char kSerialPortRts[] = "serial_port/rts";
+// Serial Debugger — canonical keys (Phase 9).
+inline constexpr char kSerialDebuggerBaudRate[] = "serial_debugger/baudRate";
+inline constexpr char kSerialDebuggerDataBits[] = "serial_debugger/dataBits";
+inline constexpr char kSerialDebuggerParity[] = "serial_debugger/parity";
+inline constexpr char kSerialDebuggerStopBits[] = "serial_debugger/stopBits";
+inline constexpr char kSerialDebuggerPortName[] = "serial_debugger/portName";
+inline constexpr char kSerialDebuggerConnectionCollapsed[] = "serial_debugger/ui/connectionSettingsCollapsed";
+inline constexpr char kSerialDebuggerTrafficAutoScroll[] = "serial_debugger/traffic/autoScroll";
+inline constexpr char kSerialDebuggerTrafficShowTx[] = "serial_debugger/traffic/showTx";
+inline constexpr char kSerialDebuggerTrafficShowRx[] = "serial_debugger/traffic/showRx";
+inline constexpr char kSerialDebuggerTrafficCollapsed[] = "serial_debugger/traffic/ui/trafficMonitorCollapsed";
+inline constexpr char kSerialDebuggerInputFormat[] = "serial_debugger/input/format";
+inline constexpr char kSerialDebuggerInputAutoSend[] = "serial_debugger/input/autoSend";
+inline constexpr char kSerialDebuggerInputIntervalMs[] = "serial_debugger/input/intervalMs";
+inline constexpr char kSerialDebuggerInputCollapsed[] = "serial_debugger/ui/inputCollapsed";
+inline constexpr char kSerialDebuggerDtr[] = "serial_debugger/dtr";
+inline constexpr char kSerialDebuggerRts[] = "serial_debugger/rts";
 
 inline constexpr char kModbusRtuFlowControl[] = "modbus/rtu/serial/flowControl";
 
-inline constexpr char kUdpRemoteIp[] = "udp/remoteIp";
-inline constexpr char kUdpRemotePort[] = "udp/remotePort";
-
-inline constexpr char kLegacySerialBaudRate[] = "serial/baudRate";
+// Network Debugger (UDP mode) — canonical keys (Phase 9).
+inline constexpr char kNetworkDebuggerUdpRemoteIp[] = "network_debugger/udp/remoteIp";
+inline constexpr char kNetworkDebuggerUdpRemotePort[] = "network_debugger/udp/remotePort";
 
 }

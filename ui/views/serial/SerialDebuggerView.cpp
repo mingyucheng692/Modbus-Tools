@@ -1,13 +1,13 @@
 /**
- * @file GenericSerialView.cpp
- * @brief Implementation of GenericSerialView.
- * 
+ * @file SerialDebuggerView.cpp
+ * @brief Implementation of SerialDebuggerView.
+ *
  * Copyright (c) 2025 - present mingyucheng692
- * 
+ *
  * Licensed under the MIT License. See LICENSE file in the project root for full license information.
  */
 
-#include "GenericSerialView.h"
+#include "SerialDebuggerView.h"
 #include "Config.h"
 #include "infra/config/ISettingsService.h"
 #include "../../widgets/SerialConnectionWidget.h"
@@ -23,9 +23,9 @@
 #include <QEvent>
 #include <spdlog/spdlog.h>
 
-namespace ui::views::generic_serial {
+namespace ui::views::serial {
 
-GenericSerialView::GenericSerialView(infra::config::ISettingsService* settingsService, QWidget *parent)
+SerialDebuggerView::SerialDebuggerView(infra::config::ISettingsService* settingsService, QWidget *parent)
     : GenericChannelViewBase(settingsService, parent),
       channelCtrl_(this) {
     channelController_ = &channelCtrl_;
@@ -33,12 +33,12 @@ GenericSerialView::GenericSerialView(infra::config::ISettingsService* settingsSe
     startWorker();
 }
 
-GenericSerialView::~GenericSerialView() noexcept {
+SerialDebuggerView::~SerialDebuggerView() noexcept {
     // channelCtrl_ is a value member, destroyed automatically.
     // channelController_ pointer in base class is already null when this destructor runs.
 }
 
-void GenericSerialView::setupUi() {
+void SerialDebuggerView::setupUi() {
     auto mainLayout = new QVBoxLayout(this);
     mainLayout->setContentsMargins(6, 6, 6, 6);
     mainLayout->setSpacing(4);
@@ -46,36 +46,36 @@ void GenericSerialView::setupUi() {
     // 1. Connection Section (Top)
     auto topLayout = new QHBoxLayout();
     connectionWidget_ = new widgets::SerialConnectionWidget(settingsService_, this);
-    connectionWidget_->setSettingsGroup(QStringLiteral("serial_port"));
+    connectionWidget_->setSettingsGroup(QStringLiteral("serial_debugger"));
     topLayout->addWidget(connectionWidget_);
-    
+
     // Serial Controls (DTR/RTS)
     controlGroup_ = new QGroupBox(this);
     auto controlLayout = new QHBoxLayout(controlGroup_);
     controlLayout->setContentsMargins(5, 5, 5, 5);
-    
+
     dtrCheck_ = new QCheckBox(this);
     rtsCheck_ = new QCheckBox(this);
     controlLayout->addWidget(dtrCheck_);
     controlLayout->addWidget(rtsCheck_);
-    
+
     topLayout->addWidget(controlGroup_);
     topLayout->addStretch();
-    
+
     mainLayout->addLayout(topLayout);
 
     // 2. Central Area (Traffic Monitor)
     monitor_ = new widgets::ByteMonitorWidget(settingsService_, this);
-    monitor_->setSettingsGroup(QStringLiteral("serial_port/traffic"));
+    monitor_->setSettingsGroup(QStringLiteral("serial_debugger/traffic"));
     mainLayout->addWidget(monitor_);
 
     // 3. Input Section (Bottom)
     inputSection_ = new widgets::CollapsibleSection(settingsService_, this);
-    inputSection_->setSettingsKey(QStringLiteral("serial_port/ui/inputCollapsed"));
+    inputSection_->setSettingsKey(QStringLiteral("serial_debugger/ui/inputCollapsed"));
     auto inputLayout = new QVBoxLayout(inputSection_->contentWidget());
     inputLayout->setContentsMargins(0, 0, 0, 0);
     inputWidget_ = new widgets::GenericInputWidget(settingsService_, inputSection_->contentWidget());
-    inputWidget_->setSettingsGroup(QStringLiteral("serial_port/input"));
+    inputWidget_->setSettingsGroup(QStringLiteral("serial_debugger/input"));
     inputLayout->addWidget(inputWidget_);
     mainLayout->addWidget(inputSection_);
     mainLayout->setStretch(0, 0);
@@ -83,43 +83,43 @@ void GenericSerialView::setupUi() {
     mainLayout->setStretch(2, 0);
 
     // Connections
-    connect(connectionWidget_, &widgets::SerialConnectionWidget::connectClicked, 
-            this, &GenericSerialView::onConnectClicked);
-    connect(connectionWidget_, &widgets::SerialConnectionWidget::disconnectClicked, 
-            this, &GenericSerialView::onDisconnectClicked);
-    
-    connect(inputWidget_, &widgets::GenericInputWidget::sendRequested,
-            this, &GenericSerialView::onSendRequested);
+    connect(connectionWidget_, &widgets::SerialConnectionWidget::connectClicked,
+            this, &SerialDebuggerView::onConnectClicked);
+    connect(connectionWidget_, &widgets::SerialConnectionWidget::disconnectClicked,
+            this, &SerialDebuggerView::onDisconnectClicked);
 
-    connect(dtrCheck_, &QCheckBox::toggled, this, &GenericSerialView::onDtrChanged);
-    connect(rtsCheck_, &QCheckBox::toggled, this, &GenericSerialView::onRtsChanged);
-    
+    connect(inputWidget_, &widgets::GenericInputWidget::sendRequested,
+            this, &SerialDebuggerView::onSendRequested);
+
+    connect(dtrCheck_, &QCheckBox::toggled, this, &SerialDebuggerView::onDtrChanged);
+    connect(rtsCheck_, &QCheckBox::toggled, this, &SerialDebuggerView::onRtsChanged);
+
     // Disable controls initially
     dtrCheck_->setEnabled(false);
     rtsCheck_->setEnabled(false);
     if (settingsService_) {
-        dtrCheck_->setChecked(settingsService_->value(QStringLiteral("serial_port/dtr")).toBool());
-        rtsCheck_->setChecked(settingsService_->value(QStringLiteral("serial_port/rts")).toBool());
+        dtrCheck_->setChecked(settingsService_->value(QStringLiteral("serial_debugger/dtr")).toBool());
+        rtsCheck_->setChecked(settingsService_->value(QStringLiteral("serial_debugger/rts")).toBool());
     }
 
     retranslateUi();
 
     // Reconnect timer is managed by ChannelController; connect its signal to our slot.
     connect(&channelCtrl_, &ChannelController::reconnectTimeout,
-            this, &GenericSerialView::onReconnectTimerTick);
+            this, &SerialDebuggerView::onReconnectTimerTick);
 }
 
-void GenericSerialView::startWorker() {
+void SerialDebuggerView::startWorker() {
     auto* worker = channelCtrl_.createWorker();
     connect(worker, &io::ChannelOperationWorker::channelErrorOccurred,
-            this, &GenericSerialView::onWorkerError);
+            this, &SerialDebuggerView::onWorkerError);
     connect(worker, &io::ChannelOperationWorker::monitor,
-            this, &GenericSerialView::onWorkerMonitor);
+            this, &SerialDebuggerView::onWorkerMonitor);
     connect(worker, &io::ChannelOperationWorker::stateChangedWithGeneration,
-            this, &GenericSerialView::onWorkerStateChanged);
+            this, &SerialDebuggerView::onWorkerStateChanged);
 }
 
-void GenericSerialView::onConnectClicked(const io::SerialConfig& config) {
+void SerialDebuggerView::onConnectClicked(const io::SerialConfig& config) {
     auto* worker = channelCtrl_.worker();
     if (!worker) return;
 
@@ -132,7 +132,7 @@ void GenericSerialView::onConnectClicked(const io::SerialConfig& config) {
     manualDisconnectRequested_ = false;
     const quint64 generation = ++connectionGeneration_;
 
-    SPDLOG_INFO("GenericSerial: Connecting to {}", config.portName.toStdString());
+    SPDLOG_INFO("SerialDebugger: Connecting to {}", config.portName.toStdString());
     if (monitor_) {
         monitor_->appendInfo(tr("Opening %1...").arg(config.portName));
     }
@@ -144,7 +144,7 @@ void GenericSerialView::onConnectClicked(const io::SerialConfig& config) {
                               Q_ARG(quint64, generation));
 }
 
-void GenericSerialView::onWorkerStateChanged(io::ChannelState state, quint64 generation) {
+void SerialDebuggerView::onWorkerStateChanged(io::ChannelState state, quint64 generation) {
     if (generation != connectionGeneration_) {
         return;
     }
@@ -213,7 +213,7 @@ void GenericSerialView::onWorkerStateChanged(io::ChannelState state, quint64 gen
     }
 }
 
-void GenericSerialView::onWorkerError(const QString& deviceHint, io::ChannelErrorCode code, const QString& error) {
+void SerialDebuggerView::onWorkerError(const QString& deviceHint, io::ChannelErrorCode code, const QString& error) {
     if (monitor_) {
         QString localizedMsg;
         switch (code) {
@@ -233,42 +233,42 @@ void GenericSerialView::onWorkerError(const QString& deviceHint, io::ChannelErro
     SPDLOG_ERROR("{} Error (code={}): {}", hint.toStdString(), static_cast<int>(code), error.toStdString());
 }
 
-void GenericSerialView::onWorkerMonitor(bool isTx, const QByteArray& data) {
+void SerialDebuggerView::onWorkerMonitor(bool isTx, const QByteArray& data) {
     if (monitor_) {
         monitor_->appendMessage(isTx, data);
     }
 }
 
-void GenericSerialView::onDtrChanged(bool checked) {
+void SerialDebuggerView::onDtrChanged(bool checked) {
     if (settingsService_) {
-        settingsService_->setValue(QStringLiteral("serial_port/dtr"), checked);
+        settingsService_->setValue(QStringLiteral("serial_debugger/dtr"), checked);
     }
     auto* worker = channelCtrl_.worker();
     if (!worker) return;
-    QMetaObject::invokeMethod(worker, "setDtr", 
-                              Qt::QueuedConnection, 
+    QMetaObject::invokeMethod(worker, "setDtr",
+                              Qt::QueuedConnection,
                               Q_ARG(bool, checked));
 }
 
-void GenericSerialView::onRtsChanged(bool checked) {
+void SerialDebuggerView::onRtsChanged(bool checked) {
     if (settingsService_) {
-        settingsService_->setValue(QStringLiteral("serial_port/rts"), checked);
+        settingsService_->setValue(QStringLiteral("serial_debugger/rts"), checked);
     }
     auto* worker = channelCtrl_.worker();
     if (!worker) return;
-    QMetaObject::invokeMethod(worker, "setRts", 
-                              Qt::QueuedConnection, 
+    QMetaObject::invokeMethod(worker, "setRts",
+                              Qt::QueuedConnection,
                               Q_ARG(bool, checked));
 }
 
-void GenericSerialView::retranslateUi() {
+void SerialDebuggerView::retranslateUi() {
     if (controlGroup_) controlGroup_->setTitle(tr("Control"));
     if (inputSection_) inputSection_->setTitle(tr("Send Data"));
     if (dtrCheck_) dtrCheck_->setText(tr("DTR"));
     if (rtsCheck_) rtsCheck_->setText(tr("RTS"));
 }
 
-void GenericSerialView::onReconnectTimerTick() {
+void SerialDebuggerView::onReconnectTimerTick() {
     if (!connectionWidget_) return;
     auto* worker = channelCtrl_.worker();
     if (!worker) return;
@@ -283,7 +283,7 @@ void GenericSerialView::onReconnectTimerTick() {
         return;
     }
 
-    SPDLOG_INFO("GenericSerial: Auto-reconnecting to {} (attempt {})",
+    SPDLOG_INFO("SerialDebugger: Auto-reconnecting to {} (attempt {})",
                  reconnectConfig_.portName.toStdString(),
                  channelCtrl_.reconnectPolicy().attemptCount());
 
@@ -300,4 +300,4 @@ void GenericSerialView::onReconnectTimerTick() {
                               Q_ARG(quint64, generation));
 }
 
-} // namespace ui::views::generic_serial
+} // namespace ui::views::serial

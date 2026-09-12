@@ -117,8 +117,8 @@ target_sources(ui PRIVATE
     views/GenericChannelViewBase.h
     views/network/NetworkDebuggerView.cpp
     views/network/NetworkDebuggerView.h
-    views/generic_serial/GenericSerialView.cpp
-    views/generic_serial/GenericSerialView.h
+    views/serial/SerialDebuggerView.cpp
+    views/serial/SerialDebuggerView.h
     views/converter/Ieee754ConverterWidget.cpp
     views/converter/Ieee754ConverterWidget.h
     views/converter/ModbusFrameBuilderWidget.cpp
