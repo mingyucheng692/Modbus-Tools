@@ -14,6 +14,7 @@
 #include <QUrl>
 #include <QPointer>
 #include "infra/platform/IPlatformProcessRunner.h"
+#include "PlatformReleaseAssetStrategy.h"
 #include "PlatformUpdateInstallStrategy.h"
 #include <memory>
 #include <atomic>
@@ -56,6 +57,12 @@ struct UpdateInfo {
     QString checksumsUrl;
     QString fullPackageUrl;
     QString releaseUrl;
+    /// Published SHA256 of the full package asset; empty means the release
+    /// carries no digest — downstream UI must surface that explicitly.
+    QString fullPackageSha256;
+    /// How the user should apply this update; sourced from the platform
+    /// layout table (single platform-delta point, no UI-level OS branches).
+    UpdateGuidance guidance = UpdateGuidance::OpenDownloadPage;
 };
 
 /**

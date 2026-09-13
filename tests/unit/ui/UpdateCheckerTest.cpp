@@ -86,7 +86,7 @@ TEST(UpdateCheckerAssetSelection, MacOsAssetsPreferDiskImageBeforeArchiveFallbac
     const QString resolvedUrl = core::update::release_asset::resolveFullPackageUrl(
         assets,
         layout,
-        QStringLiteral("https://example.com/releases/tag/v1.2.3"));
+        QStringLiteral("https://example.com/releases/tag/v1.2.3")).url;
 
     EXPECT_EQ(resolvedUrl, QStringLiteral("https://example.com/macos-arm64.dmg"));
 }
@@ -115,7 +115,7 @@ TEST(UpdateCheckerAssetSelection, LinuxAssetsAcceptPlatformPackageMatrix)
     const QString resolvedUrl = core::update::release_asset::resolveFullPackageUrl(
         assets,
         layout,
-        releaseUrl);
+        releaseUrl).url;
 
     EXPECT_EQ(resolvedUrl, QStringLiteral("https://example.com/linux-x86_64.rpm"));
 }
@@ -135,7 +135,7 @@ TEST(UpdateCheckerAssetSelection, ForeignPlatformAssetsFallBackToReleasePage)
     const QString resolvedUrl = core::update::release_asset::resolveFullPackageUrl(
         assets,
         layout,
-        releaseUrl);
+        releaseUrl).url;
 
     EXPECT_EQ(resolvedUrl, releaseUrl);
 }

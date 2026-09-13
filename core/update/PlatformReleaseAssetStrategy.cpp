@@ -6,6 +6,7 @@
 #include "PlatformReleaseAssetStrategy.h"
 
 #include <QJsonObject>
+#include <QRegularExpression>
 
 #ifndef MODBUS_TOOLS_PLATFORM
 #define MODBUS_TOOLS_PLATFORM "windows-x86_64"
@@ -72,6 +73,7 @@ PlatformUpdateArtifactLayout layoutForPackage(const QString& version,
         layout.fullPackageAssetNames = {
             buildPlatformAssetName(version, packagePlatform, QStringLiteral("-Setup.exe"))
         };
+        layout.guidance = UpdateGuidance::AutomaticInstaller;
         break;
     case UpdatePlatformFamily::MacOs:
         layout.fullPackageAssetNames = {
@@ -79,6 +81,7 @@ PlatformUpdateArtifactLayout layoutForPackage(const QString& version,
             buildPlatformAssetName(version, packagePlatform, QStringLiteral(".pkg")),
             buildPlatformAssetName(version, packagePlatform, QStringLiteral(".zip"))
         };
+        layout.guidance = UpdateGuidance::OpenDownloadPage;
         break;
     case UpdatePlatformFamily::Linux:
         layout.fullPackageAssetNames = {
@@ -87,6 +90,7 @@ PlatformUpdateArtifactLayout layoutForPackage(const QString& version,
             buildPlatformAssetName(version, packagePlatform, QStringLiteral(".rpm")),
             buildPlatformAssetName(version, packagePlatform, QStringLiteral(".tar.gz"))
         };
+        layout.guidance = UpdateGuidance::TerminalCommand;
         break;
     case UpdatePlatformFamily::Unknown:
     default:
@@ -96,9 +100,17 @@ PlatformUpdateArtifactLayout layoutForPackage(const QString& version,
     return layout;
 }
 
-QString resolveFullPackageUrl(const QJsonArray& assets,
-                              const PlatformUpdateArtifactLayout& layout,
-                              const QString& releaseUrl)
+QString digestSha256(const QJsonObject& asset)
+{
+    static const QRegularExpression digestPattern(QStringLiteral("^sha256:([a-fA-F0-9]{64})$"));
+    const QString digestRaw = asset.value(QStringLiteral("digest")).toString().trimmed();
+    const QRegularExpressionMatch match = digestPattern.match(digestRaw);
+    return match.hasMatch() ? match.captured(1).toLower() : QString();
+}
+
+ResolvedFullPackage resolveFullPackageUrl(const QJsonArray& assets,
+                                          const PlatformUpdateArtifactLayout& layout,
+                                          const QString& releaseUrl)
 {
     for (const QString& expectedAssetName : layout.fullPackageAssetNames) {
         for (const QJsonValue& assetValue : assets) {
@@ -114,12 +126,15 @@ QString resolveFullPackageUrl(const QJsonArray& assets,
 
             const QString assetUrl = asset.value(QStringLiteral("browser_download_url")).toString();
             if (!assetUrl.isEmpty()) {
-                return assetUrl;
+                return ResolvedFullPackage{assetUrl, digestSha256(asset)};
             }
         }
     }
 
-    return releaseUrl;
+    // No package asset matched — fall back to the release page. The empty
+    // sha256 is surfaced downstream as an explicit checksum-unavailable
+    // warning, never as a silently skipped verification.
+    return ResolvedFullPackage{releaseUrl, QString()};
 }
 
 } // namespace core::update::release_asset

@@ -100,6 +100,8 @@ set(TEST_CORE_LOGIC_SOURCES
     unit/update/UpdateManagerInstallStrategyTest.cpp
     unit/update/ReleaseParserTest.cpp
     unit/update/UpdaterIntegrityTest.cpp
+    unit/update/PlatformReleaseAssetStrategyTest.cpp
+    unit/update/UpdateCommandTemplateTest.cpp
     unit/polling/PollingStrategyTest.cpp
     unit/test_modbus_frame_builder.cpp
 )

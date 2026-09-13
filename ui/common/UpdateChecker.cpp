@@ -20,7 +20,6 @@
 #include <QNetworkAccessManager>
 #include <QNetworkReply>
 #include <QNetworkRequest>
-#include <QRegularExpression>
 #include <QStringList>
 #include <QUrl>
 #include <QtGlobal>
@@ -112,9 +111,7 @@ void UpdateChecker::checkForUpdates() {
         QString updateOnlyUrl;
         QString updateOnlySha256;
         QString checksumsUrl;
-        QString fullPackageUrl;
         const auto artifactLayout = core::update::release_asset::layoutForPackage(latestVersion, packagePlatform());
-        const QRegularExpression digestPattern(QStringLiteral("^sha256:([a-fA-F0-9]{64})$"));
         for (const QJsonValue& assetValue : assets) {
             if (!assetValue.isObject()) {
                 continue;
@@ -125,17 +122,16 @@ void UpdateChecker::checkForUpdates() {
             if (!artifactLayout.updateOnlyAssetName.isEmpty() &&
                 assetName.compare(artifactLayout.updateOnlyAssetName, Qt::CaseInsensitive) == 0) {
                 updateOnlyUrl = assetUrl;
-                const QString digestRaw = asset.value("digest").toString().trimmed();
-                const QRegularExpressionMatch digestMatch = digestPattern.match(digestRaw);
-                if (digestMatch.hasMatch()) {
-                    updateOnlySha256 = digestMatch.captured(1).toLower();
-                }
+                updateOnlySha256 = core::update::release_asset::digestSha256(asset);
             } else if (assetName.compare(QStringLiteral("sha256sums.txt"), Qt::CaseInsensitive) == 0) {
                 checksumsUrl = assetUrl;
             }
         }
 
-        fullPackageUrl = core::update::release_asset::resolveFullPackageUrl(assets, artifactLayout, releaseUrl);
+        const auto resolvedFullPackage =
+            core::update::release_asset::resolveFullPackageUrl(assets, artifactLayout, releaseUrl);
+        const QString& fullPackageUrl = resolvedFullPackage.url;
+        const QString& fullPackageSha256 = resolvedFullPackage.sha256;
 
         const std::string currentVer = currentVersion().toStdString();
         const int compareResult = core::update::release_parser::compareVersions(
@@ -150,7 +146,9 @@ void UpdateChecker::checkForUpdates() {
                 updateOnlySha256,
                 checksumsUrl,
                 fullPackageUrl,
-                releaseUrl
+                releaseUrl,
+                fullPackageSha256,
+                artifactLayout.guidance
             });
             return;
         }
