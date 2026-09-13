@@ -10,6 +10,7 @@
 #pragma once
 
 #include "application/UpdateCoordinator.h"
+#include "UpdateCommandDialog.h"
 #include <QObject>
 #include <functional>
 
@@ -36,6 +37,9 @@ public:
     void showUpdateWarningMessage(const QString& title, const QString& message) override;
     void showUpdateCriticalMessage(const QString& title, const QString& message) override;
     bool confirmOpenDownloadPage(const QString& latestVersion) override;
+    void showUpdateCommandDialog(const QString& latestVersion,
+                                 const QString& command,
+                                 const QString& releaseUrl) override;
     application::UpdatePromptChoice promptUpdateAction(const QString& currentVersion, const QString& latestVersion) override;
     void showUpdateProgress(std::function<void()> onCancel) override;
     void updateProgress(int percent, const QString& message) override;

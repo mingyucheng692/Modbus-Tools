@@ -3,6 +3,7 @@
 #include "Config.h"
 #include "common/UpdateChecker.h"
 #include "../core/common/SettingsController.h"
+#include "../core/update/UpdateCommandTemplate.h"
 #include "../core/update/UpdateManager.h"
 #include "infra/platform/PlatformInfo.h"
 
@@ -202,7 +203,20 @@ void UpdateCoordinator::promptUpdateAction(const QString& currentVersion) {
         : pendingUpdateInfo_.fullPackageUrl;
 
     if (pendingUpdateInfo_.updateOnlyUrl.isEmpty()) {
-        if (view_ && view_->confirmOpenDownloadPage(pendingUpdateInfo_.latestVersion)) {
+        // Layout-table routing: the full-package URL equals the release page
+        // only when the release carries no package asset we recognize — in
+        // that case the terminal flow has nothing to download and we degrade
+        // gracefully to the historical "open download page" behavior.
+        const bool hasDownloadablePackage =
+            !pendingUpdateInfo_.fullPackageUrl.isEmpty() &&
+            pendingUpdateInfo_.fullPackageUrl != pendingUpdateInfo_.releaseUrl;
+        if (view_ && pendingUpdateInfo_.guidance == core::update::UpdateGuidance::TerminalCommand &&
+            hasDownloadablePackage) {
+            const QString command = core::update::buildLinuxUpdateCommand(
+                QUrl(pendingUpdateInfo_.fullPackageUrl), pendingUpdateInfo_.fullPackageSha256);
+            view_->showUpdateCommandDialog(pendingUpdateInfo_.latestVersion, command,
+                                           pendingUpdateInfo_.releaseUrl);
+        } else if (view_ && view_->confirmOpenDownloadPage(pendingUpdateInfo_.latestVersion)) {
             QDesktopServices::openUrl(QUrl(downloadUrl));
         }
         checkingUpdateManually_ = false;

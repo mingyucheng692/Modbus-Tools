@@ -34,6 +34,12 @@ public:
     virtual void showUpdateWarningMessage(const QString& title, const QString& message) = 0;
     virtual void showUpdateCriticalMessage(const QString& title, const QString& message) = 0;
     virtual bool confirmOpenDownloadPage(const QString& latestVersion) = 0;
+    /// Presents the copy-ready terminal command sequence for applying the
+    /// update in place (guidance == TerminalCommand). |releaseUrl| backs the
+    /// "open download page" fallback action inside the dialog.
+    virtual void showUpdateCommandDialog(const QString& latestVersion,
+                                         const QString& command,
+                                         const QString& releaseUrl) = 0;
     virtual UpdatePromptChoice promptUpdateAction(const QString& currentVersion, const QString& latestVersion) = 0;
     virtual void showUpdateProgress(std::function<void()> onCancel) = 0;
     virtual void updateProgress(int percent, const QString& message) = 0;

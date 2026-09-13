@@ -65,6 +65,14 @@ bool UpdateInteractionView::confirmOpenDownloadPage(const QString& latestVersion
            == QMessageBox::Yes;
 }
 
+void UpdateInteractionView::showUpdateCommandDialog(const QString& latestVersion,
+                                                    const QString& command,
+                                                    const QString& releaseUrl) {
+    UpdateCommandDialog dialog(latestVersion, command, releaseUrl,
+                               qobject_cast<QWidget*>(parent()));
+    dialog.exec();
+}
+
 application::UpdatePromptChoice UpdateInteractionView::promptUpdateAction(const QString& currentVersion, const QString& latestVersion) {
     auto* parentWidget = qobject_cast<QWidget*>(parent());
     QMessageBox mb(parentWidget);

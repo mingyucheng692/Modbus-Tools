@@ -84,6 +84,14 @@ public:
         ++confirmOpenDownloadPageCallCount;
         return confirmOpenDownloadPageResult;
     }
+    void showUpdateCommandDialog(const QString& latestVersion,
+                                 const QString& command,
+                                 const QString& releaseUrl) override {
+        lastCommandDialogLatestVersion = latestVersion;
+        lastCommandDialogCommand = command;
+        lastCommandDialogReleaseUrl = releaseUrl;
+        ++showUpdateCommandDialogCallCount;
+    }
     [[nodiscard]] ui::application::UpdatePromptChoice promptUpdateAction(const QString& currentVersion,
                                                                          const QString& latestVersion) override {
         lastPromptCurrentVersion = currentVersion;
@@ -129,6 +137,9 @@ public:
     QString lastCriticalTitle;
     QString lastCriticalMessage;
     QString lastConfirmedLatestVersion;
+    QString lastCommandDialogLatestVersion;
+    QString lastCommandDialogCommand;
+    QString lastCommandDialogReleaseUrl;
     QString lastPromptCurrentVersion;
     QString lastPromptLatestVersion;
     int initializeUiCallCount = 0;
@@ -144,6 +155,7 @@ public:
     int showUpdateWarningMessageCallCount = 0;
     int showUpdateCriticalMessageCallCount = 0;
     int confirmOpenDownloadPageCallCount = 0;
+    int showUpdateCommandDialogCallCount = 0;
     int promptUpdateActionCallCount = 0;
     int showUpdateProgressCallCount = 0;
     int updateProgressCallCount = 0;
@@ -162,7 +174,10 @@ public:
                              const QString& updateOnlySha256,
                              const QString& checksumsUrl,
                              const QString& fullPackageUrl,
-                             const QString& releaseUrl) {
+                             const QString& releaseUrl,
+                             core::update::UpdateGuidance guidance =
+                                 core::update::UpdateGuidance::OpenDownloadPage,
+                             const QString& fullPackageSha256 = QString()) {
         core::update::UpdateInfo info;
         info.currentVersion = currentVersion;
         info.latestVersion = latestVersion;
@@ -171,6 +186,8 @@ public:
         info.checksumsUrl = checksumsUrl;
         info.fullPackageUrl = fullPackageUrl;
         info.releaseUrl = releaseUrl;
+        info.fullPackageSha256 = fullPackageSha256;
+        info.guidance = guidance;
         emit updateAvailable(info);
     }
 

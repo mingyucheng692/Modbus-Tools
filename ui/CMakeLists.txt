@@ -101,6 +101,8 @@ target_sources(ui PRIVATE
     MainWindow.cpp
     UpdateInteractionView.h
     UpdateInteractionView.cpp
+    UpdateCommandDialog.h
+    UpdateCommandDialog.cpp
     application/AnalyzerLinkCoordinator.cpp
     application/AnalyzerLinkCoordinator.h
     application/analyzer/FrameAnalyzerPresenter.cpp

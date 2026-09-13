@@ -83,6 +83,89 @@ TEST_F(UpdateCoordinatorTest, DownloadOnlyPlatformShowsExplicitDownloadFlow) {
     EXPECT_EQ(view_.promptUpdateActionCallCount, 0);
 }
 
+TEST_F(UpdateCoordinatorTest, TerminalCommandGuidanceShowsCommandDialogInsteadOfConfirm) {
+    view_.confirmOpenDownloadPageResult = true;
+
+    coordinator_->checkForUpdates();
+    updateChecker_.emitUpdateAvailable(QStringLiteral("1.0.0"),
+                                       QStringLiteral("1.1.0"),
+                                       QString(),  // no UpdateOnly asset on Linux
+                                       QString(),
+                                       QString(),
+                                       QStringLiteral("https://example.com/Modbus-Tools-v1.1.0-linux-x86_64.tar.gz"),
+                                       QStringLiteral("https://example.com/releases/tag/v1.1.0"),
+                                       core::update::UpdateGuidance::TerminalCommand,
+                                       QStringLiteral("abc123"));
+
+    EXPECT_TRUE(coordinator_->updateAvailable());
+    EXPECT_EQ(view_.showUpdateCommandDialogCallCount, 1);
+    EXPECT_EQ(view_.lastCommandDialogLatestVersion, QStringLiteral("1.1.0"));
+    EXPECT_TRUE(view_.lastCommandDialogCommand.contains(
+        QStringLiteral("https://example.com/Modbus-Tools-v1.1.0-linux-x86_64.tar.gz")));
+    EXPECT_TRUE(view_.lastCommandDialogCommand.contains(QStringLiteral("sha256sum -c")));
+    EXPECT_TRUE(view_.lastCommandDialogCommand.contains(QStringLiteral("abc123")));
+    EXPECT_EQ(view_.lastCommandDialogReleaseUrl, QStringLiteral("https://example.com/releases/tag/v1.1.0"));
+    // The command flow replaces — never stacks with — the download-page confirm.
+    EXPECT_EQ(view_.confirmOpenDownloadPageCallCount, 0);
+    EXPECT_EQ(view_.promptUpdateActionCallCount, 0);
+}
+
+TEST_F(UpdateCoordinatorTest, OpenDownloadPageGuidanceKeepsHistoricalConfirmFlow) {
+    view_.confirmOpenDownloadPageResult = true;
+
+    coordinator_->checkForUpdates();
+    updateChecker_.emitUpdateAvailable(QStringLiteral("1.0.0"),
+                                       QStringLiteral("1.1.0"),
+                                       QString(),
+                                       QString(),
+                                       QString(),
+                                       QStringLiteral("https://example.com/Modbus-Tools-v1.1.0-macos-arm64.dmg"),
+                                       QStringLiteral("https://example.com/releases/tag/v1.1.0"),
+                                       core::update::UpdateGuidance::OpenDownloadPage);
+
+    EXPECT_EQ(view_.showUpdateCommandDialogCallCount, 0);
+    EXPECT_EQ(view_.confirmOpenDownloadPageCallCount, 1);
+}
+
+TEST_F(UpdateCoordinatorTest, TerminalCommandWithoutPackageAssetDegradesToDownloadPage) {
+    // Older releases may carry no recognizable Linux asset: fullPackageUrl
+    // falls back to the release page itself — the terminal flow has nothing
+    // to download and must degrade to the historical behavior.
+    view_.confirmOpenDownloadPageResult = true;
+
+    coordinator_->checkForUpdates();
+    updateChecker_.emitUpdateAvailable(QStringLiteral("1.0.0"),
+                                       QStringLiteral("1.1.0"),
+                                       QString(),
+                                       QString(),
+                                       QString(),
+                                       QStringLiteral("https://example.com/releases/tag/v1.1.0"),
+                                       QStringLiteral("https://example.com/releases/tag/v1.1.0"),
+                                       core::update::UpdateGuidance::TerminalCommand);
+
+    EXPECT_EQ(view_.showUpdateCommandDialogCallCount, 0);
+    EXPECT_EQ(view_.confirmOpenDownloadPageCallCount, 1);
+}
+
+TEST_F(UpdateCoordinatorTest, TerminalCommandWithMissingDigestStillShowsCommandDialog) {
+    // Empty sha256 is surfaced by the dialog as an explicit WARNING segment,
+    // not as a silent skip — the command flow remains usable.
+    coordinator_->checkForUpdates();
+    updateChecker_.emitUpdateAvailable(QStringLiteral("1.0.0"),
+                                       QStringLiteral("1.1.0"),
+                                       QString(),
+                                       QString(),
+                                       QString(),
+                                       QStringLiteral("https://example.com/Modbus-Tools-v1.1.0-linux-x86_64.tar.gz"),
+                                       QStringLiteral("https://example.com/releases/tag/v1.1.0"),
+                                       core::update::UpdateGuidance::TerminalCommand,
+                                       QString() /* no digest published */);
+
+    EXPECT_EQ(view_.showUpdateCommandDialogCallCount, 1);
+    EXPECT_TRUE(view_.lastCommandDialogCommand.contains(QStringLiteral("WARNING")));
+    EXPECT_FALSE(view_.lastCommandDialogCommand.contains(QStringLiteral("sha256sum")));
+}
+
 TEST_F(UpdateCoordinatorTest, DownloadFailureDuringManualCheckShowsWarning) {
     coordinator_->checkForUpdates();
     updateManager_.emitUpdateFailed(QStringLiteral("Download failed"));
