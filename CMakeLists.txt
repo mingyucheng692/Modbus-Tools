@@ -4,7 +4,7 @@ if(WIN32 AND CMAKE_GENERATOR MATCHES "Ninja")
     set(CMAKE_NINJA_CMCLDEPS_RC 0)
 endif()
 
-project(ModbusTools VERSION 1.0.7 LANGUAGES CXX)
+project(ModbusTools VERSION 1.0.8 LANGUAGES CXX)
 if(WIN32)
     enable_language(RC)
 endif()

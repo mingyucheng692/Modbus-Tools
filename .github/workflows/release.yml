@@ -172,6 +172,11 @@ jobs:
         with:
           body: ${{ steps.tag_message.outputs.body }}
           draft: false
+          # The action defaults prerelease to false — an unmarked rc tag
+          # would become /releases/latest and reach stable-channel users.
+          # Any tag with a prerelease suffix (v1.0.8-rc.1) is marked here;
+          # the verify-version gate has already validated the base version.
+          prerelease: ${{ contains(github.ref_name, '-') }}
           files: |
             Modbus-Tools-*-windows-x86_64.zip
             Modbus-Tools-*-windows-x86_64-UpdateOnly.exe
@@ -246,6 +251,9 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           draft: false
+          # Same prerelease auto-marking as the Windows job: keep rc/beta
+          # rehearsal tags out of /releases/latest (stable channel).
+          prerelease: ${{ contains(github.ref_name, '-') }}
           fail_on_unmatched_files: true
           files: |
             Modbus-Tools-*-linux-x86_64.tar.gz
