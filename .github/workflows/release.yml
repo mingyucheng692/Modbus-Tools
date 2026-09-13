@@ -240,7 +240,9 @@ jobs:
           echo "QT_ROOT_DIR=$QT_DIR" >> "$GITHUB_ENV"
           echo "QT_PLUGIN_PATH=$QT_DIR/plugins" >> "$GITHUB_ENV"
           echo "CMAKE_PREFIX_PATH=$QT_DIR" >> "$GITHUB_ENV"
-          qmake -query QT_VERSION
+          # GITHUB_PATH takes effect only for SUBSEQUENT steps — use the full
+          # path when verifying inside this same step.
+          "$QT_DIR/bin/qmake" -query QT_VERSION
 
       - name: Build & Run Tests (QA Check - ASan Enabled)
         env:
