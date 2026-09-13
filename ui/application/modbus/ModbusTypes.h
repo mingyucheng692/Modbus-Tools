@@ -17,7 +17,7 @@
 #include "modbus/base/ModbusConfig.h"
 #include "modbus/parser/ModbusFrameParser.h"
 #include "infra/io/SerialConfig.h"
-#include "../../../../core/Config.h"
+#include "Config.h"
 
 namespace ui::application::modbus {
 
