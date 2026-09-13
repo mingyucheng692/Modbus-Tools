@@ -52,6 +52,57 @@ TEST(ReleaseParser, CompareVersionsDifferentLengths) {
     EXPECT_EQ(release_parser::compareVersions("1.0", "1.0.0"), 0);
 }
 
+// ---------------------------------------------------------------------------
+// Prerelease comparison (R1 semantic decision: SemVer 2.0.0 §11 precedence).
+// The old parser dropped the numeric prefix of a suffix token ("8-rc1" was
+// pushed as 0), silently regressing prerelease tags to [1, 0, 0] and hiding
+// updates from prerelease-channel users (under-reporting).
+// ---------------------------------------------------------------------------
+
+TEST(ReleaseParser, CompareVersionsSuffixKeepsNumericPrefix) {
+    // Regression: "v1.0.8-rc1" used to parse as [1,0,0] and never beat 1.0.7.
+    EXPECT_GT(release_parser::compareVersions("1.0.8-rc1", "1.0.7"), 0);
+    EXPECT_GT(release_parser::compareVersions("v1.0.8-rc1", "1.0.7"), 0);
+    // High segments still decide before prerelease identifiers.
+    EXPECT_GT(release_parser::compareVersions("2.0.0-beta", "1.9.9"), 0);
+}
+
+TEST(ReleaseParser, CompareVersionsPrereleaseBelowRelease) {
+    EXPECT_LT(release_parser::compareVersions("1.0.8-rc1", "1.0.8"), 0);
+    EXPECT_GT(release_parser::compareVersions("1.0.8", "1.0.8-rc1"), 0);
+    EXPECT_LT(release_parser::compareVersions("1.0.8-beta", "1.0.8"), 0);
+}
+
+TEST(ReleaseParser, CompareVersionsPrereleaseIterations) {
+    // rc iterations are distinguishable (used to compare equal).
+    EXPECT_LT(release_parser::compareVersions("1.0.7-rc1", "1.0.7-rc2"), 0);
+    EXPECT_GT(release_parser::compareVersions("1.0.7-rc2", "1.0.7-rc1"), 0);
+    EXPECT_EQ(release_parser::compareVersions("1.0.7-rc1", "1.0.7-rc1"), 0);
+    // Numeric tail ordering for the "rcN" tag convention (rc2 < rc10);
+    // pure ASCII comparison would invert two-digit iterations.
+    EXPECT_LT(release_parser::compareVersions("1.0.7-rc9", "1.0.7-rc10"), 0);
+    EXPECT_LT(release_parser::compareVersions("1.0.7-rc2", "1.0.7-rc10"), 0);
+    // Alphanumeric identifiers compare lexically: alpha < beta < rc.
+    EXPECT_LT(release_parser::compareVersions("1.0.7-beta", "1.0.7-rc1"), 0);
+    EXPECT_LT(release_parser::compareVersions("1.0.7-alpha", "1.0.7-beta"), 0);
+    // SemVer: numeric identifiers rank below alphanumeric ones.
+    EXPECT_LT(release_parser::compareVersions("1.0.0-1", "1.0.0-alpha"), 0);
+    // Dot-separated identifier lists compare per SemVer §11.4.
+    EXPECT_LT(release_parser::compareVersions("1.0.7-beta.2", "1.0.7-beta.11"), 0);
+    EXPECT_GT(release_parser::compareVersions("1.0.7-beta.2", "1.0.7-beta"), 0);
+}
+
+TEST(ReleaseParser, CompareVersionsBuildMetadataIgnored) {
+    EXPECT_EQ(release_parser::compareVersions("1.0.7+build.5", "1.0.7"), 0);
+    EXPECT_EQ(release_parser::compareVersions("1.0.7+build.5", "1.0.7+build.42"), 0);
+    EXPECT_LT(release_parser::compareVersions("1.0.7+build.5", "1.0.8"), 0);
+}
+
+TEST(ReleaseParser, CompareVersionsMalformedTokenStillZero) {
+    // Tolerance for malformed numeric segments is unchanged.
+    EXPECT_EQ(release_parser::compareVersions("1.0.x", "1.0.0"), 0);
+}
+
 TEST(ReleaseParser, ParseReleasesEmpty) {
     auto results = release_parser::parseReleases("", false);
     EXPECT_TRUE(results.empty());

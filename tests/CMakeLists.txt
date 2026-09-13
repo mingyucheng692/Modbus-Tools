@@ -99,6 +99,7 @@ set(TEST_CORE_LOGIC_SOURCES
     unit/modbus/session/RetryStrategyTest.cpp
     unit/update/UpdateManagerInstallStrategyTest.cpp
     unit/update/ReleaseParserTest.cpp
+    unit/update/UpdaterIntegrityTest.cpp
     unit/polling/PollingStrategyTest.cpp
     unit/test_modbus_frame_builder.cpp
 )

@@ -35,6 +35,14 @@ public:
     static QString packagePlatform();
     static QString releasePageUrl();
 
+    /// Runtime opt-in gate for the prerelease update channel: re-reads the
+    /// MODBUS_TOOLS_PRERELEASE environment variable on every check. Returns
+    /// true only when the variable is set to "1" or "true" (case-insensitive);
+    /// unset, empty, "0" and "false" all resolve to false. This replaces the
+    /// retired MODBUS_TOOLS_INCLUDE_PRERELEASE compile-time option, which
+    /// permanently burned the channel choice into the distributed binary.
+    static bool includePrereleaseOptIn();
+
 signals:
     void updateAvailable(const core::update::UpdateInfo& info);
     void noUpdateAvailable(const QString& currentVersion);

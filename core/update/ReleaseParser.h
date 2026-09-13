@@ -38,6 +38,12 @@ std::string normalizeVersion(const std::string& raw);
 
 /**
  * @brief Compare two semantic versions. Returns >0 if a > b, <0 if a < b, 0 if equal.
+ *
+ * Numeric segments decide first (zero-padded). For equal segments, SemVer 2.0.0
+ * prerelease precedence applies: a plain release outranks any prerelease of the
+ * same version ("1.0.8-rc1" < "1.0.8") and prerelease identifiers order
+ * alphanumerically / numerically ("1.0.7-rc1" < "1.0.7-rc2", "beta" < "rc").
+ * Build metadata ("1.0.0+build.5") is ignored for precedence.
  */
 int compareVersions(const std::string& a, const std::string& b);
 

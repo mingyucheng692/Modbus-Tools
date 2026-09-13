@@ -13,7 +13,33 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  # Gate: the git tag must match the binary version baked into CMakeLists.txt
+  # (single source of truth). A drift would ship binaries reporting the wrong
+  # version ("update never applies" or an endless update loop). The tag is
+  # compared after stripping the 'v' prefix and any '-prerelease' suffix, since
+  # project(VERSION) only accepts plain numeric versions.
+  verify-version:
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Verify tag matches project VERSION
+        run: |
+          CMAKE_VERSION=$(grep -oP 'project\(ModbusTools VERSION \K[0-9.]+' CMakeLists.txt)
+          TAG_VERSION="${GITHUB_REF_NAME#v}"
+          TAG_VERSION="${TAG_VERSION%%-*}"
+          echo "project VERSION=${CMAKE_VERSION}; tag ${GITHUB_REF_NAME} -> ${TAG_VERSION}"
+          if [ -z "$CMAKE_VERSION" ] || [ "$CMAKE_VERSION" != "$TAG_VERSION" ]; then
+            echo "::error::git tag '${GITHUB_REF_NAME}' does not match project VERSION '${CMAKE_VERSION}' in CMakeLists.txt"
+            exit 1
+          fi
+
   build-and-release:
+    needs: verify-version
     if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
     runs-on: windows-latest
     
@@ -41,7 +67,7 @@ jobs:
       - name: Install Qt
         uses: jurplel/install-qt-action@v4
         with:
-          version: '6.10.1' # Qt6, specific version can be adjusted
+          version: '6.10.3' # Qt6, unified with ci.yml (was 6.10.1, fixed for cross-platform consistency)
           host: 'windows'
           target: 'desktop'
           arch: 'win64_msvc2022_64'
@@ -56,11 +82,36 @@ jobs:
           cd build_qa
           ctest -C RelWithDebInfo --output-on-failure
 
-      - name: Build Production Artifacts (Delivery - Clean Release)
+      - name: Build Production Artifacts (Delivery - Clean Release, two-stage)
         shell: bash
         run: |
           # Use a separate directory to ensure zero contamination
           cmake -S . -B build_release -DCMAKE_BUILD_TYPE=Release -DMODBUS_TOOLS_BUILD_TESTS=OFF -DMODBUS_TOOLS_ENABLE_ASAN=OFF
+
+          # Stage 1: build the updater first so its binary hash can be burned
+          # into the main application (verifyUpdaterIntegrity depends on it).
+          cmake --build build_release --target updater --config Release -j
+          UPDATER_EXE="build_release/app/Release/updater.exe"
+          if [ ! -f "$UPDATER_EXE" ]; then
+            echo "::error::updater.exe not found at $UPDATER_EXE after stage-1 build"
+            exit 1
+          fi
+          UPDATER_HASH=$(sha256sum "$UPDATER_EXE" | cut -d' ' -f1)
+          if [ -z "$UPDATER_HASH" ]; then
+            echo "::error::failed to compute updater.exe SHA256"
+            exit 1
+          fi
+          echo "updater.exe SHA256: $UPDATER_HASH"
+
+          # Stage 2: re-configure with the injected hash and build the bundle.
+          cmake -S . -B build_release -DCMAKE_BUILD_TYPE=Release \
+                -DMODBUS_TOOLS_BUILD_TESTS=OFF -DMODBUS_TOOLS_ENABLE_ASAN=OFF \
+                -DMODBUS_TOOLS_UPDATER_SHA256="$UPDATER_HASH"
+          CONFIGURED_HASH=$(cmake -S . -B build_release -LA -N | grep -i 'MODBUS_TOOLS_UPDATER_SHA256' || true)
+          case "$CONFIGURED_HASH" in
+            *"$UPDATER_HASH"*) ;;
+            *) echo "::error::MODBUS_TOOLS_UPDATER_SHA256 was not injected into the build cache: $CONFIGURED_HASH"; exit 1 ;;
+          esac
           cmake --build build_release --target release_bundle --config Release -j
 
       - name: Prepare Release Artifacts
@@ -125,5 +176,79 @@ jobs:
             Modbus-Tools-*-windows-x86_64.zip
             Modbus-Tools-*-windows-x86_64-UpdateOnly.exe
             *.sha256
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  # Linux full-package (tar.gz) build & publish. Update UX on Linux is
+  # "detect + terminal command guidance" (see docs: linux-ota-implementation-plan.md),
+  # so no UpdateOnly counterpart is produced for this platform.
+  build-linux:
+    needs: verify-version
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    # glibc 2.35 baseline (Ubuntu 22.04/24.04, Debian 12+); never pin runs-on —
+    # the container image, not the host, defines the ABI baseline.
+    container: ubuntu:22.04
+    steps:
+      - name: Install Toolchain & Dependencies (no sudo inside container)
+        run: |
+          apt-get update && apt-get install -y \
+            git ca-certificates gpg wget \
+            build-essential ninja-build patchelf file \
+            libgl1-mesa-dev libegl1-mesa-dev libx11-xcb-dev \
+            libxkbcommon-dev libxkbcommon-x11-dev \
+            libxcb-cursor-dev libxcb-icccm4-dev libxcb-image0-dev \
+            libxcb-keysyms1-dev libxcb-render-util0-dev libxcb-shape0-dev \
+            libxcb-sync-dev libxcb-xfixes0-dev libxcb-xinerama0-dev libxcb-xkb-dev
+
+      - name: Checkout Code
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          fetch-depth: 0
+
+      - name: Install CMake (Kitware APT)
+        run: |
+          wget -qO - https://apt.kitware.com/keys/kitware-archive-latest.asc \
+            | gpg --dearmor -o /usr/share/keyrings/kitware.gpg
+          echo "deb [signed-by=/usr/share/keyrings/kitware.gpg] https://apt.kitware.com/ubuntu/ jammy main" \
+            > /etc/apt/sources.list.d/kitware.list
+          apt-get update && apt-get install -y cmake
+          cmake --version
+
+      - name: Install Qt
+        uses: jurplel/install-qt-action@v4
+        with:
+          version: '6.10.3'
+          host: 'linux'
+          target: 'desktop'
+          arch: 'linux_gcc_64'
+          modules: "qtserialport qtcharts"
+
+      - name: Build & Run Tests (QA Check - ASan Enabled)
+        run: |
+          cmake -S . -B build_qa -G Ninja -DCMAKE_BUILD_TYPE=RelWithDebInfo \
+                -DMODBUS_TOOLS_BUILD_TESTS=ON -DMODBUS_TOOLS_ENABLE_ASAN=ON
+          cmake --build build_qa -j
+          ctest --test-dir build_qa --output-on-failure
+
+      - name: Build Production Artifacts (Delivery - Clean Release)
+        run: |
+          # Use a separate directory to ensure zero contamination
+          cmake -S . -B build_release -G Ninja -DCMAKE_BUILD_TYPE=Release \
+                -DMODBUS_TOOLS_BUILD_TESTS=OFF -DMODBUS_TOOLS_ENABLE_ASAN=OFF
+          cmake --build build_release --target release_bundle -j
+
+      - name: Package tar.gz (Qt runtime + $ORIGIN rpath)
+        run: bash scripts/packaging/deploy-linux.sh build_release "$PWD" "${{ github.ref_name }}"
+
+      - name: Release to GitHub
+        uses: softprops/action-gh-release@v2
+        with:
+          draft: false
+          fail_on_unmatched_files: true
+          files: |
+            Modbus-Tools-*-linux-x86_64.tar.gz
+            Modbus-Tools-*-linux-x86_64.tar.gz.sha256
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

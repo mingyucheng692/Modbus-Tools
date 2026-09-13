@@ -14,7 +14,6 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 option(MODBUS_TOOLS_ENABLE_PARALLEL_COMPILE "Enable parallel compile for MSVC" ON)
 option(MODBUS_TOOLS_ENABLE_PCH "Enable precompiled headers" ON)
-option(MODBUS_TOOLS_INCLUDE_PRERELEASE "Include pre-release when checking updates" OFF)
 option(MODBUS_TOOLS_BUILD_TESTS "Build unit tests" OFF)
 option(MODBUS_TOOLS_ENABLE_ASAN "Enable AddressSanitizer (ASan) for memory safety" OFF)
 option(MODBUS_TOOLS_ENABLE_UBSAN "Enable UndefinedBehaviorSanitizer (UBSan) when supported" OFF)
@@ -234,19 +233,42 @@ endif()
 message(STATUS "Exception policy: first-party targets build with exceptions disabled; SPDLOG_NO_EXCEPTIONS=${SPDLOG_NO_EXCEPTIONS}")
 
 
-if(MODBUS_TOOLS_INCLUDE_PRERELEASE)
-    set(MODBUS_TOOLS_RELEASES_API_URL "https://api.github.com/repos/mingyucheng692/Modbus-Tools/releases")
-    set(MODBUS_TOOLS_INCLUDE_PRERELEASE_VALUE 1)
-else()
-    set(MODBUS_TOOLS_RELEASES_API_URL "https://api.github.com/repos/mingyucheng692/Modbus-Tools/releases/latest")
-    set(MODBUS_TOOLS_INCLUDE_PRERELEASE_VALUE 0)
+# Expected SHA256 of the bundled updater binary. The release pipeline builds
+# the `updater` target first, hashes updater.exe, then re-configures with
+# -DMODBUS_TOOLS_UPDATER_SHA256=<hash> before building release_bundle
+# (two-stage build). An empty value makes verifyUpdaterIntegrity() skip the
+# check, which is acceptable only when no updater binary is produced
+# (non-Windows platforms) or for development builds.
+# Configure-time gate below covers single-config generators (Ninja/Makefiles);
+# for multi-config generators (Visual Studio) CMAKE_BUILD_TYPE is empty at
+# configure time, so the authoritative enforcement lives in release.yml.
+set(MODBUS_TOOLS_UPDATER_SHA256 "" CACHE STRING
+    "Expected SHA256 of the bundled updater binary (injected by release CI)")
+string(LENGTH "${MODBUS_TOOLS_UPDATER_SHA256}" MODBUS_TOOLS_UPDATER_SHA256_LEN)
+if(NOT MODBUS_TOOLS_UPDATER_SHA256 MATCHES "^[0-9a-fA-F]*$" OR MODBUS_TOOLS_UPDATER_SHA256_LEN GREATER 64)
+    message(FATAL_ERROR
+        "MODBUS_TOOLS_UPDATER_SHA256 must be an empty string or a 64-char hex SHA256 "
+        "(got: ${MODBUS_TOOLS_UPDATER_SHA256})")
 endif()
+if(WIN32 AND CMAKE_BUILD_TYPE STREQUAL "Release" AND MODBUS_TOOLS_UPDATER_SHA256 STREQUAL "")
+    message(FATAL_ERROR
+        "MODBUS_TOOLS_UPDATER_SHA256 must not be empty for Windows Release builds. "
+        "Build the updater target first, hash updater.exe, then re-configure with "
+        "-DMODBUS_TOOLS_UPDATER_SHA256=<hash> (two-stage release build).")
+endif()
+
+# Update checks always query the full releases list; the prerelease filter is
+# applied at runtime via the MODBUS_TOOLS_PRERELEASE environment variable (see
+# ui::common::UpdateChecker::includePrereleaseOptIn()), replacing the retired
+# MODBUS_TOOLS_INCLUDE_PRERELEASE compile-time option so that the channel
+# choice is no longer permanently burned into the binary.
+set(MODBUS_TOOLS_RELEASES_API_URL "https://api.github.com/repos/mingyucheng692/Modbus-Tools/releases")
 set(MODBUS_TOOLS_RELEASES_PAGE_URL "https://github.com/mingyucheng692/Modbus-Tools/releases")
 
 target_compile_definitions(core PRIVATE
     MODBUS_TOOLS_RELEASES_PAGE_URL="${MODBUS_TOOLS_RELEASES_PAGE_URL}"
     MODBUS_TOOLS_PLATFORM="${MODBUS_TOOLS_PLATFORM}"
-    MODBUS_TOOLS_UPDATER_SHA256=""
+    MODBUS_TOOLS_UPDATER_SHA256="${MODBUS_TOOLS_UPDATER_SHA256}"
 )
 
 target_compile_definitions(ui PRIVATE
@@ -254,7 +276,6 @@ target_compile_definitions(ui PRIVATE
     MODBUS_TOOLS_RELEASES_API_URL="${MODBUS_TOOLS_RELEASES_API_URL}"
     MODBUS_TOOLS_RELEASES_PAGE_URL="${MODBUS_TOOLS_RELEASES_PAGE_URL}"
     MODBUS_TOOLS_PLATFORM="${MODBUS_TOOLS_PLATFORM}"
-    MODBUS_TOOLS_INCLUDE_PRERELEASE=${MODBUS_TOOLS_INCLUDE_PRERELEASE_VALUE}
 )
 
 target_compile_definitions(Modbus-Tools PRIVATE

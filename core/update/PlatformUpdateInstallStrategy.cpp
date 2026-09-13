@@ -7,6 +7,7 @@
 
 #include "PlatformReleaseAssetStrategy.h"
 #include "UpdateManager.h"
+#include "UpdaterIntegrity.h"
 #include "infra/platform/IPlatformProcessRunner.h"
 #include "infra/platform/PathResolver.h"
 #include "infra/platform/PlatformInfo.h"
@@ -17,7 +18,6 @@
 #include <QFileInfo>
 #include <QJsonDocument>
 #include <QJsonObject>
-#include <QCryptographicHash>
 #include <spdlog/spdlog.h>
 #include <optional>
 
@@ -30,49 +30,6 @@ namespace {
 QString currentPackagePlatform()
 {
     return QStringLiteral(MODBUS_TOOLS_PLATFORM).toLower();
-}
-
-/// Computes SHA256 of a file. Returns empty string on failure.
-QString computeFileSha256(const QString& filePath)
-{
-    QFile file(filePath);
-    if (!file.open(QIODevice::ReadOnly)) {
-        return {};
-    }
-    QCryptographicHash hash(QCryptographicHash::Sha256);
-    if (!hash.addData(&file)) {
-        return {};
-    }
-    return QString::fromLatin1(hash.result().toHex());
-}
-
-/// Verifies the updater.exe binary integrity before launch.
-/// Returns true if the check passes or is skipped (no expected hash configured).
-bool verifyUpdaterIntegrity(const QString& updaterPath, const QString& expectedSha256, QString& errorDetail)
-{
-    if (!QFileInfo::exists(updaterPath)) {
-        errorDetail = QStringLiteral("Updater binary not found at %1").arg(updaterPath);
-        return false;
-    }
-
-    if (expectedSha256.isEmpty()) {
-        // No expected hash configured — skip verification (development builds).
-        return true;
-    }
-
-    const QString actualSha = computeFileSha256(updaterPath);
-    if (actualSha.isEmpty()) {
-        errorDetail = QStringLiteral("Failed to compute updater SHA256");
-        return false;
-    }
-
-    if (actualSha.compare(expectedSha256.trimmed(), Qt::CaseInsensitive) != 0) {
-        errorDetail = QStringLiteral("Updater integrity check failed. Expected: %1, Actual: %2")
-                          .arg(expectedSha256.trimmed(), actualSha);
-        return false;
-    }
-
-    return true;
 }
 
 class WindowsUpdateInstallStrategy final : public core::update::PlatformUpdateInstallStrategy {
@@ -128,7 +85,7 @@ public:
         // Verify updater.exe integrity before launching.
         {
             QString detail;
-            if (!verifyUpdaterIntegrity(updaterPath, QStringLiteral(MODBUS_TOOLS_UPDATER_SHA256), detail)) {
+            if (!core::update::verifyUpdaterIntegrity(updaterPath, QStringLiteral(MODBUS_TOOLS_UPDATER_SHA256), detail)) {
                 errorMessage = QCoreApplication::translate("core::update::UpdateManager",
                                                            "Updater integrity check failed: %1").arg(detail);
                 return false;
@@ -214,6 +171,10 @@ private:
     }
 
     const infra::platform::PathResolver* pathResolver_ = nullptr;
+    // Single-threaded by contract: UpdateManager invokes createInstallArtifact()
+    // and launchInstallArtifact() sequentially on one thread. mutable exists
+    // solely so the const strategy methods can hand prepared state between
+    // those two calls; concurrent use would race and is not supported.
     mutable std::optional<core::update::PreparedUpdateContext> preparedContext_;
 };
 

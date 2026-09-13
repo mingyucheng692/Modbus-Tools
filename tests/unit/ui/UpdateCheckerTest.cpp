@@ -5,6 +5,47 @@
 
 #include <QJsonArray>
 #include <QJsonObject>
+#include <QtGlobal>
+
+// ---------------------------------------------------------------------------
+// Prerelease channel runtime gate (R1): MODBUS_TOOLS_PRERELEASE env var,
+// replacing the retired MODBUS_TOOLS_INCLUDE_PRERELEASE compile-time option.
+// ---------------------------------------------------------------------------
+
+TEST(UpdateCheckerPrereleaseGate, UnsetVariableDefaultsToStableChannel)
+{
+    qunsetenv("MODBUS_TOOLS_PRERELEASE");
+    EXPECT_FALSE(ui::common::UpdateChecker::includePrereleaseOptIn());
+}
+
+TEST(UpdateCheckerPrereleaseGate, ZeroDisablesPrereleaseChannel)
+{
+    qputenv("MODBUS_TOOLS_PRERELEASE", "0");
+    EXPECT_FALSE(ui::common::UpdateChecker::includePrereleaseOptIn());
+    qputenv("MODBUS_TOOLS_PRERELEASE", "false");
+    EXPECT_FALSE(ui::common::UpdateChecker::includePrereleaseOptIn());
+    qputenv("MODBUS_TOOLS_PRERELEASE", "");
+    EXPECT_FALSE(ui::common::UpdateChecker::includePrereleaseOptIn());
+}
+
+TEST(UpdateCheckerPrereleaseGate, OneAndTrueEnablePrereleaseChannel)
+{
+    qputenv("MODBUS_TOOLS_PRERELEASE", "1");
+    EXPECT_TRUE(ui::common::UpdateChecker::includePrereleaseOptIn());
+    qputenv("MODBUS_TOOLS_PRERELEASE", "true");
+    EXPECT_TRUE(ui::common::UpdateChecker::includePrereleaseOptIn());
+    // Case-insensitive opt-in values.
+    qputenv("MODBUS_TOOLS_PRERELEASE", "TRUE");
+    EXPECT_TRUE(ui::common::UpdateChecker::includePrereleaseOptIn());
+}
+
+TEST(UpdateCheckerPrereleaseGate, RestoresEnvironmentAfterTests)
+{
+    // Keep the process environment pristine for other tests regardless of the
+    // order gtest discovers these cases in.
+    qunsetenv("MODBUS_TOOLS_PRERELEASE");
+    SUCCEED();
+}
 
 TEST(UpdateCheckerAssetSelection, WindowsLayoutKeepsDedicatedUpdateOnlyAndSetupContracts)
 {

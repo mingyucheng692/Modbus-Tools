@@ -23,6 +23,8 @@
 #include <QRegularExpression>
 #include <QStringList>
 #include <QUrl>
+#include <QtGlobal>
+#include <algorithm>
 #include <spdlog/spdlog.h>
 
 namespace {
@@ -41,10 +43,6 @@ namespace {
 
 #ifndef MODBUS_TOOLS_PLATFORM
 #define MODBUS_TOOLS_PLATFORM "windows-x86_64"
-#endif
-
-#ifndef MODBUS_TOOLS_INCLUDE_PRERELEASE
-#define MODBUS_TOOLS_INCLUDE_PRERELEASE 0
 #endif
 
 }
@@ -75,30 +73,39 @@ void UpdateChecker::checkForUpdates() {
 
         const QByteArray rawData = reply->readAll();
         const std::string jsonStr(rawData.constData(), rawData.size());
-        constexpr bool includePrerelease = MODBUS_TOOLS_INCLUDE_PRERELEASE != 0;
 
-        auto releases = core::update::release_parser::parseReleases(jsonStr, includePrerelease);
+        auto releases = core::update::release_parser::parseReleases(jsonStr,
+                                                                    includePrereleaseOptIn());
         if (releases.empty()) {
             emit noUpdateAvailable(currentVersion());
             return;
         }
 
-        const auto& firstRelease = releases.front();
+        // The "/releases" list endpoint orders by creation date, which is not
+        // guaranteed to match version order (e.g. a backport of an older
+        // branch). Pick the highest version among the filtered releases so the
+        // list endpoint preserves the former "/releases/latest" semantics.
+        const auto latestRelease = std::max_element(
+            releases.cbegin(), releases.cend(),
+            [](const core::update::ReleaseInfo& lhs, const core::update::ReleaseInfo& rhs) {
+                return core::update::release_parser::compareVersions(lhs.tagName, rhs.tagName) < 0;
+            });
+
         const QString latestVersion = QString::fromStdString(
-            core::update::release_parser::normalizeVersion(firstRelease.tagName));
+            core::update::release_parser::normalizeVersion(latestRelease->tagName));
         if (latestVersion.isEmpty()) {
             emit checkFailed(tr("Release tag is missing"));
             return;
         }
 
-        QString releaseUrl = QString::fromStdString(firstRelease.htmlUrl);
+        QString releaseUrl = QString::fromStdString(latestRelease->htmlUrl);
         if (releaseUrl.isEmpty()) {
             releaseUrl = releasePageUrl();
         }
 
         // Parse assets using Qt's JSON (more reliable for asset parsing)
         const QJsonDocument document = QJsonDocument::fromJson(
-            QByteArray::fromStdString(firstRelease.jsonBody));
+            QByteArray::fromStdString(latestRelease->jsonBody));
         const QJsonObject root = document.object();
         const QJsonArray assets = root.value("assets").toArray();
 
@@ -132,7 +139,7 @@ void UpdateChecker::checkForUpdates() {
 
         const std::string currentVer = currentVersion().toStdString();
         const int compareResult = core::update::release_parser::compareVersions(
-            firstRelease.tagName, currentVer);
+            latestRelease->tagName, currentVer);
         if (compareResult > 0) {
             SPDLOG_INFO("UpdateChecker: New version available: v{} (Current: v{})",
                          latestVersion.toStdString(), currentVer);
@@ -167,6 +174,15 @@ QString UpdateChecker::packagePlatform() {
 
 QString UpdateChecker::releasePageUrl() {
     return QStringLiteral(MODBUS_TOOLS_RELEASES_PAGE_URL);
+}
+
+bool UpdateChecker::includePrereleaseOptIn() {
+    if (!qEnvironmentVariableIsSet("MODBUS_TOOLS_PRERELEASE")) {
+        return false;
+    }
+    const QString value = qEnvironmentVariable("MODBUS_TOOLS_PRERELEASE").trimmed();
+    return value.compare(QLatin1String("1"), Qt::CaseInsensitive) == 0 ||
+           value.compare(QLatin1String("true"), Qt::CaseInsensitive) == 0;
 }
 
 } // namespace ui::common

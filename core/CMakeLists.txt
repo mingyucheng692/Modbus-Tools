@@ -64,6 +64,8 @@ target_sources(core PRIVATE
     update/PlatformReleaseAssetStrategy.cpp
     update/PlatformUpdateInstallStrategy.h
     update/PlatformUpdateInstallStrategy.cpp
+    update/UpdaterIntegrity.h
+    update/UpdaterIntegrity.cpp
     update/UpdateManager.h
     update/UpdateManager.cpp
     update/ReleaseParser.h
