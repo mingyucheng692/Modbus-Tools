@@ -202,10 +202,13 @@ jobs:
         run: |
           # python3/python3-pip: feed aqtinstall below with the container's own
           # interpreter (native glibc 2.35).
+          # libdbus-1-dev: Qt 6.10 linux binaries pull in libQt6DBus.so.6 whose
+          # NEEDED libdbus-1.so.3 is absent in this container (run5.log:
+          # "undefined reference to dbus_*@LIBDBUS_1_3" linking app/Modbus-Tools).
           apt-get update && apt-get install -y \
             git ca-certificates gpg wget python3 python3-pip \
             build-essential ninja-build patchelf file \
-            libglib2.0-dev libfontconfig1-dev \
+            libglib2.0-dev libfontconfig1-dev libdbus-1-dev \
             libgl1-mesa-dev libegl1-mesa-dev libx11-xcb-dev \
             libxkbcommon-dev libxkbcommon-x11-dev \
             libxcb-cursor-dev libxcb-icccm4-dev libxcb-image0-dev \
