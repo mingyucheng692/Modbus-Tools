@@ -12,7 +12,6 @@
 #include <QMetaObject>
 #include <QTcpSocket>
 #include <spdlog/spdlog.h>
-#include <unistd.h>
 
 namespace io {
 
@@ -97,12 +96,17 @@ int TcpServerHandle::clientCount() const
 
 void TcpServerHandle::onNewConnection()
 {
-    // The socket from nextPendingConnection() and the TcpChannel share
-    // one native descriptor after adoptSocketDescriptor(). The source
-    // QTcpSocket is retained in ClientEntry (NOT deleteLater'd here):
-    // destroying it would close the shared descriptor out from under
-    // the channel and kill all passive-loss notifications. Teardown
-    // order lives in removeClient().
+    // Ownership hand-off: each socket spawned by nextPendingConnection() is
+    // handed to its own TcpChannel via adoptSocket(). The channel takes the
+    // OBJECT (detaching it from the QTcpServer) and with it the sole
+    // ownership of the native descriptor — exactly one socket engine per fd.
+    // Duplicating the descriptor instead is not an option: dup() is
+    // POSIX-only (MSVC has no unistd.h), and keeping two QAbstractSockets on
+    // one descriptor is UB in Qt — both engines register read notifications,
+    // so peer data may be consumed by the wrong one (run6:
+    // NetworkDebuggerLoopback.TcpServer_SendReceiveAndStop never received
+    // "DE AD BE EF" on Linux; a raw two-socket repro even segfaults in the
+    // notification dispatch).
     while (server_.hasPendingConnections()) {
         QTcpSocket* socket = server_.nextPendingConnection();
         if (!socket) continue;
@@ -119,27 +123,15 @@ void TcpServerHandle::onNewConnection()
         const int clientId = nextClientId();
         auto channel = std::make_shared<TcpChannel>();
 
-        // Single-ownership hand-off: the channel adopts a PRIVATE duplicate
-        // of the connection fd, then the QTcpServer-spawned socket object is
-        // retired immediately (its destruction closes only the original fd).
-        // Keeping both QAbstractSockets alive on one descriptor is UB in Qt:
-        // both socket engines register read notifications for the same fd, so
-        // peer data may be consumed by the dead-end source socket instead of
-        // the channel (run6: NetworkDebuggerLoopback.TcpServer_SendReceiveAndStop
-        // never received "DE AD BE EF" on Linux; a raw two-socket repro even
-        // segfaults in the notification dispatch).
-        const qintptr ownedFd = ::dup(socket->socketDescriptor());
-        if (ownedFd < 0 || !channel->adoptSocketDescriptor(ownedFd)) {
+        if (!channel->adoptSocket(socket)) {
             SPDLOG_ERROR("TcpServerHandle: failed to adopt socket for client {}", clientId);
-            if (ownedFd >= 0) {
-                ::close(ownedFd);
-            }
             socket->close();
             socket->deleteLater();
             continue;
         }
-        socket->deleteLater();
 
+        // The socket object (and its peer info) stays alive — it is now
+        // owned by the channel.
         ClientInfo info;
         info.clientId = clientId;
         info.peerAddress = socket->peerAddress().toString();
@@ -207,9 +199,9 @@ void TcpServerHandle::removeClient(int clientId)
         ch->removeStateHandler(entry.stateHandlerId);
         ch->close();
     }
-    // The adopted channel owns a dup()'ed descriptor since onNewConnection(),
-    // so closing it above is the single, legal closesocket() for this
-    // connection — no source socket to retire anymore.
+    // The channel has owned the connection's socket object (and with it the
+    // sole descriptor) since onNewConnection(), so closing it above is the
+    // single, legal close for this connection.
     emit clientDisconnected(clientId);
 }
 

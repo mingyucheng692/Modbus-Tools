@@ -77,13 +77,18 @@ copy_qt_dep() {
 }
 
 log "Step 2/6: collect Qt runtime (ldd BFS)"
+# The installed binary carries no Qt rpath at this point (cmake --install
+# strips the build tree's, and $ORIGIN/lib is still empty), so ldd can only
+# resolve Qt through LD_LIBRARY_PATH — the CI's aqt prefix is not in
+# ldconfig. Process-scoped: does NOT leak into the Step 5 standalone
+# verification below, which must stay hermetic.
 patchelf --set-rpath '$ORIGIN/lib' "$EXE"
 while [ "${#queue[@]}" -gt 0 ]; do
   cur="${queue[0]}"
   queue=("${queue[@]:1}")
   while IFS= read -r dep; do
     [ -n "$dep" ] && copy_qt_dep "$dep"
-  done < <(ldd "$cur" | awk '$3 ~ /^\// {print $3}')
+  done < <(LD_LIBRARY_PATH="${QT_LIBS}" ldd "$cur" | awk '$3 ~ /^\// {print $3}')
 done
 [ "${#COPIED[@]}" -gt 0 ] || die "no Qt libraries collected - Qt prefix filter mismatch?"
 log "  collected ${#COPIED[@]} Qt libraries"
@@ -103,7 +108,7 @@ for sub in platforms imageformats iconengines platforminputcontexts platformthem
   while IFS= read -r plg; do
     while IFS= read -r dep; do
       [ -n "$dep" ] && copy_qt_dep "$dep"
-    done < <(ldd "$plg" | awk '$3 ~ /^\// {print $3}')
+    done < <(LD_LIBRARY_PATH="${QT_LIBS}" ldd "$plg" | awk '$3 ~ /^\// {print $3}')
   done < <(find "${PKG}/plugins/${sub}" -maxdepth 1 -type f -name '*.so*')
 done
 find "${PKG}/plugins" -type f -name '*.so*' -exec patchelf --set-rpath '$ORIGIN/../lib' {} +

@@ -54,11 +54,15 @@ public:
     void close() override;
 
     void setEndpoint(const QString& ip, int port);
-    bool adoptSocketDescriptor(qintptr socketDescriptor);
+    /// Takes ownership of an externally created, already-connected socket
+    /// (e.g. QTcpServer::nextPendingConnection()). The channel becomes the
+    /// single owner of the object and its native descriptor — one socket
+    /// engine per fd, no descriptor duplication (which is POSIX-only).
+    bool adoptSocket(QTcpSocket* socket);
 
 protected:
-    QIODevice* device() override { return &socket_; }
-    bool isWritable() const override { return socket_.state() == QAbstractSocket::ConnectedState; }
+    QIODevice* device() override { return socket_; }
+    bool isWritable() const override { return socket_->state() == QAbstractSocket::ConnectedState; }
     QString logContext() const override;
     QString errorPrefix() const override { return QStringLiteral("TCP"); }
 
@@ -68,8 +72,15 @@ private:
     void onSocketError(QAbstractSocket::SocketError error);
     void onStateChanged(QAbstractSocket::SocketState state);
     void onLingerTimeout();
+    /// Connects the five socket signal handlers to the current socket_.
+    /// Called from the constructor and after adoptSocket() swaps the object.
+    void wireSocketSignals();
 
-    QTcpSocket socket_;
+    /// Owned raw pointer (deleted in ~TcpChannel), deliberately NOT a QObject
+    /// child: the channel manages its affinity manually via moveToThread(),
+    /// matching the historic value-member semantics. For server-accepted
+    /// connections the object is adopted externally via adoptSocket().
+    QTcpSocket* socket_;
     QTimer connectTimer_;
     /// Close fallback: force-aborts the socket if disconnectFromHost() cannot
     /// complete within closeLingerMs_ (stale kernel buffers, unresponsive peer)

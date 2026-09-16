@@ -26,7 +26,7 @@ include(GoogleTest)
 # ui is a STATIC library whose qrc-generated resource registration objects
 # (Q_CONSTRUCTOR_FUNCTION → qRegisterResourceData) export no symbols. GNU ld
 # drops unneeded members during static-archive extraction, so ":/i18n/..."
-# stays empty in the linked test binaries (run6: I18nWidgetTest /
+# stays empty in the linked test binaries (I18nWidgetTest /
 # BuilderTranslationTest translator.load failures; MSVC keeps CRT-init
 # members, which is why Windows CI never showed this). Force the full
 # archive at every ui link site — CMake maps this to /WHOLEARCHIVE on MSVC.
