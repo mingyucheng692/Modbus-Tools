@@ -19,7 +19,7 @@
 #   Modbus-Tools            rpath $ORIGIN/lib
 #   qt.conf                 Plugins/Libraries redirection for the bundled runtime
 #   lib/                    Qt libraries, rpath $ORIGIN
-#   plugins/                Qt plugins (platforms/tls/...), rpath $ORIGIN/../lib
+#   plugins/<cat>/          Qt plugins (platforms/tls/...), rpath $ORIGIN/../../lib
 #
 # System libraries (glibc, libxcb*, fontconfig, ...) are intentionally NOT
 # collected: the target distro provides them (Ubuntu 22.04+ baseline).
@@ -111,7 +111,10 @@ for sub in platforms imageformats iconengines platforminputcontexts platformthem
     done < <(LD_LIBRARY_PATH="${QT_LIBS}" ldd "$plg" | awk '$3 ~ /^\// {print $3}')
   done < <(find "${PKG}/plugins/${sub}" -maxdepth 1 -type f -name '*.so*')
 done
-find "${PKG}/plugins" -type f -name '*.so*' -exec patchelf --set-rpath '$ORIGIN/../lib' {} +
+# Plugins sit two levels deep (plugins/<category>/name.so), so the path back
+# to lib/ is $ORIGIN/../../lib - same value Qt itself bakes into its plugin
+# RUNPATHs (mirroring the install layout this package recreates).
+find "${PKG}/plugins" -type f -name '*.so*' -exec patchelf --set-rpath '$ORIGIN/../../lib' {} +
 
 # Step 4: qt.conf ------------------------------------------------------------
 log "Step 4/6: write qt.conf"
@@ -122,24 +125,35 @@ Libraries = lib
 EOF
 
 # Step 5: verification --------------------------------------------------------
-# Fail at packaging time if anything still points into the Qt install prefix
-# (would break on user machines) or if a dependency cannot be resolved.
-log "Step 5/6: verify (ldd not-found / absolute-path leak)"
+# Two invariants, both about what this bundle owns:
+#   1. No ELF may resolve a dependency back into the Qt install prefix -
+#      that path exists only on the build machine and would break on
+#      user systems.
+#   2. An unresolved dependency whose name the Qt installation ships means
+#      the collection BFS missed a library we are responsible for - a real
+#      bundling bug.
+# Unresolved names the Qt installation does not ship are system libraries,
+# intentionally not bundled (see header): their absence in this build
+# container is expected and therefore tolerated.
+log "Step 5/6: verify (bundle completeness / absolute-path leak)"
 check_ldd() {
-  local f="$1" out
+  local f="$1" out name
   out="$(ldd "$f")" || die "ldd failed on: ${f}"
-  if grep -F "not found" <<<"$out" >/dev/null; then
-    die "unresolved dependency for ${f}:\n${out}"
-  fi
   if grep -F "$QT_LIBS" <<<"$out" >/dev/null; then
     die "absolute Qt install path leaked into ${f}:\n${out}"
   fi
+  while IFS= read -r name; do
+    [ -n "$name" ] || continue
+    if [ -e "${QT_LIBS}/${name}" ]; then
+      die "Qt-shipped library missing from bundle: ${name} (needed by ${f})"
+    fi
+  done < <(awk '$2 == "=>" && $3 == "not" && $4 == "found" { print $1 }' <<<"$out")
 }
 check_ldd "$EXE"
 for f in "${PKG}"/lib/*.so* "${PKG}"/plugins/*/*.so*; do
   [ -e "$f" ] && check_ldd "$f"
 done
-log "  all ELF files resolve within the bundle"
+log "  bundle ELFs consistent (Qt deps resolved in-place, no prefix leak)"
 
 # Step 6: smoke test + packaging ---------------------------------------------
 # The app has no --version flag; instead launch it under offscreen for at most
