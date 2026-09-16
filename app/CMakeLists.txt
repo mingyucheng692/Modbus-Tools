@@ -26,7 +26,11 @@ set_target_properties(Modbus-Tools PROPERTIES OUTPUT_NAME "Modbus-Tools")
 
 target_link_libraries(Modbus-Tools PRIVATE
     core
-    ui
+    # ui's qrc resource-registration objects export no symbols and are
+    # dropped by GNU ld's static-archive extraction — without the whole
+    # archive the Linux release binary ships an empty ":/i18n/" tree and
+    # language switching silently fails (see tests/CMakeLists.txt).
+    "$<LINK_LIBRARY:WHOLE_ARCHIVE,ui>"
     Qt${QT_VERSION_MAJOR}::Core
     Qt${QT_VERSION_MAJOR}::Gui
     Qt${QT_VERSION_MAJOR}::Widgets

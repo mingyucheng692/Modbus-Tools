@@ -23,6 +23,15 @@ endfunction()
 
 include(GoogleTest)
 
+# ui is a STATIC library whose qrc-generated resource registration objects
+# (Q_CONSTRUCTOR_FUNCTION → qRegisterResourceData) export no symbols. GNU ld
+# drops unneeded members during static-archive extraction, so ":/i18n/..."
+# stays empty in the linked test binaries (run6: I18nWidgetTest /
+# BuilderTranslationTest translator.load failures; MSVC keeps CRT-init
+# members, which is why Windows CI never showed this). Force the full
+# archive at every ui link site — CMake maps this to /WHOLEARCHIVE on MSVC.
+set(MODBUS_UI_WHOLE_ARCHIVE "$<LINK_LIBRARY:WHOLE_ARCHIVE,ui>")
+
 function(modbus_add_test_target target_name main_source)
     cmake_parse_arguments(TEST "SKIP_DISCOVERY" "" "SOURCES;LIBS" ${ARGN})
     if(NOT TEST_SOURCES)
@@ -161,19 +170,19 @@ set_property(TARGET test_modbus_common_objects PROPERTY AUTOMOC ON)
 modbus_add_test_target(test_core_logic
     ${CMAKE_CURRENT_SOURCE_DIR}/TestMainCore.cpp
     SOURCES "${TEST_CORE_LOGIC_SOURCES}"
-    LIBS core ui Qt6::Core test_modbus_common_objects
+    LIBS core ${MODBUS_UI_WHOLE_ARCHIVE} Qt6::Core test_modbus_common_objects
 )
 
 modbus_add_test_target(test_qt_core
     ${CMAKE_CURRENT_SOURCE_DIR}/TestMainCore.cpp
     SOURCES "${TEST_QT_CORE_SOURCES}"
-    LIBS core ui Qt6::Core
+    LIBS core ${MODBUS_UI_WHOLE_ARCHIVE} Qt6::Core
 )
 
 modbus_add_test_target(test_ui_widgets
     ${CMAKE_CURRENT_SOURCE_DIR}/TestMainWidgets.cpp
     SOURCES "${TEST_UI_WIDGETS_SOURCES}"
-    LIBS core ui Qt6::Core Qt6::Widgets
+    LIBS core ${MODBUS_UI_WHOLE_ARCHIVE} Qt6::Core Qt6::Widgets
 )
 
 modbus_add_test_target(test_integration

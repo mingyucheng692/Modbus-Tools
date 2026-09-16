@@ -12,11 +12,21 @@
 #include <QMetaObject>
 #include <QTcpSocket>
 #include <spdlog/spdlog.h>
+#include <unistd.h>
 
 namespace io {
 
 TcpServerHandle::TcpServerHandle(QObject* parent)
     : QObject(parent)
+    // server_ MUST be a child of this handle: moveToThread() only relocates
+    // an object together with its children. As a parentless value member it
+    // stayed on the constructing (GUI) thread while ServerChannelWorker —
+    // and this handle — moved to the server IO thread, so listen() and every
+    // nextPendingConnection() ran cross-thread ("Cannot create children for
+    // a parent that is in a different thread") and the spawned client
+    // sockets were stranded on the wrong thread, killing their read
+    // notifications (run6: NetworkDebuggerLoopback.TcpServer_SendReceiveAndStop).
+    , server_(this)
 {
     QObject::connect(&server_, &QTcpServer::newConnection, this, &TcpServerHandle::onNewConnection);
 }
@@ -109,12 +119,26 @@ void TcpServerHandle::onNewConnection()
         const int clientId = nextClientId();
         auto channel = std::make_shared<TcpChannel>();
 
-        if (!channel->adoptSocketDescriptor(socket->socketDescriptor())) {
+        // Single-ownership hand-off: the channel adopts a PRIVATE duplicate
+        // of the connection fd, then the QTcpServer-spawned socket object is
+        // retired immediately (its destruction closes only the original fd).
+        // Keeping both QAbstractSockets alive on one descriptor is UB in Qt:
+        // both socket engines register read notifications for the same fd, so
+        // peer data may be consumed by the dead-end source socket instead of
+        // the channel (run6: NetworkDebuggerLoopback.TcpServer_SendReceiveAndStop
+        // never received "DE AD BE EF" on Linux; a raw two-socket repro even
+        // segfaults in the notification dispatch).
+        const qintptr ownedFd = ::dup(socket->socketDescriptor());
+        if (ownedFd < 0 || !channel->adoptSocketDescriptor(ownedFd)) {
             SPDLOG_ERROR("TcpServerHandle: failed to adopt socket for client {}", clientId);
+            if (ownedFd >= 0) {
+                ::close(ownedFd);
+            }
             socket->close();
             socket->deleteLater();
             continue;
         }
+        socket->deleteLater();
 
         ClientInfo info;
         info.clientId = clientId;
@@ -124,7 +148,6 @@ void TcpServerHandle::onNewConnection()
         ClientEntry entry;
         entry.channel = channel;
         entry.info = info;
-        entry.sourceSocket = socket;
         // Passive-loss subscription: when the peer goes away (RST, cable
         // pull, orderly FIN) the adopted TcpChannel reports Closed/Error
         // and the client is removed here. Active removals (removeClient)
@@ -184,17 +207,9 @@ void TcpServerHandle::removeClient(int clientId)
         ch->removeStateHandler(entry.stateHandlerId);
         ch->close();
     }
-    if (entry.sourceSocket) {
-        // The source socket and the channel share one OS socket handle.
-        // The channel's close() above is the FIRST (and only legal)
-        // closesocket(); closing the source socket afterwards makes the
-        // second closesocket() hit an already-dead descriptor on this same
-        // thread, which Windows safely reports as an error instead of
-        // closing a recycled handle. Deleting the source socket here also
-        // retires the QTcpServer child ownership.
-        entry.sourceSocket->close();
-        delete entry.sourceSocket;
-    }
+    // The adopted channel owns a dup()'ed descriptor since onNewConnection(),
+    // so closing it above is the single, legal closesocket() for this
+    // connection — no source socket to retire anymore.
     emit clientDisconnected(clientId);
 }
 

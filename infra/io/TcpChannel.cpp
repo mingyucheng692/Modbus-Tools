@@ -31,6 +31,7 @@ TcpChannel::TcpChannel(int closeLingerMs)
     connectTimer_.setSingleShot(true);
     connectTimer_.callOnTimeout([this]() {
         SPDLOG_WARN("TcpChannel: connect timeout to {}:{}", ip_.toStdString(), port_);
+        socketDropIsError_ = false;
         socket_.abort();
         setState(ChannelState::Error);
         emitError(ChannelErrorCode::Timeout, QStringLiteral("TCP connect timeout (%1:%2)").arg(ip_).arg(port_));
@@ -82,11 +83,13 @@ bool TcpChannel::open() {
     lingerTimer_.stop();
 
     if (socket_.state() == QAbstractSocket::ConnectedState) {
+        socketDropIsError_ = true;
         setState(ChannelState::Open);
         flushPendingWrites();
         return true;
     }
     if (socket_.state() == QAbstractSocket::ConnectingState) {
+        socketDropIsError_ = true;
         setState(ChannelState::Opening);
         return true;
     }
@@ -113,6 +116,7 @@ bool TcpChannel::open() {
     }
 
     setState(ChannelState::Opening);
+    socketDropIsError_ = true;
     socket_.abort();
     socket_.setSocketOption(QAbstractSocket::LowDelayOption, 1);
     socket_.setSocketOption(QAbstractSocket::KeepAliveOption, 1);
@@ -139,6 +143,7 @@ void TcpChannel::moveToThread(QThread* thread) {
 }
 
 void TcpChannel::close() {
+    socketDropIsError_ = false;
     if (QThread::currentThread() != socket_.thread()) {
         QThread* ownerThread = socket_.thread();
         if (!ownerThread || !ownerThread->isRunning()) {
@@ -187,6 +192,7 @@ void TcpChannel::onLingerTimeout() {
     SPDLOG_WARN("TcpChannel: close linger expired ({}ms), force-aborting socket {}:{}",
                 closeLingerMs_, ip_.toStdString(), port_);
     lingerTimer_.stop();
+    socketDropIsError_ = false;
     socket_.abort();
     if (socket_.state() == QAbstractSocket::UnconnectedState) {
         socket_.close();
@@ -223,6 +229,7 @@ void TcpChannel::onConnected() {
     logThreadContextOnce("TcpChannel::onConnected", ioThreadLoggedFlag());
     connectTimer_.stop();
     setClosing(false);
+    socketDropIsError_ = true;
     setState(ChannelState::Open);
     flushPendingWrites();
 }
@@ -247,11 +254,19 @@ void TcpChannel::onSocketError(QAbstractSocket::SocketError error) {
     // Stale socket errors (e.g. the abort() issued by the close-linger
     // fallback, or a duplicate notification after the connect-timeout path
     // already landed the FSM in Error) must not repaint a terminal state.
-    // Only an in-flight or established session can transition to Error.
+    // Only an in-flight or established session can transition to Error —
+    // with one exception: Linux delivers stateChanged(Unconnected) BEFORE
+    // errorOccurred, so a refused connect or a peer reset can land the FSM
+    // in Closed before the error arrives. socketDropIsError_ marks drops of
+    // a live session (armed by open()/onConnected, disarmed by user
+    // teardown/timeout/error consumption), distinguishing that genuine drop
+    // from a stale post-teardown error.
     const ChannelState current = state();
-    if (current != ChannelState::Opening && current != ChannelState::Open) {
+    const bool liveSessionDrop = (current == ChannelState::Closed) && socketDropIsError_;
+    if (current != ChannelState::Opening && current != ChannelState::Open && !liveSessionDrop) {
         return;
     }
+    socketDropIsError_ = false;
     resetWriteState();
     disarmWriteTimeout();
     setState(ChannelState::Error);
@@ -313,6 +328,7 @@ bool TcpChannel::adoptSocketDescriptor(qintptr socketDescriptor) {
     }
     ip_ = socket_.peerAddress().toString();
     port_ = socket_.peerPort();
+    socketDropIsError_ = true;
     setState(ChannelState::Open);
     return true;
 }

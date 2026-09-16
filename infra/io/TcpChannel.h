@@ -78,6 +78,14 @@ private:
     int closeLingerMs_ = kDefaultCloseLingerMs;
     QString ip_;
     int port_ = config::Network::kDefaultModbusTcpPort;
+    /// True while an unsolicited socket drop must be surfaced as an error:
+    /// armed when a connect attempt starts or the session is established,
+    /// cleared on user teardown (close/linger), connect timeout and error
+    /// consumption. Linux delivers stateChanged(Unconnected) BEFORE
+    /// errorOccurred, so the FSM can already show Closed when the error
+    /// arrives — this flag distinguishes that genuine drop from a stale
+    /// error after teardown (see onSocketError).
+    bool socketDropIsError_ = false;
 };
 
 }
