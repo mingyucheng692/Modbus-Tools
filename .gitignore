@@ -39,6 +39,7 @@ qrc_*.cpp
 *.opensdf
 *.tlog
 *.idb
+.agents/
 
 # Output files
 *.exe
