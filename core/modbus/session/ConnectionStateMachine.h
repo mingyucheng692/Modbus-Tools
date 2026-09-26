@@ -20,7 +20,6 @@ enum class ConnectionState {
     Disconnected,
     Connecting,
     Connected,
-    Reconnecting,
     Disconnecting,
     Failed
 };
@@ -41,14 +40,13 @@ public:
         case State::Disconnected:  return "Disconnected";
         case State::Connecting:    return "Connecting";
         case State::Connected:     return "Connected";
-        case State::Reconnecting:  return "Reconnecting";
         case State::Disconnecting: return "Disconnecting";
         case State::Failed:        return "Failed";
         }
         return "Unknown";
     }
 
-    static constexpr std::size_t kStateCount = 6;
+    static constexpr std::size_t kStateCount = 5;
 
     static constexpr const char* kName = "ConnectionStateMachine";
     static constexpr State kInitialState = State::Disconnected;
@@ -65,22 +63,14 @@ private:
         Transition{State::Connected,     State::Disconnecting},
         Transition{State::Connected,     State::Failed},
         Transition{State::Disconnecting, State::Disconnected},
-        // Failed -> Connecting: a user-initiated retry from a failed session
-        // (distinct from Failed -> Reconnecting, which is an automatic retry
-        // inside a reconnect loop). Without this edge the machine gets stuck
-        // in Failed after the first failed connect() and every subsequent
-        // attempt logs an invalid transition.
+        // Failed -> Connecting: a user-initiated retry from a failed session.
         Transition{State::Failed,        State::Connecting},
-        Transition{State::Failed,        State::Reconnecting},
         Transition{State::Failed,        State::Disconnecting},
         Transition{State::Failed,        State::Disconnected},
-        Transition{State::Reconnecting,  State::Connected},
-        Transition{State::Reconnecting,  State::Failed},
-        Transition{State::Reconnecting,  State::Disconnecting},
     };
 };
 
-static_assert(ConnectionStateMachine::kStateCount == 6,
+static_assert(ConnectionStateMachine::kStateCount == 5,
     "toString() must cover all ConnectionState values");
 
 } // namespace modbus::session

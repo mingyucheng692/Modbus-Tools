@@ -242,10 +242,6 @@ TEST_F(ModbusSessionPresenterTest, DeriveUiState_TcpMode_Transitions) {
     EXPECT_EQ(ModbusSessionPresenter::deriveUiState(Core::Connected, io::ChannelState::Open, Health::Healthy, SessionMode::Tcp),
               SessionConnectionState::Connected);
 
-    // Reconnecting -> Connecting
-    EXPECT_EQ(ModbusSessionPresenter::deriveUiState(Core::Reconnecting, io::ChannelState::Closed, Health::Unknown, SessionMode::Tcp),
-              SessionConnectionState::Connecting);
-
     // Failed -> Disconnected
     EXPECT_EQ(ModbusSessionPresenter::deriveUiState(Core::Failed, io::ChannelState::Error, Health::Unknown, SessionMode::Tcp),
               SessionConnectionState::Disconnected);
@@ -281,10 +277,6 @@ TEST_F(ModbusSessionPresenterTest, DeriveUiState_CoreFsmIsSingleSourceOfTruth) {
               SessionConnectionState::Disconnected);
     EXPECT_EQ(ModbusSessionPresenter::deriveUiState(Core::Failed, io::ChannelState::Error, Health::Unknown, SessionMode::Tcp),
               SessionConnectionState::Disconnected);
-
-    // Reconnecting maps directly to UI Connecting
-    EXPECT_EQ(ModbusSessionPresenter::deriveUiState(Core::Reconnecting, io::ChannelState::Closed, Health::Unknown, SessionMode::Tcp),
-              SessionConnectionState::Connecting);
 
     // Connecting + Channel Open (TCP) maps to TransportConnected
     EXPECT_EQ(ModbusSessionPresenter::deriveUiState(Core::Connecting, io::ChannelState::Open, Health::Unknown, SessionMode::Tcp),

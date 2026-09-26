@@ -79,11 +79,11 @@ inline constexpr char kModbusRtuControlQty[] = "modbus/rtu/control/qty";
 inline constexpr char kModbusRtuDataMonitorCollapsed[] = "modbus/rtu/ui/dataMonitorCollapsed";
 
 // Network Debugger (TCP client mode) — canonical keys (Phase 9).
-// NOTE: the tcp_server and udp traffic/input/ui/autoReconnect/reconnectDelay
-// keys are composed dynamically by BaseConnectionWidget / ByteMonitorWidget /
-// GenericInputWidget from the settings group, so they intentionally have no
-// static constants here. The prefix-based migration in SettingsService covers
-// them as whole families (network_debugger/server/, network_debugger/udp/).
+// NOTE: the tcp_server and udp traffic/input/ui
+// keys are composed dynamically by ByteMonitorWidget / GenericInputWidget
+// from the settings group, so they intentionally have no static constants here.
+// The prefix-based migration in SettingsService covers them as whole families
+// (network_debugger/server/, network_debugger/udp/).
 inline constexpr char kNetworkDebuggerClientIp[] = "network_debugger/client/ip";
 inline constexpr char kNetworkDebuggerClientPort[] = "network_debugger/client/port";
 inline constexpr char kNetworkDebuggerClientConnectionCollapsed[] = "network_debugger/client/ui/connectionSettingsCollapsed";

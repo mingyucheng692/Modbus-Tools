@@ -50,7 +50,7 @@ ModbusClient::RequestState ModbusClient::requestState() const {
 
 void ModbusClient::clearRuntimeState(bool clearPendingQueue) {
     const auto cs = connectionStateMachine_.currentState();
-    if (cs == ConnectionState::Connecting || cs == ConnectionState::Reconnecting) {
+    if (cs == ConnectionState::Connecting) {
         connectionStateMachine_.tryTransition(ConnectionState::Failed, "aborted");
     }
     frameExtractor_.reset();
@@ -70,7 +70,7 @@ ModbusClient::ModbusClient(std::shared_ptr<io::IChannel> channel,
     , retryStrategy_(RetryStrategy::Config{})
     , flowController_(base::ModbusMode::TCP)
     , connectionManager_(channel_.get(), &connectionStateMachine_,
-                         aborted_, &retryStrategy_, &config_)
+                         aborted_, &config_)
     , requestExecutor_(RequestExecutor::Dependencies{
           channel_.get(),
           transport_.get(),
@@ -154,7 +154,7 @@ bool ModbusClient::connect() {
 
     aborted_ = false;
     sessionHealth_.store(SessionHealth::Unknown, std::memory_order_release);
-    const bool connected = ensureConnected(config_.autoReconnect);
+    const bool connected = ensureConnected();
     if (connected) {
         clearRuntimeState(false);
         if (!requestStateMachine_.tryTransition(RequestState::Idle, "connect")) {
@@ -204,7 +204,7 @@ void ModbusClient::disconnect() {
 
 void ModbusClient::abort() {
     const auto cs = connectionStateMachine_.currentState();
-    if (cs == ConnectionState::Connecting || cs == ConnectionState::Reconnecting) {
+    if (cs == ConnectionState::Connecting) {
         connectionStateMachine_.tryTransition(ConnectionState::Failed, "aborted");
     }
     requestExecutor_.abort();
@@ -251,8 +251,8 @@ void ModbusClient::setConfig(const base::ModbusConfig& config) {
     }
 }
 
-bool ModbusClient::ensureConnected(bool allowReconnect) {
-    return connectionManager_.ensureConnected(allowReconnect);
+bool ModbusClient::ensureConnected() {
+    return connectionManager_.ensureConnected();
 }
 
 bool ModbusClient::waitForChannelState(io::ChannelState expectedState,

@@ -32,20 +32,15 @@ namespace modbus::session {
 /**
  * @brief Core Modbus client with full session management.
  *
- * @par Lazy reconnect contract (sendRequest)
- *      sendRequest() does NOT require a pre-established session: every
- *      request enters RequestExecutor::sendRequestInternal(), which calls
- *      ConnectionManager::ensureConnected(autoReconnect). With
- *      autoReconnect enabled a request against a dead session performs a
- *      bounded BLOCKING reconnect (attempts = retries+1 with reconnect
- *      backoff) before failing; with autoReconnect disabled it is a single
- *      attempt. Callers must therefore not gate submissions on
- *      isConnected() — that would defeat recovery under polling (the
- *      poller would spin on "Not connected" errors instead of rebuilding
- *      the session). The unresponsive eviction (half-open detection) and
- *      this lazy path together implement automatic recovery: consecutive
- *      timeouts evict the dead session, the next poll transparently
- *      reconnects.
+ * @par On-demand connection contract (sendRequest)
+ *      sendRequest() enters RequestExecutor::sendRequestInternal(), which
+ *      calls ConnectionManager::ensureConnected() to verify or establish
+ *      the channel before executing the request. Callers must not gate
+ *      submissions on isConnected() — that would defeat recovery under
+ *      polling (the poller would spin on "Not connected" errors instead
+ *      of rebuilding the session). The unresponsive eviction (half-open
+ *      detection) and this on-demand path together allow the session to
+ *      recover when polling is active.
  *
  * @thread thread-compatible, NOT thread-safe. The session-driving methods
  *         (connect, disconnect, sendRequest, sendRaw, setConfig) must be
@@ -171,7 +166,7 @@ private:
     QThread* sessionOwnerThread_ = nullptr;
 #endif
 
-    bool ensureConnected(bool allowReconnect);
+    bool ensureConnected();
     bool waitForChannelState(io::ChannelState expectedState,
                              std::chrono::steady_clock::time_point deadline,
                              QString* errorOut);

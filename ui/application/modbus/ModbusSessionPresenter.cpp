@@ -188,8 +188,7 @@ void ModbusSessionPresenter::handlePollingFatalDisconnect(const QString& reason)
     }
     // The self-healing window expired: route through the standard user
     // teardown (requestRelease stops polling, disables the control widget,
-    // and releases the stack) instead of leaving a zombie stack
-    // auto-reconnecting forever with nobody driving it.
+    // and releases the stack) instead of leaving a zombie stack.
     requestDisconnect();
 }
 
@@ -552,8 +551,6 @@ SessionConnectionState ModbusSessionPresenter::deriveUiState(
     case Core::Connected:
         // 策略 B: 传输/物理通道建立完成即具备通信能力，直接进入 Connected
         return SessionConnectionState::Connected;
-    case Core::Reconnecting:
-        return SessionConnectionState::Connecting;
     case Core::Disconnecting:
         return SessionConnectionState::Disconnecting;
     case Core::Failed:

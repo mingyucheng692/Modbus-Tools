@@ -1,7 +1,7 @@
 /**
  * @file ChannelController.h
  * @brief Header file for ChannelController, a composite class managing worker thread
- *        lifecycle and reconnect timer for channel views.
+ *        lifecycle for channel views.
  *
  * Copyright (c) 2025 - present mingyucheng692
  *
@@ -11,9 +11,7 @@
 #pragma once
 
 #include <QObject>
-#include <QTimer>
 #include <functional>
-#include "../../infra/io/ReconnectPolicy.h"
 
 namespace io {
 class ChannelOperationWorker;
@@ -25,11 +23,11 @@ namespace ui::views {
 
 /**
  * @class ChannelController
- * @brief Composite class that manages worker thread lifecycle and reconnect timer.
+ * @brief Composite class that manages worker thread lifecycle.
  *
- * Owns the worker QThread, ChannelOperationWorker, reconnect QTimer, and
- * ReconnectPolicy. Used as a member of channel view subclasses (SerialDebuggerView,
- * NetworkDebuggerView) to eliminate duplicated worker lifecycle code.
+ * Owns the worker QThread and ChannelOperationWorker. Used as a member of
+ * channel view subclasses (SerialDebuggerView, NetworkDebuggerView) to
+ * eliminate duplicated worker lifecycle code.
  */
 class ChannelController : public QObject {
     Q_OBJECT
@@ -42,7 +40,7 @@ public:
     /// Returns the worker for the caller to wire up signal connections.
     io::ChannelOperationWorker* createWorker();
 
-    /// Destroys the worker and its thread, stopping the reconnect timer first.
+    /// Destroys the worker and its thread.
     void destroyWorker();
 
     /// Returns the current worker, or nullptr if none exists.
@@ -57,41 +55,18 @@ public:
     /// Invokes close() on the worker via queued connection.
     void disconnect();
 
-    // Reconnect timer management
-
-    /// Starts the reconnect timer with the given delay, incrementing the retry count.
-    void startReconnectTimer(int delayMs);
-
-    /// Stops the reconnect timer.
-    void stopReconnectTimer();
-
-    /// Resets the reconnect policy (retry count to zero).
-    void resetReconnect();
-
-    /// Returns the reconnect policy for inspection.
-    io::ReconnectPolicy& reconnectPolicy() { return reconnectPolicy_; }
-
-    /// Returns the reconnect timer.
-    QTimer* reconnectTimer() const { return reconnectTimer_; }
-
     /// Stops a (worker, thread) pair using deleteLater + quit pattern.
     /// Caller must nullify its member pointers before calling.
-    /// @param onPreStop  invoked before shutdown logic (e.g., stop timers).
+    /// @param onPreStop  invoked before shutdown logic.
     /// @param onCloseInThread  invoked on the worker thread before deleteLater
     ///                         (e.g., to call worker->close()).
     void stopWorkerPair(QThread* thread, QObject* worker,
                         const std::function<void()>& onPreStop = {},
                         const std::function<void(QObject*)>& onCloseInThread = {});
 
-signals:
-    /// Emitted when the reconnect timer fires.
-    void reconnectTimeout();
-
 private:
     QThread* workerThread_ = nullptr;
     io::ChannelOperationWorker* worker_ = nullptr;
-    QTimer* reconnectTimer_ = nullptr;
-    io::ReconnectPolicy reconnectPolicy_;
 };
 
 } // namespace ui::views

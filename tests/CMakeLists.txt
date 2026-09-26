@@ -90,7 +90,6 @@ set(TEST_CORE_LOGIC_SOURCES
     unit/io/SerialChannelTest.cpp
     unit/io/TcpChannelTest.cpp
     unit/io/ServerChannelWorkerTest.cpp
-    unit/io/ReconnectPolicyTest.cpp
     unit/logging/LoggerInitTest.cpp
     unit/logging/TraceContextTest.cpp
     unit/modbus/base/DataHelperTest.cpp

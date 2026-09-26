@@ -82,9 +82,6 @@ struct Modbus {
     static constexpr double kDefaultRetryBackoffFactor = 2.0;
     static constexpr int kDefaultRetryJitterPercent = 15;
     static constexpr bool kDefaultRetryEnabled = false;
-    static constexpr bool kDefaultAutoReconnect = true;
-    static constexpr int kDefaultReconnectBaseMs = 250;
-    static constexpr int kDefaultReconnectMaxMs = 5000;
     /// Half-open eviction: consecutive request timeouts (while the session
     /// reports Connected) after which the session is declared half-open and
     /// torn down. 0 disables the eviction.
@@ -131,8 +128,8 @@ struct Polling {
     static constexpr int kIntervalStepMs = 100;
     /// Self-healing window for transient connection loss: when polling stays
     /// Escalated with a dead session longer than this, the owner downgrades
-    /// to a full disconnect. Bounds the zombie-polling window while the core
-    /// auto-reconnect loop would otherwise keep retrying indefinitely.
+    /// to a full disconnect. Bounds the zombie-polling window when connection
+    /// is lost.
     static constexpr int kDefaultFatalDisconnectTimeoutMs = 30000;
 };
 

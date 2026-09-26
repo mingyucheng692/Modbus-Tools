@@ -2559,16 +2559,6 @@ Choose update method:</source>
         <translation type="unfinished">状态已变更：%1</translation>
     </message>
     <message>
-        <location filename="../views/network/NetworkDebuggerView.cpp" line="505"/>
-        <source>Auto-reconnect exhausted (%1 attempts)</source>
-        <translation type="unfinished">Auto-reconnect exhausted (%1 attempts)</translation>
-    </message>
-    <message>
-        <location filename="../views/network/NetworkDebuggerView.cpp" line="513"/>
-        <source>Auto-reconnect in %1ms (%2)</source>
-        <translation type="unfinished">Auto-reconnect in %1ms (%2)</translation>
-    </message>
-    <message>
         <location filename="../views/network/NetworkDebuggerView.cpp" line="532"/>
         <location filename="../views/network/NetworkDebuggerView.cpp" line="619"/>
         <source>Connection failed</source>
@@ -2656,11 +2646,6 @@ Choose update method:</source>
         <source>Send Data</source>
         <translation type="unfinished">发送数据</translation>
     </message>
-    <message>
-        <location filename="../views/network/NetworkDebuggerView.cpp" line="689"/>
-        <source>Auto-reconnecting to %1:%2 (attempt %3)...</source>
-        <translation type="unfinished">Auto-reconnecting to %1:%2 (attempt %3)...</translation>
-    </message>
 </context>
 <context>
     <name>ui::views::network::Protocol</name>
@@ -2721,16 +2706,6 @@ Choose update method:</source>
         <location filename="../views/serial/SerialDebuggerView.cpp" line="185"/>
         <source>State changed: %1</source>
         <translation>状态已变更：%1</translation>
-    </message>
-    <message>
-        <location filename="../views/serial/SerialDebuggerView.cpp" line="200"/>
-        <source>Auto-reconnect exhausted (%1 attempts)</source>
-        <translation>Auto-reconnect exhausted (%1 attempts)</translation>
-    </message>
-    <message>
-        <location filename="../views/serial/SerialDebuggerView.cpp" line="208"/>
-        <source>Auto-reconnect in %1ms (%2)</source>
-        <translation>Auto-reconnect in %1ms (%2)</translation>
     </message>
     <message>
         <location filename="../views/serial/SerialDebuggerView.cpp" line="220"/>
@@ -2797,11 +2772,6 @@ Choose update method:</source>
         <source>RTS</source>
         <translation>RTS</translation>
     </message>
-    <message>
-        <location filename="../views/serial/SerialDebuggerView.cpp" line="293"/>
-        <source>Reconnecting to %1...</source>
-        <translation>Reconnecting to %1...</translation>
-    </message>
 </context>
 <context>
     <name>ui::views::tools::UtilitiesView</name>
@@ -2824,11 +2794,6 @@ Choose update method:</source>
         <location filename="../widgets/BaseConnectionWidget.cpp" line="134"/>
         <source>Connection Settings</source>
         <translation>连接设置</translation>
-    </message>
-    <message>
-        <location filename="../widgets/BaseConnectionWidget.cpp" line="137"/>
-        <source>Auto Reconnect</source>
-        <translation>Auto Reconnect</translation>
     </message>
 </context>
 <context>

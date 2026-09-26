@@ -11,7 +11,6 @@
 
 #include "ConnectionStateMachine.h"
 #include "TimeoutHelper.h"
-#include "RetryStrategy.h"
 #include "infra/io/IChannel.h"
 #include "../base/ModbusConfig.h"
 #include <QString>
@@ -19,20 +18,8 @@
 namespace modbus::session {
 
 /**
- * @brief Encapsulates connection lifecycle: connect, disconnect, reconnect, and
+ * @brief Encapsulates connection lifecycle: connect, disconnect, and
  *        channel state waiting.
- *
- * @par Retry abstraction evaluation
- *      ensureConnected() uses an inline for-loop with RetryStrategy's static
- *      calculateBackoffMs() for delay computation. This is intentionally NOT
- *      migrated to RetryStrategy's instance API (shouldRetry/recordAttempt/
- *      nextWait) because: (1) the current loop has different retry-counting
- *      semantics (attempts = config->retries + 1 vs shouldRetry's <= maxRetries),
- *      (2) migrating would change runtime behavior and requires dedicated
- *      integration testing, (3) ReconnectPolicy (UI layer, fixed delay) and
- *      RetryStrategy (session layer, exponential backoff) serve different
- *      layers with different semantics and should NOT be unified into a single
- *      abstraction — forcing unification would be over-engineering.
  *
  * @note This class must not outlive the referenced objects (channel, stateMachine,
  *       timeoutController, config, mutex, cv). The owning ModbusClient is
@@ -43,15 +30,13 @@ public:
     ConnectionManager(io::IChannel* channel,
                       ConnectionStateMachine* stateMachine,
                       std::atomic<bool>& aborted,
-                      RetryStrategy* retryStrategy,
                       const base::ModbusConfig* config);
 
     /**
-     * @brief Attempt to establish a connection with retry support.
-     * @param allowReconnect Whether to retry on failure
+     * @brief Attempt to establish a connection (single-attempt, deterministic).
      * @return true if connected successfully
      */
-    bool ensureConnected(bool allowReconnect);
+    bool ensureConnected();
 
     /**
      * @brief Check if the underlying channel is open.
@@ -66,11 +51,10 @@ public:
      * declared half-open (peer vanished without an RST — the socket stays
      * "connected" but is a black hole) and is evicted: FSM
      * Connected -> Failed ("unresponsive") followed by channel close(). The
-     * next request then re-establishes the session through the lazy
-     * reconnect path in RequestExecutor::sendRequestInternal().
+     * next request then re-establishes the session through the on-demand
+     * connection check in RequestExecutor::sendRequestInternal().
      *
-     * Timeouts observed outside Connected (connecting/reconnecting attempts
-     * already own the FSM) do not count. Threshold <= 0 disables eviction.
+     * Timeouts observed outside Connected do not count. Threshold <= 0 disables eviction.
      *
      * @thread Invoked by RequestExecutor on the worker thread. The counter is
      *         plain state guarded by that single-threaded driving contract.
@@ -122,7 +106,6 @@ private:
     io::IChannel* channel_;
     ConnectionStateMachine* stateMachine_;
     std::atomic<bool>& aborted_;
-    RetryStrategy* retryStrategy_;
     const base::ModbusConfig* config_;
     QString lastChannelError_;
     /// Consecutive request timeouts observed while Connected (half-open

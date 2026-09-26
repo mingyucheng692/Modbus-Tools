@@ -80,7 +80,6 @@ private slots:
     void onServerError(const QString& deviceHint, io::ChannelErrorCode code, const QString& error);
     void onDisconnectSelectedClientsRequested(const QList<int>& clientIds);
     void onDisconnectAllClientsRequested();
-    void onReconnectTimerTick();
 
 private:
     void setupUi();
@@ -107,7 +106,7 @@ private:
     widgets::GenericInputWidget* inputWidget_ = nullptr;
     widgets::CollapsibleSection* inputSection_ = nullptr;
 
-    // Channel controller (composite) – manages client worker thread + reconnect timer
+    // Channel controller (composite) – manages client worker thread
     ChannelController channelCtrl_;
 
     // Backend - Server
@@ -117,9 +116,6 @@ private:
     Protocol currentProtocol_ = Protocol::TcpClient;
     bool suppressDisconnectAlert_ = false;
     quint64 connectionGeneration_ = 0;
-
-    QString reconnectHost_;
-    int reconnectPort_ = 0;
 };
 
 } // namespace ui::views::network

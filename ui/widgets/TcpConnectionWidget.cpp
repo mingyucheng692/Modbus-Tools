@@ -34,8 +34,6 @@ void TcpConnectionWidget::setupProtocolUi() {
     } else {
         hostLabel_->setText(tr("Listen:"));
         connectBtn_->setText(tr("Start Listen"));
-        autoReconnectCheck_->setVisible(false);
-        reconnectDelaySpin_->setVisible(false);
     }
 }
 
@@ -123,8 +121,6 @@ void TcpConnectionWidget::updateProtocolUi() {
     if (role_ == TcpRole::Client) {
         hostLabel_->setText(tr("Host:"));
         connectBtn_->setText(tr("Connect"));
-        autoReconnectCheck_->setVisible(true);
-        reconnectDelaySpin_->setVisible(autoReconnectCheck_->isChecked());
     } else {
         hostLabel_->setText(tr("Listen:"));
         connectBtn_->setText(tr("Start Listen"));

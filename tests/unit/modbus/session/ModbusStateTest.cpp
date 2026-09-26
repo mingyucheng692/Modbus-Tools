@@ -291,7 +291,6 @@ TEST_F(ModbusStateTest, ReconnectAfterFailure_LandsConnectedWithoutInvalidTransi
     modbus::base::ModbusConfig config;
     config.timeoutMs = 500;
     config.retries = 0;
-    config.autoReconnect = false;
     client_->setConfig(config);
 
     int openCalls = 0;

@@ -21,12 +21,10 @@ namespace {
 ConnectionManager::ConnectionManager(io::IChannel* channel,
                                      ConnectionStateMachine* stateMachine,
                                      std::atomic<bool>& aborted,
-                                     RetryStrategy* retryStrategy,
                                      const base::ModbusConfig* config)
     : channel_(channel)
     , stateMachine_(stateMachine)
     , aborted_(aborted)
-    , retryStrategy_(retryStrategy)
     , config_(config) {}
 
 bool ConnectionManager::isConnected() const {
@@ -36,8 +34,7 @@ bool ConnectionManager::isConnected() const {
 void ConnectionManager::onRequestTimeout() {
     using CS = ConnectionStateMachine::State;
     // Only timeouts of an established session count toward eviction: while
-    // connecting/reconnecting the connect attempt loop already owns the FSM
-    // and its own failure handling.
+    // connecting the connect attempt already owns the FSM and its own failure handling.
     if (stateMachine_->currentState() != CS::Connected) {
         return;
     }
@@ -114,7 +111,6 @@ void ConnectionManager::assertCleanEntryState() {
         // Clean attempt-loop entry states: zero correction needed.
         return;
     case CS::Connecting:
-    case CS::Reconnecting:
         // A previous attempt was abandoned mid-flight without proper abort cleanup.
         // In normal execution, abort() guarantees terminal Failed state.
         SPDLOG_ERROR("ConnectionManager::assertCleanEntryState: unexpected in-flight state {}, forcing self-heal to Failed",
@@ -124,7 +120,7 @@ void ConnectionManager::assertCleanEntryState() {
     case CS::Connected:
         // Channel is closed but the FSM still claims Connected: the passive
         // loss the state handler normally reports was missed. Route through
-        // Failed so the retry can legally proceed.
+        // Failed so the attempt can legally proceed.
         SPDLOG_ERROR("ConnectionManager::assertCleanEntryState: channel closed but state is Connected, forcing self-heal to Failed");
         transitionChecked(CS::Failed, "assert-clean-heal-stale");
         return;
@@ -135,7 +131,7 @@ void ConnectionManager::assertCleanEntryState() {
     }
 }
 
-bool ConnectionManager::ensureConnected(bool allowReconnect) {
+bool ConnectionManager::ensureConnected() {
     using CS = ConnectionStateMachine::State;
 
     if (!channel_) {
@@ -153,13 +149,11 @@ bool ConnectionManager::ensureConnected(bool allowReconnect) {
 
     if (channel_->isOpen()) {
         // Fast path: the channel is already open. Walk the FSM to Connected
-        // through legal edges (a direct jump is illegal from
-        // Disconnected/Failed and would previously be rejected and logged).
+        // through legal edges.
         switch (stateMachine_->currentState()) {
         case CS::Connected:
             return true;
         case CS::Connecting:
-        case CS::Reconnecting:
             transitionChecked(CS::Connected, "already-open");
             return true;
         case CS::Disconnected:
@@ -167,7 +161,7 @@ bool ConnectionManager::ensureConnected(bool allowReconnect) {
             transitionChecked(CS::Connected, "already-open");
             return true;
         case CS::Failed:
-            transitionChecked(CS::Reconnecting, "already-open-resume");
+            transitionChecked(CS::Connecting, "already-open-resume");
             transitionChecked(CS::Connected, "already-open");
             return true;
         case CS::Disconnecting:
@@ -181,57 +175,38 @@ bool ConnectionManager::ensureConnected(bool allowReconnect) {
     // Defensive check of entry state (assert clean state or self-heal).
     assertCleanEntryState();
 
-    const int attempts = allowReconnect ? std::max(1, config_->retries + 1) : 1;
-    QString connectError;
-    for (int attempt = 0; attempt < attempts; ++attempt) {
-        clearError();
+    clearError();
 
-        const CS attemptState = (attempt == 0) ? CS::Connecting : CS::Reconnecting;
-        if (!transitionChecked(attemptState,
-                               attempt == 0 ? "connect-attempt" : "reconnect-attempt")) {
-            // A concurrent transition (channel-lost handler on a foreign
-            // thread) raced us; retry once from the normalized state.
-            assertCleanEntryState();
-            if (!transitionChecked(attemptState, "connect-attempt-retry")) {
-                lastChannelError_ = TrContext<kConnManagerCtx>::tr("State machine busy");
-                return false;
-            }
-        }
-
-        if (!channel_->open()) {
-            connectError = TrContext<kConnManagerCtx>::tr("Failed to dispatch channel open");
-        } else {
-            const auto deadline = std::chrono::steady_clock::now()
-                + std::chrono::milliseconds(config_->timeoutMs);
-            if (waitForChannelState(io::ChannelState::Open, deadline, &connectError)) {
-                // Channel is genuinely open; if a channel-lost handler raced
-                // the success detection the FSM self-heals on the next
-                // already-open fast path.
-                consecutiveTimeoutCount_ = 0; // fresh session
-                transitionChecked(CS::Connected, "connect-success");
-                connectFailureLogged_ = false; // 成功建立连接，重置 Latch
-                return true;
-            }
-        }
-
-        channel_->close();
-        transitionChecked(CS::Failed, "connect-failed");
-        if (attempt + 1 >= attempts) {
-            break;
-        }
-
-        RetryStrategy::Config reconnectBackoffCfg;
-        reconnectBackoffCfg.baseIntervalMs = config_->reconnectBaseMs;
-        reconnectBackoffCfg.maxIntervalMs = config_->reconnectMaxMs;
-        reconnectBackoffCfg.backoffFactor = config_->retryBackoffFactor;
-        reconnectBackoffCfg.jitterPercent = config_->retryJitterPercent;
-        const int reconnectDelayMs = retryStrategy_->calculateBackoffMs(reconnectBackoffCfg, attempt);
-        if (!waitForAbortableDelay(aborted_, std::chrono::milliseconds(reconnectDelayMs))) {
-            lastChannelError_ = TrContext<kConnManagerCtx>::tr("Aborted");
-            transitionChecked(CS::Failed, "reconnect-aborted");
+    const CS attemptState = CS::Connecting;
+    if (!transitionChecked(attemptState, "connect-attempt")) {
+        // A concurrent transition (channel-lost handler on a foreign
+        // thread) raced us; retry once from the normalized state.
+        assertCleanEntryState();
+        if (!transitionChecked(attemptState, "connect-attempt-retry")) {
+            lastChannelError_ = TrContext<kConnManagerCtx>::tr("State machine busy");
             return false;
         }
     }
+
+    QString connectError;
+    if (!channel_->open()) {
+        connectError = TrContext<kConnManagerCtx>::tr("Failed to dispatch channel open");
+    } else {
+        const auto deadline = std::chrono::steady_clock::now()
+            + std::chrono::milliseconds(config_->timeoutMs);
+        if (waitForChannelState(io::ChannelState::Open, deadline, &connectError)) {
+            // Channel is genuinely open; if a channel-lost handler raced
+            // the success detection the FSM self-heals on the next
+            // already-open fast path.
+            consecutiveTimeoutCount_ = 0; // fresh session
+            transitionChecked(CS::Connected, "connect-success");
+            connectFailureLogged_ = false; // 成功建立连接，重置 Latch
+            return true;
+        }
+    }
+
+    channel_->close();
+    transitionChecked(CS::Failed, "connect-failed");
 
     // Preserve the most specific error already captured by waitForChannelState()
     // (e.g. "Aborted", channel error). Only synthesize a generic timeout message

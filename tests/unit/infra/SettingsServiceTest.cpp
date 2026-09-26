@@ -130,17 +130,15 @@ TEST(SettingsService, InFlightMigration_LegacyNetworkAndSerialKeys)
         QStringLiteral("traffic/ui/trafficMonitorCollapsed"),
         QStringLiteral("input/format"), QStringLiteral("input/autoSend"),
         QStringLiteral("input/intervalMs"), QStringLiteral("ui/inputCollapsed"),
-        QStringLiteral("autoReconnect"), QStringLiteral("reconnectDelay"),
     };
     // tcp_server / udp: dynamically composed keys only (no static constants
     // ever existed for them — that is exactly why the migration is
     // prefix-based, see GAP-6 in the Phase 9 plan).
     const QStringList dynamicOnlySuffixes = {
-        QStringLiteral("autoReconnect"), QStringLiteral("reconnectDelay"),
         QStringLiteral("traffic/autoScroll"), QStringLiteral("traffic/showTx"),
         QStringLiteral("input/format"), QStringLiteral("ui/inputCollapsed"),
     };
-    // serial_port: the 16 statically known keys plus the two dynamic ones.
+    // serial_port: the 16 statically known keys.
     const QStringList serialSuffixes = {
         QStringLiteral("baudRate"), QStringLiteral("dataBits"),
         QStringLiteral("parity"), QStringLiteral("stopBits"),
@@ -152,7 +150,6 @@ TEST(SettingsService, InFlightMigration_LegacyNetworkAndSerialKeys)
         QStringLiteral("input/format"), QStringLiteral("input/autoSend"),
         QStringLiteral("input/intervalMs"), QStringLiteral("ui/inputCollapsed"),
         QStringLiteral("dtr"), QStringLiteral("rts"),
-        QStringLiteral("autoReconnect"), QStringLiteral("reconnectDelay"),
     };
 
     {

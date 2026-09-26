@@ -49,7 +49,7 @@ protected:
         ON_CALL(*mockChannel_, setWriteDrainedHandler(_))
             .WillByDefault(SaveArg<0>(&writeDrainedHandler_));
 
-        // Default mocks: closed channel, no auto-reconnect for tests
+        // Default mocks: closed channel for tests
         ON_CALL(*mockChannel_, state()).WillByDefault(ReturnPointee(&currentState_));
         ON_CALL(*mockChannel_, isOpen()).WillByDefault(Invoke([this]() {
             return currentState_ == ChannelState::Open;
@@ -57,9 +57,8 @@ protected:
 
         client_ = std::make_unique<ModbusClient>(mockChannel_, mockTransport_);
 
-        // Default config: short timeout, no auto reconnect for fast deterministic tests
+        // Default config: short timeout for fast deterministic tests
         cfg_ = modbus::test::MakeModbusConfig(ModbusMode::RTU, 200, 2);
-        cfg_.autoReconnect = false;
         cfg_.retries = 0;
         cfg_.retryIntervalMs = 20;
         cfg_.retryBackoffFactor = 1.0;
@@ -429,8 +428,8 @@ TEST_F(ModbusClientBoundaryTest, ConnectionState_InvalidTransition_Rejected) {
 
     EXPECT_EQ(csm.currentState(), ConnectionStateMachine::State::Disconnected);
 
-    // Cannot go from Disconnected -> Reconnecting
-    csm.tryTransition(ConnectionStateMachine::State::Reconnecting, "invalid");
+    // Cannot go from Disconnected -> Connected directly (must go through Connecting)
+    csm.tryTransition(ConnectionStateMachine::State::Connected, "invalid");
     EXPECT_EQ(csm.currentState(), ConnectionStateMachine::State::Disconnected);
 }
 
@@ -439,7 +438,7 @@ TEST_F(ModbusClientBoundaryTest, ConnectionState_InvalidTransition_Rejected) {
 // ============================================================================
 
 TEST_F(ModbusClientBoundaryTest, LastChannelError_AfterConnectionFailure_HasError) {
-    // With autoReconnect=false, ensureConnected tries open() once
+    // ensureConnected tries open() once
     Expectation openCall = EXPECT_CALL(*mockChannel_, open()).WillOnce(Return(false));
     EXPECT_CALL(*mockChannel_, close()).After(openCall);
 
@@ -494,7 +493,6 @@ TEST_F(ModbusClientBoundaryTest, Abort_WhenIdle_DoesNotCrash) {
 TEST_F(ModbusClientBoundaryTest, UnresponsiveThreshold_ClosesAndFails) {
     cfg_.mode = ModbusMode::TCP; // no RTU write-drain / frame-boundary waits
     cfg_.timeoutMs = 100;
-    cfg_.autoReconnect = false;
     cfg_.unresponsiveThreshold = 3;
     client_->setConfig(cfg_);
     connectClient();
@@ -520,7 +518,6 @@ TEST_F(ModbusClientBoundaryTest, UnresponsiveThreshold_ClosesAndFails) {
 TEST_F(ModbusClientBoundaryTest, UnresponsiveThreshold_SuccessResetsCounter) {
     cfg_.mode = ModbusMode::TCP;
     cfg_.timeoutMs = 100;
-    cfg_.autoReconnect = false;
     cfg_.unresponsiveThreshold = 3;
     client_->setConfig(cfg_);
     connectClient();
@@ -566,7 +563,6 @@ TEST_F(ModbusClientBoundaryTest, UnresponsiveThreshold_SuccessResetsCounter) {
 TEST_F(ModbusClientBoundaryTest, UnresponsiveThreshold_DisabledWhenZero) {
     cfg_.mode = ModbusMode::TCP;
     cfg_.timeoutMs = 100;
-    cfg_.autoReconnect = false;
     cfg_.unresponsiveThreshold = 0;
     client_->setConfig(cfg_);
     connectClient();
@@ -585,17 +581,16 @@ TEST_F(ModbusClientBoundaryTest, UnresponsiveThreshold_DisabledWhenZero) {
 }
 
 // ============================================================================
-// P3: lazy reconnect (T2.3) — a request against a dead session rebuilds it
+// P3: on-demand connect (T2.3) — a request against an unopened session opens it
 // ============================================================================
 
 // With no pre-established session, the first request must transparently
-// reconnect (ensureConnected inside sendRequestInternal) instead of failing
-// with "Not connected": after the reconnect the request executes against
+// connect (ensureConnected inside sendRequestInternal) instead of failing
+// with "Not connected": after connecting the request executes against
 // the open channel and only times out because the mock never answers.
-TEST_F(ModbusClientBoundaryTest, SendRequest_WhileDisconnected_LazyReconnects) {
+TEST_F(ModbusClientBoundaryTest, SendRequest_WhileDisconnected_LazyConnects) {
     cfg_.mode = ModbusMode::TCP;
     cfg_.timeoutMs = 100;
-    cfg_.autoReconnect = false;
     client_->setConfig(cfg_);
     ASSERT_FALSE(client_->isConnected()); // no session yet
 
@@ -609,8 +604,8 @@ TEST_F(ModbusClientBoundaryTest, SendRequest_WhileDisconnected_LazyReconnects) {
     EXPECT_CALL(*mockChannel_, write(_)).WillOnce(Return(true));
 
     auto resp = client_->sendRequest(makeRhrPdu());
-    // The request reached the response wait (timeout), proving the lazy
-    // reconnect succeeded — the old behavior failed here immediately with
+    // The request reached the response wait (timeout), proving on-demand
+    // connect succeeded — the old behavior failed here immediately with
     // "Not connected" without ever dispatching the request.
     EXPECT_THAT(resp.error.toStdString(), AnyOf(HasSubstr("Timeout"), HasSubstr("timeout")));
     EXPECT_EQ(client_->connectionState(), ModbusClient::ConnectionState::Connected);

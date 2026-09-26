@@ -15,11 +15,7 @@
 namespace ui::views {
 
 ChannelController::ChannelController(QObject* parent)
-    : QObject(parent) {
-    reconnectTimer_ = new QTimer(this);
-    reconnectTimer_->setSingleShot(true);
-    connect(reconnectTimer_, &QTimer::timeout, this, &ChannelController::reconnectTimeout);
-}
+    : QObject(parent) {}
 
 ChannelController::~ChannelController() noexcept {
     destroyWorker();
@@ -46,7 +42,7 @@ void ChannelController::destroyWorker() {
     workerThread_ = nullptr;
     worker_ = nullptr;
     stopWorkerPair(thread, worker,
-                   [this] { stopReconnectTimer(); },
+                   {},
                    [](QObject* w) {
                        static_cast<io::ChannelOperationWorker*>(w)->close();
                    });
@@ -66,22 +62,6 @@ void ChannelController::disconnect() {
         return;
     }
     QMetaObject::invokeMethod(worker_, "close", Qt::QueuedConnection);
-}
-
-void ChannelController::startReconnectTimer(int delayMs) {
-    reconnectPolicy_.onFailed();
-    reconnectPolicy_.setDelayMs(delayMs);
-    reconnectTimer_->start(delayMs);
-}
-
-void ChannelController::stopReconnectTimer() {
-    if (reconnectTimer_) {
-        reconnectTimer_->stop();
-    }
-}
-
-void ChannelController::resetReconnect() {
-    reconnectPolicy_.reset();
 }
 
 void ChannelController::stopWorkerPair(QThread* thread, QObject* worker,

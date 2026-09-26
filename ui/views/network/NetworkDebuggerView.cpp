@@ -205,10 +205,6 @@ void NetworkDebuggerView::setupUi() {
 
     retranslateUi();
 
-    // Reconnect timer is managed by ChannelController; connect its signal to our slot.
-    connect(&channelCtrl_, &ChannelController::reconnectTimeout,
-            this, &NetworkDebuggerView::onReconnectTimerTick);
-
     onProtocolChanged(protocolCombo_->currentIndex());
 }
 
@@ -294,15 +290,10 @@ void NetworkDebuggerView::onConnectClicked(const QString& ip, int port) {
     auto* worker = channelCtrl_.worker();
     if (!worker) return;
 
-    channelCtrl_.stopReconnectTimer();
-    channelCtrl_.resetReconnect();
-    reconnectHost_ = ip;
-    reconnectPort_ = port;
-
     SPDLOG_INFO("NetworkDebugger: Connecting to {}:{}", ip.toStdString(), port);
     suppressDisconnectAlert_ = false;
     // Fresh user intent: any prior manual disconnect is superseded, so a
-    // later passive loss is allowed to trigger the reconnect loop again.
+    // later passive loss will notify the user appropriately.
     manualDisconnectRequested_ = false;
     const quint64 generation = ++connectionGeneration_;
     if (monitor_) {
@@ -490,38 +481,8 @@ void NetworkDebuggerView::onWorkerStateChanged(io::ChannelState state, quint64 g
         ? static_cast<widgets::BaseConnectionWidget*>(tcpClientWidget_)
         : static_cast<widgets::BaseConnectionWidget*>(udpWidget_);
 
-    if (!isConnected_ && wasConnected
-        && currentProtocol_ == Protocol::TcpClient
-        && activeWidget->autoReconnectEnabled()
-        // NEW-C: auto-reconnect reacts to passive losses only. A manual
-        // disconnect (onDisconnectClicked set the flag) must keep the
-        // channel down until the user explicitly connects again.
-        && !manualDisconnectRequested_
-        && !suppressDisconnectAlert_
-        && !channelCtrl_.reconnectTimer()->isActive()) {
-        auto& policy = channelCtrl_.reconnectPolicy();
-        if (policy.exhausted()) {
-            if (monitor_) {
-                monitor_->appendInfo(tr("Auto-reconnect exhausted (%1 attempts)")
-                                         .arg(policy.maxRetries()));
-            }
-            channelCtrl_.stopReconnectTimer();
-            return;
-        }
-        const int delay = activeWidget->reconnectDelayMs();
-        if (monitor_) {
-            monitor_->appendInfo(tr("Auto-reconnect in %1ms (%2)")
-                                     .arg(delay)
-                                     .arg(policy.statusString()));
-        }
-        channelCtrl_.startReconnectTimer(delay);
-    }
-
     if (state == io::ChannelState::Open) {
-        // A live session invalidates any prior manual-disconnect intent;
-        // subsequent losses are passive again (alert + reconnect eligible).
         manualDisconnectRequested_ = false;
-        channelCtrl_.reconnectPolicy().onSuccess();
     }
 }
 
@@ -663,44 +624,6 @@ void NetworkDebuggerView::retranslateUi() {
     populateProtocolOptions(protocolCombo_);
 }
 
-void NetworkDebuggerView::onReconnectTimerTick() {
-    auto* activeWidget = tcpClientWidget_;
-    auto* worker = channelCtrl_.worker();
-    if (!activeWidget || !worker) return;
 
-    if (!activeWidget->autoReconnectEnabled()) {
-        channelCtrl_.stopReconnectTimer();
-        return;
-    }
-
-    if (reconnectHost_.isEmpty()) {
-        channelCtrl_.stopReconnectTimer();
-        return;
-    }
-
-    SPDLOG_INFO("NetworkDebugger: Auto-reconnecting to {}:{} (attempt {})",
-                 reconnectHost_.toStdString(), reconnectPort_,
-                 channelCtrl_.reconnectPolicy().attemptCount());
-
-    suppressDisconnectAlert_ = false;
-    const quint64 generation = ++connectionGeneration_;
-    manualDisconnectRequested_ = false; // reconnect tick = fresh intent
-    if (monitor_) {
-        monitor_->appendInfo(tr("Auto-reconnecting to %1:%2 (attempt %3)...")
-                                 .arg(reconnectHost_)
-                                 .arg(reconnectPort_)
-                                 .arg(channelCtrl_.reconnectPolicy().attemptCount()));
-    }
-    activeWidget->setDisplayState(widgets::BaseConnectionWidget::DisplayState::Connecting);
-
-    QMetaObject::invokeMethod(worker, "openTcp",
-                              Qt::QueuedConnection,
-                              Q_ARG(QString, reconnectHost_),
-                              Q_ARG(int, reconnectPort_),
-                              Q_ARG(quint64, generation));
-
-    channelCtrl_.reconnectTimer()->setInterval(channelCtrl_.reconnectPolicy().nextDelayMs());
-    channelCtrl_.reconnectTimer()->start();
-}
 
 } // namespace ui::views::network

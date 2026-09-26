@@ -315,7 +315,7 @@ void RequestExecutor::resetState(bool clearPendingQueue) {
 // --- Private: Request flow ---
 
 ModbusResponse RequestExecutor::sendRequestInternal(const base::Pdu& request, int slaveId) {
-    if (!connectionManager_->ensureConnected(config_->autoReconnect)) {
+    if (!connectionManager_->ensureConnected()) {
         reqStateMachine_->tryTransition(RequestStateMachine::State::Failed, "not-connected");
         const QString channelError = connectionManager_->lastChannelError();
         return ModbusResponse::Error(channelError.isEmpty()

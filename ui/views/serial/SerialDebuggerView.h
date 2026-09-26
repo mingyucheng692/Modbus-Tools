@@ -49,7 +49,6 @@ private slots:
     void onWorkerStateChanged(io::ChannelState state, quint64 generation);
     void onWorkerError(const QString& deviceHint, io::ChannelErrorCode code, const QString& error);
     void onWorkerMonitor(bool isTx, const QByteArray& data);
-    void onReconnectTimerTick();
 
     // Serial Control
     void onDtrChanged(bool checked);
@@ -72,15 +71,12 @@ private:
     QCheckBox* rtsCheck_ = nullptr;
     QGroupBox* controlGroup_ = nullptr;
 
-    // Channel controller (composite) – manages worker thread + reconnect timer
+    // Channel controller (composite) – manages worker thread
     ChannelController channelCtrl_;
 
-    io::SerialConfig reconnectConfig_;
-
-    /// Monotonic connection-attempt counter, bumped on every user connect /
-    /// reconnect tick. Stale worker emissions from a torn-down channel carry
-    /// an older generation and are dropped in onWorkerStateChanged() — the
-    /// same mechanism NetworkDebuggerView uses for rapid open/close sequences.
+    /// Monotonic connection-attempt counter, bumped on every user connect.
+    /// Stale worker emissions from a torn-down channel carry an older generation
+    /// and are dropped in onWorkerStateChanged().
     quint64 connectionGeneration_ = 0;
 };
 

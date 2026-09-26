@@ -12,8 +12,6 @@
 #include <QWidget>
 #include <QString>
 
-class QCheckBox;
-class QSpinBox;
 class QLabel;
 class QPushButton;
 class QEvent;
@@ -56,18 +54,16 @@ struct StateDisplayInfo {
  * @class BaseConnectionWidget
  * @brief Common base class for SerialConnectionWidget and NetworkConnectionWidget.
  *
- * Handles common behaviors such as collapsible section logic, auto-reconnect
- * configurations, settings group and settings loading/saving.
+ * Handles common behaviors such as collapsible section logic,
+ * settings group and settings loading/saving.
  *
  * @par Display-state template method
  *      applyDisplayState() is implemented in this base class as a template
  *      method: it queries getStateDisplayInfo() for the current state's
  *      button/status text and style, applies them to connectBtn_/statusLabel_,
- *      toggles autoReconnectCheck_/reconnectDelaySpin_, then delegates
- *      per-widget input enabling to applyInputWidgetsState() and protocol
- *      refresh to updateProtocolUi() (default no-op). Subclasses supply only
- *      the data + their own widget list, eliminating the per-state switch
- *      duplication that previously lived in SerialConnectionWidget.
+ *      then delegates per-widget input enabling to applyInputWidgetsState()
+ *      and protocol refresh to updateProtocolUi() (default no-op).
+ *      Subclasses supply only the data + their own widget list.
  */
 class BaseConnectionWidget : public QWidget {
     Q_OBJECT
@@ -83,18 +79,6 @@ public:
      * @param group The settings group name.
      */
     void setSettingsGroup(const QString& group);
-
-    /**
-     * @brief Check if auto-reconnect is enabled.
-     * @return true if enabled, false otherwise.
-     */
-    [[nodiscard]] bool autoReconnectEnabled() const noexcept;
-
-    /**
-     * @brief Get the reconnect delay in milliseconds.
-     * @return The reconnect delay in ms.
-     */
-    [[nodiscard]] int reconnectDelayMs() const noexcept;
 
 signals:
     void disconnectClicked();
@@ -159,8 +143,6 @@ protected:
     QString settingsGroup_;
 
     CollapsibleSection* section_ = nullptr;
-    QCheckBox* autoReconnectCheck_ = nullptr;
-    QSpinBox* reconnectDelaySpin_ = nullptr;
     QPushButton* connectBtn_ = nullptr;
     QLabel* statusLabel_ = nullptr;
 

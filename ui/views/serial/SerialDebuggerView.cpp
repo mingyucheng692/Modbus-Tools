@@ -103,10 +103,6 @@ void SerialDebuggerView::setupUi() {
     }
 
     retranslateUi();
-
-    // Reconnect timer is managed by ChannelController; connect its signal to our slot.
-    connect(&channelCtrl_, &ChannelController::reconnectTimeout,
-            this, &SerialDebuggerView::onReconnectTimerTick);
 }
 
 void SerialDebuggerView::startWorker() {
@@ -123,12 +119,6 @@ void SerialDebuggerView::onConnectClicked(const io::SerialConfig& config) {
     auto* worker = channelCtrl_.worker();
     if (!worker) return;
 
-    channelCtrl_.stopReconnectTimer();
-    channelCtrl_.resetReconnect();
-    reconnectConfig_ = config;
-
-    // Fresh user intent: a prior manual disconnect is superseded, so a
-    // later passive loss may trigger the reconnect loop again (NEW-C).
     manualDisconnectRequested_ = false;
     const quint64 generation = ++connectionGeneration_;
 
@@ -186,30 +176,7 @@ void SerialDebuggerView::onWorkerStateChanged(io::ChannelState state, quint64 ge
     }
 
     if (isConnected_) {
-        // A live session invalidates any prior manual-disconnect intent;
-        // subsequent losses are passive again (reconnect eligible).
         manualDisconnectRequested_ = false;
-        channelCtrl_.reconnectPolicy().onSuccess();
-    } else if (wasConnected
-               && !manualDisconnectRequested_ // NEW-C: passive losses only
-               && connectionWidget_->autoReconnectEnabled()
-               && !channelCtrl_.reconnectTimer()->isActive()) {
-        auto& policy = channelCtrl_.reconnectPolicy();
-        if (policy.exhausted()) {
-            if (monitor_) {
-                monitor_->appendInfo(tr("Auto-reconnect exhausted (%1 attempts)")
-                                         .arg(policy.maxRetries()));
-            }
-            channelCtrl_.stopReconnectTimer();
-            return;
-        }
-        const int delay = connectionWidget_->reconnectDelayMs();
-        if (monitor_) {
-            monitor_->appendInfo(tr("Auto-reconnect in %1ms (%2)")
-                                     .arg(delay)
-                                     .arg(policy.statusString()));
-        }
-        channelCtrl_.startReconnectTimer(delay);
     }
 }
 
@@ -268,36 +235,5 @@ void SerialDebuggerView::retranslateUi() {
     if (rtsCheck_) rtsCheck_->setText(tr("RTS"));
 }
 
-void SerialDebuggerView::onReconnectTimerTick() {
-    if (!connectionWidget_) return;
-    auto* worker = channelCtrl_.worker();
-    if (!worker) return;
-
-    if (!connectionWidget_->autoReconnectEnabled()) {
-        channelCtrl_.stopReconnectTimer();
-        return;
-    }
-
-    if (reconnectConfig_.portName.isEmpty()) {
-        channelCtrl_.stopReconnectTimer();
-        return;
-    }
-
-    SPDLOG_INFO("SerialDebugger: Auto-reconnecting to {} (attempt {})",
-                 reconnectConfig_.portName.toStdString(),
-                 channelCtrl_.reconnectPolicy().attemptCount());
-
-    manualDisconnectRequested_ = false; // reconnect tick = fresh intent
-    const quint64 generation = ++connectionGeneration_;
-    if (monitor_) {
-        monitor_->appendInfo(tr("Reconnecting to %1...").arg(reconnectConfig_.portName));
-    }
-    connectionWidget_->setDisplayState(widgets::SerialConnectionWidget::DisplayState::Connecting);
-
-    QMetaObject::invokeMethod(worker, "openSerial",
-                              Qt::QueuedConnection,
-                              Q_ARG(io::SerialConfig, reconnectConfig_),
-                              Q_ARG(quint64, generation));
-}
 
 } // namespace ui::views::serial

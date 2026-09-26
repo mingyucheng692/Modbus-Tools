@@ -31,7 +31,7 @@ using namespace core::common::settings_keys;
 UdpConnectionWidget::UdpConnectionWidget(infra::config::ISettingsService* settingsService, QWidget* parent)
     : NetworkConnectionWidget(settingsService, parent) {
     // UDP needs extra remote-address controls inserted before the common
-    // widgets (autoReconnect, connectBtn, etc.). We do this before calling
+    // widgets (connectBtn, etc.). We do this before calling
     // setupNetworkUi() so the layout is built first.
     setupCommonUi();
 
@@ -79,8 +79,6 @@ void UdpConnectionWidget::setupProtocolUi() {
     connectBtn_->setText(tr("Bind"));
     remoteIpLabel_->setText(tr("Remote:"));
     remotePortLabel_->setText(tr("Remote Port:"));
-    autoReconnectCheck_->setVisible(false);
-    reconnectDelaySpin_->setVisible(false);
 }
 
 void UdpConnectionWidget::setupButtonConnection() {

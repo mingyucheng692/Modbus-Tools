@@ -50,11 +50,9 @@ void NetworkConnectionWidget::setupCommonUi() {
     portEdit_->setFixedWidth(76);
     layout->addWidget(portEdit_);
 
-    // Common widgets (autoReconnect, connectBtn, statusLabel)
+    // Common widgets (connectBtn, statusLabel)
     createCommonWidgets(section_->contentWidget());
 
-    layout->addWidget(autoReconnectCheck_);
-    layout->addWidget(reconnectDelaySpin_);
     layout->addSpacing(4);
     layout->addWidget(connectBtn_);
     layout->addWidget(statusLabel_);
@@ -144,8 +142,7 @@ void NetworkConnectionWidget::setConnected(bool connected) {
 }
 
 void NetworkConnectionWidget::applyInputWidgetsState(bool enabled) {
-    // Network-specific input widgets only; autoReconnectCheck_ /
-    // reconnectDelaySpin_ / connectBtn_ are handled by the base skeleton.
+    // Network-specific input widgets only; connectBtn_ is handled by the base skeleton.
     ipEdit_->setEnabled(enabled);
     portEdit_->setEnabled(enabled);
 }

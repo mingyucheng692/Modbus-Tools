@@ -33,8 +33,7 @@ public:
     [[nodiscard]] int attemptCount() const;
 
     /// Calculate backoff delay for @p attempt using @p config without
-    /// constructing a full RetryStrategy. Used by ConnectionManager for
-    /// reconnection delays that don't need retry-counting semantics.
+    /// constructing a full RetryStrategy.
     [[nodiscard]] int calculateBackoffMs(const Config& config, int attempt) const;
 
     /// Calculate backoff delay using the stored config_ for @p attempt.

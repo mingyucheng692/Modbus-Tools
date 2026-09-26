@@ -24,8 +24,6 @@ target_sources(infra PRIVATE
     io/IChannel.h
     io/ServerChannelWorker.h
     io/ServerChannelWorker.cpp
-    io/ReconnectPolicy.h
-    io/ReconnectPolicy.cpp
     # logging
     logging/Logger.h
     logging/Logger.cpp

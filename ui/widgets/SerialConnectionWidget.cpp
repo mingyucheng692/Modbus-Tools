@@ -165,8 +165,7 @@ StateDisplayInfo SerialConnectionWidget::getStateDisplayInfo(DisplayState state)
 }
 
 void SerialConnectionWidget::applyInputWidgetsState(bool enabled) {
-    // Serial-specific input widgets only; autoReconnectCheck_ /
-    // reconnectDelaySpin_ / connectBtn_ are handled by the base skeleton.
+    // Serial-specific input widgets only; connectBtn_ is handled by the base skeleton.
     portCombo_->setEnabled(enabled);
     baudCombo_->setEnabled(enabled);
     dataBitsCombo_->setEnabled(enabled);
@@ -263,11 +262,9 @@ void SerialConnectionWidget::setupUi() {
     flowControlCombo_->setMinimumWidth(80);
     layout->addWidget(flowControlCombo_);
 
-    // Create common widgets (autoReconnectCheck_, reconnectDelaySpin_, connectBtn_, statusLabel_)
+    // Create common widgets (connectBtn_, statusLabel_)
     createCommonWidgets(section_->contentWidget());
 
-    layout->addWidget(autoReconnectCheck_);
-    layout->addWidget(reconnectDelaySpin_);
     layout->addSpacing(4);
     layout->addWidget(connectBtn_);
     layout->addWidget(statusLabel_);
