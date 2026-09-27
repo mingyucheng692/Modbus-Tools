@@ -47,7 +47,9 @@ UdpConnectionWidget::UdpConnectionWidget(infra::config::ISettingsService* settin
         remotePortEdit_->setRange(config::Network::kMinTcpPort,
                                   config::Network::kMaxTcpPort);
         remotePortEdit_->setValue(0);
-        remotePortEdit_->setFixedWidth(76);
+        remotePortEdit_->setButtonSymbols(QAbstractSpinBox::NoButtons);
+        remotePortEdit_->setAlignment(Qt::AlignCenter);
+        remotePortEdit_->setFixedWidth(54);
         remotePortEdit_->setSpecialValueText(QStringLiteral("-"));
 
         auto* boxLayout = qobject_cast<QBoxLayout*>(layout);

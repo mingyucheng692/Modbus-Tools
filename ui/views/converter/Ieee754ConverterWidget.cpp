@@ -64,6 +64,7 @@ void Ieee754ConverterWidget::setupUi()
     topLayout->setSpacing(10);
 
     precisionGroup_ = new QGroupBox(tr("Precision"), this);
+    precisionGroup_->setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Fixed);
     auto* precisionLayout = new QHBoxLayout(precisionGroup_);
     precisionLayout->setContentsMargins(10, 6, 10, 6);
     precisionLayout->setSpacing(12);
@@ -81,38 +82,51 @@ void Ieee754ConverterWidget::setupUi()
     connect(precisionBtnGroup_, &QButtonGroup::idClicked, this, &Ieee754ConverterWidget::onPrecisionChanged);
     topLayout->addWidget(precisionGroup_);
 
-    // Presets
+    // Presets (2-Row Responsive Layout)
     presetsGroup_ = new QGroupBox(tr("Quick Presets"), this);
-    auto* presetsLayout = new QHBoxLayout(presetsGroup_);
-    presetsLayout->setContentsMargins(10, 6, 10, 6);
-    presetsLayout->setSpacing(6);
+    presetsGroup_->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);
+    auto* presetsMainLayout = new QVBoxLayout(presetsGroup_);
+    presetsMainLayout->setContentsMargins(8, 4, 8, 4);
+    presetsMainLayout->setSpacing(4);
 
-    auto addPreset = [this, presetsLayout](const QString& label, double val, bool isSpecial = false, uint64_t specialRaw = 0) -> QPushButton* {
+    auto* row1Layout = new QHBoxLayout();
+    row1Layout->setContentsMargins(0, 0, 0, 0);
+    row1Layout->setSpacing(4);
+    auto* row2Layout = new QHBoxLayout();
+    row2Layout->setContentsMargins(0, 0, 0, 0);
+    row2Layout->setSpacing(4);
+
+    auto addPresetTo = [this](QHBoxLayout* layout, const QString& label, double val, bool isSpecial = false, uint64_t specialRaw = 0) -> QPushButton* {
         auto* btn = new QPushButton(label, presetsGroup_);
-        btn->setFixedHeight(24);
+        btn->setFixedHeight(22);
         connect(btn, &QPushButton::clicked, this, [this, val, isSpecial, specialRaw]() {
             onPresetClicked(val, isSpecial, specialRaw);
         });
-        presetsLayout->addWidget(btn);
+        layout->addWidget(btn);
         return btn;
     };
 
-    addPreset(QStringLiteral("0.0"), 0.0);
-    addPreset(QStringLiteral("1.0"), 1.0);
-    addPreset(QStringLiteral("-1.0"), -1.0);
-    addPreset(QStringLiteral("100.0"), 100.0);
-    addPreset(QStringLiteral("123.456"), 123.456);
-    addPreset(QStringLiteral("π"), 3.141592653589793);
-    maxNormalBtn_ = addPreset(tr("Max Normal"), std::numeric_limits<float>::max());
-    infBtn_ = addPreset(tr("+Infinity"), std::numeric_limits<double>::infinity());
-    nanBtn_ = addPreset(tr("NaN"), std::numeric_limits<double>::quiet_NaN());
+    addPresetTo(row1Layout, QStringLiteral("0.0"), 0.0);
+    addPresetTo(row1Layout, QStringLiteral("1.0"), 1.0);
+    addPresetTo(row1Layout, QStringLiteral("-1.0"), -1.0);
+    addPresetTo(row1Layout, QStringLiteral("100.0"), 100.0);
+    addPresetTo(row1Layout, QStringLiteral("123.456"), 123.456);
+    addPresetTo(row1Layout, QStringLiteral("π"), 3.141592653589793);
+    row1Layout->addStretch(1);
 
-    presetsLayout->addStretch();
+    maxNormalBtn_ = addPresetTo(row2Layout, tr("Max Normal"), std::numeric_limits<float>::max());
+    infBtn_ = addPresetTo(row2Layout, tr("+Infinity"), std::numeric_limits<double>::infinity());
+    nanBtn_ = addPresetTo(row2Layout, tr("NaN"), std::numeric_limits<double>::quiet_NaN());
+    row2Layout->addStretch(1);
+
+    presetsMainLayout->addLayout(row1Layout);
+    presetsMainLayout->addLayout(row2Layout);
     topLayout->addWidget(presetsGroup_, 1);
     mainLayout->addLayout(topLayout);
 
     // 2. Interactive Reactive Inputs
     inputGroup_ = new QGroupBox(tr("Interactive Inputs (Two-Way Live Sync)"), this);
+    inputGroup_->setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Fixed);
     auto* inputGridLayout = new QGridLayout(inputGroup_);
     inputGridLayout->setContentsMargins(12, 10, 12, 10);
     inputGridLayout->setSpacing(8);
@@ -153,6 +167,7 @@ void Ieee754ConverterWidget::setupUi()
 
     // 3. Modbus Endian Matrix Table
     matrixGroup_ = new QGroupBox(tr("Four-Endian Live Matrix (Modbus Permutations)"), this);
+    matrixGroup_->setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Fixed);
     auto* matrixLayout = new QVBoxLayout(matrixGroup_);
     matrixLayout->setContentsMargins(8, 8, 8, 8);
 
@@ -161,7 +176,9 @@ void Ieee754ConverterWidget::setupUi()
     matrixTable_->setSelectionBehavior(QAbstractItemView::SelectRows);
     matrixTable_->setSelectionMode(QAbstractItemView::SingleSelection);
     matrixTable_->verticalHeader()->setVisible(false);
-    matrixTable_->horizontalHeader()->setStretchLastSection(true);
+    matrixTable_->horizontalHeader()->setStretchLastSection(false);
+    matrixTable_->setHorizontalScrollBarPolicy(Qt::ScrollBarAsNeeded);
+    matrixTable_->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);
     matrixTable_->setFixedHeight(160);
 
     matrixLayout->addWidget(matrixTable_);
@@ -169,12 +186,14 @@ void Ieee754ConverterWidget::setupUi()
 
     // 4. IEEE 754 Bitfield Breakdown
     bitfieldGroup_ = new QGroupBox(tr("IEEE 754 Binary Bitfield Breakdown"), this);
+    bitfieldGroup_->setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Fixed);
     auto* bitfieldLayout = new QVBoxLayout(bitfieldGroup_);
     bitfieldLayout->setContentsMargins(12, 10, 12, 10);
     bitfieldLayout->setSpacing(6);
 
     binaryFullLabel_ = new QLabel(bitfieldGroup_);
     binaryFullLabel_->setStyleSheet(QStringLiteral("font-family: monospace; font-size: 13px; font-weight: bold;"));
+    binaryFullLabel_->setWordWrap(true);
     bitfieldLayout->addWidget(binaryFullLabel_);
 
     auto* fieldsLayout = new QHBoxLayout();
@@ -199,6 +218,7 @@ void Ieee754ConverterWidget::setupUi()
     bitfieldLayout->addWidget(formulaLabel_);
 
     mainLayout->addWidget(bitfieldGroup_);
+    mainLayout->addStretch(1);
 
     retranslateUi();
 }
@@ -245,7 +265,8 @@ void Ieee754ConverterWidget::retranslateUi()
         matrixTable_->horizontalHeader()->setSectionResizeMode(3, QHeaderView::Stretch);
         matrixTable_->horizontalHeader()->setSectionResizeMode(4, QHeaderView::ResizeToContents);
         matrixTable_->horizontalHeader()->setSectionResizeMode(5, QHeaderView::ResizeToContents);
-        matrixTable_->horizontalHeader()->setSectionResizeMode(6, QHeaderView::ResizeToContents);
+        matrixTable_->horizontalHeader()->setSectionResizeMode(6, QHeaderView::Fixed);
+        matrixTable_->setColumnWidth(6, 185);
     }
 
     updateAllViewsFromRaw();
@@ -531,14 +552,15 @@ void Ieee754ConverterWidget::updateMatrixTable()
     struct OrderSpec {
         modbus::base::RegisterOrder order;
         QString name;
-        QString desc;
+        QString label;
+        QString fullDesc;
     };
 
     const OrderSpec specs[4] = {
-        { modbus::base::RegisterOrder::ABCD, QStringLiteral("ABCD"), tr("Big-Endian (Standard / High-Word First)") },
-        { modbus::base::RegisterOrder::CDAB, QStringLiteral("CDAB"), tr("Word Swap (Little-Endian Words / Middle-Endian)") },
-        { modbus::base::RegisterOrder::BADC, QStringLiteral("BADC"), tr("Byte Swap (Word-Level Endian Inversion)") },
-        { modbus::base::RegisterOrder::DCBA, QStringLiteral("DCBA"), tr("Little-Endian (True Little-Endian / Low-Word First)") }
+        { modbus::base::RegisterOrder::ABCD, QStringLiteral("ABCD"), tr("Big-Endian"), tr("Big-Endian (Standard / High-Word First)") },
+        { modbus::base::RegisterOrder::CDAB, QStringLiteral("CDAB"), tr("Word Swap"), tr("Word Swap (Little-Endian Words / Middle-Endian)") },
+        { modbus::base::RegisterOrder::BADC, QStringLiteral("BADC"), tr("Byte Swap"), tr("Byte Swap (Word-Level Endian Inversion)") },
+        { modbus::base::RegisterOrder::DCBA, QStringLiteral("DCBA"), tr("Little-Endian"), tr("Little-Endian (True Little-Endian / Low-Word First)") }
     };
 
     uint8_t src[8];
@@ -594,8 +616,9 @@ void Ieee754ConverterWidget::updateMatrixTable()
             }
         }
 
-        // Column 0: Order
-        auto* item0 = new QTableWidgetItem(QStringLiteral("%1 (%2)").arg(specs[r].name, specs[r].desc));
+        // Column 0: Order (Compact label with rich tooltip)
+        auto* item0 = new QTableWidgetItem(QStringLiteral("%1 (%2)").arg(specs[r].name, specs[r].label));
+        item0->setToolTip(QStringLiteral("%1 (%2)").arg(specs[r].name, specs[r].fullDesc));
         item0->setFont(QFont(QStringLiteral("sans-serif"), 9, QFont::Bold));
         matrixTable_->setItem(r, 0, item0);
 
@@ -664,16 +687,20 @@ void Ieee754ConverterWidget::updateMatrixTable()
         // Column 6: Action Buttons
         auto* actionContainer = new QWidget(matrixTable_);
         auto* actionLayout = new QHBoxLayout(actionContainer);
-        actionLayout->setContentsMargins(4, 2, 4, 2);
+        actionLayout->setContentsMargins(2, 2, 2, 2);
         actionLayout->setSpacing(4);
 
         auto* copyHexBtn = new QPushButton(tr("Copy Hex"), actionContainer);
         copyHexBtn->setFixedHeight(22);
+        copyHexBtn->setMinimumWidth(75);
+        copyHexBtn->setToolTip(tr("Copy Hex formatted bytes"));
         connect(copyHexBtn, &QPushButton::clicked, this, [this, r]() { onCopyHexClicked(r); });
         actionLayout->addWidget(copyHexBtn);
 
         auto* copyWordsBtn = new QPushButton(tr("Copy Words"), actionContainer);
         copyWordsBtn->setFixedHeight(22);
+        copyWordsBtn->setMinimumWidth(80);
+        copyWordsBtn->setToolTip(tr("Copy Modbus Register Words"));
         connect(copyWordsBtn, &QPushButton::clicked, this, [this, r]() { onCopyWordsClicked(r); });
         actionLayout->addWidget(copyWordsBtn);
 

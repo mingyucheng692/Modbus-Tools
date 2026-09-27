@@ -117,13 +117,18 @@ void ControlWidget::onTimer() {
 
 void ControlWidget::updateStatsLabel() {
     const QString rttText = hasLastRtt_
-        ? tr("%1 ms").arg(lastRtt_)
+        ? tr("%1ms").arg(lastRtt_)
         : tr("--");
-    statsLabel_->setText(QStringLiteral("TX: %1 | RX: %2 | Err: %3 | RTT: %4")
+    statsLabel_->setText(QStringLiteral("TX:%1 RX:%2 E:%3 RTT:%4")
                              .arg(txCount_)
                              .arg(rxCount_)
                              .arg(errorCount_)
                              .arg(rttText));
+    statsLabel_->setToolTip(tr("TX: %1 | RX: %2 | Errors: %3 | RTT: %4")
+                                .arg(txCount_)
+                                .arg(rxCount_)
+                                .arg(errorCount_)
+                                .arg(rttText));
 }
 
 bool ControlWidget::isRttSegmentHovered(const QPoint& localPos) const {
@@ -265,15 +270,11 @@ void ControlWidget::setupUi() {
     layout->setContentsMargins(2, 4, 2, 4);
     layout->setSpacing(2);
     
-    // Poll Enable
+    // 1. Polling Enable
     enablePollCheck_ = new QCheckBox(this);
     layout->addWidget(enablePollCheck_);
     
-    // Link to Analyzer
-    linkCheck_ = new QCheckBox(this);
-    layout->addWidget(linkCheck_);
-    
-    // Interval
+    // 2. Polling Interval (grouped with Polling Enable)
     intervalLabel_ = new QLabel(this);
     layout->addWidget(intervalLabel_);
     intervalSpin_ = new QSpinBox(this);
@@ -281,24 +282,31 @@ void ControlWidget::setupUi() {
                             config::Polling::kMaxIntervalMs);
     intervalSpin_->setValue(config::Polling::kDefaultIntervalMs);
     intervalSpin_->setSingleStep(config::Polling::kIntervalStepMs);
-    intervalSpin_->setFixedWidth(78);
+    intervalSpin_->setButtonSymbols(QAbstractSpinBox::NoButtons);
+    intervalSpin_->setAlignment(Qt::AlignCenter);
+    intervalSpin_->setFixedWidth(46);
     layout->addWidget(intervalSpin_);
+
+    msLabel_ = new QLabel(tr("ms"), this);
+    msLabel_->setObjectName(QStringLiteral("msLabel"));
+    layout->addWidget(msLabel_);
     
-    // Function Code
+    // 3. Function Code
     fcLabel_ = new QLabel(this);
     layout->addWidget(fcLabel_);
     fcCombo_ = new QComboBox(this);
     fcCombo_->addItems({"", "", "", ""});
     fcCombo_->setCurrentIndex(config::Modbus::kDefaultControlFunctionIndex);
-    fcCombo_->setMinimumContentsLength(11);
+    fcCombo_->setMinimumContentsLength(6);
     fcCombo_->setSizeAdjustPolicy(QComboBox::AdjustToMinimumContentsLengthWithIcon);
     layout->addWidget(fcCombo_);
     
-    // Address
+    // 4. Address
     addrLabel_ = new QLabel(this);
     layout->addWidget(addrLabel_);
     addrEdit_ = new QLineEdit(this);
-    addrEdit_->setFixedWidth(80);
+    addrEdit_->setAlignment(Qt::AlignCenter);
+    addrEdit_->setFixedWidth(46);
     
     auto hexValidator = new QRegularExpressionValidator(QRegularExpression("[0-9a-fA-FxXHh]*"), this);
     addrEdit_->setValidator(hexValidator);
@@ -306,21 +314,28 @@ void ControlWidget::setupUi() {
     
     layout->addWidget(addrEdit_);
     
-    // Quantity
+    // 5. Quantity
     qtyLabel_ = new QLabel(this);
     layout->addWidget(qtyLabel_);
     qtySpin_ = new QSpinBox(this);
     qtySpin_->setRange(config::Modbus::kMinQuantity,
                        config::Modbus::kMaxAddress);
     qtySpin_->setValue(config::Modbus::kDefaultControlQuantity);
-    qtySpin_->setFixedWidth(60);
+    qtySpin_->setButtonSymbols(QAbstractSpinBox::NoButtons);
+    qtySpin_->setAlignment(Qt::AlignCenter);
+    qtySpin_->setFixedWidth(38);
     layout->addWidget(qtySpin_);
+
+    // 6. Link to Analyzer (distinct, separated from Interval ms)
+    linkCheck_ = new QCheckBox(this);
+    layout->addWidget(linkCheck_);
     
     layout->addStretch();
     
-    // Stats
+    // 7. Stats
     statsLabel_ = new QLabel(this);
-    statsLabel_->setSizePolicy(QSizePolicy::Minimum, QSizePolicy::Preferred);
+    statsLabel_->setMinimumWidth(0);
+    statsLabel_->setSizePolicy(QSizePolicy::Ignored, QSizePolicy::Preferred);
     statsLabel_->installEventFilter(this);
     layout->addWidget(statsLabel_);
 
@@ -330,21 +345,27 @@ void ControlWidget::setupUi() {
 void ControlWidget::retranslateUi() {
     if (enablePollCheck_) {
         enablePollCheck_->setText(tr("Enable Polling"));
-    }
-    if (linkCheck_) {
-        linkCheck_->setText(tr("Link to Analyzer"));
+        enablePollCheck_->setToolTip(tr("Enable Periodic Polling"));
     }
     if (intervalLabel_) {
-        intervalLabel_->setText(tr("Interval(ms):"));
+        intervalLabel_->setText(tr("Interval:"));
+        intervalLabel_->setToolTip(tr("Polling Interval (ms)"));
+    }
+    if (msLabel_) {
+        msLabel_->setText(tr("ms"));
     }
     if (fcLabel_) {
         fcLabel_->setText(tr("FC:"));
     }
     if (fcCombo_) {
-        fcCombo_->setItemText(0, tr("01-Read Coils"));
-        fcCombo_->setItemText(1, tr("02-Read Discrete"));
-        fcCombo_->setItemText(2, tr("03-Read Holding"));
-        fcCombo_->setItemText(3, tr("04-Read Input"));
+        fcCombo_->setItemText(0, tr("01-Coils"));
+        fcCombo_->setItemText(1, tr("02-Discrete"));
+        fcCombo_->setItemText(2, tr("03-Holding"));
+        fcCombo_->setItemText(3, tr("04-Input"));
+        fcCombo_->setItemData(0, tr("01 - Read Coils"), Qt::ToolTipRole);
+        fcCombo_->setItemData(1, tr("02 - Read Discrete Inputs"), Qt::ToolTipRole);
+        fcCombo_->setItemData(2, tr("03 - Read Holding Registers"), Qt::ToolTipRole);
+        fcCombo_->setItemData(3, tr("04 - Read Input Registers"), Qt::ToolTipRole);
     }
     if (addrLabel_) {
         addrLabel_->setText(tr("Addr:"));
@@ -354,6 +375,10 @@ void ControlWidget::retranslateUi() {
     }
     if (qtyLabel_) {
         qtyLabel_->setText(tr("Qty:"));
+    }
+    if (linkCheck_) {
+        linkCheck_->setText(tr("Link to Analyzer"));
+        linkCheck_->setToolTip(tr("Forward received polled frames to Frame Analyzer"));
     }
     updateStatsLabel();
 }

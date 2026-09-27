@@ -18,6 +18,8 @@ QWidget* createScrollablePage(QWidget* page, QStackedWidget* stackedWidget) {
     auto* scrollArea = new QScrollArea(stackedWidget);
     scrollArea->setWidgetResizable(true);
     scrollArea->setFrameShape(QFrame::NoFrame);
+    scrollArea->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+    scrollArea->setVerticalScrollBarPolicy(Qt::ScrollBarAsNeeded);
     page->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Preferred);
     scrollArea->setWidget(page);
     return scrollArea;

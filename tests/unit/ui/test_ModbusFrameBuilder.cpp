@@ -233,22 +233,52 @@ TEST_F(FrameBuilderTest, PendingRebuild_NeverCopiesStaleData) {
     EXPECT_EQ(rtuBytes(*widget).mid(2, 2), QByteArray::fromHex("0002"));
 }
 
+// Bounded event-loop waiting keeps tests deterministic without sleeping.
+bool await(const std::function<bool()>& ready) {
+    if (ready()) return true;
+    QEventLoop loop;
+    QTimer probe;
+    QTimer deadline;
+    deadline.setSingleShot(true);
+    QObject::connect(&probe, &QTimer::timeout, &loop, [&]() { if (ready()) loop.quit(); });
+    QObject::connect(&deadline, &QTimer::timeout, &loop, &QEventLoop::quit);
+    probe.start(5);
+    deadline.start(3000);
+    loop.exec();
+    return ready();
+}
+
 TEST_F(FrameBuilderTest, CopyFormats_ContainExactFrame) {
     button(*widget, "builderCopySpaced")->click();
+    ASSERT_TRUE(await([&]() { return QApplication::clipboard()->text() == QStringLiteral("01 03 00 00 00 02 C4 0B"); }));
     EXPECT_EQ(QApplication::clipboard()->text(), QStringLiteral("01 03 00 00 00 02 C4 0B"));
+
     button(*widget, "builderCopyCompact")->click();
+    ASSERT_TRUE(await([&]() { return QApplication::clipboard()->text() == QStringLiteral("010300000002C40B"); }));
     EXPECT_EQ(QApplication::clipboard()->text(), QStringLiteral("010300000002C40B"));
+
     button(*widget, "builderCopyCArray")->click();
-    EXPECT_EQ(QApplication::clipboard()->text(),
-              QStringLiteral("const uint8_t frame[8] = { 0X01, 0X03, 0X00, 0X00, 0X00, 0X02, 0XC4, 0X0B };"));
+    const QString expectedCArray = QStringLiteral("const uint8_t frame[8] = { 0X01, 0X03, 0X00, 0X00, 0X00, 0X02, 0XC4, 0X0B };");
+    ASSERT_TRUE(await([&]() { return QApplication::clipboard()->text() == expectedCArray; }));
+    EXPECT_EQ(QApplication::clipboard()->text(), expectedCArray);
+
     combo(*widget, "builderProtocol")->setCurrentIndex(2);
     settle(*widget);
+
     button(*widget, "builderCopySpaced")->click();
+    ASSERT_TRUE(await([&]() {
+        return QByteArray::fromHex(QApplication::clipboard()->text().toLatin1()) == QByteArray(":010300000002FA\r\n");
+    }));
     EXPECT_EQ(QByteArray::fromHex(QApplication::clipboard()->text().toLatin1()), QByteArray(":010300000002FA\r\n"));
+
     button(*widget, "builderCopyCompact")->click();
+    ASSERT_TRUE(await([&]() { return QApplication::clipboard()->text() == QStringLiteral(":010300000002FA"); }));
     EXPECT_EQ(QApplication::clipboard()->text(), QStringLiteral(":010300000002FA"));
+
     button(*widget, "builderCopyCArray")->click();
-    EXPECT_EQ(QApplication::clipboard()->text(), QStringLiteral("const char frame[] = \":010300000002FA\\r\\n\";"));
+    const QString expectedAsciiCArray = QStringLiteral("const char frame[] = \":010300000002FA\\r\\n\";");
+    ASSERT_TRUE(await([&]() { return QApplication::clipboard()->text() == expectedAsciiCArray; }));
+    EXPECT_EQ(QApplication::clipboard()->text(), expectedAsciiCArray);
 }
 
 TEST(FrameBuilderPersistence, RecreatedService_RestoresAllFieldsFromDisk) {
@@ -350,21 +380,6 @@ TEST_P(BuilderTranslationTest, LanguageChange_UpdatesControlsAndKeepsFrame) {
     EXPECT_EQ(tools.findChild<QTabWidget*>()->tabText(1), QStringLiteral("Frame Builder"));
 }
 INSTANTIATE_TEST_SUITE_P(Locales, BuilderTranslationTest, ::testing::Values("zh_CN", "zh_TW"));
-
-// Bounded event-loop waiting keeps network tests deterministic without sleeping.
-bool await(const std::function<bool()>& ready) {
-    if (ready()) return true;
-    QEventLoop loop;
-    QTimer probe;
-    QTimer deadline;
-    deadline.setSingleShot(true);
-    QObject::connect(&probe, &QTimer::timeout, &loop, [&]() { if (ready()) loop.quit(); });
-    QObject::connect(&deadline, &QTimer::timeout, &loop, &QEventLoop::quit);
-    probe.start(5);
-    deadline.start(3000);
-    loop.exec();
-    return ready();
-}
 
 TEST(UtilitiesNavigation, Inspect_ChangesMainWindowPageAndParsesFrame) {
     QTemporaryDir sandbox;

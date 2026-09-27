@@ -34,6 +34,8 @@ void ModbusSettingsDialog::setupUi() {
     timeoutSpin_->setRange(config::Modbus::kMinTimeoutMs, config::Modbus::kMaxTimeoutMs);
     timeoutSpin_->setSingleStep(config::Modbus::kTimeoutStepMs);
     timeoutSpin_->setValue(initialSettings_.timeoutMs);
+    timeoutSpin_->setButtonSymbols(QAbstractSpinBox::NoButtons);
+    timeoutSpin_->setAlignment(Qt::AlignCenter);
     formLayout->addRow(QCoreApplication::translate("ui::MainWindow", "Request Timeout (ms):"), timeoutSpin_);
 
     retryEnableCheck_ = new QCheckBox(this);
@@ -43,12 +45,16 @@ void ModbusSettingsDialog::setupUi() {
     retryCountSpin_ = new QSpinBox(this);
     retryCountSpin_->setRange(config::Modbus::kMinRetryCount, config::Modbus::kMaxRetryCount);
     retryCountSpin_->setValue(initialSettings_.retries);
+    retryCountSpin_->setButtonSymbols(QAbstractSpinBox::NoButtons);
+    retryCountSpin_->setAlignment(Qt::AlignCenter);
     formLayout->addRow(QCoreApplication::translate("ui::MainWindow", "Retry Count:"), retryCountSpin_);
 
     retryIntervalSpin_ = new QSpinBox(this);
     retryIntervalSpin_->setRange(config::Modbus::kMinRetryIntervalMs, config::Modbus::kMaxRetryIntervalMs);
     retryIntervalSpin_->setSingleStep(config::Modbus::kRetryIntervalStepMs);
     retryIntervalSpin_->setValue(initialSettings_.retryIntervalMs);
+    retryIntervalSpin_->setButtonSymbols(QAbstractSpinBox::NoButtons);
+    retryIntervalSpin_->setAlignment(Qt::AlignCenter);
     formLayout->addRow(QCoreApplication::translate("ui::MainWindow", "Retry Interval (ms):"), retryIntervalSpin_);
 
     auto updateRetryControls = [this](bool enabled) {

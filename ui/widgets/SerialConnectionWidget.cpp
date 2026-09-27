@@ -208,7 +208,9 @@ void SerialConnectionWidget::setupUi() {
     portLabel_ = new QLabel(this);
     layout->addWidget(portLabel_);
     portCombo_ = new QComboBox(this);
-    portCombo_->setMinimumWidth(64);
+    portCombo_->setSizeAdjustPolicy(QComboBox::AdjustToMinimumContentsLengthWithIcon);
+    portCombo_->setMinimumContentsLength(5);
+    portCombo_->setMinimumWidth(50);
     layout->addWidget(portCombo_);
 
     refreshBtn_ = new QPushButton(QStringLiteral("R"), this);
@@ -235,14 +237,14 @@ void SerialConnectionWidget::setupUi() {
     dataBitsCombo_ = new QComboBox(this);
     dataBitsCombo_->addItems({QString::fromLatin1(config::Serial::kDefaultDataBitsText), QStringLiteral("7")});
     dataBitsCombo_->setCurrentText(QString::fromLatin1(config::Serial::kDefaultDataBitsText));
-    dataBitsCombo_->setMinimumWidth(40);
+    dataBitsCombo_->setMinimumWidth(36);
     layout->addWidget(dataBitsCombo_);
 
     // Parity
     parityLabel_ = new QLabel(this);
     layout->addWidget(parityLabel_);
     parityCombo_ = new QComboBox(this);
-    parityCombo_->setMinimumWidth(58);
+    parityCombo_->setMinimumWidth(48);
     layout->addWidget(parityCombo_);
 
     // Stop Bits
@@ -252,14 +254,14 @@ void SerialConnectionWidget::setupUi() {
     stopBitsCombo_->addItems({QString::fromLatin1(config::Serial::kDefaultStopBitsText),
                               QStringLiteral("1.5"),
                               QStringLiteral("2")});
-    stopBitsCombo_->setMinimumWidth(40);
+    stopBitsCombo_->setMinimumWidth(36);
     layout->addWidget(stopBitsCombo_);
 
     // Flow Control
     flowControlLabel_ = new QLabel(this);
     layout->addWidget(flowControlLabel_);
     flowControlCombo_ = new QComboBox(this);
-    flowControlCombo_->setMinimumWidth(80);
+    flowControlCombo_->setMinimumWidth(60);
     layout->addWidget(flowControlCombo_);
 
     // Create common widgets (connectBtn_, statusLabel_)

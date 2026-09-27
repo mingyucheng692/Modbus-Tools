@@ -45,6 +45,7 @@ void GenericInputWidget::setupUi() {
 
     // 1. Input Area
     inputEdit_ = new QTextEdit(this);
+    inputEdit_->setLineWrapMode(QTextEdit::WidgetWidth);
     mainLayout->addWidget(inputEdit_);
 
     // 2. Control Area
@@ -85,6 +86,9 @@ void GenericInputWidget::setupUi() {
                             config::GenericIo::kMaxInputIntervalMs);
     intervalSpin_->setValue(config::GenericIo::kDefaultInputIntervalMs);
     intervalSpin_->setSuffix(" ms");
+    intervalSpin_->setButtonSymbols(QAbstractSpinBox::NoButtons);
+    intervalSpin_->setAlignment(Qt::AlignCenter);
+    intervalSpin_->setFixedWidth(64);
     intervalSpin_->setEnabled(false); // Enabled when checked
     controlLayout->addWidget(intervalSpin_);
 
@@ -93,9 +97,11 @@ void GenericInputWidget::setupUi() {
     // Send History
     sendHistoryCombo_ = new QComboBox(this);
     sendHistoryCombo_->setEditable(true);
+    sendHistoryCombo_->setSizeAdjustPolicy(QComboBox::AdjustToMinimumContentsLengthWithIcon);
+    sendHistoryCombo_->setMinimumContentsLength(8);
     sendHistoryCombo_->setMinimumWidth(80);
     sendHistoryCombo_->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);
-    controlLayout->addWidget(sendHistoryCombo_);
+    controlLayout->addWidget(sendHistoryCombo_, 1);
 
     // Send Button
     sendBtn_ = new QPushButton(this);

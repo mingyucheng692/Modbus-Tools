@@ -43,7 +43,7 @@ QList<LogEntry> toSingleEntryList(const QString& text, const QColor& color) {
 }
 
 constexpr int kUiFlushIntervalMs = 120;
-constexpr int kActionButtonMinWidth = 78;
+constexpr int kActionButtonMinWidth = 52;
 }
 
 TrafficMonitorWidget::TrafficMonitorWidget(infra::config::ISettingsService* settingsService, QWidget *parent)
@@ -80,6 +80,8 @@ void TrafficMonitorWidget::setupUi() {
 
     rawFramesCheck_ = new QCheckBox(this);
     rawFramesCheck_->setChecked(false);
+    rawFramesCheck_->setText(tr("Raw"));
+    rawFramesCheck_->setToolTip(tr("Show Raw Frames"));
     toolbarLayout->addWidget(rawFramesCheck_);
 
     showTxCheck_ = new QCheckBox(this);
@@ -690,7 +692,10 @@ void TrafficMonitorWidget::retranslateUi() {
     if (section_) section_->setTitle(tr("Traffic Monitor"));
     if (autoScrollCheck_) autoScrollCheck_->setText(tr("Auto Scroll"));
     if (pauseBtn_) pauseBtn_->setText(tr("Pause"));
-    if (rawFramesCheck_) rawFramesCheck_->setText(tr("Raw Frames"));
+    if (rawFramesCheck_) {
+        rawFramesCheck_->setText(tr("Raw"));
+        rawFramesCheck_->setToolTip(tr("Show Raw Frames"));
+    }
     if (levelFilterCombo_) {
         const int currentIndex = levelFilterCombo_->currentIndex();
         QSignalBlocker blocker(levelFilterCombo_);

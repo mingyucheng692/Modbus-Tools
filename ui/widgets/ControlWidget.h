@@ -70,6 +70,7 @@ private:
     bool eventFilter(QObject* watched, QEvent* event) override;
 
     QLabel* intervalLabel_ = nullptr;
+    QLabel* msLabel_ = nullptr;
     QLabel* fcLabel_ = nullptr;
     QLabel* addrLabel_ = nullptr;
     QLabel* qtyLabel_ = nullptr;

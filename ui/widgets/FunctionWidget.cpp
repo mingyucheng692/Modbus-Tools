@@ -87,13 +87,15 @@ void FunctionWidget::setupStandardUi(QWidget* parent) {
     slaveIdLabel_ = new QLabel(parent);
     paramLayout->addWidget(slaveIdLabel_);
     slaveIdEdit_ = new QLineEdit(parent);
-    slaveIdEdit_->setFixedWidth(48); // Slightly narrower for 0-255
+    slaveIdEdit_->setAlignment(Qt::AlignCenter);
+    slaveIdEdit_->setFixedWidth(40);
     paramLayout->addWidget(slaveIdEdit_);
 
     addressLabel_ = new QLabel(parent);
     paramLayout->addWidget(addressLabel_);
     addressEdit_ = new QLineEdit(parent);
-    addressEdit_->setFixedWidth(88); // Wide enough for 0xFFFF/65535
+    addressEdit_->setAlignment(Qt::AlignCenter);
+    addressEdit_->setFixedWidth(64);
     updateAddressPlaceholder();
     paramLayout->addWidget(addressEdit_);
 
@@ -103,7 +105,9 @@ void FunctionWidget::setupStandardUi(QWidget* parent) {
     quantityEdit_->setRange(config::Modbus::kMinQuantity,
                             config::Modbus::kMaxAddress);
     quantityEdit_->setValue(config::Modbus::kDefaultStandardQuantity);
-    quantityEdit_->setFixedWidth(72);
+    quantityEdit_->setButtonSymbols(QAbstractSpinBox::NoButtons);
+    quantityEdit_->setAlignment(Qt::AlignCenter);
+    quantityEdit_->setFixedWidth(46);
     paramLayout->addWidget(quantityEdit_);
     
     paramLayout->addStretch();
@@ -116,8 +120,8 @@ void FunctionWidget::setupStandardUi(QWidget* parent) {
     writeDataLabel_ = new QLabel(parent);
     writeLayout->addWidget(writeDataLabel_);
     writeDataEdit_ = new QLineEdit(parent);
-    const int compactWriteWidth = 60 + 80 + 72 + 100;
-    writeDataEdit_->setFixedWidth(compactWriteWidth);
+    writeDataEdit_->setMinimumWidth(80);
+    writeDataEdit_->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);
     writeLayout->addWidget(writeDataEdit_);
     
     formatLabel_ = new QLabel(parent);
@@ -126,7 +130,7 @@ void FunctionWidget::setupStandardUi(QWidget* parent) {
     dataFormatBox_->addItem("", "Hex");
     dataFormatBox_->addItem("", "Decimal");
     dataFormatBox_->addItem("", "Binary");
-    dataFormatBox_->setFixedWidth(88);
+    dataFormatBox_->setFixedWidth(75);
     writeLayout->addWidget(dataFormatBox_);
     writeLayout->addStretch();
     

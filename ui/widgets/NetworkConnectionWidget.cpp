@@ -47,7 +47,9 @@ void NetworkConnectionWidget::setupCommonUi() {
     portEdit_->setRange(config::Network::kMinTcpPort,
                         config::Network::kMaxTcpPort);
     portEdit_->setValue(defaultPort_);
-    portEdit_->setFixedWidth(76);
+    portEdit_->setButtonSymbols(QAbstractSpinBox::NoButtons);
+    portEdit_->setAlignment(Qt::AlignCenter);
+    portEdit_->setFixedWidth(54);
     layout->addWidget(portEdit_);
 
     // Common widgets (connectBtn, statusLabel)

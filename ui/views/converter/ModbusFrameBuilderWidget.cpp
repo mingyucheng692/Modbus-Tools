@@ -33,7 +33,6 @@
 #include <QSignalBlocker>
 #include <QCursor>
 #include <QTimer>
-
 #include <optional>
 
 namespace ui::views::converter {
@@ -207,6 +206,9 @@ void ModbusFrameBuilderWidget::setupUi() {
     quantitySpin_ = new QSpinBox(paramGroup_);
     quantitySpin_->setRange(1, 125);
     quantitySpin_->setValue(2);
+    quantitySpin_->setButtonSymbols(QAbstractSpinBox::NoButtons);
+    quantitySpin_->setAlignment(Qt::AlignCenter);
+    quantitySpin_->setFixedWidth(52);
     paramLayout->addWidget(quantityLabel_, 2, 2);
     paramLayout->addWidget(quantitySpin_, 2, 3);
 
@@ -264,6 +266,7 @@ void ModbusFrameBuilderWidget::setupUi() {
     breakdownTable_->setSelectionBehavior(QAbstractItemView::SelectRows);
     breakdownTable_->setSelectionMode(QAbstractItemView::SingleSelection);
     breakdownTable_->verticalHeader()->setVisible(false);
+    breakdownTable_->setHorizontalScrollBarPolicy(Qt::ScrollBarAsNeeded);
     breakdownTable_->setMinimumHeight(180);
     outputLayout->addWidget(breakdownTable_, 1);
 
@@ -876,7 +879,9 @@ void ModbusFrameBuilderWidget::copyToClipboard(const QString& text, const QStrin
     if (auto* cb = QGuiApplication::clipboard()) {
         cb->setText(text);
     }
-    QToolTip::showText(QCursor::pos(), message, this, {}, 1500);
+    if (isVisible()) {
+        QToolTip::showText(QCursor::pos(), message, this, {}, 1500);
+    }
 }
 
 void ModbusFrameBuilderWidget::loadSettings() {

@@ -111,6 +111,7 @@ private:
     void saveSettings();
     void updateResetButtonState(int selectedCount, bool hasCustom);
     void updateResetButtonState();
+    void setStatusText(const QString& text, const QString& styleSheet = QString());
 
     // --- UI construction ---
     void createInputGroup();

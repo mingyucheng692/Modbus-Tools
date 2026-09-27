@@ -348,3 +348,9 @@ TEST_F(ConnectionStateGuardingTest, RequestConnect_AntiBounceReentrancyGuard) {
     EXPECT_NO_THROW(presenter_->requestConnect(spec));
 }
 
+// 14. Responsive Layout: individual widgets must not exceed 650px minimum width
+TEST_F(ConnectionStateGuardingTest, WidgetsMinimumSize_UnderResponsiveThreshold) {
+    EXPECT_LE(controlWidget_->minimumSizeHint().width(), 650);
+    EXPECT_LE(functionWidget_->minimumSizeHint().width(), 650);
+}
+

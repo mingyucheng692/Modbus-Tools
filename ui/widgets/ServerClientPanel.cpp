@@ -176,7 +176,7 @@ void ServerClientPanel::setupUi()
     clientList_ = new QListWidget(this);
     clientList_->setObjectName(QStringLiteral("serverClientList"));
     clientList_->setSelectionMode(QAbstractItemView::ExtendedSelection);
-    clientList_->setMinimumWidth(220);
+    clientList_->setMinimumWidth(150);
     clientList_->setMinimumHeight(120);
     connect(clientList_, &QListWidget::itemSelectionChanged,
             this, &ServerClientPanel::onSelectionChanged);
