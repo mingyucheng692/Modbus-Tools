@@ -233,12 +233,14 @@ void ModbusWorker::processQueue() {
     // QueuedConnection (submit() / the re-arm below), so no atomic flag is
     // needed here. Only one item is consumed per pass to keep the event loop
     // responsive between requests (stop()/sendRaw()/updateConfig() can run).
-    if (stopping_.load() || queuedRequests_.empty()) {
+    if (stopping_.load() || isProcessing_ || queuedRequests_.empty()) {
         return;
     }
+    isProcessing_ = true;
     auto item = queuedRequests_.front();
     queuedRequests_.pop_front();
     handleSubmit(item.request, item.slaveId, item.requestId, item.traceId);
+    isProcessing_ = false;
     if (!queuedRequests_.empty() && !stopping_.load()) {
         QMetaObject::invokeMethod(this, [this]() {
             processQueue();

@@ -97,6 +97,7 @@ private:
     // need its own atomic guard.
     std::atomic_bool stopping_ {false};
     std::atomic_bool stopped_ {false};
+    bool isProcessing_ {false};
     std::deque<QueuedRequest> queuedRequests_;
 
     using WorkerDedupeKey = std::tuple<uint8_t, uint8_t, uint8_t>; // (slaveId, fc, errorCode)

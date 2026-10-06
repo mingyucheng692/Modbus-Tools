@@ -160,13 +160,8 @@ bool RequestExecutor::tryAcquireRequestLock() {
 
 ModbusResponse RequestExecutor::execute(const base::Pdu& request, int slaveId) {
     if (!tryAcquireRequestLock()) {
-        // Busy, not an error: while a request blocks in waitForCondition()
-        // (which still pumps the worker event loop), re-entrant submits are
-        // an expected artifact of that wait — answer them with the
-        // structured Busy response instead of a warn-level rejection log,
-        // so a connect-wait storm does not flood production logs.
-        SPDLOG_DEBUG("RequestExecutor: rejected concurrent sendRequest while another request is active trace_id={}",
-                     currentTrace());
+        SPDLOG_WARN("RequestExecutor: rejected concurrent sendRequest while another request is active trace_id={}",
+                    currentTrace());
         return ModbusResponse::Busy(TrContext<kReqExecCtx>::tr("Request already in progress"));
     }
     RequestLockGuard unlockGuard(requestLocked_);
