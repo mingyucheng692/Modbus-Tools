@@ -10,7 +10,6 @@
 #pragma once
 
 #include "ConnectionStateMachine.h"
-#include "TimeoutHelper.h"
 #include "infra/io/IChannel.h"
 #include "../base/ModbusConfig.h"
 #include <QString>

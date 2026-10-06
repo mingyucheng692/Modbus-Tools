@@ -15,8 +15,6 @@
 #include "RetryStrategy.h"
 #include "ConnectionStateMachine.h"
 #include "RequestStateMachine.h"
-#include "FlowController.h"
-#include "TimeoutHelper.h"
 #include "ConnectionManager.h"
 #include "RequestExecutor.h"
 #include "../transport/ITransport.h"
@@ -120,6 +118,8 @@ public:
     ~ModbusClient() noexcept;
 
     ModbusResponse sendRequest(const base::Pdu& request, int slaveId = -1);
+    void sendRequestAsync(const base::Pdu& request, int slaveId, quint64 traceId,
+                          std::function<void(const ModbusResponse&)> callback);
     [[nodiscard]] common::Result<base::Pdu, base::ModbusError> sendRequestResult(
         const base::Pdu& request, int slaveId = -1);
     void sendRaw(const QByteArray& data);
@@ -191,8 +191,6 @@ private:
     std::atomic<SessionHealth> sessionHealth_{SessionHealth::Unknown};
 
     FrameExtractor frameExtractor_;
-    FlowController flowController_;
-
     RequestExecutor requestExecutor_;
 };
 

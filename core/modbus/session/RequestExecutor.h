@@ -14,8 +14,6 @@
 #include "RetryStrategy.h"
 #include "ConnectionStateMachine.h"
 #include "RequestStateMachine.h"
-#include "FlowController.h"
-#include "TimeoutHelper.h"
 #include "ConnectionManager.h"
 #include "../transport/ITransport.h"
 #include "../base/ModbusConfig.h"
@@ -26,14 +24,16 @@
 #include <chrono>
 #include <optional>
 #include <tuple>
+#include <functional>
+#include <memory>
+#include <QTimer>
 
 namespace modbus::session {
 
 /**
  * @brief Executes Modbus requests with retry, timeout, and response parsing.
  *
- * Owns the request serialization mutex (requestMutex_), the request-in-flight
- * flag (requestLocked_), and the duplicate exception tracker (dupeTracker_).
+ * Owns the request serialization lock (requestLocked_) and the duplicate exception tracker.
  * All other resources are non-owning references to the owning ModbusClient.
  *
  * @note This class must not outlive the referenced objects. The owning
@@ -41,6 +41,8 @@ namespace modbus::session {
  */
 class RequestExecutor {
 public:
+    using AsyncResponseCallback = std::function<void(const ModbusResponse&)>;
+
     struct PendingRequest {
         int requestId = 0;
         int slaveId = 0;
@@ -54,13 +56,12 @@ public:
     ///
     /// Group 1 (protocol stack): channel through config — non-owning
     /// references to the protocol stack collaborators owned by ModbusClient.
-    /// Group 2 (sync primitives): mutex/cv/aborted — owned by ModbusClient.
+    /// Group 2 (sync primitives): aborted — owned by ModbusClient.
     struct Dependencies {
         // 1. Protocol stack references (non-owning)
         io::IChannel* channel = nullptr;
         transport::ITransport* transport = nullptr;
         FrameExtractor* frameExtractor = nullptr;
-        FlowController* flowController = nullptr;
         RetryStrategy* retryStrategy = nullptr;
         ConnectionStateMachine* connStateMachine = nullptr;
         RequestStateMachine* reqStateMachine = nullptr;
@@ -72,6 +73,7 @@ public:
     };
 
     explicit RequestExecutor(const Dependencies& deps);
+    ~RequestExecutor();
 
     /**
      * @brief Execute a complete Modbus request and return strongly typed Result.
@@ -82,12 +84,21 @@ public:
     [[nodiscard]] common::Result<base::Pdu, base::ModbusError> executeRequest(const base::Pdu& request, int slaveId);
 
     /**
-     * @brief Execute a complete Modbus request with retry logic.
+     * @brief Execute a complete Modbus request with retry logic (synchronous wrapper).
      * @param request The PDU to send
      * @param slaveId The target slave ID (-1 to use config default)
      * @return ModbusResponse with success/error status
      */
     [[nodiscard]] ModbusResponse execute(const base::Pdu& request, int slaveId);
+
+    /**
+     * @brief Execute a Modbus request asynchronously on the event-driven reactor.
+     * @param request The PDU to send
+     * @param slaveId The target slave ID (-1 to use config default)
+     * @param traceId Distributed trace ID
+     * @param callback Completion callback invoked when the response arrives or times out
+     */
+    void executeAsync(const base::Pdu& request, int slaveId, quint64 traceId, AsyncResponseCallback callback);
 
     /**
      * @brief Send raw data without waiting for a response.
@@ -110,6 +121,11 @@ public:
     void onChannelError(const QString& error);
 
     /**
+     * @brief Callback: channel write has completed and drained to the OS/hardware buffer.
+     */
+    void onWriteDrained();
+
+    /**
      * @brief Reset pre-request state (responseReady, dupeTracker, etc.).
      * @param clearPendingQueue If true, also clears the pending request queue.
      */
@@ -124,11 +140,12 @@ private:
 
     [[nodiscard]] bool tryAcquireRequestLock();
 
-    ModbusResponse sendRequestInternal(const base::Pdu& request, int slaveId);
-    // Handles an already-extracted frame: parseResponse -> validate -> return.
-    // Returns std::nullopt to signal "continue waiting" (Unmatched frame or
-    // originalFunctionCode mismatch); returns ModbusResponse for terminal outcomes.
-    // Caller must release mutex_ before invoking (parsing may block).
+    void sendCurrentRequest();
+    void performWrite(const QByteArray& adu);
+    void checkPendingResponse();
+    void handleTimeout();
+    void completeTransaction(ModbusResponse response);
+
     std::optional<ModbusResponse> handleParsedFrame(
         const QByteArray& frame,
         const base::Pdu& request,
@@ -138,16 +155,7 @@ private:
                                            const base::Pdu& requestPdu);
     bool isBroadcastRequest(int slaveId, base::FunctionCode functionCode) const;
     bool shouldWaitForResponse(int slaveId, base::FunctionCode functionCode) const;
-    [[nodiscard]] common::Result<void, base::ModbusError> waitForWriteDrain(
-        std::chrono::steady_clock::time_point deadline,
-        std::chrono::steady_clock::time_point* drainedAt);
-    bool waitForEventOrTimeout(std::chrono::steady_clock::time_point deadline);
-    // Writes the ADU and drains the RTU write buffer. For TCP, only the write
-    // is performed. Returns Result on success/failure; *drainedAt receives the time the
-    // drain completed (unset for TCP / non-RTU).
-    [[nodiscard]] common::Result<void, base::ModbusError> writeRtuFrameWithDrain(
-        const QByteArray& adu,
-        std::chrono::steady_clock::time_point* drainedAt);
+
     int enqueuePendingRequest(const base::Pdu& request, int slaveId);
     void finishPendingRequest(int requestId, bool success, const QString& error);
 
@@ -156,7 +164,6 @@ private:
     io::IChannel* channel_;
     transport::ITransport* transport_;
     FrameExtractor* frameExtractor_;
-    FlowController* flowController_;
     RetryStrategy* retryStrategy_;
     ConnectionStateMachine* connStateMachine_;
     RequestStateMachine* reqStateMachine_;
@@ -165,15 +172,27 @@ private:
     // 2. Synchronization primitives
     std::atomic<bool>& aborted_;
 
+    // --- Inlined Flow Control (replaces FlowController) ---
+    bool writeDrained_{true};
+    std::chrono::steady_clock::time_point lastWriteDrainedAt_{};
+    std::chrono::steady_clock::time_point rtuSendWindowOpensAt_{};
+
+    // --- Active transaction state ---
+    base::Pdu activeRequest_;
+    int activeSlaveId_ = 0;
+    quint64 activeTraceId_ = 0;
+    int activeRequestId_ = 0;
+    std::chrono::steady_clock::time_point transactionStartTime_{};
+    std::unique_ptr<QTimer> transactionTimer_;
+    std::unique_ptr<QTimer> rtuSilenceTimer_;
+    AsyncResponseCallback activeCallback_;
+
     // --- Owned members ---
     std::deque<PendingRequest> pendingRequests_;
     int nextRequestId_ = 1;
 
     bool requestLocked_{false};
-    // Deduplication keys are integer tuples by design: shouldLog() is called
-    // while holding mutex_, so keys must never involve QString hashing/copy.
-    // exceptionDedupe_: (slave, fc, exceptionCode) for Modbus exception responses.
-    // failureDedupe_:   (slave, fc, errorKind) for timeout/retry log sites.
+    // Deduplication keys are integer tuples: (slave, fc, errorKind)
     using DedupeKey = std::tuple<uint8_t, uint8_t, uint8_t>;
     common::LogDedupe<DedupeKey> exceptionDedupe_;
     common::LogDedupe<DedupeKey> failureDedupe_;

@@ -181,43 +181,49 @@ void ModbusWorker::handleSubmit(base::Pdu request, int slaveId, int requestId, q
         SPDLOG_WARN("ModbusWorker: fail request trace_id={} because no client is attached",
                      static_cast<unsigned long long>(traceId));
         emit requestFinished(requestId, session::ModbusResponse::Error("No client attached"));
+        isProcessing_ = false;
+        if (!queuedRequests_.empty() && !stopping_.load()) {
+            QMetaObject::invokeMethod(this, [this]() { processQueue(); }, Qt::QueuedConnection);
+        }
         return;
     }
-    // Route into sendRequest -> ensureConnected(), which verifies the session
-    // and returns error if disconnected. The stopping-worker fast path stays above;
-    // aborted_ inside execute() covers the rest.
-    auto response = client_->sendRequest(request, slaveId);
-    // Clean successes (no error, no retry) are the steady-state majority of
-    // log lines under polling; demote them to debug so production logs keep
-    // signal density. Failures and retried requests stay at info.
-    if (isCleanSuccess(response)) {
-        SPDLOG_DEBUG("ModbusWorker: complete request trace_id={} request_id={} success=true",
-                      static_cast<unsigned long long>(traceId),
-                      requestId);
-    } else {
-        const auto key = std::make_tuple(
-            static_cast<uint8_t>(slaveId >= 0 ? slaveId : 0),
-            static_cast<uint8_t>(request.functionCode()),
-            static_cast<uint8_t>(response.errorCode));
-        const auto now = std::chrono::steady_clock::now();
-        if (failureDedupe_.shouldLog(key, now)) {
-            SPDLOG_INFO("ModbusWorker: complete request trace_id={} request_id={} success={} retries={} error='{}'",
-                         static_cast<unsigned long long>(traceId),
-                         requestId,
-                         !response.isError(),
-                         response.retryCount(),
-                         response.error.toStdString());
-        } else {
-            SPDLOG_DEBUG("ModbusWorker: complete request (suppressed) trace_id={} request_id={} success={} retries={} error='{}'",
-                          static_cast<unsigned long long>(traceId),
-                          requestId,
-                          !response.isError(),
-                          response.retryCount(),
-                          response.error.toStdString());
-        }
-        failureDedupe_.prune(now, 100);
-    }
-    emit requestFinished(requestId, response);
+
+    client_->sendRequestAsync(request, slaveId, traceId,
+        [this, requestId, traceId, slaveId, request](const session::ModbusResponse& response) {
+            trace::Scope traceScope(traceId);
+            if (isCleanSuccess(response)) {
+                SPDLOG_DEBUG("ModbusWorker: complete request trace_id={} request_id={} success=true",
+                              static_cast<unsigned long long>(traceId),
+                              requestId);
+            } else {
+                const auto key = std::make_tuple(
+                    static_cast<uint8_t>(slaveId >= 0 ? slaveId : 0),
+                    static_cast<uint8_t>(request.functionCode()),
+                    static_cast<uint8_t>(response.errorCode));
+                const auto now = std::chrono::steady_clock::now();
+                if (failureDedupe_.shouldLog(key, now)) {
+                    SPDLOG_INFO("ModbusWorker: complete request trace_id={} request_id={} success={} retries={} error='{}'",
+                                 static_cast<unsigned long long>(traceId),
+                                 requestId,
+                                 !response.isError(),
+                                 response.retryCount(),
+                                 response.error.toStdString());
+                } else {
+                    SPDLOG_DEBUG("ModbusWorker: complete request (suppressed) trace_id={} request_id={} success={} retries={} error='{}'",
+                                  static_cast<unsigned long long>(traceId),
+                                  requestId,
+                                  !response.isError(),
+                                  response.retryCount(),
+                                  response.error.toStdString());
+                }
+                failureDedupe_.prune(now, 100);
+            }
+            emit requestFinished(requestId, response);
+            isProcessing_ = false;
+            if (!queuedRequests_.empty() && !stopping_.load()) {
+                QMetaObject::invokeMethod(this, [this]() { processQueue(); }, Qt::QueuedConnection);
+            }
+        });
 }
 
 void ModbusWorker::drainQueuedRequests(const QString& reason) {
@@ -229,10 +235,6 @@ void ModbusWorker::drainQueuedRequests(const QString& reason) {
 }
 
 void ModbusWorker::processQueue() {
-    // All access to queuedRequests_ is marshalled onto the worker thread via
-    // QueuedConnection (submit() / the re-arm below), so no atomic flag is
-    // needed here. Only one item is consumed per pass to keep the event loop
-    // responsive between requests (stop()/sendRaw()/updateConfig() can run).
     if (stopping_.load() || isProcessing_ || queuedRequests_.empty()) {
         return;
     }
@@ -240,12 +242,6 @@ void ModbusWorker::processQueue() {
     auto item = queuedRequests_.front();
     queuedRequests_.pop_front();
     handleSubmit(item.request, item.slaveId, item.requestId, item.traceId);
-    isProcessing_ = false;
-    if (!queuedRequests_.empty() && !stopping_.load()) {
-        QMetaObject::invokeMethod(this, [this]() {
-            processQueue();
-        }, Qt::QueuedConnection);
-    }
 }
 
 void ModbusWorker::handleSendRaw(QByteArray data) {

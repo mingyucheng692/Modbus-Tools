@@ -17,18 +17,16 @@
 #include <algorithm>
 #include <cmath>
 #include <map>
-#include <random>
 #include <tuple>
 #include <QtEndian>
 #include "infra/logging/TraceContext.h"
 #include <QtGlobal>
+#include <QEventLoop>
+#include <QThread>
 
 namespace modbus::session {
 namespace {
 
-    // One-shot guard: if a log site that should carry a trace id observes 0,
-    // the worker thread affinity was broken somewhere upstream. Warn once so
-    // the regression is visible without flooding the log on every request.
     void warnIfTraceLost() {
         static std::once_flag flag;
         std::call_once(flag, [] {
@@ -38,15 +36,10 @@ namespace {
         });
     }
 
-    // Read the thread-local trace id published by ModbusWorker::handleSubmit.
-    // Returns 0 when no request context is active (e.g. channel callbacks
-    // fired while idle) — callers decide whether 0 is expected.
     unsigned long long currentTrace() {
         return static_cast<unsigned long long>(modbus::trace::currentTraceId);
     }
 
-    // Variant for request-path log sites (retry / timeouts) where a trace id
-    // must be present; emits a one-shot error if the context was lost.
     unsigned long long currentTraceRequired() {
         const unsigned long long id = currentTrace();
         if (id == 0) {
@@ -61,8 +54,6 @@ namespace {
         std::chrono::duration_cast<std::chrono::seconds>(
             kDupeTrackerSuppressionWindow).count();
 
-    // Failure kinds for the timeout/retry deduplication key
-    // (slave, fc, errorKind). Integer enum by design — see LogDedupe.h.
     enum class FailureKind : uint8_t {
         Timeout = 0,
         RtuFrameTimeout = 1,
@@ -89,7 +80,6 @@ RequestExecutor::RequestExecutor(const Dependencies& deps)
     : channel_(deps.channel)
     , transport_(deps.transport)
     , frameExtractor_(deps.frameExtractor)
-    , flowController_(deps.flowController)
     , retryStrategy_(deps.retryStrategy)
     , connStateMachine_(deps.connStateMachine)
     , reqStateMachine_(deps.reqStateMachine)
@@ -101,12 +91,20 @@ RequestExecutor::RequestExecutor(const Dependencies& deps)
     Q_ASSERT(channel_);
     Q_ASSERT(transport_);
     Q_ASSERT(frameExtractor_);
-    Q_ASSERT(flowController_);
     Q_ASSERT(retryStrategy_);
     Q_ASSERT(connStateMachine_);
     Q_ASSERT(reqStateMachine_);
     Q_ASSERT(connectionManager_);
     Q_ASSERT(config_);
+}
+
+RequestExecutor::~RequestExecutor() {
+    if (transactionTimer_) {
+        transactionTimer_->stop();
+    }
+    if (rtuSilenceTimer_) {
+        rtuSilenceTimer_->stop();
+    }
 }
 
 // --- Public API ---
@@ -122,389 +120,413 @@ common::Result<base::Pdu, base::ModbusError> RequestExecutor::executeRequest(con
 }
 
 ModbusResponse RequestExecutor::execute(const base::Pdu& request, int slaveId) {
+    ModbusResponse finalResponse = ModbusResponse::Error(base::ModbusError::Unknown);
+    bool finished = false;
+    QEventLoop loop;
+    executeAsync(request, slaveId, 0, [&finalResponse, &finished, &loop](const ModbusResponse& res) {
+        finalResponse = res;
+        finished = true;
+        if (loop.isRunning()) {
+            loop.quit();
+        }
+    });
+    if (!finished) {
+        loop.exec();
+    }
+    return finalResponse;
+}
+
+void RequestExecutor::executeAsync(const base::Pdu& request, int slaveId, quint64 traceId,
+                                   AsyncResponseCallback callback) {
     if (!tryAcquireRequestLock()) {
         SPDLOG_WARN("RequestExecutor: rejected concurrent sendRequest while another request is active trace_id={}",
                     currentTrace());
-        return ModbusResponse::Busy();
+        if (callback) {
+            callback(ModbusResponse::Busy());
+        }
+        return;
     }
-    RequestLockGuard unlockGuard(requestLocked_);
+
     if (aborted_.load(std::memory_order_acquire)) {
-        // Abort was requested before we acquired the lock; don't reset it.
-        reqStateMachine_->tryTransition(RequestStateMachine::State::Aborted,
-                                        "request-aborted-before-lock");
-        return ModbusResponse::Error(base::ModbusError::Aborted,
-                                     QStringLiteral("Aborted"),
-                                     retryStrategy_->attemptCount());
+        requestLocked_ = false;
+        reqStateMachine_->tryTransition(RequestStateMachine::State::Aborted, "request-aborted-before-lock");
+        if (callback) {
+            callback(ModbusResponse::Error(base::ModbusError::Aborted,
+                                         QStringLiteral("Aborted"),
+                                         retryStrategy_->attemptCount()));
+        }
+        return;
     }
     aborted_ = false;
 
+    if (!connectionManager_->ensureConnected()) {
+        requestLocked_ = false;
+        reqStateMachine_->tryTransition(RequestStateMachine::State::Failed, "not-connected");
+        const QString channelError = connectionManager_->lastChannelError();
+        if (callback) {
+            callback(ModbusResponse::Error(base::ModbusError::NotConnected,
+                                         channelError.isEmpty() ? QStringLiteral("Not connected") : channelError));
+        }
+        return;
+    }
+
+    const int targetSlaveId = (slaveId == -1) ? config_->slaveId : slaveId;
+    const auto validationResult = request_validator::validate(request, targetSlaveId, config_->mode);
+    if (!validationResult.valid) {
+        requestLocked_ = false;
+        reqStateMachine_->tryTransition(RequestStateMachine::State::Failed, "request-validation-failed");
+        if (callback) {
+            callback(ModbusResponse::Error(base::ModbusError::InvalidPdu, validationResult.error));
+        }
+        return;
+    }
+
     retryStrategy_->reset();
-    ModbusResponse lastResponse = ModbusResponse::Error(base::ModbusError::Unknown);
-    const int requestId = enqueuePendingRequest(request, slaveId);
+    activeRequest_ = request;
+    activeSlaveId_ = targetSlaveId;
+    activeTraceId_ = traceId;
+    activeCallback_ = std::move(callback);
+    activeRequestId_ = enqueuePendingRequest(request, targetSlaveId);
     reqStateMachine_->tryTransition(RequestStateMachine::State::Idle, "request-start");
 
-    for (;;) {
-        if (aborted_) {
-            reqStateMachine_->tryTransition(RequestStateMachine::State::Aborted,
-                                            "request-aborted-before-send");
-            finishPendingRequest(requestId, false, QStringLiteral("Aborted"));
-            return ModbusResponse::Error(base::ModbusError::Aborted,
-                                         QStringLiteral("Aborted"),
-                                         retryStrategy_->attemptCount());
-        }
-
-        lastResponse = sendRequestInternal(request, slaveId);
-        lastResponse.attemptCount = retryStrategy_->attemptCount() + 1;
-        if (!lastResponse.isError()) {
-            reqStateMachine_->tryTransition(RequestStateMachine::State::Completed,
-                                            "request-success");
-            finishPendingRequest(requestId, true, QString());
-            return lastResponse;
-        }
-
-        retryStrategy_->recordAttempt();
-        if (retryStrategy_->shouldRetry() && !aborted_) {
-            reqStateMachine_->tryTransition(RequestStateMachine::State::Failed,
-                                            "request-retry");
-            const auto retryDelay = retryStrategy_->nextWait();
-            // Dedupe: under polling of a dead device this warn would fire on
-            // every request. First occurrence per (slave, fc) within the
-            // window logs at warn; duplicates drop to debug.
-            const auto retryKey = std::make_tuple(
-                static_cast<uint8_t>(slaveId),
-                static_cast<uint8_t>(request.functionCode()),
-                static_cast<uint8_t>(FailureKind::Retry));
-            if (failureDedupe_.shouldLog(retryKey, std::chrono::steady_clock::now())) {
-                SPDLOG_WARN("Request failed, retrying... ({}/{}) trace_id={} Error: {}",
-                             retryStrategy_->attemptCount(),
-                             config_->retries,
-                             currentTraceRequired(),
-                             lastResponse.error.toStdString());
-            } else {
-                SPDLOG_DEBUG("Request failed, retrying... ({}/{}) trace_id={} Error: {} (duplicate within {}s)",
-                              retryStrategy_->attemptCount(),
-                              config_->retries,
-                              currentTraceRequired(),
-                              lastResponse.error.toStdString(),
-                              kDupeTrackerSuppressionWindowSeconds);
-            }
-            if (!waitForAbortableDelay(aborted_, retryDelay)) {
-                reqStateMachine_->tryTransition(RequestStateMachine::State::Aborted,
-                                                "request-aborted-during-backoff");
-                finishPendingRequest(requestId, false, QStringLiteral("Aborted"));
-                return ModbusResponse::Error(base::ModbusError::Aborted,
-                                             QStringLiteral("Aborted"),
-                                             retryStrategy_->attemptCount());
-            }
-        } else {
-            break;
-        }
+    if (!transactionTimer_) {
+        transactionTimer_ = std::make_unique<QTimer>();
+        transactionTimer_->setSingleShot(true);
+        transactionTimer_->setTimerType(Qt::PreciseTimer);
+        QObject::connect(transactionTimer_.get(), &QTimer::timeout, [this]() {
+            handleTimeout();
+        });
     }
-    if (aborted_) {
-        reqStateMachine_->tryTransition(RequestStateMachine::State::Aborted,
-                                        "request-aborted-after-retries");
+    if (!rtuSilenceTimer_) {
+        rtuSilenceTimer_ = std::make_unique<QTimer>();
+        rtuSilenceTimer_->setSingleShot(true);
+        rtuSilenceTimer_->setTimerType(Qt::PreciseTimer);
+        QObject::connect(rtuSilenceTimer_.get(), &QTimer::timeout, [this]() {
+            checkPendingResponse();
+        });
+    }
+
+    sendCurrentRequest();
+}
+
+void RequestExecutor::sendCurrentRequest() {
+    if (aborted_.load()) {
+        reqStateMachine_->tryTransition(RequestStateMachine::State::Aborted, "request-aborted-before-send");
+        completeTransaction(ModbusResponse::Error(base::ModbusError::Aborted, QStringLiteral("Aborted")));
+        return;
+    }
+
+    frameExtractor_->reset();
+    responseReady_ = false;
+    if (config_->mode == base::ModbusMode::RTU) {
+        writeDrained_ = false;
+    }
+    transport_->resetPendingState();
+
+    if (isBroadcastRequest(activeSlaveId_, activeRequest_.functionCode())
+        && !isBroadcastWriteFunction(activeRequest_.functionCode())) {
+        reqStateMachine_->tryTransition(RequestStateMachine::State::Failed, "invalid-broadcast-function");
+        completeTransaction(ModbusResponse::Error(base::ModbusError::InvalidPdu,
+            QStringLiteral("Broadcast only supports write function codes")));
+        return;
+    }
+
+    const QByteArray adu = transport_->buildRequest(activeRequest_, activeSlaveId_);
+
+    const auto now = std::chrono::steady_clock::now();
+    if (config_->mode == base::ModbusMode::RTU && now < rtuSendWindowOpensAt_) {
+        const auto waitDelay = std::chrono::duration_cast<std::chrono::milliseconds>(rtuSendWindowOpensAt_ - now);
+        QTimer::singleShot(std::max(1, static_cast<int>(waitDelay.count())), [this, adu]() {
+            performWrite(adu);
+        });
     } else {
-        reqStateMachine_->tryTransition(RequestStateMachine::State::Failed,
-                                        "request-failed");
+        performWrite(adu);
     }
-    finishPendingRequest(requestId, false, lastResponse.error);
-    return lastResponse;
+}
+
+void RequestExecutor::performWrite(const QByteArray& adu) {
+    if (aborted_.load()) {
+        reqStateMachine_->tryTransition(RequestStateMachine::State::Aborted, "request-aborted-before-write");
+        completeTransaction(ModbusResponse::Error(base::ModbusError::Aborted, QStringLiteral("Aborted")));
+        return;
+    }
+
+    if (!channel_->write(adu)) {
+        reqStateMachine_->tryTransition(RequestStateMachine::State::Failed, "write-failed");
+        const QString error = connectionManager_->hasChannelError()
+            ? connectionManager_->lastChannelError()
+            : QString::fromLatin1(base::toString(base::ModbusError::WriteFailed));
+        completeTransaction(ModbusResponse::Error(base::ModbusError::WriteFailed, error));
+        return;
+    }
+
+    // Update RTU quiet send window
+    if (config_->mode == base::ModbusMode::RTU) {
+        const int bitsPerChar = 11;
+        const int charTimeUs = (config_->baudRate > 0) ? (bitsPerChar * 1000000 / config_->baudRate) : 1000;
+        const auto frameTxDuration = std::chrono::microseconds(charTimeUs * adu.size());
+        const auto silence = FrameExtractor::calculateInterFrameDelay(*config_);
+        rtuSendWindowOpensAt_ = std::chrono::steady_clock::now() + frameTxDuration + silence;
+    }
+
+    reqStateMachine_->tryTransition(RequestStateMachine::State::Sending, "write-success");
+    transactionStartTime_ = std::chrono::steady_clock::now();
+
+    if (!shouldWaitForResponse(activeSlaveId_, activeRequest_.functionCode())) {
+        reqStateMachine_->tryTransition(RequestStateMachine::State::Completed, "broadcast-write-no-response");
+        completeTransaction(ModbusResponse::NoResponseExpected(
+            base::Pdu(activeRequest_.functionCode(), activeRequest_.data())));
+        return;
+    }
+
+    reqStateMachine_->tryTransition(RequestStateMachine::State::Waiting, "wait-response");
+
+    if (!transactionTimer_) {
+        transactionTimer_ = std::make_unique<QTimer>();
+        transactionTimer_->setSingleShot(true);
+        transactionTimer_->setTimerType(Qt::PreciseTimer);
+        QObject::connect(transactionTimer_.get(), &QTimer::timeout, [this]() {
+            handleTimeout();
+        });
+    }
+
+    int timeoutMs = config_->timeoutMs;
+    if (config_->mode == base::ModbusMode::RTU) {
+        timeoutMs += static_cast<int>(
+            std::chrono::duration_cast<std::chrono::milliseconds>(
+                FrameExtractor::calculateInterFrameDelay(*config_)).count());
+    }
+    transactionTimer_->start(std::max(10, timeoutMs));
 }
 
 void RequestExecutor::sendRaw(const QByteArray& data) {
     if (!tryAcquireRequestLock()) {
-        // Same busy-mitigation rationale as execute(): see the comment there.
         SPDLOG_DEBUG("RequestExecutor: rejected sendRaw while another request is active trace_id={}",
                      currentTrace());
         return;
     }
     RequestLockGuard unlockGuard(requestLocked_);
-    if (connectionManager_->isConnected()) {
-        if (!flowController_->isRtuSendWindowOpen(std::chrono::steady_clock::now())) {
-            waitForAbortableDelay(aborted_,
-                flowController_->rtuSendWindowOpensAt() - std::chrono::steady_clock::now());
-        }
-        if (config_->mode == base::ModbusMode::RTU) {
-            flowController_->markWritePending();
-        }
-        const auto writeRes = writeRtuFrameWithDrain(data, nullptr);
-        Q_UNUSED(writeRes);
-    }
+    channel_->write(data);
 }
 
 void RequestExecutor::abort() {
-    // abort() may be called from any thread (e.g. the UI thread during stop),
-    // so trace_id can legitimately be 0 here.
     SPDLOG_INFO("ModbusClient: Abort requested trace_id={}", currentTrace());
     aborted_ = true;
+    if (transactionTimer_) {
+        transactionTimer_->stop();
+    }
+    if (rtuSilenceTimer_) {
+        rtuSilenceTimer_->stop();
+    }
     const auto current = reqStateMachine_->currentState();
-    if (current != RequestStateMachine::State::Completed
-        && current != RequestStateMachine::State::Failed) {
+    if (current != RequestStateMachine::State::Completed && current != RequestStateMachine::State::Failed) {
         reqStateMachine_->tryTransition(RequestStateMachine::State::Aborted, "abort");
+    }
+    if (activeCallback_) {
+        completeTransaction(ModbusResponse::Error(base::ModbusError::Aborted,
+                                                 QStringLiteral("Aborted"),
+                                                 retryStrategy_->attemptCount()));
     }
 }
 
 // --- Callbacks ---
 
 void RequestExecutor::onDataReceived(QByteArrayView data) {
-    // Channel callback: trace_id is 0 when data arrives outside a request.
-    SPDLOG_DEBUG("ModbusClient: Data received, size={}, notifying loop trace_id={}",
-                  data.size(), currentTrace());
-
+    SPDLOG_DEBUG("ModbusClient: Data received, size={}, trace_id={}", data.size(), currentTrace());
     frameExtractor_->feed(data);
-    responseReady_ = frameExtractor_->hasCompleteFrame()
-        || (config_->mode == base::ModbusMode::RTU && frameExtractor_->bufferSize() > 0);
+
+    if (!activeCallback_) {
+        return;
+    }
+
+    if (transactionTimer_ && QThread::currentThread() != transactionTimer_->thread()) {
+        QMetaObject::invokeMethod(transactionTimer_.get(), [this]() {
+            checkPendingResponse();
+        }, Qt::QueuedConnection);
+    } else {
+        checkPendingResponse();
+    }
+}
+
+void RequestExecutor::checkPendingResponse() {
+    if (!activeCallback_) {
+        return;
+    }
+
+    const auto now = std::chrono::steady_clock::now();
+    std::optional<QByteArray> frameOpt;
+    if (config_->mode == base::ModbusMode::RTU || config_->mode == base::ModbusMode::ASCII) {
+        if (frameExtractor_->isRtuFrameReadyToParse(now)) {
+            frameOpt = frameExtractor_->tryPopRtuResponseFrame(now);
+        } else if (frameExtractor_->bufferSize() > 0) {
+            const auto boundary = frameExtractor_->nextRtuFrameBoundary();
+            if (boundary > now) {
+                const auto waitUs = std::chrono::duration_cast<std::chrono::microseconds>(boundary - now).count();
+                const int waitMs = std::max(1, static_cast<int>((waitUs + 999) / 1000));
+                if (rtuSilenceTimer_) {
+                    rtuSilenceTimer_->start(waitMs);
+                }
+            }
+        }
+    } else {
+        frameOpt = frameExtractor_->popFrame();
+    }
+
+    if (frameOpt) {
+        if (rtuSilenceTimer_) {
+            rtuSilenceTimer_->stop();
+        }
+        auto parsedResult = handleParsedFrame(*frameOpt, activeRequest_, activeSlaveId_, transactionStartTime_);
+        if (parsedResult.has_value()) {
+            if (parsedResult->isError()) {
+                retryStrategy_->recordAttempt();
+                if (retryStrategy_->shouldRetry() && !aborted_.load()) {
+                    reqStateMachine_->tryTransition(RequestStateMachine::State::Failed, "parse-failed-retry");
+                    const auto retryDelay = retryStrategy_->nextWait();
+                    const auto retryKey = std::make_tuple(
+                        static_cast<uint8_t>(activeSlaveId_),
+                        static_cast<uint8_t>(activeRequest_.functionCode()),
+                        static_cast<uint8_t>(FailureKind::Retry));
+                    if (failureDedupe_.shouldLog(retryKey, std::chrono::steady_clock::now())) {
+                        SPDLOG_WARN("Request failed, retrying... ({}/{}) trace_id={}",
+                                     retryStrategy_->attemptCount(), config_->retries, currentTraceRequired());
+                    }
+                    QTimer::singleShot(std::max<int>(1, static_cast<int>(retryDelay.count())), [this]() {
+                        sendCurrentRequest();
+                    });
+                    return;
+                }
+            }
+            completeTransaction(*parsedResult);
+            return;
+        }
+    }
+
+    if (frameExtractor_->hasExceededDropLimit()) {
+        if (rtuSilenceTimer_) {
+            rtuSilenceTimer_->stop();
+        }
+        reqStateMachine_->tryTransition(RequestStateMachine::State::Failed, "too-many-invalid-bytes");
+        completeTransaction(ModbusResponse::Error(base::ModbusError::TooManyInvalidBytes,
+            QStringLiteral("Too many invalid response bytes")));
+    }
 }
 
 void RequestExecutor::onChannelError(const QString& error) {
     connectionManager_->setError(error);
-    // trace_id is 0 when the error arrives outside a request context
-    // (channel callbacks run on the channel thread); non-zero when a request
-    // is in flight on the worker thread.
-    SPDLOG_WARN("ModbusClient: channel error forwarded: '{}' state={} connState={} trace_id={}",
-                 error.toStdString(),
-                 static_cast<int>(channel_->state()),
-                 static_cast<int>(connStateMachine_->currentState()),
-                 currentTrace());
+    if (!activeCallback_) {
+        return;
+    }
+    if (transactionTimer_ && QThread::currentThread() != transactionTimer_->thread()) {
+        QMetaObject::invokeMethod(transactionTimer_.get(), [this, error]() {
+            if (activeCallback_) {
+                completeTransaction(ModbusResponse::Error(base::ModbusError::ConnectionFailed, error));
+            }
+        }, Qt::QueuedConnection);
+    } else {
+        completeTransaction(ModbusResponse::Error(base::ModbusError::ConnectionFailed, error));
+    }
+}
+
+void RequestExecutor::onWriteDrained() {
+    writeDrained_ = true;
+    lastWriteDrainedAt_ = std::chrono::steady_clock::now();
 }
 
 void RequestExecutor::resetState(bool clearPendingQueue) {
     responseReady_ = false;
-    exceptionDedupe_.clear();
-    failureDedupe_.clear();
+    writeDrained_ = true;
+    lastWriteDrainedAt_ = {};
+    rtuSendWindowOpensAt_ = {};
+    if (transactionTimer_) {
+        transactionTimer_->stop();
+    }
+    if (rtuSilenceTimer_) {
+        rtuSilenceTimer_->stop();
+    }
     if (clearPendingQueue) {
         pendingRequests_.clear();
     }
+    if (activeCallback_) {
+        reqStateMachine_->tryTransition(RequestStateMachine::State::Failed, "reset-state");
+        completeTransaction(ModbusResponse::Error(base::ModbusError::ConnectionFailed,
+                                                 QStringLiteral("Disconnected during active request")));
+    }
 }
 
-// --- Private: Request flow ---
+void RequestExecutor::handleTimeout() {
+    reqStateMachine_->tryTransition(RequestStateMachine::State::Failed, "timeout");
+    connectionManager_->onRequestTimeout();
 
-ModbusResponse RequestExecutor::sendRequestInternal(const base::Pdu& request, int slaveId) {
-    if (!connectionManager_->ensureConnected()) {
-        reqStateMachine_->tryTransition(RequestStateMachine::State::Failed, "not-connected");
-        const QString channelError = connectionManager_->lastChannelError();
-        return ModbusResponse::Error(base::ModbusError::NotConnected,
-                                     channelError.isEmpty()
-                                         ? QStringLiteral("Not connected")
-                                         : channelError);
-    }
-
-    const int targetSlaveId = (slaveId == -1) ? config_->slaveId : slaveId;
-    const auto validationResult = request_validator::validate(request, targetSlaveId, config_->mode);
-    if (!validationResult.valid) {
-        reqStateMachine_->tryTransition(RequestStateMachine::State::Failed,
-                                        "request-validation-failed");
-        return ModbusResponse::Error(base::ModbusError::InvalidPdu, validationResult.error);
-    }
-
-    // 1. Cleanup old buffers and state
-    if (aborted_) {
-        reqStateMachine_->tryTransition(RequestStateMachine::State::Aborted,
-                                        "aborted-before-build");
-        return ModbusResponse::Error(base::ModbusError::Aborted, QStringLiteral("Aborted"));
-    }
-    frameExtractor_->reset();
-    responseReady_ = false;
-    if (config_->mode == base::ModbusMode::RTU) {
-        flowController_->markWritePending();
-    }
-    transport_->resetPendingState();
-
-    // 2. Build ADU
-    if (isBroadcastRequest(targetSlaveId, request.functionCode())
-        && !isBroadcastWriteFunction(request.functionCode())) {
-        reqStateMachine_->tryTransition(RequestStateMachine::State::Failed,
-                                        "invalid-broadcast-function");
-        return ModbusResponse::Error(base::ModbusError::InvalidPdu,
-            QStringLiteral("Broadcast only supports write function codes"));
-    }
-    QByteArray adu = transport_->buildRequest(request, targetSlaveId);
-
-    if (!flowController_->isRtuSendWindowOpen(std::chrono::steady_clock::now())) {
-        waitForAbortableDelay(aborted_,
-            flowController_->rtuSendWindowOpensAt() - std::chrono::steady_clock::now());
+    const auto key = std::make_tuple(
+        static_cast<uint8_t>(activeSlaveId_),
+        static_cast<uint8_t>(activeRequest_.functionCode()),
+        static_cast<uint8_t>(FailureKind::Timeout));
+    if (failureDedupe_.shouldLog(key, std::chrono::steady_clock::now())) {
+        SPDLOG_WARN("ModbusClient: request timeout slave={} fc={} timeoutMs={} trace_id={}",
+                     activeSlaveId_, static_cast<int>(activeRequest_.functionCode()),
+                     config_->timeoutMs, currentTraceRequired());
+    } else {
+        SPDLOG_DEBUG("ModbusClient: request timeout slave={} fc={} timeoutMs={} trace_id={} (duplicate within {}s)",
+                     activeSlaveId_, static_cast<int>(activeRequest_.functionCode()),
+                     config_->timeoutMs, currentTraceRequired(),
+                     kDupeTrackerSuppressionWindowSeconds);
     }
 
-    std::chrono::steady_clock::time_point drainedAt{};
-    const auto drainResult = writeRtuFrameWithDrain(adu, &drainedAt);
-    if (drainResult.isErr()) {
-        reqStateMachine_->tryTransition(RequestStateMachine::State::Failed,
-                                        config_->mode == base::ModbusMode::RTU
-                                            ? "write-drain-timeout"
-                                            : "write-failed");
-        const QString error = connectionManager_->hasChannelError()
-            ? connectionManager_->lastChannelError()
-            : QString::fromLatin1(base::toString(drainResult.error()));
-        return ModbusResponse::Error(drainResult.error(), error);
-    }
-    reqStateMachine_->tryTransition(RequestStateMachine::State::Sending, "write-success");
-    auto start = std::chrono::steady_clock::now();
-    if (drainedAt != std::chrono::steady_clock::time_point{}) {
-        start = drainedAt;
-    }
-
-    if (!shouldWaitForResponse(targetSlaveId, request.functionCode())) {
-        reqStateMachine_->tryTransition(RequestStateMachine::State::Completed,
-                                        "broadcast-write-no-response");
-        return ModbusResponse::NoResponseExpected(
-            base::Pdu(request.functionCode(), request.data()));
-    }
-
-    // 4. Wait for response
-    auto deadline = start + std::chrono::milliseconds(config_->timeoutMs);
-    if (config_->mode == base::ModbusMode::RTU) {
-        deadline += FrameExtractor::calculateInterFrameDelay(*config_);
-    }
-    reqStateMachine_->tryTransition(RequestStateMachine::State::Waiting, "wait-response");
-    SPDLOG_DEBUG("ModbusClient: Entering wait loop, deadline in {}ms trace_id={}",
-                              config_->timeoutMs, currentTrace());
-
-    while (true) {
-        const auto now = std::chrono::steady_clock::now();
-        const bool serialFrameReady = frameExtractor_->isRtuFrameReadyToParse(now);
-        if (!serialFrameReady && !responseReady_
-            && !connectionManager_->hasChannelError() && !aborted_.load()) {
-            const bool stillWaiting = waitForEventOrTimeout(deadline);
-            if (!stillWaiting && std::chrono::steady_clock::now() >= deadline) {
-                reqStateMachine_->tryTransition(RequestStateMachine::State::Failed, "timeout");
-                // Half-open detection feed (T2.2): a genuine response-wait
-                // timeout of an established session. Early exits of
-                // waitForEventOrTimeout() (abort / data / channel error) do
-                // not reach this site, so only real timeouts count toward
-                // the consecutive-timeout eviction.
-                connectionManager_->onRequestTimeout();
-                // Dedupe: polling a dead device fires this on every request.
-                const auto key = std::make_tuple(
-                    static_cast<uint8_t>(slaveId),
-                    static_cast<uint8_t>(request.functionCode()),
-                    static_cast<uint8_t>(FailureKind::Timeout));
-                if (failureDedupe_.shouldLog(key, std::chrono::steady_clock::now())) {
-                    SPDLOG_WARN("ModbusClient: request timeout slave={} fc={} timeoutMs={} trace_id={}",
-                                 slaveId, static_cast<int>(request.functionCode()),
-                                 config_->timeoutMs, currentTraceRequired());
-                } else {
-                    SPDLOG_DEBUG("ModbusClient: request timeout slave={} fc={} timeoutMs={} trace_id={} (duplicate within {}s)",
-                                  slaveId, static_cast<int>(request.functionCode()),
-                                  config_->timeoutMs, currentTraceRequired(),
-                                  kDupeTrackerSuppressionWindowSeconds);
-                }
-                return ModbusResponse::Error(base::ModbusError::Timeout, QStringLiteral("Timeout"));
-            }
-            continue;
+    retryStrategy_->recordAttempt();
+    if (retryStrategy_->shouldRetry() && !aborted_.load()) {
+        reqStateMachine_->tryTransition(RequestStateMachine::State::Failed, "request-retry");
+        const auto retryDelay = retryStrategy_->nextWait();
+        const auto retryKey = std::make_tuple(
+            static_cast<uint8_t>(activeSlaveId_),
+            static_cast<uint8_t>(activeRequest_.functionCode()),
+            static_cast<uint8_t>(FailureKind::Retry));
+        if (failureDedupe_.shouldLog(retryKey, std::chrono::steady_clock::now())) {
+            SPDLOG_WARN("Request failed, retrying... ({}/{}) trace_id={}",
+                         retryStrategy_->attemptCount(), config_->retries, currentTraceRequired());
         }
-        if (!serialFrameReady && config_->mode == base::ModbusMode::RTU
-            && frameExtractor_->bufferSize() > 0) {
-            responseReady_ = false;
-            const auto frameDeadline = std::min(deadline,
-                                                frameExtractor_->nextRtuFrameBoundary());
-            const bool stillWaiting = waitForEventOrTimeout(frameDeadline);
-            if (!stillWaiting && std::chrono::steady_clock::now() >= deadline) {
-                reqStateMachine_->tryTransition(RequestStateMachine::State::Failed, "timeout");
-                // Half-open detection feed (T2.2), see the main timeout site.
-                connectionManager_->onRequestTimeout();
-                const auto key = std::make_tuple(
-                    static_cast<uint8_t>(slaveId),
-                    static_cast<uint8_t>(request.functionCode()),
-                    static_cast<uint8_t>(FailureKind::RtuFrameTimeout));
-                if (failureDedupe_.shouldLog(key, std::chrono::steady_clock::now())) {
-                    SPDLOG_WARN("ModbusClient: RTU frame wait timeout slave={} fc={} timeoutMs={} trace_id={}",
-                                 slaveId, static_cast<int>(request.functionCode()),
-                                 config_->timeoutMs, currentTraceRequired());
-                } else {
-                    SPDLOG_DEBUG("ModbusClient: RTU frame wait timeout slave={} fc={} timeoutMs={} trace_id={} (duplicate within {}s)",
-                                  slaveId, static_cast<int>(request.functionCode()),
-                                  config_->timeoutMs, currentTraceRequired(),
-                                  kDupeTrackerSuppressionWindowSeconds);
-                }
-                return ModbusResponse::Error(base::ModbusError::Timeout, QStringLiteral("Timeout"));
-            }
-            continue;
+        QTimer::singleShot(std::max<int>(1, static_cast<int>(retryDelay.count())), [this]() {
+            sendCurrentRequest();
+        });
+    } else {
+        completeTransaction(ModbusResponse::Error(base::ModbusError::Timeout, QStringLiteral("Timeout")));
+    }
+}
+
+void RequestExecutor::completeTransaction(ModbusResponse response) {
+    if (transactionTimer_) {
+        transactionTimer_->stop();
+    }
+    if (rtuSilenceTimer_) {
+        rtuSilenceTimer_->stop();
+    }
+    if (response.attemptCount <= 0) {
+        response.attemptCount = response.isError()
+            ? std::max(1, retryStrategy_->attemptCount())
+            : (retryStrategy_->attemptCount() + 1);
+    }
+    if (response.rttMs < 0 && transactionStartTime_ != std::chrono::steady_clock::time_point{}) {
+        response.rttMs = static_cast<int>(std::chrono::duration_cast<std::chrono::milliseconds>(
+            std::chrono::steady_clock::now() - transactionStartTime_).count());
+    }
+
+    if (!response.isError()) {
+        reqStateMachine_->tryTransition(RequestStateMachine::State::Completed, "request-success");
+        finishPendingRequest(activeRequestId_, true, QString());
+    } else {
+        if (aborted_.load()) {
+            reqStateMachine_->tryTransition(RequestStateMachine::State::Aborted, "request-aborted");
+        } else {
+            reqStateMachine_->tryTransition(RequestStateMachine::State::Failed, "request-failed");
         }
-        if (aborted_) {
-            SPDLOG_DEBUG("ModbusClient: Aborted during wait trace_id={}", currentTrace());
-            reqStateMachine_->tryTransition(RequestStateMachine::State::Aborted,
-                                            "aborted-during-wait");
-            return ModbusResponse::Error(base::ModbusError::Aborted, QStringLiteral("Aborted"));
-        }
-        
-        const QString chErr = connectionManager_->lastChannelError();
-        if (!chErr.isEmpty()) {
-                reqStateMachine_->tryTransition(RequestStateMachine::State::Failed,
-                                                "channel-error");
-                // Lifecycle closure: a channel error tearing down the session
-                // mid-request is a *passive* disconnect — mark it explicitly
-                // so log readers can distinguish it from user-initiated ones.
-                SPDLOG_INFO("ModbusClient: session disconnected passively by channel error: '{}' trace_id={}",
-                             chErr.toStdString(), currentTrace());
-                return ModbusResponse::Error(base::ModbusError::ConnectionFailed, chErr);
-            }
+        finishPendingRequest(activeRequestId_, false, response.error);
+    }
 
-        if (frameExtractor_->hasExceededDropLimit()) {
-            reqStateMachine_->tryTransition(RequestStateMachine::State::Failed,
-                                            "too-many-invalid-bytes");
-            return ModbusResponse::Error(base::ModbusError::TooManyInvalidBytes,
-                QStringLiteral("Too many invalid response bytes"));
-        }
-
-        responseReady_ = false;
-
-        // Bound deduplication state without changing response behavior.
-        exceptionDedupe_.prune(now, kDupeTrackerCleanupThreshold);
-        failureDedupe_.prune(now, kDupeTrackerCleanupThreshold);
-
-        while (true) {
-            if (config_->mode == base::ModbusMode::RTU
-                || config_->mode == base::ModbusMode::ASCII) {
-                auto frameOpt = frameExtractor_->tryPopRtuResponseFrame(now);
-                if (frameOpt) {
-                    auto result = handleParsedFrame(*frameOpt, request, slaveId, start);
-                    if (result) return *result;
-                    continue;
-                }
-                break;
-            }
-
-            auto frameOpt = frameExtractor_->popFrame();
-            if (frameOpt) {
-                auto result = handleParsedFrame(*frameOpt, request, slaveId, start);
-                if (result) return *result;
-                continue;
-            }
-            if (config_->mode == base::ModbusMode::RTU
-                && frameExtractor_->bufferSize() > 0
-                && frameExtractor_->isRtuFrameReadyToParse(
-                    std::chrono::steady_clock::now())) {
-                reqStateMachine_->tryTransition(
-                    RequestStateMachine::State::Failed,
-                    "incomplete-rtu-frame-after-gap");
-                return ModbusResponse::Error(base::ModbusError::InvalidAdu,
-                    QStringLiteral("Incomplete RTU frame after inter-frame silence"));
-            }
-            break;
-        }
-
-        if (std::chrono::steady_clock::now() >= deadline) {
-            reqStateMachine_->tryTransition(RequestStateMachine::State::Failed,
-                                            "timeout-full-packet");
-            // Half-open detection feed (T2.2), see the main timeout site.
-            connectionManager_->onRequestTimeout();
-            const auto key = std::make_tuple(
-                static_cast<uint8_t>(slaveId),
-                static_cast<uint8_t>(request.functionCode()),
-                static_cast<uint8_t>(FailureKind::FullPacketTimeout));
-            if (failureDedupe_.shouldLog(key, std::chrono::steady_clock::now())) {
-                SPDLOG_WARN("ModbusClient: full packet wait timeout slave={} fc={} timeoutMs={} trace_id={}",
-                             slaveId, static_cast<int>(request.functionCode()),
-                             config_->timeoutMs, currentTraceRequired());
-            } else {
-                SPDLOG_DEBUG("ModbusClient: full packet wait timeout slave={} fc={} timeoutMs={} trace_id={} (duplicate within {}s)",
-                              slaveId, static_cast<int>(request.functionCode()),
-                              config_->timeoutMs, currentTraceRequired(),
-                              kDupeTrackerSuppressionWindowSeconds);
-            }
-            return ModbusResponse::Error(base::ModbusError::Timeout,
-                QStringLiteral("Timeout while waiting for full packet"));
-        }
+    requestLocked_ = false;
+    auto cb = std::move(activeCallback_);
+    activeCallback_ = nullptr;
+    if (cb) {
+        cb(response);
     }
 }
 
@@ -522,7 +544,7 @@ std::optional<ModbusResponse> RequestExecutor::handleParsedFrame(
             return handleExceptionResponse(pdu, slaveId, request);
         }
         if (pdu.originalFunctionCode() != request.functionCode()) {
-            return std::nullopt; // unmatched slave/function — keep waiting
+            return std::nullopt;
         }
         const QString responseValidationError = base::validateResponsePdu(request, pdu);
         if (!responseValidationError.isEmpty()) {
@@ -532,17 +554,14 @@ std::optional<ModbusResponse> RequestExecutor::handleParsedFrame(
         }
         auto rttMs = std::chrono::duration_cast<std::chrono::milliseconds>(
             std::chrono::steady_clock::now() - start).count();
-        // Half-open detection feed (T2.2): a validated response proves the
-        // session is live — reset the consecutive-timeout counter.
         connectionManager_->onRequestSuccess();
         reqStateMachine_->tryTransition(
             RequestStateMachine::State::Completed, "response-parsed");
         return ModbusResponse::Success(pdu, static_cast<int>(rttMs));
     }
     if (parseResult.status == transport::ParseResponseStatus::Unmatched) {
-        return std::nullopt; // frame belongs to another transaction — keep waiting
+        return std::nullopt;
     }
-    // Invalid, or Ok without pdu (transport contract violation — treat as failure).
     reqStateMachine_->tryTransition(
         RequestStateMachine::State::Failed, "response-parse-failed");
     return ModbusResponse::Error(base::ModbusError::InvalidAdu,
@@ -551,14 +570,10 @@ std::optional<ModbusResponse> RequestExecutor::handleParsedFrame(
 
 ModbusResponse RequestExecutor::handleExceptionResponse(const base::Pdu& responsePdu, int slaveId,
                                                         const base::Pdu& requestPdu) {
-    // Read the trace id before taking the lock — a pure thread_local read,
-    // keeps the critical section free of any trace-context access.
     const unsigned long long traceId = currentTrace();
     auto dupeKey = std::make_tuple(static_cast<uint8_t>(slaveId),
                                    static_cast<uint8_t>(requestPdu.functionCode()),
                                    static_cast<uint8_t>(responsePdu.exceptionCode()));
-    // shouldLog is a pure in-memory operation (map lookup + time compare),
-    // safe to call while holding mutex_ — no string work happens inside it.
     if (!exceptionDedupe_.shouldLog(dupeKey, std::chrono::steady_clock::now())) {
         SPDLOG_DEBUG("ModbusClient: Modbus exception response. "
                       "Slave={} FC=0x{:02X} Exception=0x{:02X} (duplicate within {}s) trace_id={}",
@@ -573,11 +588,9 @@ ModbusResponse RequestExecutor::handleExceptionResponse(const base::Pdu& respons
     }
     return ModbusResponse::Error(base::ModbusError::ExceptionResponse,
                                  QString(),
-                                 /*attemptCount=*/0,
+                                 0,
                                  responsePdu.exceptionCode());
 }
-
-// --- Private: Helpers ---
 
 bool RequestExecutor::isBroadcastRequest(int slaveId,
                                           base::FunctionCode functionCode) const {
@@ -590,82 +603,6 @@ bool RequestExecutor::isBroadcastRequest(int slaveId,
 bool RequestExecutor::shouldWaitForResponse(int slaveId,
                                             base::FunctionCode functionCode) const {
     return !isBroadcastRequest(slaveId, functionCode);
-}
-
-common::Result<void, base::ModbusError> RequestExecutor::writeRtuFrameWithDrain(
-    const QByteArray& adu,
-    std::chrono::steady_clock::time_point* drainedAt) {
-    if (!channel_->write(adu)) {
-        return common::Result<void, base::ModbusError>::err(base::ModbusError::WriteFailed);
-    }
-    flowController_->updateRtuSendWindow(adu.size(), *config_);
-
-    if (config_->mode != base::ModbusMode::RTU) {
-        return common::Result<void, base::ModbusError>::ok();
-    }
-
-    const auto writeDeadline = std::chrono::steady_clock::now()
-        + std::chrono::milliseconds(config_->timeoutMs);
-    return waitForWriteDrain(writeDeadline, drainedAt);
-}
-
-common::Result<void, base::ModbusError> RequestExecutor::waitForWriteDrain(
-    std::chrono::steady_clock::time_point deadline,
-    std::chrono::steady_clock::time_point* drainedAt) {
-    while (std::chrono::steady_clock::now() < deadline) {
-        if (aborted_.load()) {
-            return common::Result<void, base::ModbusError>::err(base::ModbusError::Aborted);
-        }
-        if (flowController_->isWriteDrained()) {
-            if (drainedAt) {
-                const auto da = flowController_->drainedAt();
-                *drainedAt = (da == std::chrono::steady_clock::time_point{})
-                    ? std::chrono::steady_clock::now()
-                    : da;
-            }
-            return common::Result<void, base::ModbusError>::ok();
-        }
-        if (connectionManager_->hasChannelError()) {
-            return common::Result<void, base::ModbusError>::err(base::ModbusError::ConnectionFailed);
-        }
-        if (channel_->state() == io::ChannelState::Error) {
-            return common::Result<void, base::ModbusError>::err(base::ModbusError::ConnectionFailed);
-        }
-
-        waitForCondition([this]() {
-            return aborted_.load() || flowController_->isWriteDrained()
-                || connectionManager_->hasChannelError()
-                || channel_->state() == io::ChannelState::Error;
-        }, deadline);
-    }
-
-    if (flowController_->isWriteDrained()) {
-        if (drainedAt) {
-            const auto da = flowController_->drainedAt();
-            *drainedAt = (da == std::chrono::steady_clock::time_point{})
-                ? std::chrono::steady_clock::now()
-                : da;
-        }
-        return common::Result<void, base::ModbusError>::ok();
-    }
-    return common::Result<void, base::ModbusError>::err(base::ModbusError::Timeout);
-}
-
-bool RequestExecutor::waitForEventOrTimeout(std::chrono::steady_clock::time_point deadline) {
-    while (std::chrono::steady_clock::now() < deadline) {
-        if (aborted_.load() || responseReady_
-            || connectionManager_->hasChannelError()
-            || channel_->state() == io::ChannelState::Error) {
-            return true;
-        }
-
-        waitForCondition([this]() {
-            return aborted_.load() || responseReady_
-                || connectionManager_->hasChannelError()
-                || channel_->state() == io::ChannelState::Error;
-        }, deadline);
-    }
-    return false;
 }
 
 int RequestExecutor::enqueuePendingRequest(const base::Pdu& request, int slaveId) {

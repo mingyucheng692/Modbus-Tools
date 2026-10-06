@@ -8,6 +8,7 @@
  */
 
 #include "ConnectionManager.h"
+#include "TimeoutHelper.h"
 #include <spdlog/spdlog.h>
 #include <algorithm>
 #include "common/TrContext.h"

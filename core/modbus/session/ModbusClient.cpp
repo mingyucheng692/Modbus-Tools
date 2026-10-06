@@ -54,7 +54,6 @@ void ModbusClient::clearRuntimeState(bool clearPendingQueue) {
         connectionStateMachine_.tryTransition(ConnectionState::Failed, "aborted");
     }
     frameExtractor_.reset();
-    flowController_.reset();
     connectionManager_.clearError();
     connectionManager_.resetFailureLatch();
     requestExecutor_.resetState(clearPendingQueue);
@@ -68,14 +67,12 @@ ModbusClient::ModbusClient(std::shared_ptr<io::IChannel> channel,
     : channel_(std::move(channel)), transport_(std::move(transport))
     , frameExtractor_(base::ModbusMode::TCP, 9600)
     , retryStrategy_(RetryStrategy::Config{})
-    , flowController_(base::ModbusMode::TCP)
     , connectionManager_(channel_.get(), &connectionStateMachine_,
                          aborted_, &config_)
     , requestExecutor_(RequestExecutor::Dependencies{
           channel_.get(),
           transport_.get(),
           &frameExtractor_,
-          &flowController_,
           &retryStrategy_,
           &connectionStateMachine_,
           &requestStateMachine_,
@@ -93,7 +90,7 @@ ModbusClient::ModbusClient(std::shared_ptr<io::IChannel> channel,
     });
 
     channel_->setWriteDrainedHandler([this]() {
-        flowController_.markWriteDrained(std::chrono::steady_clock::now());
+        requestExecutor_.onWriteDrained();
     });
     // Passive channel-loss detection: Closed/Error observed while the FSM
     // reports Connected is the authoritative signal that the session died
@@ -229,7 +226,6 @@ void ModbusClient::setConfig(const base::ModbusConfig& config) {
 
     config_ = config;
     frameExtractor_.setConfig(config);
-    flowController_.setMode(config.mode);
     retryStrategy_.reconfigure(RetryStrategy::Config{
         config.retries,
         config.retryIntervalMs,
@@ -272,6 +268,22 @@ ModbusResponse ModbusClient::sendRequest(const base::Pdu& request, int slaveId) 
         sessionHealth_.store(SessionHealth::Unresponsive, std::memory_order_release);
     }
     return response;
+}
+
+void ModbusClient::sendRequestAsync(const base::Pdu& request, int slaveId, quint64 traceId,
+                                    std::function<void(const ModbusResponse&)> callback) {
+    assertSessionAffinity();
+    requestExecutor_.executeAsync(request, slaveId, traceId,
+        [this, callback = std::move(callback)](const ModbusResponse& response) {
+            if (response.kind == ModbusResponseKind::Success) {
+                sessionHealth_.store(SessionHealth::Healthy, std::memory_order_release);
+            } else if (!response.isBusy()) {
+                sessionHealth_.store(SessionHealth::Unresponsive, std::memory_order_release);
+            }
+            if (callback) {
+                callback(response);
+            }
+        });
 }
 
 common::Result<base::Pdu, base::ModbusError> ModbusClient::sendRequestResult(
