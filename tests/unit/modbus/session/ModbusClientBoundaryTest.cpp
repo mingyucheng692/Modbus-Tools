@@ -483,7 +483,7 @@ TEST_F(ModbusClientBoundaryTest, Abort_WhenIdle_DoesNotCrash) {
 }
 
 // ============================================================================
-// P3: half-open detection (T2.1/T2.2) — consecutive timeout eviction
+// Half-open detection: consecutive timeout eviction
 // ============================================================================
 
 // A session that times out unresponsiveThreshold times in a row while the
@@ -581,11 +581,11 @@ TEST_F(ModbusClientBoundaryTest, UnresponsiveThreshold_DisabledWhenZero) {
 }
 
 // ============================================================================
-// P3: on-demand connect (T2.3) — a request against an unopened session opens it
+// On-demand connect: a request against an unopened session opens it
 // ============================================================================
 
 // With no pre-established session, the first request must transparently
-// connect (ensureConnected inside sendRequestInternal) instead of failing
+// connect (ensureConnected inside RequestExecutor::execute) instead of failing
 // with "Not connected": after connecting the request executes against
 // the open channel and only times out because the mock never answers.
 TEST_F(ModbusClientBoundaryTest, SendRequest_WhileDisconnected_LazyConnects) {

@@ -93,7 +93,7 @@ public:
     [[nodiscard]] static QString formatModbusError(const ::modbus::session::ModbusResponse& response);
 
 signals:
-    /// Forwarded from RequestCoordinator (gated by linked_ state).
+    /// Forwarded on successful request completion from session (gated by linked_ state).
     void linkageDataReceived(const ::modbus::base::Pdu& pdu,
                              ::modbus::parser::ProtocolType protocol,
                              uint16_t addr);

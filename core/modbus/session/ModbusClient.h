@@ -28,12 +28,18 @@ class QThread;
 namespace modbus::session {
 
 /**
- * @brief Core Modbus client with full session management.
+ * @class ModbusClient
+ * @brief Core Modbus client managing session lifecycle and protocol execution.
+ *
+ * Role: Coordinates connection management, frame extraction, and async request execution.
+ * Thread-safety: Thread-compatible. All driving methods must run on its owning worker thread.
+ * Ownership: Owns connection/request state machines, FrameExtractor, RequestExecutor;
+ *            shared ownership of IChannel and ITransport.
  *
  * @par On-demand connection contract (sendRequest)
- *      sendRequest() enters RequestExecutor::sendRequestInternal(), which
- *      calls ConnectionManager::ensureConnected() to verify or establish
- *      the channel before executing the request. Callers must not gate
+ *      sendRequest() enters RequestExecutor::execute(), which calls
+ *      ConnectionManager::ensureConnected() to verify or establish the
+ *      channel before executing the request. Callers must not gate
  *      submissions on isConnected() — that would defeat recovery under
  *      polling (the poller would spin on "Not connected" errors instead
  *      of rebuilding the session). The unresponsive eviction (half-open
@@ -60,10 +66,10 @@ namespace modbus::session {
  *         - connectionState()/requestState(): benign enum snapshot reads
  *           used by the UI presenter; a torn read is impossible (plain
  *           enum), a stale value is acceptable for UI derivation.
- *         - isConnected()/lastChannelError(): mutex-guarded / plain reads.
+ *         - isConnected()/lastChannelError(): plain thread-compatible reads.
  *         - abort(): the designated any-thread escape hatch (ModbusWorker::
- *           stop() and ~ModbusClient call it from foreign threads); it only
- *           flips the atomic aborted_ flag and notifies the wait CV.
+ *           stop() and ~ModbusClient call it from foreign threads); it
+ *           flips the atomic aborted_ flag and triggers requestExecutor_.abort().
  *
  *         Debug builds enforce the owner contract via assertSessionAffinity()
  *         on the session-driving entries. The guard is ARMED when ModbusWorker
@@ -73,31 +79,20 @@ namespace modbus::session {
  *         (including from ad-hoc threads to exercise the Busy/abort defense
  *         paths) — affinity is deliberately not enforced.
  *
- * @note sendRequest() uses a separate requestMutex_ to prevent concurrent
+ * @note sendRequest() uses RequestExecutor's state machine to guard concurrent
  *       request execution. A stray concurrent submit is rejected at runtime
  *       with a structured Busy response (defense-in-depth for release
  *       builds where the Debug affinity assert is compiled out) — it is not
  *       an endorsement of multi-threaded driving.
  *
  * @par Architecture decision: ModbusClient / RequestExecutor split
- *      ModbusClient has 7 public methods that forward to RequestExecutor
+ *      ModbusClient has public methods that forward to RequestExecutor
  *      (sendRequest, sendRaw, abort) and ConnectionManager (connect,
  *      disconnect, isConnected, lastChannelError). The split is intentional:
- *      RequestExecutor (~830 LOC) handles request lifecycle, retry, response
- *      parsing; ConnectionManager handles connection lifecycle. Merging them
- *      into a single ~1000 LOC class would hurt readability without reducing
- *      complexity. The shared synchronization primitives (mutex_, cv_,
- *      aborted_) are passed by reference into RequestExecutor::Dependencies
- *      rather than extracted into a SessionSynchronizationContext wrapper —
- *      3 primitives do not justify a wrapper class.
- *
- * @par Synchronization primitive ownership
- *      mutex_, cv_ and aborted_ belong to ModbusClient; RequestExecutor and
- *      ConnectionManager are *authorized users* that receive them by
- *      reference via RequestExecutor::Dependencies. They are NOT a public
- *      thread-safety commitment: they exist to make the blocking wait loop
- *      and the abort handshake correct, and their locking rules are part of
- *      the internal contract between these three collaborators only.
+ *      RequestExecutor handles request lifecycle, retry, and async reactor
+ *      execution; ConnectionManager handles connection lifecycle. The atomic
+ *      aborted_ flag is owned by ModbusClient and passed by reference via
+ *      RequestExecutor::Dependencies.
  *
  * @par Destruction order
  *      The caller (typically ModbusWorker / WorkerReleaseCoordinator) MUST
@@ -177,9 +172,7 @@ private:
     std::shared_ptr<transport::ITransport> transport_;
     base::ModbusConfig config_;
 
-    // 同步机制：等待响应。所有权归 ModbusClient；RequestExecutor 与
-    // ConnectionManager 通过 Dependencies 按引用获得授权使用权（见类注释
-    // "Synchronization primitive ownership"）——它们不是公开的线程安全承诺。
+    // Channel state callback handler ID.
     io::IChannel::HandlerId stateHandlerId_ = 0;
     
     std::atomic<bool> aborted_ {false};

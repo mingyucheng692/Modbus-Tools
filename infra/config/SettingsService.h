@@ -27,7 +27,7 @@ class SettingsService : public QObject, public ISettingsService {
     Q_OBJECT
 
 public:
-    /// One legacy -> canonical config key prefix mapping (Phase 9 in-flight
+    /// One legacy -> canonical config key prefix mapping (in-flight
     /// migration). Old prefixes are pairwise disjoint — enforced by the
     /// KeyPrefixMigrations_TableIsPairwiseDisjoint unit test.
     struct KeyPrefixMigration {

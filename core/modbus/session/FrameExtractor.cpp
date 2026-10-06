@@ -338,7 +338,7 @@ int FrameExtractor::droppedInvalidBytes() const
 }
 
 // ---------------------------------------------------------------------------
-// RTU query methods – used by sendRequestInternal wait loop
+// RTU query methods – used by RequestExecutor async reactor
 // ---------------------------------------------------------------------------
 
 bool FrameExtractor::isRtuFrameReadyToParse(

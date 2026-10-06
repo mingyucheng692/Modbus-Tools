@@ -132,8 +132,7 @@ TEST(SettingsService, InFlightMigration_LegacyNetworkAndSerialKeys)
         QStringLiteral("input/intervalMs"), QStringLiteral("ui/inputCollapsed"),
     };
     // tcp_server / udp: dynamically composed keys only (no static constants
-    // ever existed for them — that is exactly why the migration is
-    // prefix-based, see GAP-6 in the Phase 9 plan).
+    // ever existed for them — that is why the migration is prefix-based).
     const QStringList dynamicOnlySuffixes = {
         QStringLiteral("traffic/autoScroll"), QStringLiteral("traffic/showTx"),
         QStringLiteral("input/format"), QStringLiteral("ui/inputCollapsed"),

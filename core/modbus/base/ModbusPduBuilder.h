@@ -22,7 +22,7 @@ namespace modbus::base {
  *
  * All build functions return std::optional<Pdu>. On failure, returns
  * std::nullopt and (if errorOut is non-null) writes a human-readable
- * description to *errorOut. This replaces the former Result<T,E> pattern.
+ * description to *errorOut.
  */
 namespace pdu_builder {
 

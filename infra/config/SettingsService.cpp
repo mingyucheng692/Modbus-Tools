@@ -228,7 +228,7 @@ void SettingsService::load() {
 }
 
 void SettingsService::migrateLegacyKeys() {
-    // Phase 9 in-flight migration: copy every legacy-prefixed key to its
+    // In-flight migration: copy every legacy-prefixed key to its
     // canonical namespace, then erase the legacy key. Prefix-based (not
     // per-key) so dynamically composed keys — widget-internal
     // traffic/input/ui keys — are covered without maintaining a static

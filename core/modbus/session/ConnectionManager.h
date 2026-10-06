@@ -17,12 +17,12 @@
 namespace modbus::session {
 
 /**
- * @brief Encapsulates connection lifecycle: connect, disconnect, and
- *        channel state waiting.
+ * @class ConnectionManager
+ * @brief Manages Modbus channel connection lifecycle, on-demand connect, and half-open eviction.
  *
- * @note This class must not outlive the referenced objects (channel, stateMachine,
- *       timeoutController, config, mutex, cv). The owning ModbusClient is
- *       responsible for lifetime ordering.
+ * Role: Encapsulates connection lifecycle transitions and unresponsive session eviction.
+ * Thread-safety: Thread-compatible. Invoked by ModbusClient/RequestExecutor on owner thread.
+ * Ownership: Non-owning observer of channel, stateMachine, aborted flag, and config; owned by ModbusClient.
  */
 class ConnectionManager {
 public:
@@ -51,7 +51,7 @@ public:
      * "connected" but is a black hole) and is evicted: FSM
      * Connected -> Failed ("unresponsive") followed by channel close(). The
      * next request then re-establishes the session through the on-demand
-     * connection check in RequestExecutor::sendRequestInternal().
+     * connection check in RequestExecutor::execute().
      *
      * Timeouts observed outside Connected do not count. Threshold <= 0 disables eviction.
      *

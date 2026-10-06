@@ -302,7 +302,7 @@ void ModbusPage::switchToProtocol(ui::application::modbus::SessionMode mode) {
     // NOTE: currentMode_ is updated AFTER switchMode() completes. During
     // switchMode(), teardownServices() deletes the old SessionPresenter,
     // whose destructor emits linkageSourceDisconnected (if was linked).
-    // Since T10 (single-source coordinator), handleSourceDisconnected()
+    // Under the single-source coordinator, handleSourceDisconnected()
     // no longer queries currentMode() — it just calls stopInternal() when
     // not Idle. The after-switch ordering is preserved for safety but is
     // no longer load-bearing for the coordinator's state machine.

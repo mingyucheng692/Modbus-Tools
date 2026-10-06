@@ -13,12 +13,12 @@ namespace ui::widgets { class FrameAnalyzerWidget; }
 namespace ui::application {
 
 /**
- * @brief Owns the live-linkage state machine and wires the single Modbus page
- *        and Frame Analyzer signals to it.
+ * @class AnalyzerLinkCoordinator
+ * @brief Coordinates live frame forwarding between ModbusPage and FrameAnalyzerWidget.
  *
- * Single-source model (T10): with the three former Modbus pages merged into
- * one ModbusPage (T9), there is exactly one possible link source. The state
- * machine tracks only Idle/Live/Paused — no source dimension.
+ * Role: Manages live linkage state machine (Idle/Live/Paused) with single-source model.
+ * Thread-safety: Single-threaded. Binds and handles signals on GUI thread only.
+ * Ownership: Owned by application presentation coordinator via QObject parent tree.
  */
 class AnalyzerLinkCoordinator final : public QObject {
     Q_OBJECT
