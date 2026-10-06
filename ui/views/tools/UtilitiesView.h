@@ -32,7 +32,7 @@ namespace ui::views::tools {
  * - Tab 1: Visual Modbus RAW Frame Builder & Field Inspector
  *
  * Exposes inspectInAnalyzerRequested to forward cross-view linkage without
- * direct coupling to FrameAnalyzerWidget.
+ * direct coupling to FrameAnalyzerView.
  */
 class UtilitiesView : public QWidget {
     Q_OBJECT

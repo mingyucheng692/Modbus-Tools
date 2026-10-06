@@ -18,7 +18,7 @@
 #include "shell/MainWindowPageBuilder.h"
 #include "views/tools/UtilitiesView.h"
 #include "views/modbus/ModbusPage.h"
-#include "widgets/FrameAnalyzerWidget.h"
+#include "views/analyzer/FrameAnalyzerView.h"
 #include "widgets/DisclaimerDialog.h"
 #include "widgets/UpdateSettingsDialog.h"
 #include "widgets/ModbusSettingsDialog.h"

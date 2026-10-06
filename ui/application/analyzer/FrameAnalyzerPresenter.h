@@ -23,7 +23,7 @@ namespace ui::application::analyzer {
 
 /**
  * @brief Owns the background QThread + FrameParseWorker used by
- *        FrameAnalyzerWidget for logical frame parsing.
+ *        FrameAnalyzerView for logical frame parsing.
  *
  * The widget previously created and tore down this pair itself, duplicating
  * the project's thread-cleanup sequence. Ownership now lives here; teardown

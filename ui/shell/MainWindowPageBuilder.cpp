@@ -4,7 +4,7 @@
 #include "views/serial/SerialDebuggerView.h"
 #include "views/network/NetworkDebuggerView.h"
 #include "views/modbus/ModbusPage.h"
-#include "widgets/FrameAnalyzerWidget.h"
+#include "views/analyzer/FrameAnalyzerView.h"
 #include "views/tools/UtilitiesView.h"
 
 #include <QFrame>
@@ -50,7 +50,7 @@ MainWindowPages buildMainWindowPages(infra::config::ISettingsService* settingsSe
     pages.pageIndexByNavigationRow[static_cast<std::size_t>(MainPage::SerialDebugger)] =
         stackedWidget->addWidget(createScrollablePage(serialDebuggerView, stackedWidget));
 
-    pages.frameAnalyzer = new widgets::FrameAnalyzerWidget(settingsService, owner);
+    pages.frameAnalyzer = new views::analyzer::FrameAnalyzerView(settingsService, owner);
     pages.pageIndexByNavigationRow[static_cast<std::size_t>(MainPage::FrameAnalyzer)] =
         stackedWidget->addWidget(createScrollablePage(pages.frameAnalyzer, stackedWidget));
 

@@ -34,7 +34,7 @@ namespace core::update { class UpdateManager; }
 namespace ui {
 enum class MainPage : std::size_t;
 namespace views::modbus { class ModbusPage; }
-namespace widgets { class FrameAnalyzerWidget; }
+namespace views::analyzer { class FrameAnalyzerView; }
 namespace common { class ThemeController; }
 namespace common { class CompactMenuBarStyle; }
 namespace common { class UpdateChecker; }
@@ -95,7 +95,7 @@ private:
     QToolButton* navigationToggleButton_ = nullptr;
     QStackedWidget* stackedWidget_ = nullptr;
     views::modbus::ModbusPage* modbusView_ = nullptr;
-    widgets::FrameAnalyzerWidget* frameAnalyzer_ = nullptr;
+    views::analyzer::FrameAnalyzerView* frameAnalyzer_ = nullptr;
     QMenu* settingsMenu_ = nullptr;
     QAction* modbusSettingsAction_ = nullptr;
     QAction* updateSettingsAction_ = nullptr;

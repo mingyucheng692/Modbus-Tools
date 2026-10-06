@@ -166,8 +166,8 @@ target_sources(ui PRIVATE
     widgets/ModbusSettingsDialog.h
     widgets/AboutDialog.cpp
     widgets/AboutDialog.h
-    widgets/FrameAnalyzerWidget.cpp
-    widgets/FrameAnalyzerWidget.h
+    views/analyzer/FrameAnalyzerView.cpp
+    views/analyzer/FrameAnalyzerView.h
     widgets/FrameDecodedTableView.cpp
     widgets/FrameDecodedTableView.h
     widgets/RegisterTypeDelegate.cpp

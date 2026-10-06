@@ -8,13 +8,13 @@
 #include "modbus/parser/ModbusFrameParser.h"
 
 namespace ui::views::modbus { class ModbusPage; }
-namespace ui::widgets { class FrameAnalyzerWidget; }
+namespace ui::views::analyzer { class FrameAnalyzerView; }
 
 namespace ui::application {
 
 /**
  * @class AnalyzerLinkCoordinator
- * @brief Coordinates live frame forwarding between ModbusPage and FrameAnalyzerWidget.
+ * @brief Coordinates live frame forwarding between ModbusPage and FrameAnalyzerView.
  *
  * Role: Manages live linkage state machine (Idle/Live/Paused) with single-source model.
  * Thread-safety: Single-threaded. Binds and handles signals on GUI thread only.
@@ -34,7 +34,7 @@ public:
     ~AnalyzerLinkCoordinator() noexcept override;
 
     void bind(views::modbus::ModbusPage* modbusView,
-              widgets::FrameAnalyzerWidget* frameAnalyzer);
+              views::analyzer::FrameAnalyzerView* frameAnalyzer);
 
     LinkState state() const;
 
@@ -70,7 +70,7 @@ private:
     LinkState state_ = LinkState::Idle;
     std::optional<BufferedLiveData> bufferedLiveData_;
     views::modbus::ModbusPage* modbusView_ = nullptr;
-    widgets::FrameAnalyzerWidget* frameAnalyzer_ = nullptr;
+    views::analyzer::FrameAnalyzerView* frameAnalyzer_ = nullptr;
 };
 
 } // namespace ui::application

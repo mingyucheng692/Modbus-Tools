@@ -18,8 +18,8 @@ namespace ui::views::tools {
 class UtilitiesView;
 }
 
-namespace ui::widgets {
-class FrameAnalyzerWidget;
+namespace ui::views::analyzer {
+class FrameAnalyzerView;
 }
 
 namespace ui {
@@ -37,7 +37,7 @@ constexpr std::size_t kMainPageCount = static_cast<std::size_t>(MainPage::Count)
 
 struct MainWindowPages {
     views::modbus::ModbusPage* modbusView = nullptr;
-    widgets::FrameAnalyzerWidget* frameAnalyzer = nullptr;
+    views::analyzer::FrameAnalyzerView* frameAnalyzer = nullptr;
     views::tools::UtilitiesView* utilities = nullptr;
     std::array<int, kMainPageCount> pageIndexByNavigationRow = {};
 

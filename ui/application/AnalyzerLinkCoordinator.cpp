@@ -1,7 +1,7 @@
 #include "application/AnalyzerLinkCoordinator.h"
 
 #include "views/modbus/ModbusPage.h"
-#include "widgets/FrameAnalyzerWidget.h"
+#include "views/analyzer/FrameAnalyzerView.h"
 
 namespace ui::application {
 
@@ -28,7 +28,7 @@ AnalyzerLinkCoordinator::AnalyzerLinkCoordinator(QObject* parent)
 AnalyzerLinkCoordinator::~AnalyzerLinkCoordinator() = default;
 
 void AnalyzerLinkCoordinator::bind(views::modbus::ModbusPage* modbusView,
-                                   widgets::FrameAnalyzerWidget* frameAnalyzer) {
+                                   views::analyzer::FrameAnalyzerView* frameAnalyzer) {
     modbusView_ = modbusView;
     frameAnalyzer_ = frameAnalyzer;
     applyState();
@@ -39,9 +39,9 @@ void AnalyzerLinkCoordinator::bind(views::modbus::ModbusPage* modbusView,
                      this, &AnalyzerLinkCoordinator::handleLinkageData);
     QObject::connect(modbusView, &views::modbus::ModbusPage::linkageSourceDisconnected,
                      this, &AnalyzerLinkCoordinator::handleSourceDisconnected);
-    QObject::connect(frameAnalyzer, &widgets::FrameAnalyzerWidget::linkagePauseToggled,
+    QObject::connect(frameAnalyzer, &views::analyzer::FrameAnalyzerView::linkagePauseToggled,
                      this, &AnalyzerLinkCoordinator::handleLinkagePauseToggled);
-    QObject::connect(frameAnalyzer, &widgets::FrameAnalyzerWidget::linkageStopRequested,
+    QObject::connect(frameAnalyzer, &views::analyzer::FrameAnalyzerView::linkageStopRequested,
                      this, &AnalyzerLinkCoordinator::handleLinkageStopRequested);
 }
 

@@ -19,7 +19,7 @@ FrameAnalyzerPresenter::FrameAnalyzerPresenter(QObject* parent)
 {
     // Cross-thread signal payloads must be registered exactly once for the
     // queued worker->GUI delivery; this is the single registration point
-    // since the thread/worker pair moved out of FrameAnalyzerWidget
+    // since the thread/worker pair moved out of FrameAnalyzerView
     // (missing registration = silently dropped signals).
     qRegisterMetaType<modbus::parser::ProtocolType>();
     qRegisterMetaType<modbus::parser::ParseResult>();

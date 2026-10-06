@@ -23,7 +23,7 @@ namespace core::common {
  *
  * This is the extraction (not a reinvention) of the two teardown sequences
  * that previously existed as twins in ModbusFactory.cpp and
- * FrameAnalyzerWidget.cpp. It exists exactly once in the project; do not
+ * FrameAnalyzerView.cpp. It exists exactly once in the project; do not
  * re-implement these patterns locally.
  *
  * @par releaseThread() contract

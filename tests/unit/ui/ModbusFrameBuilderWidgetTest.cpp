@@ -3,7 +3,7 @@
 #include <gtest/gtest.h>
 #include "views/converter/ModbusFrameBuilderWidget.h"
 #include "views/tools/UtilitiesView.h"
-#include "widgets/FrameAnalyzerWidget.h"
+#include "views/analyzer/FrameAnalyzerView.h"
 #include "application/analyzer/FrameAnalyzerPresenter.h"
 #include "infra/config/SettingsService.h"
 #include "infra/platform/PathResolver.h"
@@ -51,7 +51,7 @@
 namespace {
 using Builder = ui::views::converter::ModbusFrameBuilderWidget;
 using Utilities = ui::views::tools::UtilitiesView;
-using Analyzer = ui::widgets::FrameAnalyzerWidget;
+using Analyzer = ui::views::analyzer::FrameAnalyzerView;
 using Presenter = ui::application::analyzer::FrameAnalyzerPresenter;
 
 // Wait for the actual scheduled signal, not a sleep or an arbitrary event pump.

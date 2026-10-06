@@ -1,13 +1,6 @@
-/**
- * @file FrameAnalyzerWidget.cpp
- * @brief Implementation of FrameAnalyzerWidget.
- *
- * Copyright (c) 2025 - present mingyucheng692
- *
- * Licensed under the MIT License. See LICENSE file in the project root for full license information.
- */
+﻿// Copyright (c) 2025 - present mingyucheng692. Licensed under the MIT License.
 
-#include "FrameAnalyzerWidget.h"
+#include "views/analyzer/FrameAnalyzerView.h"
 #include "Config.h"
 #include "infra/config/ISettingsService.h"
 #include "common/SettingsKeys.h"
@@ -42,10 +35,13 @@
 #include <QGuiApplication>
 #include <QSplitter>
 
-using namespace modbus::parser;
-using namespace modbus::analyzer;
+using namespace ::modbus::parser;
+using namespace ::modbus::analyzer;
 
-namespace ui::widgets {
+namespace ui::views::analyzer {
+
+namespace modbus = ::modbus;
+using ui::widgets::FrameDecodedTableView;
 
 namespace {
 
@@ -123,9 +119,9 @@ QString normalizeHexInput(const QString& input)
 
 } // namespace
 
-// --- FrameAnalyzerWidget Implementation ---
+// --- FrameAnalyzerView Implementation ---
 
-FrameAnalyzerWidget::FrameAnalyzerWidget(infra::config::ISettingsService* settingsService, QWidget* parent)
+FrameAnalyzerView::FrameAnalyzerView(infra::config::ISettingsService* settingsService, QWidget* parent)
     : QWidget(parent)
 {
     settingsService_ = settingsService;
@@ -135,13 +131,13 @@ FrameAnalyzerWidget::FrameAnalyzerWidget(infra::config::ISettingsService* settin
     // results and forwards parse requests.
     presenter_ = new ui::application::analyzer::FrameAnalyzerPresenter(this);
     connect(presenter_, &ui::application::analyzer::FrameAnalyzerPresenter::parseFinished,
-            this, &FrameAnalyzerWidget::onParseFinished);
+            this, &FrameAnalyzerView::onParseFinished);
 
     setupUi();
     loadSettings();
 }
 
-FrameAnalyzerWidget::~FrameAnalyzerWidget()
+FrameAnalyzerView::~FrameAnalyzerView()
 {
     // Deterministic teardown: destroy the presenter (and with it the parse
     // worker + thread via ThreadGuard) while this widget is still a live
@@ -151,7 +147,7 @@ FrameAnalyzerWidget::~FrameAnalyzerWidget()
     presenter_ = nullptr;
 }
 
-void FrameAnalyzerWidget::setupUi()
+void FrameAnalyzerView::setupUi()
 {
     auto mainLayout = new QVBoxLayout(this);
     mainLayout->setContentsMargins(8, 8, 8, 8);
@@ -173,7 +169,7 @@ void FrameAnalyzerWidget::setupUi()
     retranslateUi();
 }
 
-void FrameAnalyzerWidget::createInputGroup()
+void FrameAnalyzerView::createInputGroup()
 {
     inputGroup = new QGroupBox(tr("Frame Input"), this);
     auto groupLayout = new QVBoxLayout(inputGroup);
@@ -210,26 +206,26 @@ void FrameAnalyzerWidget::createInputGroup()
 
     formatBtn = new QPushButton(tr("Format"), this);
     formatBtn->setToolTip(tr("Format Hex String (Ctrl+Shift+F)"));
-    connect(formatBtn, &QPushButton::clicked, this, &FrameAnalyzerWidget::onFormatClicked);
+    connect(formatBtn, &QPushButton::clicked, this, &FrameAnalyzerView::onFormatClicked);
     formatBtn->setMinimumWidth(0);
     actionsLayout->addWidget(formatBtn);
 
     clearBtn = new QPushButton(tr("Clear"), this);
     clearBtn->setToolTip(tr("Clear Input and Results"));
-    connect(clearBtn, &QPushButton::clicked, this, &FrameAnalyzerWidget::onClearClicked);
+    connect(clearBtn, &QPushButton::clicked, this, &FrameAnalyzerView::onClearClicked);
     clearBtn->setMinimumWidth(0);
     actionsLayout->addWidget(clearBtn);
 
     parseBtn = new QPushButton(tr("Parse"), this);
     parseBtn->setToolTip(tr("Parse Input (Ctrl+Enter)"));
-    connect(parseBtn, &QPushButton::clicked, this, &FrameAnalyzerWidget::onParseClicked);
+    connect(parseBtn, &QPushButton::clicked, this, &FrameAnalyzerView::onParseClicked);
     parseBtn->setMinimumWidth(0);
     parseBtn->setShortcut(QKeySequence(Qt::CTRL | Qt::Key_Return));
     actionsLayout->addWidget(parseBtn);
 
     pasteAndParseBtn = new QPushButton(tr("Paste & Parse"), this);
     pasteAndParseBtn->setToolTip(tr("Paste Clipboard and Parse (Ctrl+Shift+V)"));
-    connect(pasteAndParseBtn, &QPushButton::clicked, this, &FrameAnalyzerWidget::onPasteAndParseClicked);
+    connect(pasteAndParseBtn, &QPushButton::clicked, this, &FrameAnalyzerView::onPasteAndParseClicked);
     pasteAndParseBtn->setMinimumWidth(0);
     pasteAndParseBtn->setShortcut(QKeySequence(Qt::CTRL | Qt::SHIFT | Qt::Key_V));
     pasteAndParseBtn->setDefault(true);
@@ -250,7 +246,7 @@ void FrameAnalyzerWidget::createInputGroup()
     inputGroup->setMinimumHeight(0);
 }
 
-void FrameAnalyzerWidget::createResultGroup()
+void FrameAnalyzerView::createResultGroup()
 {
     resultGroup = new QGroupBox(tr("Analysis Result"), this);
     auto groupLayout = new QVBoxLayout(resultGroup);
@@ -364,7 +360,7 @@ void FrameAnalyzerWidget::createResultGroup()
     resetTypesBtn->setMinimumHeight(28);
     resetTypesBtn->setEnabled(false);
     resetTypesBtn->setToolTip(tr("Reset all custom register types to Default"));
-    connect(resetTypesBtn, &QPushButton::clicked, this, &FrameAnalyzerWidget::onResetTypesClicked);
+    connect(resetTypesBtn, &QPushButton::clicked, this, &FrameAnalyzerView::onResetTypesClicked);
     resultToolbarLayout->addWidget(resetTypesBtn);
 
     resultToolbarLayout->addSpacing(6);
@@ -374,13 +370,13 @@ void FrameAnalyzerWidget::createResultGroup()
 
     importJsonBtn = new QPushButton(tr("Import"), this);
     importJsonBtn->setToolTip(tr("Import Register Config (JSON)"));
-    connect(importJsonBtn, &QPushButton::clicked, this, &FrameAnalyzerWidget::onImportJsonClicked);
+    connect(importJsonBtn, &QPushButton::clicked, this, &FrameAnalyzerView::onImportJsonClicked);
     exportJsonBtn = new QPushButton(tr("Export"), this);
     exportJsonBtn->setToolTip(tr("Export Register Config (JSON)"));
-    connect(exportJsonBtn, &QPushButton::clicked, this, &FrameAnalyzerWidget::onExportJsonClicked);
+    connect(exportJsonBtn, &QPushButton::clicked, this, &FrameAnalyzerView::onExportJsonClicked);
     exportCsvBtn = new QPushButton(tr("CSV"), this);
     exportCsvBtn->setToolTip(tr("Export Decoded Data to CSV"));
-    connect(exportCsvBtn, &QPushButton::clicked, this, &FrameAnalyzerWidget::onExportCsvClicked);
+    connect(exportCsvBtn, &QPushButton::clicked, this, &FrameAnalyzerView::onExportCsvClicked);
 
     const QList<QPushButton*> actionButtons = { importJsonBtn, exportJsonBtn, exportCsvBtn };
     for (auto* button : actionButtons) {
@@ -424,9 +420,9 @@ void FrameAnalyzerWidget::createResultGroup()
     historyList = new QListWidget(this);
     historyLayout->addWidget(historyList);
     clearHistoryBtn = new QPushButton(tr("Clear History"), this);
-    connect(clearHistoryBtn, &QPushButton::clicked, this, &FrameAnalyzerWidget::onClearHistoryClicked);
+    connect(clearHistoryBtn, &QPushButton::clicked, this, &FrameAnalyzerView::onClearHistoryClicked);
     historyLayout->addWidget(clearHistoryBtn);
-    connect(historyList, &QListWidget::currentRowChanged, this, &FrameAnalyzerWidget::onHistorySelectionChanged);
+    connect(historyList, &QListWidget::currentRowChanged, this, &FrameAnalyzerView::onHistorySelectionChanged);
 
     contentSplitter->addWidget(historyGroup);
     contentSplitter->setStretchFactor(0, 1);
@@ -438,7 +434,7 @@ void FrameAnalyzerWidget::createResultGroup()
 }
 
 
-void FrameAnalyzerWidget::setHistoryCollapsed(bool collapsed)
+void FrameAnalyzerView::setHistoryCollapsed(bool collapsed)
 {
     if (!historyGroup || !contentSplitter) return;
 
@@ -468,14 +464,14 @@ void FrameAnalyzerWidget::setHistoryCollapsed(bool collapsed)
     updateHistoryToggleText();
 }
 
-void FrameAnalyzerWidget::updateHistoryToggleText()
+void FrameAnalyzerView::updateHistoryToggleText()
 {
     if (!toggleHistoryBtn) return;
     toggleHistoryBtn->setText(historyCollapsed ? tr("History") : tr("History ◂"));
     toggleHistoryBtn->setToolTip(historyCollapsed ? tr("Show History") : tr("Hide History"));
 }
 
-void FrameAnalyzerWidget::refreshHistoryList()
+void FrameAnalyzerView::refreshHistoryList()
 {
     if (!historyList) return;
     const QSignalBlocker blocker(historyList);
@@ -485,7 +481,7 @@ void FrameAnalyzerWidget::refreshHistoryList()
     }
 }
 
-QString FrameAnalyzerWidget::historyItemText(const modbus::parser::ParseResult& result) const
+QString FrameAnalyzerView::historyItemText(const modbus::parser::ParseResult& result) const
 {
     const QString status = result.isValid ? tr("OK") : tr("ERR");
     const QString type =
@@ -500,7 +496,7 @@ QString FrameAnalyzerWidget::historyItemText(const modbus::parser::ParseResult& 
         .arg(QString::fromLatin1(result.rawFrame.toHex().toUpper().left(16)) + "...");
 }
 
-void FrameAnalyzerWidget::addToHistory(const modbus::parser::ParseResult& result)
+void FrameAnalyzerView::addToHistory(const modbus::parser::ParseResult& result)
 {
     historyResults.prepend(result);
     while (historyResults.size() > config::Ui::kFrameAnalyzerMaxHistoryItems) {
@@ -509,7 +505,7 @@ void FrameAnalyzerWidget::addToHistory(const modbus::parser::ParseResult& result
     refreshHistoryList();
 }
 
-void FrameAnalyzerWidget::onFormatClicked()
+void FrameAnalyzerView::onFormatClicked()
 {
     const QString text = normalizeHexInput(inputEditor->toPlainText());
 
@@ -522,7 +518,7 @@ void FrameAnalyzerWidget::onFormatClicked()
     inputEditor->setPlainText(formatted.toUpper());
 }
 
-void FrameAnalyzerWidget::onPasteAndParseClicked()
+void FrameAnalyzerView::onPasteAndParseClicked()
 {
     auto* clipboard = QGuiApplication::clipboard();
     if (!clipboard) return;
@@ -537,7 +533,7 @@ void FrameAnalyzerWidget::onPasteAndParseClicked()
     onParseClicked();
 }
 
-void FrameAnalyzerWidget::loadAndParseHex(const QString& hex)
+void FrameAnalyzerView::loadAndParseHex(const QString& hex)
 {
     exitLiveMode();
     // A builder frame is self-contained. A previous manual protocol selection
@@ -550,7 +546,7 @@ void FrameAnalyzerWidget::loadAndParseHex(const QString& hex)
     onParseClicked();
 }
 
-void FrameAnalyzerWidget::onClearClicked()
+void FrameAnalyzerView::onClearClicked()
 {
     ++latestParseRequestId;
     parseInProgress = false;
@@ -560,7 +556,7 @@ void FrameAnalyzerWidget::onClearClicked()
     clearResult();
 }
 
-void FrameAnalyzerWidget::onParseClicked()
+void FrameAnalyzerView::onParseClicked()
 {
     clearResult();
     const QString rawInput = inputEditor->toPlainText();
@@ -591,7 +587,7 @@ void FrameAnalyzerWidget::onParseClicked()
     presenter_->enqueueParse(hexStr, type, static_cast<uint16_t>(addrVal), modbus::base::RegisterOrder::ABCD, latestParseRequestId);
 }
 
-void FrameAnalyzerWidget::onParseFinished(const ParseResult& result, quint64 requestId)
+void FrameAnalyzerView::onParseFinished(const ParseResult& result, quint64 requestId)
 {
     if (requestId != latestParseRequestId) return;
 
@@ -608,20 +604,20 @@ void FrameAnalyzerWidget::onParseFinished(const ParseResult& result, quint64 req
     }
 }
 
-void FrameAnalyzerWidget::onHistorySelectionChanged(int row)
+void FrameAnalyzerView::onHistorySelectionChanged(int row)
 {
     if (row < 0 || row >= historyResults.size()) return;
     currentResult = historyResults.at(row);
     renderResult(currentResult);
 }
 
-void FrameAnalyzerWidget::onClearHistoryClicked()
+void FrameAnalyzerView::onClearHistoryClicked()
 {
     historyResults.clear();
     historyList->clear();
 }
 
-void FrameAnalyzerWidget::onExportJsonClicked()
+void FrameAnalyzerView::onExportJsonClicked()
 {
     const QString filePath = QFileDialog::getSaveFileName(this, tr("Export Config"), QString(), tr("JSON Files (*.json)"));
     if (filePath.isEmpty()) return;
@@ -638,7 +634,7 @@ void FrameAnalyzerWidget::onExportJsonClicked()
     }
 }
 
-void FrameAnalyzerWidget::onImportJsonClicked()
+void FrameAnalyzerView::onImportJsonClicked()
 {
     const QString filePath = QFileDialog::getOpenFileName(this, tr("Import Config"), QString(), tr("JSON Files (*.json)"));
     if (filePath.isEmpty()) return;
@@ -675,14 +671,14 @@ void FrameAnalyzerWidget::onImportJsonClicked()
     }
 }
 
-void FrameAnalyzerWidget::onExportCsvClicked()
+void FrameAnalyzerView::onExportCsvClicked()
 {
     if (dataTable) {
         dataTable->exportCsv();
     }
 }
 
-void FrameAnalyzerWidget::updateResetButtonState(int selectedCount, bool hasCustom)
+void FrameAnalyzerView::updateResetButtonState(int selectedCount, bool hasCustom)
 {
     if (!resetTypesBtn) return;
 
@@ -697,7 +693,7 @@ void FrameAnalyzerWidget::updateResetButtonState(int selectedCount, bool hasCust
     }
 }
 
-void FrameAnalyzerWidget::updateResetButtonState()
+void FrameAnalyzerView::updateResetButtonState()
 {
     if (!dataTable) {
         updateResetButtonState(0, false);
@@ -706,7 +702,7 @@ void FrameAnalyzerWidget::updateResetButtonState()
     updateResetButtonState(dataTable->selectedRowCount(), dataTable->hasCustomTypes());
 }
 
-void FrameAnalyzerWidget::onResetTypesClicked()
+void FrameAnalyzerView::onResetTypesClicked()
 {
     if (!dataTable) return;
     if (dataTable->selectedRowCount() > 0) {
@@ -716,7 +712,7 @@ void FrameAnalyzerWidget::onResetTypesClicked()
     }
 }
 
-void FrameAnalyzerWidget::setStatusText(const QString& text, const QString& styleSheet)
+void FrameAnalyzerView::setStatusText(const QString& text, const QString& styleSheet)
 {
     if (!statusLabel) return;
 
@@ -739,7 +735,7 @@ void FrameAnalyzerWidget::setStatusText(const QString& text, const QString& styl
     }
 }
 
-void FrameAnalyzerWidget::renderResult(const ParseResult& result)
+void FrameAnalyzerView::renderResult(const ParseResult& result)
 {
     if (overviewTree) {
         overviewTree->clear();
@@ -963,7 +959,7 @@ void FrameAnalyzerWidget::renderResult(const ParseResult& result)
     }
 }
 
-void FrameAnalyzerWidget::clearResult()
+void FrameAnalyzerView::clearResult()
 {
     setStatusText(tr("Ready"), QStringLiteral("color: gray;"));
 
@@ -992,7 +988,7 @@ void FrameAnalyzerWidget::clearResult()
     updateResetButtonState();
 }
 
-void FrameAnalyzerWidget::processLivePdu(const modbus::base::Pdu& pdu, modbus::parser::ProtocolType protocol, uint16_t addr)
+void FrameAnalyzerView::processLivePdu(const modbus::base::Pdu& pdu, modbus::parser::ProtocolType protocol, uint16_t addr)
 {
     isLiveMode = true;
     if (resultTabs) resultTabs->setTabText(0, tr("Structure (Unavailable in Live Mode)"));
@@ -1032,12 +1028,12 @@ void FrameAnalyzerWidget::processLivePdu(const modbus::base::Pdu& pdu, modbus::p
     if (!isLivePaused) renderResult(result);
 }
 
-void FrameAnalyzerWidget::exitLiveMode()
+void FrameAnalyzerView::exitLiveMode()
 {
     clearResult();
 }
 
-void FrameAnalyzerWidget::setLivePaused(bool paused)
+void FrameAnalyzerView::setLivePaused(bool paused)
 {
     isLivePaused = paused;
     if (linkagePauseBtn) {
@@ -1050,7 +1046,7 @@ void FrameAnalyzerWidget::setLivePaused(bool paused)
     }
 }
 
-void FrameAnalyzerWidget::loadSettings()
+void FrameAnalyzerView::loadSettings()
 {
     if (!settingsService_) return;
 
@@ -1070,14 +1066,14 @@ void FrameAnalyzerWidget::loadSettings()
     }
 }
 
-void FrameAnalyzerWidget::saveSettings()
+void FrameAnalyzerView::saveSettings()
 {
     if (!settingsService_) return;
     settingsService_->setValue(core::common::settings_keys::kFrameAnalyzerStartAddr, startAddrEdit->text());
     settingsService_->setValue(core::common::settings_keys::kFrameAnalyzerDecodeMode, displayModeCombo->currentIndex());
 }
 
-void FrameAnalyzerWidget::updateAdaptiveLayout()
+void FrameAnalyzerView::updateAdaptiveLayout()
 {
     if (!contentSplitter || !toggleHistoryBtn) return;
     const bool shouldCollapse = width() < 1000;
@@ -1087,13 +1083,13 @@ void FrameAnalyzerWidget::updateAdaptiveLayout()
     }
 }
 
-void FrameAnalyzerWidget::resizeEvent(QResizeEvent* event)
+void FrameAnalyzerView::resizeEvent(QResizeEvent* event)
 {
     updateAdaptiveLayout();
     QWidget::resizeEvent(event);
 }
 
-void FrameAnalyzerWidget::changeEvent(QEvent* event)
+void FrameAnalyzerView::changeEvent(QEvent* event)
 {
     if (event->type() == QEvent::LanguageChange) {
         retranslateUi();
@@ -1101,7 +1097,7 @@ void FrameAnalyzerWidget::changeEvent(QEvent* event)
     QWidget::changeEvent(event);
 }
 
-void FrameAnalyzerWidget::retranslateUi()
+void FrameAnalyzerView::retranslateUi()
 {
     if (inputGroup) inputGroup->setTitle(tr("Frame Input"));
     if (protocolLabel) protocolLabel->setText(tr("Protocol:"));
@@ -1193,4 +1189,4 @@ void FrameAnalyzerWidget::retranslateUi()
     refreshHistoryList();
 }
 
-} // namespace ui::widgets
+} // namespace ui::views::analyzer
