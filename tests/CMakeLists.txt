@@ -52,8 +52,10 @@ function(modbus_add_test_target target_name main_source)
 
     target_include_directories(${target_name} PRIVATE
         ${CMAKE_CURRENT_SOURCE_DIR}
+        ${PROJECT_SOURCE_DIR}
         ${PROJECT_SOURCE_DIR}/infra
         ${PROJECT_SOURCE_DIR}/core
+        ${PROJECT_SOURCE_DIR}/ui
     )
 
     target_link_libraries(${target_name} PRIVATE
@@ -100,7 +102,7 @@ set(TEST_CORE_LOGIC_SOURCES
     unit/io/ServerChannelWorkerTest.cpp
     unit/logging/LoggerInitTest.cpp
     unit/logging/TraceContextTest.cpp
-    unit/modbus/base/DataHelperTest.cpp
+    unit/modbus/base/ModbusAduBuilderTest.cpp
     unit/modbus/base/ModbusAddressMappingTest.cpp
     unit/modbus/base/ModbusByteOrderTest.cpp
     unit/modbus/base/ModbusCrcTest.cpp
@@ -114,6 +116,7 @@ set(TEST_CORE_LOGIC_SOURCES
     unit/modbus/parser/ParserTest.cpp
     unit/modbus/session/ModbusResponseTest.cpp
     unit/modbus/session/ModbusStateTest.cpp
+    unit/modbus/session/RequestValidatorTest.cpp
     unit/modbus/session/RetryStrategyTest.cpp
     unit/update/UpdateManagerInstallStrategyTest.cpp
     unit/update/ReleaseParserTest.cpp
@@ -121,7 +124,6 @@ set(TEST_CORE_LOGIC_SOURCES
     unit/update/PlatformReleaseAssetStrategyTest.cpp
     unit/update/UpdateCommandTemplateTest.cpp
     unit/polling/PollingStrategyTest.cpp
-    unit/test_modbus_frame_builder.cpp
 )
 
 set(TEST_QT_CORE_SOURCES
@@ -137,13 +139,14 @@ set(TEST_QT_CORE_SOURCES
 
 set(TEST_UI_WIDGETS_SOURCES
     unit/modbus/application/TrafficLogControllerTest.cpp
+    unit/ui/common/ModbusDataHelperTest.cpp
     unit/ui/FunctionWidgetAsciiTest.cpp
     unit/ui/I18nWidgetTest.cpp
     unit/ui/NavigationControllerTest.cpp
     unit/ui/ServerClientPanelTest.cpp
-    unit/ui/test_ConnectionStateGuarding.cpp
-    unit/ui/test_Ieee754Converter.cpp
-    unit/ui/test_ModbusFrameBuilder.cpp
+    unit/ui/ConnectionStateGuardingTest.cpp
+    unit/ui/Ieee754ConverterTest.cpp
+    unit/ui/ModbusFrameBuilderWidgetTest.cpp
 )
 
 set(TEST_INTEGRATION_SOURCES
@@ -168,6 +171,7 @@ add_library(test_modbus_common_objects OBJECT
 )
 target_include_directories(test_modbus_common_objects PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}
+    ${PROJECT_SOURCE_DIR}
     ${PROJECT_SOURCE_DIR}/infra
     ${PROJECT_SOURCE_DIR}/core
 )
@@ -181,7 +185,7 @@ add_dependencies(test_modbus_common_objects core infra)
 modbus_add_test_target(test_core_logic
     ${CMAKE_CURRENT_SOURCE_DIR}/TestMainCore.cpp
     SOURCES "${TEST_CORE_LOGIC_SOURCES}"
-    LIBS core ${MODBUS_UI_WHOLE_ARCHIVE} Qt6::Core test_modbus_common_objects
+    LIBS core Qt6::Core test_modbus_common_objects
 )
 add_dependencies(test_core_logic test_modbus_common_objects)
 

@@ -1,8 +1,10 @@
+// Copyright (c) 2025 - present mingyucheng692. Licensed under the MIT License.
+
 #include <gtest/gtest.h>
 
-#include "../../../core/update/PlatformUpdateInstallStrategy.h"
-#include "../../../core/update/PlatformReleaseAssetStrategy.h"
-#include "../../../core/update/UpdateManager.h"
+#include "core/update/PlatformUpdateInstallStrategy.h"
+#include "core/update/PlatformReleaseAssetStrategy.h"
+#include "core/update/UpdateManager.h"
 
 namespace {
 

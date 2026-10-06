@@ -1,6 +1,8 @@
+// Copyright (c) 2025 - present mingyucheng692. Licensed under the MIT License.
+
 #include <gtest/gtest.h>
 
-#include "../../../ui/widgets/ServerClientPanel.h"
+#include "ui/widgets/ServerClientPanel.h"
 
 #include <QCheckBox>
 #include <QItemSelectionModel>

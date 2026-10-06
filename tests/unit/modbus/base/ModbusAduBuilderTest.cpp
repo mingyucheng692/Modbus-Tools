@@ -1,11 +1,4 @@
-/**
- * @file test_modbus_frame_builder.cpp
- * @brief Unit tests for pure Modbus frame building functions (RTU, TCP, ASCII).
- *
- * Copyright (c) 2025 - present mingyucheng692
- *
- * Licensed under the MIT License. See LICENSE file in the project root for full license information.
- */
+// Copyright (c) 2025 - present mingyucheng692. Licensed under the MIT License.
 
 #include <gtest/gtest.h>
 #include "modbus/base/ModbusAduBuilder.h"
@@ -17,7 +10,7 @@
 
 using namespace modbus::base;
 
-TEST(ModbusFrameBuilderPureLogic, BuildRtuAdu_ReadHoldingRegisters_CorrectCrc) {
+TEST(ModbusAduBuilderTest, BuildRtuAdu_ReadHoldingRegisters_CorrectCrc) {
     const auto pduOpt = pdu_builder::buildReadRequest(FunctionCode::ReadHoldingRegisters, 0, 2);
     ASSERT_TRUE(pduOpt.has_value());
 
@@ -36,7 +29,7 @@ TEST(ModbusFrameBuilderPureLogic, BuildRtuAdu_ReadHoldingRegisters_CorrectCrc) {
     EXPECT_EQ(computedCrc, storedCrc);
 }
 
-TEST(ModbusFrameBuilderPureLogic, BuildTcpAdu_ReadHoldingRegisters_ValidMbapHeader) {
+TEST(ModbusAduBuilderTest, BuildTcpAdu_ReadHoldingRegisters_ValidMbapHeader) {
     const auto pduOpt = pdu_builder::buildReadRequest(FunctionCode::ReadHoldingRegisters, 0, 2);
     ASSERT_TRUE(pduOpt.has_value());
 
@@ -46,7 +39,7 @@ TEST(ModbusFrameBuilderPureLogic, BuildTcpAdu_ReadHoldingRegisters_ValidMbapHead
     EXPECT_EQ(adu, expected);
 }
 
-TEST(ModbusFrameBuilderPureLogic, BuildTcpAdu_CustomTransactionId) {
+TEST(ModbusAduBuilderTest, BuildTcpAdu_CustomTransactionId) {
     const auto pduOpt = pdu_builder::buildReadRequest(FunctionCode::ReadHoldingRegisters, 0, 2);
     ASSERT_TRUE(pduOpt.has_value());
 
@@ -56,7 +49,7 @@ TEST(ModbusFrameBuilderPureLogic, BuildTcpAdu_CustomTransactionId) {
     EXPECT_EQ(adu, expected);
 }
 
-TEST(ModbusFrameBuilderPureLogic, BuildAsciiAdu_ReadHoldingRegisters_ValidLrcAndDelimiters) {
+TEST(ModbusAduBuilderTest, BuildAsciiAdu_ReadHoldingRegisters_ValidLrcAndDelimiters) {
     const auto pduOpt = pdu_builder::buildReadRequest(FunctionCode::ReadHoldingRegisters, 0, 2);
     ASSERT_TRUE(pduOpt.has_value());
 
@@ -71,7 +64,7 @@ TEST(ModbusFrameBuilderPureLogic, BuildAsciiAdu_ReadHoldingRegisters_ValidLrcAnd
     EXPECT_TRUE(adu.endsWith("\r\n"));
 }
 
-TEST(ModbusFrameBuilderPureLogic, BuildRtuAdu_WriteSingleRegister) {
+TEST(ModbusAduBuilderTest, BuildRtuAdu_WriteSingleRegister) {
     const auto pduOpt = pdu_builder::buildWriteSingleRegister(1, 0x1234);
     ASSERT_TRUE(pduOpt.has_value());
 
@@ -92,7 +85,7 @@ TEST(ModbusFrameBuilderPureLogic, BuildRtuAdu_WriteSingleRegister) {
     EXPECT_EQ(computedCrc, storedCrc);
 }
 
-TEST(ModbusFrameBuilderPureLogic, BuildRtuAdu_WriteMultipleRegisters_CorrectByteCount) {
+TEST(ModbusAduBuilderTest, BuildRtuAdu_WriteMultipleRegisters_CorrectByteCount) {
     const QByteArray registerBytes = QByteArray::fromHex("000A000B");
     const auto pduOpt = pdu_builder::buildWriteMultipleRegisters(0, 2, registerBytes);
     ASSERT_TRUE(pduOpt.has_value());
@@ -111,7 +104,7 @@ TEST(ModbusFrameBuilderPureLogic, BuildRtuAdu_WriteMultipleRegisters_CorrectByte
     EXPECT_EQ(computedCrc, storedCrc);
 }
 
-TEST(ModbusFrameBuilderPureLogic, PduBuilder_InvalidParameters_ReturnsNullOpt) {
+TEST(ModbusAduBuilderTest, PduBuilder_InvalidParameters_ReturnsNullOpt) {
     QString error;
     // Quantity 0 is invalid
     auto pdu = pdu_builder::buildReadRequest(FunctionCode::ReadHoldingRegisters, 0, 0, &error);
@@ -137,7 +130,7 @@ TEST(ModbusFrameBuilderPureLogic, PduBuilder_InvalidParameters_ReturnsNullOpt) {
     EXPECT_FALSE(error.isEmpty());
 }
 
-TEST(ModbusFrameBuilderPureLogic, AsciiAdu_LrcCalculation_MatchesSpec) {
+TEST(ModbusAduBuilderTest, AsciiAdu_LrcCalculation_MatchesSpec) {
     // Modbus specification standard example:
     // Slave 0x11, FC 0x03, Start 0x006B, Qty 0x0003
     // Sum = 0x11 + 0x03 + 0x00 + 0x6B + 0x00 + 0x03 = 0x82 (130)
@@ -147,7 +140,7 @@ TEST(ModbusFrameBuilderPureLogic, AsciiAdu_LrcCalculation_MatchesSpec) {
     EXPECT_EQ(lrc, 0x7E);
 }
 
-TEST(ModbusFrameBuilderPureLogic, AutoDetect_AmbiguousMbapShapeRetainsValidRtuRequest) {
+TEST(ModbusAduBuilderTest, AutoDetect_AmbiguousMbapShapeRetainsValidRtuRequest) {
     for (const auto fc : {FunctionCode::ReadCoils, FunctionCode::ReadDiscreteInputs, FunctionCode::ReadInputRegisters}) {
         const auto pdu = pdu_builder::buildReadRequest(fc, 0, 2);
         ASSERT_TRUE(pdu.has_value());

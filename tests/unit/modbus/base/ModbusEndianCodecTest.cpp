@@ -6,7 +6,6 @@
 #include "modbus/base/ModbusPduBuilder.h"
 #include "modbus/base/ModbusProtocolChecks.h"
 #include "modbus/parser/ModbusFrameParser.h"
-#include "modbus/session/RequestValidator.h"
 
 using namespace modbus::base;
 
@@ -84,19 +83,6 @@ TEST(ModbusEndianCodecTest, FrameParserExtractsStartAddressFromBigEndianRequestP
     ASSERT_EQ(result.dataItems.size(), 1);
     EXPECT_EQ(result.dataItems[0].address, 0x0010);
     EXPECT_EQ(result.expectedQuantity, 0x0002);
-}
-
-TEST(ModbusEndianCodecTest, RequestValidatorAcceptsValidReadRequestPayload)
-{
-    using modbus::session::request_validator::validate;
-    const Pdu request(
-        FunctionCode::ReadHoldingRegisters,
-        QByteArray::fromHex("00100002"));
-
-    const auto result = validate(request, 1, ModbusMode::TCP);
-
-    EXPECT_TRUE(result.valid) << result.error.toStdString();
-    EXPECT_TRUE(result.error.isEmpty());
 }
 
 // ============================================================================

@@ -1,12 +1,14 @@
+// Copyright (c) 2025 - present mingyucheng692. Licensed under the MIT License.
+
 #include <gtest/gtest.h>
-#include "common/ModbusDataHelper.h"
+#include "ui/common/ModbusDataHelper.h"
 
 using namespace ui::common;
 
 TEST(ModbusDataHelperTest, ParseHex) {
     EXPECT_EQ(data_helper::parseHex("01 23 AB"), QByteArray::fromHex("0123AB"));
-    EXPECT_EQ(data_helper::parseHex("1 23 AB"), QByteArray::fromHex("0123AB")); // Odd digit prepends 0
-    EXPECT_EQ(data_helper::parseHex("G1 23"), QByteArray::fromHex("0123")); // Ignore non-hex
+    EXPECT_EQ(data_helper::parseHex("1 23 AB"), QByteArray::fromHex("0123AB"));
+    EXPECT_EQ(data_helper::parseHex("G1 23"), QByteArray::fromHex("0123"));
 }
 
 TEST(ModbusDataHelperTest, ParseDecimalList) {
@@ -17,7 +19,7 @@ TEST(ModbusDataHelperTest, ParseDecimalList) {
     EXPECT_EQ(static_cast<unsigned char>(result[0]), 0x00);
     EXPECT_EQ(static_cast<unsigned char>(result[1]), 123);
     EXPECT_EQ(static_cast<unsigned char>(result[2]), 0x01);
-    EXPECT_EQ(static_cast<unsigned char>(result[3]), 0xC8); // 456 = 0x01C8
+    EXPECT_EQ(static_cast<unsigned char>(result[3]), 0xC8);
     
     data_helper::parseDecimalList("70000", ok);
     EXPECT_FALSE(ok);
@@ -25,9 +27,6 @@ TEST(ModbusDataHelperTest, ParseDecimalList) {
 
 TEST(ModbusDataHelperTest, ParseBinary) {
     QByteArray result = data_helper::parseBinary("1 1 0 1 0 0 0 0 1");
-    // Bits: 1(L), 1, 0, 1, 0, 0, 0, 0 -> 0x0B (0000 1011) ? Wait LSB-first
-    // Bit 0: 1, 1: 1, 2: 0, 3: 1, 4: 0, 5: 0, 6: 0, 7: 0 -> 1+2+8 = 11 (0x0B)
-    // Bit 8: 1 -> Byte 1: 0x01
     EXPECT_EQ(result.size(), 2);
     EXPECT_EQ(static_cast<unsigned char>(result[0]), 0x0B);
     EXPECT_EQ(static_cast<unsigned char>(result[1]), 0x01);

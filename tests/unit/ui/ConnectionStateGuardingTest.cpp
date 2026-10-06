@@ -1,27 +1,20 @@
-/**
- * @file test_ConnectionStateGuarding.cpp
- * @brief Unit tests for connection state machine UI guarding, idempotency, and lifecycle safety.
- *
- * Copyright (c) 2025 - present mingyucheng692
- *
- * Licensed under the MIT License. See LICENSE file in the project root for full license information.
- */
+// Copyright (c) 2025 - present mingyucheng692. Licensed under the MIT License.
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
-#include "../../../ui/application/modbus/ModbusPagePresenter.h"
-#include "../../../ui/application/modbus/ModbusSessionPresenter.h"
-#include "../../../ui/application/modbus/TrafficLogController.h"
-#include "../../../ui/application/modbus/PollingController.h"
-#include "../../../ui/application/modbus/RequestSubmissionService.h"
-#include "../../../ui/application/modbus/ModbusTypes.h"
-#include "../../../ui/widgets/FunctionWidget.h"
-#include "../../../ui/widgets/ControlWidget.h"
-#include "../../../ui/widgets/TrafficMonitorWidget.h"
-#include "../../../ui/widgets/TcpConnectionWidget.h"
-#include "../../../ui/widgets/SerialConnectionWidget.h"
-#include "../../mocks/UiTestDoubles.h"
+#include "ui/application/modbus/ModbusPagePresenter.h"
+#include "ui/application/modbus/ModbusSessionPresenter.h"
+#include "ui/application/modbus/TrafficLogController.h"
+#include "ui/application/modbus/PollingController.h"
+#include "ui/application/modbus/RequestSubmissionService.h"
+#include "ui/application/modbus/ModbusTypes.h"
+#include "ui/widgets/FunctionWidget.h"
+#include "ui/widgets/ControlWidget.h"
+#include "ui/widgets/TrafficMonitorWidget.h"
+#include "ui/widgets/TcpConnectionWidget.h"
+#include "ui/widgets/SerialConnectionWidget.h"
+#include "mocks/UiTestDoubles.h"
 
 #include <QPushButton>
 #include <QCheckBox>

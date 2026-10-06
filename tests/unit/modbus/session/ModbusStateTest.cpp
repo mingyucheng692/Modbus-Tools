@@ -217,12 +217,12 @@ TEST_F(ModbusStateTest, AbortUnblocksConnectWaitWithoutProcessEvents) {
     EXPECT_EQ(client_->connectionState(), ModbusClient::ConnectionState::Failed);
 }
 
-// --- P1: passive channel-loss wiring (T1.1) ------------------------------
+// --- Passive channel-loss wiring ------------------------------------------
 
 // A passive channel loss (peer RST / cable pull / driver error) observed as
 // Closed while the FSM reports Connected must drive Connected -> Failed.
-// Before T1.1 the state handler was a no-op and the FSM stayed Connected
-// forever, so every UI derivation kept reporting a live session.
+// The state handler ensures the FSM transitions to Failed rather than staying
+// stuck in Connected when the physical channel closes unexpectedly.
 TEST_F(ModbusStateTest, PassiveChannelLoss_ClosedDrivesConnectedToFailed) {
     EXPECT_CALL(*mockChannel_, open()).WillOnce(Invoke([&]() {
         currentState_ = ChannelState::Open;
@@ -279,12 +279,11 @@ TEST_F(ModbusStateTest, ChannelErrorDuringDisconnect_DoesNotBlockDisconnected) {
     EXPECT_EQ(client_->connectionState(), ModbusClient::ConnectionState::Disconnected);
 }
 
-// --- P1: retry-after-failure normalization (T1.2) -------------------------
+// --- Retry-after-failure normalization ------------------------------------
 
 // Reconnecting from Failed must start legally (Failed -> Connecting edge)
-// and land Connected. Before T1.2 the second connect() logged an invalid
-// transition and, on success, left the FSM stuck in Failed while the channel
-// was open.
+// and land Connected. A second connect() must transition legally from Failed
+// to Connecting and avoid invalid transitions on success.
 TEST_F(ModbusStateTest, ReconnectAfterFailure_LandsConnectedWithoutInvalidTransition) {
     ScopedLogCapture logCapture;
 
