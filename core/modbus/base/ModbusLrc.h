@@ -9,6 +9,7 @@
 
 #pragma once
 
+#include <QByteArray>
 #include <QByteArrayView>
 #include <cstdint>
 
@@ -23,6 +24,29 @@ namespace modbus::base {
         sum = static_cast<uint8_t>(sum + static_cast<uint8_t>(byte));
     }
     return static_cast<uint8_t>(-sum);
+}
+
+/**
+ * @brief Calculate and append Modbus ASCII LRC byte to @p buffer.
+ * @param buffer Output buffer to append 1-byte LRC to.
+ */
+inline void appendModbusAsciiLrc(QByteArray& buffer) noexcept {
+    const uint8_t lrc = calculateModbusAsciiLrc(buffer);
+    buffer.append(static_cast<char>(lrc));
+}
+
+/**
+ * @brief Verify that the trailing byte of @p buffer matches its calculated Modbus ASCII LRC.
+ * @param buffer Buffer containing binary payload + 1-byte LRC.
+ * @return true if valid, false if buffer is too short or LRC does not match.
+ */
+[[nodiscard]] inline bool verifyModbusAsciiLrc(QByteArrayView buffer) noexcept {
+    if (buffer.size() < 2) {
+        return false;
+    }
+    const auto receivedLrc = static_cast<uint8_t>(buffer.back());
+    const uint8_t calculatedLrc = calculateModbusAsciiLrc(buffer.first(buffer.size() - 1));
+    return receivedLrc == calculatedLrc;
 }
 
 } // namespace modbus::base

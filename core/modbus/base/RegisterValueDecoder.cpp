@@ -8,6 +8,7 @@
  */
 
 #include "modbus/base/RegisterValueDecoder.h"
+#include "modbus/base/ModbusByteOrder.h"
 #include <cmath>
 #include <cstring>
 #include <limits>
@@ -50,69 +51,9 @@ QString formatFloatScientific(double val, int sigDigits) {
     return QString::number(val, 'g', sigDigits);
 }
 
-namespace {
-
-uint16_t rearrange16(const uint8_t* p, modbus::base::RegisterOrder order) {
-    if (order == modbus::base::RegisterOrder::BADC || order == modbus::base::RegisterOrder::DCBA) {
-        return (static_cast<uint16_t>(p[1]) << 8) | static_cast<uint16_t>(p[0]);
-    }
-    return (static_cast<uint16_t>(p[0]) << 8) | static_cast<uint16_t>(p[1]);
-}
-
-uint32_t rearrange32(const uint8_t* p, modbus::base::RegisterOrder order) {
-    uint8_t buf[4];
-    switch (order) {
-    case modbus::base::RegisterOrder::ABCD:
-        buf[0] = p[0]; buf[1] = p[1]; buf[2] = p[2]; buf[3] = p[3];
-        break;
-    case modbus::base::RegisterOrder::CDAB:
-        buf[0] = p[2]; buf[1] = p[3]; buf[2] = p[0]; buf[3] = p[1];
-        break;
-    case modbus::base::RegisterOrder::BADC:
-        buf[0] = p[1]; buf[1] = p[0]; buf[2] = p[3]; buf[3] = p[2];
-        break;
-    case modbus::base::RegisterOrder::DCBA:
-        buf[0] = p[3]; buf[1] = p[2]; buf[2] = p[1]; buf[3] = p[0];
-        break;
-    }
-    return (static_cast<uint32_t>(buf[0]) << 24) |
-           (static_cast<uint32_t>(buf[1]) << 16) |
-           (static_cast<uint32_t>(buf[2]) << 8)  |
-            static_cast<uint32_t>(buf[3]);
-}
-
-uint64_t rearrange64(const uint8_t* p, modbus::base::RegisterOrder order) {
-    uint8_t buf[8];
-    switch (order) {
-    case modbus::base::RegisterOrder::ABCD:
-        std::memcpy(buf, p, 8);
-        break;
-    case modbus::base::RegisterOrder::CDAB: // Word Reverse (R4, R3, R2, R1)
-        buf[0] = p[6]; buf[1] = p[7];
-        buf[2] = p[4]; buf[3] = p[5];
-        buf[4] = p[2]; buf[5] = p[3];
-        buf[6] = p[0]; buf[7] = p[1];
-        break;
-    case modbus::base::RegisterOrder::BADC: // Byte Swap per word
-        buf[0] = p[1]; buf[1] = p[0];
-        buf[2] = p[3]; buf[3] = p[2];
-        buf[4] = p[5]; buf[5] = p[4];
-        buf[6] = p[7]; buf[7] = p[6];
-        break;
-    case modbus::base::RegisterOrder::DCBA: // Pure Little-Endian reverse
-        buf[0] = p[7]; buf[1] = p[6]; buf[2] = p[5]; buf[3] = p[4];
-        buf[4] = p[3]; buf[5] = p[2]; buf[6] = p[1]; buf[7] = p[0];
-        break;
-    }
-
-    uint64_t u64 = 0;
-    for (int i = 0; i < 8; ++i) {
-        u64 = (u64 << 8) | static_cast<uint64_t>(buf[i]);
-    }
-    return u64;
-}
-
-} // namespace
+using modbus::base::rearrange16;
+using modbus::base::rearrange32;
+using modbus::base::rearrange64;
 
 DecodedRegisterValue decodeRegister(
     QByteArrayView rawBytes,

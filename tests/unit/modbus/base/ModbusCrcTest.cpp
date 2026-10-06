@@ -1,5 +1,6 @@
 #include <gtest/gtest.h>
 #include "modbus/base/ModbusCrc.h"
+#include "modbus/base/ModbusLrc.h"
 #include <QByteArray>
 #include <vector>
 #include <tuple>
@@ -39,4 +40,32 @@ TEST(ModbusCrcTest, LargeDataStability) {
     uint16_t crc1 = calculateModbusRtuCrc(large);
     uint16_t crc2 = calculateModbusRtuCrc(large);
     EXPECT_EQ(crc1, crc2);
+}
+
+TEST(ModbusCrcTest, AppendAndVerifyModbusRtuCrc) {
+    QByteArray data = QByteArray::fromHex("010300000001");
+    appendModbusRtuCrc(data);
+    EXPECT_EQ(data.size(), 8);
+    EXPECT_TRUE(verifyModbusRtuCrc(data));
+
+    // Corrupt last byte -> fails verification
+    data[data.size() - 1] = static_cast<char>(data.back() ^ 0xFF);
+    EXPECT_FALSE(verifyModbusRtuCrc(data));
+
+    // Too short
+    EXPECT_FALSE(verifyModbusRtuCrc(QByteArray::fromHex("0102")));
+}
+
+TEST(ModbusLrcTest, AppendAndVerifyModbusAsciiLrc) {
+    QByteArray data = QByteArray::fromHex("010300000001");
+    appendModbusAsciiLrc(data);
+    EXPECT_EQ(data.size(), 7);
+    EXPECT_TRUE(verifyModbusAsciiLrc(data));
+
+    // Corrupt last byte
+    data[data.size() - 1] = static_cast<char>(data.back() ^ 0xFF);
+    EXPECT_FALSE(verifyModbusAsciiLrc(data));
+
+    // Too short
+    EXPECT_FALSE(verifyModbusAsciiLrc(QByteArray::fromHex("01")));
 }

@@ -12,6 +12,7 @@
 #include "CollapsibleSection.h"
 #include "common/SettingsKeys.h"
 #include "common/ModbusDataHelper.h"
+#include "modbus/base/ModbusAduBuilder.h"
 #include "modbus/base/ModbusCrc.h"
 #include "modbus/base/ModbusLrc.h"
 #include "infra/config/ISettingsService.h"
@@ -561,7 +562,7 @@ void FunctionWidget::onAppendCrcClicked() {
     if (data.isEmpty()) return;
 
     if (transportMode_ == ui::application::modbus::TransportUiMode::Ascii) {
-        data.append(static_cast<char>(modbus::base::calculateModbusAsciiLrc(data)));
+        modbus::base::appendModbusAsciiLrc(data);
         QByteArray asciiFrame(":");
         asciiFrame.append(data.toHex().toUpper());
         asciiFrame.append("\r\n");
@@ -569,32 +570,20 @@ void FunctionWidget::onAppendCrcClicked() {
         return;
     }
 
-    uint16_t crc = modbus::base::calculateModbusRtuCrc(data);
-    data.append(static_cast<char>(crc & 0xFF));
-    data.append(static_cast<char>((crc >> 8) & 0xFF));
-
+    modbus::base::appendModbusRtuCrc(data);
     rawDataEdit_->setPlainText(data.toHex(' ').toUpper());
 }
 
 void FunctionWidget::onAddMbapClicked() {
     if (!rawDataEdit_) return;
-    QString input = rawDataEdit_->toPlainText();
-    QByteArray data = ui::common::data_helper::parseHex(input);
+    const QString input = rawDataEdit_->toPlainText();
+    const QByteArray data = ui::common::data_helper::parseHex(input);
     if (data.isEmpty()) return;
-    
-    QByteArray mbap;
-    mbap.resize(7);
-    mbap[0] = 0; // Trans ID High
-    mbap[1] = 0; // Trans ID Low
-    mbap[2] = 0; // Proto ID High
-    mbap[3] = 0; // Proto ID Low
-    uint16_t len = static_cast<uint16_t>(data.size() + 1);
-    mbap[4] = static_cast<char>((len >> 8) & 0xFF);
-    mbap[5] = static_cast<char>(len & 0xFF);
-    mbap[6] = static_cast<char>(getSlaveId());
-    
-    data.prepend(mbap);
-    rawDataEdit_->setPlainText(data.toHex(' ').toUpper());
+
+    const auto fc = static_cast<modbus::base::FunctionCode>(static_cast<uint8_t>(data[0]));
+    const modbus::base::Pdu pdu(fc, data.mid(1));
+    const QByteArray tcpAdu = modbus::base::buildTcpAdu(static_cast<uint8_t>(getSlaveId()), pdu);
+    rawDataEdit_->setPlainText(tcpAdu.toHex(' ').toUpper());
 }
 
 } // namespace ui::widgets

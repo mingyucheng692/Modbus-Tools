@@ -9,6 +9,7 @@
 
 #include "views/converter/Ieee754ConverterWidget.h"
 #include "modbus/base/RegisterValueDecoder.h"
+#include "modbus/base/ModbusByteOrder.h"
 
 #include <QVBoxLayout>
 #include <QHBoxLayout>
@@ -579,41 +580,9 @@ void Ieee754ConverterWidget::updateMatrixTable()
     for (int r = 0; r < 4; ++r) {
         uint8_t buf[8];
         if (precision_ == Precision::Float32) {
-            switch (specs[r].order) {
-            case modbus::base::RegisterOrder::ABCD:
-                buf[0] = src[0]; buf[1] = src[1]; buf[2] = src[2]; buf[3] = src[3];
-                break;
-            case modbus::base::RegisterOrder::CDAB:
-                buf[0] = src[2]; buf[1] = src[3]; buf[2] = src[0]; buf[3] = src[1];
-                break;
-            case modbus::base::RegisterOrder::BADC:
-                buf[0] = src[1]; buf[1] = src[0]; buf[2] = src[3]; buf[3] = src[2];
-                break;
-            case modbus::base::RegisterOrder::DCBA:
-                buf[0] = src[3]; buf[1] = src[2]; buf[2] = src[1]; buf[3] = src[0];
-                break;
-            }
+            modbus::base::rearrangeBytes32(src, buf, specs[r].order);
         } else {
-            switch (specs[r].order) {
-            case modbus::base::RegisterOrder::ABCD:
-                std::memcpy(buf, src, 8);
-                break;
-            case modbus::base::RegisterOrder::CDAB:
-                buf[0] = src[6]; buf[1] = src[7];
-                buf[2] = src[4]; buf[3] = src[5];
-                buf[4] = src[2]; buf[5] = src[3];
-                buf[6] = src[0]; buf[7] = src[1];
-                break;
-            case modbus::base::RegisterOrder::BADC:
-                buf[0] = src[1]; buf[1] = src[0];
-                buf[2] = src[3]; buf[3] = src[2];
-                buf[4] = src[5]; buf[5] = src[4];
-                buf[6] = src[7]; buf[7] = src[6];
-                break;
-            case modbus::base::RegisterOrder::DCBA:
-                for (int i = 0; i < 8; ++i) buf[i] = src[7 - i];
-                break;
-            }
+            modbus::base::rearrangeBytes64(src, buf, specs[r].order);
         }
 
         // Column 0: Order (Compact label with rich tooltip)

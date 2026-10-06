@@ -94,6 +94,7 @@ set(TEST_CORE_LOGIC_SOURCES
     unit/logging/TraceContextTest.cpp
     unit/modbus/base/DataHelperTest.cpp
     unit/modbus/base/ModbusAddressMappingTest.cpp
+    unit/modbus/base/ModbusByteOrderTest.cpp
     unit/modbus/base/ModbusCrcTest.cpp
     unit/modbus/base/ModbusEndianCodecTest.cpp
     unit/modbus/base/ModbusPduTest.cpp

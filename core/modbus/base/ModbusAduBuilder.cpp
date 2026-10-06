@@ -19,9 +19,7 @@ QByteArray buildRtuAdu(uint8_t slaveId, const Pdu& pdu) {
     adu.reserve(1 + pduBytes.size() + 2);
     adu.append(static_cast<char>(slaveId));
     adu.append(pduBytes);
-    const uint16_t crc = calculateModbusRtuCrc(adu);
-    adu.append(static_cast<char>(crc & 0xFF));
-    adu.append(static_cast<char>((crc >> 8) & 0xFF));
+    appendModbusRtuCrc(adu);
     return adu;
 }
 
@@ -47,8 +45,7 @@ QByteArray buildAsciiAdu(uint8_t slaveId, const Pdu& pdu) {
     raw.reserve(1 + pduBytes.size() + 1);
     raw.append(static_cast<char>(slaveId));
     raw.append(pduBytes);
-    const uint8_t lrc = calculateModbusAsciiLrc(raw);
-    raw.append(static_cast<char>(lrc));
+    appendModbusAsciiLrc(raw);
 
     QByteArray adu;
     adu.reserve(1 + raw.size() * 2 + 2);

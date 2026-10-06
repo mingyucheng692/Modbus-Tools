@@ -11,6 +11,7 @@
  */
 
 #include "ModbusSerialTransport.h"
+#include "../base/ModbusAduBuilder.h"
 #include "../base/ModbusCrc.h"
 #include "../base/ModbusLrc.h"
 #include "../base/ModbusProtocolChecks.h"
@@ -28,28 +29,10 @@ ModbusSerialTransport::ModbusSerialTransport(SerialFraming framing)
 QByteArray ModbusSerialTransport::buildRequest(const base::Pdu& pdu, uint8_t slaveId) {
     pendingSlave_ = slaveId;
 
-    // --- common binary ADU body (slaveId + functionCode + data) ---
-    QByteArray binaryAdu;
-    QDataStream stream(&binaryAdu, QIODevice::WriteOnly);
-    stream << slaveId;
-    stream << static_cast<uint8_t>(pdu.functionCode());
-    binaryAdu.append(pdu.data());
-
     if (framing_ == SerialFraming::Rtu) {
-        // RTU: append CRC-16 (little-endian)
-        uint16_t crc = base::calculateModbusRtuCrc(binaryAdu);
-        binaryAdu.append(static_cast<char>(crc & 0xFF));
-        binaryAdu.append(static_cast<char>((crc >> 8) & 0xFF));
-        return binaryAdu;
-    } else {
-        // ASCII: append LRC, then hex-encode with ':' prefix and "\r\n" suffix
-        binaryAdu.append(static_cast<char>(base::calculateModbusAsciiLrc(binaryAdu)));
-
-        QByteArray asciiFrame(":");
-        asciiFrame.append(binaryAdu.toHex().toUpper());
-        asciiFrame.append("\r\n");
-        return asciiFrame;
+        return base::buildRtuAdu(slaveId, pdu);
     }
+    return base::buildAsciiAdu(slaveId, pdu);
 }
 
 ParseResponseResult ModbusSerialTransport::parseResponse(const QByteArray& adu) {
