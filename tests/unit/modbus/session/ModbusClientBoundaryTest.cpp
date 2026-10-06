@@ -650,4 +650,37 @@ TEST_F(ModbusClientBoundaryTest, DifferentiatedRetries_WriteRetriesWithDefaultPo
     EXPECT_EQ(resp.attemptCount, 2);
 }
 
+// ============================================================================
+// Result Interoperability: sendRequestResult and sendRequestAsyncResult
+// ============================================================================
+
+TEST_F(ModbusClientBoundaryTest, SendRequestResult_DeliversResultDirectly) {
+    cfg_.mode = ModbusMode::TCP;
+    cfg_.timeoutMs = 500;
+    client_->setConfig(cfg_);
+    connectClient();
+
+    EXPECT_CALL(*mockTransport_, buildRequest(_, _))
+        .WillOnce(Return(QByteArray::fromHex("000100000006010300000002")));
+    EXPECT_CALL(*mockChannel_, write(_)).WillOnce(Return(true));
+    EXPECT_CALL(*mockTransport_, parseResponse(_))
+        .WillOnce(Return(ParseResponseResult{
+            ParseResponseStatus::Ok,
+            Pdu(FunctionCode::ReadHoldingRegisters,
+                QByteArray::fromHex("04000A000B"))}));
+
+    std::thread responder([this]() {
+        std::this_thread::sleep_for(std::chrono::milliseconds(20));
+        if (readHandler_) {
+            readHandler_(QByteArray::fromHex("000100000007010304000A000B"));
+        }
+    });
+
+    const auto res = client_->sendRequestResult(makeRhrPdu(), 1);
+    responder.join();
+
+    EXPECT_TRUE(res.isOk());
+    EXPECT_EQ(res.value().functionCode(), FunctionCode::ReadHoldingRegisters);
+}
+
 } // namespace

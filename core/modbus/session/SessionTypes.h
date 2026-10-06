@@ -62,7 +62,17 @@ struct ModbusResponse {
             return ::common::Result<base::Pdu, base::ModbusError>::ok(pdu);
         }
         return ::common::Result<base::Pdu, base::ModbusError>::err(
-            errorCode != base::ModbusError::None ? errorCode : base::ModbusError::Unknown);
+            (errorCode != base::ModbusError::None) ? errorCode : base::ModbusError::Unknown);
+    }
+
+    [[nodiscard]] static ModbusResponse fromResult(
+        const ::common::Result<base::Pdu, base::ModbusError>& result,
+        int rttMs = -1,
+        int attemptCount = 0) {
+        if (result.isOk()) {
+            return Success(result.value(), rttMs, attemptCount);
+        }
+        return Error(result.error(), QString(), attemptCount);
     }
 
     static ModbusResponse Success(base::Pdu pdu, int rttMs = -1, int attemptCount = 0) {

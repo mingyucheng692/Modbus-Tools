@@ -53,6 +53,7 @@ function(modbus_add_test_target target_name main_source)
     target_include_directories(${target_name} PRIVATE
         ${CMAKE_CURRENT_SOURCE_DIR}
         ${PROJECT_SOURCE_DIR}/infra
+        ${PROJECT_SOURCE_DIR}/core
     )
 
     target_link_libraries(${target_name} PRIVATE
@@ -61,6 +62,13 @@ function(modbus_add_test_target target_name main_source)
         Qt6::Test
         ${TEST_LIBS}
     )
+
+    if(TARGET core)
+        add_dependencies(${target_name} core)
+    endif()
+    if(TARGET infra)
+        add_dependencies(${target_name} infra)
+    endif()
 
     set_target_properties(${target_name} PROPERTIES
         TIMEOUT 300
@@ -161,18 +169,21 @@ add_library(test_modbus_common_objects OBJECT
 target_include_directories(test_modbus_common_objects PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}
     ${PROJECT_SOURCE_DIR}/infra
+    ${PROJECT_SOURCE_DIR}/core
 )
 target_link_libraries(test_modbus_common_objects PUBLIC core GTest::gtest GTest::gmock)
 if(MSVC)
     target_compile_options(test_modbus_common_objects PRIVATE /utf-8 /EHsc)
 endif()
 set_property(TARGET test_modbus_common_objects PROPERTY AUTOMOC ON)
+add_dependencies(test_modbus_common_objects core infra)
 
 modbus_add_test_target(test_core_logic
     ${CMAKE_CURRENT_SOURCE_DIR}/TestMainCore.cpp
     SOURCES "${TEST_CORE_LOGIC_SOURCES}"
     LIBS core ${MODBUS_UI_WHOLE_ARCHIVE} Qt6::Core test_modbus_common_objects
 )
+add_dependencies(test_core_logic test_modbus_common_objects)
 
 modbus_add_test_target(test_qt_core
     ${CMAKE_CURRENT_SOURCE_DIR}/TestMainCore.cpp

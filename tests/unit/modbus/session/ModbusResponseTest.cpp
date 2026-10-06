@@ -90,3 +90,45 @@ TEST(ModbusResponseTest, ResultTemplateBasicOperations) {
     EXPECT_EQ(voidErr.error(), ModbusError::WriteFailed);
 }
 
+TEST(ModbusResponseTest, NoResponseExpectedToResultConvertsPdu) {
+    const modbus::base::Pdu pdu(modbus::base::FunctionCode::WriteSingleRegister, QByteArray(4, 0x00));
+    const auto response = ModbusResponse::NoResponseExpected(pdu, 1);
+    EXPECT_TRUE(response.isNoResponseExpected());
+    EXPECT_FALSE(response.isError());
+    const auto res = response.toResult();
+    EXPECT_TRUE(res.isOk());
+    EXPECT_EQ(res.value().functionCode(), modbus::base::FunctionCode::WriteSingleRegister);
+}
+
+TEST(ModbusResponseTest, UnstructuredErrorToResultMapsToUnknown) {
+    const auto response = ModbusResponse::Error(QStringLiteral("Unmapped legacy error string"));
+    EXPECT_TRUE(response.isError());
+    EXPECT_EQ(response.errorCode, modbus::base::ModbusError::None);
+    const auto res = response.toResult();
+    EXPECT_TRUE(res.isErr());
+    EXPECT_EQ(res.error(), modbus::base::ModbusError::Unknown);
+}
+
+TEST(ModbusResponseTest, FromResultRoundTrip) {
+    using modbus::base::ModbusError;
+    using modbus::base::Pdu;
+    using modbus::base::FunctionCode;
+
+    const Pdu pdu(FunctionCode::ReadCoils, QByteArray(1, 0x01));
+    const auto okRes = common::Result<Pdu, ModbusError>::ok(pdu);
+    const auto respOk = ModbusResponse::fromResult(okRes, 42, 1);
+    EXPECT_FALSE(respOk.isError());
+    EXPECT_EQ(respOk.rttMs, 42);
+    EXPECT_EQ(respOk.attemptCount, 1);
+    EXPECT_EQ(respOk.retryCount(), 0);
+    EXPECT_EQ(respOk.pdu.functionCode(), FunctionCode::ReadCoils);
+
+    const auto errRes = common::Result<Pdu, ModbusError>::err(ModbusError::ConnectionFailed);
+    const auto respErr = ModbusResponse::fromResult(errRes, -1, 2);
+    EXPECT_TRUE(respErr.isError());
+    EXPECT_EQ(respErr.errorCode, ModbusError::ConnectionFailed);
+    EXPECT_EQ(respErr.attemptCount, 2);
+    EXPECT_EQ(respErr.retryCount(), 1);
+    EXPECT_EQ(respErr.toResult().error(), ModbusError::ConnectionFailed);
+}
+

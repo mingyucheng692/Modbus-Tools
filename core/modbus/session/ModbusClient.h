@@ -122,6 +122,9 @@ public:
                           std::function<void(const ModbusResponse&)> callback);
     [[nodiscard]] common::Result<base::Pdu, base::ModbusError> sendRequestResult(
         const base::Pdu& request, int slaveId = -1);
+    void sendRequestAsyncResult(
+        const base::Pdu& request, int slaveId, quint64 traceId,
+        std::function<void(const common::Result<base::Pdu, base::ModbusError>&)> callback);
     void sendRaw(const QByteArray& data);
     bool connect();
     void disconnect();

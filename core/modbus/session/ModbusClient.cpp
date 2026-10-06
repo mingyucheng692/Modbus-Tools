@@ -291,6 +291,17 @@ common::Result<base::Pdu, base::ModbusError> ModbusClient::sendRequestResult(
     return sendRequest(request, slaveId).toResult();
 }
 
+void ModbusClient::sendRequestAsyncResult(
+    const base::Pdu& request, int slaveId, quint64 traceId,
+    std::function<void(const common::Result<base::Pdu, base::ModbusError>&)> callback) {
+    sendRequestAsync(request, slaveId, traceId,
+        [callback = std::move(callback)](const ModbusResponse& response) {
+            if (callback) {
+                callback(response.toResult());
+            }
+        });
+}
+
 void ModbusClient::sendRaw(const QByteArray& data) {
     assertSessionAffinity();
     requestExecutor_.sendRaw(data);
