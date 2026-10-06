@@ -68,6 +68,8 @@ target_sources(ui PRIVATE
     common/CompactMenuBarStyle.h
     common/ModbusDataHelper.h
     common/ModbusDataHelper.cpp
+    common/FileExporter.h
+    common/FileExporter.cpp
     common/ThemeController.cpp
     common/ThemeController.h
     common/ThemeUi.cpp

@@ -17,6 +17,8 @@
 #include "ModbusTypes.h"
 #include "polling/PollingStrategy.h"
 
+class QTimer;
+
 namespace ui::application::modbus {
 
 class RequestSubmissionService;
@@ -74,11 +76,13 @@ public:
     void setFatalDisconnectTimeoutMs(int ms);
 
     void handlePollRequest(const PollSpec& spec);
+    void startPolling(const PollSpec& spec);
     void handleResponse(bool success, int rttMs, int retryCount, const QString& error);
     void stopPoll();
     void reset();
 
     PollState currentState() const;
+    [[nodiscard]] bool isPollingActive() const;
     bool isSuppressingTrafficLog() const;
     const PollContext& context() const;
 
@@ -108,8 +112,10 @@ private:
     void flushPollSummary(bool force);
     void setSessionConnectedInternal(bool connected, bool stopActivePolling);
     void transitionTo(PollState newState);
+    void onPollTimerTick();
 
     RequestSubmissionService* requestService_ = nullptr;
+    QTimer* pollTimer_ = nullptr;
 
     int pollingIntervalMs_ = 1000;
     /// Self-healing window before a persistent connection fault is declared

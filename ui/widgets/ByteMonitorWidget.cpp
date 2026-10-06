@@ -21,6 +21,7 @@
 #include <QTimer>
 #include <QDateTime>
 #include <QFileDialog>
+#include "common/FileExporter.h"
 #include <QApplication>
 #include <QClipboard>
 #include <QMenu>
@@ -324,16 +325,16 @@ void ByteMonitorWidget::onSaveClicked() {
         return;
     }
 
-    QFile file(path);
-    if (!file.open(QIODevice::WriteOnly | QIODevice::Text)) {
-        appendError(tr("Cannot write file: %1").arg(path));
-        return;
+    QStringList lines;
+    const int count = logModel_->rowCount();
+    lines.reserve(count);
+    for (int i = 0; i < count; ++i) {
+        lines << logModel_->lineAt(i);
     }
 
-    QTextStream out(&file);
-    const int count = logModel_->rowCount();
-    for (int i = 0; i < count; ++i) {
-        out << logModel_->lineAt(i) << "\n";
+    QString error;
+    if (!ui::common::exportLinesToFile(path, lines, false, &error)) {
+        appendError(tr("Cannot write file: %1 (%2)").arg(path, error));
     }
 }
 

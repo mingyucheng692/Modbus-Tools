@@ -196,8 +196,7 @@ void NetworkDebuggerView::setupUi() {
     connect(udpWidget_, &widgets::UdpConnectionWidget::unbindClicked,
             this, &NetworkDebuggerView::onUnbindClicked);
 
-    connect(inputWidget_, &widgets::GenericInputWidget::sendRequested,
-            this, &NetworkDebuggerView::onSendRequested);
+    bindInputWidget(inputWidget_);
     connect(serverClientPanel_, &widgets::ServerClientPanel::disconnectClientsRequested,
             this, &NetworkDebuggerView::onDisconnectSelectedClientsRequested);
     connect(serverClientPanel_, &widgets::ServerClientPanel::disconnectAllClientsRequested,
@@ -245,6 +244,12 @@ void NetworkDebuggerView::stopServerWorker() {
 }
 
 void NetworkDebuggerView::switchToProtocol(Protocol protocol) {
+    if (channelController_ && channelController_->isAutoSendActive()) {
+        channelController_->stopAutoSend();
+        if (inputWidget_) {
+            inputWidget_->setAutoSendEnabled(false);
+        }
+    }
     currentProtocol_ = protocol;
 
     switch (protocol) {
@@ -422,6 +427,12 @@ void NetworkDebuggerView::onWorkerStateChanged(io::ChannelState state, quint64 g
         suppressDisconnectAlert_ || manualDisconnectRequested_);
 
     isConnected_ = (state == io::ChannelState::Open);
+    if (!isConnected_ && channelController_ && channelController_->isAutoSendActive()) {
+        channelController_->stopAutoSend();
+        if (inputWidget_) {
+            inputWidget_->setAutoSendEnabled(false);
+        }
+    }
     if (transition.clearSuppressDisconnectAlert) {
         suppressDisconnectAlert_ = false;
     }

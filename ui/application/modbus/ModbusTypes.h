@@ -28,6 +28,7 @@ struct PollSpec {
     uint16_t startAddress = 0;
     uint16_t quantity = 0;
     uint8_t slaveId = static_cast<uint8_t>(config::Modbus::kDefaultSlaveId);
+    int intervalMs = config::Polling::kDefaultIntervalMs;
 };
 
 struct ModbusTimingParams {

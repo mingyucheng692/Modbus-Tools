@@ -11,6 +11,8 @@
 #include "../../infra/io/ChannelOperationWorker.h"
 #include <QThread>
 #include <QMetaObject>
+#include <QTimer>
+#include <algorithm>
 
 namespace ui::views {
 
@@ -37,6 +39,7 @@ io::ChannelOperationWorker* ChannelController::createWorker() {
 }
 
 void ChannelController::destroyWorker() {
+    stopAutoSend();
     auto* thread = workerThread_;
     auto* worker = worker_;
     workerThread_ = nullptr;
@@ -58,10 +61,41 @@ void ChannelController::write(const QByteArray& data) {
 }
 
 void ChannelController::disconnect() {
+    stopAutoSend();
     if (!worker_) {
         return;
     }
     QMetaObject::invokeMethod(worker_, "close", Qt::QueuedConnection);
+}
+
+void ChannelController::startAutoSend(int intervalMs, std::function<void()> sendAction) {
+    autoSendAction_ = std::move(sendAction);
+    if (!autoSendTimer_) {
+        autoSendTimer_ = new QTimer(this);
+        connect(autoSendTimer_, &QTimer::timeout, this, [this]() {
+            if (autoSendAction_) {
+                autoSendAction_();
+            }
+        });
+    }
+    autoSendTimer_->start(std::max(1, intervalMs));
+}
+
+void ChannelController::stopAutoSend() {
+    if (autoSendTimer_) {
+        autoSendTimer_->stop();
+    }
+    autoSendAction_ = nullptr;
+}
+
+void ChannelController::setAutoSendInterval(int intervalMs) {
+    if (autoSendTimer_ && autoSendTimer_->isActive()) {
+        autoSendTimer_->setInterval(std::max(1, intervalMs));
+    }
+}
+
+bool ChannelController::isAutoSendActive() const {
+    return autoSendTimer_ && autoSendTimer_->isActive();
 }
 
 void ChannelController::stopWorkerPair(QThread* thread, QObject* worker,

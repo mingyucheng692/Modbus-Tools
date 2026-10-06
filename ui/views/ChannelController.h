@@ -55,6 +55,18 @@ public:
     /// Invokes close() on the worker via queued connection.
     void disconnect();
 
+    /// Starts periodic auto-sending using sendAction callback.
+    void startAutoSend(int intervalMs, std::function<void()> sendAction);
+
+    /// Stops active auto-sending.
+    void stopAutoSend();
+
+    /// Updates interval for active auto-send timer.
+    void setAutoSendInterval(int intervalMs);
+
+    /// Returns true if auto-send timer is currently running.
+    [[nodiscard]] bool isAutoSendActive() const;
+
     /// Stops a (worker, thread) pair using deleteLater + quit pattern.
     /// Caller must nullify its member pointers before calling.
     /// @param onPreStop  invoked before shutdown logic.
@@ -67,6 +79,8 @@ public:
 private:
     QThread* workerThread_ = nullptr;
     io::ChannelOperationWorker* worker_ = nullptr;
+    QTimer* autoSendTimer_ = nullptr;
+    std::function<void()> autoSendAction_;
 };
 
 } // namespace ui::views

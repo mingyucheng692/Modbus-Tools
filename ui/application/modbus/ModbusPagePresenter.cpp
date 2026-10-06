@@ -120,10 +120,24 @@ void ModbusPagePresenter::wireConnections() {
                     emit linkageToggled(active);
                 });
 
-        connect(controlWidget_, &ui::widgets::ControlWidget::pollRequested,
-                this, [this](uint8_t fc, int addr, int qty) {
-                    handlePollRequest(fc, addr, qty,
-                        controlWidget_->pollingIntervalMs());
+        connect(controlWidget_, &ui::widgets::ControlWidget::pollStartRequested,
+                this, &ModbusPagePresenter::handlePollStartRequest);
+
+        connect(controlWidget_, &ui::widgets::ControlWidget::pollStopRequested,
+                this, &ModbusPagePresenter::handlePollStopRequest);
+
+        connect(controlWidget_, &ui::widgets::ControlWidget::pollIntervalChanged,
+                this, [this](int intervalMs) {
+                    if (pollingController_) {
+                        pollingController_->setPollingInterval(intervalMs);
+                    }
+                });
+
+        connect(pollingController_, &PollingController::stopRequested,
+                this, [this]() {
+                    if (controlWidget_) {
+                        controlWidget_->setPollingEnabled(false);
+                    }
                 });
     }
 
@@ -411,18 +425,32 @@ void ModbusPagePresenter::handleRawSendRequest(const QByteArray& data) {
 }
 
 void ModbusPagePresenter::handlePollRequest(uint8_t fc, int addr, int qty, int intervalMs) {
-    if (!ensureConnected()) return;
-    if (!pollingController_) return;
+    handlePollStartRequest(fc, addr, qty, intervalMs);
+}
 
-    pollingController_->setPollingInterval(intervalMs);
+void ModbusPagePresenter::handlePollStartRequest(uint8_t fc, int addr, int qty, int intervalMs) {
+    if (!ensureConnected()) {
+        if (controlWidget_) {
+            controlWidget_->setPollingEnabled(false);
+        }
+        return;
+    }
+    if (!pollingController_) return;
 
     PollSpec spec;
     spec.functionCode = fc;
     spec.startAddress = static_cast<uint16_t>(addr);
     spec.quantity = static_cast<uint16_t>(qty);
     spec.slaveId = static_cast<uint8_t>(config::Modbus::kDefaultSlaveId);
+    spec.intervalMs = intervalMs;
 
-    pollingController_->handlePollRequest(spec);
+    pollingController_->startPolling(spec);
+}
+
+void ModbusPagePresenter::handlePollStopRequest() {
+    if (pollingController_) {
+        pollingController_->stopPoll();
+    }
 }
 
 void ModbusPagePresenter::handleRequestFinished(int requestId,

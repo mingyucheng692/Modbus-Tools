@@ -9,6 +9,7 @@
 
 #include "GenericChannelViewBase.h"
 #include "ChannelController.h"
+#include "../widgets/GenericInputWidget.h"
 #include "infra/config/ISettingsService.h"
 #include <spdlog/spdlog.h>
 #include <QEvent>
@@ -22,9 +23,58 @@ GenericChannelViewBase::GenericChannelViewBase(infra::config::ISettingsService* 
 
 GenericChannelViewBase::~GenericChannelViewBase() noexcept = default;
 
+void GenericChannelViewBase::bindInputWidget(widgets::GenericInputWidget* inputWidget) {
+    inputWidget_ = inputWidget;
+    if (!inputWidget_) {
+        return;
+    }
+    connect(inputWidget_, &widgets::GenericInputWidget::sendRequested,
+            this, &GenericChannelViewBase::onSendRequested);
+    connect(inputWidget_, &widgets::GenericInputWidget::autoSendToggled,
+            this, &GenericChannelViewBase::onAutoSendToggled);
+    connect(inputWidget_, &widgets::GenericInputWidget::autoSendIntervalChanged,
+            this, &GenericChannelViewBase::onAutoSendIntervalChanged);
+}
+
+void GenericChannelViewBase::onAutoSendToggled(bool checked, int intervalMs) {
+    if (!channelController_) {
+        return;
+    }
+    if (checked) {
+        channelController_->startAutoSend(intervalMs, [this]() {
+            onAutoSendTimerTimeout();
+        });
+    } else {
+        channelController_->stopAutoSend();
+    }
+}
+
+void GenericChannelViewBase::onAutoSendIntervalChanged(int intervalMs) {
+    if (channelController_) {
+        channelController_->setAutoSendInterval(intervalMs);
+    }
+}
+
+void GenericChannelViewBase::onAutoSendTimerTimeout() {
+    if (!inputWidget_) {
+        return;
+    }
+    const QByteArray data = inputWidget_->getData();
+    if (!data.isEmpty()) {
+        onSendRequested(data);
+    }
+}
+
 void GenericChannelViewBase::onDisconnectClicked() {
     if (!channelController_ || !channelController_->hasWorker()) {
         return;
+    }
+
+    if (channelController_->isAutoSendActive()) {
+        channelController_->stopAutoSend();
+        if (inputWidget_) {
+            inputWidget_->setAutoSendEnabled(false);
+        }
     }
 
     // Suppress the "connection lost" alert since the user caused it.

@@ -11,6 +11,7 @@
 #include "RequestSubmissionService.h"
 #include "Config.h"
 #include <QCoreApplication>
+#include <QTimer>
 #include <algorithm>
 #include <spdlog/spdlog.h>
 
@@ -49,6 +50,8 @@ PollingController::PollingController(RequestSubmissionService* requestService,
     : QObject(parent)
     , requestService_(requestService) {
     fatalDisconnectTimeoutMs_ = config::Polling::kDefaultFatalDisconnectTimeoutMs;
+    pollTimer_ = new QTimer(this);
+    connect(pollTimer_, &QTimer::timeout, this, &PollingController::onPollTimerTick);
 }
 
 void PollingController::setSessionConnected(bool connected) {
@@ -57,6 +60,9 @@ void PollingController::setSessionConnected(bool connected) {
 
 void PollingController::setPollingInterval(int ms) {
     pollingIntervalMs_ = std::max(1, ms);
+    if (pollTimer_ && pollTimer_->isActive()) {
+        pollTimer_->setInterval(pollingIntervalMs_);
+    }
 }
 
 void PollingController::setFatalDisconnectTimeoutMs(int ms) {
@@ -86,6 +92,29 @@ void PollingController::handlePollRequest(const PollSpec& spec) {
     if (!context_.sessionConnected && context_.state == PollState::Idle) return;
 
     context_.currentSpec = spec;
+
+    buildAndSubmit();
+}
+
+void PollingController::startPolling(const PollSpec& spec) {
+    context_.currentSpec = spec;
+    setPollingInterval(spec.intervalMs);
+    if (!context_.requestInFlight && (context_.sessionConnected || context_.state != PollState::Idle)) {
+        buildAndSubmit();
+    }
+    if (pollTimer_) {
+        pollTimer_->start(pollingIntervalMs_);
+    }
+}
+
+bool PollingController::isPollingActive() const {
+    return (pollTimer_ && pollTimer_->isActive()) || (context_.state != PollState::Idle);
+}
+
+void PollingController::onPollTimerTick() {
+    if (context_.state == PollState::Idle) return;
+    if (context_.requestInFlight) return;
+    if (!context_.sessionConnected) return;
 
     buildAndSubmit();
 }
@@ -324,6 +353,9 @@ void PollingController::flushPollSummary(bool force) {
 }
 
 void PollingController::stopPoll() {
+    if (pollTimer_) {
+        pollTimer_->stop();
+    }
     flushPollSummary(true);
     context_.requestInFlight = false;
     context_.suppressTrafficLog = false;

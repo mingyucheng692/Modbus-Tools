@@ -20,8 +20,7 @@
 #include <QPushButton>
 #include <QDateTime>
 #include <QFileDialog>
-#include <QFile>
-#include <QTextStream>
+#include "common/FileExporter.h"
 #include <QApplication>
 #include <QClipboard>
 #include <QMenu>
@@ -591,17 +590,9 @@ void TrafficMonitorWidget::onSaveClicked() {
         });
 
         watcher->setFuture(QtConcurrent::run([fileName, lines, firstChunk, errorMessage]() {
-            QFile file(fileName);
-            QIODevice::OpenMode mode = QIODevice::WriteOnly | QIODevice::Text;
-            mode |= firstChunk ? QIODevice::Truncate : QIODevice::Append;
-            if (!file.open(mode)) {
-                *errorMessage = TrafficMonitorWidget::tr("Cannot write file: %1").arg(fileName);
-                return;
-            }
-
-            QTextStream out(&file);
-            for (const QString& line : lines) {
-                out << line << "\n";
+            QString error;
+            if (!ui::common::exportLinesToFile(fileName, lines, !firstChunk, &error)) {
+                *errorMessage = TrafficMonitorWidget::tr("Cannot write file: %1 (%2)").arg(fileName, error);
             }
         }));
     };

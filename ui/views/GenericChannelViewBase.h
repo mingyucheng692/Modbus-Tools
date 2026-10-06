@@ -17,6 +17,10 @@ namespace infra::config {
 class ISettingsService;
 }
 
+namespace ui::widgets {
+class GenericInputWidget;
+}
+
 namespace ui::views {
 
 class ChannelController;
@@ -39,13 +43,18 @@ public:
 protected slots:
     virtual void onDisconnectClicked();
     virtual void onSendRequested(const QByteArray& data);
+    virtual void onAutoSendToggled(bool checked, int intervalMs);
+    virtual void onAutoSendIntervalChanged(int intervalMs);
 
 protected:
     virtual void retranslateUi() = 0;
     void changeEvent(QEvent* event) override;
+    void bindInputWidget(widgets::GenericInputWidget* inputWidget);
+    virtual void onAutoSendTimerTimeout();
 
     /// Subclasses initialize this in their constructor via setupUi().
     ChannelController* channelController_ = nullptr;
+    widgets::GenericInputWidget* inputWidget_ = nullptr;
 
     bool isConnected_ = false;
 

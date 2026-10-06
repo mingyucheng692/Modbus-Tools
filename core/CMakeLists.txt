@@ -55,6 +55,8 @@ target_sources(core PRIVATE
     modbus/parser/ModbusFrameParser.cpp
     modbus/parser/FrameParseWorker.h
     modbus/parser/FrameParseWorker.cpp
+    # telemetry
+    modbus/telemetry/TrafficMetrics.h
     # analyzer common & exporter
     analyzer/AnalyzerCommon.h
     analyzer/AnalyzerExporter.h

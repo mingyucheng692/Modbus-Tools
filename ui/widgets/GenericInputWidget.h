@@ -10,7 +10,6 @@
 #pragma once
 
 #include <QWidget>
-#include <QTimer>
 
 class QTextEdit;
 class QRadioButton;
@@ -36,20 +35,23 @@ public:
     ~GenericInputWidget() override;
 
     void setSettingsGroup(const QString& group);
+    [[nodiscard]] QByteArray getData() const;
+    void setAutoSendEnabled(bool enabled);
+    [[nodiscard]] bool isAutoSendEnabled() const;
 
 signals:
     void sendRequested(const QByteArray& data);
+    void autoSendToggled(bool checked, int intervalMs);
+    void autoSendIntervalChanged(int intervalMs);
 
 private slots:
     void onSendClicked();
     void onAutoSendToggled(bool checked);
-    void onTimerTimeout();
     void onFormatChanged();
     void onHistoryActivated(int index);
 
 private:
     void setupUi();
-    QByteArray getData() const;
     void loadSettings();
     void saveSettings();
     void retranslateUi();
@@ -69,7 +71,6 @@ private:
     QComboBox* encodingCombo_ = nullptr;
     QComboBox* sendHistoryCombo_ = nullptr;
 
-    QTimer* autoSendTimer_ = nullptr;
     QString settingsGroup_;
     infra::config::ISettingsService* settingsService_ = nullptr;
 };

@@ -18,7 +18,6 @@ class QSpinBox;
 class QLineEdit;
 class QComboBox;
 class QLabel;
-class QTimer;
 class QEvent;
 class QString;
 class QPoint;
@@ -42,13 +41,15 @@ public:
     void setSettingsGroup(const QString& group);
     void setLinked(bool active);
     void setPollingEnabled(bool enabled);
+    [[nodiscard]] bool isPollingEnabled() const;
     void setInteractionsEnabled(bool enabled);
-    int pollingIntervalMs() const;
+    [[nodiscard]] int pollingIntervalMs() const;
     void setAddressBase(modbus::address::AddressBase base);
 
 signals:
-    // Poll Requested: Function Code, Address, Quantity
-    void pollRequested(uint8_t functionCode, int address, int quantity);
+    void pollStartRequested(uint8_t functionCode, int address, int quantity, int intervalMs);
+    void pollStopRequested();
+    void pollIntervalChanged(int intervalMs);
     void linkToggled(bool active);
     
     /**
@@ -60,7 +61,6 @@ signals:
 
 private:
     void setupUi();
-    void onTimer();
     void updateStatsLabel();
     bool isRttSegmentHovered(const QPoint& localPos) const;
     void loadSettings();
@@ -82,8 +82,6 @@ private:
     QCheckBox* linkCheck_ = nullptr;
     
     QLabel* statsLabel_ = nullptr;
-    
-    QTimer* pollTimer_ = nullptr;
 
     // Stats
     int txCount_ = 0;

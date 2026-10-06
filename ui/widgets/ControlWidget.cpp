@@ -17,7 +17,6 @@
 #include <QSpinBox>
 #include <QLineEdit>
 #include <QComboBox>
-#include <QTimer>
 #include <QEvent>
 #include <QSignalBlocker>
 #include <QSizePolicy>
@@ -34,26 +33,57 @@ ControlWidget::ControlWidget(infra::config::ISettingsService* settingsService, Q
       settingsService_(settingsService) {
     setupUi();
     
-    pollTimer_ = new QTimer(this);
-    connect(pollTimer_, &QTimer::timeout, this, &ControlWidget::onTimer);
-    
     setInteractionsEnabled(false);
     
+    auto emitPollStartIfValid = [this]() {
+        int fcIndex = fcCombo_->currentIndex();
+        uint8_t fc = 0x03; // Default
+        switch(fcIndex) {
+            case 0: fc = 0x01; break; // Coils
+            case 1: fc = 0x02; break; // Discrete Inputs
+            case 2: fc = 0x03; break; // Holding Registers
+            case 3: fc = 0x04; break; // Input Registers
+            default: fc = 0x03; break;
+        }
+
+        const auto addrResult = modbus::address::toPduAddress(addrEdit_->text(), addressBase_);
+        if (!addrResult.isValid) {
+            emit logMessageRequested(tr("Invalid Polling Address: %1 (%2)").arg(addrEdit_->text(), addrResult.errorMessage), true);
+            if (enablePollCheck_) {
+                QSignalBlocker blocker(enablePollCheck_);
+                enablePollCheck_->setChecked(false);
+            }
+            emit pollStopRequested();
+            return;
+        }
+
+        emit pollStartRequested(fc, addrResult.pduAddress, qtySpin_->value(), intervalSpin_->value());
+    };
+
     // Connect Enable Checkbox
-    connect(enablePollCheck_, &QCheckBox::clicked, [this](bool checked) {
+    connect(enablePollCheck_, &QCheckBox::clicked, this, [this, emitPollStartIfValid](bool checked) {
         if (checked) {
-            pollTimer_->start(intervalSpin_->value());
+            emitPollStartIfValid();
         } else {
-            pollTimer_->stop();
+            emit pollStopRequested();
         }
     });
 
     // Connect Interval Change
-    connect(intervalSpin_, &QSpinBox::valueChanged, [this](int val) {
-        if (pollTimer_->isActive()) {
-            pollTimer_->setInterval(val);
+    connect(intervalSpin_, qOverload<int>(&QSpinBox::valueChanged), this, [this](int val) {
+        if (enablePollCheck_ && enablePollCheck_->isChecked()) {
+            emit pollIntervalChanged(val);
         }
     });
+
+    auto updateActivePollParams = [this, emitPollStartIfValid]() {
+        if (enablePollCheck_ && enablePollCheck_->isChecked()) {
+            emitPollStartIfValid();
+        }
+    };
+    connect(fcCombo_, qOverload<int>(&QComboBox::currentIndexChanged), this, updateActivePollParams);
+    connect(addrEdit_, &QLineEdit::editingFinished, this, updateActivePollParams);
+    connect(qtySpin_, qOverload<int>(&QSpinBox::valueChanged), this, updateActivePollParams);
 
     connect(intervalSpin_, qOverload<int>(&QSpinBox::valueChanged), this, &ControlWidget::saveSettings);
     connect(fcCombo_, qOverload<int>(&QComboBox::currentIndexChanged), this, &ControlWidget::saveSettings);
@@ -86,34 +116,7 @@ void ControlWidget::recordError() {
     updateStatsLabel();
 }
 
-void ControlWidget::onTimer() {
-    int fcIndex = fcCombo_->currentIndex();
-    uint8_t fc = 0x03; // Default
-    
-    // Map index to FC (01, 02, 03, 04)
-    switch(fcIndex) {
-        case 0: fc = 0x01; break; // Coils
-        case 1: fc = 0x02; break; // Discrete Inputs
-        case 2: fc = 0x03; break; // Holding Registers
-        case 3: fc = 0x04; break; // Input Registers
-        default: fc = 0x03; break;
-    }
-    
-    const auto addrResult = modbus::address::toPduAddress(addrEdit_->text(), addressBase_);
-    if (!addrResult.isValid) {
-        emit logMessageRequested(tr("Invalid Polling Address: %1 (%2)").arg(addrEdit_->text(), addrResult.errorMessage), true);
-        if (enablePollCheck_) {
-            QSignalBlocker blocker(enablePollCheck_);
-            enablePollCheck_->setChecked(false);
-        }
-        if (pollTimer_) {
-            pollTimer_->stop();
-        }
-        return;
-    }
-    
-    emit pollRequested(fc, addrResult.pduAddress, qtySpin_->value());
-}
+
 
 void ControlWidget::updateStatsLabel() {
     const QString rttText = hasLastRtt_
@@ -167,13 +170,10 @@ void ControlWidget::setPollingEnabled(bool enabled) {
         QSignalBlocker blocker(enablePollCheck_);
         enablePollCheck_->setChecked(enabled);
     }
-    if (pollTimer_) {
-        if (enabled && intervalSpin_) {
-            pollTimer_->start(intervalSpin_->value());
-        } else {
-            pollTimer_->stop();
-        }
-    }
+}
+
+bool ControlWidget::isPollingEnabled() const {
+    return enablePollCheck_ && enablePollCheck_->isChecked();
 }
 
 void ControlWidget::setInteractionsEnabled(bool enabled) {
@@ -228,8 +228,6 @@ void ControlWidget::loadSettings() {
     }
     addrEdit_->setText(addrStr);
     qtySpin_->setValue(qty);
-
-    pollTimer_->stop();
 }
 
 void ControlWidget::saveSettings() {

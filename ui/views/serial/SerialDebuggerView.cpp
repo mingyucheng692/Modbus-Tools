@@ -88,8 +88,7 @@ void SerialDebuggerView::setupUi() {
     connect(connectionWidget_, &widgets::SerialConnectionWidget::disconnectClicked,
             this, &SerialDebuggerView::onDisconnectClicked);
 
-    connect(inputWidget_, &widgets::GenericInputWidget::sendRequested,
-            this, &SerialDebuggerView::onSendRequested);
+    bindInputWidget(inputWidget_);
 
     connect(dtrCheck_, &QCheckBox::toggled, this, &SerialDebuggerView::onDtrChanged);
     connect(rtsCheck_, &QCheckBox::toggled, this, &SerialDebuggerView::onRtsChanged);
@@ -142,6 +141,12 @@ void SerialDebuggerView::onWorkerStateChanged(io::ChannelState state, quint64 ge
     const bool wasConnected = isConnected_;
 
     isConnected_ = (state == io::ChannelState::Open);
+    if (!isConnected_ && channelController_ && channelController_->isAutoSendActive()) {
+        channelController_->stopAutoSend();
+        if (inputWidget_) {
+            inputWidget_->setAutoSendEnabled(false);
+        }
+    }
     dtrCheck_->setEnabled(isConnected_);
     rtsCheck_->setEnabled(isConnected_);
 

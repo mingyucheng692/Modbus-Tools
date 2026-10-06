@@ -110,6 +110,8 @@ private:
                             const QString& fmt, int slaveId, int quantity);
     void handleRawSendRequest(const QByteArray& data);
     void handlePollRequest(uint8_t fc, int addr, int qty, int intervalMs);
+    void handlePollStartRequest(uint8_t fc, int addr, int qty, int intervalMs);
+    void handlePollStopRequest();
     void handleRequestFinished(int requestId,
                                const ::modbus::session::ModbusResponse& response);
 

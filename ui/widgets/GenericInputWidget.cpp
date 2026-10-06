@@ -33,8 +33,6 @@ GenericInputWidget::GenericInputWidget(infra::config::ISettingsService* settings
       settingsService_(settingsService)
 {
     setupUi();
-    autoSendTimer_ = new QTimer(this);
-    connect(autoSendTimer_, &QTimer::timeout, this, &GenericInputWidget::onTimerTimeout);
 }
 
 GenericInputWidget::~GenericInputWidget() = default;
@@ -122,6 +120,11 @@ void GenericInputWidget::setupUi() {
 
     connect(autoSendCheck_, &QCheckBox::toggled, this, &GenericInputWidget::onAutoSendToggled);
     connect(autoSendCheck_, &QCheckBox::toggled, this, &GenericInputWidget::saveSettings);
+    connect(intervalSpin_, qOverload<int>(&QSpinBox::valueChanged), this, [this](int val) {
+        if (autoSendCheck_ && autoSendCheck_->isChecked()) {
+            emit autoSendIntervalChanged(val);
+        }
+    });
     connect(intervalSpin_, qOverload<int>(&QSpinBox::valueChanged), this, &GenericInputWidget::saveSettings);
     connect(sendBtn_, &QPushButton::clicked, this, &GenericInputWidget::onSendClicked);
 
@@ -193,11 +196,6 @@ void GenericInputWidget::loadSettings() {
     autoSendCheck_->setChecked(autoSend);
     intervalSpin_->setValue(intervalMs);
     intervalSpin_->setEnabled(autoSend);
-    if (autoSend) {
-        autoSendTimer_->start(intervalMs);
-    } else {
-        autoSendTimer_->stop();
-    }
     lineEndingCombo_->setCurrentIndex(qBound(0, lineEnding, 3));
     int encIndex = encodingCombo_->findData(encoding);
     if (encIndex < 0) encIndex = 0; // fallback to UTF-8 for unknown/legacy encoding values
@@ -271,27 +269,23 @@ void GenericInputWidget::onSendClicked() {
 }
 
 void GenericInputWidget::onAutoSendToggled(bool checked) {
-    if (checked) {
-        autoSendTimer_->start(intervalSpin_->value());
-    } else {
-        autoSendTimer_->stop();
-    }
     intervalSpin_->setEnabled(checked);
     sendBtn_->setEnabled(true);
+    emit autoSendToggled(checked, intervalSpin_->value());
 }
 
-void GenericInputWidget::onTimerTimeout() {
-    if (!autoSendCheck_->isChecked()) {
-        autoSendTimer_->stop();
-        return;
+void GenericInputWidget::setAutoSendEnabled(bool enabled) {
+    if (autoSendCheck_) {
+        QSignalBlocker blocker(autoSendCheck_);
+        autoSendCheck_->setChecked(enabled);
     }
-    
-    // Restart timer if interval changed
-    if (autoSendTimer_->interval() != intervalSpin_->value()) {
-        autoSendTimer_->setInterval(intervalSpin_->value());
+    if (intervalSpin_) {
+        intervalSpin_->setEnabled(enabled);
     }
-    
-    onSendClicked();
+}
+
+bool GenericInputWidget::isAutoSendEnabled() const {
+    return autoSendCheck_ && autoSendCheck_->isChecked();
 }
 
 void GenericInputWidget::onHistoryActivated(int index) {
