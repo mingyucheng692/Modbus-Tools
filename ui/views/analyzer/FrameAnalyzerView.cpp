@@ -1,4 +1,4 @@
-﻿// Copyright (c) 2025 - present mingyucheng692. Licensed under the MIT License.
+// Copyright (c) 2025 - present mingyucheng692. Licensed under the MIT License.
 
 #include "views/analyzer/FrameAnalyzerView.h"
 #include "Config.h"
@@ -1022,7 +1022,7 @@ void FrameAnalyzerView::processLivePdu(const modbus::base::Pdu& pdu, modbus::par
     if (linkagePauseBtn) linkagePauseBtn->setVisible(true);
     if (linkageStopBtn) linkageStopBtn->setVisible(true);
 
-    if (registerOrderCombo) registerOrderCombo->setEnabled(false); // 联动模式通常由会话层控制字节序
+    if (registerOrderCombo) registerOrderCombo->setEnabled(false); // Linkage mode byte order is governed by session layer
 
     lastLiveResult = result;
     if (!isLivePaused) renderResult(result);

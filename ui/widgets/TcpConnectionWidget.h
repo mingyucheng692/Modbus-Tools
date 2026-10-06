@@ -1,14 +1,4 @@
-/**
- * @file TcpConnectionWidget.h
- * @brief Unified TCP connection widget — Client or Server role selected at construction.
- *
- * Merges TcpClientConnectionWidget and TcpServerConnectionWidget (P2-v2-8).
- * Uses TcpRole{Client, Server} to parameterize behaviour.
- *
- * Copyright (c) 2025 - present mingyucheng692
- *
- * Licensed under the MIT License. See LICENSE file in the project root for full license information.
- */
+// Copyright (c) 2025 - present mingyucheng692. Licensed under the MIT License.
 
 #pragma once
 
@@ -22,6 +12,9 @@ namespace ui::widgets {
 
 enum class TcpRole { Client, Server };
 
+// Role: Unified TCP connection widget parameterised for Client or Server roles.
+// Thread-safety: Main-thread only (QWidget derivative).
+// Ownership: Owned by parent QWidget via Qt object hierarchy.
 class TcpConnectionWidget : public NetworkConnectionWidget {
     Q_OBJECT
 

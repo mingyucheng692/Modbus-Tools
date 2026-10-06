@@ -175,7 +175,7 @@ ParseResult parseTcp(QByteArrayView frame, uint16_t startAddress, uint16_t expec
     result.length = fields.length;
     result.slaveId = fields.unitId;
 
-    // 提取 PDU (从第 8 字节开始，长度 = Length - 1 (UnitId))
+    // Extract PDU: starts at byte 7 (0-indexed), length = Length - 1 (UnitId)
     const qsizetype pduSize = force ? (frame.size() - 7) : (result.length - 1);
     if (pduSize <= 0 || (7 + pduSize > frame.size())) {
         result.isValid = false;
@@ -213,7 +213,7 @@ ParseResult parseRtu(QByteArrayView frame, uint16_t startAddress, uint16_t expec
         return result;
     }
 
-    // 解析头部
+    // Parse header fields
     result.slaveId = fields.slaveId;
     result.checksum = fields.receivedCrc;
     result.calculatedChecksum = fields.calculatedCrc;
@@ -252,7 +252,7 @@ ParseResult parseRtu(QByteArrayView frame, uint16_t startAddress, uint16_t expec
         }
     }
 
-    // 提取 PDU (去除首部 SlaveId 和尾部 CRC)
+    // Extract PDU: payload stripped of 1-byte slave ID header and 2-byte wire CRC
     const qsizetype pduLen = qMax<qsizetype>(0, frame.size() - 3);
     const QByteArrayView pdu = (frame.size() >= 3) ? frame.sliced(1, pduLen) : QByteArrayView();
     parsePdu(result, pdu, startAddress, expectedQuantity, order);
@@ -341,7 +341,7 @@ ParseResult parse(QByteArrayView frame,
         return result;
     }
 
-    // 1. 协议检测
+    // 1. Protocol detection
     if (type == ProtocolType::Unknown) {
         if (detectTcp(frame)) {
             // An eight-byte RTU request at address zero with quantity two can
@@ -368,7 +368,7 @@ ParseResult parse(QByteArrayView frame,
 
     result.protocol = type;
 
-    // 2. 根据协议解析头部
+    // 2. Protocol-specific parsing
     if (type == ProtocolType::Tcp) {
         result = parseTcp(frame, startAddress, expectedQuantity, force, order);
     } else if (type == ProtocolType::Ascii) {
@@ -377,7 +377,7 @@ ParseResult parse(QByteArrayView frame,
         result = parseRtu(frame, startAddress, expectedQuantity, force, order);
     }
 
-    // 3. 应用诊断字节序变换
+    // 3. Apply diagnostic byte/word order transformation
     if (result.isValid) {
         applyRegisterOrder(result, order);
     }
@@ -439,7 +439,7 @@ void parsePdu(ParseResult& result,
     case FunctionCode::ReadDiscreteInputs:
     case FunctionCode::ReadHoldingRegisters:
     case FunctionCode::ReadInputRegisters: {
-        // 区分 Request 和 Response
+        // Differentiate request from response by PDU size
         // Request: [FC(1)] [StartAddr(2)] [Quantity(2)] -> Total PDU size 5
         if (pdu.size() == 5) {
             result.type = FrameType::Request;
@@ -481,7 +481,6 @@ void parsePdu(ParseResult& result,
                 break;
             }
             
-            // 解析数据
             if (result.functionCode == FunctionCode::ReadHoldingRegisters || 
                 result.functionCode == FunctionCode::ReadInputRegisters) {
                 if (expectedQuantity != 0 && static_cast<int>(byteCount) != static_cast<int>(expectedQuantity) * 2) {
@@ -501,7 +500,7 @@ void parsePdu(ParseResult& result,
                                        .arg(byteCount);
                     break;
                 }
-                // 寄存器数据 (每2字节一个)
+                // Parse 16-bit registers (2 bytes per register)
                 int count = byteCount / 2;
                 result.dataItems.reserve(count);
                 for (int i = 0; i < count; ++i) {
@@ -528,7 +527,7 @@ void parsePdu(ParseResult& result,
                     result.dataItems.append(item);
                 }
             } else {
-                // 线圈数据 (位操作) - 展开每一位
+                // Parse bit coils (LSB unpacked first)
                 // Byte 0: Coils 0-7 (LSB is Coil 0)
                 // Byte 1: Coils 8-15
                 const int totalBits = byteCount * 8;
@@ -569,7 +568,7 @@ void parsePdu(ParseResult& result,
     }
     case FunctionCode::WriteSingleCoil:
     case FunctionCode::WriteSingleRegister: {
-        // Request 和 Response 格式相同: [Addr(2)] [Value(2)]
+        // Wire format is identical for request and echo response: [Addr(2)] [Value(2)]
         if (pdu.size() != 5) {
             result.isValid = false;
             result.error = QCoreApplication::translate(

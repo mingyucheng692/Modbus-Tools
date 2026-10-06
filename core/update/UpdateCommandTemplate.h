@@ -1,11 +1,4 @@
-/**
- * @file UpdateCommandTemplate.h
- * @brief Declares the Linux terminal update command generator (方案 C).
- *
- * Copyright (c) 2025 - present mingyucheng692
- *
- * Licensed under the MIT License. See LICENSE file in the project root for full license information.
- */
+// Copyright (c) 2025 - present mingyucheng692. Licensed under the MIT License.
 
 #pragma once
 
@@ -13,6 +6,10 @@
 #include <QString>
 
 namespace core::update {
+
+// Role: Pure generator producing Linux terminal command sequences for application updates.
+// Thread-safety: Thread-safe (stateless pure functions).
+// Ownership: Value semantics; produces QString without persistent resource ownership.
 
 /// Generates the three-segment Linux terminal command sequence that applies a
 /// full-package update in place:

@@ -1,11 +1,4 @@
-/**
- * @file UpdateCommandTemplate.cpp
- * @brief Implements the Linux terminal update command generator (方案 C).
- *
- * Copyright (c) 2025 - present mingyucheng692
- *
- * Licensed under the MIT License. See LICENSE file in the project root for full license information.
- */
+// Copyright (c) 2025 - present mingyucheng692. Licensed under the MIT License.
 
 #include "UpdateCommandTemplate.h"
 
@@ -15,7 +8,7 @@ namespace core::update {
 
 namespace {
 
-// Portable install root agreed for the 方案 C flow (plan §2). The generated
+// Portable install root for Linux application updates. The generated
 // comment tells users to adjust it when they installed elsewhere.
 const QString kDefaultInstallDir = QStringLiteral("~/.local/opt/modbus-tools");
 

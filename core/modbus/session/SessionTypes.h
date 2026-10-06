@@ -1,11 +1,4 @@
-/**
- * @file SessionTypes.h
- * @brief Header file for Modbus session response types.
- *
- * Copyright (c) 2025 - present mingyucheng692
- *
- * Licensed under the MIT License. See LICENSE file in the project root for full license information.
- */
+// Copyright (c) 2025 - present mingyucheng692. Licensed under the MIT License.
 
 #pragma once
 
@@ -39,15 +32,17 @@ enum class ModbusResponseKind {
     Error
 };
 
-// 响应结果类型：包含 Pdu 或错误信息
+// Role: Aggregate response value object encapsulating PDU, diagnostic metadata, and error codes.
+// Thread-safety: Thread-compatible (value semantics).
+// Ownership: Value semantics; passed by value or const reference.
 struct ModbusResponse {
     ModbusResponseKind kind = ModbusResponseKind::Error;
     base::ModbusError errorCode = base::ModbusError::None;
     base::ExceptionCode exceptionCode = base::ExceptionCode::None;
     base::Pdu pdu;
     QString error;
-    int rttMs = -1;
-    int attemptCount = 0;
+    int rttMs = -1;       // Round-trip time [ms] (-1 if untimed/failed)
+    int attemptCount = 0; // Total transmission attempts made [count]
 
     bool isError() const { return kind == ModbusResponseKind::Error; }
     bool isNoResponseExpected() const { return kind == ModbusResponseKind::NoResponseExpected; }

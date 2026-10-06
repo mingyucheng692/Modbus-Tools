@@ -534,7 +534,7 @@ SessionConnectionState ModbusSessionPresenter::deriveUiState(
         }
         return SessionConnectionState::Connecting;
     case Core::Connected:
-        // 策略 B: 传输/物理通道建立完成即具备通信能力，直接进入 Connected
+        // Transport and physical channel are established and ready for communication; enter Connected state.
         return SessionConnectionState::Connected;
     case Core::Disconnecting:
         return SessionConnectionState::Disconnecting;

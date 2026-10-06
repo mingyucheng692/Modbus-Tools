@@ -23,7 +23,7 @@ QByteArray ModbusTcpTransport::buildRequest(const base::Pdu& pdu, uint8_t slaveI
         std::lock_guard<std::mutex> lock(pendingMutex_);
         transactionId = transactionId_++;
 
-        // 如果累积过多挂起事务，主动淘汰最老的，防止极端情况下 OOM 及 ID 碰撞
+        // Proactively evict oldest transactions if accumulation is excessive to prevent OOM and ID collision.
         purgeStaleTransactions();
 
         pendingTransactions_[transactionId] = slaveId;
@@ -79,7 +79,7 @@ void ModbusTcpTransport::resetPendingState() {
 void ModbusTcpTransport::purgeStaleTransactions(uint16_t thresholdCount) {
     // Caller must hold pendingMutex_.
     if (pendingTransactions_.size() > thresholdCount) {
-        // 保留最新的 (thresholdCount / 2) 个事务，清理过旧事务
+        // Retain the newest (thresholdCount / 2) transactions and erase older entries.
         size_t keepCount = thresholdCount / 2;
         auto it = pendingTransactions_.end();
         std::advance(it, -keepCount);

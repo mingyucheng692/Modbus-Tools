@@ -1,11 +1,4 @@
-/**
- * @file ModbusConfig.h
- * @brief Header file for ModbusConfig.
- * 
- * Copyright (c) 2025 - present mingyucheng692
- * 
- * Licensed under the MIT License. See LICENSE file in the project root for full license information.
- */
+// Copyright (c) 2025 - present mingyucheng692. Licensed under the MIT License.
 
 #pragma once
 
@@ -21,14 +14,15 @@ enum class ModbusMode {
     ASCII // Serial ASCII framing with LRC check
 };
 
+// Role: Configuration aggregate parameterising Modbus protocol stack, transport, and session policies.
+// Thread-safety: Thread-compatible (plain value struct).
+// Ownership: Value semantics; passed by copy or const reference.
 struct ModbusConfig {
     ModbusMode mode = ModbusMode::RTU;
-    
-    // 从站 ID (Unit ID)
-    uint8_t slaveId = config::Modbus::kDefaultSlaveId;
 
-    // --- 连接参数 ---
-    // Serial (RTU)
+    uint8_t slaveId = config::Modbus::kDefaultSlaveId; // [1..247, 0=broadcast]
+
+    // Serial (RTU/ASCII)
     QString portName;
     int baudRate = config::Serial::kDefaultBaudRate;
     int dataBits = config::Serial::kDefaultDataBits;
@@ -38,36 +32,26 @@ struct ModbusConfig {
     // TCP
     QString ipAddress = QString::fromLatin1(config::Network::kDefaultDeviceAddress);
     int port = config::Network::kDefaultModbusTcpPort;
-    // ----------------
 
-    // 超时时间 (毫秒)
-    int timeoutMs = config::Modbus::kDefaultTimeoutMs;
+    int timeoutMs = config::Modbus::kDefaultTimeoutMs; // [ms]
 
-    // 重试次数 (全局默认/回退值，0 表示不自动重试)
+    // Global default retry count [0=no retry]
     int retries = config::Modbus::kDefaultCoreRetries;
 
-    // 差异化重试：读操作快速失败保刷新率，写操作自动重试保可靠性
-    int pollRetries = config::Modbus::kDefaultPollRetries;   ///< Default 0 for periodic polling reads (Fail-Fast)
-    int writeRetries = config::Modbus::kDefaultWriteRetries; ///< Default 1 for control writes (Reliability)
+    // Differentiated retries: poll reads fail fast, control writes retry for reliability
+    int pollRetries = config::Modbus::kDefaultPollRetries;   // [count, 0=fail-fast]
+    int writeRetries = config::Modbus::kDefaultWriteRetries; // [count]
 
-    // 重试间隔 (毫秒)
-    int retryIntervalMs = config::Modbus::kDefaultRetryIntervalMs;
+    int retryIntervalMs = config::Modbus::kDefaultRetryIntervalMs;       // [ms]
+    int maxRetryIntervalMs = config::Modbus::kDefaultMaxRetryIntervalMs; // [ms]
+    double retryBackoffFactor = config::Modbus::kDefaultRetryBackoffFactor; // Multiplier
+    int retryJitterPercent = config::Modbus::kDefaultRetryJitterPercent;    // [%]
 
-    // 重试退避上限 (毫秒)
-    int maxRetryIntervalMs = config::Modbus::kDefaultMaxRetryIntervalMs;
-
-    // 指数退避系数
-    double retryBackoffFactor = config::Modbus::kDefaultRetryBackoffFactor;
-
-    // 退避抖动百分比
-    int retryJitterPercent = config::Modbus::kDefaultRetryJitterPercent;
-    // 半开检测：会话报告已连接时连续请求超时的驱逐阈值。
-    // 达到阈值即判定半开连接（对端消失但无 RST）并拆除会话；
-    // 0 表示禁用。每次成功请求会将计数清零。
+    // Half-open eviction threshold: consecutive timeouts required while connected before tearing down link.
+    // 0 disables eviction; reset to 0 upon every successful request.
     int unresponsiveThreshold = config::Modbus::kDefaultUnresponsiveThreshold;
 
-    // 帧间隔 (RTU only, micro-seconds or char times)
-    // 通常由驱动层处理，但在某些应用层实现中可能需要
+    // Inter-frame silence interval for RTU [us]. 0 delegates timing to driver/hardware.
     int interFrameDelayUs = 0;
 };
 

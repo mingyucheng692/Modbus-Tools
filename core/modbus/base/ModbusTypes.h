@@ -1,11 +1,4 @@
-/**
- * @file ModbusTypes.h
- * @brief Header file for ModbusTypes.
- * 
- * Copyright (c) 2025 - present mingyucheng692
- * 
- * Licensed under the MIT License. See LICENSE file in the project root for full license information.
- */
+// Copyright (c) 2025 - present mingyucheng692. Licensed under the MIT License.
 
 #pragma once
 
@@ -22,8 +15,8 @@ enum class FunctionCode : uint8_t {
     WriteSingleRegister = 0x06,
     WriteMultipleCoils = 0x0F,
     WriteMultipleRegisters = 0x10,
-    
-    // 异常响应的功能码通常是 (FunctionCode | 0x80)
+
+    // Exception response function codes set the high-order error mask bit (0x80)
     ErrorMask = 0x80
 };
 

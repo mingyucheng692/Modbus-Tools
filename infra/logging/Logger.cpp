@@ -128,28 +128,28 @@ bool Init(const QString& logDir, QString* errorMessage) noexcept
 
     QDir dir(logDir);
 
-    // 1. 全局防爆盘：扫描历史带有时间戳的日志文件，主动淘汰过旧的文件
+    // 1. Global log disk-space protection: scan historical timestamped logs and prune old files.
     const int maxAllowedFiles = config::Logging::kMaxRotatedFiles;
     dir.setNameFilters(QStringList() << QStringLiteral("modbus-tools_*.log*"));
     dir.setFilter(QDir::Files | QDir::NoSymLinks);
-    dir.setSorting(QDir::Time | QDir::Reversed); // 最旧的文件在前面
+    dir.setSorting(QDir::Time | QDir::Reversed); // Oldest files first
 
     QFileInfoList fileList = dir.entryInfoList();
     if (fileList.size() >= maxAllowedFiles) {
-        int filesToDelete = fileList.size() - maxAllowedFiles + 1; // 多删一个为新日志腾出空间
+        int filesToDelete = fileList.size() - maxAllowedFiles + 1; // Prune excess to reserve slot for new log file
         for (int i = 0; i < filesToDelete; ++i) {
             QFile::remove(fileList[i].absoluteFilePath());
         }
     }
 
-    // 2. 初始化本次运行的日志文件（带时间戳）
+    // 2. Initialize current run's timestamped log file
     auto consoleSink = std::make_shared<spdlog::sinks::stdout_color_sink_mt>();
     
     const QString timestamp = QDateTime::currentDateTimeUtc().toString("yyyyMMdd-HHmmss'Z'");
     const QString fileName = QStringLiteral("modbus-tools_%1.log").arg(timestamp);
     const spdlog::filename_t filePath = encodePathForSpdlog(dir.filePath(fileName));
     
-    // rotating_file_sink 负责单次长时运行期间的日志切分防爆盘
+    // rotating_file_sink bounds per-file size during long-running sessions.
     auto fileSink = std::make_shared<spdlog::sinks::rotating_file_sink_mt>(
         filePath,
         config::Logging::kMaxFileSizeBytes,

@@ -613,7 +613,7 @@ TEST_F(ModbusClientBoundaryTest, SendRequest_WhileDisconnected_LazyConnects) {
 }
 
 // ============================================================================
-// Differentiated Retries (P2): Poll reads fail fast; Control writes retry
+// Differentiated Retries: Poll reads fail fast; Control writes retry
 // ============================================================================
 
 TEST_F(ModbusClientBoundaryTest, DifferentiatedRetries_ReadPollFailsFastWithZeroRetries) {

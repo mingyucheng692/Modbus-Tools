@@ -88,7 +88,7 @@ ParseResponseResult ModbusSerialTransport::parseResponse(const QByteArray& adu) 
 
 int ModbusSerialTransport::checkIntegrity(const QByteArray& data) {
     if (framing_ == SerialFraming::Rtu) {
-        // RTU 帧边界由 session 层基于 t3.5 静默时间确定；这里仅做最小长度与 CRC 校验。
+        // RTU frame boundaries are governed by session silent interval (t3.5); validate structural length and CRC.
         return base::inspectRtuAdu(data);
     } else {
         return base::inspectAsciiAdu(data);

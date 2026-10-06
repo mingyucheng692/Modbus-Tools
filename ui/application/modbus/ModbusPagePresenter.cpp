@@ -268,7 +268,7 @@ void ModbusPagePresenter::requestConnect(const ModbusConnectionSpec& spec) {
         SPDLOG_WARN("ModbusPagePresenter: requestConnect dropped (no session presenter)");
         return;
     }
-    // 防重入保护：如果当前正在 Connecting 阶段，忽略重复连击
+    // Re-entrancy guard: ignore repeated connect requests while Connecting is in flight.
     if (sessionPresenter_->connectionState() == SessionConnectionState::Connecting) {
         SPDLOG_INFO("ModbusPagePresenter: connect request ignored (already connecting)");
         return;

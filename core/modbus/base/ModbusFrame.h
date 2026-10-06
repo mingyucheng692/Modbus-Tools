@@ -1,11 +1,4 @@
-/**
- * @file ModbusFrame.h
- * @brief Header file for ModbusFrame.
- * 
- * Copyright (c) 2025 - present mingyucheng692
- * 
- * Licensed under the MIT License. See LICENSE file in the project root for full license information.
- */
+// Copyright (c) 2025 - present mingyucheng692. Licensed under the MIT License.
 
 #pragma once
 
@@ -16,11 +9,13 @@
 
 namespace modbus::base {
 
+// Role: Protocol Data Unit (PDU) representing function code and data payload independent of transport.
+// Thread-safety: Thread-compatible (value type).
+// Ownership: Value semantics; internal buffer managed via Qt copy-on-write QByteArray.
 class Pdu {
 public:
     Pdu() = default;
-    
-    // 构造普通请求/响应 PDU
+
     explicit Pdu(FunctionCode functionCode)
         : functionCode_(functionCode), data_{} {}
 
@@ -30,7 +25,6 @@ public:
     Pdu(FunctionCode functionCode, QByteArrayView data) 
         : functionCode_(functionCode), data_(data.toByteArray()) {}
 
-    // 构造异常响应 PDU
     Pdu(FunctionCode functionCode, ExceptionCode exceptionCode)
         : functionCode_(static_cast<FunctionCode>(static_cast<uint8_t>(functionCode) | 0x80)) {
         data_.append(static_cast<char>(exceptionCode));
@@ -55,12 +49,11 @@ public:
         return static_cast<ExceptionCode>(data_[0]);
     }
 
-    // 获取原始的功能码（去除异常位）
     [[nodiscard]] FunctionCode originalFunctionCode() const noexcept {
         return static_cast<FunctionCode>(static_cast<uint8_t>(functionCode_) & 0x7F);
     }
 
-    // 序列化为字节流（不含 CRC/MBAP）
+    // Serializes PDU into raw byte stream without transport encapsulation (MBAP/CRC).
     [[nodiscard]] QByteArray toByteArray() const {
         QByteArray buffer;
         buffer.append(static_cast<char>(functionCode_));

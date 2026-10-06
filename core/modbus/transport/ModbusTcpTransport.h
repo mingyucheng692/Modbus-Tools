@@ -1,11 +1,4 @@
-/**
- * @file ModbusTcpTransport.h
- * @brief Header file for ModbusTcpTransport.
- * 
- * Copyright (c) 2025 - present mingyucheng692
- * 
- * Licensed under the MIT License. See LICENSE file in the project root for full license information.
- */
+// Copyright (c) 2025 - present mingyucheng692. Licensed under the MIT License.
 
 #pragma once
 
@@ -16,6 +9,9 @@
 
 namespace modbus::transport {
 
+// Role: Modbus TCP transport implementation managing MBAP headers and transaction ID tracking.
+// Thread-safety: Thread-safe (internal std::mutex protects pending transaction map and transaction ID generator).
+// Ownership: Owned by session layer (ModbusClient) via std::shared_ptr<ITransport>.
 class ModbusTcpTransport : public ITransport {
 public:
     ModbusTcpTransport();
@@ -25,8 +21,8 @@ public:
     void resetPendingState() override;
 
 private:
-    // 清理过期或悬挂的事务表项，避免长期超时积压导致内存泄漏与 ID 冲突。
-    // 调用者必须持有 pendingMutex_（仅在 buildRequest 内部锁内调用）。
+    // Evicts stale pending transactions when accumulation exceeds threshold to prevent OOM and ID collision.
+    // Caller must hold pendingMutex_ (invoked within buildRequest critical section).
     void purgeStaleTransactions(uint16_t thresholdCount = 256);
 
     mutable std::mutex pendingMutex_;

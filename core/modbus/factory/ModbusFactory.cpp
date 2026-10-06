@@ -82,7 +82,7 @@ std::optional<ModbusStack> createStack(const base::ModbusConfig& config) {
     stack.thread = makeManagedThread();
     QThread* threadRaw = stack.thread.get();
 
-    // 1. 创建底层通道 (IO)
+    // 1. Create IO channel
     auto channel = createChannel(config, threadRaw);
     if (!channel) {
         SPDLOG_ERROR("ModbusFactory: failed to create channel for mode={}",
@@ -102,7 +102,7 @@ std::optional<ModbusStack> createStack(const base::ModbusConfig& config) {
             core::common::ThreadGuard::releaseChannel(ch, thread);
         });
 
-    // 2. 创建传输层策略 (Protocol)
+    // 2. Create transport framing strategy
     auto transport = createTransport(config);
     if (!transport) {
         SPDLOG_ERROR("ModbusFactory: failed to create transport for mode={}",
@@ -110,11 +110,11 @@ std::optional<ModbusStack> createStack(const base::ModbusConfig& config) {
         return std::nullopt;
     }
 
-    // 3. 创建客户端会话 (Session)
+    // 3. Create client session
     stack.client = std::make_shared<session::ModbusClient>(stack.channel, transport);
     stack.client->setConfig(config);
 
-    // 4. 创建工作线程 (Dispatch)
+    // 4. Create worker dispatcher
     stack.worker = makeManagedWorker(stack.client, stack.thread.get());
     SPDLOG_INFO("ModbusFactory: stack created mode={}", static_cast<int>(config.mode));
     return std::move(stack);

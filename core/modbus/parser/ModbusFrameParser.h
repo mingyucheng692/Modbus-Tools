@@ -1,11 +1,4 @@
-/**
- * @file ModbusFrameParser.h
- * @brief Header file for ModbusFrameParser.
- * 
- * Copyright (c) 2025 - present mingyucheng692
- * 
- * Licensed under the MIT License. See LICENSE file in the project root for full license information.
- */
+// Copyright (c) 2025 - present mingyucheng692. Licensed under the MIT License.
 
 #pragma once
 
@@ -22,7 +15,6 @@
 
 namespace modbus::parser {
 
-// 解析协议类型
 enum class ProtocolType {
     Unknown,
     Tcp,
@@ -30,7 +22,6 @@ enum class ProtocolType {
     Ascii
 };
 
-// 帧类型
 enum class FrameType {
     Unknown,
     Request,
@@ -38,17 +29,21 @@ enum class FrameType {
     Exception
 };
 
-// 单个寄存器/线圈的数据项
+// Role: Single register or coil entry extracted from parsed Modbus PDU.
+// Thread-safety: Thread-compatible (plain value struct).
+// Ownership: Value semantics.
 struct DataItem {
-    uint16_t address;           // 寄存器/线圈地址
-    QByteArray rawBytes;        // 原始字节
-    QVariant value;             // 解析后的值 (bool, uint16, int16, etc.)
-    QString hexString;          // 十六进制显示
-    QString binaryString;       // 二进制显示
-    QString desc;               // 描述 (例如 "Register 40001")
+    uint16_t address = 0;
+    QByteArray rawBytes;
+    QVariant value;
+    QString hexString;
+    QString binaryString;
+    QString desc;
 };
 
-// 完整解析结果
+// Role: Structured result of Modbus frame dissection across TCP, RTU, and ASCII variants.
+// Thread-safety: Thread-compatible (plain value struct).
+// Ownership: Value semantics.
 struct ParseResult {
     bool isValid = false;
     bool isForced = false;
@@ -58,39 +53,29 @@ struct ParseResult {
     QStringList warnings;
     QDateTime timestamp;
 
-    // 基础字段
     uint8_t slaveId = 0;
     modbus::base::FunctionCode functionCode = modbus::base::FunctionCode::ReadCoils;
     bool isException = false;
     modbus::base::ExceptionCode exceptionCode = modbus::base::ExceptionCode::None;
     uint16_t expectedQuantity = 0;
 
-    // TCP 特定字段
+    // TCP specific
     uint16_t transactionId = 0;
     uint16_t protocolId = 0;
     uint16_t length = 0;
 
-    // RTU 特定字段
-    uint16_t checksum = 0;      // 接收到的 CRC
-    uint16_t calculatedChecksum = 0; // 计算出的 CRC
+    // RTU specific
+    uint16_t checksum = 0;           // Wire CRC [RTU]
+    uint16_t calculatedChecksum = 0; // Locally calculated CRC [RTU]
     bool checksumValid = false;
 
-    // 解析出的数据列表
     QVector<DataItem> dataItems;
-    
     QByteArray rawFrame;
-
-    // 原始 PDU 数据 (去除头部和校验)
     QByteArray pduData;
 };
 
-/**
- * @brief 解析 Modbus 帧
- * @param frame 原始帧数据视图
- * @param type 指定协议类型 (若为 Unknown 则自动检测)
- * @param startAddress 起始地址 (仅用于 Response 帧解析数据地址，Request 帧会自动从报文中提取)
- * @param expectedQuantity 期望数量 (用于 Read Response 限定有效位/寄存器个数)
- */
+// Dissects a raw Modbus frame view into structured fields and register items.
+// If type is Unknown, protocol heuristics (MBAP length vs RTU CRC) are applied.
 [[nodiscard]] ParseResult parse(QByteArrayView frame,
                                 ProtocolType type = ProtocolType::Unknown,
                                 uint16_t startAddress = 0,
@@ -98,16 +83,9 @@ struct ParseResult {
                                 bool force = false,
                                 modbus::base::RegisterOrder order = modbus::base::RegisterOrder::ABCD) noexcept;
 
-/**
- * @brief Apply register byte/word order transformation to the parse result.
- * @param result The parse result to modify.
- * @param order The target register order.
- */
 void applyRegisterOrder(ParseResult& result, modbus::base::RegisterOrder order) noexcept;
 
-/**
- * @brief 解析 PDU 数据段
- */
+// Dissects raw PDU payload into individual coil or register data items.
 void parsePdu(ParseResult& result,
               QByteArrayView pdu,
               uint16_t startAddress,

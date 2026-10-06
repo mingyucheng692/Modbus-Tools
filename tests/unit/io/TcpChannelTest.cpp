@@ -177,7 +177,7 @@ TEST_F(TcpChannelTest, TcpChannel_ValidParams_OpensSuccessfully) {
 }
 
 // ---------------------------------------------------------------------------
-// T3.1 — Error is sticky: once the channel FSM is in Error, late socket
+// Error is sticky: once the channel FSM is in Error, late socket
 // state notifications must not repaint it into a healthy Closed/Open.
 // Error is left only via open() (new attempt) or close() (user teardown).
 // ---------------------------------------------------------------------------
@@ -199,7 +199,7 @@ TEST_F(TcpChannelTest, Error_LeavesOnlyViaOpenOrClose) {
 }
 
 TEST_F(TcpChannelTest, SocketError_StickyAgainstLateSocketStateChange) {
-    // T3.1: after a socket error lands the FSM in Error, the late queued
+    // Sticky guard: after a socket error lands the FSM in Error, the late queued
     // socket stateChanged(UnconnectedState) that follows the aborted
     // connection must NOT repaint Error into a healthy Closed.
     // (Before the sticky guard the repaint silently converted failures
@@ -247,7 +247,7 @@ TEST_F(TcpChannelTest, SocketError_StickyAgainstLateSocketStateChange) {
 }
 
 // ---------------------------------------------------------------------------
-// T3.2 — close linger fallback: a close that cannot complete (kernel send
+// Close linger fallback: a close that cannot complete (kernel send
 // buffer still holds unflushed data to a non-reading peer) must be
 // force-completed after the linger timeout instead of staying in Closing.
 // ---------------------------------------------------------------------------

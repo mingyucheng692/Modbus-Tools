@@ -82,8 +82,8 @@ bool SerialChannel::open() {
     serial_.setStopBits(static_cast<QSerialPort::StopBits>(config_.stopBits));
     serial_.setParity(config_.parity);
     serial_.setFlowControl(config_.flowControl);
-    // 移除 setReadBufferSize(1)，恢复系统级块读取，极大降低高波特率下的 CPU 开销。
-    // 在非 RTOS 系统上，块内字符间隙已由驱动保证，无需应用层逐字节判断 t1.5。
+    // Block-oriented reading delegates intra-character (t1.5) inter-frame timing
+    // to kernel/UART drivers, minimizing context switches and CPU consumption at high baud rates.
 
     if (serial_.open(QIODevice::ReadWrite)) {
         serial_.clear(QSerialPort::Input);
@@ -182,8 +182,7 @@ void SerialChannel::onReadyRead() {
 
     QByteArray data = serial_.readAll();
     if (!data.isEmpty()) {
-        // OS 驱动层推送上来的一批数据视为连续到达，分配统一时间戳
-        // 这在 PC 平台上是唯一合理且高性能的做法
+        // A batch delivered by the OS driver is treated as contiguous with a unified timestamp.
         SPDLOG_DEBUG("SerialChannel: Received {} bytes", data.size());
         addRx(data.size());
         emitMonitor(false, data);

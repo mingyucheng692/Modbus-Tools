@@ -1,3 +1,5 @@
+// Copyright (c) 2025 - present mingyucheng692. Licensed under the MIT License.
+
 #pragma once
 
 #include <QObject>
@@ -6,7 +8,7 @@
 #include <vector>
 #include <functional>
 
-#include "../../../infra/io/IChannel.h"
+#include "infra/io/IChannel.h"
 #include "modbus/session/SessionTypes.h"
 
 class QThread;
@@ -17,15 +19,9 @@ namespace modbus::session { class ModbusClient; }
 
 namespace ui::application::modbus {
 
-/**
- * @brief Movable bundle of the live Modbus stack resources handed off to the
- *        WorkerReleaseCoordinator for bounded asynchronous teardown.
- *
- * The Presenter fills a StackHandle with the owning shared_ptrs of the current
- * stack and moves it into requestRelease(); after the move the Presenter's own
- * fields are nullptr. The Coordinator then owns the lifetime until all threads
- * have joined (or the bounded timeout fires).
- */
+// Role: Movable bundle holding ownership of live Modbus stack resources for async teardown.
+// Thread-safety: Thread-compatible (movable value struct).
+// Ownership: Transferred from Presenter to WorkerReleaseCoordinator.
 struct StackHandle {
     std::shared_ptr<io::IChannel> channel;
     std::shared_ptr<::modbus::session::ModbusClient> client;
@@ -40,22 +36,9 @@ struct StackHandle {
     }
 };
 
-/**
- * @brief Owns bounded, non-terminating teardown of Modbus worker stacks.
- *
- * @thread Lives on the GUI thread. All public methods must be called from the
- *         GUI thread. Worker threads are observed via queued QThread::finished
- *         connections; no blocking join is performed and QThread::terminate()
- *         is never used.
- *
- * @rationale Extracted from ModbusSessionPresenter to break up a God Class. The
- *            Coordinator is solely responsible for: tracking pending releases,
- *            wiring the worker/io-thread completion signals, enforcing a
- *            bounded timeout, and emitting completion/timeout signals. It does
- *            NOT touch session state (generation, linked flag, connection
- *            widget) — that stays in the Presenter, which reacts to the
- *            Coordinator's signals.
- */
+// Role: Coordinates bounded, non-blocking asynchronous teardown of Modbus worker and channel threads.
+// Thread-safety: Main-thread only (QObject derivative).
+// Ownership: Owned by parent QObject (typically ModbusSessionPresenter).
 class WorkerReleaseCoordinator : public QObject {
     Q_OBJECT
 
@@ -133,13 +116,13 @@ private:
         std::shared_ptr<QThread> workerThread;
 
         ReleaseStage stage = ReleaseStage::Initial;
-        bool workerStopped = false;         // ModbusWorker::stopped() 信号到达，或 workerThread 已退出
-        bool channelThreadFinished = false; // IO 线程 finished() 信号到达，是 finalize() 的必要条件之一
-        bool workerThreadFinished = false;  // Worker 线程 finished() 信号到达
-        bool completionLogged = false;      // 防止 onTimeout/tryComplete 双重发射 releaseTimedOut
-        bool channelShutdownStarted = false;// 防止 beginChannelShutdown() 从多个路径重入
-        // ⚠️ 注意：以上 5 个 flag 是并发完成条件，非互斥状态机；
-        //         tryComplete() 等待全部满足才可 finalize()。
+        bool workerStopped = false;         // ModbusWorker::stopped() signal received or workerThread exited
+        bool channelThreadFinished = false; // IO channel thread finished() received (prerequisite for finalize())
+        bool workerThreadFinished = false;  // Worker thread finished() signal received
+        bool completionLogged = false;      // Prevents dual emission between onTimeout and tryComplete
+        bool channelShutdownStarted = false;// Re-entrancy guard for beginChannelShutdown()
+        // Note: The 5 flags above represent concurrent completion conditions (not mutually exclusive states).
+        //       tryComplete() waits until all conditions are satisfied before calling finalize().
 
         QString timeoutMessage;
         QTimer* timeoutTimer = nullptr;

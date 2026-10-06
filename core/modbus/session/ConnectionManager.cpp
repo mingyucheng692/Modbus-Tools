@@ -201,7 +201,7 @@ bool ConnectionManager::ensureConnected() {
             // already-open fast path.
             consecutiveTimeoutCount_ = 0; // fresh session
             transitionChecked(CS::Connected, "connect-success");
-            connectFailureLogged_ = false; // 成功建立连接，重置 Latch
+            connectFailureLogged_ = false; // Reset warning latch upon successful connection
             return true;
         }
     }
@@ -228,7 +228,7 @@ bool ConnectionManager::ensureConnected() {
                         lastChannelError_.toStdString(),
                         static_cast<int>(channel_ ? channel_->state() : io::ChannelState::Closed));
         }
-        connectFailureLogged_ = true; // 锁存：轮询高频失败时完全静默，消除刷盘与 fmt 格式化 CPU 开销
+        connectFailureLogged_ = true; // Latch: silence subsequent failures during high-frequency retries to avoid log flooding and I/O overhead
     }
     return false;
 }

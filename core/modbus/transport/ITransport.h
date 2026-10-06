@@ -1,11 +1,4 @@
-/**
- * @file ITransport.h
- * @brief Header file for ITransport.
- * 
- * Copyright (c) 2025 - present mingyucheng692
- * 
- * Licensed under the MIT License. See LICENSE file in the project root for full license information.
- */
+// Copyright (c) 2025 - present mingyucheng692. Licensed under the MIT License.
 
 #pragma once
 
@@ -26,21 +19,24 @@ struct ParseResponseResult {
     std::optional<base::Pdu> pdu;
 };
 
+// Role: Interface abstracting Modbus Application Data Unit (ADU) framing, integrity checks, and matching.
+// Thread-safety: Implementations must document concurrency semantics (typically thread-compatible or protected via internal mutex).
+// Ownership: Owned by session layer (ModbusClient) via std::shared_ptr<ITransport>.
 class ITransport {
 public:
     virtual ~ITransport() noexcept = default;
 
-    // 构建请求帧（将 PDU 封装为 ADU）
+    // Encapsulates PDU into wire ADU frame (e.g. MBAP prefix for TCP, CRC16 suffix for RTU).
     virtual QByteArray buildRequest(const base::Pdu& pdu, uint8_t slaveId) = 0;
 
     virtual ParseResponseResult parseResponse(const QByteArray& adu) = 0;
 
-    // 检查数据包是否完整（用于粘包处理）
-    // RTU 的帧边界由 session 基于静默时间控制；transport 只负责结构/校验和判断。
-    // 返回：0 表示不完整，>0 表示完整包的长度，-1 表示错误数据需丢弃
+    // Checks ADU completeness and integrity for stream deframing.
+    // RTU frame boundaries are governed by session silent interval (t3.5); transport validates structural length and checksum.
+    // Returns: 0 if incomplete, >0 package byte length if complete, -1 if corrupted and must be dropped.
     virtual int checkIntegrity(const QByteArray& data) = 0;
 
-    // 清理与请求/响应关联的内部状态，避免超时或断连后旧事务污染后续请求。
+    // Clears internal transaction state (e.g. pending TCP transaction map) to prevent stale state pollution.
     virtual void resetPendingState() = 0;
 };
 

@@ -81,7 +81,7 @@ TEST_F(ChannelOperationWorkerTest, OpenSerial_EmptyPortName_EmitsError) {
 }
 
 // ---------------------------------------------------------------------------
-// Generation plumbing (T3.4): openSerial now carries the same monotonic
+// Generation plumbing: openSerial carries the same monotonic
 // attempt counter as openTcp, and the channel state handler is detached
 // BEFORE close during cleanup so a torn-down channel cannot emit stale
 // generation-tagged states.
