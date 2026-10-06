@@ -1004,10 +1004,10 @@ void FrameAnalyzerWidget::processLivePdu(const modbus::base::Pdu& pdu, modbus::p
     result.timestamp = QDateTime::currentDateTimeUtc();
     result.functionCode = pdu.functionCode();
     result.isException = pdu.isException();
-    result.pduData = pdu.toByteArray();
+    const QByteArray rawPdu = pdu.toByteArray();
     result.type = result.isException ? FrameType::Exception : FrameType::Response;
 
-    modbus::parser::parsePdu(result, result.pduData, addr, 0);
+    modbus::parser::parsePdu(result, rawPdu, addr, 0);
 
     QString protocolStr =
         protocol == ProtocolType::Tcp ? QStringLiteral("TCP") :

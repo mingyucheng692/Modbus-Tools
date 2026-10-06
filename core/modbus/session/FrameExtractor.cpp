@@ -233,10 +233,9 @@ void FrameExtractor::processAsciiBuffer()
         }
 
         const int frameLength = static_cast<int>(terminatorIndex + 2);
-        const QByteArray candidate = buffer_.left(frameLength);
-        const int integrity = base::inspectAsciiAdu(candidate);
+        const int integrity = base::inspectAsciiAdu(QByteArrayView(buffer_).first(frameLength));
         if (integrity > 0) {
-            completedFrames_.push_back(candidate);
+            completedFrames_.push_back(buffer_.left(frameLength));
             buffer_.remove(0, frameLength);
             droppedInvalidBytes_ = 0;
             continue;

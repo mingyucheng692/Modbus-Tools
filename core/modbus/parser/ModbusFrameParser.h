@@ -10,6 +10,7 @@
 #pragma once
 
 #include <QByteArray>
+#include <QByteArrayView>
 #include <QString>
 #include <QVector>
 #include <QVariant>
@@ -85,33 +86,33 @@ struct ParseResult {
 
 /**
  * @brief 解析 Modbus 帧
- * @param frame 原始帧数据
+ * @param frame 原始帧数据视图
  * @param type 指定协议类型 (若为 Unknown 则自动检测)
  * @param startAddress 起始地址 (仅用于 Response 帧解析数据地址，Request 帧会自动从报文中提取)
  * @param expectedQuantity 期望数量 (用于 Read Response 限定有效位/寄存器个数)
  */
-ParseResult parse(const QByteArray& frame,
-                  ProtocolType type = ProtocolType::Unknown,
-                  uint16_t startAddress = 0,
-                  uint16_t expectedQuantity = 0,
-                  bool force = false,
-                  modbus::base::RegisterOrder order = modbus::base::RegisterOrder::ABCD);
+[[nodiscard]] ParseResult parse(QByteArrayView frame,
+                                ProtocolType type = ProtocolType::Unknown,
+                                uint16_t startAddress = 0,
+                                uint16_t expectedQuantity = 0,
+                                bool force = false,
+                                modbus::base::RegisterOrder order = modbus::base::RegisterOrder::ABCD) noexcept;
 
 /**
  * @brief Apply register byte/word order transformation to the parse result.
  * @param result The parse result to modify.
  * @param order The target register order.
  */
-void applyRegisterOrder(ParseResult& result, modbus::base::RegisterOrder order);
+void applyRegisterOrder(ParseResult& result, modbus::base::RegisterOrder order) noexcept;
 
 /**
  * @brief 解析 PDU 数据段
  */
 void parsePdu(ParseResult& result,
-              const QByteArray& pdu,
+              QByteArrayView pdu,
               uint16_t startAddress,
               uint16_t expectedQuantity,
-              modbus::base::RegisterOrder order = modbus::base::RegisterOrder::ABCD);
+              modbus::base::RegisterOrder order = modbus::base::RegisterOrder::ABCD) noexcept;
 
 } // namespace modbus::parser
 

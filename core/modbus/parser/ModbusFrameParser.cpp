@@ -12,7 +12,6 @@
 #include "../base/ModbusEndianCodec.h"
 #include "../base/ModbusProtocolChecks.h"
 #include <QtEndian>
-#include <QDataStream>
 #include <QCoreApplication>
 #include <spdlog/spdlog.h>
 #include <bitset>
@@ -27,9 +26,9 @@ QString formatFunctionCodeHex(uint8_t functionCode)
     return QString("%1").arg(functionCode, 2, 16, QChar('0')).toUpper();
 }
 
-QString formatFrameHex(const QByteArray& frame)
+QString formatFrameHex(QByteArrayView frame)
 {
-    return frame.toHex(' ').toUpper();
+    return frame.toByteArray().toHex(' ').toUpper();
 }
 
 QString getExceptionString(modbus::base::ExceptionCode code)
@@ -61,22 +60,22 @@ QString getExceptionString(modbus::base::ExceptionCode code)
     }
 }
 
-bool detectTcp(const QByteArray& frame)
+bool detectTcp(QByteArrayView frame) noexcept
 {
     return base::inspectTcpAdu(frame) == frame.size();
 }
 
-bool detectRtu(const QByteArray& frame)
+bool detectRtu(QByteArrayView frame) noexcept
 {
     return base::inspectRtuAdu(frame) == frame.size();
 }
 
-bool detectAscii(const QByteArray& frame)
+bool detectAscii(QByteArrayView frame) noexcept
 {
     return base::inspectAsciiAdu(frame) == frame.size();
 }
 
-bool hasAddressInPdu(modbus::base::FunctionCode functionCode, const QByteArray& pdu)
+bool hasAddressInPdu(modbus::base::FunctionCode functionCode, QByteArrayView pdu) noexcept
 {
     using namespace modbus::base;
     if (pdu.size() < 5) {
@@ -99,19 +98,19 @@ bool hasAddressInPdu(modbus::base::FunctionCode functionCode, const QByteArray& 
     }
 }
 
-uint16_t extractAddressFromPdu(const QByteArray& pdu)
+uint16_t extractAddressFromPdu(QByteArrayView pdu) noexcept
 {
     if (pdu.size() < 3) {
         return 0;
     }
 
     uint16_t address = 0;
-    return modbus::base::readBigEndian<uint16_t>(QByteArrayView(pdu), 1, address) ? address : 0;
+    return modbus::base::readBigEndian<uint16_t>(pdu, 1, address) ? address : 0;
 }
 
 uint16_t determineEffectiveStartAddress(modbus::base::FunctionCode functionCode,
-                                        const QByteArray& pdu,
-                                        uint16_t userStartAddress)
+                                        QByteArrayView pdu,
+                                        uint16_t userStartAddress) noexcept
 {
     if (hasAddressInPdu(functionCode, pdu)) {
         return extractAddressFromPdu(pdu);
@@ -122,12 +121,12 @@ uint16_t determineEffectiveStartAddress(modbus::base::FunctionCode functionCode,
     return 0;
 }
 
-ParseResult parseTcp(const QByteArray& frame, uint16_t startAddress, uint16_t expectedQuantity, bool force, modbus::base::RegisterOrder order)
+ParseResult parseTcp(QByteArrayView frame, uint16_t startAddress, uint16_t expectedQuantity, bool force, modbus::base::RegisterOrder order) noexcept
 {
     ParseResult result;
     result.timestamp = QDateTime::currentDateTimeUtc();
     result.protocol = ProtocolType::Tcp;
-    result.rawFrame = frame;
+    result.rawFrame = frame.toByteArray();
     result.expectedQuantity = expectedQuantity;
     result.isForced = force;
 
@@ -177,8 +176,8 @@ ParseResult parseTcp(const QByteArray& frame, uint16_t startAddress, uint16_t ex
     result.slaveId = fields.unitId;
 
     // 提取 PDU (从第 8 字节开始，长度 = Length - 1 (UnitId))
-    int pduSize = force ? (frame.size() - 7) : (result.length - 1);
-    if (pduSize <= 0) {
+    const qsizetype pduSize = force ? (frame.size() - 7) : (result.length - 1);
+    if (pduSize <= 0 || (7 + pduSize > frame.size())) {
         result.isValid = false;
         result.error = QCoreApplication::translate(
                            "ModbusFrameParser",
@@ -188,18 +187,18 @@ ParseResult parseTcp(const QByteArray& frame, uint16_t startAddress, uint16_t ex
         return result;
     }
 
-    QByteArray pdu = frame.mid(7, pduSize);
+    QByteArrayView pdu = frame.sliced(7, pduSize);
     parsePdu(result, pdu, startAddress, expectedQuantity, order);
 
     return result;
 }
 
-ParseResult parseRtu(const QByteArray& frame, uint16_t startAddress, uint16_t expectedQuantity, bool force, modbus::base::RegisterOrder order)
+ParseResult parseRtu(QByteArrayView frame, uint16_t startAddress, uint16_t expectedQuantity, bool force, modbus::base::RegisterOrder order) noexcept
 {
     ParseResult result;
     result.timestamp = QDateTime::currentDateTimeUtc();
     result.protocol = ProtocolType::Rtu;
-    result.rawFrame = frame;
+    result.rawFrame = frame.toByteArray();
     result.expectedQuantity = expectedQuantity;
     result.isForced = force;
 
@@ -254,23 +253,23 @@ ParseResult parseRtu(const QByteArray& frame, uint16_t startAddress, uint16_t ex
     }
 
     // 提取 PDU (去除首部 SlaveId 和尾部 CRC)
-    int pduLen = qMax(0, frame.size() - 3);
-    QByteArray pdu = frame.mid(1, pduLen);
+    const qsizetype pduLen = qMax<qsizetype>(0, frame.size() - 3);
+    const QByteArrayView pdu = (frame.size() >= 3) ? frame.sliced(1, pduLen) : QByteArrayView();
     parsePdu(result, pdu, startAddress, expectedQuantity, order);
 
     return result;
 }
 
-ParseResult parseAscii(const QByteArray& frame,
+ParseResult parseAscii(QByteArrayView frame,
                       uint16_t startAddress,
                       uint16_t expectedQuantity,
                       bool force,
-                      modbus::base::RegisterOrder order)
+                      modbus::base::RegisterOrder order) noexcept
 {
     ParseResult result;
     result.timestamp = QDateTime::currentDateTimeUtc();
     result.protocol = ProtocolType::Ascii;
-    result.rawFrame = frame;
+    result.rawFrame = frame.toByteArray();
     result.expectedQuantity = expectedQuantity;
     result.isForced = force;
 
@@ -313,24 +312,26 @@ ParseResult parseAscii(const QByteArray& frame,
     result.calculatedChecksum = fields.calculatedLrc;
     result.checksumValid = (integrity > 0);
 
-    const int pduLen = qMax(0, fields.binaryAdu.size() - 2);
-    const QByteArray pdu = fields.binaryAdu.mid(1, pduLen);
+    const qsizetype pduLen = qMax<qsizetype>(0, fields.binaryAdu.size() - 2);
+    const QByteArrayView pdu = (fields.binaryAdu.size() >= 2)
+        ? QByteArrayView(fields.binaryAdu).sliced(1, pduLen)
+        : QByteArrayView();
     parsePdu(result, pdu, startAddress, expectedQuantity, order);
     return result;
 }
 
 } // namespace
 
-ParseResult parse(const QByteArray& frame,
-                 ProtocolType type,
-                 uint16_t startAddress,
-                 uint16_t expectedQuantity,
-                 bool force,
-                 modbus::base::RegisterOrder order)
+ParseResult parse(QByteArrayView frame,
+                  ProtocolType type,
+                  uint16_t startAddress,
+                  uint16_t expectedQuantity,
+                  bool force,
+                  modbus::base::RegisterOrder order) noexcept
 {
     ParseResult result;
     result.timestamp = QDateTime::currentDateTimeUtc();
-    result.rawFrame = frame;
+    result.rawFrame = frame.toByteArray();
     result.expectedQuantity = expectedQuantity;
     result.isForced = force;
 
@@ -385,10 +386,10 @@ ParseResult parse(const QByteArray& frame,
 }
 
 void parsePdu(ParseResult& result,
-              const QByteArray& pdu,
+              QByteArrayView pdu,
               uint16_t startAddress,
               uint16_t expectedQuantity,
-              modbus::base::RegisterOrder order)
+              modbus::base::RegisterOrder order) noexcept
 {
     Q_UNUSED(order);
     if (pdu.isEmpty()) {
@@ -425,14 +426,13 @@ void parsePdu(ParseResult& result,
         return;
     }
 
+    const QByteArray finalPduData = (pdu.size() > 1) ? pdu.sliced(1).toByteArray() : QByteArray();
+
     result.functionCode = static_cast<modbus::base::FunctionCode>(fcByte);
-    result.pduData = pdu.mid(1);
     result.isValid = true;
     const uint16_t effectiveStartAddress = determineEffectiveStartAddress(result.functionCode, pdu, startAddress);
 
     using namespace modbus::base;
-    QDataStream stream(result.pduData);
-    stream.setByteOrder(QDataStream::BigEndian);
 
     switch (result.functionCode) {
     case FunctionCode::ReadCoils:
@@ -440,17 +440,23 @@ void parsePdu(ParseResult& result,
     case FunctionCode::ReadHoldingRegisters:
     case FunctionCode::ReadInputRegisters: {
         // 区分 Request 和 Response
-        // Request: [StartAddr(2)] [Quantity(2)] -> Total PDU size 1+4=5
+        // Request: [FC(1)] [StartAddr(2)] [Quantity(2)] -> Total PDU size 5
         if (pdu.size() == 5) {
             result.type = FrameType::Request;
-            uint16_t start, quantity;
-            stream >> start >> quantity;
+            uint16_t start = 0;
+            uint16_t quantity = 0;
+            if (!readBigEndian<uint16_t>(pdu, 1, start) ||
+                !readBigEndian<uint16_t>(pdu, 3, quantity)) {
+                result.isValid = false;
+                result.error = QCoreApplication::translate("ModbusFrameParser", "Failed to read request fields");
+                break;
+            }
             DataItem item;
             item.address = effectiveStartAddress;
             result.dataItems.append(item);
             result.expectedQuantity = quantity;
         } else {
-            // Response: [ByteCount(1)] [Data(N)]
+            // Response: [FC(1)] [ByteCount(1)] [Data(N)]
             result.type = FrameType::Response;
             if (pdu.size() < 2) {
                 result.isValid = false;
@@ -462,16 +468,16 @@ void parsePdu(ParseResult& result,
                 break;
             }
             
-            uint8_t byteCount;
-            stream >> byteCount;
-            if (byteCount != static_cast<uint8_t>(result.pduData.size() - 1)) {
+            uint8_t byteCount = static_cast<uint8_t>(pdu[1]);
+            const qsizetype payloadSize = pdu.size() - 2;
+            if (byteCount != payloadSize) {
                 result.isValid = false;
                 result.error = QCoreApplication::translate(
                                    "ModbusFrameParser",
                                    "Byte count mismatch for function 0x%1. Declared %2, actual %3")
                                    .arg(formatFunctionCodeHex(fcByte))
                                    .arg(byteCount)
-                                   .arg(result.pduData.size() - 1);
+                                   .arg(payloadSize);
                 break;
             }
             
@@ -497,9 +503,14 @@ void parsePdu(ParseResult& result,
                 }
                 // 寄存器数据 (每2字节一个)
                 int count = byteCount / 2;
+                result.dataItems.reserve(count);
                 for (int i = 0; i < count; ++i) {
-                    uint16_t val;
-                    stream >> val;
+                    uint16_t val = 0;
+                    if (!readBigEndian<uint16_t>(pdu, 2 + i * 2, val)) {
+                        result.isValid = false;
+                        result.error = QCoreApplication::translate("ModbusFrameParser", "Truncated register data");
+                        break;
+                    }
                     DataItem item;
                     item.address = effectiveStartAddress + i;
                     item.value = val;
@@ -533,9 +544,10 @@ void parsePdu(ParseResult& result,
                     }
                 }
                 const int bitsToParse = expectedQuantity == 0 ? totalBits : qMin<int>(expectedQuantity, totalBits);
+                result.dataItems.reserve(bitsToParse);
                 int currentBitAddress = 0;
                 for (int i = 0; i < byteCount; ++i) {
-                    uint8_t byteVal = static_cast<uint8_t>(result.pduData[1 + i]); // +1 to skip byteCount
+                    uint8_t byteVal = static_cast<uint8_t>(pdu[2 + i]);
                     for (int bit = 0; bit < 8; ++bit) {
                         if (currentBitAddress >= bitsToParse) {
                             break;
@@ -558,18 +570,24 @@ void parsePdu(ParseResult& result,
     case FunctionCode::WriteSingleCoil:
     case FunctionCode::WriteSingleRegister: {
         // Request 和 Response 格式相同: [Addr(2)] [Value(2)]
-        if (result.pduData.size() != 4) {
+        if (pdu.size() != 5) {
             result.isValid = false;
             result.error = QCoreApplication::translate(
                                "ModbusFrameParser",
                                "Write single PDU length mismatch for function 0x%1. Expected 4 bytes, got %2")
                                .arg(formatFunctionCodeHex(fcByte))
-                               .arg(result.pduData.size());
+                               .arg(pdu.size() - 1);
             break;
         }
         result.type = FrameType::Unknown;
-        uint16_t addr, val;
-        stream >> addr >> val;
+        uint16_t addr = 0;
+        uint16_t val = 0;
+        if (!readBigEndian<uint16_t>(pdu, 1, addr) ||
+            !readBigEndian<uint16_t>(pdu, 3, val)) {
+            result.isValid = false;
+            result.error = QCoreApplication::translate("ModbusFrameParser", "Failed to read write value");
+            break;
+        }
         
         DataItem item;
         item.address = addr;
@@ -597,19 +615,38 @@ void parsePdu(ParseResult& result,
         // Response: [Start(2)] [Quant(2)]
         if (pdu.size() == 5) {
             result.type = FrameType::Response;
-            uint16_t start, quant;
-            stream >> start >> quant;
+            uint16_t start = 0;
+            uint16_t quant = 0;
+            if (!readBigEndian<uint16_t>(pdu, 1, start) ||
+                !readBigEndian<uint16_t>(pdu, 3, quant)) {
+                result.isValid = false;
+                result.error = QCoreApplication::translate("ModbusFrameParser", "Failed to read response echo");
+                break;
+            }
             DataItem item;
             item.address = start;
             result.dataItems.append(item);
             result.expectedQuantity = quant;
         } else {
             result.type = FrameType::Request;
-            uint16_t start, quant;
-            uint8_t byteCount;
-            stream >> start >> quant >> byteCount;
-            const int payloadBytes = qMax(0, result.pduData.size() - 5);
-            if (result.pduData.size() < 5 || byteCount != payloadBytes) {
+            if (pdu.size() < 6) {
+                result.isValid = false;
+                result.error = QCoreApplication::translate(
+                                   "ModbusFrameParser",
+                                   "Write request PDU too short");
+                break;
+            }
+            uint16_t start = 0;
+            uint16_t quant = 0;
+            if (!readBigEndian<uint16_t>(pdu, 1, start) ||
+                !readBigEndian<uint16_t>(pdu, 3, quant)) {
+                result.isValid = false;
+                result.error = QCoreApplication::translate("ModbusFrameParser", "Failed to read write request fields");
+                break;
+            }
+            uint8_t byteCount = static_cast<uint8_t>(pdu[5]);
+            const qsizetype payloadBytes = pdu.size() - 6;
+            if (byteCount != payloadBytes) {
                 result.isValid = false;
                 result.error = QCoreApplication::translate(
                                    "ModbusFrameParser",
@@ -638,9 +675,14 @@ void parsePdu(ParseResult& result,
                     break;
                 }
                 int count = byteCount / 2;
+                result.dataItems.reserve(count);
                 for (int i = 0; i < count; ++i) {
-                    uint16_t val;
-                    stream >> val;
+                    uint16_t val = 0;
+                    if (!readBigEndian<uint16_t>(pdu, 6 + i * 2, val)) {
+                        result.isValid = false;
+                        result.error = QCoreApplication::translate("ModbusFrameParser", "Truncated register data");
+                        break;
+                    }
                     DataItem item;
                     item.address = start + i;
                     item.value = val;
@@ -667,10 +709,10 @@ void parsePdu(ParseResult& result,
                      break;
                  }
                  // Write Multiple Coils Request - Expand bits
+                 result.dataItems.reserve(quant);
                  int currentBitAddress = 0;
                  for (int i = 0; i < byteCount; ++i) {
-                     uint8_t byteVal;
-                     stream >> byteVal;
+                     uint8_t byteVal = static_cast<uint8_t>(pdu[6 + i]);
                      // Only parse up to 'quant' bits
                      for (int bit = 0; bit < 8; ++bit) {
                          if (currentBitAddress >= quant) break;
@@ -698,9 +740,11 @@ void parsePdu(ParseResult& result,
                            .arg(formatFunctionCodeHex(fcByte));
         break;
     }
+
+    result.pduData = finalPduData;
 }
 
-void applyRegisterOrder(ParseResult& result, modbus::base::RegisterOrder order)
+void applyRegisterOrder(ParseResult& result, modbus::base::RegisterOrder order) noexcept
 {
     using namespace modbus::base;
     if (order == RegisterOrder::ABCD || result.dataItems.isEmpty()) {

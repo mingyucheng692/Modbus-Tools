@@ -10,6 +10,7 @@
 #pragma once
 
 #include <QByteArray>
+#include <QByteArrayView>
 #include <cstdint>
 #include "ModbusTypes.h"
 
@@ -20,8 +21,14 @@ public:
     Pdu() = default;
     
     // 构造普通请求/响应 PDU
-    Pdu(FunctionCode functionCode, const QByteArray& data = {}) 
+    explicit Pdu(FunctionCode functionCode)
+        : functionCode_(functionCode), data_{} {}
+
+    Pdu(FunctionCode functionCode, const QByteArray& data) 
         : functionCode_(functionCode), data_(data) {}
+
+    Pdu(FunctionCode functionCode, QByteArrayView data) 
+        : functionCode_(functionCode), data_(data.toByteArray()) {}
 
     // 构造异常响应 PDU
     Pdu(FunctionCode functionCode, ExceptionCode exceptionCode)

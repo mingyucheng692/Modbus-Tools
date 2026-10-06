@@ -53,7 +53,10 @@ ParseResponseResult ModbusSerialTransport::parseResponse(const QByteArray& adu) 
         }
         pendingSlave_.reset();
 
-        QByteArray payload = adu.mid(2, adu.size() - 4);
+        const qsizetype payloadLen = adu.size() - 4;
+        const QByteArrayView payload = (payloadLen > 0)
+            ? QByteArrayView(adu).sliced(2, payloadLen)
+            : QByteArrayView();
         return {ParseResponseStatus::Ok, base::Pdu(static_cast<base::FunctionCode>(fields.functionCode), payload)};
     } else {
         base::AsciiAduFields fields;
@@ -72,7 +75,10 @@ ParseResponseResult ModbusSerialTransport::parseResponse(const QByteArray& adu) 
         }
         pendingSlave_.reset();
 
-        const QByteArray payload = fields.binaryAdu.mid(2, fields.binaryAdu.size() - 3);
+        const qsizetype payloadLen = fields.binaryAdu.size() - 3;
+        const QByteArrayView payload = (payloadLen > 0)
+            ? QByteArrayView(fields.binaryAdu).sliced(2, payloadLen)
+            : QByteArrayView();
         return {
             ParseResponseStatus::Ok,
             base::Pdu(static_cast<base::FunctionCode>(fields.functionCode), payload)

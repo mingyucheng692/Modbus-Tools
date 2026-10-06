@@ -1,9 +1,14 @@
 #include <gtest/gtest.h>
 #include "modbus/parser/ModbusFrameParser.h"
 #include <QDateTime>
+#include <type_traits>
 
 using namespace modbus::parser;
 using namespace modbus::base;
+
+static_assert(noexcept(parse(std::declval<QByteArrayView>())));
+static_assert(noexcept(parsePdu(std::declval<ParseResult&>(), std::declval<QByteArrayView>(), 0, 0)));
+static_assert(noexcept(applyRegisterOrder(std::declval<ParseResult&>(), RegisterOrder::ABCD)));
 
 class FrameParserTest : public ::testing::Test {
 protected:

@@ -67,7 +67,10 @@ ParseResponseResult ModbusTcpTransport::parseResponse(const QByteArray& adu) {
         pendingTransactions_.erase(pendingIt);
     }
     const uint8_t fc = static_cast<uint8_t>(adu[7]);
-    QByteArray payload = adu.mid(8, fields.length - 2);
+    const qsizetype payloadLen = fields.length - 2;
+    const QByteArrayView payload = (payloadLen > 0)
+        ? QByteArrayView(adu).sliced(8, payloadLen)
+        : QByteArrayView();
 
     return {ParseResponseStatus::Ok, base::Pdu(static_cast<base::FunctionCode>(fc), payload)};
 }
