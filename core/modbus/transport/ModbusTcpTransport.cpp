@@ -8,9 +8,9 @@
  */
 
 #include "ModbusTcpTransport.h"
+#include "../base/ModbusAduBuilder.h"
 #include "../base/ModbusProtocolChecks.h"
 #include "../../Config.h"
-#include <QtEndian>
 #include <spdlog/spdlog.h>
 
 namespace modbus::transport {
@@ -18,7 +18,6 @@ namespace modbus::transport {
 ModbusTcpTransport::ModbusTcpTransport() : transactionId_(0) {}
 
 QByteArray ModbusTcpTransport::buildRequest(const base::Pdu& pdu, uint8_t slaveId) {
-    QByteArray adu;
     uint16_t transactionId = 0;
     {
         std::lock_guard<std::mutex> lock(pendingMutex_);
@@ -29,17 +28,7 @@ QByteArray ModbusTcpTransport::buildRequest(const base::Pdu& pdu, uint8_t slaveI
 
         pendingTransactions_[transactionId] = slaveId;
     }
-    uint16_t length = static_cast<uint16_t>(1 + 1 + pdu.data().size());
-    char header[6];
-    qToBigEndian(transactionId, header);
-    qToBigEndian(uint16_t(0), header + 2);
-    qToBigEndian(length, header + 4);
-    adu.append(header, 6);
-    adu.append(static_cast<char>(slaveId));
-    adu.append(static_cast<char>(pdu.functionCode()));
-    adu.append(pdu.data());
-
-    return adu;
+    return base::buildTcpAdu(slaveId, pdu, transactionId);
 }
 
 ParseResponseResult ModbusTcpTransport::parseResponse(const QByteArray& adu) {
