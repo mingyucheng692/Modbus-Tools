@@ -8,7 +8,7 @@
 #include "../../../ui/application/modbus/RequestSubmissionService.h"
 #include "../../../ui/application/modbus/PollingController.h"
 #include "../../../ui/application/modbus/TrafficLogController.h"
-#include "../../../ui/application/modbus/ModbusTypes.h"
+#include "../../../ui/application/modbus/ModbusPagePresenter.h"
 #include "../../../mocks/UiTestDoubles.h"
 
 using namespace testing;
@@ -335,6 +335,32 @@ TEST_F(ModbusSessionPresenterTest, PollingFatalDisconnect_DowngradesToFullDiscon
     EXPECT_FALSE(tcpPresenter_->isSessionConnected());
 }
 
+TEST(ModbusPagePresenterErrorTest, FormatModbusError_TranslatesErrors) {
+    using ::modbus::session::ModbusResponse;
+    using ::modbus::base::ModbusError;
+    using ::modbus::base::ExceptionCode;
+
+    auto respTimeout = ModbusResponse::Error(ModbusError::Timeout);
+    EXPECT_FALSE(ModbusPagePresenter::formatModbusError(respTimeout).isEmpty());
+
+    auto respNotConnected = ModbusResponse::Error(ModbusError::NotConnected);
+    EXPECT_FALSE(ModbusPagePresenter::formatModbusError(respNotConnected).isEmpty());
+
+    auto respBusy = ModbusResponse::Busy();
+    EXPECT_FALSE(ModbusPagePresenter::formatModbusError(respBusy).isEmpty());
+
+    auto respEx = ModbusResponse::Error(ModbusError::ExceptionResponse, QString(), 0, ExceptionCode::IllegalDataAddress);
+    QString exStr = ModbusPagePresenter::formatModbusError(respEx);
+    EXPECT_TRUE(exStr.contains(QStringLiteral("02")) || exStr.contains(QStringLiteral("Illegal Data Address")));
+
+    auto respCrc = ModbusResponse::Error(ModbusError::CrcMismatch);
+    EXPECT_TRUE(ModbusPagePresenter::formatModbusError(respCrc).contains(QStringLiteral("CRC")));
+
+    auto respLrc = ModbusResponse::Error(ModbusError::LrcMismatch);
+    EXPECT_TRUE(ModbusPagePresenter::formatModbusError(respLrc).contains(QStringLiteral("LRC")));
+}
+
 } // namespace
 
 #include "ModbusSessionPresenterTest.moc"
+

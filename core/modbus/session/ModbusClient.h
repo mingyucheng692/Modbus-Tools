@@ -120,6 +120,8 @@ public:
     ~ModbusClient() noexcept;
 
     ModbusResponse sendRequest(const base::Pdu& request, int slaveId = -1);
+    [[nodiscard]] common::Result<base::Pdu, base::ModbusError> sendRequestResult(
+        const base::Pdu& request, int slaveId = -1);
     void sendRaw(const QByteArray& data);
     bool connect();
     void disconnect();

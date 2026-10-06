@@ -74,12 +74,20 @@ public:
     explicit RequestExecutor(const Dependencies& deps);
 
     /**
+     * @brief Execute a complete Modbus request and return strongly typed Result.
+     * @param request The PDU to send
+     * @param slaveId The target slave ID (-1 to use config default)
+     * @return Result<base::Pdu, base::ModbusError>
+     */
+    [[nodiscard]] common::Result<base::Pdu, base::ModbusError> executeRequest(const base::Pdu& request, int slaveId);
+
+    /**
      * @brief Execute a complete Modbus request with retry logic.
      * @param request The PDU to send
      * @param slaveId The target slave ID (-1 to use config default)
      * @return ModbusResponse with success/error status
      */
-    ModbusResponse execute(const base::Pdu& request, int slaveId);
+    [[nodiscard]] ModbusResponse execute(const base::Pdu& request, int slaveId);
 
     /**
      * @brief Send raw data without waiting for a response.
@@ -130,14 +138,16 @@ private:
                                            const base::Pdu& requestPdu);
     bool isBroadcastRequest(int slaveId, base::FunctionCode functionCode) const;
     bool shouldWaitForResponse(int slaveId, base::FunctionCode functionCode) const;
-    bool waitForWriteDrain(std::chrono::steady_clock::time_point deadline,
-                           std::chrono::steady_clock::time_point* drainedAt);
+    [[nodiscard]] common::Result<void, base::ModbusError> waitForWriteDrain(
+        std::chrono::steady_clock::time_point deadline,
+        std::chrono::steady_clock::time_point* drainedAt);
     bool waitForEventOrTimeout(std::chrono::steady_clock::time_point deadline);
     // Writes the ADU and drains the RTU write buffer. For TCP, only the write
-    // is performed. Returns true on success; *drainedAt receives the time the
+    // is performed. Returns Result on success/failure; *drainedAt receives the time the
     // drain completed (unset for TCP / non-RTU).
-    bool writeRtuFrameWithDrain(const QByteArray& adu,
-                                std::chrono::steady_clock::time_point* drainedAt);
+    [[nodiscard]] common::Result<void, base::ModbusError> writeRtuFrameWithDrain(
+        const QByteArray& adu,
+        std::chrono::steady_clock::time_point* drainedAt);
     int enqueuePendingRequest(const base::Pdu& request, int slaveId);
     void finishPendingRequest(int requestId, bool success, const QString& error);
 

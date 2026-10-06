@@ -89,6 +89,9 @@ public:
     /// Test seam for verifying QPointer lifecycle & null-fallback behavior.
     void setTrafficLogControllerForTest(TrafficLogController* controller);
 
+    /// Formats structured ModbusError into localized user-facing UI text.
+    [[nodiscard]] static QString formatModbusError(const ::modbus::session::ModbusResponse& response);
+
 signals:
     /// Forwarded from RequestCoordinator (gated by linked_ state).
     void linkageDataReceived(const ::modbus::base::Pdu& pdu,

@@ -15,6 +15,9 @@
 #include "../base/ModbusFrame.h"
 #include "../base/ModbusConfig.h"
 
+#include "../base/ModbusTypes.h"
+#include "common/Result.h"
+
 namespace modbus::session {
 
 /// Orthogonal to transport state: tracks whether the Modbus device is
@@ -36,17 +39,14 @@ enum class ModbusResponseKind {
     Error
 };
 
-// Structured error code so the UI can distinguish "soft lock contention"
-// (Busy) from genuine transport/protocol errors and show a precise message.
-enum class RequestError {
-    None,
-    Busy
-};
+// Aliased to ModbusError so legacy callers remain backward-compatible
+using RequestError = base::ModbusError;
 
 // 响应结果类型：包含 Pdu 或错误信息
 struct ModbusResponse {
     ModbusResponseKind kind = ModbusResponseKind::Error;
-    RequestError errorCode = RequestError::None;
+    base::ModbusError errorCode = base::ModbusError::None;
+    base::ExceptionCode exceptionCode = base::ExceptionCode::None;
     base::Pdu pdu;
     QString error;
     int rttMs = -1;
@@ -54,12 +54,21 @@ struct ModbusResponse {
 
     bool isError() const { return kind == ModbusResponseKind::Error; }
     bool isNoResponseExpected() const { return kind == ModbusResponseKind::NoResponseExpected; }
-    bool isBusy() const { return errorCode == RequestError::Busy; }
+    bool isBusy() const { return errorCode == base::ModbusError::Busy; }
     int retryCount() const { return attemptCount > 0 ? attemptCount - 1 : 0; }
+
+    [[nodiscard]] ::common::Result<base::Pdu, base::ModbusError> toResult() const {
+        if (!isError()) {
+            return ::common::Result<base::Pdu, base::ModbusError>::ok(pdu);
+        }
+        return ::common::Result<base::Pdu, base::ModbusError>::err(
+            errorCode != base::ModbusError::None ? errorCode : base::ModbusError::Unknown);
+    }
 
     static ModbusResponse Success(base::Pdu pdu, int rttMs = -1, int attemptCount = 0) {
         ModbusResponse response;
         response.kind = ModbusResponseKind::Success;
+        response.errorCode = base::ModbusError::None;
         response.pdu = std::move(pdu);
         response.rttMs = rttMs;
         response.attemptCount = attemptCount;
@@ -69,7 +78,22 @@ struct ModbusResponse {
     static ModbusResponse NoResponseExpected(base::Pdu pdu, int attemptCount = 0) {
         ModbusResponse response;
         response.kind = ModbusResponseKind::NoResponseExpected;
+        response.errorCode = base::ModbusError::None;
         response.pdu = std::move(pdu);
+        response.rttMs = -1;
+        response.attemptCount = attemptCount;
+        return response;
+    }
+
+    static ModbusResponse Error(base::ModbusError errorCode,
+                                QString error = QString(),
+                                int attemptCount = 0,
+                                base::ExceptionCode exceptionCode = base::ExceptionCode::None) {
+        ModbusResponse response;
+        response.kind = ModbusResponseKind::Error;
+        response.errorCode = errorCode;
+        response.exceptionCode = exceptionCode;
+        response.error = error.isEmpty() ? QString::fromLatin1(base::toString(errorCode)) : std::move(error);
         response.rttMs = -1;
         response.attemptCount = attemptCount;
         return response;
@@ -78,16 +102,16 @@ struct ModbusResponse {
     static ModbusResponse Error(QString error, int attemptCount = 0) {
         ModbusResponse response;
         response.kind = ModbusResponseKind::Error;
+        response.errorCode = base::ModbusError::None;
         response.error = std::move(error);
         response.rttMs = -1;
         response.attemptCount = attemptCount;
         return response;
     }
 
-    static ModbusResponse Busy(QString error) {
-        ModbusResponse response = Error(std::move(error));
-        response.errorCode = RequestError::Busy;
-        return response;
+    static ModbusResponse Busy(QString error = QString()) {
+        return Error(base::ModbusError::Busy,
+                     error.isEmpty() ? QStringLiteral("Request already in progress") : std::move(error));
     }
 };
 

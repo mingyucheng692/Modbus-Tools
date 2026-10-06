@@ -76,6 +76,7 @@ target_sources(core PRIVATE
     update/ReleaseParser.cpp
     polling/PollingStrategy.h
     polling/PollingStrategy.cpp
+    common/Result.h
     common/TrContext.h
     common/LogDedupe.h
     common/ThreadGuard.h

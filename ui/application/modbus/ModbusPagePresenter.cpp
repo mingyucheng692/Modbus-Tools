@@ -453,6 +453,72 @@ void ModbusPagePresenter::handlePollStopRequest() {
     }
 }
 
+namespace {
+
+QString formatExceptionCode(::modbus::base::ExceptionCode code) {
+    switch (code) {
+    case ::modbus::base::ExceptionCode::IllegalFunction:
+        return QObject::tr("Illegal Function");
+    case ::modbus::base::ExceptionCode::IllegalDataAddress:
+        return QObject::tr("Illegal Data Address");
+    case ::modbus::base::ExceptionCode::IllegalDataValue:
+        return QObject::tr("Illegal Data Value");
+    case ::modbus::base::ExceptionCode::ServerDeviceFailure:
+        return QObject::tr("Server Device Failure");
+    case ::modbus::base::ExceptionCode::Acknowledge:
+        return QObject::tr("Acknowledge");
+    case ::modbus::base::ExceptionCode::ServerDeviceBusy:
+        return QObject::tr("Server Device Busy");
+    case ::modbus::base::ExceptionCode::NegativeAcknowledge:
+        return QObject::tr("Negative Acknowledge");
+    case ::modbus::base::ExceptionCode::MemoryParityError:
+        return QObject::tr("Memory Parity Error");
+    case ::modbus::base::ExceptionCode::GatewayPathUnavailable:
+        return QObject::tr("Gateway Path Unavailable");
+    case ::modbus::base::ExceptionCode::GatewayTargetDeviceFailed:
+        return QObject::tr("Gateway Target Device Failed To Respond");
+    default:
+        return QObject::tr("Unknown Exception");
+    }
+}
+
+} // namespace
+
+QString ModbusPagePresenter::formatModbusError(const ::modbus::session::ModbusResponse& response) {
+    switch (response.errorCode) {
+    case ::modbus::base::ModbusError::Timeout:
+        return tr("Request timed out");
+    case ::modbus::base::ModbusError::NotConnected:
+        return tr("Not connected");
+    case ::modbus::base::ModbusError::ConnectionFailed:
+        return response.error.isEmpty() ? tr("Connection failed") : response.error;
+    case ::modbus::base::ModbusError::Busy:
+        return tr("Request already in progress");
+    case ::modbus::base::ModbusError::InvalidAdu:
+        return tr("Invalid response frame");
+    case ::modbus::base::ModbusError::InvalidPdu:
+        return response.error.isEmpty() ? tr("Invalid PDU parameters") : response.error;
+    case ::modbus::base::ModbusError::CrcMismatch:
+        return tr("CRC checksum error");
+    case ::modbus::base::ModbusError::LrcMismatch:
+        return tr("LRC checksum error");
+    case ::modbus::base::ModbusError::ExceptionResponse:
+        return tr("Modbus exception: %1 (0x%2)")
+            .arg(formatExceptionCode(response.exceptionCode))
+            .arg(static_cast<int>(response.exceptionCode), 2, 16, QChar('0'));
+    case ::modbus::base::ModbusError::WriteFailed:
+        return tr("Failed to send data");
+    case ::modbus::base::ModbusError::Aborted:
+        return tr("Request aborted");
+    case ::modbus::base::ModbusError::TooManyInvalidBytes:
+        return tr("Too many invalid response bytes");
+    case ::modbus::base::ModbusError::None:
+    case ::modbus::base::ModbusError::Unknown:
+    default:
+        return response.error.isEmpty() ? tr("Unknown error") : response.error;
+    }
+}
+
 void ModbusPagePresenter::handleRequestFinished(int requestId,
                                                 const ::modbus::session::ModbusResponse& response) {
     if (!requestService_) return;
@@ -466,12 +532,16 @@ void ModbusPagePresenter::handleRequestFinished(int requestId,
     uint16_t addr = trackingInfo->address;
     const TraceId traceId = trackingInfo->traceId;
 
+    const QString localizedError = (response.isError() || response.isBusy())
+        ? formatModbusError(response)
+        : QString();
+
     if (kind == RequestKind::Poll) {
         if (pollingController_) {
             pollingController_->handleResponse(!response.isError(),
                                                 response.rttMs,
                                                 response.retryCount(),
-                                                response.error);
+                                                localizedError);
         }
     }
 
@@ -495,7 +565,7 @@ void ModbusPagePresenter::handleRequestFinished(int requestId,
     case ::modbus::session::ModbusResponseKind::Error:
         if (response.isBusy()) {
             if (kind != RequestKind::Poll && trafficLogController_) {
-                trafficLogController_->logWarning(response.error);
+                trafficLogController_->logWarning(localizedError);
             }
             break;
         }
@@ -504,7 +574,7 @@ void ModbusPagePresenter::handleRequestFinished(int requestId,
         }
 
         if (kind != RequestKind::Poll && trafficLogController_) {
-            trafficLogController_->logRequestError(response.error, response.retryCount(),
+            trafficLogController_->logRequestError(localizedError, response.retryCount(),
                                                    traceId);
         }
         break;

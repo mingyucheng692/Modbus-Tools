@@ -41,6 +41,47 @@ enum class ExceptionCode : uint8_t {
     GatewayTargetDeviceFailed = 0x0B
 };
 
+/**
+ * @brief Structured error codes for Modbus operations.
+ * Decouples domain error states from user-facing localization.
+ */
+enum class ModbusError : uint8_t {
+    None = 0,
+    Timeout,
+    ConnectionFailed,
+    NotConnected,
+    Busy,
+    InvalidAdu,
+    InvalidPdu,
+    CrcMismatch,
+    LrcMismatch,
+    ExceptionResponse,
+    WriteFailed,
+    Aborted,
+    TooManyInvalidBytes,
+    Unknown
+};
+
+[[nodiscard]] constexpr const char* toString(ModbusError err) noexcept {
+    switch (err) {
+    case ModbusError::None: return "None";
+    case ModbusError::Timeout: return "Timeout";
+    case ModbusError::ConnectionFailed: return "ConnectionFailed";
+    case ModbusError::NotConnected: return "NotConnected";
+    case ModbusError::Busy: return "Busy";
+    case ModbusError::InvalidAdu: return "InvalidAdu";
+    case ModbusError::InvalidPdu: return "InvalidPdu";
+    case ModbusError::CrcMismatch: return "CrcMismatch";
+    case ModbusError::LrcMismatch: return "LrcMismatch";
+    case ModbusError::ExceptionResponse: return "ExceptionResponse";
+    case ModbusError::WriteFailed: return "WriteFailed";
+    case ModbusError::Aborted: return "Aborted";
+    case ModbusError::TooManyInvalidBytes: return "TooManyInvalidBytes";
+    case ModbusError::Unknown: return "Unknown";
+    }
+    return "Unknown";
+}
+
 struct ModbusAddress {
     enum class Area {
         Coil,
@@ -72,3 +113,8 @@ enum class RegisterOrder {
 };
 
 } // namespace modbus::base
+
+namespace modbus {
+using base::ModbusError;
+using base::toString;
+} // namespace modbus

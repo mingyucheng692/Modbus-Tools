@@ -274,6 +274,11 @@ ModbusResponse ModbusClient::sendRequest(const base::Pdu& request, int slaveId) 
     return response;
 }
 
+common::Result<base::Pdu, base::ModbusError> ModbusClient::sendRequestResult(
+    const base::Pdu& request, int slaveId) {
+    return sendRequest(request, slaveId).toResult();
+}
+
 void ModbusClient::sendRaw(const QByteArray& data) {
     assertSessionAffinity();
     requestExecutor_.sendRaw(data);
