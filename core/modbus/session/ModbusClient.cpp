@@ -151,7 +151,7 @@ bool ModbusClient::connect() {
 
     aborted_ = false;
     sessionHealth_.store(SessionHealth::Unknown, std::memory_order_release);
-    const bool connected = ensureConnected();
+    const bool connected = connectionManager_.ensureConnected();
     if (connected) {
         clearRuntimeState(false);
         if (!requestStateMachine_.tryTransition(RequestState::Idle, "connect")) {
@@ -245,16 +245,6 @@ void ModbusClient::setConfig(const base::ModbusConfig& config) {
         timeouts.writeMs = config_.timeoutMs;
         channel_->setTimeouts(timeouts);
     }
-}
-
-bool ModbusClient::ensureConnected() {
-    return connectionManager_.ensureConnected();
-}
-
-bool ModbusClient::waitForChannelState(io::ChannelState expectedState,
-                                       std::chrono::steady_clock::time_point deadline,
-                                       QString* errorOut) {
-    return connectionManager_.waitForChannelState(expectedState, deadline, errorOut);
 }
 
 ModbusResponse ModbusClient::sendRequest(const base::Pdu& request, int slaveId) {

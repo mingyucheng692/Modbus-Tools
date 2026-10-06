@@ -171,10 +171,6 @@ private:
     QThread* sessionOwnerThread_ = nullptr;
 #endif
 
-    bool ensureConnected();
-    bool waitForChannelState(io::ChannelState expectedState,
-                             std::chrono::steady_clock::time_point deadline,
-                             QString* errorOut);
     void clearRuntimeState(bool clearPendingQueue);
 
     std::shared_ptr<io::IChannel> channel_;

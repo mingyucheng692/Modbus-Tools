@@ -253,7 +253,7 @@ void PollingController::handlePollCompletion(bool success, int rttMs, int retryC
                 .arg(context_.consecutiveErrorCount)
                 .arg(error);
 
-            // Rate-limit degraded warnings (Task 3.1):
+            // Rate-limit degraded warnings:
             // - Report immediately when error text changes (differentiate fault types)
             // - Report immediately on first entry into Degraded (context_.state is still Polling)
             // - Cap repetitive identical errors at once per 5 seconds
@@ -276,7 +276,7 @@ void PollingController::handlePollCompletion(bool success, int rttMs, int retryC
             }
         }
 
-        // Architecture Contract: Dual-Track Self-Healing (Task 3.2)
+        // Architecture Contract: Dual-Track Self-Healing
         // - Core layer (onRequestTimeout / ensureConnected): Responsible for physical
         //   eviction and half-open socket detection on each individual request.
         // - UI layer (pollingFatalDisconnect): Responsible for final state fallback

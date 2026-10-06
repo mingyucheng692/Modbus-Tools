@@ -39,9 +39,6 @@ enum class ModbusResponseKind {
     Error
 };
 
-// Aliased to ModbusError so legacy callers remain backward-compatible
-using RequestError = base::ModbusError;
-
 // 响应结果类型：包含 Pdu 或错误信息
 struct ModbusResponse {
     ModbusResponseKind kind = ModbusResponseKind::Error;

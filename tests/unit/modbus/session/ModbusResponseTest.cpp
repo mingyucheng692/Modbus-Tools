@@ -11,13 +11,13 @@
 
 using modbus::session::ModbusResponse;
 using modbus::session::ModbusResponseKind;
-using modbus::session::RequestError;
+using modbus::base::ModbusError;
 
 TEST(ModbusResponseTest, Error_DefaultsToNoneErrorCode) {
     const auto response = ModbusResponse::Error("boom");
     EXPECT_EQ(response.kind, ModbusResponseKind::Error);
     EXPECT_TRUE(response.isError());
-    EXPECT_EQ(response.errorCode, RequestError::None);
+    EXPECT_EQ(response.errorCode, ModbusError::None);
     EXPECT_FALSE(response.isBusy());
     EXPECT_EQ(response.error.toStdString(), "boom");
 }
@@ -26,7 +26,7 @@ TEST(ModbusResponseTest, Busy_SetsBusyErrorCodeAndMessage) {
     const auto response = ModbusResponse::Busy("Request already in progress");
     EXPECT_EQ(response.kind, ModbusResponseKind::Error);
     EXPECT_TRUE(response.isError());
-    EXPECT_EQ(response.errorCode, RequestError::Busy);
+    EXPECT_EQ(response.errorCode, ModbusError::Busy);
     EXPECT_TRUE(response.isBusy());
     EXPECT_EQ(response.error.toStdString(), "Request already in progress");
 }
@@ -37,7 +37,7 @@ TEST(ModbusResponseTest, Success_HasNoBusyCode) {
         10);
     EXPECT_EQ(response.kind, ModbusResponseKind::Success);
     EXPECT_FALSE(response.isError());
-    EXPECT_EQ(response.errorCode, RequestError::None);
+    EXPECT_EQ(response.errorCode, ModbusError::None);
     EXPECT_FALSE(response.isBusy());
 }
 

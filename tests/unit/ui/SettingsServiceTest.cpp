@@ -1,1 +1,0 @@
-// Moved to tests/unit/infra/SettingsServiceTest.cpp

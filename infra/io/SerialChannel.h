@@ -17,6 +17,14 @@ class QIODevice;
 
 namespace io {
 
+/**
+ * @class SerialChannel
+ * @brief Concrete serial communication channel wrapping QSerialPort.
+ *
+ * Role: Provides buffered, non-blocking serial communication for Modbus RTU/ASCII.
+ * Thread-safety: Thread-compatible. All operations must run on its affinity thread.
+ * Ownership: Manages private QSerialPort instance; owned by unique_ptr / shared_ptr.
+ */
 class SerialChannel : public BufferedWritingChannel {
 public:
     SerialChannel();

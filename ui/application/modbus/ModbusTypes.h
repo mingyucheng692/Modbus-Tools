@@ -50,17 +50,10 @@ enum class SessionMode {
     Ascii
 };
 
-enum class TransportUiMode {
-    Tcp,
-    Rtu,
-    Ascii
-};
-
 struct ModbusModeDescriptor {
     SessionMode sessionMode = SessionMode::Tcp;
     ::modbus::base::ModbusMode modbusMode = ::modbus::base::ModbusMode::TCP;
     ::modbus::parser::ProtocolType protocolType = ::modbus::parser::ProtocolType::Tcp;
-    TransportUiMode transportUiMode = TransportUiMode::Tcp;
     const char* settingsPrefix = "modbus/tcp";
     const char* logName = "TCP";
     bool usesSerialConnection = false;
@@ -92,7 +85,6 @@ struct ModbusConnectionSpec {
             SessionMode::Tcp,
             ::modbus::base::ModbusMode::TCP,
             ::modbus::parser::ProtocolType::Tcp,
-            TransportUiMode::Tcp,
             "modbus/tcp",
             "TCP",
             false,
@@ -103,7 +95,6 @@ struct ModbusConnectionSpec {
             SessionMode::Rtu,
             ::modbus::base::ModbusMode::RTU,
             ::modbus::parser::ProtocolType::Rtu,
-            TransportUiMode::Rtu,
             "modbus/rtu",
             "RTU",
             true,
@@ -114,7 +105,6 @@ struct ModbusConnectionSpec {
             SessionMode::Ascii,
             ::modbus::base::ModbusMode::ASCII,
             ::modbus::parser::ProtocolType::Ascii,
-            TransportUiMode::Ascii,
             "modbus/ascii",
             "ASCII",
             true,

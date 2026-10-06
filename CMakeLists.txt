@@ -222,7 +222,7 @@ if(MODBUS_TOOLS_BUILD_TESTS)
     add_subdirectory(tests)
 endif()
 
-foreach(modbus_tools_target IN ITEMS infra_platform core ui Modbus-Tools)
+foreach(modbus_tools_target IN ITEMS infra_platform infra core ui Modbus-Tools)
     modbus_tools_disable_exceptions(${modbus_tools_target})
 endforeach()
 

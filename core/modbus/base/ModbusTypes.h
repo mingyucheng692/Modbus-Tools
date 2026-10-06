@@ -82,25 +82,6 @@ enum class ModbusError : uint8_t {
     return "Unknown";
 }
 
-struct ModbusAddress {
-    enum class Area {
-        Coil,
-        DiscreteInput,
-        HoldingRegister,
-        InputRegister
-    };
-
-    Area area;
-    uint16_t startAddress;
-    uint16_t count;
-
-    bool isValid() const {
-        // Modbus 协议通常限制单次读写数量，这里做基础校验
-        // 具体限制可能依赖于设备或功能码
-        return count > 0 && count <= 2000; 
-    }
-};
-
 /**
  * @brief Register byte/word ordering for 16-bit registers.
  * Used primarily for diagnostic analysis of firmware byte order issues.
@@ -116,5 +97,4 @@ enum class RegisterOrder {
 
 namespace modbus {
 using base::ModbusError;
-using base::toString;
 } // namespace modbus

@@ -44,13 +44,6 @@ ModbusSessionPresenter::~ModbusSessionPresenter() {
     shutdown();
 }
 
-void ModbusSessionPresenter::connectTcp(const QString& ip, int port,
-                                         const ::modbus::base::ModbusConfig& config) {
-    ModbusConnectionSpec spec;
-    spec.config = config;
-    requestConnect(spec);
-}
-
 void ModbusSessionPresenter::startTcpConnect(const QString& ip, int port,
                                              const ::modbus::base::ModbusConfig& config) {
     assertGuiThread("startTcpConnect must run on the GUI thread");
@@ -107,14 +100,6 @@ void ModbusSessionPresenter::startConnect(const ModbusConnectionSpec& spec) {
     }
 
     startTcpConnect(spec.config.ipAddress, spec.config.port, spec.config);
-}
-
-void ModbusSessionPresenter::connectRtu(const io::SerialConfig& serialConfig,
-                                         const ::modbus::base::ModbusConfig& modbusConfig) {
-    ModbusConnectionSpec spec;
-    spec.config = modbusConfig;
-    spec.serialConfig = serialConfig;
-    requestConnect(spec);
 }
 
 void ModbusSessionPresenter::startSerialConnect(const io::SerialConfig& serialConfig,
@@ -537,7 +522,7 @@ SessionConnectionState ModbusSessionPresenter::deriveUiState(
     ::modbus::session::SessionHealth health,
     SessionMode mode) {
     using Core = ::modbus::session::ConnectionStateMachine::State;
-    const bool hasTransportPhase = (modeDescriptor(mode).transportUiMode == TransportUiMode::Tcp);
+    const bool hasTransportPhase = (modeDescriptor(mode).sessionMode == SessionMode::Tcp);
 
     switch (coreState) {
     case Core::Disconnected:
@@ -605,7 +590,7 @@ void ModbusSessionPresenter::handleChannelStateTransition(io::ChannelState state
     syncStateFromCore();
 
     const auto currentState = connectionState_;
-    const bool isTcp = modeDescriptor(mode_).transportUiMode == TransportUiMode::Tcp;
+    const bool isTcp = modeDescriptor(mode_).sessionMode == SessionMode::Tcp;
 
     switch (state) {
     case io::ChannelState::Opening:

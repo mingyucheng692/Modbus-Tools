@@ -53,8 +53,6 @@ public:
     ~ModbusSessionPresenter() noexcept override;
 
     void requestConnect(const ModbusConnectionSpec& spec);
-    void connectTcp(const QString& ip, int port, const ::modbus::base::ModbusConfig& config);
-    void connectRtu(const io::SerialConfig& serialConfig, const ::modbus::base::ModbusConfig& modbusConfig);
     void requestDisconnect();
     void shutdown();
     void releaseStack();

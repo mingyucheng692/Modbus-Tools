@@ -78,7 +78,7 @@ inline constexpr char kModbusRtuControlAddr[] = "modbus/rtu/control/addr";
 inline constexpr char kModbusRtuControlQty[] = "modbus/rtu/control/qty";
 inline constexpr char kModbusRtuDataMonitorCollapsed[] = "modbus/rtu/ui/dataMonitorCollapsed";
 
-// Network Debugger (TCP client mode) — canonical keys (Phase 9).
+// Network Debugger (TCP client mode) — canonical keys.
 // NOTE: the tcp_server and udp traffic/input/ui
 // keys are composed dynamically by ByteMonitorWidget / GenericInputWidget
 // from the settings group, so they intentionally have no static constants here.
@@ -96,7 +96,7 @@ inline constexpr char kNetworkDebuggerClientInputAutoSend[] = "network_debugger/
 inline constexpr char kNetworkDebuggerClientInputIntervalMs[] = "network_debugger/client/input/intervalMs";
 inline constexpr char kNetworkDebuggerClientInputCollapsed[] = "network_debugger/client/ui/inputCollapsed";
 
-// Serial Debugger — canonical keys (Phase 9).
+// Serial Debugger — canonical keys.
 inline constexpr char kSerialDebuggerBaudRate[] = "serial_debugger/baudRate";
 inline constexpr char kSerialDebuggerDataBits[] = "serial_debugger/dataBits";
 inline constexpr char kSerialDebuggerParity[] = "serial_debugger/parity";
@@ -116,7 +116,7 @@ inline constexpr char kSerialDebuggerRts[] = "serial_debugger/rts";
 
 inline constexpr char kModbusRtuFlowControl[] = "modbus/rtu/serial/flowControl";
 
-// Network Debugger (UDP mode) — canonical keys (Phase 9).
+// Network Debugger (UDP mode) — canonical keys.
 inline constexpr char kNetworkDebuggerUdpRemoteIp[] = "network_debugger/udp/remoteIp";
 inline constexpr char kNetworkDebuggerUdpRemotePort[] = "network_debugger/udp/remotePort";
 

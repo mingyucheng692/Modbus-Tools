@@ -110,7 +110,7 @@ void ModbusPage::setupUi() {
     // Function widget.
     functionWidget_ = new widgets::FunctionWidget(settingsService_, this);
     functionWidget_->setSettingsGroup(QStringLiteral("modbus/tcp/standard"));
-    functionWidget_->setTransportMode(ui::application::modbus::TransportUiMode::Tcp);
+    functionWidget_->setTransportMode(ui::application::modbus::SessionMode::Tcp);
     mainLayout_->addWidget(functionWidget_);
 
     // Data monitor (collapsible).
@@ -259,7 +259,7 @@ void ModbusPage::applyProtocolSettingsGroup(ui::application::modbus::SessionMode
 
     if (functionWidget_) {
         functionWidget_->setSettingsGroup(prefix + QStringLiteral("/standard"));
-        functionWidget_->setTransportMode(descriptor.transportUiMode);
+        functionWidget_->setTransportMode(descriptor.sessionMode);
     }
     if (dataGroup_) {
         dataGroup_->setSettingsKey(prefix + QStringLiteral("/ui/dataMonitorCollapsed"));

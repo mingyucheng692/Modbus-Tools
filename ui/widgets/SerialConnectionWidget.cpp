@@ -326,7 +326,7 @@ void SerialConnectionWidget::loadSettings() {
     const QString portKey = group + QStringLiteral("/portName");
     const QString flowKey = group + QStringLiteral("/flowControl");
 
-    // The truly ancient "serial/baudRate" fallback read was removed in Phase 9:
+    // The legacy "serial/baudRate" fallback read was removed:
     // the in-flight migration now carries that legacy value into
     // modbus/rtu/serial/baudRate at load time, and pages without a saved
     // baudRate simply keep their combo-box default.

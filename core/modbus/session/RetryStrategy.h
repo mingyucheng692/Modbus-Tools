@@ -20,7 +20,7 @@ public:
         int baseIntervalMs = 100;
         int maxIntervalMs = 5000;
         double backoffFactor = 2.0;
-        int jitterPercent = 20;
+        int jitterPercent = 15;
     };
 
     explicit RetryStrategy(const Config& config);

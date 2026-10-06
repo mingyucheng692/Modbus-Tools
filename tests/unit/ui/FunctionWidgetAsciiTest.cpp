@@ -24,7 +24,7 @@ TEST(FunctionWidgetAsciiTest, AppendHelperEncodesAsciiFrameWithLrc)
 {
     tests::mocks::FakeSettingsService settingsService;
     ui::widgets::FunctionWidget widget(&settingsService);
-    widget.setTransportMode(ui::application::modbus::TransportUiMode::Ascii);
+    widget.setTransportMode(ui::application::modbus::SessionMode::Ascii);
 
     auto* rawDataEdit = widget.findChild<QTextEdit*>();
     ASSERT_NE(rawDataEdit, nullptr);

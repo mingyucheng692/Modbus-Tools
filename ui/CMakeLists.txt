@@ -68,8 +68,10 @@ target_sources(ui PRIVATE
     common/CompactMenuBarStyle.h
     common/ModbusDataHelper.h
     common/ModbusDataHelper.cpp
+    common/ConnectionAlert.h
     common/FileExporter.h
     common/FileExporter.cpp
+    common/Theme.h
     common/ThemeController.cpp
     common/ThemeController.h
     common/ThemeUi.cpp
@@ -100,6 +102,7 @@ target_sources(ui PRIVATE
     logging/LogBridge.cpp
     logging/LogBridge.h
     assets.qrc
+    MainWindow.h
     MainWindow.cpp
     UpdateInteractionView.h
     UpdateInteractionView.cpp
@@ -131,12 +134,19 @@ target_sources(ui PRIVATE
     views/tools/UtilitiesView.h
     widgets/BaseConnectionWidget.cpp
     widgets/BaseConnectionWidget.h
+    widgets/NetworkConnectionWidget.h
     widgets/NetworkConnectionWidget.cpp
+    widgets/TcpConnectionWidget.h
     widgets/TcpConnectionWidget.cpp
+    widgets/UdpConnectionWidget.h
     widgets/UdpConnectionWidget.cpp
+    widgets/SerialConnectionWidget.h
     widgets/SerialConnectionWidget.cpp
+    widgets/FunctionWidget.h
     widgets/FunctionWidget.cpp
+    widgets/ControlWidget.h
     widgets/ControlWidget.cpp
+    widgets/TrafficMonitorWidget.h
     widgets/TrafficMonitorWidget.cpp
     widgets/LogListModel.cpp
     widgets/LogListModel.h

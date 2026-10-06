@@ -35,16 +35,16 @@ namespace ui::widgets {
 
 namespace {
 
-bool usesUnitIdLabel(ui::application::modbus::TransportUiMode mode) {
-    return mode == ui::application::modbus::TransportUiMode::Tcp;
+bool usesUnitIdLabel(ui::application::modbus::SessionMode mode) {
+    return mode == ui::application::modbus::SessionMode::Tcp;
 }
 
-bool showsCrcHelper(ui::application::modbus::TransportUiMode mode) {
-    return mode != ui::application::modbus::TransportUiMode::Tcp;
+bool showsCrcHelper(ui::application::modbus::SessionMode mode) {
+    return mode != ui::application::modbus::SessionMode::Tcp;
 }
 
-bool showsMbapHelper(ui::application::modbus::TransportUiMode mode) {
-    return mode == ui::application::modbus::TransportUiMode::Tcp;
+bool showsMbapHelper(ui::application::modbus::SessionMode mode) {
+    return mode == ui::application::modbus::SessionMode::Tcp;
 }
 
 } // namespace
@@ -278,7 +278,7 @@ void FunctionWidget::setSettingsGroup(const QString& group) {
     loadSettings();
 }
 
-void FunctionWidget::setTransportMode(ui::application::modbus::TransportUiMode mode) {
+void FunctionWidget::setTransportMode(ui::application::modbus::SessionMode mode) {
     transportMode_ = mode;
     if (appendCrcBtn_) appendCrcBtn_->setVisible(showsCrcHelper(transportMode_));
     if (addMbapBtn_) addMbapBtn_->setVisible(showsMbapHelper(transportMode_));
@@ -528,9 +528,9 @@ void FunctionWidget::retranslateUi() {
     }
     if (rawDataLabel_) {
         rawDataLabel_->setText(
-            transportMode_ == ui::application::modbus::TransportUiMode::Tcp
+            transportMode_ == ui::application::modbus::SessionMode::Tcp
                 ? tr("Raw Hex Data (e.g., 00 00 00 00 00 06 01 03 00 00 00 01):")
-                : transportMode_ == ui::application::modbus::TransportUiMode::Ascii
+                : transportMode_ == ui::application::modbus::SessionMode::Ascii
                     ? tr("Raw Hex Data (ASCII bytes, e.g., 3A 30 31 30 33 30 30 30 30 30 30 30 31 46 42 0D 0A):")
                     : tr("Raw Hex Data (e.g., 01 03 00 00 00 01 84 0A):"));
     }
@@ -539,7 +539,7 @@ void FunctionWidget::retranslateUi() {
     }
     if (appendCrcBtn_) {
         appendCrcBtn_->setText(
-            transportMode_ == ui::application::modbus::TransportUiMode::Ascii
+            transportMode_ == ui::application::modbus::SessionMode::Ascii
                 ? tr("Add LRC + Encode ASCII")
                 : tr("Append CRC"));
     }
@@ -561,7 +561,7 @@ void FunctionWidget::onAppendCrcClicked() {
     QByteArray data = ui::common::data_helper::parseHex(input);
     if (data.isEmpty()) return;
 
-    if (transportMode_ == ui::application::modbus::TransportUiMode::Ascii) {
+    if (transportMode_ == ui::application::modbus::SessionMode::Ascii) {
         modbus::base::appendModbusAsciiLrc(data);
         QByteArray asciiFrame(":");
         asciiFrame.append(data.toHex().toUpper());

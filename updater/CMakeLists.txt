@@ -8,7 +8,9 @@ endif()
 
 add_executable(updater WIN32
     windows/main.cpp
+    windows/Win32UpdateStrategy.h
     windows/Win32UpdateStrategy.cpp
+    windows/Win32Encoding.h
 )
 
 set_target_properties(updater PROPERTIES OUTPUT_NAME "updater")

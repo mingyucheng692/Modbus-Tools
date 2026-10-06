@@ -270,7 +270,7 @@ TEST_F(ModbusClientBoundaryTest, SendRequest_ConcurrentCall_ReturnsInProgressErr
     EXPECT_THAT(second.error.toStdString(), HasSubstr("already in progress"));
     // Soft-lock contention must surface as a structured Busy error code so the
     // UI can distinguish it from genuine protocol/transport errors.
-    EXPECT_EQ(second.errorCode, modbus::session::RequestError::Busy);
+    EXPECT_EQ(second.errorCode, modbus::base::ModbusError::Busy);
     EXPECT_TRUE(second.isBusy());
 
     auto firstResp = first.get();

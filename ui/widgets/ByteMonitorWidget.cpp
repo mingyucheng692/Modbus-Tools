@@ -460,10 +460,10 @@ QString ByteMonitorWidget::formatTimestamp() {
 
 void ByteMonitorWidget::updateStatsDisplay() {
     if (txStatsLabel_) {
-        txStatsLabel_->setText(tr("TX: %1").arg(TrafficStats::formatSize(stats_.txBytes)));
+        txStatsLabel_->setText(tr("TX: %1").arg(TrafficStats::formatBytes(stats_.txBytes)));
     }
     if (rxStatsLabel_) {
-        rxStatsLabel_->setText(tr("RX: %1").arg(TrafficStats::formatSize(stats_.rxBytes)));
+        rxStatsLabel_->setText(tr("RX: %1").arg(TrafficStats::formatBytes(stats_.rxBytes)));
     }
 }
 

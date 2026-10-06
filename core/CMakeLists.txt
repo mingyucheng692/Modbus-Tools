@@ -7,8 +7,10 @@ target_sources(core PRIVATE
     modbus/base/ModbusFrame.h
     modbus/base/ModbusConfig.h
     modbus/base/ModbusEndianCodec.h
+    modbus/base/ModbusByteOrder.h
     modbus/base/ModbusProtocolChecks.h
     modbus/base/ModbusProtocolChecks.cpp
+    modbus/base/ModbusCrc.h
     modbus/base/ModbusLrc.h
     modbus/base/ModbusPduBuilder.h
     modbus/base/ModbusPduBuilder.cpp
@@ -59,6 +61,7 @@ target_sources(core PRIVATE
     analyzer/AnalyzerCommon.h
     analyzer/AnalyzerExporter.h
     analyzer/AnalyzerExporter.cpp
+    analyzer/ValueFormatter.h
     analyzer/ValueFormatter.cpp
     update/PlatformReleaseAssetStrategy.h
     update/PlatformReleaseAssetStrategy.cpp
@@ -78,7 +81,6 @@ target_sources(core PRIVATE
     common/TrContext.h
     common/LogDedupe.h
     common/ThreadGuard.h
-    common/ISettingsService.h
     common/SettingsKeys.h
     common/SettingsController.h
     common/SettingsController.cpp

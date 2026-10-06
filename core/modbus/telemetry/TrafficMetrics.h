@@ -57,10 +57,6 @@ struct TrafficStats {
         }
         return QStringLiteral("%1 MB").arg(bytes / (1024.0 * 1024.0), 0, 'f', 2);
     }
-
-    [[nodiscard]] static QString formatSize(qint64 bytes) {
-        return formatBytes(bytes);
-    }
 };
 
 using TrafficMetrics = TrafficStats;

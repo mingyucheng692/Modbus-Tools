@@ -19,25 +19,6 @@ namespace modbus::session {
 /// Polling wait slice so aborted_ is checked at least every 5 ms.
 constexpr auto kWaitSlice = std::chrono::milliseconds(5);
 
-/// Wait for @p delay with abort support. Returns true if the delay expired
-/// naturally, false if aborted_ was set to true during the wait.
-inline bool waitForAbortableDelay(std::atomic<bool>& aborted,
-                                  std::chrono::steady_clock::duration delay) {
-    if (delay <= std::chrono::steady_clock::duration::zero()) {
-        return !aborted.load();
-    }
-
-    const auto deadline = std::chrono::steady_clock::now() + delay;
-    while (!aborted.load() && std::chrono::steady_clock::now() < deadline) {
-        const auto now = std::chrono::steady_clock::now();
-        const auto remaining =
-            std::chrono::duration_cast<std::chrono::milliseconds>(deadline - now);
-        const auto slice = std::min(kWaitSlice,
-                                    std::max(std::chrono::milliseconds(1), remaining));
-        std::this_thread::sleep_for(slice);
-    }
-    return !aborted.load();
-}
 
 /// Wait for a predicate to become true or @p deadline to expire.
 /// Returns true if the predicate became true, false on timeout.
