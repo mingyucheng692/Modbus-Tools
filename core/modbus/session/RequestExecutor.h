@@ -156,7 +156,8 @@ private:
     bool isBroadcastRequest(int slaveId, base::FunctionCode functionCode) const;
     bool shouldWaitForResponse(int slaveId, base::FunctionCode functionCode) const;
 
-    int enqueuePendingRequest(const base::Pdu& request, int slaveId);
+    [[nodiscard]] int determineMaxRetries(base::FunctionCode fc) const;
+    int enqueuePendingRequest(const base::Pdu& request, int slaveId, int maxRetries);
     void finishPendingRequest(int requestId, bool success, const QString& error);
 
     // --- Non-owning references to ModbusClient-owned resources ---

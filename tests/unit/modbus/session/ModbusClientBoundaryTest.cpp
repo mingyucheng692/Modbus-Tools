@@ -612,4 +612,42 @@ TEST_F(ModbusClientBoundaryTest, SendRequest_WhileDisconnected_LazyConnects) {
     EXPECT_TRUE(client_->isConnected());
 }
 
+// ============================================================================
+// Differentiated Retries (P2): Poll reads fail fast; Control writes retry
+// ============================================================================
+
+TEST_F(ModbusClientBoundaryTest, DifferentiatedRetries_ReadPollFailsFastWithZeroRetries) {
+    cfg_.retries = 0;
+    cfg_.pollRetries = 0;
+    cfg_.timeoutMs = 100;
+    client_->setConfig(cfg_);
+    connectClient();
+
+    EXPECT_CALL(*mockTransport_, buildRequest(_, _))
+        .WillOnce(Return(QByteArray::fromHex("010300000001840A")));
+    EXPECT_CALL(*mockChannel_, write(_)).WillOnce(Return(true));
+
+    auto resp = client_->sendRequest(makeRhrPdu());
+    EXPECT_TRUE(resp.isError());
+    EXPECT_EQ(resp.attemptCount, 1);
+}
+
+TEST_F(ModbusClientBoundaryTest, DifferentiatedRetries_WriteRetriesWithDefaultPolicy) {
+    cfg_.retries = 0;
+    cfg_.writeRetries = 1;
+    cfg_.timeoutMs = 100;
+    cfg_.retryIntervalMs = 5;
+    client_->setConfig(cfg_);
+    connectClient();
+
+    EXPECT_CALL(*mockTransport_, buildRequest(_, _))
+        .Times(2)
+        .WillRepeatedly(Return(QByteArray::fromHex("0110000000020400010002")));
+    EXPECT_CALL(*mockChannel_, write(_)).Times(2).WillRepeatedly(Return(true));
+
+    auto resp = client_->sendRequest(makeWmrPdu(), 1);
+    EXPECT_TRUE(resp.isError());
+    EXPECT_EQ(resp.attemptCount, 2);
+}
+
 } // namespace

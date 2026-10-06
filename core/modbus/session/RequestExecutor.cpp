@@ -74,6 +74,19 @@ namespace {
         }
     }
 
+    bool isReadFunction(base::FunctionCode functionCode) {
+        using base::FunctionCode;
+        switch (functionCode) {
+        case FunctionCode::ReadCoils:
+        case FunctionCode::ReadDiscreteInputs:
+        case FunctionCode::ReadHoldingRegisters:
+        case FunctionCode::ReadInputRegisters:
+            return true;
+        default:
+            return false;
+        }
+    }
+
 } // namespace
 
 RequestExecutor::RequestExecutor(const Dependencies& deps)
@@ -181,12 +194,19 @@ void RequestExecutor::executeAsync(const base::Pdu& request, int slaveId, quint6
         return;
     }
 
+    const int maxRetries = determineMaxRetries(request.functionCode());
+    retryStrategy_->reconfigure(RetryStrategy::Config{
+        maxRetries,
+        config_->retryIntervalMs,
+        config_->maxRetryIntervalMs,
+        config_->retryBackoffFactor,
+        config_->retryJitterPercent});
     retryStrategy_->reset();
     activeRequest_ = request;
     activeSlaveId_ = targetSlaveId;
     activeTraceId_ = traceId;
     activeCallback_ = std::move(callback);
-    activeRequestId_ = enqueuePendingRequest(request, targetSlaveId);
+    activeRequestId_ = enqueuePendingRequest(request, targetSlaveId, maxRetries);
     reqStateMachine_->tryTransition(RequestStateMachine::State::Idle, "request-start");
 
     if (!transactionTimer_) {
@@ -353,6 +373,10 @@ void RequestExecutor::checkPendingResponse() {
         return;
     }
 
+    if (config_->mode == base::ModbusMode::RTU && !writeDrained_) {
+        return;
+    }
+
     const auto now = std::chrono::steady_clock::now();
     std::optional<QByteArray> frameOpt;
     if (config_->mode == base::ModbusMode::RTU || config_->mode == base::ModbusMode::ASCII) {
@@ -389,7 +413,7 @@ void RequestExecutor::checkPendingResponse() {
                         static_cast<uint8_t>(FailureKind::Retry));
                     if (failureDedupe_.shouldLog(retryKey, std::chrono::steady_clock::now())) {
                         SPDLOG_WARN("Request failed, retrying... ({}/{}) trace_id={}",
-                                     retryStrategy_->attemptCount(), config_->retries, currentTraceRequired());
+                                     retryStrategy_->attemptCount(), determineMaxRetries(activeRequest_.functionCode()), currentTraceRequired());
                     }
                     QTimer::singleShot(std::max<int>(1, static_cast<int>(retryDelay.count())), [this]() {
                         sendCurrentRequest();
@@ -431,6 +455,13 @@ void RequestExecutor::onChannelError(const QString& error) {
 void RequestExecutor::onWriteDrained() {
     writeDrained_ = true;
     lastWriteDrainedAt_ = std::chrono::steady_clock::now();
+    if (config_->mode == base::ModbusMode::RTU) {
+        const auto silence = FrameExtractor::calculateInterFrameDelay(*config_);
+        rtuSendWindowOpensAt_ = std::max(rtuSendWindowOpensAt_, lastWriteDrainedAt_ + silence);
+    }
+    if (activeCallback_) {
+        checkPendingResponse();
+    }
 }
 
 void RequestExecutor::resetState(bool clearPendingQueue) {
@@ -483,7 +514,7 @@ void RequestExecutor::handleTimeout() {
             static_cast<uint8_t>(FailureKind::Retry));
         if (failureDedupe_.shouldLog(retryKey, std::chrono::steady_clock::now())) {
             SPDLOG_WARN("Request failed, retrying... ({}/{}) trace_id={}",
-                         retryStrategy_->attemptCount(), config_->retries, currentTraceRequired());
+                         retryStrategy_->attemptCount(), determineMaxRetries(activeRequest_.functionCode()), currentTraceRequired());
         }
         QTimer::singleShot(std::max<int>(1, static_cast<int>(retryDelay.count())), [this]() {
             sendCurrentRequest();
@@ -605,13 +636,24 @@ bool RequestExecutor::shouldWaitForResponse(int slaveId,
     return !isBroadcastRequest(slaveId, functionCode);
 }
 
-int RequestExecutor::enqueuePendingRequest(const base::Pdu& request, int slaveId) {
+int RequestExecutor::determineMaxRetries(base::FunctionCode fc) const {
+    if (isBroadcastWriteFunction(fc)) {
+        return (config_->writeRetries >= 0) ? std::max(config_->writeRetries, config_->retries)
+                                            : config_->retries;
+    }
+    if (isReadFunction(fc)) {
+        return (config_->pollRetries > 0) ? config_->pollRetries : config_->retries;
+    }
+    return config_->retries;
+}
+
+int RequestExecutor::enqueuePendingRequest(const base::Pdu& request, int slaveId, int maxRetries) {
     PendingRequest item;
     item.requestId = nextRequestId_++;
     item.functionCode = request.functionCode();
     item.slaveId = (slaveId == -1) ? config_->slaveId : slaveId;
     item.timeoutMs = config_->timeoutMs;
-    item.retries = config_->retries;
+    item.retries = maxRetries;
     item.enqueueAt = std::chrono::steady_clock::now();
     pendingRequests_.push_back(item);
     SPDLOG_DEBUG("ModbusClient: enqueue request id={}, fc={}, slave={}, queue={} trace_id={}",

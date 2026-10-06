@@ -77,6 +77,10 @@ struct Modbus {
     static constexpr int kDefaultRetryCount = 3;
     /// Default retry count for core ModbusConfig (conservative industrial default: no retries).
     static constexpr int kDefaultCoreRetries = 0;
+    /// Default retry count for periodic polling reads (Fail-Fast to preserve telemetry refresh rate).
+    static constexpr int kDefaultPollRetries = 0;
+    /// Default retry count for control write operations (Reliability-first).
+    static constexpr int kDefaultWriteRetries = 1;
     static constexpr int kDefaultRetryIntervalMs = 100;
     static constexpr int kDefaultMaxRetryIntervalMs = 5000;
     static constexpr double kDefaultRetryBackoffFactor = 2.0;

@@ -43,8 +43,12 @@ struct ModbusConfig {
     // 超时时间 (毫秒)
     int timeoutMs = config::Modbus::kDefaultTimeoutMs;
 
-    // 重试次数 (0 表示不自动重试)
+    // 重试次数 (全局默认/回退值，0 表示不自动重试)
     int retries = config::Modbus::kDefaultCoreRetries;
+
+    // 差异化重试：读操作快速失败保刷新率，写操作自动重试保可靠性
+    int pollRetries = config::Modbus::kDefaultPollRetries;   ///< Default 0 for periodic polling reads (Fail-Fast)
+    int writeRetries = config::Modbus::kDefaultWriteRetries; ///< Default 1 for control writes (Reliability)
 
     // 重试间隔 (毫秒)
     int retryIntervalMs = config::Modbus::kDefaultRetryIntervalMs;

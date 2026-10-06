@@ -86,6 +86,7 @@ bool SerialChannel::open() {
     // 在非 RTOS 系统上，块内字符间隙已由驱动保证，无需应用层逐字节判断 t1.5。
 
     if (serial_.open(QIODevice::ReadWrite)) {
+        serial_.clear(QSerialPort::Input);
         setState(ChannelState::Open);
         return true;
     } else {
@@ -104,6 +105,13 @@ bool SerialChannel::open() {
         emitError(errCode, err);
         return false;
     }
+}
+
+bool SerialChannel::write(QByteArrayView data) {
+    if (QThread::currentThread() == serial_.thread() && serial_.isOpen()) {
+        serial_.clear(QSerialPort::Input);
+    }
+    return BufferedWritingChannel::write(data);
 }
 
 void SerialChannel::moveToThread(QThread* thread) {

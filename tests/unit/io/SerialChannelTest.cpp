@@ -167,4 +167,9 @@ TEST_F(SerialChannelTest, SerialConfig_ValidConfig_ReturnsTrue) {
     EXPECT_TRUE(error.isEmpty());
 }
 
+TEST_F(SerialChannelTest, Write_WhenClosed_ReturnsFalseNoCrash) {
+    const QByteArray data("modbus_rtu_frame");
+    EXPECT_FALSE(channel_->write(data));
+}
+
 } // namespace
