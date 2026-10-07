@@ -1,3 +1,5 @@
+// Copyright (c) 2025 - present mingyucheng692. Licensed under the MIT License.
+
 #include "shell/MainWindowPageBuilder.h"
 
 #include "infra/config/ISettingsService.h"

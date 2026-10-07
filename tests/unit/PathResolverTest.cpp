@@ -1,7 +1,4 @@
-/**
- * @file PathResolverTest.cpp
- * @brief Tests the portable-only (exe-directory) path resolution.
- */
+// Copyright (c) 2025 - present mingyucheng692. Licensed under the MIT License.
 
 #include "infra/platform/PathResolver.h"
 

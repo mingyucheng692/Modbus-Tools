@@ -1,3 +1,5 @@
+// Copyright (c) 2025 - present mingyucheng692. Licensed under the MIT License.
+
 #include <gtest/gtest.h>
 
 #include "core/common/SettingsKeys.h"
@@ -249,7 +251,7 @@ TEST(SettingsService, DefaultsCoverMigratedKeyNamespaces)
 {
     // Fresh sandbox with no config file: every canonical key of the migrated
     // namespaces must fall back to a registered (non-null) default — verifies
-    // initializeDefaults() was switched to the new constants (plan item O3).
+    // initializeDefaults() was switched to the new constants.
     QTemporaryDir sandbox;
     ASSERT_TRUE(sandbox.isValid());
 

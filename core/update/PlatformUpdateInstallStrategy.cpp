@@ -1,7 +1,4 @@
-/**
- * @file PlatformUpdateInstallStrategy.cpp
- * @brief Implements platform-specific OTA install strategy helpers.
- */
+// Copyright (c) 2025 - present mingyucheng692. Licensed under the MIT License.
 
 #include "PlatformUpdateInstallStrategy.h"
 

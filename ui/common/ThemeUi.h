@@ -1,11 +1,4 @@
-/**
- * @file ThemeUi.h
- * @brief Free functions for applying theme palettes to navigation and theme-toggle widgets.
- *
- * Copyright (c) 2025 - present mingyucheng692
- *
- * Licensed under the MIT License. See LICENSE file in the project root for full license information.
- */
+// Copyright (c) 2025 - present mingyucheng692. Licensed under the MIT License.
 
 #pragma once
 

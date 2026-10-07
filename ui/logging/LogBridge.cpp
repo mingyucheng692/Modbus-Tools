@@ -1,11 +1,4 @@
-/**
- * @file LogBridge.cpp
- * @brief Implementation of strategic TrafficEvent to spdlog bridge.
- *
- * Copyright (c) 2025 - present mingyucheng692
- *
- * Licensed under the MIT License. See LICENSE file in the project root for full license information.
- */
+// Copyright (c) 2025 - present mingyucheng692. Licensed under the MIT License.
 
 #include "LogBridge.h"
 #include "../common/TrafficEvent.h"

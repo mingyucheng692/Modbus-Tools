@@ -1,9 +1,4 @@
-/**
- * @file ValueFormatter.cpp
- * @brief Implementation of ValueFormatter.
- * 
- * Copyright (c) 2025 - present mingyucheng692
- */
+// Copyright (c) 2025 - present mingyucheng692. Licensed under the MIT License.
 
 #include "ValueFormatter.h"
 #include "modbus/base/RegisterValueDecoder.h"

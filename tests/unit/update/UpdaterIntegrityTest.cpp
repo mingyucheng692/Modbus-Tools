@@ -1,15 +1,4 @@
-/**
- * @file UpdaterIntegrityTest.cpp
- * @brief Unit tests for updater binary integrity verification.
- *
- * Covers the five verifyUpdaterIntegrity() branches: missing file, empty
- * expected hash (skip), unreadable file, hash mismatch, hash match. Runs on
- * every platform — the implementation is pure QtCore.
- *
- * Copyright (c) 2025 - present mingyucheng692
- *
- * Licensed under the MIT License. See LICENSE file in the project root for full license information.
- */
+// Copyright (c) 2025 - present mingyucheng692. Licensed under the MIT License.
 
 #include <gtest/gtest.h>
 

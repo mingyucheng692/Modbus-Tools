@@ -1,7 +1,4 @@
-/**
- * @file PathResolver.cpp
- * @brief Implements writable path resolution for the portable-only deployment.
- */
+// Copyright (c) 2025 - present mingyucheng692. Licensed under the MIT License.
 
 #include "infra/platform/PathResolver.h"
 

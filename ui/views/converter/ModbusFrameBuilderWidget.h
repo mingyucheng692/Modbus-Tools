@@ -1,11 +1,4 @@
-/**
- * @file ModbusFrameBuilderWidget.h
- * @brief Interactive visual Modbus frame builder and field breakdown inspector.
- *
- * Copyright (c) 2025 - present mingyucheng692
- *
- * Licensed under the MIT License. See LICENSE file in the project root for full license information.
- */
+// Copyright (c) 2025 - present mingyucheng692. Licensed under the MIT License.
 
 #pragma once
 

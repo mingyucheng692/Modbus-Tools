@@ -1,7 +1,4 @@
-/**
- * @file Win32Encoding.h
- * @brief Shared UTF-8 <-> UTF-16 conversion helpers for the Win32 updater.
- */
+// Copyright (c) 2025 - present mingyucheng692. Licensed under the MIT License.
 
 #pragma once
 

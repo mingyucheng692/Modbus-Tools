@@ -1,7 +1,4 @@
-/**
- * @file IPlatformProcessRunner.h
- * @brief Declares the elevated and non-elevated process launch abstraction.
- */
+// Copyright (c) 2025 - present mingyucheng692. Licensed under the MIT License.
 
 #pragma once
 

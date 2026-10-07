@@ -1,7 +1,5 @@
-/**
- * @file ClientIntegrationTest.cpp
- * @brief Event-driven client integration tests with valid TCP ADUs and mocked I/O.
- */
+// Copyright (c) 2025 - present mingyucheng692. Licensed under the MIT License.
+
 #include <gtest/gtest.h>
 #include <gmock/gmock.h>
 #include "modbus/session/ModbusClient.h"

@@ -1,11 +1,4 @@
-/**
- * @file RequestExecutor.cpp
- * @brief Implementation of RequestExecutor.
- *
- * Copyright (c) 2025 - present mingyucheng692
- *
- * Licensed under the MIT License. See LICENSE file in the project root for full license information.
- */
+// Copyright (c) 2025 - present mingyucheng692. Licensed under the MIT License.
 
 #include "RequestExecutor.h"
 #include "RequestValidator.h"

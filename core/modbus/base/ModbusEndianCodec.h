@@ -1,12 +1,4 @@
-/**
- * @file ModbusEndianCodec.h
- * @brief Big-endian read helpers shared across the Modbus stack.
- *
- * Consolidates the three previously duplicated readBigEndianUInt16 implementations
- * (ModbusProtocolChecks.cpp, ModbusFrameParser.cpp, RequestValidator.cpp) into a
- * single template. Semantics are identical to the originals: bounds-checked,
- * host-endian output via qFromBigEndian, no exception on out-of-range access.
- */
+// Copyright (c) 2025 - present mingyucheng692. Licensed under the MIT License.
 
 #pragma once
 

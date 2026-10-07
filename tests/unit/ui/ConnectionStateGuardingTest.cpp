@@ -308,7 +308,7 @@ TEST_F(ConnectionStateGuardingTest, TeardownAndRecreate_NoStaleValidatorReferenc
     EXPECT_FALSE(pollCheck->isEnabled());
 }
 
-// 12. Strategy B: isSessionConnected returns true for TransportConnected and Connected
+// 12. isSessionConnected returns true for TransportConnected and Connected
 TEST_F(ConnectionStateGuardingTest, IsSessionConnected_TrueForConnectedAndTransportConnected) {
     auto* session = presenter_->sessionPresenter();
     ASSERT_NE(session, nullptr);

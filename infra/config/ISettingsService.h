@@ -1,13 +1,4 @@
-/**
- * @file ISettingsService.h
- * @brief Abstract settings storage interface (read/write/persist).
- *
- * Infrastructure abstraction for persistent configuration storage.
- *
- * Copyright (c) 2025 - present mingyucheng692
- *
- * Licensed under the MIT License. See LICENSE file in the project root for full license information.
- */
+// Copyright (c) 2025 - present mingyucheng692. Licensed under the MIT License.
 
 #pragma once
 

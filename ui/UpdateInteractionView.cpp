@@ -1,11 +1,4 @@
-/**
- * @file UpdateInteractionView.cpp
- * @brief Implementation of UpdateInteractionView.
- *
- * Copyright (c) 2025 - present mingyucheng692
- *
- * Licensed under the MIT License. See LICENSE file in the project root for full license information.
- */
+// Copyright (c) 2025 - present mingyucheng692. Licensed under the MIT License.
 
 #include "UpdateInteractionView.h"
 #include "../core/update/UpdateManager.h"

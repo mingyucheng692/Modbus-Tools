@@ -1,11 +1,4 @@
-/**
- * @file Result.h
- * @brief Lightweight, exception-free Result<T, E> type conforming to -fno-exceptions.
- *
- * Copyright (c) 2025 - present mingyucheng692
- *
- * Licensed under the MIT License. See LICENSE file in the project root for full license information.
- */
+// Copyright (c) 2025 - present mingyucheng692. Licensed under the MIT License.
 
 #pragma once
 

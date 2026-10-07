@@ -1,11 +1,4 @@
-/**
- * @file RegisterValueDecoder.cpp
- * @brief Industrial multi-register value decoding implementation.
- * 
- * Copyright (c) 2025 - present mingyucheng692
- * 
- * Licensed under the MIT License. See LICENSE file in the project root for full license information.
- */
+// Copyright (c) 2025 - present mingyucheng692. Licensed under the MIT License.
 
 #include "modbus/base/RegisterValueDecoder.h"
 #include "modbus/base/ModbusByteOrder.h"

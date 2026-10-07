@@ -1,3 +1,5 @@
+// Copyright (c) 2025 - present mingyucheng692. Licensed under the MIT License.
+
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 

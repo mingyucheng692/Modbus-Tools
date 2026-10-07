@@ -1,14 +1,4 @@
-/**
- * @file ModbusSerialTransport.h
- * @brief Header file for ModbusSerialTransport.
- *
- * Merged transport for Modbus RTU and ASCII serial modes using a
- * SerialFraming strategy parameter.
- *
- * Copyright (c) 2025 - present mingyucheng692
- *
- * Licensed under the MIT License. See LICENSE file in the project root for full license information.
- */
+// Copyright (c) 2025 - present mingyucheng692. Licensed under the MIT License.
 
 #pragma once
 

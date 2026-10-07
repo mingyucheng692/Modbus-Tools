@@ -1,14 +1,4 @@
-/**
- * @file ModbusSerialTransport.cpp
- * @brief Implementation of ModbusSerialTransport.
- *
- * Merged from ModbusRtuTransport and ModbusAsciiTransport, parameterised
- * by SerialFraming.
- *
- * Copyright (c) 2025 - present mingyucheng692
- *
- * Licensed under the MIT License. See LICENSE file in the project root for full license information.
- */
+// Copyright (c) 2025 - present mingyucheng692. Licensed under the MIT License.
 
 #include "ModbusSerialTransport.h"
 #include "../base/ModbusAduBuilder.h"

@@ -1,3 +1,5 @@
+// Copyright (c) 2025 - present mingyucheng692. Licensed under the MIT License.
+
 #pragma once
 
 #include <gmock/gmock.h>

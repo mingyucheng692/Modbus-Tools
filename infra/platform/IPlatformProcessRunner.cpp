@@ -1,3 +1,5 @@
+// Copyright (c) 2025 - present mingyucheng692. Licensed under the MIT License.
+
 #include "infra/platform/IPlatformProcessRunner.h"
 
 #if defined(Q_OS_WIN)

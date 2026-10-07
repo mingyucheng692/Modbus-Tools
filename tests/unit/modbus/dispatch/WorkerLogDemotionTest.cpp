@@ -1,8 +1,4 @@
-/**
- * @file WorkerLogDemotionTest.cpp
- * @brief Unit tests for the log-demotion predicate: clean successes
- *        (no error, no retry) go to debug; everything else keeps info.
- */
+// Copyright (c) 2025 - present mingyucheng692. Licensed under the MIT License.
 
 #include <gtest/gtest.h>
 

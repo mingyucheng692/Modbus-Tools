@@ -1,9 +1,4 @@
-/**
- * @file ModbusClientBoundaryTest.cpp
- * @brief Session-layer boundary tests: timeout, retry, broadcast,
- *        concurrency guard, abort, and edge-case transitions.
- *        18 cases, zero sleep — all async paths use EXPECT_CALL + Invoke.
- */
+// Copyright (c) 2025 - present mingyucheng692. Licensed under the MIT License.
 
 #include <gtest/gtest.h>
 #include <gmock/gmock.h>

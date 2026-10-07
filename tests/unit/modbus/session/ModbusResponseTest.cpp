@@ -1,9 +1,4 @@
-/**
- * @file ModbusResponseTest.cpp
- * @brief Unit tests for the ModbusResponse factories, focusing on the
- *        structured Busy error code introduced to distinguish soft-lock
- *        contention from genuine protocol/transport errors.
- */
+// Copyright (c) 2025 - present mingyucheng692. Licensed under the MIT License.
 
 #include <gtest/gtest.h>
 

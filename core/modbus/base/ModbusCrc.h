@@ -1,11 +1,4 @@
-/**
- * @file ModbusCrc.h
- * @brief Header file for ModbusCrc.
- * 
- * Copyright (c) 2025 - present mingyucheng692
- * 
- * Licensed under the MIT License. See LICENSE file in the project root for full license information.
- */
+// Copyright (c) 2025 - present mingyucheng692. Licensed under the MIT License.
 
 #pragma once
 
@@ -31,21 +24,14 @@ namespace modbus::base {
     return crc;
 }
 
-/**
- * @brief Calculate and append Modbus RTU CRC-16 (little-endian: low byte first) to @p buffer.
- * @param buffer Output buffer to append 2-byte CRC to.
- */
+// Appends Modbus RTU CRC-16 (little-endian: low byte first) to buffer.
 inline void appendModbusRtuCrc(QByteArray& buffer) noexcept {
     const uint16_t crc = calculateModbusRtuCrc(buffer);
     buffer.append(static_cast<char>(crc & 0xFF));
     buffer.append(static_cast<char>((crc >> 8) & 0xFF));
 }
 
-/**
- * @brief Verify that the trailing 2 bytes of @p buffer match its calculated Modbus RTU CRC-16.
- * @param buffer Buffer containing payload + 2-byte CRC.
- * @return true if valid, false if buffer is too short or CRC does not match.
- */
+// Verifies that trailing 2 bytes of buffer match calculated Modbus RTU CRC-16.
 [[nodiscard]] inline bool verifyModbusRtuCrc(QByteArrayView buffer) noexcept {
     if (buffer.size() < 3) {
         return false;
@@ -58,3 +44,4 @@ inline void appendModbusRtuCrc(QByteArray& buffer) noexcept {
 }
 
 } // namespace modbus::base
+

@@ -1,3 +1,5 @@
+// Copyright (c) 2025 - present mingyucheng692. Licensed under the MIT License.
+
 #include <gtest/gtest.h>
 #include "modbus/base/ModbusCrc.h"
 #include "modbus/base/ModbusLrc.h"

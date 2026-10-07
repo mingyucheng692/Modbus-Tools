@@ -1,7 +1,4 @@
-/**
- * @file ModbusByteOrderTest.cpp
- * @brief Unit tests for ModbusByteOrder utilities.
- */
+// Copyright (c) 2025 - present mingyucheng692. Licensed under the MIT License.
 
 #include <gtest/gtest.h>
 #include "modbus/base/ModbusByteOrder.h"

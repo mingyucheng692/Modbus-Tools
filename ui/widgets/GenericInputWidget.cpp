@@ -1,11 +1,4 @@
-/**
- * @file GenericInputWidget.cpp
- * @brief Implementation of GenericInputWidget.
- * 
- * Copyright (c) 2025 - present mingyucheng692
- * 
- * Licensed under the MIT License. See LICENSE file in the project root for full license information.
- */
+// Copyright (c) 2025 - present mingyucheng692. Licensed under the MIT License.
 
 #include "GenericInputWidget.h"
 #include "Config.h"

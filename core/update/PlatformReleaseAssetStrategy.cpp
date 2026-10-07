@@ -1,7 +1,4 @@
-/**
- * @file PlatformReleaseAssetStrategy.cpp
- * @brief Implements platform-specific OTA release asset layout helpers.
- */
+// Copyright (c) 2025 - present mingyucheng692. Licensed under the MIT License.
 
 #include "PlatformReleaseAssetStrategy.h"
 

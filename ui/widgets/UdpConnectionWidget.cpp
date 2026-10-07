@@ -1,13 +1,4 @@
-/**
- * @file UdpConnectionWidget.cpp
- * @brief Implementation of UdpConnectionWidget — lean subclass providing
- *        only protocol-specific display data, button wiring, and UDP-unique
- *        remote IP/Port fields.
- *
- * Copyright (c) 2025 - present mingyucheng692
- *
- * Licensed under the MIT License. See LICENSE file in the project root for full license information.
- */
+// Copyright (c) 2025 - present mingyucheng692. Licensed under the MIT License.
 
 #include "UdpConnectionWidget.h"
 #include "Config.h"

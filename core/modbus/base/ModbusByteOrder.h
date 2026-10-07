@@ -1,11 +1,4 @@
-/**
- * @file ModbusByteOrder.h
- * @brief Common byte and word order transformation utilities for Modbus registers.
- *
- * Copyright (c) 2025 - present mingyucheng692
- *
- * Licensed under the MIT License. See LICENSE file in the project root for full license information.
- */
+// Copyright (c) 2025 - present mingyucheng692. Licensed under the MIT License.
 
 #pragma once
 
@@ -16,12 +9,6 @@
 
 namespace modbus::base {
 
-/**
- * @brief Rearrange 2 bytes (1 register) into destination buffer according to RegisterOrder.
- * @param src Source 2-byte buffer.
- * @param dst Destination 2-byte buffer.
- * @param order Register byte/word order.
- */
 inline void rearrangeBytes16(const uint8_t* src, uint8_t* dst, RegisterOrder order) noexcept {
     if (order == RegisterOrder::BADC || order == RegisterOrder::DCBA) {
         dst[0] = src[1];
@@ -32,12 +19,6 @@ inline void rearrangeBytes16(const uint8_t* src, uint8_t* dst, RegisterOrder ord
     }
 }
 
-/**
- * @brief Rearrange 4 bytes (2 registers) into destination buffer according to RegisterOrder.
- * @param src Source 4-byte buffer.
- * @param dst Destination 4-byte buffer.
- * @param order Register byte/word order.
- */
 inline void rearrangeBytes32(const uint8_t* src, uint8_t* dst, RegisterOrder order) noexcept {
     switch (order) {
     case RegisterOrder::ABCD:
@@ -55,12 +36,6 @@ inline void rearrangeBytes32(const uint8_t* src, uint8_t* dst, RegisterOrder ord
     }
 }
 
-/**
- * @brief Rearrange 8 bytes (4 registers) into destination buffer according to RegisterOrder.
- * @param src Source 8-byte buffer.
- * @param dst Destination 8-byte buffer.
- * @param order Register byte/word order.
- */
 inline void rearrangeBytes64(const uint8_t* src, uint8_t* dst, RegisterOrder order) noexcept {
     switch (order) {
     case RegisterOrder::ABCD:
@@ -86,24 +61,12 @@ inline void rearrangeBytes64(const uint8_t* src, uint8_t* dst, RegisterOrder ord
     }
 }
 
-/**
- * @brief Rearrange 2 bytes (1 register) and return as uint16_t.
- * @param p Pointer to at least 2 raw bytes.
- * @param order Register byte/word order.
- * @return Reordered 16-bit unsigned integer.
- */
 [[nodiscard]] inline uint16_t rearrange16(const uint8_t* p, RegisterOrder order) noexcept {
     uint8_t buf[2];
     rearrangeBytes16(p, buf, order);
     return (static_cast<uint16_t>(buf[0]) << 8) | static_cast<uint16_t>(buf[1]);
 }
 
-/**
- * @brief Rearrange 4 bytes (2 registers) and return as uint32_t.
- * @param p Pointer to at least 4 raw bytes.
- * @param order Register byte/word order.
- * @return Reordered 32-bit unsigned integer.
- */
 [[nodiscard]] inline uint32_t rearrange32(const uint8_t* p, RegisterOrder order) noexcept {
     uint8_t buf[4];
     rearrangeBytes32(p, buf, order);
@@ -113,12 +76,6 @@ inline void rearrangeBytes64(const uint8_t* src, uint8_t* dst, RegisterOrder ord
             static_cast<uint32_t>(buf[3]);
 }
 
-/**
- * @brief Rearrange 8 bytes (4 registers) and return as uint64_t.
- * @param p Pointer to at least 8 raw bytes.
- * @param order Register byte/word order.
- * @return Reordered 64-bit unsigned integer.
- */
 [[nodiscard]] inline uint64_t rearrange64(const uint8_t* p, RegisterOrder order) noexcept {
     uint8_t buf[8];
     rearrangeBytes64(p, buf, order);
@@ -143,3 +100,4 @@ inline void rearrangeBytes64(const uint8_t* src, uint8_t* dst, RegisterOrder ord
 }
 
 } // namespace modbus::base
+

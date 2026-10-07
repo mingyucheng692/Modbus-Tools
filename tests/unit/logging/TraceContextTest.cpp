@@ -1,8 +1,4 @@
-/**
- * @file TraceContextTest.cpp
- * @brief Unit tests for modbus::trace::Scope RAII semantics and the
- *        thread_local isolation of currentTraceId.
- */
+// Copyright (c) 2025 - present mingyucheng692. Licensed under the MIT License.
 
 #include <gtest/gtest.h>
 

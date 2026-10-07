@@ -1,7 +1,4 @@
-/**
- * @file Win32ProcessRunner.cpp
- * @brief Implements the Windows elevated and non-elevated process launcher.
- */
+// Copyright (c) 2025 - present mingyucheng692. Licensed under the MIT License.
 
 #include "infra/platform/win/Win32ProcessRunner.h"
 

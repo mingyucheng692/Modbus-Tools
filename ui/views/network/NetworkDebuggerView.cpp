@@ -1,11 +1,4 @@
-/**
- * @file NetworkDebuggerView.cpp
- * @brief Implementation of NetworkDebuggerView.
- *
- * Copyright (c) 2025 - present mingyucheng692
- *
- * Licensed under the MIT License. See LICENSE file in the project root for full license information.
- */
+// Copyright (c) 2025 - present mingyucheng692. Licensed under the MIT License.
 
 #include "NetworkDebuggerView.h"
 #include "Config.h"
@@ -236,7 +229,7 @@ void NetworkDebuggerView::stopServerWorker() {
     // Explicit teardown on the server thread BEFORE deleteLater(): stopping
     // the listener and closing every client channel is a visible state
     // change (clientDisconnected emissions) that must not depend on the
-    // destructor running during thread drain (NEW-B shutdown race).
+    // destructor running during thread drain (shutdown race).
     channelCtrl_.stopWorkerPair(thread, serverWorker, {}, [serverWorker](QObject*) {
         QMetaObject::invokeMethod(serverWorker, "closeAllClients",
                                   Qt::DirectConnection);

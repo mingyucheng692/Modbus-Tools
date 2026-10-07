@@ -1,18 +1,4 @@
-/**
- * @file PathResolver.h
- * @brief Declares writable path resolution for the portable-only deployment.
- *
- * The application is a portable tool: every writable artifact (config, logs,
- * update staging) lives next to the executable, typically on the Desktop or
- * a USB drive. There is deliberately NO QStandardPaths/AppData branch and NO
- * fallback chain — re-introducing one would silently scatter user data into
- * %LOCALAPPDATA% again.
- *
- * Writability is not probed here. If the directory cannot be written, the
- * log initialization surfaces a one-time dialog (see main.cpp) suggesting
- * relocation to a writable folder, and the app keeps running in degraded
- * mode.
- */
+// Copyright (c) 2025 - present mingyucheng692. Licensed under the MIT License.
 
 #pragma once
 

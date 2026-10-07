@@ -1,11 +1,4 @@
-/**
- * @file ModbusLrc.h
- * @brief Modbus ASCII LRC (Longitudinal Redundancy Check) calculation.
- *
- * Copyright (c) 2025 - present mingyucheng692
- *
- * Licensed under the MIT License. See LICENSE file in the project root for full license information.
- */
+// Copyright (c) 2025 - present mingyucheng692. Licensed under the MIT License.
 
 #pragma once
 

@@ -1,10 +1,5 @@
 #!/usr/bin/env bash
-# @file deploy-linux.sh
-# @brief Build the self-contained Linux tar.gz package (Qt runtime + $ORIGIN rpath).
-#
-# Copyright (c) 2025 - present mingyucheng692
-#
-# Licensed under the MIT License. See LICENSE file in the project root for full license information.
+# Copyright (c) 2025 - present mingyucheng692. Licensed under the MIT License.
 #
 # Usage: deploy-linux.sh <build_dir> <source_root> <tag>
 #   e.g. deploy-linux.sh build_release "$PWD" "v1.2.3"

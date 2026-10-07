@@ -1,12 +1,4 @@
-/**
- * @file ServerChannelWorkerTest.cpp
- * @brief TCP server lifecycle tests (T3S.1 / T3S.2):
- *        - passive client loss must remove the client and free its slot
- *          (NEW-A regression: server-side ghost clients after peer RST)
- *        - a failed listen must emit a terminal Closed state instead of
- *          leaving the view stranded on "Connecting" (NEW-B)
- *        - closeClient (user-initiated) must not be double-reported
- */
+// Copyright (c) 2025 - present mingyucheng692. Licensed under the MIT License.
 
 #include <gtest/gtest.h>
 #include <gmock/gmock.h>
@@ -18,8 +10,8 @@
 
 #include <functional>
 
-#include "../../../infra/io/ServerChannelWorker.h"
-#include "../../../infra/io/TcpServerHandle.h"
+#include "infra/io/ServerChannelWorker.h"
+#include "infra/io/TcpServerHandle.h"
 
 using namespace testing;
 using namespace io;
@@ -64,7 +56,7 @@ protected:
 };
 
 // ---------------------------------------------------------------------------
-// T3S.1 — passive client loss (NEW-A)
+// Passive client loss: hard abort removes client and frees slot
 // ---------------------------------------------------------------------------
 
 TEST_F(TcpServerHandleTest, PassiveLoss_AbortRemovesClientAndFreesSlot) {
@@ -110,7 +102,7 @@ TEST_F(TcpServerHandleTest, PassiveLoss_GracefulDisconnectRemovesClient) {
 }
 
 // ---------------------------------------------------------------------------
-// T3S.1 — user-initiated removal must emit exactly one clientDisconnected
+// User-initiated removal must emit exactly one clientDisconnected
 // ---------------------------------------------------------------------------
 
 TEST_F(TcpServerHandleTest, UserCloseClient_SingleDisconnectedEmission) {
@@ -134,7 +126,7 @@ TEST_F(TcpServerHandleTest, UserCloseClient_SingleDisconnectedEmission) {
 }
 
 // ---------------------------------------------------------------------------
-// T3S.2 — server state normalization (NEW-B)
+// Server state normalization: listen failure emits error and terminal Closed
 // ---------------------------------------------------------------------------
 
 TEST(ServerChannelWorkerTest, OpenTcpServer_Failure_EmitsErrorAndTerminalClosed) {

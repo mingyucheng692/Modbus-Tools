@@ -1,3 +1,5 @@
+// Copyright (c) 2025 - present mingyucheng692. Licensed under the MIT License.
+
 #include "ModbusSessionPresenter.h"
 #include "WorkerReleaseCoordinator.h"
 #include "RequestSubmissionService.h"

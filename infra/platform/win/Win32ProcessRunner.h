@@ -1,7 +1,4 @@
-/**
- * @file Win32ProcessRunner.h
- * @brief Declares the Windows elevated and non-elevated process launcher.
- */
+// Copyright (c) 2025 - present mingyucheng692. Licensed under the MIT License.
 
 #pragma once
 

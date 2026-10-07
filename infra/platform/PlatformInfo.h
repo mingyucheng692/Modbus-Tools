@@ -1,7 +1,4 @@
-/**
- * @file PlatformInfo.h
- * @brief Declares lightweight platform identification helpers.
- */
+// Copyright (c) 2025 - present mingyucheng692. Licensed under the MIT License.
 
 #pragma once
 

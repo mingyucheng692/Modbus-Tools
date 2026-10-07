@@ -1,16 +1,8 @@
-/**
- * @file PlatformReleaseAssetStrategyTest.cpp
- * @brief Unit tests for release asset layout guidance and full-package
- *        resolution (T3 data chain: url + published sha256 digest).
- *
- * Copyright (c) 2025 - present mingyucheng692
- *
- * Licensed under the MIT License. See LICENSE file in the project root for full license information.
- */
+// Copyright (c) 2025 - present mingyucheng692. Licensed under the MIT License.
 
 #include <gtest/gtest.h>
 
-#include "../../../core/update/PlatformReleaseAssetStrategy.h"
+#include "core/update/PlatformReleaseAssetStrategy.h"
 
 #include <QJsonArray>
 #include <QJsonObject>
