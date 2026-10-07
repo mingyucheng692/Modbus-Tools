@@ -23,15 +23,9 @@
 
 namespace modbus::session {
 
-/**
- * @brief Executes Modbus requests with retry, timeout, and response parsing.
- *
- * Owns the request serialization lock (requestLocked_) and the duplicate exception tracker.
- * All other resources are non-owning references to the owning ModbusClient.
- *
- * @note This class must not outlive the referenced objects. The owning
- *       ModbusClient is responsible for lifetime ordering.
- */
+// Role: Executes Modbus requests with retry, timeout, async reactor, and response parsing.
+// Thread-safety: Thread-compatible. Driven by owning ModbusClient on worker thread.
+// Ownership: Owned by ModbusClient; holds non-owning references to protocol stack collaborators.
 class RequestExecutor {
 public:
     using AsyncResponseCallback = std::function<void(const ModbusResponse&)>;
@@ -45,7 +39,7 @@ public:
         std::chrono::steady_clock::time_point enqueueAt{};
     };
 
-    /// @brief Aggregated dependencies for RequestExecutor.
+    /// Aggregated dependencies for RequestExecutor.
     ///
     /// Group 1 (protocol stack): channel through config — non-owning
     /// references to the protocol stack collaborators owned by ModbusClient.
@@ -68,60 +62,15 @@ public:
     explicit RequestExecutor(const Dependencies& deps);
     ~RequestExecutor();
 
-    /**
-     * @brief Execute a complete Modbus request and return strongly typed Result.
-     * @param request The PDU to send
-     * @param slaveId The target slave ID (-1 to use config default)
-     * @return Result<base::Pdu, base::ModbusError>
-     */
     [[nodiscard]] common::Result<base::Pdu, base::ModbusError> executeRequest(const base::Pdu& request, int slaveId);
-
-    /**
-     * @brief Execute a complete Modbus request with retry logic (synchronous wrapper).
-     * @param request The PDU to send
-     * @param slaveId The target slave ID (-1 to use config default)
-     * @return ModbusResponse with success/error status
-     */
     [[nodiscard]] ModbusResponse execute(const base::Pdu& request, int slaveId);
-
-    /**
-     * @brief Execute a Modbus request asynchronously on the event-driven reactor.
-     * @param request The PDU to send
-     * @param slaveId The target slave ID (-1 to use config default)
-     * @param traceId Distributed trace ID
-     * @param callback Completion callback invoked when the response arrives or times out
-     */
     void executeAsync(const base::Pdu& request, int slaveId, quint64 traceId, AsyncResponseCallback callback);
 
-    /**
-     * @brief Send raw data without waiting for a response.
-     */
     void sendRaw(const QByteArray& data);
-
-    /**
-     * @brief Abort the current in-flight request.
-     */
     void abort();
-
-    /**
-     * @brief Callback: data received from the channel.
-     */
     void onDataReceived(QByteArrayView data);
-
-    /**
-     * @brief Callback: channel error occurred.
-     */
     void onChannelError(const QString& error);
-
-    /**
-     * @brief Callback: channel write has completed and drained to the OS/hardware buffer.
-     */
     void onWriteDrained();
-
-    /**
-     * @brief Reset pre-request state (responseReady, dupeTracker, etc.).
-     * @param clearPendingQueue If true, also clears the pending request queue.
-     */
     void resetState(bool clearPendingQueue);
 
 private:

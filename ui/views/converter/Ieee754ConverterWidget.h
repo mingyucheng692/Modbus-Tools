@@ -17,11 +17,9 @@ class QGroupBox;
 
 namespace ui::views::converter {
 
-/**
- * @brief Interactive conversion workspace for IEEE 754 Float32 / Float64 values,
- *        four Modbus endianness permutations (ABCD, CDAB, BADC, DCBA), and
- *        bitfield breakdown.
- */
+// Role: Interactive conversion workspace for IEEE 754 Float32/Float64 and Modbus endianness permutations.
+// Thread-safety: Single-threaded (bound to GUI thread).
+// Ownership: Owned by QObject parent hierarchy.
 class Ieee754ConverterWidget : public QWidget {
     Q_OBJECT
 

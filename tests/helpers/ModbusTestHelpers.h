@@ -10,10 +10,7 @@
 
 #include <QByteArray>
 
-// ---------------------------------------------------------------------------
 // Factory functions — reduce boilerplate when constructing common test objects
-// ---------------------------------------------------------------------------
-
 namespace modbus::test {
 
 inline modbus::base::ModbusConfig MakeModbusConfig(modbus::base::ModbusMode mode,
@@ -67,11 +64,8 @@ inline modbus::base::Pdu MakeWriteMultipleRegistersPdu(uint16_t addr = 0,
 
 } // namespace modbus::test
 
-// ---------------------------------------------------------------------------
 // Assertion macros — self-describing, one-line checks for common patterns.
 // Each macro uses GTEST's streaming assertion to produce clear failure messages.
-// ---------------------------------------------------------------------------
-
 #define ASSERT_RESPONSE_SUCCESS(response)                                      \
     do {                                                                       \
         ASSERT_FALSE((response).isError())                                     \

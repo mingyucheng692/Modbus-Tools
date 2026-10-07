@@ -10,9 +10,9 @@ class QComboBox;
 
 namespace ui::widgets {
 
-/**
- * @brief Dialog for configuring global Modbus communication settings.
- */
+// Role: Modal dialog for configuring global Modbus communication and protocol parameters.
+// Thread-safety: Single-threaded (bound to GUI thread).
+// Ownership: Modal dialog owned by parent QWidget.
 class ModbusSettingsDialog : public QDialog {
     Q_OBJECT
 

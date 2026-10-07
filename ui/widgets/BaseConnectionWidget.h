@@ -17,9 +17,7 @@ class ISettingsService;
 namespace ui::widgets {
 class CollapsibleSection;
 
-/**
- * @brief Connection display states shared by all connection widget implementations.
- */
+// Connection display states shared by all connection widget implementations.
 enum class DisplayState {
     Disconnected = 0,
     Connecting,
@@ -30,34 +28,16 @@ enum class DisplayState {
     Bound
 };
 
-/**
- * @brief Per-state display texts returned by getStateDisplayInfo().
- *
- * Hoisted so SerialConnectionWidget can
- * also participate in the applyDisplayState() template method without
- * duplicating the per-state switch.
- */
+// Per-state display texts returned by getStateDisplayInfo().
 struct StateDisplayInfo {
     QString buttonText;
     QString statusText;
     QString statusStyle;
 };
 
-/**
- * @class BaseConnectionWidget
- * @brief Common base class for SerialConnectionWidget and NetworkConnectionWidget.
- *
- * Handles common behaviors such as collapsible section logic,
- * settings group and settings loading/saving.
- *
- * @par Display-state template method
- *      applyDisplayState() is implemented in this base class as a template
- *      method: it queries getStateDisplayInfo() for the current state's
- *      button/status text and style, applies them to connectBtn_/statusLabel_,
- *      then delegates per-widget input enabling to applyInputWidgetsState()
- *      and protocol refresh to updateProtocolUi() (default no-op).
- *      Subclasses supply only the data + their own widget list.
- */
+// Role: Common base widget for connection panels (collapsible sections, settings persistence, display states).
+// Thread-safety: Single-threaded (bound to GUI thread).
+// Ownership: Owned by QObject parent hierarchy.
 class BaseConnectionWidget : public QWidget {
     Q_OBJECT
 
@@ -66,11 +46,6 @@ public:
 
     explicit BaseConnectionWidget(infra::config::ISettingsService* settingsService, QWidget* parent = nullptr);
     ~BaseConnectionWidget() override;
-
-    /**
-     * @brief Set the settings group key.
-     * @param group The settings group name.
-     */
     void setSettingsGroup(const QString& group);
 
 signals:
@@ -89,28 +64,8 @@ protected:
     void loadCommonSettings();
     void saveCommonSettings();
     void retranslateCommonUi();
-
-    /**
-     * @brief Create the collapsible section and return the content layout.
-     *        Subclasses add their own widgets to the returned layout, then call
-     *        finishBaseUi() to finalize the common widgets and connections.
-     * @return The content layout of the section widget.
-     */
     QHBoxLayout* setupBaseUi();
-
-    /**
-     * @brief Finalize the base UI: add common widgets, stretch, section to main layout,
-     *        setup common connections, load settings, and retranslate.
-     * Called after the subclass has added its widgets to the layout from setupBaseUi().
-     */
     void finishBaseUi(const QString& sectionSettingsKey = {});
-
-    /**
-     * @brief Retranslate common widgets and protocol-specific labels.
-     *        Default implementation calls retranslateCommonUi() + applyDisplayState().
-     *        Subclasses override to add their own label translations, calling
-     *        BaseConnectionWidget::retranslateUi() first.
-     */
     virtual void retranslateUi();
 
     void changeEvent(QEvent* event) override;
@@ -119,17 +74,9 @@ protected:
     // Skeleton: queries subclass for state-specific data, applies common
     // widgets, delegates input-widget enabling and protocol refresh.
     void applyDisplayState();
-
-    /** @brief Return the display info (button/status text + style) for @p state. */
     [[nodiscard]] virtual StateDisplayInfo getStateDisplayInfo(DisplayState state) const = 0;
-
-    /** @brief Enable/disable subclass-specific input widgets based on @p enabled. */
     virtual void applyInputWidgetsState(bool enabled) = 0;
-
-    /** @brief Refresh protocol-specific labels / visibility. Default is no-op. */
     virtual void updateProtocolUi() {}
-
-    /** @brief True when @p state should lock input widgets (i.e. not Disconnected). */
     [[nodiscard]] static bool inputsLocked(DisplayState state) noexcept;
 
     infra::config::ISettingsService* settingsService_ = nullptr;

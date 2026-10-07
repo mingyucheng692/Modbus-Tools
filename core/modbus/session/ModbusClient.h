@@ -20,82 +20,16 @@ class QThread;
 
 namespace modbus::session {
 
-/**
- * @class ModbusClient
- * @brief Core Modbus client managing session lifecycle and protocol execution.
- *
- * Role: Coordinates connection management, frame extraction, and async request execution.
- * Thread-safety: Thread-compatible. All driving methods must run on its owning worker thread.
- * Ownership: Owns connection/request state machines, FrameExtractor, RequestExecutor;
- *            shared ownership of IChannel and ITransport.
- *
- * @par On-demand connection contract (sendRequest)
- *      sendRequest() enters RequestExecutor::execute(), which calls
- *      ConnectionManager::ensureConnected() to verify or establish the
- *      channel before executing the request. Callers must not gate
- *      submissions on isConnected() — that would defeat recovery under
- *      polling (the poller would spin on "Not connected" errors instead
- *      of rebuilding the session). The unresponsive eviction (half-open
- *      detection) and this on-demand path together allow the session to
- *      recover when polling is active.
- *
- * @thread thread-compatible, NOT thread-safe. The session-driving methods
- *         (connect, disconnect, sendRequest, sendRaw, setConfig) must be
- *         invoked from a single owning thread. In the application that owner
- *         is the ModbusWorker thread: ModbusWorker's QueuedConnection
- *         serialization is the ONLY concurrency boundary around this class.
- *         The happens-before chain is:
- *         UI thread submit -> QueuedConnection (Qt guarantees happens-before)
- *         -> worker thread handler -> requestFinished signal (queued)
- *         -> UI thread. Along that entire chain the client is only touched
- *         by the worker thread.
- *
- *         setConfig() has one additional legal caller: the thread that
- *         constructed the client (ModbusFactory applies the initial config
- *         before the worker takes ownership).
- *
- *         Documented cross-thread surface (no affinity requirement):
- *         - sessionHealth(): std::atomic load.
- *         - connectionState()/requestState(): benign enum snapshot reads
- *           used by the UI presenter; a torn read is impossible (plain
- *           enum), a stale value is acceptable for UI derivation.
- *         - isConnected()/lastChannelError(): plain thread-compatible reads.
- *         - abort(): the designated any-thread escape hatch (ModbusWorker::
- *           stop() and ~ModbusClient call it from foreign threads); it
- *           flips the atomic aborted_ flag and triggers requestExecutor_.abort().
- *
- *         Debug builds enforce the owner contract via assertSessionAffinity()
- *         on the session-driving entries. The guard is ARMED when ModbusWorker
- *         calls claimSessionOwnershipForCurrentThread() on the worker thread
- *         (first queued handler). Before arming — ModbusFactory's pre-live
- *         setConfig(), or core unit tests that drive the client directly
- *         (including from ad-hoc threads to exercise the Busy/abort defense
- *         paths) — affinity is deliberately not enforced.
- *
- * @note sendRequest() uses RequestExecutor's state machine to guard concurrent
- *       request execution. A stray concurrent submit is rejected at runtime
- *       with a structured Busy response (defense-in-depth for release
- *       builds where the Debug affinity assert is compiled out) — it is not
- *       an endorsement of multi-threaded driving.
- *
- * @par Architecture decision: ModbusClient / RequestExecutor split
- *      ModbusClient has public methods that forward to RequestExecutor
- *      (sendRequest, sendRaw, abort) and ConnectionManager (connect,
- *      disconnect, isConnected, lastChannelError). The split is intentional:
- *      RequestExecutor handles request lifecycle, retry, and async reactor
- *      execution; ConnectionManager handles connection lifecycle. The atomic
- *      aborted_ flag is owned by ModbusClient and passed by reference via
- *      RequestExecutor::Dependencies.
- *
- * @par Destruction order
- *      The caller (typically ModbusWorker / WorkerReleaseCoordinator) MUST
- *      ensure the worker thread has fully joined (quit()+wait()) before
- *      ~ModbusClient() runs. If RequestExecutor::execute() is still running
- *      on the worker thread when the destructor fires, destroying
- *      requestExecutor_ and its collaborators is a use-after-free. The
- *      destructor asserts (release-mode, std::abort) that no request is
- *      in-flight (RequestStateMachine is Idle/Completed/Failed/Aborted).
- */
+// Role: Coordinates connection management, frame extraction, and async request execution.
+// Thread-safety: Thread-compatible. All driving methods must run on its owning worker thread.
+// Ownership: Owns connection/request state machines, FrameExtractor, RequestExecutor; shared ownership of IChannel and ITransport.
+//
+// Concurrency model:
+// Driven exclusively by ModbusWorker via Qt::QueuedConnection serialized events.
+// Cross-thread reads (sessionHealth, connectionState, isConnected, abort) are safely decoupled.
+//
+// Destruction order:
+// Worker thread must be fully joined (quit()+wait()) before ~ModbusClient() destroys state.
 class ModbusClient {
 public:
     using ConnectionState = ConnectionStateMachine::State;
@@ -137,7 +71,7 @@ public:
     /// Debug-only contract arming: ModbusWorker invokes this on its own
     /// thread (from every queued handler that drives the client) to declare
     /// itself the owning thread. From then on, Debug builds assert that all
-    /// session-driving methods run on that thread (see the @thread contract).
+    /// session-driving methods run on that thread (see thread contract above).
     /// No-op in Release builds.
 #ifdef NDEBUG
     void claimSessionOwnershipForCurrentThread() {}
@@ -153,7 +87,7 @@ private:
     // ModbusWorker's QueuedConnection serialization; guards compile to nothing.
     void assertSessionAffinity() {}
 #else
-    // Debug-only owner-thread guard (see the @thread contract above). Armed
+    // Debug-only owner-thread guard (see thread contract above). Armed
     // by claimSessionOwnershipForCurrentThread().
     void assertSessionAffinity();
     QThread* sessionOwnerThread_ = nullptr;

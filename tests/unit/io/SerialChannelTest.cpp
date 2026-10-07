@@ -28,10 +28,7 @@ protected:
     std::unique_ptr<SerialChannel> channel_;
 };
 
-// ---------------------------------------------------------------------------
 // Default construction state
-// ---------------------------------------------------------------------------
-
 TEST_F(SerialChannelTest, Construct_DefaultKindIsSerial) {
     EXPECT_EQ(channel_->kind(), ChannelKind::Serial);
 }
@@ -44,10 +41,7 @@ TEST_F(SerialChannelTest, Construct_DefaultNotOpen) {
     EXPECT_FALSE(channel_->isOpen());
 }
 
-// ---------------------------------------------------------------------------
 // Configuration
-// ---------------------------------------------------------------------------
-
 TEST_F(SerialChannelTest, SetConfig_ValidConfig_NoCrash) {
     SerialConfig cfg;
     cfg.portName = QStringLiteral("COM1");
@@ -68,10 +62,7 @@ TEST_F(SerialChannelTest, SetConfig_ChangeBaudRate_NoCrash) {
     EXPECT_NO_FATAL_FAILURE(channel_->setConfig(cfg));
 }
 
-// ---------------------------------------------------------------------------
 // DTR / RTS control (should not crash even without open port)
-// ---------------------------------------------------------------------------
-
 TEST_F(SerialChannelTest, DtrControl_NoCrash) {
     EXPECT_NO_FATAL_FAILURE(channel_->setDtr(true));
     EXPECT_NO_FATAL_FAILURE(channel_->setDtr(false));
@@ -82,19 +73,13 @@ TEST_F(SerialChannelTest, RtsControl_NoCrash) {
     EXPECT_NO_FATAL_FAILURE(channel_->setRts(false));
 }
 
-// ---------------------------------------------------------------------------
 // Close with no open channel
-// ---------------------------------------------------------------------------
-
 TEST_F(SerialChannelTest, Close_FromClosedState_NoCrash) {
     EXPECT_NO_FATAL_FAILURE(channel_->close());
     EXPECT_EQ(channel_->state(), ChannelState::Closed);
 }
 
-// ---------------------------------------------------------------------------
 // Timeouts
-// ---------------------------------------------------------------------------
-
 TEST_F(SerialChannelTest, DefaultTimeouts_HaveExpectedValues) {
     Timeouts t = channel_->timeouts();
     EXPECT_GT(t.readMs, 0);
@@ -112,20 +97,14 @@ TEST_F(SerialChannelTest, SetTimeouts_CustomValues_Persist) {
     EXPECT_EQ(retrieved.writeMs, 300);
 }
 
-// ---------------------------------------------------------------------------
 // Stats
-// ---------------------------------------------------------------------------
-
 TEST_F(SerialChannelTest, Stats_InitialZero) {
     ChannelStats s = channel_->stats();
     EXPECT_EQ(s.bytesTx, 0);
     EXPECT_EQ(s.bytesRx, 0);
 }
 
-// ---------------------------------------------------------------------------
 // SerialConfig validation
-// ---------------------------------------------------------------------------
-
 TEST_F(SerialChannelTest, SerialConfig_InvalidBaudRate_ReturnsError) {
     SerialConfig cfg;
     cfg.portName = QStringLiteral("COM1");

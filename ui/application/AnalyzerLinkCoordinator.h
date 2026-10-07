@@ -14,14 +14,9 @@ namespace ui::views::analyzer { class FrameAnalyzerView; }
 
 namespace ui::application {
 
-/**
- * @class AnalyzerLinkCoordinator
- * @brief Coordinates live frame forwarding between ModbusPage and FrameAnalyzerView.
- *
- * Role: Manages live linkage state machine (Idle/Live/Paused) with single-source model.
- * Thread-safety: Single-threaded. Binds and handles signals on GUI thread only.
- * Ownership: Owned by application presentation coordinator via QObject parent tree.
- */
+// Role: Coordinates live frame forwarding between ModbusPage and FrameAnalyzerView (Idle/Live/Paused).
+// Thread-safety: Single-threaded (GUI thread only).
+// Ownership: Owned by application presentation coordinator via QObject parent tree.
 class AnalyzerLinkCoordinator final : public QObject {
     Q_OBJECT
 

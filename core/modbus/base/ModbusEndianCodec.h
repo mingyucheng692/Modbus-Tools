@@ -8,17 +8,7 @@
 
 namespace modbus::base {
 
-/**
- * @brief Reads a big-endian integer of type @p T from @p data at @p offset.
- *
- * @tparam T   Integer type to read (e.g. uint16_t, uint32_t).
- * @param data   Source buffer view.
- * @param offset Byte offset within @p data where the value begins.
- * @param value  Out-parameter receiving the host-endian value on success.
- *               Left unchanged on failure.
- * @return true if @p offset is in range and @p data has at least sizeof(T) bytes
- *         from @p offset; false otherwise.
- */
+// Returns true if offset is in range and buffer has at least sizeof(T) bytes; value unchanged on failure.
 template <typename T>
 [[nodiscard]] bool readBigEndian(QByteArrayView data, qsizetype offset, T& value) noexcept
 {
@@ -31,18 +21,7 @@ template <typename T>
     return true;
 }
 
-/**
- * @brief Writes a big-endian integer of type @p T into @p data at @p offset.
- *
- * Symmetric counterpart of readBigEndian.  The caller must ensure @p data
- * has at least sizeof(T) bytes available from @p offset (e.g. by calling
- * data.resize() beforehand).
- *
- * @tparam T   Integer type to write (e.g. uint16_t, uint32_t).
- * @param data   Destination byte array (must be pre-sized).
- * @param offset Byte offset within @p data where the value will be written.
- * @param value  Host-endian value to encode.
- */
+// Caller must ensure destination buffer has at least sizeof(T) bytes available from offset.
 template <typename T>
 void writeBigEndian(QByteArray& data, qsizetype offset, T value) noexcept
 {
@@ -50,17 +29,7 @@ void writeBigEndian(QByteArray& data, qsizetype offset, T value) noexcept
     std::memcpy(data.data() + offset, &encoded, sizeof(T));
 }
 
-/**
- * @brief Appends a big-endian integer of type @p T to the end of @p dest.
- *
- * Convenience wrapper for dynamic-growth scenarios where the caller does not
- * want to pre-size the buffer.  Equivalent to encoding @p value in big-endian
- * byte order and appending the @c sizeof(T) bytes to @p dest.
- *
- * @tparam T   Integer type to append (e.g. uint8_t, uint16_t, uint32_t).
- * @param dest   Destination byte array (grows by sizeof(T) bytes).
- * @param value  Host-endian value to encode.
- */
+// Encodes value in big-endian byte order and appends sizeof(T) bytes to dest.
 template <typename T>
 void appendBigEndian(QByteArray& dest, T value) noexcept
 {

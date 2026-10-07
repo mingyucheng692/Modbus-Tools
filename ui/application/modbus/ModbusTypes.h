@@ -112,13 +112,7 @@ struct ModbusConnectionSpec {
     return modeDescriptor(sessionModeFor(mode));
 }
 
-/**
- * @brief UI-layer connection state, derived from the authoritative core
- *        ConnectionStateMachine plus channel state and session health.
- *
- * The core FSM is the single source of truth; the UI connection state is
- * purely projected via ModbusSessionPresenter::deriveUiState().
- */
+// UI-layer connection state, projected from core ConnectionStateMachine and channel state.
 enum class SessionConnectionState {
     Disconnected,
     Connecting,

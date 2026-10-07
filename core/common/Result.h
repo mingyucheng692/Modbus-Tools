@@ -9,9 +9,9 @@
 
 namespace common {
 
-/**
- * @brief Tag wrapper representing an unexpected (error) value.
- */
+// Role: Tag wrapper representing an unexpected (error) value for monadic result construction.
+// Thread-safety: Thread-safe as a value type for independent instances.
+// Ownership: Value object passed by copy or move.
 template <typename E>
 struct Unexpected {
     E error;
@@ -26,12 +26,9 @@ constexpr Unexpected<std::decay_t<E>> makeUnexpected(E&& err) {
     return Unexpected<std::decay_t<E>>(std::forward<E>(err));
 }
 
-/**
- * @brief Monadic Result container holding either a success value T or an error E.
- *
- * Designed specifically for codebases built with -fno-exceptions. Callers must
- * verify isOk() before accessing value(), or use valueOr() / valuePtr().
- */
+// Role: Monadic Result container holding either a success value T or an error E (-fno-exceptions).
+// Thread-safety: Thread-safe as a value type for independent instances.
+// Ownership: Value object passed by copy or move.
 template <typename T, typename E>
 class [[nodiscard]] Result {
 public:
@@ -121,9 +118,9 @@ private:
     std::variant<T, E> storage_;
 };
 
-/**
- * @brief Partial specialization of Result for void value type.
- */
+// Role: Partial specialization of Result for void value type representing success-or-error.
+// Thread-safety: Thread-safe as a value type for independent instances.
+// Ownership: Value object passed by copy or move.
 template <typename E>
 class [[nodiscard]] Result<void, E> {
 public:

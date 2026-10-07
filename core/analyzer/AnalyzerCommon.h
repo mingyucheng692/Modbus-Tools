@@ -8,9 +8,6 @@
 
 namespace modbus::analyzer {
 
-/**
- * @brief Multi-register data types for industrial decoding.
- */
 enum class RegisterDataType {
     UInt16,       ///< 16-bit Unsigned Integer (default 1 word)
     Int16,        ///< 16-bit Signed Integer (1 word)
@@ -20,9 +17,6 @@ enum class RegisterDataType {
     Float64       ///< 64-bit Double-Precision Float (4 words, IEEE 754)
 };
 
-/**
- * @brief Numeric display mode for parsed values (backward compatibility).
- */
 enum class NumberDisplayMode {
     Unsigned,
     Signed
@@ -69,11 +63,11 @@ inline int registerWordsCount(RegisterDataType type)
     }
 }
 
-/**
- * @brief Metadata for parsed register data.
- */
+// Role: Metadata descriptor for parsed register data (custom type override, scale, description).
+// Thread-safety: Value type; thread-safe for distinct instances or read-only access.
+// Ownership: Value object passed by copy or const reference.
 struct DataMetadata {
-    std::optional<RegisterDataType> customType = std::nullopt; ///< Optional custom type override per register
+    std::optional<RegisterDataType> customType = std::nullopt; // Optional custom type override per register
     double scale = 1.0;
     QString description;
 };

@@ -11,6 +11,9 @@
 
 namespace io {
 
+// Role: Common base class for IO channels providing thread affinity, metrics, and event callbacks.
+// Thread-safety: Thread-compatible; state and callbacks protected by internal synchronization or thread affinity.
+// Ownership: Abstract base class; owned by communication stack via std::shared_ptr<IChannel>.
 class ChannelBase : public IChannel {
 public:
     ChannelState state() const override;
@@ -35,10 +38,7 @@ protected:
     void emitWriteDrained();
     void emitMonitor(bool isTx, const QByteArray& data);
 
-    /// Marshals @p func onto the @p owner QObject's thread via
-    /// Qt::QueuedConnection. Returns true if marshalling was performed
-    /// (caller was on a different thread), false if already on the
-    /// owner thread.
+    // Marshals func onto the owner QObject's thread via Qt::QueuedConnection if called from another thread.
     template <typename QObj, typename Func>
     static bool marshalToOwner(QObj& owner, Func&& func) {
         if (QThread::currentThread() != owner.thread()) {

@@ -11,28 +11,9 @@
 
 namespace io {
 
-/**
- * @brief Single-channel I/O worker.
- *
- * Responsibility boundary:
- *   - Manages exactly ONE IChannel at a time (TCP client, serial, or UDP).
- *   - All open*() methods implicitly close the previous channel.
- *   - Serial control signals (DTR / RTS) are forwarded to the underlying
- *     SerialChannel if active; silently ignored for other channel kinds.
- *
- * @thread This worker must be moved to a dedicated IO thread via
- *         moveToThread(). All slot invocations happen on that thread.
- *         Signals are emitted to the GUI thread via Qt::AutoConnection
- *         (no Qt::DirectConnection allowed).
- *
- * Public slots (7 total):
- *   openTcp, openSerial, openUdp, close, write, setDtr, setRts.
- *
- * NOT in scope:
- *   - Multi-client management (see ServerChannelWorker).
- *   - Modbus protocol parsing or transaction logic.
- *   - Connection retry or keep-alive (handled by View layer).
- */
+// Role: Single-channel I/O worker managing serial/TCP/UDP channel instances on dedicated thread.
+// Thread-safety: Thread-compatible. Moved to dedicated QThread; interacted via queued connections.
+// Ownership: Owned by QObject parent hierarchy (typically ChannelController).
 class ChannelOperationWorker : public QObject {
     Q_OBJECT
 
@@ -42,10 +23,8 @@ public:
 
 public slots:
     void openTcp(const QString& ip, int port, quint64 generation);
-    /// @param generation  Monotonic UI-side connection attempt counter,
-    ///                    identical in role to openTcp's generation: stale
-    ///                    stateChangedWithGeneration emissions from a torn-down
-    ///                    serial channel are dropped by the view layer.
+    // generation: Monotonic UI-side connection attempt counter; stale
+    // stateChangedWithGeneration emissions from a torn-down serial channel are dropped by the view layer.
     void openSerial(const SerialConfig& config, quint64 generation);
     void openUdp(const QString& localIp, int localPort,
                  const QString& remoteIp = {}, int remotePort = 0);

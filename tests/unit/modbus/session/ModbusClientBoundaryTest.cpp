@@ -24,10 +24,7 @@ using namespace testing;
 
 namespace {
 
-// ============================================================================
 // Test Fixture
-// ============================================================================
-
 class ModbusClientBoundaryTest : public Test {
 protected:
     void SetUp() override {
@@ -99,10 +96,7 @@ protected:
     ModbusConfig cfg_;
 };
 
-// ============================================================================
 // 1. SendRequest without connection -> error
-// ============================================================================
-
 TEST_F(ModbusClientBoundaryTest, SendRequest_NotConnected_ReturnsError) {
     // sendRequest internally calls ensureConnected, which calls open() -> false
     auto response = client_->sendRequest(makeRhrPdu());
@@ -110,10 +104,7 @@ TEST_F(ModbusClientBoundaryTest, SendRequest_NotConnected_ReturnsError) {
     EXPECT_THAT(response.error.toStdString(), AnyOf(HasSubstr("dispatch"), HasSubstr("connected")));
 }
 
-// ============================================================================
 // 2. SendRequest timeout
-// ============================================================================
-
 TEST_F(ModbusClientBoundaryTest, SendRequest_Timeout_ReturnsError) {
     connectClient();
 
@@ -126,10 +117,7 @@ TEST_F(ModbusClientBoundaryTest, SendRequest_Timeout_ReturnsError) {
     EXPECT_TRUE(resp.isError());
 }
 
-// ============================================================================
 // 3. SendRequest with retries=0 and parse failure -> immediate error
-// ============================================================================
-
 TEST_F(ModbusClientBoundaryTest, SendRequest_ParseFailureNoRetry_ReturnsError) {
     cfg_.retries = 0;
     cfg_.timeoutMs = 500;
@@ -156,10 +144,7 @@ TEST_F(ModbusClientBoundaryTest, SendRequest_ParseFailureNoRetry_ReturnsError) {
     EXPECT_TRUE(resp.isError());
 }
 
-// ============================================================================
 // 4. Retry count reflected in response (retries configured but all fail)
-// ============================================================================
-
 TEST_F(ModbusClientBoundaryTest, SendRequest_RetryReflectsInResponseCount) {
     cfg_.retries = 1;
     cfg_.timeoutMs = 500;
@@ -192,10 +177,7 @@ TEST_F(ModbusClientBoundaryTest, SendRequest_RetryReflectsInResponseCount) {
     EXPECT_GT(resp.attemptCount, 1) << "Should have attempted at least once more after retry";
 }
 
-// ============================================================================
 // 5. RTU broadcast — no response expected
-// ============================================================================
-
 TEST_F(ModbusClientBoundaryTest, SendRequest_RtuBroadcast_ReturnsEmptySuccess) {
     cfg_.mode = ModbusMode::RTU;
     cfg_.slaveId = 0;
@@ -213,10 +195,7 @@ TEST_F(ModbusClientBoundaryTest, SendRequest_RtuBroadcast_ReturnsEmptySuccess) {
     EXPECT_FALSE(resp.isError());
 }
 
-// ============================================================================
 // 6. Abort during active sendRequest
-// ============================================================================
-
 TEST_F(ModbusClientBoundaryTest, Abort_DuringSendRequest_ReturnsError) {
     connectClient();
 
@@ -240,10 +219,7 @@ TEST_F(ModbusClientBoundaryTest, Abort_DuringSendRequest_ReturnsError) {
     EXPECT_TRUE(resp.isError());
 }
 
-// ============================================================================
 // 7. Concurrent sendRequest rejected at runtime
-// ============================================================================
-
 TEST_F(ModbusClientBoundaryTest, SendRequest_ConcurrentCall_ReturnsInProgressError) {
     connectClient();
 
@@ -272,10 +248,7 @@ TEST_F(ModbusClientBoundaryTest, SendRequest_ConcurrentCall_ReturnsInProgressErr
     EXPECT_TRUE(firstResp.isError());
 }
 
-// ============================================================================
 // 8. Channel error during request
-// ============================================================================
-
 TEST_F(ModbusClientBoundaryTest, ChannelError_DuringRequest_ReturnsError) {
     connectClient();
 
@@ -294,10 +267,7 @@ TEST_F(ModbusClientBoundaryTest, ChannelError_DuringRequest_ReturnsError) {
     EXPECT_TRUE(resp.isError());
 }
 
-// ============================================================================
 // 9. Disconnect during active request
-// ============================================================================
-
 TEST_F(ModbusClientBoundaryTest, Disconnect_DuringActiveRequest_ReturnsError) {
     connectClient();
 
@@ -318,10 +288,7 @@ TEST_F(ModbusClientBoundaryTest, Disconnect_DuringActiveRequest_ReturnsError) {
     EXPECT_TRUE(resp.isError());
 }
 
-// ============================================================================
 // 10. RequestStateMachine — valid life cycle transitions
-// ============================================================================
-
 TEST_F(ModbusClientBoundaryTest, RequestState_TransitionsThroughLifecycle) {
     RequestStateMachine rsm;
 
@@ -337,10 +304,7 @@ TEST_F(ModbusClientBoundaryTest, RequestState_TransitionsThroughLifecycle) {
     EXPECT_EQ(rsm.currentState(), RequestStateMachine::State::Completed);
 }
 
-// ============================================================================
 // 11. RequestStateMachine — invalid transition silently rejected
-// ============================================================================
-
 TEST_F(ModbusClientBoundaryTest, RequestState_InvalidTransition_IsRejected) {
     RequestStateMachine rsm;
     EXPECT_EQ(rsm.currentState(), RequestStateMachine::State::Idle);
@@ -350,10 +314,7 @@ TEST_F(ModbusClientBoundaryTest, RequestState_InvalidTransition_IsRejected) {
     EXPECT_EQ(rsm.currentState(), RequestStateMachine::State::Idle);
 }
 
-// ============================================================================
 // 11b. RequestStateMachine — Failed -> Aborted transition is valid
-// ============================================================================
-
 TEST_F(ModbusClientBoundaryTest, RequestState_FailedToAborted_IsValid) {
     RequestStateMachine rsm;
     EXPECT_EQ(rsm.currentState(), RequestStateMachine::State::Idle);
@@ -369,10 +330,7 @@ TEST_F(ModbusClientBoundaryTest, RequestState_FailedToAborted_IsValid) {
     EXPECT_EQ(rsm.currentState(), RequestStateMachine::State::Idle);
 }
 
-// ============================================================================
 // 12. Write failure -> error without timeout
-// ============================================================================
-
 TEST_F(ModbusClientBoundaryTest, SendRequest_WriteFails_ReturnsError) {
     connectClient();
 
@@ -384,10 +342,7 @@ TEST_F(ModbusClientBoundaryTest, SendRequest_WriteFails_ReturnsError) {
     EXPECT_TRUE(resp.isError());
 }
 
-// ============================================================================
 // 13. Oversized PDU -> validation error
-// ============================================================================
-
 TEST_F(ModbusClientBoundaryTest, SendRequest_OversizedPdu_ReturnsError) {
     connectClient();
 
@@ -398,10 +353,7 @@ TEST_F(ModbusClientBoundaryTest, SendRequest_OversizedPdu_ReturnsError) {
     EXPECT_TRUE(resp.isError());
 }
 
-// ============================================================================
 // 14. ConnectionStateMachine — valid transitions
-// ============================================================================
-
 TEST_F(ModbusClientBoundaryTest, ConnectionState_ValidTransition_Accepted) {
     ConnectionStateMachine csm;
 
@@ -414,10 +366,7 @@ TEST_F(ModbusClientBoundaryTest, ConnectionState_ValidTransition_Accepted) {
     EXPECT_EQ(csm.currentState(), ConnectionStateMachine::State::Connected);
 }
 
-// ============================================================================
 // 15. ConnectionStateMachine — invalid transition silently rejected
-// ============================================================================
-
 TEST_F(ModbusClientBoundaryTest, ConnectionState_InvalidTransition_Rejected) {
     ConnectionStateMachine csm;
 
@@ -428,10 +377,7 @@ TEST_F(ModbusClientBoundaryTest, ConnectionState_InvalidTransition_Rejected) {
     EXPECT_EQ(csm.currentState(), ConnectionStateMachine::State::Disconnected);
 }
 
-// ============================================================================
 // 16. lastChannelError after connection failure
-// ============================================================================
-
 TEST_F(ModbusClientBoundaryTest, LastChannelError_AfterConnectionFailure_HasError) {
     // ensureConnected tries open() once
     Expectation openCall = EXPECT_CALL(*mockChannel_, open()).WillOnce(Return(false));
@@ -443,10 +389,7 @@ TEST_F(ModbusClientBoundaryTest, LastChannelError_AfterConnectionFailure_HasErro
     EXPECT_FALSE(err.isEmpty());
 }
 
-// ============================================================================
 // 17. isConnected toggle
-// ============================================================================
-
 TEST_F(ModbusClientBoundaryTest, IsConnected_ToggleConnectDisconnect_ReflectsState) {
     connectClient();
     EXPECT_TRUE(client_->isConnected());
@@ -459,28 +402,19 @@ TEST_F(ModbusClientBoundaryTest, IsConnected_ToggleConnectDisconnect_ReflectsSta
     EXPECT_FALSE(client_->isConnected());
 }
 
-// ============================================================================
 // 18. sendRaw on disconnected channel — no crash
-// ============================================================================
-
 TEST_F(ModbusClientBoundaryTest, SendRaw_NotConnected_DoesNotCrash) {
     QByteArray raw = QByteArray::fromHex("010300000001840A");
     EXPECT_NO_FATAL_FAILURE(client_->sendRaw(raw));
 }
 
-// ============================================================================
 // 19. Abort from idle state — triggers Aborted transition
-// ============================================================================
-
 TEST_F(ModbusClientBoundaryTest, Abort_WhenIdle_DoesNotCrash) {
     EXPECT_NO_FATAL_FAILURE(client_->abort());
     // abort() transitions Idle->Aborted since Idle != Completed and != Failed
 }
 
-// ============================================================================
 // Half-open detection: consecutive timeout eviction
-// ============================================================================
-
 // A session that times out unresponsiveThreshold times in a row while the
 // FSM reports Connected is declared half-open and evicted: Connected ->
 // Failed + channel close. The mock channel never answers, so every request
@@ -575,14 +509,9 @@ TEST_F(ModbusClientBoundaryTest, UnresponsiveThreshold_DisabledWhenZero) {
     EXPECT_EQ(client_->connectionState(), ModbusClient::ConnectionState::Connected);
 }
 
-// ============================================================================
 // On-demand connect: a request against an unopened session opens it
-// ============================================================================
-
-// With no pre-established session, the first request must transparently
-// connect (ensureConnected inside RequestExecutor::execute) instead of failing
-// with "Not connected": after connecting the request executes against
-// the open channel and only times out because the mock never answers.
+// Verifies that a request issued against an unopened session triggers on-demand
+// connection rather than failing immediately with a disconnected error.
 TEST_F(ModbusClientBoundaryTest, SendRequest_WhileDisconnected_LazyConnects) {
     cfg_.mode = ModbusMode::TCP;
     cfg_.timeoutMs = 100;
@@ -607,10 +536,7 @@ TEST_F(ModbusClientBoundaryTest, SendRequest_WhileDisconnected_LazyConnects) {
     EXPECT_TRUE(client_->isConnected());
 }
 
-// ============================================================================
 // Differentiated Retries: Poll reads fail fast; Control writes retry
-// ============================================================================
-
 TEST_F(ModbusClientBoundaryTest, DifferentiatedRetries_ReadPollFailsFastWithZeroRetries) {
     cfg_.retries = 0;
     cfg_.pollRetries = 0;
@@ -645,10 +571,7 @@ TEST_F(ModbusClientBoundaryTest, DifferentiatedRetries_WriteRetriesWithDefaultPo
     EXPECT_EQ(resp.attemptCount, 2);
 }
 
-// ============================================================================
 // Result Interoperability: sendRequestResult and sendRequestAsyncResult
-// ============================================================================
-
 TEST_F(ModbusClientBoundaryTest, SendRequestResult_DeliversResultDirectly) {
     cfg_.mode = ModbusMode::TCP;
     cfg_.timeoutMs = 500;

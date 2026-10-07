@@ -41,18 +41,9 @@ class CollapsibleSection;
 
 namespace ui::views::modbus {
 
-/**
- * @brief Single Modbus debug page with in-page protocol switching.
- *
- * Replaces the former BaseModbusPage + 3 protocol-specific subclasses
- * (ModbusTcpPage / ModbusRtuPage / ModbusAsciiPage). A QComboBox selects
- * the active protocol; a QStackedWidget swaps the connection widget
- * (TcpConnectionWidget vs SerialConnectionWidget). The backend
- * services are rebuilt on protocol switch via ModbusPagePresenter::switchMode.
- *
- * Follows ADR 0004 (MVP): the View owns UI widgets; ModbusPagePresenter
- * owns backend services and signal routing.
- */
+// Role: View for Modbus debugging 鈥?manages UI widgets and delegates orchestration to ModbusPagePresenter.
+// Thread-safety: Single-threaded (bound to GUI thread).
+// Ownership: Owned by QObject parent hierarchy (typically MainWindow); owns child UI widgets.
 class ModbusPage : public QWidget {
     Q_OBJECT
 

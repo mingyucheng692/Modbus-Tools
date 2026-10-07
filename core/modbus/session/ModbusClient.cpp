@@ -25,7 +25,7 @@ void ModbusClient::assertSessionAffinity() {
     Q_ASSERT_X(sessionOwnerThread_ == QThread::currentThread(),
                "ModbusClient",
                "session-driving methods must run on the owning worker thread; "
-               "route the call through ModbusWorker (see @thread in ModbusClient.h)");
+               "route the call through ModbusWorker (see thread contract in ModbusClient.h)");
 }
 
 void ModbusClient::claimSessionOwnershipForCurrentThread() {

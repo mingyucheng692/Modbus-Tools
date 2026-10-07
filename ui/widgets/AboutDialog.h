@@ -9,9 +9,9 @@ class QDialogButtonBox;
 
 namespace ui::widgets {
 
-/**
- * @brief Dialog showing application information and links.
- */
+// Role: Dialog displaying application metadata, build info, and repository links.
+// Thread-safety: Single-threaded (bound to GUI thread).
+// Ownership: Modal dialog owned by parent QWidget.
 class AboutDialog : public QDialog {
     Q_OBJECT
 

@@ -16,9 +16,9 @@ class QWidget;
 
 namespace ui::common {
 
-/**
- * @brief Coordinates theme mode state, persistence, and system theme tracking.
- */
+// Role: Coordinates application theme mode state, persistence, and system theme tracking.
+// Thread-safety: Single-threaded (bound to GUI thread).
+// Ownership: Owned by QObject parent hierarchy; holds reference to ISettingsService.
 class ThemeController : public QObject {
     Q_OBJECT
 

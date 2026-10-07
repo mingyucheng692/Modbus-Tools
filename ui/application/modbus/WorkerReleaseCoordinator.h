@@ -66,33 +66,16 @@ public:
     /// fully wedged and forces the thread quit so finalize() still runs.
     static constexpr int kChannelShutdownForceMs = 3000;
 
-    /**
-     * @brief Begin an asynchronous, bounded teardown of @p handle.
-     *
-     * Empty handles complete synchronously: releaseCompleted is emitted
-     * immediately (via a queued invocation on this object's thread) so callers
-     * that rely on the signal still observe the transition.
-     *
-     * @param handle          Live stack resources to release (moved in).
-     * @param timeoutMessage  Message surfaced through releaseTimedOut if the
-     *                        bounded shutdown elapses.
-     * @param timeoutMs       Bounded shutdown budget; 0 selects the default.
-     */
+    // Begins an asynchronous, bounded teardown of handle.
+    // Empty handles complete synchronously via queued releaseCompleted emission.
     void requestRelease(StackHandle handle,
                         const QString& timeoutMessage,
                         int timeoutMs = 0);
 
-    /**
-     * @brief Finalize every still-pending release with the given timeout
-     *        message.
-     *
-     * Used by the Presenter's destructor / explicit shutdown path so that no
-     * worker stack outlives the owning Presenter.
-     */
+    // Finalizes every still-pending release with timeoutMessage (used on shutdown).
     void shutdownAll(const QString& timeoutMessage);
 
-    /// @return true if at least one release is still outstanding.
-    bool hasPending() const noexcept;
+    [[nodiscard]] bool hasPending() const noexcept;
 
     /// Test seam / observability: returns the current stage of the first active pending release,
     /// or ReleaseStage::Initial if no release is pending.
@@ -144,7 +127,7 @@ private:
     void onTimeout(const std::shared_ptr<PendingReleaseContext>& pending);
     void finalize(const std::shared_ptr<PendingReleaseContext>& pending);
 
-    /// @brief Drive the channel's graceful shutdown and only then quit the
+    /// Drives the channel's graceful shutdown and only then quits the
     ///        IO thread.
     ///
     /// The channel thread MUST stay alive until the channel actually reached

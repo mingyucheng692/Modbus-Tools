@@ -155,8 +155,7 @@ void ModbusWorker::handleSubmit(base::Pdu request, int slaveId, int requestId, q
     // on the worker thread. QueuedConnection guarantees that today; the
     // assert catches future regressions in debug builds.
     Q_ASSERT(!thread_ || QThread::currentThread() == thread_);
-    // Arm the client's Debug-only owner-thread contract (see the @thread
-    // docs in ModbusClient.h). Idempotent and a no-op in Release builds.
+    // Arm the client's Debug-only owner-thread contract (see thread contract in ModbusClient.h). Idempotent and a no-op in Release builds.
     if (client_) {
         client_->claimSessionOwnershipForCurrentThread();
     }

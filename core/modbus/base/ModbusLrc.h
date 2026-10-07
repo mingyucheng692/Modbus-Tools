@@ -8,9 +8,7 @@
 
 namespace modbus::base {
 
-/// Calculates the Modbus ASCII LRC checksum.  The LRC is the two's-complement
-/// negation of the sum of all bytes in @p data.  Inline (header-only) because
-/// the implementation is 7 lines and mirrors ModbusCrc's header-only style.
+// Calculates the Modbus ASCII LRC checksum: two's-complement negation of the byte sum.
 [[nodiscard]] inline uint8_t calculateModbusAsciiLrc(QByteArrayView data) noexcept {
     uint8_t sum = 0;
     for (const char byte : data) {
@@ -19,20 +17,12 @@ namespace modbus::base {
     return static_cast<uint8_t>(-sum);
 }
 
-/**
- * @brief Calculate and append Modbus ASCII LRC byte to @p buffer.
- * @param buffer Output buffer to append 1-byte LRC to.
- */
 inline void appendModbusAsciiLrc(QByteArray& buffer) noexcept {
     const uint8_t lrc = calculateModbusAsciiLrc(buffer);
     buffer.append(static_cast<char>(lrc));
 }
 
-/**
- * @brief Verify that the trailing byte of @p buffer matches its calculated Modbus ASCII LRC.
- * @param buffer Buffer containing binary payload + 1-byte LRC.
- * @return true if valid, false if buffer is too short or LRC does not match.
- */
+// Verifies trailing byte matches calculated LRC; returns false if buffer size < 2 or LRC mismatches.
 [[nodiscard]] inline bool verifyModbusAsciiLrc(QByteArrayView buffer) noexcept {
     if (buffer.size() < 2) {
         return false;

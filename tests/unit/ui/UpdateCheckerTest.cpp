@@ -9,11 +9,8 @@
 #include <QJsonObject>
 #include <QtGlobal>
 
-// ---------------------------------------------------------------------------
 // Prerelease channel runtime gate (R1): MODBUS_TOOLS_PRERELEASE env var,
 // replacing the retired MODBUS_TOOLS_INCLUDE_PRERELEASE compile-time option.
-// ---------------------------------------------------------------------------
-
 TEST(UpdateCheckerPrereleaseGate, UnsetVariableDefaultsToStableChannel)
 {
     qunsetenv("MODBUS_TOOLS_PRERELEASE");

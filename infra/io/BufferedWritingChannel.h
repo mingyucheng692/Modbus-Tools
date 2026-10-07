@@ -10,24 +10,13 @@ class QIODevice;
 
 namespace io {
 
-/**
- * @brief Common write-queue + write-timeout machinery for Serial/Tcp channels.
- *
- * Owns the pending-write buffer, the write-offset cursor, the write-timeout
- * timer, and the thread-context log flags. Subclasses provide the underlying
- * QIODevice (serial port / TCP socket) and device-specific open/close/configure
- * logic via pure-virtual hooks.
- *
- * Thread-affinity contract: all write-queue methods (flushPendingWrites,
- * onBytesWritten, onWriteTimeout) must run on the device's owner thread
- * (device()->thread()). The base write() marshals cross-thread calls onto
- * that thread via Qt::QueuedConnection.
- */
+// Role: Common write-queue and write-timeout machinery for asynchronous channels.
+// Thread-safety: Thread-compatible; write() safely marshals cross-thread calls via QueuedConnection.
+// Ownership: Abstract base class; owned via IChannel interface.
 class BufferedWritingChannel : public ChannelBase {
 public:
     ~BufferedWritingChannel() noexcept override;
-
-    /// @brief Enqueue data for writing. Thread-safe.
+    /// Enqueue data for writing. Thread-safe.
     ///
     /// When called from the device's owner thread, data is written immediately
     /// (subject to internal buffering) and the return value reflects the real
@@ -59,9 +48,8 @@ protected:
     void resetWriteState();
     void logThreadContextOnce(const char* scope, bool& loggedFlag);
 
-    /// Moves the write-timeout timer to @p thread and clears thread-log flags.
-    /// Subclasses must call this from their moveToThread() after moving the
-    /// device, so the timer and device share the same thread affinity.
+    // Moves write-timeout timer to thread and clears thread-log flags.
+    // Subclasses must call this from their moveToThread() after moving the device.
     void moveWriteInfrastructureToThread(QThread* thread);
 
     // --- State accessors for subclasses ---

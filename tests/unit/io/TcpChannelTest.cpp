@@ -33,10 +33,7 @@ protected:
     std::unique_ptr<TcpChannel> channel_;
 };
 
-// ---------------------------------------------------------------------------
 // Default construction state
-// ---------------------------------------------------------------------------
-
 TEST_F(TcpChannelTest, Construct_DefaultKindIsTcp) {
     EXPECT_EQ(channel_->kind(), ChannelKind::Tcp);
 }
@@ -49,10 +46,7 @@ TEST_F(TcpChannelTest, Construct_DefaultNotOpen) {
     EXPECT_FALSE(channel_->isOpen());
 }
 
-// ---------------------------------------------------------------------------
 // Endpoint configuration
-// ---------------------------------------------------------------------------
-
 TEST_F(TcpChannelTest, SetEndpoint_ValidIpPort_NoCrash) {
     EXPECT_NO_FATAL_FAILURE(channel_->setEndpoint(QStringLiteral("192.168.1.100"), 502));
 }
@@ -61,29 +55,20 @@ TEST_F(TcpChannelTest, SetEndpoint_Localhost_NoCrash) {
     EXPECT_NO_FATAL_FAILURE(channel_->setEndpoint(QStringLiteral("127.0.0.1"), 1502));
 }
 
-// ---------------------------------------------------------------------------
 // Write on closed channel
-// ---------------------------------------------------------------------------
-
 TEST_F(TcpChannelTest, Write_NoConnection_ReturnsFalse) {
     QByteArray testData = QByteArrayLiteral("test");
     bool wrote = channel_->write(testData);
     EXPECT_FALSE(wrote);
 }
 
-// ---------------------------------------------------------------------------
 // Close from closed state
-// ---------------------------------------------------------------------------
-
 TEST_F(TcpChannelTest, Close_FromClosedState_NoCrash) {
     EXPECT_NO_FATAL_FAILURE(channel_->close());
     EXPECT_EQ(channel_->state(), ChannelState::Closed);
 }
 
-// ---------------------------------------------------------------------------
 // Timeouts
-// ---------------------------------------------------------------------------
-
 TEST_F(TcpChannelTest, DefaultTimeouts_HaveExpectedValues) {
     Timeouts t = channel_->timeouts();
     EXPECT_GT(t.readMs, 0);
@@ -101,20 +86,14 @@ TEST_F(TcpChannelTest, SetTimeouts_CustomValues_Persist) {
     EXPECT_EQ(retrieved.writeMs, 1000);
 }
 
-// ---------------------------------------------------------------------------
 // Stats
-// ---------------------------------------------------------------------------
-
 TEST_F(TcpChannelTest, Stats_InitialZero) {
     ChannelStats s = channel_->stats();
     EXPECT_EQ(s.bytesTx, 0);
     EXPECT_EQ(s.bytesRx, 0);
 }
 
-// ---------------------------------------------------------------------------
 // Handlers — verify they can be set without crash
-// ---------------------------------------------------------------------------
-
 TEST_F(TcpChannelTest, SetReadHandler_NoCrash) {
     bool called = false;
     channel_->setReadHandler([&called](QByteArrayView) { called = true; });
@@ -138,10 +117,7 @@ TEST_F(TcpChannelTest, RemoveStateHandler_NoCrash) {
     EXPECT_NO_FATAL_FAILURE(channel_->removeStateHandler(id));
 }
 
-// ---------------------------------------------------------------------------
 // TCP endpoint validation
-// ---------------------------------------------------------------------------
-
 TEST_F(TcpChannelTest, TcpChannel_InvalidIpAddress_ReturnsError) {
     bool errorEmitted = false;
     channel_->setErrorHandler([&errorEmitted](const io::ChannelError&) {
@@ -178,12 +154,9 @@ TEST_F(TcpChannelTest, TcpChannel_ValidParams_OpensSuccessfully) {
     EXPECT_FALSE(errorEmitted);
 }
 
-// ---------------------------------------------------------------------------
 // Error is sticky: once the channel FSM is in Error, late socket
 // state notifications must not repaint it into a healthy Closed/Open.
 // Error is left only via open() (new attempt) or close() (user teardown).
-// ---------------------------------------------------------------------------
-
 TEST_F(TcpChannelTest, Error_LeavesOnlyViaOpenOrClose) {
     // Land the FSM in Error through the synchronous invalid-endpoint path.
     channel_->setEndpoint(QStringLiteral("not.an.ip"), 502);
@@ -248,12 +221,9 @@ TEST_F(TcpChannelTest, SocketError_StickyAgainstLateSocketStateChange) {
         << "late socket state change repainted sticky Error state";
 }
 
-// ---------------------------------------------------------------------------
 // Close linger fallback: a close that cannot complete (kernel send
 // buffer still holds unflushed data to a non-reading peer) must be
 // force-completed after the linger timeout instead of staying in Closing.
-// ---------------------------------------------------------------------------
-
 TEST_F(TcpChannelTest, Close_StuckFlush_ForcedClosedAfterLinger) {
     QTcpServer server;
     ASSERT_TRUE(server.listen(QHostAddress::LocalHost, 0));

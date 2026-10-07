@@ -9,20 +9,14 @@
 
 namespace modbus::transport {
 
-/**
- * @brief Serial framing mode for ModbusSerialTransport.
- */
 enum class SerialFraming {
-    Rtu,   ///< Modbus RTU — binary framing with CRC-16.
-    Ascii  ///< Modbus ASCII — hex-encoded framing with LRC.
+    Rtu,   // Modbus RTU: binary framing with CRC-16.
+    Ascii  // Modbus ASCII: hex-encoded framing with LRC.
 };
 
-/**
- * @brief Modbus serial transport layer (ADU build/parse) for RTU and ASCII.
- *
- * Uses SerialFraming to select between RTU (CRC-16, binary) and ASCII
- * (LRC, hex-encoded with ':' / "\\r\\n") framing.
- */
+// Role: Serial transport layer constructing and validating RTU and ASCII ADU frames.
+// Thread-safety: Thread-compatible; accessed from the owner communication thread.
+// Ownership: Owned by ModbusClient / ModbusStack composition root via std::unique_ptr<ITransport>.
 class ModbusSerialTransport : public ITransport {
 public:
     explicit ModbusSerialTransport(SerialFraming framing);

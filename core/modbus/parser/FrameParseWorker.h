@@ -9,21 +9,9 @@
 
 namespace modbus::parser {
 
-/**
- * @brief Worker object designed to run in a background thread for frame parsing.
- *
- * @par Worker-Object pattern
- *      Slots are queued via QMetaObject::invokeMethod / QueuedConnection so
- *      the worker can live on a dedicated QThread. Inputs MUST be
- *      pre-normalized by the UI layer (no brackets / timestamps / 0x prefixes
- *      / non-hex characters); FrameParseWorker does not perform input
- *      sanitization itself.
- *
- * @par Why no PIMPL
- *      The previous QScopedPointer<Private> indirection wrapped 6 POD members
- *      with no forward-declaration or ABI-stability requirement, so it only
- *      added boilerplate. Members are now declared directly.
- */
+// Role: Worker object running on a dedicated thread for parsing and decoding Modbus frame strings.
+// Thread-safety: Thread-safe via Qt QueuedConnection; slots execute exclusively on worker's QThread.
+// Ownership: Owned by FrameAnalyzerPresenter via std::shared_ptr and QObject hierarchy.
 class FrameParseWorker : public QObject {
     Q_OBJECT
 
@@ -32,14 +20,7 @@ public:
     ~FrameParseWorker() noexcept override;
 
 public slots:
-    /**
-     * @brief Enqueue a parse request.
-     * @param input Pre-normalized hex string from the UI layer.
-     * @param type Protocol type (Tcp, Rtu, or Unknown for auto).
-     * @param startAddress Starting address for response parsing.
-     * @param order Register byte/word order.
-     * @param requestId Unique ID to track the request.
-     */
+    // Enqueues parse request onto worker thread; input must be pre-normalized hex string from UI layer.
     void enqueueParse(const QString& input,
                       ProtocolType type,
                       uint16_t startAddress,
@@ -47,9 +28,6 @@ public slots:
                       quint64 requestId);
 
 signals:
-    /**
-     * @brief Signal emitted when parsing is finished.
-     */
     void parseFinished(const ParseResult& result, quint64 requestId);
 
 private:

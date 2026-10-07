@@ -33,19 +33,9 @@ namespace modbus::session { class ModbusClient; }
 
 namespace ui::application::modbus {
 
-/**
- * @brief Session presenter bridging the UI layer and Modbus worker thread.
- *
- * @thread Lives on the GUI thread. All public methods must be called from the
- *         GUI thread. Cross-thread communication with the ModbusWorker happens
- *         exclusively via queued signal/slot connections (no DirectConnection).
- *         Worker thread teardown is delegated to WorkerReleaseCoordinator,
- *         which enforces a bounded, non-terminating shutdown.
- *
- * @guarded_by Qt event loop — all member writes occur on the GUI thread via
- *             queued signal delivery. No explicit mutex needed as Qt's event
- *             system provides implicit serialization.
- */
+// Role: Bridges UI presentation layer and Modbus worker thread via queued signal/slot connections.
+// Thread-safety: Single-threaded (bound to GUI thread); cross-thread communication strictly queued.
+// Ownership: Owned by QObject parent hierarchy; manages worker thread lifecycle via WorkerReleaseCoordinator.
 class ModbusSessionPresenter : public QObject {
     Q_OBJECT
 

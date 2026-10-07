@@ -87,10 +87,7 @@ TEST(ModbusEndianCodecTest, FrameParserExtractsStartAddressFromBigEndianRequestP
     EXPECT_EQ(result.expectedQuantity, 0x0002);
 }
 
-// ============================================================================
 // inspectTcpAdu — branch coverage: incomplete, invalid, boundary
-// ============================================================================
-
 TEST(ModbusEndianCodecTest, InspectTcpAdu_IncompleteHeader_ReturnsZero) {
     const QByteArray adu = QByteArray::fromHex("1234"); // only 2 bytes (< 6)
     EXPECT_EQ(inspectTcpAdu(QByteArrayView(adu)), 0);
@@ -140,10 +137,7 @@ TEST(ModbusEndianCodecTest, InspectTcpAdu_LengthAtMaxBoundary_Accepted) {
     EXPECT_EQ(inspectTcpAdu(QByteArrayView(adu)), adu.size());
 }
 
-// ============================================================================
 // inspectRtuAdu — branch coverage: incomplete, CRC mismatch, null fields
-// ============================================================================
-
 TEST(ModbusEndianCodecTest, InspectRtuAdu_IncompleteHeader_ReturnsZero) {
     const QByteArray adu = QByteArray::fromHex("0103"); // only 2 bytes (< 5)
     EXPECT_EQ(inspectRtuAdu(QByteArrayView(adu)), 0);
@@ -185,10 +179,7 @@ TEST(ModbusEndianCodecTest, InspectAsciiAdu_InvalidLrc_ReturnsMinusOne) {
     EXPECT_EQ(inspectAsciiAdu(QByteArrayView(frame)), -1);
 }
 
-// ============================================================================
 // validateResponsePdu — exception responses
-// ============================================================================
-
 TEST(ModbusEndianCodecTest, ValidateResponsePdu_ExceptionFunctionCodeMismatch_ReturnsError) {
     const Pdu request(FunctionCode::ReadHoldingRegisters, QByteArray::fromHex("00000001"));
     // Exception with wrong original FC (WriteSingleRegister instead of ReadHoldingRegisters)
@@ -214,10 +205,7 @@ TEST(ModbusEndianCodecTest, ValidateResponsePdu_MatchingException_ReturnsEmpty) 
     EXPECT_TRUE(error.isEmpty()) << error.toStdString();
 }
 
-// ============================================================================
 // validateResponsePdu — function code mismatch (non-exception)
-// ============================================================================
-
 TEST(ModbusEndianCodecTest, ValidateResponsePdu_WrongFunctionCode_ReturnsError) {
     const Pdu request(FunctionCode::ReadHoldingRegisters, QByteArray::fromHex("00000001"));
     const Pdu response(FunctionCode::ReadCoils, QByteArray::fromHex("0100"));
@@ -225,10 +213,7 @@ TEST(ModbusEndianCodecTest, ValidateResponsePdu_WrongFunctionCode_ReturnsError) 
     EXPECT_FALSE(error.isEmpty());
 }
 
-// ============================================================================
 // validateResponsePdu — ReadCoils / ReadDiscreteInputs branches
-// ============================================================================
-
 TEST(ModbusEndianCodecTest, ValidateResponsePdu_BitRead_InvalidRequestData_ReturnsError) {
     // request data too short for quantity read
     const Pdu request(FunctionCode::ReadCoils, QByteArray::fromHex("0000"));
@@ -275,10 +260,7 @@ TEST(ModbusEndianCodecTest, ValidateResponsePdu_BitRead_DiscreteInputs_ReturnsEm
     EXPECT_TRUE(error.isEmpty()) << error.toStdString();
 }
 
-// ============================================================================
 // validateResponsePdu — ReadHoldingRegisters / ReadInputRegisters branches
-// ============================================================================
-
 TEST(ModbusEndianCodecTest, ValidateResponsePdu_RegisterRead_InvalidRequestData_ReturnsError) {
     const Pdu request(FunctionCode::ReadHoldingRegisters, QByteArray::fromHex("0000"));
     const Pdu response(FunctionCode::ReadHoldingRegisters, QByteArray::fromHex("0200000000"));
@@ -323,10 +305,7 @@ TEST(ModbusEndianCodecTest, ValidateResponsePdu_RegisterRead_ReadInputRegisters_
     EXPECT_TRUE(error.isEmpty()) << error.toStdString();
 }
 
-// ============================================================================
 // validateResponsePdu — WriteSingleCoil / WriteSingleRegister branches
-// ============================================================================
-
 TEST(ModbusEndianCodecTest, ValidateResponsePdu_WriteSingle_SizeMismatch_ReturnsError) {
     const Pdu request(FunctionCode::WriteSingleRegister, QByteArray::fromHex("00101234"));
     const Pdu response(FunctionCode::WriteSingleRegister, QByteArray::fromHex("0010"));
@@ -348,10 +327,7 @@ TEST(ModbusEndianCodecTest, ValidateResponsePdu_WriteSingleRegister_Valid_Return
     EXPECT_TRUE(error.isEmpty()) << error.toStdString();
 }
 
-// ============================================================================
 // validateResponsePdu — WriteMultipleCoils / WriteMultipleRegisters branches
-// ============================================================================
-
 TEST(ModbusEndianCodecTest, ValidateResponsePdu_WriteMultiple_InvalidRequestData_ReturnsError) {
     const Pdu request(FunctionCode::WriteMultipleRegisters, QByteArray::fromHex("0010"));
     const Pdu response(FunctionCode::WriteMultipleRegisters, QByteArray::fromHex("00100002"));
@@ -404,10 +380,7 @@ TEST(ModbusEndianCodecTest, ValidateResponsePdu_WriteMultipleCoils_Valid_Returns
     EXPECT_TRUE(error.isEmpty()) << error.toStdString();
 }
 
-// ============================================================================
 // validateResponsePdu — unsupported function code (default branch)
-// ============================================================================
-
 TEST(ModbusEndianCodecTest, ValidateResponsePdu_UnsupportedFunctionCode_ReturnsError) {
     // Use a function code that's not handled by any switch case
     // ReadFileRecord (0x14/20) is not in the switch
@@ -417,12 +390,9 @@ TEST(ModbusEndianCodecTest, ValidateResponsePdu_UnsupportedFunctionCode_ReturnsE
     EXPECT_FALSE(error.isEmpty());
 }
 
-// ============================================================================
 // readBigEndian<T> template — the consolidated big-endian reader.
 // Covers uint16/uint32 normal reads, boundary fits, out-of-range offsets,
 // empty data, and the "value unchanged on failure" contract.
-// ============================================================================
-
 TEST(ModbusEndianCodecTest, ReadBigEndian_Uint16_ReadsValueAtOffset) {
     const QByteArray data = QByteArray::fromHex("12345678");
     uint16_t value = 0;

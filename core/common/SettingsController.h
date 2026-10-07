@@ -15,10 +15,9 @@ class ISettingsService;
 
 namespace core::common {
 
-/**
- * @brief High-level controller for application-wide settings.
- *        Separates business logic from the raw settings storage service.
- */
+// Role: High-level controller for application-wide settings; encapsulates config schema over ISettingsService.
+// Thread-safety: Thread-compatible; typically accessed from the GUI thread.
+// Ownership: Owned by application composition root; holds non-owning pointer to ISettingsService.
 class SettingsController {
 
 public:

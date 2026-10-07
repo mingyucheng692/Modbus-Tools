@@ -8,10 +8,7 @@
 
 namespace modbus::session {
 
-// ---------------------------------------------------------------------------
 // Static helpers – RTU timing
-// ---------------------------------------------------------------------------
-
 double FrameExtractor::stopBitsToCount(int stopBits)
 {
     switch (stopBits) {
@@ -87,20 +84,14 @@ std::chrono::microseconds FrameExtractor::calculateFrameDuration(
         static_cast<long long>(std::ceil(frameUs)));
 }
 
-// ---------------------------------------------------------------------------
 // Construction
-// ---------------------------------------------------------------------------
-
 FrameExtractor::FrameExtractor(modbus::base::ModbusMode mode, int baudRate)
     : mode_(mode)
 {
     config_.baudRate = baudRate;
 }
 
-// ---------------------------------------------------------------------------
 // feed() – called from onDataReceived
-// ---------------------------------------------------------------------------
-
 void FrameExtractor::feed(QByteArrayView data)
 {
     if (data.isEmpty()) {
@@ -162,10 +153,7 @@ void FrameExtractor::feed(QByteArrayView data)
     }
 }
 
-// ---------------------------------------------------------------------------
 // processTcpBuffer() – extract complete TCP frames via MBAP header parsing
-// ---------------------------------------------------------------------------
-
 void FrameExtractor::processTcpBuffer()
 {
     while (!buffer_.isEmpty()) {
@@ -248,10 +236,7 @@ void FrameExtractor::processAsciiBuffer()
     }
 }
 
-// ---------------------------------------------------------------------------
 // processRtuBuffer() – extract RTU frame when silence period elapsed
-// ---------------------------------------------------------------------------
-
 void FrameExtractor::processRtuBuffer(std::chrono::steady_clock::time_point now)
 {
     if (mode_ != base::ModbusMode::RTU) {
@@ -281,10 +266,7 @@ void FrameExtractor::processRtuBuffer(std::chrono::steady_clock::time_point now)
     lastByteReceivedAt_ = std::chrono::steady_clock::time_point{};
 }
 
-// ---------------------------------------------------------------------------
 // Queue access
-// ---------------------------------------------------------------------------
-
 bool FrameExtractor::hasCompleteFrame() const
 {
     return !completedFrames_.empty();
@@ -330,10 +312,7 @@ int FrameExtractor::droppedInvalidBytes() const
     return droppedInvalidBytes_;
 }
 
-// ---------------------------------------------------------------------------
 // RTU query methods – used by RequestExecutor async reactor
-// ---------------------------------------------------------------------------
-
 bool FrameExtractor::isRtuFrameReadyToParse(
     std::chrono::steady_clock::time_point now) const
 {

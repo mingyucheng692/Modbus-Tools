@@ -26,6 +26,9 @@ enum class UpdatePromptChoice {
     OpenDownloadPage
 };
 
+// Role: View contract for update prompt dialogs and progress indication.
+// Thread-safety: Must be called exclusively from the GUI thread.
+// Ownership: Interface only; implementers owned by UI hierarchy.
 class IUpdateInteractionView {
 public:
     virtual ~IUpdateInteractionView() = default;
@@ -48,14 +51,14 @@ public:
     virtual void hideUpdateProgress() = 0;
 };
 
+// Role: Coordinates update checking, user prompts, download progress, and restart dispatch.
+// Thread-safety: Single-threaded; bound to the GUI thread.
+// Ownership: Owned by MainWindow via QObject parent-child hierarchy.
 class UpdateCoordinator : public QObject {
     Q_OBJECT
 
 public:
-    /// @param requestQuit Replaces the former IApplicationExitView*
-    ///        single-method interface. Invoked on the GUI thread after
-    ///        the updater was launched successfully. The composition root must
-    ///        guarantee the captured target outlives this coordinator.
+    // requestQuit: Callback invoked on GUI thread after updater launch; target must outlive coordinator.
     explicit UpdateCoordinator(IUpdateInteractionView* view,
                                std::function<void()> requestQuit,
                                common::UpdateChecker* updateChecker,

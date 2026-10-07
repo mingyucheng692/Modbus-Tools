@@ -14,38 +14,16 @@ class FrameParseWorker;
 
 namespace ui::application::analyzer {
 
-/**
- * @brief Owns the background QThread + FrameParseWorker used by
- *        FrameAnalyzerView for logical frame parsing.
- *
- * The widget previously created and tore down this pair itself, duplicating
- * the project's thread-cleanup sequence. Ownership now lives here; teardown
- * goes exclusively through core::common::ThreadGuard, and the widget keeps
- * only rendering and interaction.
- *
- * @par Threading contract
- *      - Widget -> Presenter: same-thread calls/signals (DirectConnection).
- *      - Presenter -> Worker: QueuedConnection (worker lives on its thread);
- *        FrameParseWorker's pending state is only touched on that thread.
- *      - Worker -> Widget results are relayed via the parseFinished signal
- *        (queued cross-thread, then direct to the widget on the GUI thread).
- *
- * @par Lifetime
- *      Intended to be created as a QObject child of the widget
- *      (`new FrameAnalyzerPresenter(widget)`). The destructor performs the
- *      ThreadGuard teardown: worker first (deleteLater queued onto the still
- *      live worker thread), thread second (quit + bounded wait, with the
- *      finished->deleteLater fallback). Member order below is load-bearing —
- *      see ThreadGuard.h.
- */
+// Role: Owns the background QThread and FrameParseWorker for logical frame parsing.
+// Thread-safety: Single-threaded (bound to GUI thread); cross-thread worker calls queued.
+// Ownership: Owned by QObject parent (FrameAnalyzerView); manages background worker and QThread.
 class FrameAnalyzerPresenter : public QObject {
     Q_OBJECT
 public:
     explicit FrameAnalyzerPresenter(QObject* parent = nullptr);
     ~FrameAnalyzerPresenter() override;
 
-    /// Queues a parse request onto the worker thread.
-    /// @param input Pre-normalized hex string (see FrameParseWorker contract).
+    // Queues a parse request onto the worker thread; input must be pre-normalized hex string.
     void enqueueParse(const QString& input,
                       modbus::parser::ProtocolType type,
                       uint16_t startAddress,

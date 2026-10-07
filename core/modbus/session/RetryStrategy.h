@@ -6,6 +6,9 @@
 
 namespace modbus::session {
 
+// Role: Computes retry eligibility and exponential backoff delays with jitter for failed requests.
+// Thread-safety: Thread-compatible; state mutated across sequential retry attempts on worker thread.
+// Ownership: Owned as a value member by RequestExecutor.
 class RetryStrategy {
 public:
     struct Config {
@@ -25,11 +28,10 @@ public:
     void reset();
     [[nodiscard]] int attemptCount() const;
 
-    /// Calculate backoff delay for @p attempt using @p config without
-    /// constructing a full RetryStrategy.
+    // Calculates backoff delay for attempt using config without constructing a full RetryStrategy.
     [[nodiscard]] int calculateBackoffMs(const Config& config, int attempt) const;
 
-    /// Calculate backoff delay using the stored config_ for @p attempt.
+    // Calculates backoff delay using the stored config_ for attempt.
     [[nodiscard]] int calculateBackoffMs(int attempt) const;
 
 private:

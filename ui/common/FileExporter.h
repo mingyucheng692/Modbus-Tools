@@ -7,14 +7,7 @@
 
 namespace ui::common {
 
-/**
- * @brief Exports lines to the target file.
- * @param filePath Destination file path.
- * @param lines Text lines to write.
- * @param append True to append, false to truncate.
- * @param error Optional output pointer for failure description.
- * @return True if succeeded, false otherwise.
- */
+// Exports lines to target file path.
 [[nodiscard]] bool exportLinesToFile(const QString& filePath,
                                      const QStringList& lines,
                                      bool append = false,

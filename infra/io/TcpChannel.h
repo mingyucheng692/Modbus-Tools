@@ -10,31 +10,11 @@ class QIODevice;
 
 namespace io {
 
-/**
- * @brief TCP channel with explicit IO-thread affinity.
- *
- * Lifecycle contract:
- *   TcpChannel MUST be destroyed on the same thread that owns socket_ (the IO
- *   thread). Cross-thread destruction is a use-after-free: ~TcpChannel() calls
- *   close(), which on a cross-thread call queues a lambda to the IO thread and
- *   returns immediately; the destructor then destroys socket_/pendingWrites_
- *   while the IO thread may still access them. Callers (e.g. Presenter) must
- *   ensure ioThread quit()+wait() completes before releasing the channel.
- *
- * Thread affinity of handlers:
- *   All private slot methods (onReadyRead/onConnected/onBytesWritten/
- *   onSocketError/onStateChanged/onWriteTimeout) and write-state helpers
- *   (flushPendingWrites/resetWriteState) assume execution on the IO thread
- *   (socket_.thread()). After moveToThread(ioThread), signal handlers are
- *   delivered via Qt::QueuedConnection on the IO thread. Do not call private
- *   methods from the GUI thread.
- */
+// Role: Buffered, non-blocking TCP communication channel wrapping QTcpSocket.
+// Thread-safety: Thread-compatible. All operations must run on its IO-thread affinity.
+// Ownership: Manages private QTcpSocket instance; must be destroyed on owning IO-thread.
 class TcpChannel : public BufferedWritingChannel {
 public:
-    /// @param closeLingerMs  Fallback timer that force-aborts a socket stuck
-    ///                       in Closing (e.g. disconnectFromHost blocked on a
-    ///                       full kernel send buffer). Production default is
-    ///                       kDefaultCloseLingerMs; tests inject a short value.
     explicit TcpChannel(int closeLingerMs = kDefaultCloseLingerMs);
     ~TcpChannel() noexcept override;
 

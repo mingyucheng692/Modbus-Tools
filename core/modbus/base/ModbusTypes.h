@@ -34,10 +34,7 @@ enum class ExceptionCode : uint8_t {
     GatewayTargetDeviceFailed = 0x0B
 };
 
-/**
- * @brief Structured error codes for Modbus operations.
- * Decouples domain error states from user-facing localization.
- */
+// Structured error codes for Modbus operations; decouples domain error states from localization.
 enum class ModbusError : uint8_t {
     None = 0,
     Timeout,
@@ -75,15 +72,12 @@ enum class ModbusError : uint8_t {
     return "Unknown";
 }
 
-/**
- * @brief Register byte/word ordering for 16-bit registers.
- * Used primarily for diagnostic analysis of firmware byte order issues.
- */
+// Register byte/word ordering for 16-bit registers (diagnostic firmware byte order analysis).
 enum class RegisterOrder {
-    ABCD, ///< Standard Big-Endian: R1(High/Low), R2(High/Low)
-    BADC, ///< Byte Swapped: R1(Low/High), R2(Low/High)
-    CDAB, ///< Word Swapped: R2(High/Low), R1(High/Low)
-    DCBA  ///< Total Swapped: R2(Low/High), R1(Low/High)
+    ABCD, // Standard Big-Endian: R1(High/Low), R2(High/Low)
+    BADC, // Byte Swapped: R1(Low/High), R2(Low/High)
+    CDAB, // Word Swapped: R2(High/Low), R1(High/Low)
+    DCBA  // Total Swapped: R2(Low/High), R1(Low/High)
 };
 
 } // namespace modbus::base

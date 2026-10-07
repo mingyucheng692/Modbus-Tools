@@ -9,6 +9,9 @@
 
 namespace core::update {
 
+// Role: Model holding GitHub release metadata (tag name, url, flags, raw body) for update discovery.
+// Thread-safety: Value type; thread-safe for independent instances.
+// Ownership: Value object passed by copy or move.
 struct ReleaseInfo {
     std::string tagName;
     std::string htmlUrl;
@@ -17,36 +20,15 @@ struct ReleaseInfo {
     std::string jsonBody; // raw JSON string for asset extraction
 };
 
-/**
- * @brief Release parser. Extracted from ui::common::UpdateChecker so that
- * version comparison and release filtering can be unit-tested in isolation.
- * parseReleases uses QJsonDocument (Qt6::Core) for RFC 8259-compliant parsing.
- */
+// Pure-logic release parser and SemVer comparator extracted from UpdateChecker for unit testing.
 namespace release_parser {
 
-/**
- * @brief Strip leading 'v'/'V' from a version string.
- */
 std::string normalizeVersion(const std::string& raw);
 
-/**
- * @brief Compare two semantic versions. Returns >0 if a > b, <0 if a < b, 0 if equal.
- *
- * Numeric segments decide first (zero-padded). For equal segments, SemVer 2.0.0
- * prerelease precedence applies: a plain release outranks any prerelease of the
- * same version ("1.0.8-rc1" < "1.0.8") and prerelease identifiers order
- * alphanumerically / numerically ("1.0.7-rc1" < "1.0.7-rc2", "beta" < "rc").
- * Build metadata ("1.0.0+build.5") is ignored for precedence.
- */
+// Compares semantic versions with SemVer 2.0.0 prerelease precedence; build metadata ignored.
 int compareVersions(const std::string& a, const std::string& b);
 
-/**
- * @brief Parse a GitHub Releases JSON array and return all
- * non-draft releases that satisfy the prerelease filter.
- * @param json A JSON array string (as returned by the GitHub API).
- * @param includePrerelease Whether to include prerelease versions.
- * @return All matching releases, ordered as they appear in the JSON.
- */
+// Parses GitHub releases JSON array and returns non-draft releases matching prerelease filter.
 std::vector<ReleaseInfo> parseReleases(const std::string& json,
                                        bool includePrerelease);
 

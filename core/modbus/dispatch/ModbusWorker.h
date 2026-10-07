@@ -23,26 +23,9 @@ namespace modbus::dispatch {
 /// retried requests keep info level to preserve signal density.
 bool isCleanSuccess(const session::ModbusResponse& response);
 
-/**
- * @brief Worker object for submitting Modbus requests from a dedicated thread.
- *
- * @thread This worker must be moved to a dedicated QThread via moveToThread().
- *         All slot invocations (submit, sendRaw, requestConnect, etc.) are
- *         queued and executed on the worker thread. Results are signaled back
- *         to the caller via queued connections.
- *
- * @note This worker's QueuedConnection serialization is the ONLY concurrency
- *       boundary around the underlying ModbusClient: the client is
- *       thread-compatible (see the @thread contract in ModbusClient.h) and
- *       its session-driving methods must only be invoked from this worker
- *       thread — which is exactly what the queued handlers below guarantee.
- *       Cross-thread callers must go through submit()/requestConnect()/
- *       requestDisconnect()/updateConfig()/stop(); the only direct foreign-
- *       thread entry on the client is ModbusClient::abort() (called from
- *       stop() before the queued shutdown handshake). Each queued handler
- *       also calls ModbusClient::claimSessionOwnershipForCurrentThread(),
- *       arming the client's Debug-only affinity guard.
- */
+// Role: Worker object serializing Modbus requests, raw frames, and lifecycle commands onto a dedicated thread.
+// Thread-safety: Thread-safe via Qt QueuedConnection; slots run exclusively on worker's QThread.
+// Ownership: Owned by ModbusStack / Presenter composition root via shared_ptr and QObject hierarchy.
 class ModbusWorker : public QObject {
     Q_OBJECT
 public:

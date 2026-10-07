@@ -24,13 +24,9 @@ class ISettingsService;
 
 namespace ui::views::converter {
 
-/**
- * @brief Visual builder for raw Modbus RTU, TCP, and ASCII frames.
- *
- * Provides reactive parameter editing, offline PDU and ADU encapsulation,
- * detailed field-by-field breakdown, and one-click linkage to FrameAnalyzer.
- * Purely computational: zero I/O, no network or serial connection required.
- */
+// Role: Visual builder for raw Modbus RTU, TCP, and ASCII frames with field breakdown.
+// Thread-safety: Single-threaded (bound to GUI thread).
+// Ownership: Owned by QObject parent hierarchy.
 class ModbusFrameBuilderWidget : public QWidget {
     Q_OBJECT
 
@@ -39,10 +35,6 @@ public:
     ~ModbusFrameBuilderWidget() override = default;
 
 signals:
-    /**
-     * @brief Emitted when the user requests inspection in Frame Analyzer.
-     * @param hexText Formatted hexadecimal frame string.
-     */
     void inspectInAnalyzerRequested(const QString& hexText);
 
 protected:

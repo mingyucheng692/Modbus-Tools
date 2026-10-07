@@ -28,9 +28,9 @@ enum class UpdateInstallMode {
     DownloadOnly
 };
 
-/**
- * @brief Result of the update preparation process (download + verify).
- */
+// Role: Result container for update artifact download and checksum verification.
+// Thread-safety: Value type; thread-safe for independent instances.
+// Ownership: Value object passed across async callbacks or signals.
 struct UpdatePreparationResult {
     bool success = false;
     QString errorMessage;
@@ -39,9 +39,9 @@ struct UpdatePreparationResult {
     QString actualSha;
 };
 
-/**
- * @brief Bundled update metadata passed through the signal chain.
- */
+// Role: Bundled update metadata (version tags, asset download URLs, checksums, install guidance).
+// Thread-safety: Value type; thread-safe for independent instances.
+// Ownership: Value object passed by const reference across UI and update layers.
 struct UpdateInfo {
     QString currentVersion;
     QString latestVersion;
@@ -58,10 +58,9 @@ struct UpdateInfo {
     UpdateGuidance guidance = UpdateGuidance::OpenDownloadPage;
 };
 
-/**
- * @brief Manages the application update process, including downloading, 
- *        checksum verification, and launching the external updater.
- */
+// Role: Manages update download, checksum verification, and updater launch.
+// Thread-safety: Single-threaded; bound to the GUI thread.
+// Ownership: Owned by application composition root via QObject parent-child hierarchy.
 class UpdateManager : public QObject {
     Q_OBJECT
 
@@ -72,64 +71,30 @@ public:
                            const infra::platform::PathResolver* pathResolver = nullptr);
     ~UpdateManager() noexcept override;
 
-    /**
-     * @brief Starts the silent update process.
-     * @param updateUrl URL of the update package.
-     * @param expectedSha Expected SHA256 checksum (optional).
-     * @param checksumsUrl URL of the checksums file (optional).
-     * @param latestVersion Version string of the update.
-     */
     void startUpdate(const QUrl& updateUrl, 
                      const QString& expectedSha, 
                      const QString& checksumsUrl,
                      const QString& latestVersion);
 
-    /**
-     * @brief Cancels any ongoing update process.
-     */
     void cancelUpdate();
 
     /// Virtual test seam: unit tests substitute FakeUpdateManager to
     /// force DownloadOnly behavior per platform.
     [[nodiscard]] virtual UpdateInstallMode installMode() const noexcept;
 
-    /**
-     * @brief Launches the external updater tool.
-     * @param taskFilePath Path to the update task JSON file.
-     * @param errorMessage Output parameter for error messages.
-     * @return true if launched successfully.
-     */
     [[nodiscard]] bool launchInstaller(const QString& installArtifactPath,
                                        const QString& langCode,
                                        QString& errorMessage);
 
-    /**
-     * @brief Cleans up temporary update artifacts.
-     */
     static void cleanupUpdateArtifacts();
 
 signals:
-    /**
-     * @brief Emitted when download progress updates.
-     * @param progress Percentage (0-100).
-     */
     void downloadProgress(int progress);
 
-    /**
-     * @brief Emitted when the update package is ready to be applied.
-     * @param taskFilePath Path to the JSON task file.
-     */
     void updateReadyToInstall(const QString& taskFilePath);
 
-    /**
-     * @brief Emitted when the update process fails.
-     * @param reason Description of the failure.
-     */
     void updateFailed(const QString& reason);
 
-    /**
-     * @brief Emitted when the update process is canceled.
-     */
     void updateCanceled();
 
 private:

@@ -4,14 +4,9 @@
 
 #include <QCoreApplication>
 
-/**
- * @brief TrContext template wraps QCoreApplication::translate with a compile-time context string.
- *
- * Usage:
- *   constexpr char kMyCtx[] = "MyContext";
- *   TrContext<kMyCtx>::tr("Hello");
- *   TrContext<kMyCtx>::tr("Hello %1").arg(world);
- */
+// Role: Compile-time translation wrapper binding QCoreApplication::translate to a fixed context string.
+// Thread-safety: Thread-safe (relies on Qt's reentrant QCoreApplication::translate).
+// Ownership: Pure template utility struct; non-instantiable statically accessed wrapper.
 template <const char* Context>
 struct TrContext {
     static QString tr(const char* sourceText,

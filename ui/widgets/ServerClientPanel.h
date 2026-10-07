@@ -14,9 +14,9 @@ class QEvent;
 
 namespace ui::widgets {
 
-/**
- * @brief Displays connected TCP server clients and exposes server-side client actions.
- */
+// Role: Displays connected TCP server clients and exposes server-side client actions.
+// Thread-safety: Single-threaded (bound to GUI thread).
+// Ownership: Owned by QObject parent hierarchy.
 class ServerClientPanel : public QWidget {
     Q_OBJECT
 

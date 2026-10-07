@@ -17,16 +17,9 @@ class ModbusFrameBuilderWidget;
 
 namespace ui::views::tools {
 
-/**
- * @brief Shell-level container page for offline tools and converters (Side Navigation item 5).
- *
- * Hosts a QTabWidget containing:
- * - Tab 0: IEEE 754 Floating-Point Converter & Endianness Matrix
- * - Tab 1: Visual Modbus RAW Frame Builder & Field Inspector
- *
- * Exposes inspectInAnalyzerRequested to forward cross-view linkage without
- * direct coupling to FrameAnalyzerView.
- */
+// Role: Shell-level container page for offline tools and converters (Side Navigation item 5).
+// Thread-safety: Single-threaded (bound to GUI thread).
+// Ownership: Owned by QObject parent tree (MainWindow); owns tab widgets.
 class UtilitiesView : public QWidget {
     Q_OBJECT
 
@@ -35,10 +28,6 @@ public:
     ~UtilitiesView() override = default;
 
 signals:
-    /**
-     * @brief Relays the frame builder request to inspect the generated frame in Frame Analyzer.
-     * @param hexText The generated hex frame string.
-     */
     void inspectInAnalyzerRequested(const QString& hexText);
 
 protected:

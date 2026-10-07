@@ -134,9 +134,7 @@ void ModbusFrameBuilderWidget::setupUi() {
     mainLayout->setContentsMargins(10, 10, 10, 10);
     mainLayout->setSpacing(10);
 
-    // =========================================================================
     // 1. Parameter Settings Group
-    // =========================================================================
     paramGroup_ = new QGroupBox(tr("Frame Parameters"), this);
     auto* paramLayout = new QGridLayout(paramGroup_);
     paramLayout->setContentsMargins(12, 10, 12, 10);
@@ -222,9 +220,7 @@ void ModbusFrameBuilderWidget::setupUi() {
 
     mainLayout->addWidget(paramGroup_);
 
-    // =========================================================================
     // 2. Output & Breakdown Group
-    // =========================================================================
     outputGroup_ = new QGroupBox(tr("Generated Frame"), this);
     auto* outputLayout = new QVBoxLayout(outputGroup_);
     outputLayout->setContentsMargins(12, 10, 12, 10);
@@ -301,9 +297,7 @@ void ModbusFrameBuilderWidget::setupUi() {
     rebuildTimer_->setInterval(0);
     connect(rebuildTimer_, &QTimer::timeout, this, &ModbusFrameBuilderWidget::rebuildFrame);
 
-    // =========================================================================
     // 3. Connect signals and slots
-    // =========================================================================
     connect(protocolCombo_, QOverload<int>::of(&QComboBox::currentIndexChanged),
             this, &ModbusFrameBuilderWidget::onProtocolChanged);
     connect(functionCombo_, QOverload<int>::of(&QComboBox::currentIndexChanged),
@@ -656,7 +650,7 @@ void ModbusFrameBuilderWidget::populateFieldTable(int protocol, uint8_t slaveOrU
                          fc == modbus::base::FunctionCode::WriteMultipleCoils);
 
     if (protocol == 0) {
-        // ======================== MODBUS RTU ========================
+        // MODBUS RTU
         // Slave ID (1 byte)
         addBreakdownRow(breakdownTable_, tr("Slave ID"),
                         QString::fromLatin1(adu.mid(0, 1).toHex()).toUpper(),
@@ -717,7 +711,7 @@ void ModbusFrameBuilderWidget::populateFieldTable(int protocol, uint8_t slaveOrU
                         tr("CRC-16/MODBUS (LE: Low byte first)"));
 
     } else if (protocol == 1) {
-        // ======================== MODBUS TCP ========================
+        // MODBUS TCP
         // MBAP Header (7 bytes)
         addBreakdownRow(breakdownTable_, tr("Transaction ID"),
                         QString::fromLatin1(adu.mid(0, 2).toHex(' ')).toUpper(),
@@ -783,7 +777,7 @@ void ModbusFrameBuilderWidget::populateFieldTable(int protocol, uint8_t slaveOrU
         }
 
     } else {
-        // ======================== MODBUS ASCII ========================
+        // MODBUS ASCII
         addBreakdownRow(breakdownTable_, tr("Start Delimiter"),
                         QStringLiteral("3A (':')"),
                         tr("ASCII Colon delimiter"));

@@ -23,19 +23,9 @@ struct RequestTrackingInfo {
     std::chrono::steady_clock::time_point startTime{};
 };
 
-/**
- * @brief Plain C++ service for building Modbus requests and tracking
- *        submissions.
- *
- * Deliberately NOT a QObject: it has no signal/slot needs
- * beyond a single notification, which is exposed as the
- * `onTxCountUpdated` std::function callback. Ownership is std::unique_ptr;
- * the class must never be deleteLater()'d (no event-loop protection).
- *
- * Lifetime contract: the composition root (ModbusPagePresenter) assigns
- * `onTxCountUpdated` and must guarantee the captured target outlives this
- * service, or capture a QPointer/weak guard inside the callback.
- */
+// Role: Plain C++ domain service for building Modbus requests and tracking submissions.
+// Thread-safety: Thread-compatible. Driven synchronously on GUI thread.
+// Ownership: Owned via std::unique_ptr by ModbusPagePresenter.
 class RequestSubmissionService {
 
 public:

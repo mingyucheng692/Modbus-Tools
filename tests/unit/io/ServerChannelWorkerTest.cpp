@@ -55,10 +55,7 @@ protected:
     QList<QTcpSocket*> peers_;
 };
 
-// ---------------------------------------------------------------------------
 // Passive client loss: hard abort removes client and frees slot
-// ---------------------------------------------------------------------------
-
 TEST_F(TcpServerHandleTest, PassiveLoss_AbortRemovesClientAndFreesSlot) {
     QSignalSpy connectedSpy(&handle_, &TcpServerHandle::clientConnected);
     QSignalSpy disconnectedSpy(&handle_, &TcpServerHandle::clientDisconnected);
@@ -101,10 +98,7 @@ TEST_F(TcpServerHandleTest, PassiveLoss_GracefulDisconnectRemovesClient) {
     }));
 }
 
-// ---------------------------------------------------------------------------
 // User-initiated removal must emit exactly one clientDisconnected
-// ---------------------------------------------------------------------------
-
 TEST_F(TcpServerHandleTest, UserCloseClient_SingleDisconnectedEmission) {
     QSignalSpy connectedSpy(&handle_, &TcpServerHandle::clientConnected);
     QSignalSpy disconnectedSpy(&handle_, &TcpServerHandle::clientDisconnected);
@@ -125,10 +119,7 @@ TEST_F(TcpServerHandleTest, UserCloseClient_SingleDisconnectedEmission) {
     EXPECT_EQ(disconnectedSpy.count(), 1);
 }
 
-// ---------------------------------------------------------------------------
 // Server state normalization: listen failure emits error and terminal Closed
-// ---------------------------------------------------------------------------
-
 TEST(ServerChannelWorkerTest, OpenTcpServer_Failure_EmitsErrorAndTerminalClosed) {
     // Occupy a port first so the worker's listen() deterministically fails.
     QTcpServer blocker;

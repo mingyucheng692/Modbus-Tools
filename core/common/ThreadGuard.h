@@ -10,38 +10,9 @@
 
 namespace core::common {
 
-/**
- * @brief Safe teardown sequences for dedicated QThread + worker-object pairs.
- *
- * This is the extraction (not a reinvention) of the two teardown sequences
- * that previously existed as twins in ModbusFactory.cpp and
- * FrameAnalyzerView.cpp. It exists exactly once in the project; do not
- * re-implement these patterns locally.
- *
- * @par releaseThread() contract
- *      quit() + bounded wait (1 s). When the wait succeeds the thread is
- *      deleted synchronously. When it times out, the ONLY permitted fallback
- *      is hooking QThread::finished -> deleteLater (delayed self-delete on
- *      the thread itself). An immediate delete after a wait timeout would be
- *      a use-after-free; the interface deliberately makes that impossible to
- *      write — there is no timeout-with-force-delete branch.
- *
- * @par releaseWorker() contract
- *      When the worker's thread is still running, deletion is queued onto
- *      that thread (deleteLater) with worker::destroyed chained to
- *      thread::quit, so the thread retires after the worker is gone; an
- *      optional stop hook (e.g. ModbusWorker::stop()) runs on the worker
- *      thread right before deleteLater. When the thread is already stopped,
- *      the worker is deleted directly on the calling thread.
- *
- * @par Member-destruction ordering requirement
- *      When thread and worker are held as shared_ptr members of the same
- *      object, declare the THREAD member first and the WORKER member second:
- *      members are destroyed in reverse order, so the worker's deleteLater is
- *      queued while the thread is still alive, and the subsequent
- *      releaseThread() quits + joins it (FIFO event delivery runs the queued
- *      deletion before the loop exits).
- */
+// Role: Safe teardown sequences for dedicated QThread, worker QObject, and IChannel pairs.
+// Thread-safety: Thread-safe; static methods can be called during object teardown across threads.
+// Ownership: Pure static utility namespace class; non-instantiable.
 class ThreadGuard {
 public:
     ThreadGuard() = delete; // static-only utility
@@ -83,7 +54,7 @@ public:
         releaseWorkerImpl(worker, std::move(stopInThread));
     }
 
-    /// @par releaseChannel() contract
+    // releaseChannel() contract
     ///      Teardown for a thread-affine channel (IChannel is NOT a QObject,
     ///      so it cannot serve as an invokeMethod context itself) that was
     ///      moved onto a dedicated IO thread. Because the channel shared_ptr

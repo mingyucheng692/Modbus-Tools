@@ -9,14 +9,9 @@
 
 namespace modbus::session {
 
-/**
- * @class ConnectionManager
- * @brief Manages Modbus channel connection lifecycle, on-demand connect, and half-open eviction.
- *
- * Role: Encapsulates connection lifecycle transitions and unresponsive session eviction.
- * Thread-safety: Thread-compatible. Invoked by ModbusClient/RequestExecutor on owner thread.
- * Ownership: Non-owning observer of channel, stateMachine, aborted flag, and config; owned by ModbusClient.
- */
+// Role: Encapsulates connection lifecycle transitions and unresponsive session eviction.
+// Thread-safety: Thread-compatible. Invoked by ModbusClient/RequestExecutor on owner thread.
+// Ownership: Non-owning observer of channel, stateMachine, aborted flag, and config; owned by ModbusClient.
 class ConnectionManager {
 public:
     ConnectionManager(io::IChannel* channel,
@@ -24,72 +19,24 @@ public:
                       std::atomic<bool>& aborted,
                       const base::ModbusConfig* config);
 
-    /**
-     * @brief Attempt to establish a connection (single-attempt, deterministic).
-     * @return true if connected successfully
-     */
     bool ensureConnected();
-
-    /**
-     * @brief Check if the underlying channel is open.
-     */
     bool isConnected() const;
 
-    /**
-     * @brief Half-open detection: report a request timeout.
-     *
-     * Counts consecutive timeouts observed while the FSM reports Connected.
-     * When the count reaches config->unresponsiveThreshold the session is
-     * declared half-open (peer vanished without an RST — the socket stays
-     * "connected" but is a black hole) and is evicted: FSM
-     * Connected -> Failed ("unresponsive") followed by channel close(). The
-     * next request then re-establishes the session through the on-demand
-     * connection check in RequestExecutor::execute().
-     *
-     * Timeouts observed outside Connected do not count. Threshold <= 0 disables eviction.
-     *
-     * @thread Invoked by RequestExecutor on the worker thread. The counter is
-     *         plain state guarded by that single-threaded driving contract.
-     */
+    // Half-open detection: reports request timeout and evicts session when consecutive timeouts exceed threshold.
     void onRequestTimeout();
 
-    /**
-     * @brief Half-open detection: report a successful request.
-     *
-     * Any successful response proves the session is live and resets the
-     * consecutive-timeout counter.
-     */
+    // Half-open detection: reports successful request, proving session is alive and resetting counter.
     void onRequestSuccess();
 
-    /**
-     * @brief Get the last channel error message.
-     * @note Thread-safe via internal mutex.
-     */
     QString lastChannelError() const;
     bool hasChannelError() const;
-
-    /**
-     * @brief Clear the last channel error.
-     */
     void clearError();
 
-    /**
-     * @brief Reset the failure latch so the next connection failure logs a warning.
-     */
     void resetFailureLatch() noexcept { connectFailureLogged_ = false; }
 
-    /**
-     * @brief Set the last channel error (called from error callback).
-     */
     void setError(const QString& error);
 
-    /**
-     * @brief Wait for the channel to reach a specific state.
-     * @param expectedState The desired channel state
-     * @param deadline Absolute deadline for the wait
-     * @param errorOut If non-null, receives the error message on failure
-     * @return true if the channel reached the expected state
-     */
+    // Waits for the channel to reach expectedState until deadline; writes error to errorOut on failure.
     bool waitForChannelState(io::ChannelState expectedState,
                              std::chrono::steady_clock::time_point deadline,
                              QString* errorOut);
@@ -104,21 +51,10 @@ private:
     /// detection). Worker-thread-only state — see onRequestTimeout().
     int consecutiveTimeoutCount_ = 0;
 
-    /**
-     * @brief Checked transition wrapper: logs (in addition to the FSM's own
-     *        invalid-transition error) when a transition is rejected, so a
-     *        rejected edge is never silently swallowed.
-     * @return the tryTransition() result.
-     */
+    // Checked transition wrapper: logs when a transition is rejected so edges are never silently swallowed.
     bool transitionChecked(ConnectionStateMachine::State to, const char* reason);
 
-    /**
-     * @brief Assert the FSM is in a clean entry state before a connect attempt.
-     *
-     * In normal operation (with abort guaranteeing terminal states), this is a
-     * pass-through check. If a stale or intermediate state is detected, logs an
-     * error and performs defensive self-healing to maintain production robustness.
-     */
+    // Asserts clean entry state before connect; logs error and performs defensive recovery on stale states.
     void assertCleanEntryState();
 
     /// Failure latch: silences repetitive connection failure warnings under

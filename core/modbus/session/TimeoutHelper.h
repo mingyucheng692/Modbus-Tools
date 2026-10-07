@@ -13,8 +13,7 @@ namespace modbus::session {
 constexpr auto kWaitSlice = std::chrono::milliseconds(5);
 
 
-/// Wait for a predicate to become true or @p deadline to expire.
-/// Returns true if the predicate became true, false on timeout.
+// Waits for a predicate to become true or deadline to expire; returns true if satisfied, false on timeout.
 template <typename Predicate>
 inline bool waitForCondition(Predicate predicate,
                              std::chrono::steady_clock::time_point deadline) {

@@ -7,9 +7,9 @@
 
 namespace ui::widgets {
 
-/**
- * @brief Delegate providing a QComboBox editor for register data types.
- */
+// Role: Delegate providing a QComboBox editor for register data types in table views.
+// Thread-safety: Single-threaded (bound to GUI thread).
+// Ownership: Owned by QObject parent hierarchy (typically QTableWidget).
 class RegisterTypeDelegate : public QStyledItemDelegate {
     Q_OBJECT
 

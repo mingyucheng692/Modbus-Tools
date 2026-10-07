@@ -45,13 +45,10 @@ TEST(ReleaseParser, CompareVersionsDifferentLengths) {
     EXPECT_EQ(release_parser::compareVersions("1.0", "1.0.0"), 0);
 }
 
-// ---------------------------------------------------------------------------
 // Prerelease comparison (R1 semantic decision: SemVer 2.0.0 §11 precedence).
 // The old parser dropped the numeric prefix of a suffix token ("8-rc1" was
 // pushed as 0), silently regressing prerelease tags to [1, 0, 0] and hiding
 // updates from prerelease-channel users (under-reporting).
-// ---------------------------------------------------------------------------
-
 TEST(ReleaseParser, CompareVersionsSuffixKeepsNumericPrefix) {
     // Regression: "v1.0.8-rc1" used to parse as [1,0,0] and never beat 1.0.7.
     EXPECT_GT(release_parser::compareVersions("1.0.8-rc1", "1.0.7"), 0);

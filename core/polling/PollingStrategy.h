@@ -21,45 +21,15 @@ enum class PollingDecision {
     Recover
 };
 
-/**
- * @brief Pure-logic strategy extracted from PollingController.
- *
- * Determines error escalation thresholds and evaluates polling state
- * transitions based on consecutive error counts, failure streaks, and
- * error text classification.
- */
+// Pure-logic strategy determining error escalation thresholds and polling state transitions.
 
-/**
- * @brief Calculate the escalation threshold based on polling interval.
- *
- * A faster polling interval yields a higher threshold (more errors
- * tolerated before escalation), clamped to [3, 10].
- *
- * @param intervalMs Polling interval in milliseconds.
- * @return Number of consecutive errors before escalation.
- */
+// Calculates escalation threshold clamped to [3, 10]; faster intervals tolerate more errors.
 int calculateThreshold(int intervalMs);
 
-/**
- * @brief Classify an error message by severity.
- *
- * Timeout errors are treated as less severe (connection may recover).
- * Busy/temporary errors are treated as transient.
- *
- * @param errorText Lowercase error message text.
- * @return Error severity classification.
- */
+// Classifies error severity: timeout and busy are transient, others are normal or fatal.
 ErrorSeverity classifyError(std::string_view errorText);
 
-/**
- * @brief Evaluate the polling state transition decision.
- *
- * @param consecutiveErrors Number of consecutive failures.
- * @param failureStreakMs Duration of the current failure streak in milliseconds.
- * @param zeroSuccessWindow True if the entire failure streak window has zero successes.
- * @param threshold Consecutive error threshold for escalation.
- * @return The recommended polling decision.
- */
+// Evaluates polling transition decision based on error count, failure streak duration, and threshold.
 PollingDecision evaluateState(int consecutiveErrors,
                               int failureStreakMs,
                               bool zeroSuccessWindow,

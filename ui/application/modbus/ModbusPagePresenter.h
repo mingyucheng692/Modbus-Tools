@@ -25,20 +25,9 @@ class RequestSubmissionService;
 class PollingController;
 class TrafficLogController;
 
-/**
- * @brief Composition root for the Modbus page — owns backend services and
- *        orchestrates signal routing between them and the View.
- *
- * Replaces the former BaseModbusPage's role as composition root (ADR 0004).
- * The View (ModbusPage) creates UI widgets, then delegates service
- * creation and wiring to this Presenter via setup().
- *
- * Supports in-place protocol switching via switchMode(): tears down the
- * current services and rebuilds them with the new SessionMode.
- *
- * @thread Lives on the GUI thread. All methods must be called from the
- *         GUI thread.
- */
+// Role: Composition root for Modbus page — orchestrates backend services and signal routing with the View.
+// Thread-safety: Single-threaded (bound to GUI thread).
+// Ownership: Owned by QObject parent (ModbusPage); owns child presenters and services.
 class ModbusPagePresenter : public QObject {
     Q_OBJECT
 
@@ -57,9 +46,7 @@ public:
 
     /// Switches the active protocol. Disconnects first if connected, then
     /// tears down the old services and rebuilds them with the new mode.
-    /// @param newMode The target protocol mode.
-    /// @param newConnectionWidget The connection widget for the new mode
-    ///        (TCP widget for Tcp, serial widget for Rtu/Ascii).
+
     void switchMode(SessionMode newMode,
                     ui::widgets::BaseConnectionWidget* newConnectionWidget);
 

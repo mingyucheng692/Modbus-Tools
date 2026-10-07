@@ -29,6 +29,9 @@ enum class ChannelErrorCode {
     Unknown
 };
 
+// Role: Encapsulates channel error code and human-readable diagnostic message.
+// Thread-safety: Value type; thread-safe for independent instances.
+// Ownership: Value object passed by copy or const reference.
 struct ChannelError {
     ChannelErrorCode code = ChannelErrorCode::None;
     QString message;
@@ -50,6 +53,9 @@ struct Timeouts {
     int writeMs = config::Modbus::kDefaultTimeoutMs;
 };
 
+// Role: Interface contract for byte-stream IO communication channels (Serial, TCP, UDP).
+// Thread-safety: Thread-compatible; implementations support migration to dedicated IO threads.
+// Ownership: Abstract interface; instances owned via std::shared_ptr<IChannel>.
 class IChannel {
 public:
     using HandlerId = quint64;

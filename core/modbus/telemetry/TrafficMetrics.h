@@ -7,10 +7,9 @@
 
 namespace modbus::telemetry {
 
-/**
- * @struct TrafficStats
- * @brief Lightweight TX/RX byte and frame statistics tracker.
- */
+// Role: Lightweight TX/RX byte and frame statistics counter and formatter.
+// Thread-safety: Thread-compatible; requires external synchronization if mutated across threads.
+// Ownership: Owned as a value member by telemetry tracking components.
 struct TrafficStats {
     enum class Direction { Tx, Rx };
 

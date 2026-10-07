@@ -18,14 +18,9 @@ namespace ui::views {
 
 class ChannelController;
 
-/**
- * @class GenericChannelViewBase
- * @brief Common base class for SerialDebuggerView and NetworkDebuggerView.
- *
- * Provides shared connection state tracking, settings access, and the
- * ChannelController pointer that subclasses initialize and use for worker
- * thread lifecycle management.
- */
+// Role: Common base view for SerialDebuggerView and NetworkDebuggerView.
+// Thread-safety: Single-threaded (bound to GUI thread).
+// Ownership: Owned by QObject parent tree; manages ChannelController lifecycle.
 class GenericChannelViewBase : public QWidget {
     Q_OBJECT
 

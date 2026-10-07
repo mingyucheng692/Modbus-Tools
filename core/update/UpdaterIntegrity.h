@@ -13,7 +13,7 @@ namespace core::update {
 
 /// Verifies the updater binary integrity before launch.
 /// Returns true if the check passes or is skipped (no expected hash configured).
-/// On failure returns false and fills @p errorDetail with a diagnostic string.
+// On failure returns false and fills errorDetail with a diagnostic string.
 /// The expected hash is injected at build time via MODBUS_TOOLS_UPDATER_SHA256;
 /// an empty value skips verification (development / non-Windows builds without
 /// an updater binary).

@@ -21,6 +21,9 @@ class ISettingsService;
 
 namespace ui::widgets {
 
+// Role: View component presenting Modbus traffic statistics, polling controls, and linkage toggles.
+// Thread-safety: Single-threaded (bound to GUI thread).
+// Ownership: Owned by QObject parent hierarchy.
 class ControlWidget : public QWidget {
     Q_OBJECT
 
@@ -45,11 +48,6 @@ signals:
     void pollIntervalChanged(int intervalMs);
     void linkToggled(bool active);
     
-    /**
-     * @brief Request to log a message in the parent view.
-     * @param message The message text.
-     * @param isError True if it is an error message.
-     */
     void logMessageRequested(const QString& message, bool isError);
 
 private:
