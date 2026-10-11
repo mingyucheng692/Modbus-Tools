@@ -39,13 +39,12 @@ Prerequisites: C++20 compiler, CMake 3.25+, Qt 6.6+ (`Core`, `Network`, `SerialP
 ```bash
 git clone --recursive https://github.com/mingyucheng692/Modbus-Tools.git
 cd Modbus-Tools
-
-# Configure and compile (specify -DCMAKE_PREFIX_PATH if Qt is not in PATH)
-cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release
-cmake --build build --parallel
+cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
+cmake --build build --config Release --parallel
 ```
 
-For developer configurations, unit test execution, AddressSanitizer, and static analysis, see [CONTRIBUTING.md](CONTRIBUTING.md).
+Specify `-DCMAKE_PREFIX_PATH=<Qt install dir>` if Qt is not discoverable by CMake.
+For generator selection (Ninja / Visual Studio), running the test suite, AddressSanitizer, and static analysis, see [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## Operational Boundaries & Safety
 

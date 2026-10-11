@@ -39,13 +39,12 @@
 ```bash
 git clone --recursive https://github.com/mingyucheng692/Modbus-Tools.git
 cd Modbus-Tools
-
-# 設定與編譯（若 Qt 未加入 PATH，需顯式指定 -DCMAKE_PREFIX_PATH）
-cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release
-cmake --build build --parallel
+cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
+cmake --build build --config Release --parallel
 ```
 
-關於開發者專案設定、單元測試、AddressSanitizer 記憶體檢查及靜態分析，請參閱 [CONTRIBUTING.md](CONTRIBUTING.md)。
+若 CMake 無法自動找到 Qt，請追加 `-DCMAKE_PREFIX_PATH=<Qt 安裝目錄>`。
+關於產生器選擇（Ninja / Visual Studio）、單元測試執行、AddressSanitizer 記憶體檢查及靜態分析，請參閱 [CONTRIBUTING.md](CONTRIBUTING.md)。
 
 ## 運行邊界與安全規範
 
