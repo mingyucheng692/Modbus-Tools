@@ -75,7 +75,7 @@ if(MSVC)
         message(STATUS "AddressSanitizer (ASan) enabled for MSVC")
         # ASan requires debug info and non-incremental linking.
         # We'll apply these globally for MSVC to ensure consistency.
-        add_compile_options(/fsanitize:address /Zi)
+        add_compile_options(/fsanitize=address /Zi)
         add_link_options(/DEBUG /INCREMENTAL:NO)
         
         # Note: If LNK4044 persists, it typically means LINK.exe is used instead of CL.exe for linking.

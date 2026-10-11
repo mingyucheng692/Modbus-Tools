@@ -2,6 +2,9 @@ name: CI
 
 on:
   pull_request:
+  push:
+    branches:
+      - main
   workflow_dispatch:
     inputs:
       build_type:
@@ -45,6 +48,23 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  format-check:
+    name: clang-format (changed lines)
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      # Pinned: formatting output differs between clang-format major versions.
+      - name: Install clang-format
+        run: pipx install clang-format==20.1.8
+
+      - name: Check formatting of changed lines
+        run: bash scripts/check-format-diff.sh "origin/${{ github.base_ref }}"
+
   build-matrix:
     name: ${{ matrix.name }}
     runs-on: ${{ matrix.os }}
@@ -110,9 +130,9 @@ jobs:
             if (($enableAsan -eq 'ON' -or $enableUbsan -eq 'ON') -and $buildType -eq 'Release') {
               $buildType = 'RelWithDebInfo'
             }
-          } elseif ('${{ github.event_name }}' -eq 'pull_request') {
-            # PR events run lite tests (core+qt_core targets) by default to catch
-            # regressions without the full cost of ui_widgets/ASan/fuzz targets.
+          } elseif ('${{ github.event_name }}' -eq 'pull_request' -or '${{ github.event_name }}' -eq 'push') {
+            # PR and push to main events run lite tests by default to catch
+            # regressions without the full cost of full ASan/fuzz targets.
             $runLiteTests = 'true'
           }
 
@@ -295,8 +315,8 @@ jobs:
           --config "${{ steps.ci_options.outputs.build_type }}"
           --parallel
 
-      - name: Build tests (POSIX)
-        if: runner.os != 'Windows' && steps.ci_options.outputs.should_run == 'true' && steps.ci_options.outputs.run_tests == 'ON'
+      - name: Build tests (Linux)
+        if: runner.os == 'Linux' && steps.ci_options.outputs.should_run == 'true' && steps.ci_options.outputs.run_tests == 'ON'
         shell: bash
         run: |
           cmake --build build_ci --parallel
@@ -309,8 +329,8 @@ jobs:
           --config "${{ steps.ci_options.outputs.build_type }}"
           --parallel
 
-      - name: Build lite tests (POSIX)
-        if: runner.os != 'Windows' && steps.ci_options.outputs.should_run == 'true' && steps.ci_options.outputs.run_tests_lite == 'true'
+      - name: Build lite tests (Linux)
+        if: runner.os == 'Linux' && steps.ci_options.outputs.should_run == 'true' && steps.ci_options.outputs.run_tests_lite == 'true'
         shell: bash
         run: |
           cmake --build build_ci --target test_core_logic test_qt_core test_ui_widgets --parallel
@@ -320,27 +340,33 @@ jobs:
         run: >
           ctest --test-dir build_ci
           -C "${{ steps.ci_options.outputs.build_type }}"
+          --no-tests=error
           --output-on-failure
 
-      - name: Run tests (POSIX)
-        if: runner.os != 'Windows' && steps.ci_options.outputs.should_run == 'true' && steps.ci_options.outputs.run_tests == 'ON'
+      - name: Run tests (Linux)
+        if: runner.os == 'Linux' && steps.ci_options.outputs.should_run == 'true' && steps.ci_options.outputs.run_tests == 'ON'
+        env:
+          QT_QPA_PLATFORM: offscreen
         shell: bash
         run: |
-          ctest --test-dir build_ci --output-on-failure
+          ctest --test-dir build_ci --no-tests=error --output-on-failure
 
       - name: Run lite tests (Windows)
         if: runner.os == 'Windows' && steps.ci_options.outputs.should_run == 'true' && steps.ci_options.outputs.run_tests_lite == 'true'
         run: >
           ctest --test-dir build_ci
           -C "${{ steps.ci_options.outputs.build_type }}"
-          -R "test_core_logic|test_qt_core|test_ui_widgets"
+          -L "test_core_logic|test_qt_core|test_ui_widgets"
+          --no-tests=error
           --output-on-failure
 
-      - name: Run lite tests (POSIX)
-        if: runner.os != 'Windows' && steps.ci_options.outputs.should_run == 'true' && steps.ci_options.outputs.run_tests_lite == 'true'
+      - name: Run lite tests (Linux)
+        if: runner.os == 'Linux' && steps.ci_options.outputs.should_run == 'true' && steps.ci_options.outputs.run_tests_lite == 'true'
+        env:
+          QT_QPA_PLATFORM: offscreen
         shell: bash
         run: |
-          ctest --test-dir build_ci -R "test_core_logic|test_qt_core|test_ui_widgets" --output-on-failure
+          ctest --test-dir build_ci -L "test_core_logic|test_qt_core|test_ui_widgets" --no-tests=error --output-on-failure
 
       - name: Run clang-tidy (blocking, Linux)
         if: runner.os == 'Linux' && steps.ci_options.outputs.should_run == 'true'

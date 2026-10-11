@@ -1,0 +1,11 @@
+# Target style for new and modified code. The legacy tree is not uniformly formatted,
+# so CI checks only changed lines (scripts/check-format-diff.sh) instead of whole files.
+---
+Language: Cpp
+BasedOnStyle: LLVM
+IndentWidth: 4
+ColumnLimit: 120
+AccessModifierOffset: -4
+PointerAlignment: Left
+AllowShortFunctionsOnASingleLine: None
+SortIncludes: Never

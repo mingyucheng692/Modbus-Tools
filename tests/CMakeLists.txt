@@ -81,6 +81,7 @@ function(modbus_add_test_target target_name main_source)
     if(NOT TEST_SKIP_DISCOVERY)
         gtest_discover_tests(${target_name}
             DISCOVERY_TIMEOUT 120
+            PROPERTIES LABELS ${target_name}
         )
     endif()
 
