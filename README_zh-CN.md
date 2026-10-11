@@ -1,155 +1,69 @@
 <div align="center">
 
-<img src="assets/logo.svg" alt="Modbus-Tools Logo" width="120">
+<img src="assets/logo.svg" alt="Modbus-Tools Logo" width="96">
 
 # Modbus-Tools
-基于 Qt 与 C++ 的桌面端 Modbus 调试与分析工具。
+
+**基于 C++20 与 Qt 6 构建的便携式 Modbus 协议分析与主站诊断工具。**
+
+[![CI](https://github.com/mingyucheng692/Modbus-Tools/actions/workflows/ci.yml/badge.svg)](https://github.com/mingyucheng692/Modbus-Tools/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
 [English](README.md) | **简体中文** | [繁體中文](README_zh-TW.md)
 
+<br/>
+
+<img src="docs/images/demo.gif" alt="Modbus-Tools 演示" width="860">
+
 </div>
 
-## 项目定位
+## 核心特性
 
-`Modbus-Tools` 面向日常调试、联调和问题定位，不做过度包装。
-当前工程实际提供的能力包括：
+| 子系统 | 技术规格与能力 |
+|:---|:---|
+| **Modbus 主站** | • **通信链路**：Modbus TCP (Client)、Modbus RTU、Modbus ASCII<br/>• **功能码支持**：`0x01`–`0x06`、`0x0F`、`0x10`<br/>• **诊断与监控**：周期轮询（指数阶梯退避）、原始收发流量分流监控 (Tx/Rx)、帧间隔静默时间判定 |
+| **协议分析器** | • **报文解构**：启发式协议推断、ADU/PDU 字段拆解、CRC16/LRC 校验位检验、异常码分解<br/>• **寄存器表格**：多类型解码（`Int16/32`、`UInt16/32`、`Float32/64`），支持 4 种字节序（大端 `ABCD`、字交换 `CDAB`、字节交换 `BADC`、小端 `DCBA`）<br/>• **联动与交换**：活动调试会话实时捕获联动、JSON 格式寄存器配置导入导出、CSV 数据报表导出 |
+| **信号辅助工具** | • **可视化报文构造器**：请求参数交互式组装、字段拆解、多格式（紧凑 Hex、空格 Hex、C 数组）复制导出<br/>• **IEEE 754 转换器**：双向十六进制/浮点/整型换算，支持 NaN / Infinity / 非规格化数识别<br/>• **底层链路调试**：通用 TCP 客户端/服务端、UDP 调试器及 COM/TTY 串口调试 |
+| **运行时架构** | • **便携部署**：免安装绿色运行，配置 (`config.ini`)、日志 (`logs/`) 与暂存更新就近存储，不写入系统注册表<br/>• **并发模型**：“单实例单会话”进程级隔离<br/>• **国际化**：英文、简体中文与繁体中文运行时动态切换 |
 
-- `Modbus TCP Client`
-- `Modbus RTU Master`
-- `Frame Analyzer`，用于解析 Modbus TCP / RTU 原始报文
-- `IEEE 754 浮点转换器`，用于单/双精度浮点数与 4 字节/8 字节字节序矩阵计算
-- `Link to Analyzer`，用于把实时 Modbus 响应联动到解析器
-- 通用 `TCP Client / TCP Server / UDP` 调试页面
-- 独立的 `Serial Debugger` 页面
+## 快速上手
 
-它适合开发、验证、实验室和现场排障，不是安全认证产品。
-
-## 核心能力
-
-- 常见 Modbus 读写流程的可视化请求构建
-- RTU `CRC16` 追加与 TCP `MBAP` 封装等原始报文辅助能力
-- 轮询请求与响应/错误跟踪
-- **报文分析器 (Frame Analyzer)**：
-  - 离线/剪贴板快速解析（Paste & Parse）与 Modbus 实时会话联动（支持暂停/恢复刷新）
-  - 协议自动识别与报文全字段解构（报头、功能码、异常码、数据载荷、校验和等）
-  - 解码数据网格支持 UInt16、Int16、Float32、Int32、UInt32、Float64 等多种数据类型呈现与从属字标注
-  - 跨步感知（Stride-Aware）多选批量设置寄存器类型，支持 `Delete` / `Backspace` 快捷键复位自定义类型
-  - 4 种常用字节序矩阵实时切换（`ABCD`、`CDAB`、`BADC`、`DCBA`）
-  - 缩放因子（Scale）换算、寄存器描述编辑，以及 JSON 配置文件与 CSV 报表导出/导入
-  - 历史解析记录快速回溯与侧边栏折叠收起
-- **独立 IEEE 754 浮点转换器 (IEEE 754 Converter)**：
-  - 支持 Float32/Float64、十六进制、有符号/无符号整型及 4 种字节序互转双向实时联动
-  - 边界特殊值识别（NaN、Infinity、非规格化数）与常用常数预置
-- 英文、简体中文、繁体中文三语界面无缝热切换
-
-## 平台范围
-
-- 源码构建支持 `Windows`、`Linux`、`macOS`
-- 发布打包通过 CMake 目标 `release_bundle` 完成
-- 内置更新器 / 自动更新目前仅支持 `Windows`
-- 在非 Windows 平台上，主程序仍可构建，但 updater 目标会按设计禁用
-
-## 构建
-
-### 下载安装
-
-- Windows 用户可直接从 [Releases](https://github.com/mingyucheng692/Modbus-Tools/releases) 下载预编译包
+### 预编译可执行文件
+免安装便携独立运行包可在 [Releases](https://github.com/mingyucheng692/Modbus-Tools/releases) 页面直接下载：
+- **Windows (x64)**：便携压缩包 (`.zip`)
+- **Linux (x86_64, glibc 2.35+)**：自包含便携运行包 (`.tar.gz`，内置 Qt 运行时)
 
 ### 从源码构建
-
-单配置生成器，例如 `Ninja`：
-
-```bash
-git clone --recursive https://github.com/mingyucheng692/Modbus-Tools.git
-cd Modbus-Tools
-cmake -S . -B build -DMODBUS_TOOLS_BUILD_TESTS=ON -DCMAKE_BUILD_TYPE=Release
-cmake --build build --target Modbus-Tools --parallel
-```
-
-多配置生成器，例如 `Visual Studio 17 2022`：
+环境要求：C++20 编译器、CMake 3.25+、Qt 6.6+ (`Core`, `Network`, `SerialPort`, `Widgets`)。
 
 ```bash
 git clone --recursive https://github.com/mingyucheng692/Modbus-Tools.git
 cd Modbus-Tools
-cmake -S . -B build -G "Visual Studio 17 2022" -DMODBUS_TOOLS_BUILD_TESTS=ON
-cmake --build build --target Modbus-Tools --config Release --parallel
-```
 
-### 生成发布包
-
-单配置生成器，例如 `Ninja`：
-
-```bash
-cmake -S . -B build_release -DMODBUS_TOOLS_BUILD_TESTS=OFF -DCMAKE_BUILD_TYPE=Release
-cmake --build build_release --target release_bundle --parallel
-```
-
-多配置生成器，例如 `Visual Studio 17 2022`：
-
-```bash
-cmake -S . -B build_release -G "Visual Studio 17 2022" -DMODBUS_TOOLS_BUILD_TESTS=OFF
-cmake --build build_release --target release_bundle --config Release --parallel
-```
-
-### 说明
-
-- 工具链基线：`C++20`、`Qt 6`、`CMake 3.25+`
-- 可选开关包括 `MODBUS_TOOLS_ENABLE_ASAN`、`MODBUS_TOOLS_ENABLE_UBSAN`、`MODBUS_TOOLS_ENABLE_CLANG_TIDY`、`MODBUS_TOOLS_ENABLE_VERBOSE_RUNTIME_LOGS`
-- Linux CI 会先安装额外的 Qt/XCB 运行和构建依赖
-
-## 质量与测试
-
-自动化检查是工程护栏，不是认证结论。
-
-- 测试按目标拆分为 `test_core_logic`、`test_qt_core`、`test_ui_widgets`、`test_integration`、`test_modbus_fuzz`
-- CI 在 `Windows`、`Linux`、`macOS` 上执行构建矩阵
-- Linux CI 包含非阻断 `clang-tidy`
-- 开启 ASan 测试时，Linux 会构建并运行确定性 fuzz 目标
-
-### 本地运行测试
-
-```bash
-cmake -S . -B build -DMODBUS_TOOLS_BUILD_TESTS=ON
+# 配置与编译（若 Qt 未加入 PATH，需显式指定 -DCMAKE_PREFIX_PATH）
+cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release
 cmake --build build --parallel
-ctest --test-dir build --output-on-failure
 ```
 
-如果使用 Visual Studio 这类多配置生成器，请在构建命令中增加 `--config Debug` 或 `--config Release`，并在 `ctest` 中增加 `-C Debug` 或 `-C Release`。
+关于开发者工程配置、单元测试、AddressSanitizer 内存检查及静态分析，请参阅 [CONTRIBUTING.md](CONTRIBUTING.md)。
 
-## 仓库结构
+## 运行边界与安全规范
 
-```text
-core/   协议、会话、传输、解析、更新逻辑
-infra/  IO、日志、平台辅助层
-ui/     页面、控件、展示逻辑、多语言
-tests/  单元测试、集成测试、定向回归目标
-app/    桌面程序入口
-```
+- **主站角色约束**：仅提供主动主站/客户端诊断能力，不支持从站/服务端仿真。
+- **物理设备影响**：写操作（`0x05`、`0x06`、`0x0F`、`0x10`）直接下发指令控制物理受控端设备。操作人员须在下发前严格复核目标从站地址、寄存器偏移及设备安全联锁状态。
+- **安全适用性**：专用于工程研发、实验室验证与现场排障。未经安全完整性等级 (SIL) 或工业安全认证，严禁作为人身安全或应急保护系统的控制回路（详见 [DISCLAIMER.md](DISCLAIMER.md)）。
+- **并发与持久化**：采用便携式目录结构。多实例并发运行时各进程相互隔离，退出时对共享 `config.ini` 遵循末尾覆盖规则（Last-Write-Wins）。
 
-## 边界说明
+## 文档指引
 
-- 当前 Modbus 协议能力仅覆盖 `master` 侧：`Modbus TCP master（client）` 与 `Modbus RTU master`
-- 通用网络调试能力与 Modbus 角色是两套功能：另有独立的 `TCP client`、`TCP server`、`UDP` 助手页面
-- 自动更新当前仅支持 `Windows`
-- 同时调试多条链路时，启动多个应用实例 —— 一实例一会话
-- 仓库优先关注运行时正确性、稳定性和可调试性，而不是功能堆叠
-- 软件按 `MIT` 许可证提供，定位仍然是开发与排障工具
+- [使用手册](docs/user-guide_zh-CN.md) — 任务导向操作指南、报文解构与诊断流程
+- [开发者与贡献指南](CONTRIBUTING.md) — 编译选项、测试执行与 CI 门禁规范
+- [架构决策记录 (ADR)](docs/adr/README.md) — 核心系统设计与架构红线
+- [免责声明](DISCLAIMER.md) · [开源许可证](LICENSE)
 
-## 参与贡献
+## 第三方开源组件与技术栈
 
-欢迎提交 Issue 和 Pull Request。
-
-如果提交代码，请使用 `git commit -s`，让每个提交包含 DCO 签名：
-
-```text
-Signed-off-by: 您的名字 <your.email@example.com>
-```
-
-## 说明
-
-- 使用边界、无担保与责任限制见 [DISCLAIMER.md](DISCLAIMER.md)
-- 致谢：感谢 `Qt`、`spdlog`、`fmt` 与 `GoogleTest`
-
-## 许可证
-
-本项目基于 [MIT License](LICENSE) 开源。
+本工具基于以下工业级开源项目构建：
+- [Qt Framework](https://www.qt.io/) (LGPLv3) — 图形界面、跨平台事件循环与网络/串口 I/O 通道
+- [spdlog](https://github.com/gabime/spdlog) & [{fmt}](https://github.com/fmtlib/fmt) (MIT) — 高性能结构化异步日志引擎
+- [GoogleTest](https://github.com/google/googletest) (BSD-3-Clause) — 单元测试、模拟对象与模糊测试套件

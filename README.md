@@ -1,155 +1,69 @@
 <div align="center">
 
-<img src="assets/logo.svg" alt="Modbus-Tools Logo" width="120">
+<img src="assets/logo.svg" alt="Modbus-Tools Logo" width="96">
 
 # Modbus-Tools
-Modbus debugging and analysis desktop tool built with Qt and C++.
+
+**Portable Modbus protocol analyzer and diagnostic master utility built with C++20 and Qt 6.**
+
+[![CI](https://github.com/mingyucheng692/Modbus-Tools/actions/workflows/ci.yml/badge.svg)](https://github.com/mingyucheng692/Modbus-Tools/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
 **English** | [简体中文](README_zh-CN.md) | [繁體中文](README_zh-TW.md)
 
+<br/>
+
+<img src="docs/images/demo.gif" alt="Modbus-Tools Demo" width="860">
+
 </div>
 
-## Overview
+## Capabilities
 
-`Modbus-Tools` focuses on day-to-day debugging work rather than protocol marketing.
-It currently provides:
+| Subsystem | Specifications |
+|:---|:---|
+| **Modbus Master** | • **Transports**: Modbus TCP (Client), Modbus RTU, Modbus ASCII<br/>• **Function Codes**: `0x01`–`0x06`, `0x0F`, `0x10`<br/>• **Diagnostics**: Cyclic polling with exponential backoff, raw traffic monitor (Tx/Rx separation), line-level timing validation |
+| **Protocol Analyzer** | • **Decomposition**: Heuristic ADU/PDU field inspection, CRC16/LRC validation, exception code breakdown<br/>• **Data Grid**: Multi-type decoding (`Int16/32`, `UInt16/32`, `Float32/64`) across 4-way byte orders (`ABCD`, `CDAB`, `BADC`, `DCBA`)<br/>• **Interoperability**: Real-time capture linkage, JSON register mapping import/export, CSV telemetry dump |
+| **Signal Workbench** | • **Visual Frame Builder**: Interactive PDU assembler with C-array and Hex byte export<br/>• **IEEE 754 Converter**: Bidirectional Hex/Float/Integer translator with NaN/Inf/Denormal detection<br/>• **Raw Transports**: General-purpose TCP Client/Server, UDP socket, and COM/TTY serial monitors |
+| **Runtime Architecture** | • **Deployment**: 100% portable (local `config.ini`, `logs/`, zero registry pollution)<br/>• **Concurrency**: Process-isolated sessions ("One Instance, One Session")<br/>• **Localization**: Runtime dynamic switching (EN / zh-CN / zh-TW) |
 
-- `Modbus TCP Client` for active Modbus TCP requests
-- `Modbus RTU Master` for serial Modbus requests
-- `Frame Analyzer` for parsing raw Modbus TCP / RTU frames
-- `IEEE 754 Converter` standalone utility for Float32/Float64 and 4-byte/8-byte endianness matrix calculations
-- `Link to Analyzer` for pushing live Modbus responses into the analyzer
-- Generic `TCP Client / TCP Server / UDP` tooling
-- A separate `Serial Debugger` page
+## Quick Start
 
-The project is intended for debugging, validation, and lab or field troubleshooting. It is not a safety-certified product.
+### Prebuilt Binaries
+Standalone portable binaries are available under [Releases](https://github.com/mingyucheng692/Modbus-Tools/releases):
+- **Windows (x64)**: Portable archive (`.zip`)
+- **Linux (x86_64, glibc 2.35+)**: Self-contained portable archive (`.tar.gz`, bundled Qt runtimes)
 
-## Core Capabilities
-
-- Visual request building for common Modbus read/write workflows
-- Raw frame sending helpers, including `CRC16` append for RTU and `MBAP` encapsulation for TCP
-- Polling workflows with response/error tracking
-- **Frame Analyzer**:
-  - Offline / Paste & Parse and real-time live linkage from Modbus sessions with pause/resume support
-  - Protocol auto-detection and frame breakdown (Header, Function Code, Exception, Data payload, Checksum)
-  - Multi-type decoded data grid supporting UInt16, Int16, Float32, Int32, UInt32, and Float64
-  - Stride-aware batch register type assignment, row multi-selection, and `Delete` shortcut to reset custom types
-  - Endianness / Byte Order switching (`ABCD`, `CDAB`, `BADC`, `DCBA`)
-  - Configurable scaling factor, register description editing, and import/export via JSON config and CSV
-  - Parsing history tracking with quick recall and collapsible sidebar
-- **IEEE 754 Converter**:
-  - Standalone bidirectional converter for Float32/Float64, Hex, Signed/Unsigned Int, and byte order matrices
-  - Real-time synchronization, edge case detection (NaN, Infinity, Denormalized), and quick preset values
-- Three UI languages with seamless runtime switching: English, Simplified Chinese, and Traditional Chinese
-
-## Platform Scope
-
-- Source builds are supported on `Windows`, `Linux`, and `macOS`
-- Release packaging is driven by CMake target `release_bundle`
-- The built-in updater / auto-update path is `Windows-only` at the moment
-- On non-Windows platforms, the main application still builds, but the updater target is disabled by design
-
-## Build
-
-### Download
-
-- Windows users can download prebuilt packages from [Releases](https://github.com/mingyucheng692/Modbus-Tools/releases)
-
-### Build From Source
-
-Single-config generators, such as `Ninja`:
+### Build from Source
+Prerequisites: C++20 compiler, CMake 3.25+, Qt 6.6+ (`Core`, `Network`, `SerialPort`, `Widgets`).
 
 ```bash
 git clone --recursive https://github.com/mingyucheng692/Modbus-Tools.git
 cd Modbus-Tools
-cmake -S . -B build -DMODBUS_TOOLS_BUILD_TESTS=ON -DCMAKE_BUILD_TYPE=Release
-cmake --build build --target Modbus-Tools --parallel
-```
 
-Multi-config generators, such as `Visual Studio 17 2022`:
-
-```bash
-git clone --recursive https://github.com/mingyucheng692/Modbus-Tools.git
-cd Modbus-Tools
-cmake -S . -B build -G "Visual Studio 17 2022" -DMODBUS_TOOLS_BUILD_TESTS=ON
-cmake --build build --target Modbus-Tools --config Release --parallel
-```
-
-### Release Bundle
-
-Single-config generators, such as `Ninja`:
-
-```bash
-cmake -S . -B build_release -DMODBUS_TOOLS_BUILD_TESTS=OFF -DCMAKE_BUILD_TYPE=Release
-cmake --build build_release --target release_bundle --parallel
-```
-
-Multi-config generators, such as `Visual Studio 17 2022`:
-
-```bash
-cmake -S . -B build_release -G "Visual Studio 17 2022" -DMODBUS_TOOLS_BUILD_TESTS=OFF
-cmake --build build_release --target release_bundle --config Release --parallel
-```
-
-### Notes
-
-- Toolchain: `C++20`, `Qt 6`, `CMake 3.25+`
-- Optional build switches include `MODBUS_TOOLS_ENABLE_ASAN`, `MODBUS_TOOLS_ENABLE_UBSAN`, `MODBUS_TOOLS_ENABLE_CLANG_TIDY`, and `MODBUS_TOOLS_ENABLE_VERBOSE_RUNTIME_LOGS`
-- Linux CI installs additional Qt/XCB dependencies before building
-
-## Quality
-
-Automated checks are part of normal development, but they are engineering safeguards, not a certification claim.
-
-- Unit and integration tests are organized into focused targets such as `test_core_logic`, `test_qt_core`, `test_ui_widgets`, `test_integration`, and `test_modbus_fuzz`
-- CI runs a cross-platform matrix on `Windows`, `Linux`, and `macOS`
-- Linux CI also includes non-blocking `clang-tidy`
-- The deterministic fuzz target is built and executed on Linux when ASan test runs are enabled
-
-### Run Tests Locally
-
-```bash
-cmake -S . -B build -DMODBUS_TOOLS_BUILD_TESTS=ON
+# Configure and compile (specify -DCMAKE_PREFIX_PATH if Qt is not in PATH)
+cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release
 cmake --build build --parallel
-ctest --test-dir build --output-on-failure
 ```
 
-For multi-config generators such as Visual Studio, add `--config Debug` or `--config Release` to the build command and `-C Debug` or `-C Release` to `ctest`.
+For developer configurations, unit test execution, AddressSanitizer, and static analysis, see [CONTRIBUTING.md](CONTRIBUTING.md).
 
-## Repository Layout
+## Operational Boundaries & Safety
 
-```text
-core/   protocol, session, transport, parser, update logic
-infra/  IO, logging, platform helpers
-ui/     widgets, pages, presentation logic, i18n
-tests/  unit, integration, focused regression targets
-app/    desktop application entry point
-```
+- **Master/Client Scope**: Implements active master/client operations (`TCP Client`, `RTU Master`, `ASCII Master`). Slave/server simulation is intentionally out of scope.
+- **Physical Equipment Impact**: Write operations (`0x05`, `0x06`, `0x0F`, `0x10`) command connected physical devices directly. Operators must verify slave IDs, register addresses, and physical safety conditions prior to dispatch.
+- **Safety Criticality**: Designed for engineering development, lab testing, and field commissioning. Not certified for safety-critical, fail-safe, or life-support control loops ([DISCLAIMER.md](DISCLAIMER.md)).
+- **Concurrency & Storage**: Portable directory layout (`config.ini`, `logs/`, `update/`). Multi-instance execution uses process isolation with last-write-wins config persistence on exit.
 
-## Boundaries
+## Documentation
 
-- Modbus protocol support is limited to `master` workflows: `Modbus TCP master (client)` and `Modbus RTU master`
-- Generic network tooling is separate from Modbus roles and supports `TCP client`, `TCP server`, and `UDP`
-- Auto-update is currently available only on `Windows`
-- To debug multiple links simultaneously, launch additional application instances — one session per process
-- This repository prioritizes runtime correctness, stability, and debuggability over feature breadth
-- The software is provided under the `MIT` license and remains intended for development and troubleshooting use
+- [User Guide](docs/user-guide.md) — Workflows, frame decoding, and operational procedures
+- [Contributing Guide](CONTRIBUTING.md) — Toolchain setup, build matrix, and CI test policies
+- [Architecture Decision Records (ADRs)](docs/adr/README.md) — Architectural invariants and design rationale
+- [Disclaimer](DISCLAIMER.md) · [License](LICENSE)
 
-## Contributing
+## Third-Party Components & Attribution
 
-Issues and pull requests are welcome.
-
-If you contribute code, use `git commit -s` so each commit includes a DCO sign-off:
-
-```text
-Signed-off-by: Your Name <your.email@example.com>
-```
-
-## Notes
-
-- Usage, warranty, and liability boundaries are documented in [DISCLAIMER.md](DISCLAIMER.md)
-- Acknowledgments: thanks to `Qt`, `spdlog`, `fmt`, and `GoogleTest`
-
-## License
-
-Licensed under the [MIT License](LICENSE).
+Modbus-Tools builds upon the following open-source libraries:
+- [Qt Framework](https://www.qt.io/) (LGPLv3) — GUI layer, event loop, and asynchronous I/O channels
+- [spdlog](https://github.com/gabime/spdlog) & [{fmt}](https://github.com/fmtlib/fmt) (MIT) — High-performance structured logging backend
+- [GoogleTest](https://github.com/google/googletest) (BSD-3-Clause) — Unit, integration, and fuzz test harness
