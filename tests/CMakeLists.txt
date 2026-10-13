@@ -31,6 +31,31 @@ include(GoogleTest)
 # members, which is why Windows CI never showed this). Force the full
 # archive at every ui link site — CMake maps this to /WHOLEARCHIVE on MSVC.
 set(MODBUS_UI_WHOLE_ARCHIVE "$<LINK_LIBRARY:WHOLE_ARCHIVE,ui>")
+ 
+if(WIN32)
+    set(_qt_bin_dir "")
+    if(TARGET Qt6::Core)
+        get_target_property(_qt_core_dll Qt6::Core IMPORTED_LOCATION_RELEASE)
+        if(NOT _qt_core_dll)
+            get_target_property(_qt_core_dll Qt6::Core IMPORTED_LOCATION)
+        endif()
+        if(NOT _qt_core_dll)
+            get_target_property(_qt_core_dll Qt6::Core LOCATION)
+        endif()
+        if(_qt_core_dll)
+            get_filename_component(_qt_bin_dir "${_qt_core_dll}" DIRECTORY)
+        endif()
+    endif()
+    if(NOT _qt_bin_dir AND DEFINED Qt6Core_DIR)
+        get_filename_component(_qt_prefix "${Qt6Core_DIR}/../../../" ABSOLUTE)
+        if(EXISTS "${_qt_prefix}/bin")
+            set(_qt_bin_dir "${_qt_prefix}/bin")
+        endif()
+    endif()
+    if(_qt_bin_dir)
+        file(TO_NATIVE_PATH "${_qt_bin_dir}" _qt_bin_dir_native)
+    endif()
+endif()
 
 function(modbus_add_test_target target_name main_source)
     cmake_parse_arguments(TEST "SKIP_DISCOVERY" "" "SOURCES;LIBS" ${ARGN})
@@ -78,10 +103,23 @@ function(modbus_add_test_target target_name main_source)
 
     modbus_add_coverage(${target_name})
 
+    if(WIN32 AND _qt_bin_dir_native)
+        set_target_properties(${target_name} PROPERTIES
+            VS_DEBUGGER_ENVIRONMENT "PATH=${_qt_bin_dir_native};%PATH%"
+        )
+    endif()
+
     if(NOT TEST_SKIP_DISCOVERY)
+        set(_test_props LABELS ${target_name})
+        if(WIN32 AND _qt_bin_dir_native)
+            list(APPEND _test_props
+                ENVIRONMENT_MODIFICATION "PATH=path_list_prepend:${_qt_bin_dir_native}"
+            )
+        endif()
+
         gtest_discover_tests(${target_name}
             DISCOVERY_TIMEOUT 120
-            PROPERTIES LABELS ${target_name}
+            PROPERTIES ${_test_props}
         )
     endif()
 
