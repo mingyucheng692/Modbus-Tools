@@ -130,3 +130,12 @@ TEST(ModbusFunctionTraitsTest, FunctionCodeNames) {
     EXPECT_STREQ(functionCodeName(static_cast<uint8_t>(0x99)), "Unknown");
 }
 
+TEST(ModbusFunctionTraitsTest, ExceptionCodeNames) {
+    EXPECT_STREQ(exceptionCodeName(ExceptionCode::IllegalFunction), "Illegal Function");
+    EXPECT_STREQ(exceptionCodeName(ExceptionCode::IllegalDataAddress), "Illegal Data Address");
+    EXPECT_STREQ(exceptionCodeName(ExceptionCode::IllegalDataValue), "Illegal Data Value");
+    EXPECT_STREQ(exceptionCodeName(ExceptionCode::ServerDeviceFailure), "Server Device Failure");
+    EXPECT_STREQ(exceptionCodeName(static_cast<uint8_t>(0x02)), "Illegal Data Address");
+    EXPECT_STREQ(exceptionCodeName(static_cast<uint8_t>(0xFF)), "Unknown Exception");
+}
+

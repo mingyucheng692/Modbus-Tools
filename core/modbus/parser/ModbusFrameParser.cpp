@@ -399,11 +399,11 @@ void parsePdu(ParseResult& result,
     if (result.isException) {
         result.functionCode = static_cast<modbus::base::FunctionCode>(fcByte & 0x7F);
         result.type = FrameType::Exception;
-        if (pdu.size() < 2) {
+        if (pdu.size() != 2) {
             result.isValid = false;
             result.error = QCoreApplication::translate(
                                "ModbusFrameParser",
-                               "Exception PDU too short for function 0x%1. Expected 2 bytes, got %2")
+                               "Exception PDU length invalid for function 0x%1. Expected strictly 2 bytes, got %2")
                                .arg(formatFunctionCodeHex(fcByte & 0x7F))
                                .arg(pdu.size());
             return;

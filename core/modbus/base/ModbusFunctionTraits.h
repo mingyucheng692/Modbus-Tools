@@ -113,5 +113,25 @@ namespace modbus::base::function_traits {
     return functionCodeName(static_cast<FunctionCode>(fc));
 }
 
+[[nodiscard]] constexpr const char* exceptionCodeName(ExceptionCode ec) noexcept {
+    switch (ec) {
+    case ExceptionCode::IllegalFunction:           return "Illegal Function";
+    case ExceptionCode::IllegalDataAddress:        return "Illegal Data Address";
+    case ExceptionCode::IllegalDataValue:          return "Illegal Data Value";
+    case ExceptionCode::ServerDeviceFailure:       return "Server Device Failure";
+    case ExceptionCode::Acknowledge:               return "Acknowledge";
+    case ExceptionCode::ServerDeviceBusy:          return "Server Device Busy";
+    case ExceptionCode::NegativeAcknowledge:       return "Negative Acknowledge";
+    case ExceptionCode::MemoryParityError:         return "Memory Parity Error";
+    case ExceptionCode::GatewayPathUnavailable:    return "Gateway Path Unavailable";
+    case ExceptionCode::GatewayTargetDeviceFailed: return "Gateway Target Device Failed";
+    default:                                       return "Unknown Exception";
+    }
+}
+
+[[nodiscard]] constexpr const char* exceptionCodeName(uint8_t ec) noexcept {
+    return exceptionCodeName(static_cast<ExceptionCode>(ec));
+}
+
 } // namespace modbus::base::function_traits
 

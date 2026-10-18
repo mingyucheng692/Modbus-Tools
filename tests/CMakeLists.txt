@@ -187,6 +187,8 @@ set(TEST_UI_WIDGETS_SOURCES
     unit/ui/ConnectionStateGuardingTest.cpp
     unit/ui/Ieee754ConverterTest.cpp
     unit/ui/ModbusFrameBuilderWidgetTest.cpp
+    unit/ui/widgets/TelemetryTableModelTest.cpp
+    unit/ui/widgets/ModbusTelemetryWidgetTest.cpp
 )
 
 set(TEST_INTEGRATION_SOURCES

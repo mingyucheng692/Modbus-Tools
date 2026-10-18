@@ -76,6 +76,30 @@ TEST_F(FrameParserTest, ParseExceptionResponse) {
     EXPECT_EQ(result.exceptionCode, ExceptionCode::IllegalDataAddress);
 }
 
+TEST_F(FrameParserTest, ParseExceptionResponse_Strict2ByteCheck) {
+    // 2 bytes PDU: Valid Exception per IEC 61158 (1B FC + 1B Exception Code)
+    QByteArray pdu2 = QByteArray::fromHex("8302");
+    ParseResult res2;
+    parsePdu(res2, pdu2, 0, 0);
+    EXPECT_TRUE(res2.isValid);
+    EXPECT_TRUE(res2.isException);
+    EXPECT_EQ(res2.exceptionCode, ExceptionCode::IllegalDataAddress);
+
+    // 1 byte PDU: Too short, must be rejected
+    QByteArray pdu1 = QByteArray::fromHex("83");
+    ParseResult res1;
+    parsePdu(res1, pdu1, 0, 0);
+    EXPECT_FALSE(res1.isValid);
+    EXPECT_TRUE(res1.isException);
+
+    // 3 bytes PDU: Too long, malformed exception frame per IEC 61158 Section 6.1
+    QByteArray pdu3 = QByteArray::fromHex("830200");
+    ParseResult res3;
+    parsePdu(res3, pdu3, 0, 0);
+    EXPECT_FALSE(res3.isValid);
+    EXPECT_TRUE(res3.isException);
+}
+
 TEST_F(FrameParserTest, ParseAsciiResponseSuccess) {
     QByteArray frame(":010304007B01C8B4\r\n");
 

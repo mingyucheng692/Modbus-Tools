@@ -150,6 +150,11 @@ target_sources(ui PRIVATE
     widgets/ControlWidget.cpp
     widgets/TrafficMonitorWidget.h
     widgets/TrafficMonitorWidget.cpp
+    widgets/modbus/TelemetryRowView.h
+    widgets/modbus/TelemetryTableModel.h
+    widgets/modbus/TelemetryTableModel.cpp
+    widgets/modbus/ModbusTelemetryWidget.h
+    widgets/modbus/ModbusTelemetryWidget.cpp
     widgets/LogListModel.cpp
     widgets/LogListModel.h
     widgets/ByteMonitorWidget.cpp
