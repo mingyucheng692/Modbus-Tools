@@ -23,18 +23,18 @@ class FrameDecodedTableView : public QTableWidget {
 public:
     explicit FrameDecodedTableView(QWidget* parent = nullptr);
     ~FrameDecodedTableView() override = default;
-    void renderData(const modbus::parser::ParseResult& result,
-                    modbus::analyzer::RegisterDataType globalType,
-                    modbus::base::RegisterOrder order,
-                    modbus::address::AddressBase addressBase = modbus::address::AddressBase::Offset0Based);
+    void renderData(const ::modbus::parser::ParseResult& result,
+                    ::modbus::analyzer::RegisterDataType globalType,
+                    ::modbus::base::RegisterOrder order,
+                    ::modbus::address::AddressBase addressBase = ::modbus::address::AddressBase::Offset0Based);
     void clearTable();
     void exportCsv();
     void resetSelectedToDefault();
     void resetAllToDefault();
-    void batchSetSelectedType(modbus::analyzer::RegisterDataType targetType);
+    void batchSetSelectedType(::modbus::analyzer::RegisterDataType targetType);
     void retranslateUi();
-    void setMetadataMap(const QMap<uint16_t, modbus::analyzer::DataMetadata>& meta);
-    [[nodiscard]] const QMap<uint16_t, modbus::analyzer::DataMetadata>& metadataMap() const noexcept {
+    void setMetadataMap(const QMap<uint16_t, ::modbus::analyzer::DataMetadata>& meta);
+    [[nodiscard]] const QMap<uint16_t, ::modbus::analyzer::DataMetadata>& metadataMap() const noexcept {
         return metadataByAddress_;
     }
     [[nodiscard]] bool hasCustomTypes() const;
@@ -58,11 +58,11 @@ private:
     [[nodiscard]] uint16_t rowAddress(int row) const;
     [[nodiscard]] QList<int> getSelectedPrimaryRowsSorted() const;
 
-    QMap<uint16_t, modbus::analyzer::DataMetadata> metadataByAddress_;
-    modbus::parser::ParseResult currentResult_;
-    modbus::analyzer::RegisterDataType globalDataType_ = modbus::analyzer::RegisterDataType::UInt16;
-    modbus::base::RegisterOrder registerOrder_ = modbus::base::RegisterOrder::ABCD;
-    modbus::address::AddressBase addressBase_ = modbus::address::AddressBase::Offset0Based;
+    QMap<uint16_t, ::modbus::analyzer::DataMetadata> metadataByAddress_;
+    ::modbus::parser::ParseResult currentResult_;
+    ::modbus::analyzer::RegisterDataType globalDataType_ = ::modbus::analyzer::RegisterDataType::UInt16;
+    ::modbus::base::RegisterOrder registerOrder_ = ::modbus::base::RegisterOrder::ABCD;
+    ::modbus::address::AddressBase addressBase_ = ::modbus::address::AddressBase::Offset0Based;
     bool isUpdatingTable_ = false;
 };
 

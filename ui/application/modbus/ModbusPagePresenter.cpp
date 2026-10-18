@@ -6,57 +6,39 @@
 #include "PollingController.h"
 #include "TrafficLogController.h"
 #include "modbus/session/SessionTypes.h"
+#include "modbus/base/ModbusFunctionTraits.h"
 #include <spdlog/spdlog.h>
-#include "../../widgets/BaseConnectionWidget.h"
-#include "../../widgets/ControlWidget.h"
-#include "../../widgets/FunctionWidget.h"
-#include "../../widgets/TrafficMonitorWidget.h"
-#include "../../views/modbus/ModbusPage.h"
 
 namespace ui::application::modbus {
 
-ModbusPagePresenter::ModbusPagePresenter(ui::views::modbus::ModbusPage* view,
+ModbusPagePresenter::ModbusPagePresenter(IModbusPageView* view,
                                          SessionMode mode,
                                          QObject* parent)
     : QObject(parent),
       view_(view),
       mode_(mode) {
+    createServices();
+    wireConnections();
 }
 
 ModbusPagePresenter::~ModbusPagePresenter() noexcept {
     teardownServices();
 }
 
-void ModbusPagePresenter::setup(ui::widgets::BaseConnectionWidget* connectionWidget,
-                                ui::widgets::ControlWidget* controlWidget,
-                                ui::widgets::FunctionWidget* functionWidget,
-                                ui::widgets::TrafficMonitorWidget* trafficMonitor) {
-    connectionWidget_ = connectionWidget;
-    controlWidget_ = controlWidget;
-    functionWidget_ = functionWidget;
-    trafficMonitor_ = trafficMonitor;
-    createServices();
-    wireConnections();
+void ModbusPagePresenter::detachView() noexcept {
+    view_ = nullptr;
 }
 
 void ModbusPagePresenter::createServices() {
     sessionPresenter_ = new ModbusSessionPresenter(mode_, this);
-    // Plain C++ service: unique_ptr, no QObject parent.
     requestService_ = std::make_unique<RequestSubmissionService>();
     pollingController_ = new PollingController(requestService_.get(), this);
-    trafficLogController_ = new TrafficLogController(
-        trafficMonitor_, pollingController_, this);
+    trafficLogController_ = new TrafficLogController(pollingController_, this);
 
-    sessionPresenter_->setConnectionWidget(connectionWidget_);
-    sessionPresenter_->setControlWidget(controlWidget_);
     sessionPresenter_->setRequestService(requestService_.get());
     sessionPresenter_->setPollingController(pollingController_);
     sessionPresenter_->setTrafficLogController(trafficLogController_);
 
-    // TrafficEvent flows through TrafficLogController::publishEvent,
-    // the single legitimate bridge entry (monitor append + LogBridge relay).
-    // Wiring directly to the monitor would bypass relay() and re-create the
-    // dual-entry problem.
     connect(pollingController_, &PollingController::trafficEvent,
             trafficLogController_, &TrafficLogController::publishEvent);
 
@@ -64,140 +46,68 @@ void ModbusPagePresenter::createServices() {
 }
 
 void ModbusPagePresenter::wireConnections() {
-    // RequestSubmissionService is no longer a QObject; the
-    // former txCountUpdated -> recordTx connection is a direct callback.
-    // Lifetime: controlWidget_ is owned by the View and outlives this
-    // presenter's services (torn down on switchMode before widgets change).
-    if (controlWidget_) {
-        requestService_->onTxCountUpdated = [controlWidget = controlWidget_]() {
-            controlWidget->recordTx();
-        };
-    }
+    requestService_->onTxCountUpdated = [this]() {
+        recordTx();
+    };
 
     connect(pollingController_, &PollingController::submitPollRequest,
-            this, [this](const ::modbus::base::Pdu& pdu, int slaveId, int requestId,
-                         TraceId traceId) {
+            this, [this](const ::modbus::base::Pdu& pdu, int slaveId, int requestId, TraceId traceId) {
                 if (sessionPresenter_) {
                     sessionPresenter_->submitRequest(pdu, slaveId, requestId, traceId);
                 }
             });
     connect(pollingController_, &PollingController::summaryReady,
             trafficLogController_, &TrafficLogController::logPollSummary);
+    connect(pollingController_, &PollingController::stopRequested,
+            this, [this]() {
+                syncWidgetGuards(sessionPresenter_ ? sessionPresenter_->connectionState()
+                                                   : SessionConnectionState::Disconnected);
+            });
 
-    if (functionWidget_) {
-        connect(functionWidget_, &ui::widgets::FunctionWidget::logMessageRequested,
-                this, [this](const QString& message, bool isError) {
-                    if (!trafficLogController_) return;
-                    if (isError) {
-                        trafficLogController_->logWarning(message);
-                    } else {
-                        trafficLogController_->logInfo(message);
-                    }
-                });
-    }
-
-    if (controlWidget_) {
-        connect(controlWidget_, &ui::widgets::ControlWidget::logMessageRequested,
-                this, [this](const QString& message, bool isError) {
-                    if (!trafficLogController_) return;
-                    if (isError) {
-                        trafficLogController_->logWarning(message);
-                    } else {
-                        trafficLogController_->logInfo(message);
-                    }
-                });
-
-        connect(controlWidget_, &ui::widgets::ControlWidget::linkToggled,
-                this, [this](bool active) {
-                    linked_ = active;
-                    emit linkageToggled(active);
-                });
-
-        connect(controlWidget_, &ui::widgets::ControlWidget::pollStartRequested,
-                this, &ModbusPagePresenter::handlePollStartRequest);
-
-        connect(controlWidget_, &ui::widgets::ControlWidget::pollStopRequested,
-                this, &ModbusPagePresenter::handlePollStopRequest);
-
-        connect(controlWidget_, &ui::widgets::ControlWidget::pollIntervalChanged,
-                this, [this](int intervalMs) {
-                    if (pollingController_) {
-                        pollingController_->setPollingInterval(intervalMs);
-                    }
-                });
-
-        connect(pollingController_, &PollingController::stopRequested,
-                this, [this]() {
-                    if (controlWidget_) {
-                        controlWidget_->setPollingEnabled(false);
-                    }
-                });
-    }
+    connect(trafficLogController_, &TrafficLogController::trafficEvent,
+            this, [this](const ::ui::common::TrafficEvent& event) {
+                if (view_) {
+                    view_->appendTrafficTelemetry(event);
+                }
+            });
 
     if (sessionPresenter_) {
-        connect(sessionPresenter_,
-                &ModbusSessionPresenter::linkageSourceDisconnected,
+        connect(sessionPresenter_, &ModbusSessionPresenter::linkageSourceDisconnected,
                 this, &ModbusPagePresenter::linkageSourceDisconnected);
-
-        connect(sessionPresenter_,
-                &ModbusSessionPresenter::rawFrameReceived,
-                this, [this](bool isTx, const QByteArray& data) {
-                    if (view_) {
-                        view_->appendTrafficData(isTx, data);
-                    }
-                });
-
-        connect(sessionPresenter_,
-                &ModbusSessionPresenter::requestFinished,
+        connect(sessionPresenter_, &ModbusSessionPresenter::requestFinished,
                 this, &ModbusPagePresenter::handleRequestFinished);
-
         connect(sessionPresenter_, &ModbusSessionPresenter::connectFinished, this,
                 [this](bool ok, const QString&) {
-                    if (!ok) return;
-                    syncWidgetGuards(SessionConnectionState::Connected);
+                    if (ok) syncWidgetGuards(SessionConnectionState::Connected);
                 });
         connect(sessionPresenter_, &ModbusSessionPresenter::sessionConnected, this,
                 [this]() { syncWidgetGuards(SessionConnectionState::Connected); });
         connect(sessionPresenter_, &ModbusSessionPresenter::sessionDisconnected, this,
                 [this](const QString&) { syncWidgetGuards(SessionConnectionState::Disconnected); });
     }
-
-    if (functionWidget_) {
-        connect(functionWidget_, &ui::widgets::FunctionWidget::readRequested,
-                this, &ModbusPagePresenter::handleReadRequest);
-
-        connect(functionWidget_, &ui::widgets::FunctionWidget::writeRequested,
-                this, [this](uint8_t fc, int addr, const QString& dataStr,
-                             const QString& fmt, int slaveId) {
-                    handleWriteRequest(fc, addr, dataStr, fmt, slaveId,
-                                       functionWidget_->getQuantity());
-                });
-
-        connect(functionWidget_, &ui::widgets::FunctionWidget::rawSendRequested,
-                this, &ModbusPagePresenter::handleRawSendRequest);
-    }
 }
 
 void ModbusPagePresenter::teardownServices() {
-    // Delete in reverse construction order. All are QObject children of this,
-    // so synchronous delete is safe; ~QObject() removes pending queued
-    // connections automatically. Using delete (not deleteLater()) ensures the
-    // old services are fully gone before createServices() runs.
-    if (trafficLogController_) { delete trafficLogController_; trafficLogController_ = nullptr; }
-    if (pollingController_) { delete pollingController_; pollingController_ = nullptr; }
+    if (trafficLogController_) {
+        delete trafficLogController_;
+        trafficLogController_ = nullptr;
+    }
+    if (pollingController_) {
+        delete pollingController_;
+        pollingController_ = nullptr;
+    }
     requestService_.reset();
-    if (sessionPresenter_) { delete sessionPresenter_; sessionPresenter_ = nullptr; }
+    if (sessionPresenter_) {
+        delete sessionPresenter_;
+        sessionPresenter_ = nullptr;
+    }
 }
 
-void ModbusPagePresenter::switchMode(SessionMode newMode,
-                                      ui::widgets::BaseConnectionWidget* newConnectionWidget) {
-    if (newMode == mode_ && newConnectionWidget == connectionWidget_) {
+void ModbusPagePresenter::switchMode(SessionMode newMode) {
+    if (newMode == mode_) {
         return;
     }
-
     pendingMode_ = newMode;
-    pendingConnectionWidget_ = newConnectionWidget;
-
     if (sessionPresenter_) {
         connect(sessionPresenter_, &ModbusSessionPresenter::stackReleased,
                 this, &ModbusPagePresenter::onStackReleasedForSwitch, Qt::UniqueConnection);
@@ -211,33 +121,30 @@ void ModbusPagePresenter::switchMode(SessionMode newMode,
 
     teardownServices();
     mode_ = newMode;
-    connectionWidget_ = newConnectionWidget;
     linked_ = false;
     lastSyncedState_.reset();
     createServices();
     wireConnections();
+    if (view_) {
+        view_->setProtocolType(modeDescriptor(mode_).protocolType);
+    }
 }
 
 void ModbusPagePresenter::onStackReleasedForSwitch() {
     if (!sessionPresenter_) return;
-
     disconnect(sessionPresenter_, &ModbusSessionPresenter::stackReleased,
                this, &ModbusPagePresenter::onStackReleasedForSwitch);
 
-    // Defer teardown to the next event loop iteration: stackReleased is
-    // emitted synchronously from ModbusSessionPresenter::requestRelease(),
-    // so we must not delete sessionPresenter_ while it is still on the
-    // call stack.
     QMetaObject::invokeMethod(this, [this]() {
         teardownServices();
-
         mode_ = pendingMode_;
-        connectionWidget_ = pendingConnectionWidget_;
         linked_ = false;
         lastSyncedState_.reset();
-
         createServices();
         wireConnections();
+        if (view_) {
+            view_->setProtocolType(modeDescriptor(mode_).protocolType);
+        }
     }, Qt::QueuedConnection);
 }
 
@@ -246,14 +153,29 @@ void ModbusPagePresenter::setLinked(bool linked) {
     if (sessionPresenter_) {
         sessionPresenter_->setLinked(linked);
     }
+    if (view_) {
+        view_->setLinkageState(linked);
+    }
 }
 
-bool ModbusPagePresenter::isLinked() const {
+bool ModbusPagePresenter::isLinked() const noexcept {
     return linked_;
 }
 
-ModbusSessionPresenter* ModbusPagePresenter::sessionPresenter() const {
+ModbusSessionPresenter* ModbusPagePresenter::sessionPresenter() const noexcept {
     return sessionPresenter_;
+}
+
+PollingController* ModbusPagePresenter::pollingController() const noexcept {
+    return pollingController_;
+}
+
+RequestSubmissionService* ModbusPagePresenter::requestService() const noexcept {
+    return requestService_.get();
+}
+
+TrafficLogController* ModbusPagePresenter::trafficLogController() const noexcept {
+    return trafficLogController_;
 }
 
 void ModbusPagePresenter::requestConnect(const ModbusConnectionSpec& spec) {
@@ -261,7 +183,6 @@ void ModbusPagePresenter::requestConnect(const ModbusConnectionSpec& spec) {
         SPDLOG_WARN("ModbusPagePresenter: requestConnect dropped (no session presenter)");
         return;
     }
-    // Re-entrancy guard: ignore repeated connect requests while Connecting is in flight.
     if (sessionPresenter_->connectionState() == SessionConnectionState::Connecting) {
         SPDLOG_INFO("ModbusPagePresenter: connect request ignored (already connecting)");
         return;
@@ -300,149 +221,254 @@ bool ModbusPagePresenter::ensureConnected() {
     }();
     if (trafficLogController_) {
         trafficLogController_->logInfo(msg);
-    } else {
-        SPDLOG_WARN("ensureConnected (TLC unavailable): {}", msg.toStdString());
+    }
+    if (view_) {
+        view_->showStatusMessage(msg, true);
     }
     return false;
 }
 
 void ModbusPagePresenter::syncWidgetGuards(SessionConnectionState state) {
-    if (lastSyncedState_.has_value() && *lastSyncedState_ == state) {
+    const bool isPolling = pollingController_ ? pollingController_->isPollingActive() : false;
+    if (lastSyncedState_.has_value() && *lastSyncedState_ == state && lastPollingActive_ == isPolling) {
         return;
     }
     lastSyncedState_ = state;
+    lastPollingActive_ = isPolling;
 
-    const bool readEnabled  = (state == SessionConnectionState::Connected
-                               || state == SessionConnectionState::TransportConnected);
-    const bool writeEnabled = (state == SessionConnectionState::Connected);
-    const bool pollEnabled  = (state == SessionConnectionState::Connected);
+    const bool isConnected = (state == SessionConnectionState::Connected);
+    const bool isTransportConnected = (state == SessionConnectionState::TransportConnected);
 
-    SPDLOG_DEBUG("ModbusPagePresenter::syncWidgetGuards state={} read={} write={} poll={}",
-                 connectionStateName(state), readEnabled, writeEnabled, pollEnabled);
+    ExecutionGuardState guards;
+    guards.pollingActive = isPolling;
+    guards.rawSendEnabled = (isConnected || (mode_ != SessionMode::Tcp && isTransportConnected));
+    guards.executeEnabled = (isConnected || isTransportConnected);
+    guards.pollingEnabled = isConnected;
 
-    if (functionWidget_) {
-        if (state == SessionConnectionState::TransportConnected) {
-            const QString writeTip = tr("Device is establishing session. "
-                                        "Read commands available; write commands locked until ready.");
-            functionWidget_->setReadOpsEnabled(true);
-            functionWidget_->setWriteOpsEnabled(false, writeTip);
-        } else {
-            const QString tip = [state, this]() -> QString {
-                switch (state) {
-                case SessionConnectionState::Connecting:
-                    return tr("Connecting — please wait before sending commands.");
-                case SessionConnectionState::Disconnecting:
-                    return tr("Disconnecting...");
-                default:
-                    return tr("Connect device to send commands.");
-                }
-            }();
-            functionWidget_->setReadOpsEnabled(readEnabled, tip);
-            functionWidget_->setWriteOpsEnabled(writeEnabled, tip);
+    if (state == SessionConnectionState::Connecting) {
+        guards.tooltipMessage = tr("Connecting — please wait before sending commands.");
+    } else if (state == SessionConnectionState::Disconnecting) {
+        guards.tooltipMessage = tr("Disconnecting...");
+    } else if (state == SessionConnectionState::TransportConnected) {
+        if (mode_ == SessionMode::Tcp) {
+            guards.tooltipMessage = tr("Device is establishing session. Read commands available; write commands locked until ready.");
         }
+    } else if (!isConnected) {
+        guards.tooltipMessage = tr("Connect device to send commands.");
     }
-    if (controlWidget_) {
-        controlWidget_->setInteractionsEnabled(pollEnabled);
+
+    if (view_) {
+        view_->renderConnectionState(state);
+        view_->setExecutionGuards(guards);
     }
 }
 
-void ModbusPagePresenter::handleReadRequest(uint8_t fc, int addr, int qty, int slaveId) {
-    if (!ensureConnected()) return;
-
-    if (!requestService_) {
-        if (trafficLogController_) {
-            trafficLogController_->logError(tr("Error: Request service not available"));
-        }
-        return;
-    }
-
-    PollSpec spec;
-    spec.functionCode = fc;
-    spec.startAddress = static_cast<uint16_t>(addr);
-    spec.quantity = static_cast<uint16_t>(qty);
-    spec.slaveId = static_cast<uint8_t>(slaveId);
-
-    auto result = requestService_->buildReadRequest(spec);
-    if (!result.ok) {
-        if (trafficLogController_) {
-            trafficLogController_->logError(tr("Error: %1").arg(result.error));
-        }
-        return;
-    }
-
-    if (trafficLogController_) {
-        trafficLogController_->logSendingReadRequest(fc, addr, qty, slaveId, result.traceId);
-    }
-
-    sessionPresenter_->submitRequest(result.pdu, slaveId, result.requestId, result.traceId);
-}
-
-void ModbusPagePresenter::handleWriteRequest(uint8_t fc, int addr,
-                                             const QString& dataStr,
-                                             const QString& fmt, int slaveId,
-                                             int quantity) {
-    if (!ensureConnected()) return;
-
-    if (!requestService_) {
-        if (trafficLogController_) {
-            trafficLogController_->logError(tr("Error: Request service not available"));
-        }
-        return;
-    }
-
-    auto result = requestService_->buildWriteRequest(fc, addr, dataStr, fmt, slaveId, quantity);
-    if (!result.ok) {
-        if (trafficLogController_) {
-            trafficLogController_->logError(tr("Error: %1").arg(result.error));
-        }
-        return;
-    }
-
-    if (trafficLogController_) {
-        trafficLogController_->logSendingWriteRequest(fc, addr, dataStr, slaveId,
-                                                      result.traceId);
-    }
-
-    sessionPresenter_->submitRequest(result.pdu, slaveId, result.requestId, result.traceId);
-}
-
-void ModbusPagePresenter::handleRawSendRequest(const QByteArray& data) {
-    if (!ensureConnected()) return;
-    if (!requestService_ || !requestService_->validateRawData(data)) return;
-
-    if (trafficLogController_) {
-        trafficLogController_->logSendingRawData(data);
-    }
-
-    sessionPresenter_->sendRaw(data);
-}
-
-void ModbusPagePresenter::handlePollRequest(uint8_t fc, int addr, int qty, int intervalMs) {
-    handlePollStartRequest(fc, addr, qty, intervalMs);
-}
-
-void ModbusPagePresenter::handlePollStartRequest(uint8_t fc, int addr, int qty, int intervalMs) {
+void ModbusPagePresenter::executeRequest(const ModbusExecuteSpec& spec) {
     if (!ensureConnected()) {
-        if (controlWidget_) {
-            controlWidget_->setPollingEnabled(false);
+        return;
+    }
+    if (spec.isRawMode) {
+        handleRawExecute(spec);
+        return;
+    }
+    handleStandardExecute(spec);
+}
+
+void ModbusPagePresenter::handleRawExecute(const ModbusExecuteSpec& spec) {
+    if (!requestService_ || !requestService_->validateRawData(spec.rawPduOrAdu)) {
+        if (trafficLogController_) {
+            trafficLogController_->logError(tr("Error: Invalid raw frame format"));
         }
         return;
     }
-    if (!pollingController_) return;
-
-    PollSpec spec;
-    spec.functionCode = fc;
-    spec.startAddress = static_cast<uint16_t>(addr);
-    spec.quantity = static_cast<uint16_t>(qty);
-    spec.slaveId = static_cast<uint8_t>(config::Modbus::kDefaultSlaveId);
-    spec.intervalMs = intervalMs;
-
-    pollingController_->startPolling(spec);
+    if (trafficLogController_) {
+        trafficLogController_->logSendingRawData(spec.rawPduOrAdu);
+    }
+    if (sessionPresenter_) {
+        sessionPresenter_->sendRaw(spec.rawPduOrAdu);
+    }
 }
 
-void ModbusPagePresenter::handlePollStopRequest() {
+void ModbusPagePresenter::handleStandardExecute(const ModbusExecuteSpec& spec) {
+    if (!requestService_ || !sessionPresenter_) return;
+
+    auto val = requestService_->validateSpec(spec, mode_);
+    if (!val.isValid) {
+        if (trafficLogController_) trafficLogController_->logError(val.errorMessage);
+        if (view_) view_->showStatusMessage(val.errorMessage, true);
+        return;
+    }
+
+    const auto kind = ::modbus::base::function_traits::isReadOperation(spec.functionCode)
+        ? RequestKind::Read : RequestKind::Write;
+    auto result = requestService_->buildExecuteRequest(spec, mode_, kind);
+    if (!result.ok) {
+        if (trafficLogController_) {
+            trafficLogController_->logError(tr("Error: %1").arg(result.error));
+        }
+        return;
+    }
+
+    logExecuteSubmission(spec, kind, result.traceId);
+    sessionPresenter_->submitRequest(result.pdu, spec.slaveId, result.requestId, result.traceId);
+}
+
+void ModbusPagePresenter::logExecuteSubmission(const ModbusExecuteSpec& spec, RequestKind kind, TraceId traceId) {
+    if (!trafficLogController_) return;
+    if (kind == RequestKind::Read) {
+        trafficLogController_->logSendingReadRequest(
+            spec.functionCode, spec.startAddress, spec.quantity, spec.slaveId, traceId);
+    } else {
+        trafficLogController_->logSendingWriteRequest(
+            spec.functionCode, spec.startAddress, QString::fromUtf8(spec.writeData.toHex(' ')), spec.slaveId, traceId);
+    }
+}
+
+void ModbusPagePresenter::togglePolling(bool start, const ModbusExecuteSpec& spec, bool userConfirmedWritePoll) {
+    if (!start) {
+        if (pollingController_) pollingController_->stopPoll();
+        syncWidgetGuards(sessionPresenter_ ? sessionPresenter_->connectionState() : SessionConnectionState::Disconnected);
+        return;
+    }
+
+    if (!ensureConnected()) {
+        syncWidgetGuards(sessionPresenter_ ? sessionPresenter_->connectionState() : SessionConnectionState::Disconnected);
+        return;
+    }
+
+    if (!validatePollingPreconditions(spec, userConfirmedWritePoll)) {
+        syncWidgetGuards(sessionPresenter_->connectionState());
+        return;
+    }
+
     if (pollingController_) {
-        pollingController_->stopPoll();
+        PollSpec pollSpec;
+        pollSpec.functionCode = spec.functionCode;
+        pollSpec.startAddress = spec.startAddress;
+        pollSpec.quantity = spec.quantity;
+        pollSpec.slaveId = spec.slaveId;
+        pollingController_->startPolling(pollSpec);
+        syncWidgetGuards(sessionPresenter_->connectionState());
+    }
+}
+
+bool ModbusPagePresenter::validatePollingPreconditions(const ModbusExecuteSpec& spec, bool userConfirmedWritePoll) {
+    const bool isWrite = ::modbus::base::function_traits::isWriteOperation(spec.functionCode);
+    if (isWrite) {
+        if (spec.slaveId == 0 && (mode_ == SessionMode::Rtu || mode_ == SessionMode::Ascii)) {
+            const QString err = tr("Broadcast write polling is strictly forbidden.");
+            if (trafficLogController_) trafficLogController_->logError(err);
+            if (view_) view_->showStatusMessage(err, true);
+            return false;
+        }
+        if (!userConfirmedWritePoll) {
+            const QString err = tr("Write polling rejected: confirmation required.");
+            if (trafficLogController_) trafficLogController_->logWarning(err);
+            if (view_) view_->showStatusMessage(err, true);
+            return false;
+        }
+    }
+    if (requestService_) {
+        auto val = requestService_->validateSpec(spec, mode_);
+        if (!val.isValid) {
+            if (trafficLogController_) trafficLogController_->logError(val.errorMessage);
+            if (view_) view_->showStatusMessage(val.errorMessage, true);
+            return false;
+        }
+    }
+    return true;
+}
+
+void ModbusPagePresenter::changePollInterval(int intervalMs) {
+    if (pollingController_) {
+        pollingController_->setPollingInterval(intervalMs);
+    }
+}
+
+void ModbusPagePresenter::handleLogMessage(const QString& message, bool isError) {
+    if (!trafficLogController_) return;
+    if (isError) {
+        trafficLogController_->logWarning(message);
+    } else {
+        trafficLogController_->logInfo(message);
+    }
+}
+
+void ModbusPagePresenter::setRawFramesEnabled(bool enabled) {
+    if (trafficLogController_) {
+        trafficLogController_->setRawFramesEnabled(enabled);
+    }
+}
+
+void ModbusPagePresenter::recordTx() {
+    ++txCount_;
+    notifyMetrics();
+}
+
+void ModbusPagePresenter::recordRx(int rttMs) {
+    ++rxCount_;
+    lastRttMs_ = rttMs;
+    notifyMetrics();
+}
+
+void ModbusPagePresenter::recordError() {
+    ++errCount_;
+    notifyMetrics();
+}
+
+void ModbusPagePresenter::notifyMetrics() {
+    if (view_) {
+        view_->updateMetrics(txCount_, rxCount_, errCount_, lastRttMs_);
+    }
+}
+
+void ModbusPagePresenter::handleRequestFinished(int requestId,
+                                                const ::modbus::session::ModbusResponse& response) {
+    if (!requestService_) return;
+
+    auto trackingInfo = requestService_->lookupAndRemove(requestId);
+    if (!trackingInfo.has_value()) {
+        return;
+    }
+
+    auto kind = trackingInfo->kind;
+    uint16_t addr = trackingInfo->address;
+    const TraceId traceId = trackingInfo->traceId;
+
+    const QString localizedError = (response.isError() || response.isBusy())
+        ? formatModbusError(response) : QString();
+
+    if (kind == RequestKind::Poll && pollingController_) {
+        pollingController_->handleResponse(!response.isError(), response.rttMs,
+                                            response.retryCount(), localizedError);
+    }
+
+    switch (response.kind) {
+    case ::modbus::session::ModbusResponseKind::NoResponseExpected:
+        if (trafficLogController_) trafficLogController_->logBroadcastWriteSuccess(response.retryCount(), traceId);
+        break;
+    case ::modbus::session::ModbusResponseKind::Success:
+        recordRx(response.rttMs);
+        if (kind == RequestKind::Read && trafficLogController_) {
+            trafficLogController_->logReadSuccess(response.retryCount(), traceId);
+        } else if (kind == RequestKind::Write && trafficLogController_) {
+            trafficLogController_->logWriteSuccess(response.retryCount(), traceId);
+        }
+        break;
+    case ::modbus::session::ModbusResponseKind::Error:
+        if (response.isBusy()) {
+            if (kind != RequestKind::Poll && trafficLogController_) trafficLogController_->logWarning(localizedError);
+            break;
+        }
+        recordError();
+        if (kind != RequestKind::Poll && trafficLogController_) {
+            trafficLogController_->logRequestError(localizedError, response.retryCount(), traceId);
+        }
+        break;
+    }
+
+    if (!response.isError() && linked_) {
+        emit linkageDataReceived(response.pdu, modeDescriptor(mode_).protocolType, addr);
     }
 }
 
@@ -512,77 +538,8 @@ QString ModbusPagePresenter::formatModbusError(const ::modbus::session::ModbusRe
     }
 }
 
-void ModbusPagePresenter::handleRequestFinished(int requestId,
-                                                const ::modbus::session::ModbusResponse& response) {
-    if (!requestService_) return;
-
-    auto trackingInfo = requestService_->lookupAndRemove(requestId);
-    if (!trackingInfo.has_value()) {
-        return;
-    }
-
-    auto kind = trackingInfo->kind;
-    uint16_t addr = trackingInfo->address;
-    const TraceId traceId = trackingInfo->traceId;
-
-    const QString localizedError = (response.isError() || response.isBusy())
-        ? formatModbusError(response)
-        : QString();
-
-    if (kind == RequestKind::Poll) {
-        if (pollingController_) {
-            pollingController_->handleResponse(!response.isError(),
-                                                response.rttMs,
-                                                response.retryCount(),
-                                                localizedError);
-        }
-    }
-
-    switch (response.kind) {
-    case ::modbus::session::ModbusResponseKind::NoResponseExpected:
-        if (trafficLogController_) {
-            trafficLogController_->logBroadcastWriteSuccess(response.retryCount(), traceId);
-        }
-        break;
-    case ::modbus::session::ModbusResponseKind::Success:
-        if (controlWidget_) {
-            controlWidget_->recordRx(response.rttMs);
-        }
-
-        if (kind == RequestKind::Read && trafficLogController_) {
-            trafficLogController_->logReadSuccess(response.retryCount(), traceId);
-        } else if (kind == RequestKind::Write && trafficLogController_) {
-            trafficLogController_->logWriteSuccess(response.retryCount(), traceId);
-        }
-        break;
-    case ::modbus::session::ModbusResponseKind::Error:
-        if (response.isBusy()) {
-            if (kind != RequestKind::Poll && trafficLogController_) {
-                trafficLogController_->logWarning(localizedError);
-            }
-            break;
-        }
-        if (controlWidget_) {
-            controlWidget_->recordError();
-        }
-
-        if (kind != RequestKind::Poll && trafficLogController_) {
-            trafficLogController_->logRequestError(localizedError, response.retryCount(),
-                                                   traceId);
-        }
-        break;
-    }
-
-    if (!response.isError() && linked_) {
-        const ::modbus::parser::ProtocolType protocolType =
-            modeDescriptor(mode_).protocolType;
-        emit linkageDataReceived(response.pdu, protocolType, addr);
-    }
-}
-
 void ModbusPagePresenter::setTrafficLogControllerForTest(TrafficLogController* controller) {
     trafficLogController_ = controller;
 }
 
 } // namespace ui::application::modbus
-

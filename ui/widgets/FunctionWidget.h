@@ -36,7 +36,7 @@ public:
     int getFormatIndex() const;
     void setSettingsGroup(const QString& group);
     void setTransportMode(ui::application::modbus::SessionMode mode);
-    void setAddressBase(modbus::address::AddressBase base);
+    void setAddressBase(::modbus::address::AddressBase base);
     void setReadOpsEnabled(bool enabled, const QString& disabledTooltip = {});
     void setWriteOpsEnabled(bool enabled, const QString& disabledTooltip = {});
 
@@ -102,7 +102,7 @@ private:
     infra::config::ISettingsService* settingsService_ = nullptr;
     ui::application::modbus::SessionMode transportMode_ =
         ui::application::modbus::SessionMode::Rtu;
-    modbus::address::AddressBase addressBase_ = modbus::address::AddressBase::Offset0Based;
+    ::modbus::address::AddressBase addressBase_ = ::modbus::address::AddressBase::Offset0Based;
     bool readOpsEnabled_ = false;
     bool writeOpsEnabled_ = false;
     void updateAddressPlaceholder();

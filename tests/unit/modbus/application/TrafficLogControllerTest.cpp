@@ -8,6 +8,7 @@
 #include "../../../ui/application/modbus/RequestSubmissionService.h"
 #include "../../../ui/application/modbus/ModbusTypes.h"
 #include "../../../ui/widgets/TrafficMonitorWidget.h"
+#include <QSignalSpy>
 
 using namespace testing;
 using namespace ui::application::modbus;
@@ -112,6 +113,15 @@ TEST_F(TrafficLogControllerTest, SetPollingController_UpdatesReference) {
     auto newPollingController = std::make_unique<PollingController>(requestService_.get());
 
     EXPECT_NO_THROW(controller_->setPollingController(newPollingController.get()));
+}
+
+TEST_F(TrafficLogControllerTest, PublishEvent_EmitsTrafficEventSignal) {
+    qRegisterMetaType<ui::common::TrafficEvent>();
+    QSignalSpy spy(controller_.get(), &TrafficLogController::trafficEvent);
+    controller_->logConnectionInfo(QStringLiteral("Connected successfully"));
+    ASSERT_EQ(spy.count(), 1);
+    auto ev = spy.first().at(0).value<ui::common::TrafficEvent>();
+    EXPECT_EQ(ev.summary, QStringLiteral("Connected successfully"));
 }
 
 } // namespace

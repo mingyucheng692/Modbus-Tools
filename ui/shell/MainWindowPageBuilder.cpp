@@ -6,6 +6,7 @@
 #include "views/serial/SerialDebuggerView.h"
 #include "views/network/NetworkDebuggerView.h"
 #include "views/modbus/ModbusPage.h"
+#include "application/modbus/ModbusPagePresenter.h"
 #include "views/analyzer/FrameAnalyzerView.h"
 #include "views/tools/UtilitiesView.h"
 
@@ -41,8 +42,11 @@ MainWindowPages buildMainWindowPages(infra::config::ISettingsService* settingsSe
     MainWindowPages pages;
 
     pages.modbusView = new views::modbus::ModbusPage(settingsService, owner);
+    auto* modbusPresenter = new application::modbus::ModbusPagePresenter(
+        pages.modbusView, application::modbus::SessionMode::Tcp, pages.modbusView);
+    pages.modbusView->bindPresenter(modbusPresenter);
     pages.pageIndexByNavigationRow[static_cast<std::size_t>(MainPage::Modbus)] =
-        stackedWidget->addWidget(createScrollablePage(pages.modbusView, stackedWidget));
+        stackedWidget->addWidget(pages.modbusView);
 
     auto* networkDebuggerView = new views::network::NetworkDebuggerView(settingsService, owner);
     pages.pageIndexByNavigationRow[static_cast<std::size_t>(MainPage::NetworkDebugger)] =

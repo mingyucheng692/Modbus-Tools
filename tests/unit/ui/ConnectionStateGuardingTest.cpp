@@ -9,229 +9,136 @@
 #include "ui/application/modbus/PollingController.h"
 #include "ui/application/modbus/RequestSubmissionService.h"
 #include "ui/application/modbus/ModbusTypes.h"
-#include "ui/widgets/FunctionWidget.h"
-#include "ui/widgets/ControlWidget.h"
-#include "ui/widgets/TrafficMonitorWidget.h"
-#include "ui/widgets/TcpConnectionWidget.h"
-#include "ui/widgets/SerialConnectionWidget.h"
+#include "mocks/MockModbusPageView.h"
 #include "mocks/UiTestDoubles.h"
 
-#include <QPushButton>
-#include <QCheckBox>
 #include <QPointer>
+#include <QCoreApplication>
 
 using namespace testing;
 using namespace ui::application::modbus;
 
 namespace {
 
-QList<QPushButton*> getReadButtons(ui::widgets::FunctionWidget& widget) {
-    QList<QPushButton*> result;
-    const QStringList readLabels = {
-        QObject::tr("Read Coils (0x01)"),
-        QObject::tr("Read Discrete Inputs (0x02)"),
-        QObject::tr("Read Holding Registers (0x03)"),
-        QObject::tr("Read Input Registers (0x04)")
-    };
-    for (auto* btn : widget.findChildren<QPushButton*>()) {
-        if (readLabels.contains(btn->text())) {
-            result.append(btn);
-        }
-    }
-    return result;
-}
-
-QList<QPushButton*> getWriteButtons(ui::widgets::FunctionWidget& widget) {
-    QList<QPushButton*> result;
-    const QStringList writeLabels = {
-        QObject::tr("Write Single Coil (0x05)"),
-        QObject::tr("Write Single Register (0x06)"),
-        QObject::tr("Write Multiple Coils (0x0F)"),
-        QObject::tr("Write Multiple Registers (0x10)"),
-        QObject::tr("Send Raw")
-    };
-    for (auto* btn : widget.findChildren<QPushButton*>()) {
-        if (writeLabels.contains(btn->text())) {
-            result.append(btn);
-        }
-    }
-    return result;
-}
-
-QCheckBox* getPollCheckBox(ui::widgets::ControlWidget& widget) {
-    for (auto* cb : widget.findChildren<QCheckBox*>()) {
-        if (cb->text() == QObject::tr("Enable Polling")) {
-            return cb;
-        }
-    }
-    return nullptr;
-}
-
 class ConnectionStateGuardingTest : public Test {
 protected:
     void SetUp() override {
-        settingsService_ = std::make_unique<tests::mocks::FakeSettingsService>();
-        functionWidget_ = std::make_unique<ui::widgets::FunctionWidget>(settingsService_.get());
-        controlWidget_ = std::make_unique<ui::widgets::ControlWidget>(settingsService_.get());
-        trafficMonitor_ = std::make_unique<ui::widgets::TrafficMonitorWidget>(settingsService_.get());
-        tcpWidget_ = std::make_unique<ui::widgets::TcpConnectionWidget>(ui::widgets::TcpRole::Client, settingsService_.get());
-
-        presenter_ = std::make_unique<ModbusPagePresenter>(nullptr, SessionMode::Tcp);
-        presenter_->setup(tcpWidget_.get(), controlWidget_.get(),
-                          functionWidget_.get(), trafficMonitor_.get());
+        mockView_ = std::make_unique<NiceMock<tests::mocks::MockModbusPageView>>();
+        presenter_ = std::make_unique<ModbusPagePresenter>(mockView_.get(), SessionMode::Tcp);
     }
 
     void TearDown() override {
-        presenter_.reset();
-        tcpWidget_.reset();
-        trafficMonitor_.reset();
-        controlWidget_.reset();
-        functionWidget_.reset();
-        settingsService_.reset();
+        if (presenter_) {
+            presenter_->detachView();
+            presenter_.reset();
+        }
+        mockView_.reset();
     }
 
-    std::unique_ptr<tests::mocks::FakeSettingsService> settingsService_;
-    std::unique_ptr<ui::widgets::FunctionWidget> functionWidget_;
-    std::unique_ptr<ui::widgets::ControlWidget> controlWidget_;
-    std::unique_ptr<ui::widgets::TrafficMonitorWidget> trafficMonitor_;
-    std::unique_ptr<ui::widgets::TcpConnectionWidget> tcpWidget_;
+    std::unique_ptr<NiceMock<tests::mocks::MockModbusPageView>> mockView_;
     std::unique_ptr<ModbusPagePresenter> presenter_;
 };
 
 } // namespace
 
-// 1. Initial State: Controls are disabled
+// 1. Initial State: Controls are guarded and disabled for disconnected state
 TEST_F(ConnectionStateGuardingTest, InitialState_ControlsAreDisabled) {
-    const auto readBtns = getReadButtons(*functionWidget_);
-    const auto writeBtns = getWriteButtons(*functionWidget_);
-    auto* pollCheck = getPollCheckBox(*controlWidget_);
+    auto freshMockView = std::make_unique<NiceMock<tests::mocks::MockModbusPageView>>();
+    ExecutionGuardState capturedGuards;
+    EXPECT_CALL(*freshMockView, setExecutionGuards(_))
+        .WillRepeatedly(SaveArg<0>(&capturedGuards));
 
-    ASSERT_EQ(readBtns.size(), 4);
-    ASSERT_EQ(writeBtns.size(), 5);
-    ASSERT_NE(pollCheck, nullptr);
+    ModbusPagePresenter freshPresenter(freshMockView.get(), SessionMode::Tcp);
 
-    for (auto* btn : readBtns) {
-        EXPECT_FALSE(btn->isEnabled());
-        EXPECT_TRUE(btn->toolTip().contains(QObject::tr("Connect device")));
-    }
-    for (auto* btn : writeBtns) {
-        EXPECT_FALSE(btn->isEnabled());
-        EXPECT_TRUE(btn->toolTip().contains(QObject::tr("Connect device")));
-    }
-    EXPECT_FALSE(pollCheck->isEnabled());
+    EXPECT_FALSE(capturedGuards.executeEnabled);
+    EXPECT_FALSE(capturedGuards.pollingEnabled);
+    EXPECT_FALSE(capturedGuards.rawSendEnabled);
+    EXPECT_TRUE(capturedGuards.tooltipMessage.contains(QObject::tr("Connect device")));
+    freshPresenter.detachView();
 }
 
 // 2. Idempotent guard: calling with the same state twice does not trigger redundant refresh
 TEST_F(ConnectionStateGuardingTest, SyncWidgetGuards_Idempotent_SameStateTwice) {
-    const auto readBtns = getReadButtons(*functionWidget_);
-    ASSERT_FALSE(readBtns.isEmpty());
+    EXPECT_CALL(*mockView_, renderConnectionState(SessionConnectionState::Connected)).Times(1);
 
-    // First transition: Connected
     presenter_->syncWidgetGuards(SessionConnectionState::Connected);
-    EXPECT_TRUE(readBtns.first()->isEnabled());
-
-    // Modify button enabled externally to test if second call touches it
-    readBtns.first()->setEnabled(false);
-
-    // Second call with same state: idempotent guard returns early, button stays false
+    // Second invocation with same state: early exit
     presenter_->syncWidgetGuards(SessionConnectionState::Connected);
-    EXPECT_FALSE(readBtns.first()->isEnabled());
 }
 
 // 3. Connecting State: reads and writes disabled
 TEST_F(ConnectionStateGuardingTest, ConnectingState_ReadsWritesDisabled) {
-    const auto readBtns = getReadButtons(*functionWidget_);
-    const auto writeBtns = getWriteButtons(*functionWidget_);
-    auto* pollCheck = getPollCheckBox(*controlWidget_);
+    ExecutionGuardState capturedGuards;
+    EXPECT_CALL(*mockView_, renderConnectionState(SessionConnectionState::Connecting)).Times(1);
+    EXPECT_CALL(*mockView_, setExecutionGuards(_))
+        .WillOnce(SaveArg<0>(&capturedGuards));
 
     presenter_->syncWidgetGuards(SessionConnectionState::Connecting);
 
-    for (auto* btn : readBtns) {
-        EXPECT_FALSE(btn->isEnabled());
-        EXPECT_TRUE(btn->toolTip().contains(QObject::tr("Connecting")));
-    }
-    for (auto* btn : writeBtns) {
-        EXPECT_FALSE(btn->isEnabled());
-        EXPECT_TRUE(btn->toolTip().contains(QObject::tr("Connecting")));
-    }
-    EXPECT_FALSE(pollCheck->isEnabled());
+    EXPECT_FALSE(capturedGuards.executeEnabled);
+    EXPECT_FALSE(capturedGuards.pollingEnabled);
+    EXPECT_FALSE(capturedGuards.rawSendEnabled);
+    EXPECT_TRUE(capturedGuards.tooltipMessage.contains(QObject::tr("Connecting")));
 }
 
 // 4. TransportConnected (TCP intermediate): reads enabled, writes disabled + operator-friendly tooltip
 TEST_F(ConnectionStateGuardingTest, TransportConnected_TCP_ReadsEnabledWritesDisabled) {
-    const auto readBtns = getReadButtons(*functionWidget_);
-    const auto writeBtns = getWriteButtons(*functionWidget_);
+    ExecutionGuardState capturedGuards;
+    EXPECT_CALL(*mockView_, renderConnectionState(SessionConnectionState::TransportConnected)).Times(1);
+    EXPECT_CALL(*mockView_, setExecutionGuards(_))
+        .WillOnce(SaveArg<0>(&capturedGuards));
 
     presenter_->syncWidgetGuards(SessionConnectionState::TransportConnected);
 
-    for (auto* btn : readBtns) {
-        EXPECT_TRUE(btn->isEnabled());
-    }
-    for (auto* btn : writeBtns) {
-        EXPECT_FALSE(btn->isEnabled());
-        EXPECT_TRUE(btn->toolTip().contains(QObject::tr("Device is establishing session")));
-    }
+    EXPECT_TRUE(capturedGuards.executeEnabled);
+    EXPECT_FALSE(capturedGuards.pollingEnabled);
+    EXPECT_TRUE(capturedGuards.tooltipMessage.contains(QObject::tr("Device is establishing session")));
 }
 
 // 5. TransportConnected Serial RTU: direct Connected, all ops enabled
 TEST_F(ConnectionStateGuardingTest, TransportConnected_Serial_AllOpsEnabled) {
-    const auto readBtns = getReadButtons(*functionWidget_);
-    const auto writeBtns = getWriteButtons(*functionWidget_);
+    auto rtuPresenter = std::make_unique<ModbusPagePresenter>(mockView_.get(), SessionMode::Rtu);
+    ExecutionGuardState capturedGuards;
+    EXPECT_CALL(*mockView_, setExecutionGuards(_))
+        .WillRepeatedly(SaveArg<0>(&capturedGuards));
 
-    // In Serial RTU, session reaches Connected directly without TransportConnected intermediate
-    presenter_->syncWidgetGuards(SessionConnectionState::Connected);
+    rtuPresenter->syncWidgetGuards(SessionConnectionState::Connected);
 
-    for (auto* btn : readBtns) {
-        EXPECT_TRUE(btn->isEnabled());
-    }
-    for (auto* btn : writeBtns) {
-        EXPECT_TRUE(btn->isEnabled());
-    }
+    EXPECT_TRUE(capturedGuards.executeEnabled);
+    EXPECT_TRUE(capturedGuards.pollingEnabled);
+    EXPECT_TRUE(capturedGuards.rawSendEnabled);
+
+    rtuPresenter->detachView();
 }
 
 // 6. Connected: All operations and polling enabled
 TEST_F(ConnectionStateGuardingTest, Connected_AllOpsEnabled_PollEnabled) {
-    const auto readBtns = getReadButtons(*functionWidget_);
-    const auto writeBtns = getWriteButtons(*functionWidget_);
-    auto* pollCheck = getPollCheckBox(*controlWidget_);
+    ExecutionGuardState capturedGuards;
+    EXPECT_CALL(*mockView_, renderConnectionState(SessionConnectionState::Connected)).Times(1);
+    EXPECT_CALL(*mockView_, setExecutionGuards(_))
+        .WillOnce(SaveArg<0>(&capturedGuards));
 
     presenter_->syncWidgetGuards(SessionConnectionState::Connected);
 
-    for (auto* btn : readBtns) {
-        EXPECT_TRUE(btn->isEnabled());
-    }
-    for (auto* btn : writeBtns) {
-        EXPECT_TRUE(btn->isEnabled());
-    }
-    EXPECT_TRUE(pollCheck->isEnabled());
+    EXPECT_TRUE(capturedGuards.executeEnabled);
+    EXPECT_TRUE(capturedGuards.pollingEnabled);
+    EXPECT_TRUE(capturedGuards.rawSendEnabled);
 }
 
 // 7. Disconnected: All operations reverted and active polling stopped
 TEST_F(ConnectionStateGuardingTest, Disconnected_AllOpsReverted_TimerStopped) {
-    auto* pollCheck = getPollCheckBox(*controlWidget_);
-
     presenter_->syncWidgetGuards(SessionConnectionState::Connected);
-    EXPECT_TRUE(pollCheck->isEnabled());
 
-    // Simulate user enabling polling
-    pollCheck->setChecked(true);
-    EXPECT_TRUE(pollCheck->isChecked());
+    ExecutionGuardState capturedGuards;
+    EXPECT_CALL(*mockView_, renderConnectionState(SessionConnectionState::Disconnected)).Times(1);
+    EXPECT_CALL(*mockView_, setExecutionGuards(_))
+        .WillOnce(SaveArg<0>(&capturedGuards));
 
-    // Transition to Disconnected
     presenter_->syncWidgetGuards(SessionConnectionState::Disconnected);
 
-    const auto readBtns = getReadButtons(*functionWidget_);
-    const auto writeBtns = getWriteButtons(*functionWidget_);
-
-    for (auto* btn : readBtns) {
-        EXPECT_FALSE(btn->isEnabled());
-    }
-    for (auto* btn : writeBtns) {
-        EXPECT_FALSE(btn->isEnabled());
-    }
-    // Interactions disabled automatically cancels active polling and unchecks box
-    EXPECT_FALSE(pollCheck->isEnabled());
-    EXPECT_FALSE(pollCheck->isChecked());
+    EXPECT_FALSE(capturedGuards.executeEnabled);
+    EXPECT_FALSE(capturedGuards.pollingEnabled);
+    EXPECT_FALSE(capturedGuards.rawSendEnabled);
 }
 
 // 8. Parameterized Test for EnsureConnected Log Behavior (TLC present vs TLC null)
@@ -260,52 +167,39 @@ INSTANTIATE_TEST_SUITE_P(
 
 // 9. QPointer TLC Safety: safe after teardown destruction
 TEST_F(ConnectionStateGuardingTest, QPointerTLC_SafeAfterTeardown) {
-    auto* standaloneTlc = new TrafficLogController(trafficMonitor_.get(), nullptr, nullptr);
+    auto* standaloneTlc = new TrafficLogController(static_cast<PollingController*>(nullptr), nullptr);
     QPointer<TrafficLogController> guard(standaloneTlc);
 
     presenter_->setTrafficLogControllerForTest(standaloneTlc);
     ASSERT_FALSE(guard.isNull());
 
-    // Destroy TLC directly
     delete standaloneTlc;
     EXPECT_TRUE(guard.isNull());
 
-    // ensureConnected safely falls back to SPDLOG_WARN path without crashing
     EXPECT_FALSE(presenter_->ensureConnected());
 }
 
-// 10. Mode switch during connecting resets controls
+// 10. Mode switch during connecting resets controls and protocol
 TEST_F(ConnectionStateGuardingTest, ModeSwitch_DuringConnecting_ControlsCorrectlyReset) {
     presenter_->syncWidgetGuards(SessionConnectionState::Connecting);
 
-    auto* serialWidget = new ui::widgets::SerialConnectionWidget(settingsService_.get());
-    presenter_->switchMode(SessionMode::Rtu, serialWidget);
+    EXPECT_CALL(*mockView_, setProtocolType(::modbus::parser::ProtocolType::Rtu)).Times(1);
+    presenter_->switchMode(SessionMode::Rtu);
+    QCoreApplication::processEvents();
 
-    const auto readBtns = getReadButtons(*functionWidget_);
-    const auto writeBtns = getWriteButtons(*functionWidget_);
-
-    for (auto* btn : readBtns) {
-        EXPECT_FALSE(btn->isEnabled());
-    }
-    for (auto* btn : writeBtns) {
-        EXPECT_FALSE(btn->isEnabled());
-    }
-
-    presenter_->switchMode(SessionMode::Tcp, tcpWidget_.get());
-    delete serialWidget;
+    EXPECT_CALL(*mockView_, setProtocolType(::modbus::parser::ProtocolType::Tcp)).Times(1);
+    presenter_->switchMode(SessionMode::Tcp);
+    QCoreApplication::processEvents();
 }
 
-// 11. Teardown and recreate: no stale validator reference
-TEST_F(ConnectionStateGuardingTest, TeardownAndRecreate_NoStaleValidatorReference) {
-    auto* pollCheck = getPollCheckBox(*controlWidget_);
-    ASSERT_NE(pollCheck, nullptr);
+// 11. View detachment lifecycle: detachView prevents dangling pointer access
+TEST_F(ConnectionStateGuardingTest, DetachView_PreventsDanglingAccess) {
+    presenter_->detachView();
+    EXPECT_EQ(presenter_->view(), nullptr);
 
-    // Calling setInteractionsEnabled controls the widget without any external validator callback
-    controlWidget_->setInteractionsEnabled(true);
-    EXPECT_TRUE(pollCheck->isEnabled());
-
-    controlWidget_->setInteractionsEnabled(false);
-    EXPECT_FALSE(pollCheck->isEnabled());
+    // Callbacks must safely execute with null view_
+    EXPECT_NO_THROW(presenter_->syncWidgetGuards(SessionConnectionState::Connected));
+    EXPECT_NO_THROW(presenter_->setLinked(true));
 }
 
 // 12. isSessionConnected returns true for TransportConnected and Connected
@@ -313,16 +207,9 @@ TEST_F(ConnectionStateGuardingTest, IsSessionConnected_TrueForConnectedAndTransp
     auto* session = presenter_->sessionPresenter();
     ASSERT_NE(session, nullptr);
 
-    // Initial: Disconnected
     EXPECT_FALSE(session->isSessionConnected());
-
-    // When connection is up, isSessionConnected returns true
     presenter_->syncWidgetGuards(SessionConnectionState::Connected);
-    // PagePresenter::ensureConnected relies on isSessionConnected()
-    EXPECT_FALSE(presenter_->ensureConnected()); // session itself is not yet connected
-
-    // Note: Once sessionPresenter's internal state reaches TransportConnected/Connected,
-    // isSessionConnected() returns true (verified directly in unit tests)
+    EXPECT_FALSE(presenter_->ensureConnected());
 }
 
 // 13. PagePresenter: requestConnect anti-bounce reentrancy guard
@@ -330,20 +217,11 @@ TEST_F(ConnectionStateGuardingTest, RequestConnect_AntiBounceReentrancyGuard) {
     auto* session = presenter_->sessionPresenter();
     ASSERT_NE(session, nullptr);
 
-    // If session is already connecting, requestConnect drops duplicated fast clicks
     presenter_->syncWidgetGuards(SessionConnectionState::Connecting);
     ModbusConnectionSpec spec;
     spec.config.mode = ::modbus::base::ModbusMode::TCP;
     spec.config.ipAddress = QStringLiteral("127.0.0.1");
     spec.config.port = 502;
 
-    // Must not crash or trigger duplicate stack creation
     EXPECT_NO_THROW(presenter_->requestConnect(spec));
 }
-
-// 14. Responsive Layout: individual widgets must not exceed 650px minimum width
-TEST_F(ConnectionStateGuardingTest, WidgetsMinimumSize_UnderResponsiveThreshold) {
-    EXPECT_LE(controlWidget_->minimumSizeHint().width(), 650);
-    EXPECT_LE(functionWidget_->minimumSizeHint().width(), 650);
-}
-

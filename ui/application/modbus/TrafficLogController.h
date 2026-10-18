@@ -17,15 +17,22 @@ namespace ui::application::modbus {
 
 class PollingController;
 
+/// Role: High-level log & traffic controller converting protocol transactions into structured TrafficEvents.
+/// Thread-safety: Thread-affine (bound to GUI main thread).
+/// Ownership: Owned by ModbusPagePresenter via QPointer/QObject hierarchy.
 class TrafficLogController : public QObject {
     Q_OBJECT
 
 public:
-    explicit TrafficLogController(ui::widgets::TrafficMonitorWidget* monitor,
-                                  PollingController* pollingController,
+    explicit TrafficLogController(PollingController* pollingController = nullptr,
                                   QObject* parent = nullptr);
+    TrafficLogController(ui::widgets::TrafficMonitorWidget* monitor,
+                          PollingController* pollingController,
+                          QObject* parent = nullptr);
 
     void setPollingController(PollingController* controller);
+    void setRawFramesEnabled(bool enabled) noexcept;
+    [[nodiscard]] bool isRawFramesEnabled() const noexcept;
 
     void logConnectionInfo(const QString& message);
     void logRawFrame(ui::common::TrafficDirection direction, const QByteArray& data);
@@ -42,10 +49,11 @@ public:
     void logInfo(const QString& message);
     void logPollSummary(const PollSummary& summary);
 
-    /// Single legitimate entry point for traffic events: appends to
-    /// the monitor and crosses the LogBridge into spdlog. Producers must emit
-    /// signals wired here; calling ui::logging::relay() directly is forbidden.
+    /// Single legitimate entry point for traffic events: emits trafficEvent and crosses LogBridge into spdlog.
     void publishEvent(ui::common::TrafficEvent event);
+
+signals:
+    void trafficEvent(const ::ui::common::TrafficEvent& event);
 
 private:
     static QString retryWord(int retryCount);
@@ -54,10 +62,8 @@ private:
 
     ui::widgets::TrafficMonitorWidget* monitor_ = nullptr;
     PollingController* pollingController_ = nullptr;
+    bool rawFramesEnabled_ = false;
 
-    // Raw Frames sampling state (poll frames only; manual frames are
-    // never sampled). rawFramePhase_ keeps the 1/N rhythm across summary
-    // windows; shown/dropped are per-window counters reported in the summary.
     int rawFramePhase_ = 0;
     int rawFramesShown_ = 0;
     int rawFramesDropped_ = 0;

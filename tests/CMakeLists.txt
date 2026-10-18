@@ -190,6 +190,7 @@ set(TEST_UI_WIDGETS_SOURCES
     unit/ui/widgets/TelemetryTableModelTest.cpp
     unit/ui/widgets/ModbusTelemetryWidgetTest.cpp
     unit/ui/widgets/ModbusWorkbenchWidgetTest.cpp
+    unit/modbus/application/ModbusPagePresenterTest.cpp
 )
 
 set(TEST_INTEGRATION_SOURCES

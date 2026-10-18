@@ -40,7 +40,7 @@ public:
     [[nodiscard]] bool isPollingEnabled() const;
     void setInteractionsEnabled(bool enabled);
     [[nodiscard]] int pollingIntervalMs() const;
-    void setAddressBase(modbus::address::AddressBase base);
+    void setAddressBase(::modbus::address::AddressBase base);
 
 signals:
     void pollStartRequested(uint8_t functionCode, int address, int quantity, int intervalMs);
@@ -84,7 +84,7 @@ private:
     QString settingsGroup_;
     infra::config::ISettingsService* settingsService_ = nullptr;
 
-    modbus::address::AddressBase addressBase_ = modbus::address::AddressBase::Offset0Based;
+    ::modbus::address::AddressBase addressBase_ = ::modbus::address::AddressBase::Offset0Based;
     void updateAddressPlaceholder();
 };
 
