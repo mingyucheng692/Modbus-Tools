@@ -109,4 +109,18 @@ inline constexpr char kModbusRtuFlowControl[] = "modbus/rtu/serial/flowControl";
 inline constexpr char kNetworkDebuggerUdpRemoteIp[] = "network_debugger/udp/remoteIp";
 inline constexpr char kNetworkDebuggerUdpRemotePort[] = "network_debugger/udp/remotePort";
 
+// Modbus Workbench settings keys.
+inline constexpr char kModbusWorkbenchMode[] = "modbus/workbench/mode";
+inline constexpr char kModbusWorkbenchSlaveId[] = "modbus/workbench/slaveId";
+inline constexpr char kModbusWorkbenchFunctionCode[] = "modbus/workbench/functionCode";
+inline constexpr char kModbusWorkbenchStartAddress[] = "modbus/workbench/startAddress";
+inline constexpr char kModbusWorkbenchQuantity[] = "modbus/workbench/quantity";
+inline constexpr char kModbusWorkbenchRadix[] = "modbus/workbench/radix";
+inline constexpr char kModbusWorkbenchPollIntervalMs[] = "modbus/workbench/pollIntervalMs";
+inline constexpr char kModbusWorkbenchFc05Value[] = "modbus/workbench/fc05Value";
+inline constexpr char kModbusWorkbenchFc06Value[] = "modbus/workbench/fc06Value";
+inline constexpr char kModbusWorkbenchFc0fValue[] = "modbus/workbench/fc0fValue";
+inline constexpr char kModbusWorkbenchFc10Value[] = "modbus/workbench/fc10Value";
+inline constexpr char kModbusWorkbenchRawText[] = "modbus/workbench/rawText";
+
 }

@@ -1,0 +1,185 @@
+// Copyright (c) 2025 - present mingyucheng692. Licensed under the MIT License.
+
+#pragma once
+
+#include <QWidget>
+#include <functional>
+#include "application/modbus/ModbusExecuteSpec.h"
+#include "application/modbus/IModbusPageView.h"
+#include "modbus/base/ModbusAddressMapping.h"
+#include "modbus/base/ModbusFunctionTraits.h"
+#include "modbus/parser/ModbusFrameParser.h"
+
+class QButtonGroup;
+class QCheckBox;
+class QComboBox;
+class QGroupBox;
+class QLabel;
+class QLineEdit;
+class QPlainTextEdit;
+class QPushButton;
+class QSpinBox;
+class QStackedLayout;
+class QVBoxLayout;
+
+namespace infra::config {
+class ISettingsService;
+}
+
+namespace ui::widgets::modbus {
+
+/// Role: Master-detail workbench controller presenting standard function code operations and raw frame dispatch.
+/// Thread-safety: Thread-affine (must be invoked on GUI main thread).
+/// Ownership: Owned by views::modbus::ModbusPage via QObject parent-child hierarchy.
+class ModbusWorkbenchWidget : public QWidget {
+    Q_OBJECT
+
+public:
+    explicit ModbusWorkbenchWidget(infra::config::ISettingsService* settingsService,
+                                   QWidget* parent = nullptr);
+    ~ModbusWorkbenchWidget() noexcept override;
+
+    ModbusWorkbenchWidget(const ModbusWorkbenchWidget&) = delete;
+    ModbusWorkbenchWidget& operator=(const ModbusWorkbenchWidget&) = delete;
+    ModbusWorkbenchWidget(ModbusWorkbenchWidget&&) noexcept = delete;
+    ModbusWorkbenchWidget& operator=(ModbusWorkbenchWidget&&) noexcept = delete;
+
+    // View synchronization API
+    void setExecutionGuards(const ::ui::application::modbus::ExecutionGuardState& guards);
+    void setAddressBase(::modbus::address::AddressBase base);
+    void setProtocolType(::modbus::parser::ProtocolType protocol);
+
+    // Testing hook for Defense 1 modal confirmation
+    void setConfirmWritePollHandler(std::function<bool(uint8_t fc)> handler) noexcept;
+
+    // State getters
+    [[nodiscard]] ::ui::application::modbus::ModbusExecuteSpec currentSpec() const;
+    [[nodiscard]] bool isRawMode() const noexcept;
+    [[nodiscard]] bool isPolling() const noexcept;
+    [[nodiscard]] int pollingIntervalMs() const noexcept;
+    [[nodiscard]] uint8_t slaveId() const noexcept;
+    [[nodiscard]] uint8_t functionCode() const noexcept;
+    [[nodiscard]] uint16_t startAddress() const noexcept;
+    [[nodiscard]] uint16_t quantity() const noexcept;
+    [[nodiscard]] int radix() const noexcept;
+    [[nodiscard]] ::modbus::address::AddressBase addressBase() const noexcept;
+
+    // State setters (programmatic / testing)
+    void setMode(int mode);
+    void setSlaveId(uint8_t slaveId);
+    void setFunctionCode(uint8_t fc);
+    void setStartAddress(uint16_t addr);
+    void setQuantity(uint16_t qty);
+    void setRadix(int radix);
+    void setPollingIntervalMs(int ms);
+    void setFc05Value(bool on);
+    void setWritePayload(const QString& text);
+    void setRawText(const QString& text);
+    void setPollingChecked(bool checked);
+
+signals:
+    void executeRequested(const ::ui::application::modbus::ModbusExecuteSpec& spec);
+    void pollToggleRequested(bool start, const ::ui::application::modbus::ModbusExecuteSpec& spec, bool userConfirmedWritePoll);
+    void pollIntervalChanged(int intervalMs);
+    void logMessageRequested(const QString& message, bool isError);
+
+private slots:
+    void onModeChanged(int id);
+    void onRadixChanged(int id);
+    void onFunctionCodeChanged(int index);
+    void onSlaveIdChanged(int val);
+    void onAddressEdited();
+    void onQuantityChanged(int val);
+    void onFc05Toggled(bool on);
+    void onExecuteClicked();
+    void onPollCheckBoxToggled(bool checked);
+    void onPollIntervalChanged(int val);
+    void onAddMbapClicked();
+    void onAddCrcClicked();
+    void onAddLrcClicked();
+    void onCleanHexClicked();
+
+private:
+    void setupUi();
+    QWidget* createStandardWidget();
+    QWidget* createRawWidget();
+    void setupAddressingSection(QWidget* parent, QVBoxLayout* layout);
+    void setupRadixSelector(QGroupBox* group, QVBoxLayout* gl);
+    void setupParametersInputs(QGroupBox* group, QVBoxLayout* gl);
+    void setupAddressAndQuantityInputs(QGroupBox* group, QVBoxLayout* gl);
+    void setupWriteSection(QWidget* parent, QVBoxLayout* layout);
+    void setupWriteStackPages(QWidget* stackWidget);
+    void setupBitAndWordPages(QWidget* stackWidget);
+    void setupExecutionSection(QWidget* parent, QVBoxLayout* layout);
+    void setupRawButtons(QGroupBox* editGroup, QVBoxLayout* el);
+    void updateAddressDisplay();
+    void validateInputs();
+    void validateAddressRange(bool& valid, QString& errorMsg);
+    void validateWriteData(bool& valid, QString& errorMsg);
+    void updateWarningAndActionState(bool valid, const QString& errorMsg, uint8_t sid);
+    bool confirmWritePoll(uint8_t fc);
+    void stopPollingInternal(bool emitSignal);
+    void loadSettings();
+    void loadWidgetValues();
+    void saveSettings();
+    void retranslateUi();
+    void changeEvent(QEvent* event) override;
+
+    infra::config::ISettingsService* settingsService_ = nullptr;
+    ::ui::application::modbus::ExecutionGuardState guardState_;
+    ::modbus::address::AddressBase addressBase_ = ::modbus::address::AddressBase::Offset0Based;
+    ::modbus::parser::ProtocolType protocolType_ = ::modbus::parser::ProtocolType::Tcp;
+    std::function<bool(uint8_t fc)> confirmWritePollHandler_;
+
+    // State variables
+    bool isRawMode_ = false;
+    bool isPolling_ = false;
+    bool userConfirmedWritePoll_ = false;
+    uint16_t pduAddress_ = 0;
+    int radix_ = 10;
+    bool fc05IsOn_ = true;
+
+    // UI Widgets
+    QButtonGroup* modeGroup_ = nullptr;
+    QPushButton* standardModeBtn_ = nullptr;
+    QPushButton* rawModeBtn_ = nullptr;
+    QStackedLayout* mainStackedLayout_ = nullptr;
+
+    // Standard mode widgets
+    QButtonGroup* radixGroup_ = nullptr;
+    QPushButton* radixDecBtn_ = nullptr;
+    QPushButton* radixHexBtn_ = nullptr;
+    QComboBox* fcCombo_ = nullptr;
+    QSpinBox* slaveIdSpin_ = nullptr;
+    QLineEdit* addressEdit_ = nullptr;
+    QSpinBox* quantitySpin_ = nullptr;
+    QLabel* addressWarningLabel_ = nullptr;
+
+    // Write stack
+    QGroupBox* writeGroup_ = nullptr;
+    QStackedLayout* writeStackedLayout_ = nullptr;
+    QPushButton* fc05OnBtn_ = nullptr;
+    QPushButton* fc05OffBtn_ = nullptr;
+    QButtonGroup* fc05Group_ = nullptr;
+    QLineEdit* fc06ValueEdit_ = nullptr;
+    QLineEdit* fc0fBitsEdit_ = nullptr;
+    QLabel* fc0fHintLabel_ = nullptr;
+    QLineEdit* fc10WordsEdit_ = nullptr;
+    QLabel* fc10HintLabel_ = nullptr;
+
+    // Execution & polling
+    QPushButton* executeBtn_ = nullptr;
+    QCheckBox* pollCheckBox_ = nullptr;
+    QSpinBox* pollIntervalSpin_ = nullptr;
+    QLabel* writePollWarningBadge_ = nullptr;
+
+    // Raw mode widgets
+    QPlainTextEdit* rawTextEdit_ = nullptr;
+    QPushButton* addMbapBtn_ = nullptr;
+    QPushButton* addCrcBtn_ = nullptr;
+    QPushButton* addLrcBtn_ = nullptr;
+    QPushButton* cleanHexBtn_ = nullptr;
+    QPushButton* rawExecuteBtn_ = nullptr;
+};
+
+} // namespace ui::widgets::modbus

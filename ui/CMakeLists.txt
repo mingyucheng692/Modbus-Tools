@@ -155,6 +155,8 @@ target_sources(ui PRIVATE
     widgets/modbus/TelemetryTableModel.cpp
     widgets/modbus/ModbusTelemetryWidget.h
     widgets/modbus/ModbusTelemetryWidget.cpp
+    widgets/modbus/ModbusWorkbenchWidget.h
+    widgets/modbus/ModbusWorkbenchWidget.cpp
     widgets/LogListModel.cpp
     widgets/LogListModel.h
     widgets/ByteMonitorWidget.cpp
