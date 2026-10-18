@@ -4,7 +4,8 @@
 
 #include "../../../ui/widgets/SerialConnectionWidget.h"
 #include "../../../ui/widgets/TcpConnectionWidget.h"
-#include "../../../ui/widgets/TrafficMonitorWidget.h"
+#include "../../../ui/widgets/modbus/ModbusTelemetryWidget.h"
+#include "../../../ui/widgets/modbus/ModbusWorkbenchWidget.h"
 #include "../../mocks/UiTestDoubles.h"
 
 #include <QApplication>
@@ -13,6 +14,7 @@
 #include <QComboBox>
 #include <QCoreApplication>
 #include <QLabel>
+#include <QPushButton>
 #include <QDir>
 #include <QEvent>
 #include <QFileInfo>
@@ -176,21 +178,31 @@ TEST(I18nWidgets, SerialConnectionWidget_SupportsIntermediateStates)
     EXPECT_TRUE(foundDisconnectingLabel);
 }
 
-TEST(I18nWidgets, TrafficMonitorDirectionCheckboxesRetranslate)
+TEST(I18nWidgets, ModbusTelemetryWidgetRetranslatesWithoutCrash)
+{
+    ui::widgets::modbus::ModbusTelemetryWidget widget;
+
+    ScopedTranslator translator(QStringLiteral("Modbus-Tools_zh_CN.qm"));
+    ASSERT_TRUE(translator.isLoaded());
+
+    EXPECT_NO_THROW(sendLanguageChange(widget));
+}
+
+TEST(I18nWidgets, ModbusWorkbenchWidgetRetranslate)
 {
     tests::mocks::FakeSettingsService settingsService;
-    ui::widgets::TrafficMonitorWidget widget(&settingsService);
+    ui::widgets::modbus::ModbusWorkbenchWidget widget(&settingsService);
 
     ScopedTranslator translator(QStringLiteral("Modbus-Tools_zh_CN.qm"));
     ASSERT_TRUE(translator.isLoaded());
 
     sendLanguageChange(widget);
 
-    QSet<QString> checkboxTexts;
-    for (auto* checkBox : widget.findChildren<QCheckBox*>()) {
-        checkboxTexts.insert(checkBox->text());
+    QSet<QString> buttonTexts;
+    for (auto* btn : widget.findChildren<QPushButton*>()) {
+        buttonTexts.insert(btn->text());
     }
 
-    EXPECT_TRUE(checkboxTexts.contains(QStringLiteral("发送")));
-    EXPECT_TRUE(checkboxTexts.contains(QStringLiteral("接收")));
+    EXPECT_TRUE(buttonTexts.contains(QStringLiteral("执行 (F5)")));
 }
+

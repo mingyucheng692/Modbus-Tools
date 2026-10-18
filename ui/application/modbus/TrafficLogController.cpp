@@ -4,7 +4,6 @@
 #include "PollingController.h"
 #include "Config.h"
 #include "../../logging/LogBridge.h"
-#include "../../widgets/TrafficMonitorWidget.h"
 #include <QCoreApplication>
 #include <utility>
 
@@ -13,14 +12,6 @@ namespace ui::application::modbus {
 TrafficLogController::TrafficLogController(PollingController* pollingController,
                                            QObject* parent)
     : QObject(parent)
-    , pollingController_(pollingController) {
-}
-
-TrafficLogController::TrafficLogController(ui::widgets::TrafficMonitorWidget* monitor,
-                                           PollingController* pollingController,
-                                           QObject* parent)
-    : QObject(parent)
-    , monitor_(monitor)
     , pollingController_(pollingController) {
 }
 
@@ -38,9 +29,6 @@ bool TrafficLogController::isRawFramesEnabled() const noexcept {
 
 void TrafficLogController::publishEvent(ui::common::TrafficEvent event) {
     emit trafficEvent(event);
-    if (monitor_) {
-        monitor_->appendEvent(event);
-    }
     ui::logging::relay(event);
 }
 
@@ -55,7 +43,7 @@ void TrafficLogController::logRawFrame(ui::common::TrafficDirection direction,
                                        const QByteArray& data) {
     const bool suppressLog = pollingController_
         && pollingController_->isSuppressingTrafficLog();
-    const bool rawEnabled = rawFramesEnabled_ || (monitor_ && monitor_->isRawFramesModeEnabled());
+    const bool rawEnabled = rawFramesEnabled_;
     const bool allowRawFrameLog = !suppressLog || rawEnabled;
     if (!allowRawFrameLog) return;
 

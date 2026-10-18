@@ -55,6 +55,7 @@ signals:
 
 protected:
     void keyPressEvent(QKeyEvent* event) override;
+    void changeEvent(QEvent* event) override;
 
 private slots:
     void processBatchTimeout();
@@ -71,6 +72,7 @@ private:
     void setupFooter();
     void updateInspectorContent(const TelemetryRowView* row);
     void updateMetricsLabel();
+    void retranslateUi();
 
     TelemetryTableModel* tableModel_ = nullptr;
     QSortFilterProxyModel* proxyModel_ = nullptr;
@@ -78,6 +80,7 @@ private:
     QSplitter* splitter_ = nullptr;
 
     // Toolbar controls
+    QLabel* filterLabel_ = nullptr;
     QComboBox* filterCombo_ = nullptr;
     QCheckBox* rawFramesCheck_ = nullptr;
     QPushButton* autoScrollBtn_ = nullptr;

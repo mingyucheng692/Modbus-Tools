@@ -7,7 +7,6 @@
 #include "../../../ui/application/modbus/PollingController.h"
 #include "../../../ui/application/modbus/RequestSubmissionService.h"
 #include "../../../ui/application/modbus/ModbusTypes.h"
-#include "../../../ui/widgets/TrafficMonitorWidget.h"
 #include <QSignalSpy>
 
 using namespace testing;
@@ -20,14 +19,12 @@ protected:
     void SetUp() override {
         requestService_ = std::make_unique<RequestSubmissionService>();
         pollingController_ = std::make_unique<PollingController>(requestService_.get());
-        monitor_ = new ui::widgets::TrafficMonitorWidget(nullptr);
         controller_ = std::make_unique<TrafficLogController>(
-            monitor_, pollingController_.get());
+            pollingController_.get());
     }
 
     std::unique_ptr<RequestSubmissionService> requestService_;
     std::unique_ptr<PollingController> pollingController_;
-    ui::widgets::TrafficMonitorWidget* monitor_;
     std::unique_ptr<TrafficLogController> controller_;
 };
 

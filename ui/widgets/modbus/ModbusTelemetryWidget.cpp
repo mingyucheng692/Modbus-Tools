@@ -64,7 +64,8 @@ void ModbusTelemetryWidget::setupToolbar() {
     filterCombo_->addItems({tr("All"), tr("TX"), tr("RX"), tr("SYS"), tr("Errors")});
     connect(filterCombo_, QOverload<int>::of(&QComboBox::currentIndexChanged),
             this, &ModbusTelemetryWidget::onFilterChanged);
-    toolLayout->addWidget(new QLabel(tr("Filter:"), this));
+    filterLabel_ = new QLabel(tr("Filter:"), this);
+    toolLayout->addWidget(filterLabel_);
     toolLayout->addWidget(filterCombo_);
 
     rawFramesCheck_ = new QCheckBox(tr("Raw Frames"), this);
@@ -428,4 +429,52 @@ void ModbusTelemetryWidget::keyPressEvent(QKeyEvent* event) {
     QWidget::keyPressEvent(event);
 }
 
+void ModbusTelemetryWidget::changeEvent(QEvent* event) {
+    if (event->type() == QEvent::LanguageChange) {
+        retranslateUi();
+    }
+    QWidget::changeEvent(event);
+}
+
+void ModbusTelemetryWidget::retranslateUi() {
+    if (filterLabel_) {
+        filterLabel_->setText(tr("Filter:"));
+    }
+    if (filterCombo_) {
+        const int cur = filterCombo_->currentIndex();
+        filterCombo_->setItemText(0, tr("All"));
+        filterCombo_->setItemText(1, tr("TX"));
+        filterCombo_->setItemText(2, tr("RX"));
+        filterCombo_->setItemText(3, tr("SYS"));
+        filterCombo_->setItemText(4, tr("Errors"));
+        filterCombo_->setCurrentIndex(cur);
+    }
+    if (rawFramesCheck_) {
+        rawFramesCheck_->setText(tr("Raw Frames"));
+    }
+    if (autoScrollBtn_) {
+        autoScrollBtn_->setText(autoScroll_ ? tr("Auto-Scroll: ON") : tr("Auto-Scroll: OFF"));
+    }
+    if (clearBtn_) {
+        clearBtn_->setText(tr("Clear (Ctrl+L)"));
+    }
+    if (exportBtn_) {
+        exportBtn_->setText(tr("Export..."));
+    }
+    if (inspectorHeaderLabel_ && !tableView_->selectionModel()->hasSelection()) {
+        inspectorHeaderLabel_->setText(tr("Frame Details"));
+    }
+    if (inspectorDetailsText_) {
+        inspectorDetailsText_->setPlaceholderText(tr("Select a frame to inspect details"));
+    }
+    if (linkageCheck_) {
+        linkageCheck_->setText(tr("Link to Frame Analyzer"));
+    }
+    updateMetricsLabel();
+    if (tableModel_) {
+        tableModel_->retranslate();
+    }
+}
+
 } // namespace ui::widgets::modbus
+

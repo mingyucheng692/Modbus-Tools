@@ -144,12 +144,6 @@ target_sources(ui PRIVATE
     widgets/UdpConnectionWidget.cpp
     widgets/SerialConnectionWidget.h
     widgets/SerialConnectionWidget.cpp
-    widgets/FunctionWidget.h
-    widgets/FunctionWidget.cpp
-    widgets/ControlWidget.h
-    widgets/ControlWidget.cpp
-    widgets/TrafficMonitorWidget.h
-    widgets/TrafficMonitorWidget.cpp
     widgets/modbus/TelemetryRowView.h
     widgets/modbus/TelemetryTableModel.h
     widgets/modbus/TelemetryTableModel.cpp

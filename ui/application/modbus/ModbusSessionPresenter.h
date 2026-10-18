@@ -17,7 +17,6 @@ class QThread;
 class QWidget;
 
 namespace ui::widgets {
-class ControlWidget;
 class BaseConnectionWidget;
 }
 
@@ -64,7 +63,6 @@ public:
     void setPollingController(PollingController* controller);
     void setRequestService(RequestSubmissionService* service);
     void setConnectionWidget(ui::widgets::BaseConnectionWidget* widget);
-    void setControlWidget(ui::widgets::ControlWidget* widget);
 
     void setLinked(bool linked);
     bool isLinked() const;
@@ -157,7 +155,6 @@ private:
     // possible or needed.
     RequestSubmissionService* requestService_ = nullptr;
     QPointer<ui::widgets::BaseConnectionWidget> connectionWidget_;
-    QPointer<ui::widgets::ControlWidget> controlWidget_;
     std::unique_ptr<WorkerReleaseCoordinator> releaseCoordinator_;
     std::function<void()> deferredAction_;
 };

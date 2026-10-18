@@ -9,10 +9,6 @@
 #include "../../common/TrafficEvent.h"
 #include "PollingController.h"
 
-namespace ui::widgets {
-class TrafficMonitorWidget;
-}
-
 namespace ui::application::modbus {
 
 class PollingController;
@@ -26,9 +22,6 @@ class TrafficLogController : public QObject {
 public:
     explicit TrafficLogController(PollingController* pollingController = nullptr,
                                   QObject* parent = nullptr);
-    TrafficLogController(ui::widgets::TrafficMonitorWidget* monitor,
-                          PollingController* pollingController,
-                          QObject* parent = nullptr);
 
     void setPollingController(PollingController* controller);
     void setRawFramesEnabled(bool enabled) noexcept;
@@ -60,7 +53,6 @@ private:
     static QString successWithRetrySummary(const QString& baseMessage, int retryCount);
     static QString errorWithRetrySummary(const QString& error, int retryCount);
 
-    ui::widgets::TrafficMonitorWidget* monitor_ = nullptr;
     PollingController* pollingController_ = nullptr;
     bool rawFramesEnabled_ = false;
 

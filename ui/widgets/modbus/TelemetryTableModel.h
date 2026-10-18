@@ -44,6 +44,7 @@ public:
     void setMaxRows(int maxRows) noexcept;
 
     [[nodiscard]] uint64_t nextRowId() noexcept { return nextRowId_++; }
+    void retranslate() { emit headerDataChanged(Qt::Horizontal, 0, ColumnCount - 1); }
 
 private:
     std::deque<TelemetryRowView> rows_;

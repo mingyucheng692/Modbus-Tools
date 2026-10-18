@@ -5,7 +5,6 @@
 #include "RequestSubmissionService.h"
 #include "PollingController.h"
 #include "TrafficLogController.h"
-#include "../../widgets/ControlWidget.h"
 #include "../../widgets/BaseConnectionWidget.h"
 #include "../../common/ConnectionAlert.h"
 #include "modbus/factory/ModbusFactory.h"
@@ -208,10 +207,6 @@ void ModbusSessionPresenter::requestRelease(const QString& timeoutMessage) {
     onConnectionStateChanged(SessionConnectionState::Disconnected);
     const bool wasLinked = linked_;
     linked_ = false;
-    if (controlWidget_) {
-        controlWidget_->setLinked(false);
-        controlWidget_->setPollingEnabled(false);
-    }
     if (wasLinked) {
         emit linkageSourceDisconnected();
     }
@@ -343,15 +338,6 @@ void ModbusSessionPresenter::setConnectionWidget(ui::widgets::BaseConnectionWidg
     syncConnectionWidget(connectionState_);
 }
 
-void ModbusSessionPresenter::setControlWidget(ui::widgets::ControlWidget* widget) {
-    assertGuiThread("setControlWidget must be called on the GUI thread");
-    controlWidget_ = widget;
-    if (controlWidget_) {
-        controlWidget_->setLinked(linked_);
-        controlWidget_->setPollingEnabled(isSessionConnected());
-    }
-}
-
 void ModbusSessionPresenter::assertGuiThread(const char* context) const {
     assertObjectThread(this, context);
 }
@@ -442,9 +428,6 @@ void ModbusSessionPresenter::maybeRunDeferredAction() {
 void ModbusSessionPresenter::setLinked(bool linked) {
     assertGuiThread("setLinked must be called on the GUI thread");
     linked_ = linked;
-    if (controlWidget_) {
-        controlWidget_->setLinked(linked);
-    }
 }
 
 bool ModbusSessionPresenter::isLinked() const {
@@ -640,10 +623,7 @@ void ModbusSessionPresenter::handleChannelStateTransition(io::ChannelState state
         }
 
         if (disconnectIsExplicit_) {
-            // Explicit / user-initiated teardown: stop polling and disable widget.
-            if (controlWidget_) {
-                controlWidget_->setPollingEnabled(false);
-            }
+            // Explicit / user-initiated teardown: stop polling.
             if (pollingController_) {
                 pollingController_->stopPoll();
             }
@@ -670,9 +650,6 @@ void ModbusSessionPresenter::handleConnectFinished(bool ok, const QString& error
     if (!ok) {
         // syncStateFromCore already derived the correct state.  Handle
         // side effects from the presenter layer.
-        if (controlWidget_) {
-            controlWidget_->setPollingEnabled(false);
-        }
         if (pollingController_) {
             pollingController_->stopPoll();
         }
