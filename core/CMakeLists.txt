@@ -4,6 +4,7 @@ target_sources(core PRIVATE
     Config.h
     # modbus base
     modbus/base/ModbusTypes.h
+    modbus/base/ModbusFunctionTraits.h
     modbus/base/ModbusFrame.h
     modbus/base/ModbusConfig.h
     modbus/base/ModbusEndianCodec.h

@@ -146,6 +146,7 @@ set(TEST_CORE_LOGIC_SOURCES
     unit/modbus/base/ModbusByteOrderTest.cpp
     unit/modbus/base/ModbusCrcTest.cpp
     unit/modbus/base/ModbusEndianCodecTest.cpp
+    unit/modbus/base/ModbusFunctionTraitsTest.cpp
     unit/modbus/base/ModbusPduTest.cpp
     unit/modbus/base/ModbusPduBuilderTest.cpp
     unit/modbus/base/RegisterValueDecoderTest.cpp

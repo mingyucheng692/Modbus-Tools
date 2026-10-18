@@ -88,6 +88,8 @@ target_sources(ui PRIVATE
     application/UpdateCoordinator.h
     application/modbus/RequestSubmissionService.cpp
     application/modbus/RequestSubmissionService.h
+    application/modbus/ModbusExecuteSpec.h
+    application/modbus/IModbusPageView.h
     application/modbus/PollingController.cpp
     application/modbus/PollingController.h
     application/modbus/TrafficLogController.cpp

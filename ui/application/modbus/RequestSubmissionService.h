@@ -12,7 +12,9 @@
 #include <optional>
 #include "modbus/base/ModbusFrame.h"
 #include "modbus/base/ModbusPduBuilder.h"
+#include "modbus/base/ModbusFunctionTraits.h"
 #include "ModbusTypes.h"
+#include "ModbusExecuteSpec.h"
 
 namespace ui::application::modbus {
 
@@ -23,7 +25,7 @@ struct RequestTrackingInfo {
     std::chrono::steady_clock::time_point startTime{};
 };
 
-// Role: Plain C++ domain service for building Modbus requests and tracking submissions.
+// Role: Plain C++ domain service for building Modbus requests, validating IEC 61158 gates, and tracking submissions.
 // Thread-safety: Thread-compatible. Driven synchronously on GUI thread.
 // Ownership: Owned via std::unique_ptr by ModbusPagePresenter.
 class RequestSubmissionService {
@@ -38,6 +40,18 @@ public:
         int requestId = 0;
         TraceId traceId = 0;
     };
+
+    struct ValidationResult {
+        bool isValid = false;
+        QString errorMessage;
+    };
+
+    [[nodiscard]] ValidationResult validateSpec(const ModbusExecuteSpec& spec,
+                                               SessionMode mode = SessionMode::Tcp) const;
+
+    RequestBuildResult buildExecuteRequest(const ModbusExecuteSpec& spec,
+                                          SessionMode mode = SessionMode::Tcp,
+                                          RequestKind kind = RequestKind::Read);
 
     RequestBuildResult buildReadRequest(const PollSpec& spec,
                                         RequestKind kind = RequestKind::Read);
@@ -54,6 +68,10 @@ public:
     std::function<void()> onTxCountUpdated;
 
 private:
+    [[nodiscard]] ValidationResult validateBroadcastGate(const ModbusExecuteSpec& spec, SessionMode mode) const;
+    [[nodiscard]] ValidationResult validateQuantityAndRangeGate(const ModbusExecuteSpec& spec) const;
+    [[nodiscard]] ValidationResult validateWirePayloadGate(const ModbusExecuteSpec& spec) const;
+
     int nextRequestId();
     TraceId nextTraceId();
     void trackRequest(int requestId, RequestKind kind, uint16_t addr, TraceId traceId);
