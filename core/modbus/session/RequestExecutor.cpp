@@ -206,7 +206,7 @@ void RequestExecutor::executeAsync(const base::Pdu& request, int slaveId, quint6
         transactionTimer_ = std::make_unique<QTimer>();
         transactionTimer_->setSingleShot(true);
         transactionTimer_->setTimerType(Qt::PreciseTimer);
-        QObject::connect(transactionTimer_.get(), &QTimer::timeout, [this]() {
+        QObject::connect(transactionTimer_.get(), &QTimer::timeout, transactionTimer_.get(), [this]() {
             handleTimeout();
         });
     }
@@ -214,7 +214,7 @@ void RequestExecutor::executeAsync(const base::Pdu& request, int slaveId, quint6
         rtuSilenceTimer_ = std::make_unique<QTimer>();
         rtuSilenceTimer_->setSingleShot(true);
         rtuSilenceTimer_->setTimerType(Qt::PreciseTimer);
-        QObject::connect(rtuSilenceTimer_.get(), &QTimer::timeout, [this]() {
+        QObject::connect(rtuSilenceTimer_.get(), &QTimer::timeout, rtuSilenceTimer_.get(), [this]() {
             checkPendingResponse();
         });
     }
@@ -298,7 +298,7 @@ void RequestExecutor::performWrite(const QByteArray& adu) {
         transactionTimer_ = std::make_unique<QTimer>();
         transactionTimer_->setSingleShot(true);
         transactionTimer_->setTimerType(Qt::PreciseTimer);
-        QObject::connect(transactionTimer_.get(), &QTimer::timeout, [this]() {
+        QObject::connect(transactionTimer_.get(), &QTimer::timeout, transactionTimer_.get(), [this]() {
             handleTimeout();
         });
     }
@@ -325,20 +325,37 @@ void RequestExecutor::sendRaw(const QByteArray& data) {
 void RequestExecutor::abort() {
     SPDLOG_INFO("ModbusClient: Abort requested trace_id={}", currentTrace());
     aborted_ = true;
-    if (transactionTimer_) {
-        transactionTimer_->stop();
-    }
-    if (rtuSilenceTimer_) {
-        rtuSilenceTimer_->stop();
-    }
     const auto current = reqStateMachine_->currentState();
     if (current != RequestStateMachine::State::Completed && current != RequestStateMachine::State::Failed) {
         reqStateMachine_->tryTransition(RequestStateMachine::State::Aborted, "abort");
     }
-    if (activeCallback_) {
-        completeTransaction(ModbusResponse::Error(base::ModbusError::Aborted,
-                                                 QStringLiteral("Aborted"),
-                                                 retryStrategy_->attemptCount()));
+
+    if (transactionTimer_ && QThread::currentThread() != transactionTimer_->thread()) {
+        QMetaObject::invokeMethod(transactionTimer_.get(), [this]() {
+            if (transactionTimer_) {
+                transactionTimer_->stop();
+            }
+            if (rtuSilenceTimer_) {
+                rtuSilenceTimer_->stop();
+            }
+            if (activeCallback_) {
+                completeTransaction(ModbusResponse::Error(base::ModbusError::Aborted,
+                                                         QStringLiteral("Aborted"),
+                                                         retryStrategy_->attemptCount()));
+            }
+        }, Qt::QueuedConnection);
+    } else {
+        if (transactionTimer_) {
+            transactionTimer_->stop();
+        }
+        if (rtuSilenceTimer_) {
+            rtuSilenceTimer_->stop();
+        }
+        if (activeCallback_) {
+            completeTransaction(ModbusResponse::Error(base::ModbusError::Aborted,
+                                                     QStringLiteral("Aborted"),
+                                                     retryStrategy_->attemptCount()));
+        }
     }
 }
 
@@ -446,6 +463,13 @@ void RequestExecutor::onChannelError(const QString& error) {
 }
 
 void RequestExecutor::onWriteDrained() {
+    if (transactionTimer_ && QThread::currentThread() != transactionTimer_->thread()) {
+        QMetaObject::invokeMethod(transactionTimer_.get(), [this]() {
+            onWriteDrained();
+        }, Qt::QueuedConnection);
+        return;
+    }
+
     writeDrained_ = true;
     lastWriteDrainedAt_ = std::chrono::steady_clock::now();
     if (config_->mode == base::ModbusMode::RTU) {
