@@ -34,12 +34,31 @@ std::shared_ptr<dispatch::ModbusWorker> makeManagedWorker(
         });
 }
 
+[[nodiscard]] io::SerialConfig toSerialConfig(const base::ModbusConfig& config)
+{
+    io::SerialConfig serialConfig;
+    serialConfig.portName = config.portName;
+    serialConfig.baudRate = config.baudRate;
+    serialConfig.dataBits = config.dataBits;
+    serialConfig.stopBits = config.stopBits;
+
+    // ModbusConfig parity: 0=None, 2=Even, 3=Odd -> QSerialPort::Parity
+    switch (config.parity) {
+    case 0:  serialConfig.parity = QSerialPort::NoParity;   break;
+    case 2:  serialConfig.parity = QSerialPort::EvenParity; break;
+    case 3:  serialConfig.parity = QSerialPort::OddParity;  break;
+    default: serialConfig.parity = QSerialPort::NoParity;   break;
+    }
+
+    return serialConfig;
+}
+
 std::unique_ptr<io::IChannel> createChannel(const base::ModbusConfig& config, QThread* ioThread) {
     switch (config.mode) {
     case base::ModbusMode::RTU:
     case base::ModbusMode::ASCII: {
         auto serial = std::make_unique<io::SerialChannel>();
-        io::SerialConfig serialConfig = io::toSerialConfig(config);
+        io::SerialConfig serialConfig = toSerialConfig(config);
         serial->setConfig(serialConfig);
         serial->moveToThread(ioThread);
         return serial;

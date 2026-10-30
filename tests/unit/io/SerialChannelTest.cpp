@@ -146,6 +146,33 @@ TEST_F(SerialChannelTest, SerialConfig_ValidConfig_ReturnsTrue) {
     QString error;
     EXPECT_TRUE(cfg.isValid(&error));
     EXPECT_TRUE(error.isEmpty());
+    EXPECT_TRUE(cfg.isValid(nullptr));
+}
+
+TEST_F(SerialChannelTest, SerialConfig_OneAndHalfStopBits_ConsistentWithAndWithoutErrorOut) {
+    SerialConfig cfg;
+    cfg.portName = QStringLiteral("COM1");
+    cfg.baudRate = 9600;
+    cfg.dataBits = 8;
+    cfg.stopBits = 3; // QSerialPort::OneAndHalfStop
+
+    QString error;
+    EXPECT_TRUE(cfg.isValid(&error));
+    EXPECT_TRUE(error.isEmpty());
+    EXPECT_TRUE(cfg.isValid(nullptr));
+}
+
+TEST_F(SerialChannelTest, SerialConfig_InvalidStopBits_ConsistentWithAndWithoutErrorOut) {
+    SerialConfig cfg;
+    cfg.portName = QStringLiteral("COM1");
+    cfg.baudRate = 9600;
+    cfg.dataBits = 8;
+    cfg.stopBits = 4;
+
+    QString error;
+    EXPECT_FALSE(cfg.isValid(&error));
+    EXPECT_FALSE(error.isEmpty());
+    EXPECT_FALSE(cfg.isValid(nullptr));
 }
 
 TEST_F(SerialChannelTest, Write_WhenClosed_ReturnsFalseNoCrash) {
