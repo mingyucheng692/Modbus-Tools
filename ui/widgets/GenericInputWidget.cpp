@@ -102,10 +102,10 @@ void GenericInputWidget::setupUi() {
     mainLayout->addLayout(controlLayout);
 
     // Connections
-    connect(hexRadio_, &QRadioButton::toggled, [this](bool checked){
+    connect(hexRadio_, &QRadioButton::toggled, this, [this](bool checked){
         if (checked) onFormatChanged();
     });
-    connect(asciiRadio_, &QRadioButton::toggled, [this](bool checked){
+    connect(asciiRadio_, &QRadioButton::toggled, this, [this](bool checked){
         if (checked) onFormatChanged();
     });
     connect(hexRadio_, &QRadioButton::toggled, this, &GenericInputWidget::saveSettings);

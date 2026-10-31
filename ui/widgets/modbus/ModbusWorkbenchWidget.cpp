@@ -19,7 +19,7 @@
 #include <QVBoxLayout>
 
 #include "common/ModbusDataHelper.h"
-#include "core/common/ISettingsService.h"
+#include "infra/config/ISettingsService.h"
 #include "core/common/SettingsKeys.h"
 #include "modbus/base/ModbusCrc.h"
 #include "modbus/base/ModbusLrc.h"

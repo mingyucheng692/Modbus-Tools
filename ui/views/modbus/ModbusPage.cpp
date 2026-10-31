@@ -3,7 +3,7 @@
 #include "ModbusPage.h"
 #include "Config.h"
 #include "common/SettingsKeys.h"
-#include "core/common/ISettingsService.h"
+#include "infra/config/ISettingsService.h"
 #include "../../application/modbus/ModbusPagePresenter.h"
 #include "../../widgets/BaseConnectionWidget.h"
 #include "../../widgets/TcpConnectionWidget.h"

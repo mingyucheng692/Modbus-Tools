@@ -158,7 +158,7 @@ void ByteMonitorWidget::setupUi() {
     logView_->setContextMenuPolicy(Qt::CustomContextMenu);
     logView_->setMinimumHeight(64);
     logView_->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
-    connect(logView_, &QListView::customContextMenuRequested, [this](const QPoint& pos) {
+    connect(logView_, &QListView::customContextMenuRequested, this, [this](const QPoint& pos) {
         QMenu menu(this);
         menu.addAction(tr("Copy"), this, &ByteMonitorWidget::onCopyClicked);
         menu.exec(logView_->mapToGlobal(pos));

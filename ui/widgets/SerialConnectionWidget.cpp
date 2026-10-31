@@ -270,7 +270,7 @@ void SerialConnectionWidget::setupUi() {
         mainLayout->addWidget(section_);
     }
 
-    connect(connectBtn_, &QPushButton::clicked, [this]() {
+    connect(connectBtn_, &QPushButton::clicked, this, [this]() {
         if (usesDisconnectAction(displayState_)) {
             emit disconnectClicked();
         } else {
