@@ -12,6 +12,7 @@
 
 #include "../../../ui/application/modbus/WorkerReleaseCoordinator.h"
 #include "../../../infra/io/TcpChannel.h"
+#include "common/ThreadGuard.h"
 
 using namespace ui::application::modbus;
 
@@ -98,9 +99,11 @@ TEST_F(WorkerReleaseCoordinatorTest, ThreadOnlyHandle_CompletesWhenThreadJoins) 
     // A QThread running an event loop (kept alive by a parked QObject so
     // quit() is meaningful). The coordinator observes QThread::finished and
     // finalizes the release.
-    auto thread = std::make_shared<QThread>();
+    auto thread = std::shared_ptr<QThread>(
+        new QThread(), &core::common::ThreadGuard::releaseThread);
     auto* parked = new QObject();
     parked->moveToThread(thread.get());
+    QObject::connect(thread.get(), &QThread::finished, parked, &QObject::deleteLater);
     thread->start();
     // Give the worker event loop a moment to spin up.
     QCoreApplication::processEvents(QEventLoop::AllEvents, 20);
@@ -124,14 +127,15 @@ TEST_F(WorkerReleaseCoordinatorTest, ThreadOnlyHandle_CompletesWhenThreadJoins) 
     if (thread->isRunning()) {
         thread->wait(2000);
     }
-    delete parked;
     thread.reset();
 }
 
 TEST_F(WorkerReleaseCoordinatorTest, ShutdownAll_StampsTimeoutMessageOnPending) {
-    auto thread = std::make_shared<QThread>();
+    auto thread = std::shared_ptr<QThread>(
+        new QThread(), &core::common::ThreadGuard::releaseThread);
     auto* parked = new QObject();
     parked->moveToThread(thread.get());
+    QObject::connect(thread.get(), &QThread::finished, parked, &QObject::deleteLater);
     thread->start();
     QCoreApplication::processEvents(QEventLoop::AllEvents, 20);
 
@@ -151,21 +155,24 @@ TEST_F(WorkerReleaseCoordinatorTest, ShutdownAll_StampsTimeoutMessageOnPending) 
     if (thread->isRunning()) {
         thread->wait(2000);
     }
-    delete parked;
     thread.reset();
 }
 
 TEST_F(WorkerReleaseCoordinatorTest, MultipleConcurrentReleases_AllComplete) {
     // Two independent live stacks released back-to-back must both flow through
     // the coordinator and each emit releaseCompleted.
-    auto threadA = std::make_shared<QThread>();
+    auto threadA = std::shared_ptr<QThread>(
+        new QThread(), &core::common::ThreadGuard::releaseThread);
     auto* parkedA = new QObject();
     parkedA->moveToThread(threadA.get());
+    QObject::connect(threadA.get(), &QThread::finished, parkedA, &QObject::deleteLater);
     threadA->start();
 
-    auto threadB = std::make_shared<QThread>();
+    auto threadB = std::shared_ptr<QThread>(
+        new QThread(), &core::common::ThreadGuard::releaseThread);
     auto* parkedB = new QObject();
     parkedB->moveToThread(threadB.get());
+    QObject::connect(threadB.get(), &QThread::finished, parkedB, &QObject::deleteLater);
     threadB->start();
 
     QCoreApplication::processEvents(QEventLoop::AllEvents, 20);
@@ -190,8 +197,6 @@ TEST_F(WorkerReleaseCoordinatorTest, MultipleConcurrentReleases_AllComplete) {
 
     if (threadA->isRunning()) threadA->wait(2000);
     if (threadB->isRunning()) threadB->wait(2000);
-    delete parkedA;
-    delete parkedB;
     threadA.reset();
     threadB.reset();
 }
@@ -215,8 +220,13 @@ TEST_F(WorkerReleaseCoordinatorTest,
     ASSERT_TRUE(listener.listen(QHostAddress::LocalHost, 0));
     const quint16 port = listener.serverPort();
 
-    auto channel = std::make_shared<io::TcpChannel>(/*closeLingerMs=*/200);
-    auto ioThread = std::make_shared<QThread>();
+    auto ioThread = std::shared_ptr<QThread>(
+        new QThread(), &core::common::ThreadGuard::releaseThread);
+    auto channel = std::shared_ptr<io::TcpChannel>(
+        new io::TcpChannel(/*closeLingerMs=*/200),
+        [ioThread](io::TcpChannel* ch) {
+            core::common::ThreadGuard::releaseChannel(ch, ioThread);
+        });
     channel->moveToThread(ioThread.get());
     ioThread->start();
     channel->setEndpoint(QStringLiteral("127.0.0.1"),
@@ -253,18 +263,15 @@ TEST_F(WorkerReleaseCoordinatorTest,
     if (ioThread->isRunning()) {
         ioThread->wait(2000);
     }
-    // Destroy the channel BEFORE the QThread object: ChannelBase keeps a
-    // raw deviceThread_ pointer, so the thread object must outlive the
-    // channel (otherwise ~TcpChannel reads freed memory in the destruction
-    // guard). finalize() already released the coordinator's reference; this
-    // reset drops the test's own reference in the correct order.
     channel.reset();
 }
 
 TEST_F(WorkerReleaseCoordinatorTest, ReleaseStage_AdvancesMonotonically) {
-    auto thread = std::make_shared<QThread>();
+    auto thread = std::shared_ptr<QThread>(
+        new QThread(), &core::common::ThreadGuard::releaseThread);
     auto* parked = new QObject();
     parked->moveToThread(thread.get());
+    QObject::connect(thread.get(), &QThread::finished, parked, &QObject::deleteLater);
     thread->start();
     QCoreApplication::processEvents(QEventLoop::AllEvents, 20);
 
@@ -287,7 +294,6 @@ TEST_F(WorkerReleaseCoordinatorTest, ReleaseStage_AdvancesMonotonically) {
     if (thread->isRunning()) {
         thread->wait(2000);
     }
-    delete parked;
     thread.reset();
 }
 
