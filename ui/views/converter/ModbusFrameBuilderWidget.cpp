@@ -866,6 +866,7 @@ void ModbusFrameBuilderWidget::copyToClipboard(const QString& text, const QStrin
     if (auto* cb = QGuiApplication::clipboard()) {
         cb->setText(text);
     }
+    emit frameCopied(text);
     if (isVisible()) {
         QToolTip::showText(QCursor::pos(), message, this, {}, 1500);
     }

@@ -36,6 +36,7 @@ public:
 
 signals:
     void inspectInAnalyzerRequested(const QString& hexText);
+    void frameCopied(const QString& text);
 
 protected:
     void changeEvent(QEvent* event) override;

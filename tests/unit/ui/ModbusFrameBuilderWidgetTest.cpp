@@ -5,7 +5,7 @@
 #include "views/tools/UtilitiesView.h"
 #include "views/analyzer/FrameAnalyzerView.h"
 #include "application/analyzer/FrameAnalyzerPresenter.h"
-#include "infra/config/SettingsService.h"
+#include "infra/config/ISettingsService.h"
 #include "infra/platform/PathResolver.h"
 #include "mocks/UiTestDoubles.h"
 #include "MainWindow.h"
@@ -243,45 +243,42 @@ bool await(const std::function<bool()>& ready) {
 }
 
 TEST_F(FrameBuilderTest, CopyFormats_ContainExactFrame) {
+    QSignalSpy spy(widget.get(), &Builder::frameCopied);
+
     button(*widget, "builderCopySpaced")->click();
-    ASSERT_TRUE(await([&]() { return QApplication::clipboard()->text() == QStringLiteral("01 03 00 00 00 02 C4 0B"); }));
-    EXPECT_EQ(QApplication::clipboard()->text(), QStringLiteral("01 03 00 00 00 02 C4 0B"));
+    ASSERT_EQ(spy.count(), 1);
+    EXPECT_EQ(spy.takeFirst().at(0).toString(), QStringLiteral("01 03 00 00 00 02 C4 0B"));
 
     button(*widget, "builderCopyCompact")->click();
-    ASSERT_TRUE(await([&]() { return QApplication::clipboard()->text() == QStringLiteral("010300000002C40B"); }));
-    EXPECT_EQ(QApplication::clipboard()->text(), QStringLiteral("010300000002C40B"));
+    ASSERT_EQ(spy.count(), 1);
+    EXPECT_EQ(spy.takeFirst().at(0).toString(), QStringLiteral("010300000002C40B"));
 
     button(*widget, "builderCopyCArray")->click();
     const QString expectedCArray = QStringLiteral("const uint8_t frame[8] = { 0X01, 0X03, 0X00, 0X00, 0X00, 0X02, 0XC4, 0X0B };");
-    ASSERT_TRUE(await([&]() { return QApplication::clipboard()->text() == expectedCArray; }));
-    EXPECT_EQ(QApplication::clipboard()->text(), expectedCArray);
+    ASSERT_EQ(spy.count(), 1);
+    EXPECT_EQ(spy.takeFirst().at(0).toString(), expectedCArray);
 
     combo(*widget, "builderProtocol")->setCurrentIndex(2);
     settle(*widget);
 
     button(*widget, "builderCopySpaced")->click();
-    ASSERT_TRUE(await([&]() {
-        return QByteArray::fromHex(QApplication::clipboard()->text().toLatin1()) == QByteArray(":010300000002FA\r\n");
-    }));
-    EXPECT_EQ(QByteArray::fromHex(QApplication::clipboard()->text().toLatin1()), QByteArray(":010300000002FA\r\n"));
+    ASSERT_EQ(spy.count(), 1);
+    EXPECT_EQ(QByteArray::fromHex(spy.takeFirst().at(0).toString().toLatin1()), QByteArray(":010300000002FA\r\n"));
 
     button(*widget, "builderCopyCompact")->click();
-    ASSERT_TRUE(await([&]() { return QApplication::clipboard()->text() == QStringLiteral(":010300000002FA"); }));
-    EXPECT_EQ(QApplication::clipboard()->text(), QStringLiteral(":010300000002FA"));
+    ASSERT_EQ(spy.count(), 1);
+    EXPECT_EQ(spy.takeFirst().at(0).toString(), QStringLiteral(":010300000002FA"));
 
     button(*widget, "builderCopyCArray")->click();
     const QString expectedAsciiCArray = QStringLiteral("const char frame[] = \":010300000002FA\\r\\n\";");
-    ASSERT_TRUE(await([&]() { return QApplication::clipboard()->text() == expectedAsciiCArray; }));
-    EXPECT_EQ(QApplication::clipboard()->text(), expectedAsciiCArray);
+    ASSERT_EQ(spy.count(), 1);
+    EXPECT_EQ(spy.takeFirst().at(0).toString(), expectedAsciiCArray);
 }
 
 TEST(FrameBuilderPersistence, RecreatedService_RestoresAllFieldsFromDisk) {
-    QTemporaryDir sandbox;
-    ASSERT_TRUE(sandbox.isValid());
-    infra::platform::PathResolver resolver(sandbox.path());
+    tests::mocks::FakeSettingsService settings;
     QString expected;
     {
-        infra::config::SettingsService settings(resolver);
         Builder widget(&settings);
         combo(widget, "builderProtocol")->setCurrentIndex(2);
         edit(widget, "builderSlaveId")->setText(QStringLiteral("17"));
@@ -291,7 +288,6 @@ TEST(FrameBuilderPersistence, RecreatedService_RestoresAllFieldsFromDisk) {
         expected = edit(widget, "builderOutput")->text();
         settings.sync();
     }
-    infra::config::SettingsService settings(resolver);
     Builder restored(&settings);
     EXPECT_EQ(combo(restored, "builderProtocol")->currentIndex(), 2);
     EXPECT_EQ(combo(restored, "builderFunction")->currentIndex(), 7);
@@ -379,7 +375,7 @@ TEST(UtilitiesNavigation, Inspect_ChangesMainWindowPageAndParsesFrame) {
     QTemporaryDir sandbox;
     ASSERT_TRUE(sandbox.isValid());
     infra::platform::PathResolver resolver(sandbox.path());
-    infra::config::SettingsService settings(resolver);
+    tests::mocks::FakeSettingsService settings;
     settings.setValue(QStringLiteral("app/disclaimerAccepted"), true);
     settings.setValue(QStringLiteral("app/updateCheckFrequency"), QStringLiteral("never"));
     settings.setValue(QStringLiteral("app/language"), QStringLiteral("en_US"));
