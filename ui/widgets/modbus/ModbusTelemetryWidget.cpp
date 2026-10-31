@@ -147,6 +147,7 @@ void ModbusTelemetryWidget::setupInspector() {
 
     inspectorDetailsText_ = new QTextEdit(container);
     inspectorDetailsText_->setReadOnly(true);
+    inspectorDetailsText_->setLineWrapMode(QTextEdit::NoWrap);
     inspectorDetailsText_->setFont(QFontDatabase::systemFont(QFontDatabase::FixedFont));
     inspectorDetailsText_->setPlaceholderText(tr("Select a frame to inspect details"));
     layout->addWidget(inspectorDetailsText_, 1);
@@ -277,6 +278,47 @@ void ModbusTelemetryWidget::onSelectionChanged() {
     }
 }
 
+QString ModbusTelemetryWidget::inspectorDetailsText() const noexcept {
+    return inspectorDetailsText_ ? inspectorDetailsText_->toPlainText() : QString();
+}
+
+QString ModbusTelemetryWidget::formatInspectorDetails(const ::modbus::parser::ParseResult& pr, int aduLength) {
+    QString details;
+    QTextStream out(&details);
+    const auto fcHex = QString::number(static_cast<int>(pr.functionCode), 16).rightJustified(2, QLatin1Char('0')).toUpper();
+    const auto fcName = QString::fromLatin1(::modbus::base::function_traits::functionCodeName(pr.functionCode));
+
+    if (pr.protocol == ::modbus::parser::ProtocolType::Tcp) {
+        const auto tidHex = QString::number(pr.transactionId, 16).rightJustified(4, QLatin1Char('0')).toUpper();
+        const auto pidHex = QString::number(pr.protocolId, 16).rightJustified(4, QLatin1Char('0')).toUpper();
+        out << tr("[TID: 0x%1]  [PID: 0x%2]  [MBAP Len: %3 B]  [UID: %4]  [FC: 0x%5 (%6)]\n")
+                   .arg(tidHex, pidHex).arg(pr.length).arg(pr.slaveId).arg(fcHex, fcName);
+    } else {
+        out << tr("[Slave: %1]  [ADU Len: %2 B]  [FC: 0x%3 (%4)]\n")
+                   .arg(pr.slaveId).arg(aduLength).arg(fcHex, fcName);
+    }
+
+    if (pr.isException) {
+        const auto exHex = QString::number(static_cast<int>(pr.exceptionCode), 16).rightJustified(2, QLatin1Char('0')).toUpper();
+        const auto exName = QString::fromLatin1(::modbus::base::function_traits::exceptionCodeName(pr.exceptionCode));
+        out << tr("[Exception Code: 0x%1 (%2)]\n").arg(exHex, exName);
+    } else if (!pr.dataItems.isEmpty()) {
+        for (int i = 0; i < pr.dataItems.size(); ++i) {
+            const QString item = QStringLiteral("[+%1] %2")
+                .arg(i, 2, 10, QLatin1Char('0'))
+                .arg(pr.dataItems[i].value.toString())
+                .leftJustified(18, QLatin1Char(' '));
+            out << item;
+            if ((i + 1) % 4 == 0 || i + 1 == pr.dataItems.size()) {
+                out << QLatin1Char('\n');
+            }
+        }
+    } else if (!pr.isValid && !pr.error.isEmpty()) {
+        out << tr("[Error: %1]\n").arg(pr.error);
+    }
+    return details;
+}
+
 void ModbusTelemetryWidget::updateInspectorContent(const TelemetryRowView* row) {
     if (!row) {
         inspectorHeaderLabel_->setText(tr("Frame Details"));
@@ -286,46 +328,19 @@ void ModbusTelemetryWidget::updateInspectorContent(const TelemetryRowView* row) 
 
     if (row->event.direction == ::ui::common::TrafficDirection::None) {
         inspectorHeaderLabel_->setText(tr("[SYS] %1").arg(row->event.timestamp.toString(QStringLiteral("hh:mm:ss.zzz"))));
-        inspectorDetailsText_->setText(row->event.summary);
+        inspectorDetailsText_->setPlainText(row->event.summary);
         return;
     }
 
-    const auto& pr = row->parseResult;
-    QString header = tr("[#%1] %2 | %3 | %4 bytes | %5")
+    const auto dirStr = (row->event.direction == ::ui::common::TrafficDirection::Tx) ? QStringLiteral("TX") : QStringLiteral("RX");
+    inspectorHeaderLabel_->setText(tr("[#%1] %2 | %3 | %4 bytes | %5")
                          .arg(row->rowId)
-                         .arg(row->event.direction == ::ui::common::TrafficDirection::Tx ? QStringLiteral("TX") : QStringLiteral("RX"))
+                         .arg(dirStr)
                          .arg(row->event.timestamp.toString(QStringLiteral("hh:mm:ss.zzz")))
                          .arg(row->event.payload.size())
-                         .arg(row->statusText);
-    inspectorHeaderLabel_->setText(header);
+                         .arg(row->statusText));
 
-    QString details;
-    QTextStream out(&details);
-    if (pr.protocol == ::modbus::parser::ProtocolType::Tcp) {
-        out << tr("MBAP Header: TID=%1, PID=%2, Len=%3, UnitID=%4\n")
-                   .arg(pr.transactionId)
-                   .arg(pr.protocolId)
-                   .arg(pr.length)
-                   .arg(pr.slaveId);
-    } else {
-        out << tr("Serial ADU: Slave ID=%1\n").arg(pr.slaveId);
-    }
-
-    out << QString(tr("Function Code: 0x%1 (%2)\n")
-               .arg(static_cast<int>(pr.functionCode), 2, 16, QChar('0')).toUpper()
-               .arg(QString::fromLatin1(::modbus::base::function_traits::functionCodeName(pr.functionCode))));
-
-    if (pr.isException) {
-        out << QString(tr("Exception Code: 0x%1 (%2)\n")
-                   .arg(static_cast<int>(pr.exceptionCode), 2, 16, QChar('0')).toUpper()
-                   .arg(QString::fromLatin1(::modbus::base::function_traits::exceptionCodeName(pr.exceptionCode))));
-    } else if (!pr.dataItems.isEmpty()) {
-        out << tr("Decoded Items (%1):\n").arg(pr.dataItems.size());
-        for (int i = 0; i < pr.dataItems.size(); ++i) {
-            out << QStringLiteral("  +%-3d: %1\n").arg(i).arg(pr.dataItems[i].value.toString());
-        }
-    }
-    inspectorDetailsText_->setText(details);
+    inspectorDetailsText_->setPlainText(formatInspectorDetails(row->parseResult, row->event.payload.size()));
 }
 
 void ModbusTelemetryWidget::onFilterChanged(int index) {

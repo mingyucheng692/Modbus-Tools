@@ -47,6 +47,9 @@ public:
     [[nodiscard]] QTableView* tableView() const noexcept { return tableView_; }
     [[nodiscard]] bool isAutoScrollEnabled() const noexcept { return autoScroll_; }
     void setAutoScrollEnabled(bool enabled);
+    [[nodiscard]] QString inspectorDetailsText() const noexcept;
+
+    [[nodiscard]] static QString formatInspectorDetails(const ::modbus::parser::ParseResult& pr, int aduLength);
 
 signals:
     void linkageToggled(bool active);

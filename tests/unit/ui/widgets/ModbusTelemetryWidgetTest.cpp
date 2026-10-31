@@ -3,6 +3,7 @@
 #include <gtest/gtest.h>
 #include <QSignalSpy>
 #include <QApplication>
+#include <QTableView>
 #include "ui/widgets/modbus/ModbusTelemetryWidget.h"
 
 using namespace ui::widgets::modbus;
@@ -80,5 +81,30 @@ TEST_F(ModbusTelemetryWidgetTest, AutoScrollToggle) {
     EXPECT_FALSE(widget_->isAutoScrollEnabled());
     widget_->setAutoScrollEnabled(true);
     EXPECT_TRUE(widget_->isAutoScrollEnabled());
+}
+
+TEST_F(ModbusTelemetryWidgetTest, InspectorFormatsDecodedValuesWithoutPrintfBug) {
+    const QByteArray tcpPayload = QByteArray::fromHex("00010000000701030404D2162E");
+    TrafficEvent ev;
+    ev.direction = TrafficDirection::Rx;
+    ev.payload = tcpPayload;
+
+    widget_->setProtocolType(::modbus::parser::ProtocolType::Tcp);
+    widget_->appendTrafficEvent(ev);
+    QMetaObject::invokeMethod(widget_.get(), "processBatchTimeout");
+
+    ASSERT_EQ(widget_->tableModel()->rowCount(), 1);
+    widget_->tableView()->selectRow(0);
+
+    const QString details = widget_->inspectorDetailsText();
+    EXPECT_TRUE(details.contains(QStringLiteral("[TID: 0x0001]")));
+    EXPECT_TRUE(details.contains(QStringLiteral("[PID: 0x0000]")));
+    EXPECT_TRUE(details.contains(QStringLiteral("[UID: 1]")));
+    EXPECT_TRUE(details.contains(QStringLiteral("[FC: 0x03")));
+
+    EXPECT_FALSE(details.contains(QStringLiteral("%-3d")));
+
+    EXPECT_TRUE(details.contains(QStringLiteral("[+00] 1234")));
+    EXPECT_TRUE(details.contains(QStringLiteral("[+01] 5678")));
 }
 
