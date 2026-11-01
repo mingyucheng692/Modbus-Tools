@@ -6,6 +6,7 @@
 #include <QComboBox>
 #include <QEvent>
 #include <QFontDatabase>
+#include <QFormLayout>
 #include <QGroupBox>
 #include <QHBoxLayout>
 #include <QLabel>
@@ -270,9 +271,8 @@ void ModbusWorkbenchWidget::setupAddressingSection(QWidget* parent, QVBoxLayout*
     auto* gl = new QVBoxLayout(addressingGroup_);
     gl->setSpacing(6);
 
-    setupRadixSelector(addressingGroup_, gl);
-    setupAddressBaseSelector(addressingGroup_, gl);
-    setupParametersInputs(addressingGroup_, gl);
+    setupFunctionCodeSelector(addressingGroup_, gl);
+    setupAddressingForm(addressingGroup_, gl);
 
     addressWarningLabel_ = new QLabel(addressingGroup_);
     addressWarningLabel_->setObjectName(QStringLiteral("workbenchAddressWarning"));
@@ -284,51 +284,7 @@ void ModbusWorkbenchWidget::setupAddressingSection(QWidget* parent, QVBoxLayout*
     layout->addWidget(addressingGroup_);
 }
 
-void ModbusWorkbenchWidget::setupRadixSelector(QGroupBox* group, QVBoxLayout* gl) {
-    auto* radixLayout = new QHBoxLayout();
-    radixLabel_ = new QLabel(group);
-    radixLayout->addWidget(radixLabel_);
-    radixGroup_ = new QButtonGroup(this);
-    radixDecBtn_ = new QPushButton(group);
-    radixDecBtn_->setObjectName(QStringLiteral("radixDecBtn"));
-    radixDecBtn_->setCheckable(true);
-    radixDecBtn_->setChecked(true);
-    radixHexBtn_ = new QPushButton(group);
-    radixHexBtn_->setObjectName(QStringLiteral("radixHexBtn"));
-    radixHexBtn_->setCheckable(true);
-    radixGroup_->addButton(radixDecBtn_, 10);
-    radixGroup_->addButton(radixHexBtn_, 16);
-    connect(radixGroup_, &QButtonGroup::idClicked, this, &ModbusWorkbenchWidget::onRadixChanged);
-    radixLayout->addWidget(radixDecBtn_);
-    radixLayout->addWidget(radixHexBtn_);
-    radixLayout->addStretch(1);
-    gl->addLayout(radixLayout);
-}
-
-void ModbusWorkbenchWidget::setupAddressBaseSelector(QGroupBox* group, QVBoxLayout* gl) {
-    auto* baseLayout = new QHBoxLayout();
-    addrBaseLabel_ = new QLabel(group);
-    baseLayout->addWidget(addrBaseLabel_);
-
-    addrBaseCombo_ = new QComboBox(group);
-    addrBaseCombo_->setObjectName(QStringLiteral("workbenchAddrBaseCombo"));
-    addrBaseCombo_->setSizeAdjustPolicy(QComboBox::AdjustToContents);
-    addrBaseCombo_->addItem(QString(), static_cast<int>(::modbus::address::AddressBase::Offset0Based));
-    addrBaseCombo_->addItem(QString(), static_cast<int>(::modbus::address::AddressBase::PlcAddress1Based));
-    baseLayout->addWidget(addrBaseCombo_);
-    baseLayout->addStretch(1);
-    gl->addLayout(baseLayout);
-
-    connect(addrBaseCombo_, QOverload<int>::of(&QComboBox::currentIndexChanged),
-            this, [this](int idx) {
-                const auto base = (idx == 1) ? ::modbus::address::AddressBase::PlcAddress1Based
-                                             : ::modbus::address::AddressBase::Offset0Based;
-                setAddressBase(base);
-                emit addressBaseChanged(base);
-            });
-}
-
-void ModbusWorkbenchWidget::setupParametersInputs(QGroupBox* group, QVBoxLayout* gl) {
+void ModbusWorkbenchWidget::setupFunctionCodeSelector(QGroupBox* group, QVBoxLayout* gl) {
     fcLabel_ = new QLabel(group);
     gl->addWidget(fcLabel_);
     fcCombo_ = new QComboBox(group);
@@ -345,44 +301,100 @@ void ModbusWorkbenchWidget::setupParametersInputs(QGroupBox* group, QVBoxLayout*
     connect(fcCombo_, QOverload<int>::of(&QComboBox::currentIndexChanged),
             this, &ModbusWorkbenchWidget::onFunctionCodeChanged);
     gl->addWidget(fcCombo_);
+}
 
-    auto* slaveLayout = new QHBoxLayout();
+void ModbusWorkbenchWidget::setupAddressingForm(QGroupBox* group, QVBoxLayout* gl) {
+    auto* form = new QFormLayout();
+    form->setObjectName(QStringLiteral("workbenchAddressingFormLayout"));
+    form->setLabelAlignment(Qt::AlignLeft | Qt::AlignVCenter);
+    form->setFieldGrowthPolicy(QFormLayout::AllNonFixedFieldsGrow);
+    form->setHorizontalSpacing(8);
+    form->setVerticalSpacing(6);
+
+    setupRadixRow(group, form);
+    setupAddressBaseRow(group, form);
+    setupSlaveIdRow(group, form);
+    setupAddressAndQuantityRows(group, form);
+
+    gl->addLayout(form);
+}
+
+void ModbusWorkbenchWidget::setupRadixRow(QGroupBox* group, QFormLayout* form) {
+    radixLabel_ = new QLabel(group);
+    auto* radixLayout = new QHBoxLayout();
+    radixLayout->setContentsMargins(0, 0, 0, 0);
+    radixGroup_ = new QButtonGroup(this);
+    radixDecBtn_ = new QPushButton(group);
+    radixDecBtn_->setObjectName(QStringLiteral("radixDecBtn"));
+    radixDecBtn_->setCheckable(true);
+    radixDecBtn_->setChecked(true);
+    radixHexBtn_ = new QPushButton(group);
+    radixHexBtn_->setObjectName(QStringLiteral("radixHexBtn"));
+    radixHexBtn_->setCheckable(true);
+    radixGroup_->addButton(radixDecBtn_, 10);
+    radixGroup_->addButton(radixHexBtn_, 16);
+    connect(radixGroup_, &QButtonGroup::idClicked, this, &ModbusWorkbenchWidget::onRadixChanged);
+    radixLayout->addWidget(radixDecBtn_);
+    radixLayout->addWidget(radixHexBtn_);
+    radixLayout->addStretch(1);
+    form->addRow(radixLabel_, radixLayout);
+}
+
+void ModbusWorkbenchWidget::setupAddressBaseRow(QGroupBox* group, QFormLayout* form) {
+    addrBaseLabel_ = new QLabel(group);
+    addrBaseCombo_ = new QComboBox(group);
+    addrBaseCombo_->setObjectName(QStringLiteral("workbenchAddrBaseCombo"));
+    addrBaseCombo_->setSizeAdjustPolicy(QComboBox::AdjustToContents);
+    addrBaseCombo_->addItem(QString(), static_cast<int>(::modbus::address::AddressBase::Offset0Based));
+    addrBaseCombo_->addItem(QString(), static_cast<int>(::modbus::address::AddressBase::PlcAddress1Based));
+    connect(addrBaseCombo_, QOverload<int>::of(&QComboBox::currentIndexChanged),
+            this, [this](int idx) {
+                const auto base = (idx == 1) ? ::modbus::address::AddressBase::PlcAddress1Based
+                                             : ::modbus::address::AddressBase::Offset0Based;
+                setAddressBase(base);
+                emit addressBaseChanged(base);
+            });
+    form->addRow(addrBaseLabel_, addrBaseCombo_);
+}
+
+void ModbusWorkbenchWidget::setupSlaveIdRow(QGroupBox* group, QFormLayout* form) {
     slaveIdLabel_ = new QLabel(group);
-    slaveLayout->addWidget(slaveIdLabel_);
     slaveIdSpin_ = new QSpinBox(group);
     slaveIdSpin_->setObjectName(QStringLiteral("workbenchSlaveIdSpin"));
     slaveIdSpin_->setRange(0, 247);
     slaveIdSpin_->setValue(1);
     connect(slaveIdSpin_, QOverload<int>::of(&QSpinBox::valueChanged),
             this, &ModbusWorkbenchWidget::onSlaveIdChanged);
-    slaveLayout->addWidget(slaveIdSpin_);
-    gl->addLayout(slaveLayout);
-
-    setupAddressAndQuantityInputs(group, gl);
+    form->addRow(slaveIdLabel_, slaveIdSpin_);
 }
 
-void ModbusWorkbenchWidget::setupAddressAndQuantityInputs(QGroupBox* group, QVBoxLayout* gl) {
-    auto* addrLayout = new QHBoxLayout();
+void ModbusWorkbenchWidget::setupAddressAndQuantityRows(QGroupBox* group, QFormLayout* form) {
     startAddrLabel_ = new QLabel(group);
-    addrLayout->addWidget(startAddrLabel_);
-    addressEdit_ = new QLineEdit(group);
+    auto* addrContainer = new QWidget(group);
+    auto* addrLayout = new QVBoxLayout(addrContainer);
+    addrLayout->setContentsMargins(0, 0, 0, 0);
+    addrLayout->setSpacing(2);
+
+    addressEdit_ = new QLineEdit(addrContainer);
     addressEdit_->setObjectName(QStringLiteral("workbenchAddressEdit"));
     addressEdit_->setText(QStringLiteral("0"));
     connect(addressEdit_, &QLineEdit::textEdited, this, &ModbusWorkbenchWidget::onAddressEdited);
     addrLayout->addWidget(addressEdit_);
-    gl->addLayout(addrLayout);
 
-    auto* qtyLayout = new QHBoxLayout();
+    addressPreviewLabel_ = new QLabel(addrContainer);
+    addressPreviewLabel_->setObjectName(QStringLiteral("workbenchAddressPreview"));
+    addressPreviewLabel_->setStyleSheet(QStringLiteral("color: #757575; font-size: 11px;"));
+    addrLayout->addWidget(addressPreviewLabel_);
+    form->addRow(startAddrLabel_, addrContainer);
+
     quantityLabel_ = new QLabel(group);
-    qtyLayout->addWidget(quantityLabel_);
     quantitySpin_ = new QSpinBox(group);
     quantitySpin_->setObjectName(QStringLiteral("workbenchQuantitySpin"));
     quantitySpin_->setRange(1, 125);
     quantitySpin_->setValue(10);
     connect(quantitySpin_, QOverload<int>::of(&QSpinBox::valueChanged),
             this, &ModbusWorkbenchWidget::onQuantityChanged);
-    qtyLayout->addWidget(quantitySpin_);
-    gl->addLayout(qtyLayout);
+    form->addRow(quantityLabel_, quantitySpin_);
 }
 
 void ModbusWorkbenchWidget::setupWriteSection(QWidget* parent, QVBoxLayout* layout) {
@@ -555,21 +567,8 @@ void ModbusWorkbenchWidget::onModeChanged(int id) {
 }
 
 void ModbusWorkbenchWidget::onRadixChanged(int id) {
-    const int oldRadix = radix_;
     radix_ = id;
     updateAddressDisplay();
-
-    if (fc06ValueEdit_) {
-        bool ok = false;
-        const int val = fc06ValueEdit_->text().toInt(&ok, oldRadix);
-        if (ok) {
-            fc06ValueEdit_->setText(QString::number(val, radix_).toUpper());
-        }
-    }
-    if (fc10WordsEdit_ && !fc10WordsEdit_->text().trimmed().isEmpty()) {
-        fc10WordsEdit_->setText(::ui::common::data_helper::convertRadix(
-            fc10WordsEdit_->text(), oldRadix, radix_));
-    }
     validateInputs();
 }
 
@@ -739,6 +738,10 @@ void ModbusWorkbenchWidget::onCleanHexClicked() {
 void ModbusWorkbenchWidget::updateAddressDisplay() {
     addressEdit_->setText(::modbus::address::toDisplayAddress(
         pduAddress_, addressBase_, radix_ == 16));
+    if (addressPreviewLabel_) {
+        const auto hexStr = QString::number(pduAddress_, 16).rightJustified(4, QLatin1Char('0')).toUpper();
+        addressPreviewLabel_->setText(tr("PDU: 0x%1 (%2)").arg(hexStr).arg(pduAddress_));
+    }
 }
 
 void ModbusWorkbenchWidget::validateAddressRange(bool& valid, QString& errorMsg) {
@@ -746,8 +749,15 @@ void ModbusWorkbenchWidget::validateAddressRange(bool& valid, QString& errorMsg)
     if (!addrRes.isValid) {
         valid = false;
         errorMsg = addrRes.errorMessage;
+        if (addressPreviewLabel_) {
+            addressPreviewLabel_->setText(tr("PDU: --"));
+        }
     } else {
         pduAddress_ = addrRes.pduAddress;
+        if (addressPreviewLabel_) {
+            const auto hexStr = QString::number(pduAddress_, 16).rightJustified(4, QLatin1Char('0')).toUpper();
+            addressPreviewLabel_->setText(tr("PDU: 0x%1 (%2)").arg(hexStr).arg(pduAddress_));
+        }
         if (static_cast<uint32_t>(pduAddress_) + quantity() > 65536U) {
             valid = false;
             errorMsg = tr("Address overflow: Start (%1) + Qty (%2) > 65536").arg(pduAddress_).arg(quantity());

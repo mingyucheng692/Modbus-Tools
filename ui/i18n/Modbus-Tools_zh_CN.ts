@@ -3090,6 +3090,14 @@ Choose update method:</source>
         <source>1-Based</source>
         <translation>1-Based (常规寻址)</translation>
     </message>
+    <message>
+        <source>PDU: 0x%1 (%2)</source>
+        <translation>PDU: 0x%1 (%2)</translation>
+    </message>
+    <message>
+        <source>PDU: --</source>
+        <translation>PDU: --</translation>
+    </message>
 </context>
 <context>
     <name>ui::views::network::NetworkDebuggerView</name>
@@ -4484,6 +4492,14 @@ Choose update method:</source>
     <message>
         <source>1-Based</source>
         <translation>1-Based (常规寻址)</translation>
+    </message>
+    <message>
+        <source>PDU: 0x%1 (%2)</source>
+        <translation>PDU: 0x%1 (%2)</translation>
+    </message>
+    <message>
+        <source>PDU: --</source>
+        <translation>PDU: --</translation>
     </message>
 </context>
 <context>

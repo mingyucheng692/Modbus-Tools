@@ -4,6 +4,11 @@
 #include <QSignalSpy>
 #include <QApplication>
 #include <QComboBox>
+#include <QFormLayout>
+#include <QGroupBox>
+#include <QLabel>
+#include <QLineEdit>
+#include <QSpinBox>
 #include <QVBoxLayout>
 #include <memory>
 #include "ui/widgets/modbus/ModbusWorkbenchWidget.h"
@@ -61,17 +66,28 @@ TEST_F(ModbusWorkbenchWidgetTest, ModeSwitching) {
 TEST_F(ModbusWorkbenchWidgetTest, RadixToggle_UpdatesInputs) {
     widget_->setStartAddress(16);
     EXPECT_EQ(widget_->startAddress(), 16);
+    EXPECT_EQ(widget_->addressPreviewLabel()->text(), QStringLiteral("PDU: 0x0010 (16)"));
+
+    // Verify toggling radix does NOT silently mutate write payload
+    widget_->setFunctionCode(0x06);
+    widget_->setWritePayload(QStringLiteral("1234"));
+    EXPECT_EQ(widget_->findChild<QLineEdit*>(QStringLiteral("workbenchFc06ValueEdit"))->text(), QStringLiteral("1234"));
 
     widget_->setRadix(16);
     EXPECT_EQ(widget_->radix(), 16);
+    EXPECT_EQ(widget_->addressPreviewLabel()->text(), QStringLiteral("PDU: 0x0010 (16)"));
+    // Payload remains untouched
+    EXPECT_EQ(widget_->findChild<QLineEdit*>(QStringLiteral("workbenchFc06ValueEdit"))->text(), QStringLiteral("1234"));
 
     widget_->setRadix(10);
     EXPECT_EQ(widget_->radix(), 10);
+    EXPECT_EQ(widget_->findChild<QLineEdit*>(QStringLiteral("workbenchFc06ValueEdit"))->text(), QStringLiteral("1234"));
 }
 
 TEST_F(ModbusWorkbenchWidgetTest, AddressBaseAdaptation) {
     widget_->setStartAddress(10);
     EXPECT_EQ(widget_->startAddress(), 10);
+    EXPECT_EQ(widget_->addressPreviewLabel()->text(), QStringLiteral("PDU: 0x000A (10)"));
 
     auto* combo = widget_->addressBaseComboBox();
     ASSERT_NE(combo, nullptr);
@@ -83,6 +99,8 @@ TEST_F(ModbusWorkbenchWidgetTest, AddressBaseAdaptation) {
     EXPECT_EQ(combo->currentIndex(), 1);
     // PDU address stays constant across base display changes
     EXPECT_EQ(widget_->startAddress(), 10);
+    EXPECT_EQ(widget_->addressPreviewLabel()->text(), QStringLiteral("PDU: 0x000A (10)"));
+    EXPECT_EQ(widget_->addressEdit()->text(), QStringLiteral("11"));
 
     QSignalSpy spy(widget_.get(), &ModbusWorkbenchWidget::addressBaseChanged);
     combo->setCurrentIndex(0);
@@ -90,6 +108,8 @@ TEST_F(ModbusWorkbenchWidgetTest, AddressBaseAdaptation) {
     EXPECT_EQ(spy.takeFirst().at(0).value<AddressBase>(), AddressBase::Offset0Based);
     EXPECT_EQ(widget_->addressBase(), AddressBase::Offset0Based);
     EXPECT_EQ(widget_->startAddress(), 10);
+    EXPECT_EQ(widget_->addressPreviewLabel()->text(), QStringLiteral("PDU: 0x000A (10)"));
+    EXPECT_EQ(widget_->addressEdit()->text(), QStringLiteral("10"));
 
     auto* rootLayout = widget_->findChild<QVBoxLayout*>(QStringLiteral("workbenchRootLayout"));
     ASSERT_NE(rootLayout, nullptr);
@@ -100,6 +120,30 @@ TEST_F(ModbusWorkbenchWidgetTest, AddressBaseAdaptation) {
     EXPECT_EQ(right, 4);
     EXPECT_EQ(bottom, 4);
     EXPECT_EQ(rootLayout->spacing(), 6);
+}
+
+TEST_F(ModbusWorkbenchWidgetTest, AddressingFormLayoutAndPduPreviewOnInvalidInput) {
+    auto* formLayout = widget_->findChild<QFormLayout*>(QStringLiteral("workbenchAddressingFormLayout"));
+    ASSERT_NE(formLayout, nullptr);
+    EXPECT_EQ(formLayout->rowCount(), 5);
+
+    auto* fcCombo = widget_->findChild<QComboBox*>(QStringLiteral("workbenchFcCombo"));
+    ASSERT_NE(fcCombo, nullptr);
+    auto* group = widget_->findChild<QGroupBox*>(QStringLiteral("workbenchAddressingGroup"));
+    ASSERT_NE(group, nullptr);
+
+    // Form inputs exist
+    auto* slaveSpin = widget_->findChild<QSpinBox*>(QStringLiteral("workbenchSlaveIdSpin"));
+    auto* addrEdit = widget_->addressEdit();
+    auto* qtySpin = widget_->findChild<QSpinBox*>(QStringLiteral("workbenchQuantitySpin"));
+    ASSERT_NE(slaveSpin, nullptr);
+    ASSERT_NE(addrEdit, nullptr);
+    ASSERT_NE(qtySpin, nullptr);
+
+    // Invalid input turns preview into PDU: --
+    addrEdit->setText(QStringLiteral("invalid_addr"));
+    QMetaObject::invokeMethod(widget_.get(), "onAddressEdited");
+    EXPECT_EQ(widget_->addressPreviewLabel()->text(), QStringLiteral("PDU: --"));
 }
 
 TEST_F(ModbusWorkbenchWidgetTest, ContinuousAddressOverflowDefense) {

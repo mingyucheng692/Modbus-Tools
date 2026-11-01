@@ -13,6 +13,7 @@
 class QButtonGroup;
 class QCheckBox;
 class QComboBox;
+class QFormLayout;
 class QGroupBox;
 class QLabel;
 class QLineEdit;
@@ -64,6 +65,8 @@ public:
     [[nodiscard]] int radix() const noexcept;
     [[nodiscard]] ::modbus::address::AddressBase addressBase() const noexcept;
     [[nodiscard]] QComboBox* addressBaseComboBox() const noexcept { return addrBaseCombo_; }
+    [[nodiscard]] QLineEdit* addressEdit() const noexcept { return addressEdit_; }
+    [[nodiscard]] QLabel* addressPreviewLabel() const noexcept { return addressPreviewLabel_; }
 
     // State setters (programmatic / testing)
     void setMode(int mode);
@@ -106,10 +109,12 @@ private:
     QWidget* createStandardWidget();
     QWidget* createRawWidget();
     void setupAddressingSection(QWidget* parent, QVBoxLayout* layout);
-    void setupRadixSelector(QGroupBox* group, QVBoxLayout* gl);
-    void setupAddressBaseSelector(QGroupBox* group, QVBoxLayout* gl);
-    void setupParametersInputs(QGroupBox* group, QVBoxLayout* gl);
-    void setupAddressAndQuantityInputs(QGroupBox* group, QVBoxLayout* gl);
+    void setupFunctionCodeSelector(QGroupBox* group, QVBoxLayout* gl);
+    void setupAddressingForm(QGroupBox* group, QVBoxLayout* gl);
+    void setupRadixRow(QGroupBox* group, QFormLayout* form);
+    void setupAddressBaseRow(QGroupBox* group, QFormLayout* form);
+    void setupSlaveIdRow(QGroupBox* group, QFormLayout* form);
+    void setupAddressAndQuantityRows(QGroupBox* group, QFormLayout* form);
     void setupWriteSection(QWidget* parent, QVBoxLayout* layout);
     void setupWriteStackPages(QWidget* stackWidget);
     void setupBitAndWordPages(QWidget* stackWidget);
@@ -165,6 +170,7 @@ private:
     QSpinBox* slaveIdSpin_ = nullptr;
     QLabel* startAddrLabel_ = nullptr;
     QLineEdit* addressEdit_ = nullptr;
+    QLabel* addressPreviewLabel_ = nullptr;
     QLabel* quantityLabel_ = nullptr;
     QSpinBox* quantitySpin_ = nullptr;
     QLabel* addressWarningLabel_ = nullptr;
