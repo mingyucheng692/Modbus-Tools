@@ -4501,6 +4501,10 @@ Choose update method:</source>
         <source>PDU: --</source>
         <translation>PDU: --</translation>
     </message>
+    <message>
+        <source>Write (F5)</source>
+        <translation>写入 (F5)</translation>
+    </message>
 </context>
 <context>
     <name>ui::widgets::modbus::TelemetryTableModel</name>

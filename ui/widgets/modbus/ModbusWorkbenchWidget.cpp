@@ -51,14 +51,15 @@ void ModbusWorkbenchWidget::setExecutionGuards(const ::ui::application::modbus::
         pollCheckBox_->blockSignals(true);
         pollCheckBox_->setChecked(isPolling_);
         pollCheckBox_->blockSignals(false);
-        executeBtn_->setText(isPolling_ ? tr("Stop Polling (Esc)") : tr("Execute (F5)"));
         if (!isPolling_) {
             writePollWarningBadge_->hide();
             userConfirmedWritePoll_ = false;
         }
     }
     rawExecuteBtn_->setEnabled(guards.rawSendEnabled);
+    updateExecuteButtonAppearance();
     validateInputs();
+    updateGuardAppearance();
 }
 
 void ModbusWorkbenchWidget::setAddressBase(::modbus::address::AddressBase base) {
@@ -467,18 +468,7 @@ void ModbusWorkbenchWidget::setupBitAndWordPages(QWidget* stackWidget) {
     writeStackedLayout_->addWidget(p3);
 }
 
-void ModbusWorkbenchWidget::setupExecutionSection(QWidget* parent, QVBoxLayout* layout) {
-    executionGroup_ = new QGroupBox(parent);
-    executionGroup_->setObjectName(QStringLiteral("workbenchExecutionGroup"));
-    auto* gl = new QVBoxLayout(executionGroup_);
-    gl->setSpacing(6);
-
-    executeBtn_ = new QPushButton(executionGroup_);
-    executeBtn_->setObjectName(QStringLiteral("workbenchExecuteBtn"));
-    executeBtn_->setShortcut(QKeySequence(Qt::Key_F5));
-    connect(executeBtn_, &QPushButton::clicked, this, &ModbusWorkbenchWidget::onExecuteClicked);
-    gl->addWidget(executeBtn_);
-
+void ModbusWorkbenchWidget::setupPollControls(QVBoxLayout* gl) {
     auto* pollLayout = new QHBoxLayout();
     pollCheckBox_ = new QCheckBox(executionGroup_);
     pollCheckBox_->setObjectName(QStringLiteral("workbenchPollCheck"));
@@ -497,6 +487,20 @@ void ModbusWorkbenchWidget::setupExecutionSection(QWidget* parent, QVBoxLayout* 
             this, &ModbusWorkbenchWidget::onPollIntervalChanged);
     pollLayout->addWidget(pollIntervalSpin_);
     gl->addLayout(pollLayout);
+}
+
+void ModbusWorkbenchWidget::setupExecutionSection(QWidget* parent, QVBoxLayout* layout) {
+    executionGroup_ = new QGroupBox(parent);
+    executionGroup_->setObjectName(QStringLiteral("workbenchExecutionGroup"));
+    auto* gl = new QVBoxLayout(executionGroup_);
+    gl->setSpacing(6);
+
+    executeBtn_ = new QPushButton(executionGroup_);
+    executeBtn_->setObjectName(QStringLiteral("workbenchExecuteBtn"));
+    connect(executeBtn_, &QPushButton::clicked, this, &ModbusWorkbenchWidget::onExecuteClicked);
+    gl->addWidget(executeBtn_);
+
+    setupPollControls(gl);
 
     writePollWarningBadge_ = new QLabel(executionGroup_);
     writePollWarningBadge_->setObjectName(QStringLiteral("workbenchWritePollBadge"));
@@ -504,6 +508,14 @@ void ModbusWorkbenchWidget::setupExecutionSection(QWidget* parent, QVBoxLayout* 
     writePollWarningBadge_->hide();
     gl->addWidget(writePollWarningBadge_);
 
+    guardHintLabel_ = new QLabel(executionGroup_);
+    guardHintLabel_->setObjectName(QStringLiteral("workbenchGuardHint"));
+    guardHintLabel_->setStyleSheet(QStringLiteral("color: #757575; font-size: 11px;"));
+    guardHintLabel_->setWordWrap(true);
+    guardHintLabel_->hide();
+    gl->addWidget(guardHintLabel_);
+
+    updateExecuteButtonAppearance();
     layout->addWidget(executionGroup_);
 }
 
@@ -601,6 +613,7 @@ void ModbusWorkbenchWidget::onFunctionCodeChanged(int /*index*/) {
         else if (fc == 0x0F) writeStackedLayout_->setCurrentIndex(2);
         else if (fc == 0x10) writeStackedLayout_->setCurrentIndex(3);
     }
+    updateExecuteButtonAppearance();
     validateInputs();
 }
 
@@ -664,7 +677,7 @@ void ModbusWorkbenchWidget::onPollCheckBoxToggled(bool checked) {
         }
 
         isPolling_ = true;
-        executeBtn_->setText(tr("Stop Polling (Esc)"));
+        updateExecuteButtonAppearance();
         emit pollToggleRequested(true, currentSpec(), userConfirmedWritePoll_);
     } else {
         stopPollingInternal(true);
@@ -675,7 +688,7 @@ void ModbusWorkbenchWidget::stopPollingInternal(bool emitSignal) {
     isPolling_ = false;
     userConfirmedWritePoll_ = false;
     writePollWarningBadge_->hide();
-    executeBtn_->setText(tr("Execute (F5)"));
+    updateExecuteButtonAppearance();
     pollCheckBox_->blockSignals(true);
     pollCheckBox_->setChecked(false);
     pollCheckBox_->blockSignals(false);
@@ -850,8 +863,9 @@ void ModbusWorkbenchWidget::updateWarningAndActionState(bool valid, const QStrin
         pollCheckBox_->setToolTip(tr("Broadcast (Slave ID 0) does not support periodic polling"));
     } else {
         pollCheckBox_->setEnabled(valid && guardState_.pollingEnabled);
-        pollCheckBox_->setToolTip(QString());
+        pollCheckBox_->setToolTip(!guardState_.pollingEnabled ? guardState_.tooltipMessage : QString());
     }
+    updateGuardAppearance();
 }
 
 void ModbusWorkbenchWidget::loadWidgetValues() {
@@ -987,11 +1001,53 @@ void ModbusWorkbenchWidget::retranslateWriteAndRawUi() {
 
 void ModbusWorkbenchWidget::retranslateExecutionUi() {
     executionGroup_->setTitle(tr("Execution & Polling").replace(QLatin1Char('&'), QStringLiteral("&&")));
-    executeBtn_->setText(isPolling_ ? tr("Stop Polling (Esc)") : tr("Execute (F5)"));
+    updateExecuteButtonAppearance();
     pollCheckBox_->setText(tr("Periodic Polling"));
     pollIntervalLabel_->setText(tr("Interval:"));
     if (writePollWarningBadge_) {
         writePollWarningBadge_->setText(tr("[!] Write Polling Active"));
+    }
+    updateGuardAppearance();
+}
+
+void ModbusWorkbenchWidget::updateExecuteButtonAppearance() {
+    if (!executeBtn_) {
+        return;
+    }
+    if (isPolling_) {
+        executeBtn_->setText(tr("Stop Polling (Esc)"));
+        executeBtn_->setShortcut(QKeySequence(Qt::Key_Escape));
+        executeBtn_->setStyleSheet(QString());
+    } else if (::modbus::base::function_traits::isWriteOperation(functionCode())) {
+        executeBtn_->setText(tr("Write (F5)"));
+        executeBtn_->setShortcut(QKeySequence(Qt::Key_F5));
+        executeBtn_->setStyleSheet(QStringLiteral("border: 1px solid #e65100; font-weight: bold;"));
+    } else {
+        executeBtn_->setText(tr("Execute (F5)"));
+        executeBtn_->setShortcut(QKeySequence(Qt::Key_F5));
+        executeBtn_->setStyleSheet(QString());
+    }
+}
+
+void ModbusWorkbenchWidget::updateGuardAppearance() {
+    if (guardHintLabel_) {
+        const bool showHint = !guardState_.executeEnabled && !guardState_.tooltipMessage.isEmpty();
+        if (showHint) {
+            guardHintLabel_->setText(guardState_.tooltipMessage);
+            guardHintLabel_->show();
+        } else {
+            guardHintLabel_->hide();
+        }
+    }
+    const QString tip = (!guardState_.executeEnabled) ? guardState_.tooltipMessage : QString();
+    if (executeBtn_) {
+        executeBtn_->setToolTip(tip);
+    }
+    if (rawExecuteBtn_) {
+        rawExecuteBtn_->setToolTip((!guardState_.rawSendEnabled) ? guardState_.tooltipMessage : QString());
+    }
+    if (pollCheckBox_ && slaveId() != 0) {
+        pollCheckBox_->setToolTip((!guardState_.pollingEnabled) ? guardState_.tooltipMessage : QString());
     }
 }
 

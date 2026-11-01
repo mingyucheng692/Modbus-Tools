@@ -67,6 +67,8 @@ public:
     [[nodiscard]] QComboBox* addressBaseComboBox() const noexcept { return addrBaseCombo_; }
     [[nodiscard]] QLineEdit* addressEdit() const noexcept { return addressEdit_; }
     [[nodiscard]] QLabel* addressPreviewLabel() const noexcept { return addressPreviewLabel_; }
+    [[nodiscard]] QPushButton* executeButton() const noexcept { return executeBtn_; }
+    [[nodiscard]] QLabel* guardHintLabel() const noexcept { return guardHintLabel_; }
 
     // State setters (programmatic / testing)
     void setMode(int mode);
@@ -119,7 +121,10 @@ private:
     void setupWriteStackPages(QWidget* stackWidget);
     void setupBitAndWordPages(QWidget* stackWidget);
     void setupExecutionSection(QWidget* parent, QVBoxLayout* layout);
+    void setupPollControls(QVBoxLayout* gl);
     void setupRawButtons(QGroupBox* editGroup, QVBoxLayout* el);
+    void updateExecuteButtonAppearance();
+    void updateGuardAppearance();
     void updateAddressDisplay();
     void validateInputs();
     void validateAddressRange(bool& valid, QString& errorMsg);
@@ -195,6 +200,7 @@ private:
     QLabel* pollIntervalLabel_ = nullptr;
     QSpinBox* pollIntervalSpin_ = nullptr;
     QLabel* writePollWarningBadge_ = nullptr;
+    QLabel* guardHintLabel_ = nullptr;
 
     // Raw mode widgets
     QGroupBox* rawGroup_ = nullptr;

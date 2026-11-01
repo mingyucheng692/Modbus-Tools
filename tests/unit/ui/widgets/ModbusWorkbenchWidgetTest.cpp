@@ -3,11 +3,13 @@
 #include <gtest/gtest.h>
 #include <QSignalSpy>
 #include <QApplication>
+#include <QCheckBox>
 #include <QComboBox>
 #include <QFormLayout>
 #include <QGroupBox>
 #include <QLabel>
 #include <QLineEdit>
+#include <QPushButton>
 #include <QSpinBox>
 #include <QVBoxLayout>
 #include <memory>
@@ -326,4 +328,93 @@ TEST_F(ModbusWorkbenchWidgetTest, SettingsPersistenceAndSafeDefaults) {
     // Safe defaults check: write function code is restored to FC 03
     EXPECT_EQ(widget_->functionCode(), 0x03);
     EXPECT_FALSE(widget_->isPolling());
+}
+
+TEST_F(ModbusWorkbenchWidgetTest, OperatorPokaYoke_ShortcutsAndAppearance) {
+    auto* execBtn = widget_->executeButton();
+    ASSERT_NE(execBtn, nullptr);
+
+    // Default FC 03 (Read): text is "Execute (F5)", shortcut is F5, no warning border
+    EXPECT_EQ(execBtn->text(), QStringLiteral("Execute (F5)"));
+    EXPECT_EQ(execBtn->shortcut(), QKeySequence(Qt::Key_F5));
+    EXPECT_TRUE(execBtn->styleSheet().isEmpty());
+
+    // Switch to Write FC 06: text becomes "Write (F5)", shortcut F5, amber warning border
+    widget_->setFunctionCode(0x06);
+    EXPECT_EQ(execBtn->text(), QStringLiteral("Write (F5)"));
+    EXPECT_EQ(execBtn->shortcut(), QKeySequence(Qt::Key_F5));
+    EXPECT_TRUE(execBtn->styleSheet().contains(QStringLiteral("#e65100")));
+
+    // Switch to Write FC 10: also has amber warning border
+    widget_->setFunctionCode(0x10);
+    EXPECT_EQ(execBtn->text(), QStringLiteral("Write (F5)"));
+    EXPECT_TRUE(execBtn->styleSheet().contains(QStringLiteral("#e65100")));
+
+    // Switch back to Read FC 04: restores "Execute (F5)", no border
+    widget_->setFunctionCode(0x04);
+    EXPECT_EQ(execBtn->text(), QStringLiteral("Execute (F5)"));
+    EXPECT_TRUE(execBtn->styleSheet().isEmpty());
+
+    // Switch to FC 03 and start polling: text becomes "Stop Polling (Esc)", shortcut is Esc
+    widget_->setFunctionCode(0x03);
+    widget_->setPollingChecked(true);
+    EXPECT_TRUE(widget_->isPolling());
+    EXPECT_EQ(execBtn->text(), QStringLiteral("Stop Polling (Esc)"));
+    EXPECT_EQ(execBtn->shortcut(), QKeySequence(Qt::Key_Escape));
+    EXPECT_TRUE(execBtn->styleSheet().isEmpty());
+
+    // Stop polling via execute button click (as triggered by shortcut)
+    QMetaObject::invokeMethod(widget_.get(), "onExecuteClicked");
+    EXPECT_FALSE(widget_->isPolling());
+    EXPECT_EQ(execBtn->text(), QStringLiteral("Execute (F5)"));
+    EXPECT_EQ(execBtn->shortcut(), QKeySequence(Qt::Key_F5));
+}
+
+TEST_F(ModbusWorkbenchWidgetTest, OperatorPokaYoke_GuardHintAndTooltips) {
+    auto* hint = widget_->guardHintLabel();
+    ASSERT_NE(hint, nullptr);
+    auto* execBtn = widget_->executeButton();
+    ASSERT_NE(execBtn, nullptr);
+    auto* rawBtn = widget_->findChild<QPushButton*>(QStringLiteral("workbenchRawExecuteBtn"));
+    ASSERT_NE(rawBtn, nullptr);
+    auto* pollCheck = widget_->findChild<QCheckBox*>(QStringLiteral("workbenchPollCheck"));
+    ASSERT_NE(pollCheck, nullptr);
+
+    // Initially when guards are unset/empty, hint is hidden
+    EXPECT_TRUE(hint->isHidden());
+
+    // Disconnected state: guards disabled with tooltipMessage
+    ExecutionGuardState guards;
+    guards.executeEnabled = false;
+    guards.pollingEnabled = false;
+    guards.rawSendEnabled = false;
+    guards.tooltipMessage = QStringLiteral("Connect device to send commands.");
+    widget_->setExecutionGuards(guards);
+
+    // Hint label becomes visible with message
+    EXPECT_FALSE(hint->isHidden());
+    EXPECT_EQ(hint->text(), QStringLiteral("Connect device to send commands."));
+
+    // Tooltips propagated to action buttons
+    EXPECT_EQ(execBtn->toolTip(), QStringLiteral("Connect device to send commands."));
+    EXPECT_EQ(rawBtn->toolTip(), QStringLiteral("Connect device to send commands."));
+    EXPECT_EQ(pollCheck->toolTip(), QStringLiteral("Connect device to send commands."));
+
+    // Connected state: execute enabled, tooltip cleared
+    guards.executeEnabled = true;
+    guards.pollingEnabled = true;
+    guards.rawSendEnabled = true;
+    guards.tooltipMessage.clear();
+    widget_->setExecutionGuards(guards);
+
+    // Hint label hidden, tooltips cleared
+    EXPECT_TRUE(hint->isHidden());
+    EXPECT_TRUE(execBtn->toolTip().isEmpty());
+    EXPECT_TRUE(rawBtn->toolTip().isEmpty());
+    EXPECT_TRUE(pollCheck->toolTip().isEmpty());
+
+    // When slaveId is 0, broadcast tooltip takes precedence on pollCheck
+    widget_->setSlaveId(0);
+    EXPECT_FALSE(pollCheck->toolTip().isEmpty());
+    EXPECT_NE(pollCheck->toolTip(), QStringLiteral("Connect device to send commands."));
 }
