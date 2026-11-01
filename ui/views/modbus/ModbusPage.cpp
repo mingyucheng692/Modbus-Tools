@@ -12,6 +12,7 @@
 #include "../../widgets/modbus/ModbusTelemetryWidget.h"
 #include <QVBoxLayout>
 #include <QHBoxLayout>
+#include <QLabel>
 #include <QComboBox>
 #include <QStackedWidget>
 #include <QSplitter>
@@ -109,14 +110,24 @@ void ModbusPage::setupConnectionBar() {
     connLayout->setContentsMargins(0, 0, 0, 6);
     connLayout->setSpacing(4);
 
-    protocolCombo_ = new QComboBox(connRow);
+    auto* protoCol = new QWidget(connRow);
+    auto* protoLayout = new QVBoxLayout(protoCol);
+    protoLayout->setContentsMargins(0, 0, 0, 0);
+    protoLayout->setSpacing(2);
+
+    protocolLabel_ = new QLabel(protoCol);
+    protocolLabel_->setObjectName(QStringLiteral("modbusProtocolLabel"));
+    protoLayout->addWidget(protocolLabel_);
+
+    protocolCombo_ = new QComboBox(protoCol);
     protocolCombo_->setObjectName(QStringLiteral("modbusProtocolCombo"));
     protocolCombo_->setMinimumWidth(80);
     protocolCombo_->addItem(QStringLiteral("TCP"), static_cast<int>(ui::application::modbus::SessionMode::Tcp));
     protocolCombo_->addItem(QStringLiteral("RTU"), static_cast<int>(ui::application::modbus::SessionMode::Rtu));
     protocolCombo_->addItem(QStringLiteral("ASCII"), static_cast<int>(ui::application::modbus::SessionMode::Ascii));
-    connLayout->addWidget(protocolCombo_);
-    connLayout->setAlignment(protocolCombo_, Qt::AlignBottom);
+    protoLayout->addWidget(protocolCombo_);
+    connLayout->addWidget(protoCol);
+    connLayout->setAlignment(protoCol, Qt::AlignBottom);
 
     connectionStack_ = new QStackedWidget(connRow);
     connectionStack_->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);
@@ -310,8 +321,9 @@ void ModbusPage::onDisconnectClicked() {
 }
 
 void ModbusPage::retranslateUi() {
-    // Top-bar protocol acronyms (TCP/RTU/ASCII) are universal; workbench and telemetry
-    // manage their own localized strings dynamically.
+    if (protocolLabel_) {
+        protocolLabel_->setText(tr("Protocol:"));
+    }
 }
 
 void ModbusPage::changeEvent(QEvent* event) {

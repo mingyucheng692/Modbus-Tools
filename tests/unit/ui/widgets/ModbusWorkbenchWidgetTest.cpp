@@ -536,3 +536,22 @@ TEST_F(ModbusWorkbenchWidgetTest, Validation_WriteErrorDisplayedInWriteGroupWith
     EXPECT_TRUE(writeWarning->text().contains(QStringLiteral("4")));
 }
 
+TEST_F(ModbusWorkbenchWidgetTest, FunctionCode_ShortCaptionAndCanonicalEnglishTooltips) {
+    auto* fcCombo = widget_->findChild<QComboBox*>(QStringLiteral("workbenchFcCombo"));
+    ASSERT_NE(fcCombo, nullptr);
+    EXPECT_EQ(fcCombo->count(), 8);
+
+    static constexpr const char* kExpectedTooltips[] = {
+        "0x01 Read Coils", "0x02 Read Discrete Inputs",
+        "0x03 Read Holding Registers", "0x04 Read Input Registers",
+        "0x05 Write Single Coil", "0x06 Write Single Register",
+        "0x0F Write Multiple Coils", "0x10 Write Multiple Registers"
+    };
+
+    for (int i = 0; i < 8; ++i) {
+        const QString tip = fcCombo->itemData(i, Qt::ToolTipRole).toString();
+        EXPECT_EQ(tip, QString::fromLatin1(kExpectedTooltips[i]));
+    }
+}
+
+

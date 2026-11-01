@@ -9,6 +9,7 @@
 #include "infra/io/SerialConfig.h"
 
 class QComboBox;
+class QLabel;
 class QStackedWidget;
 class QSplitter;
 
@@ -63,6 +64,7 @@ public:
 
     [[nodiscard]] ui::widgets::modbus::ModbusWorkbenchWidget* workbenchWidget() const noexcept { return workbenchWidget_; }
     [[nodiscard]] ui::widgets::modbus::ModbusTelemetryWidget* telemetryWidget() const noexcept { return telemetryWidget_; }
+    [[nodiscard]] QLabel* protocolLabel() const noexcept { return protocolLabel_; }
 
 signals:
     void linkageDataReceived(const ::modbus::base::Pdu& pdu, ::modbus::parser::ProtocolType protocol, uint16_t addr);
@@ -91,6 +93,7 @@ private:
     ui::application::modbus::ModbusPagePresenter* pagePresenter_ = nullptr;
     ui::application::modbus::SessionMode currentMode_ = ui::application::modbus::SessionMode::Tcp;
 
+    QLabel* protocolLabel_ = nullptr;
     QComboBox* protocolCombo_ = nullptr;
     QStackedWidget* connectionStack_ = nullptr;
     ui::widgets::TcpConnectionWidget* tcpConnectionWidget_ = nullptr;

@@ -6,6 +6,7 @@
 #include "../../../ui/widgets/TcpConnectionWidget.h"
 #include "../../../ui/widgets/modbus/ModbusTelemetryWidget.h"
 #include "../../../ui/widgets/modbus/ModbusWorkbenchWidget.h"
+#include "../../../ui/views/modbus/ModbusPage.h"
 #include "../../mocks/UiTestDoubles.h"
 
 #include <QApplication>
@@ -246,10 +247,30 @@ TEST(I18nWidgets, ModbusWorkbenchWidgetRetranslate)
     EXPECT_TRUE(buttonTexts.contains(QStringLiteral("原始报文")));
 
     EXPECT_EQ(fcCombo->currentIndex(), 2);
-    EXPECT_EQ(fcCombo->itemText(0), QStringLiteral("0x01 读线圈 (Read Coils)"));
-    EXPECT_EQ(fcCombo->itemText(2), QStringLiteral("0x03 读保持寄存器 (Read Holding Registers)"));
+    EXPECT_EQ(fcCombo->itemText(0), QStringLiteral("0x01 读线圈"));
+    EXPECT_EQ(fcCombo->itemText(2), QStringLiteral("0x03 读保持寄存器"));
+    EXPECT_EQ(fcCombo->itemData(0, Qt::ToolTipRole).toString(), QStringLiteral("0x01 Read Coils"));
+    EXPECT_EQ(fcCombo->itemData(2, Qt::ToolTipRole).toString(), QStringLiteral("0x03 Read Holding Registers"));
 
     EXPECT_EQ(addrBaseCombo->itemText(0), QStringLiteral("0-Based (偏移寻址)"));
     EXPECT_EQ(addrBaseCombo->itemText(1), QStringLiteral("1-Based (常规寻址)"));
 }
+
+TEST(I18nWidgets, ModbusPage_RetranslateProtocolLabel)
+{
+    tests::mocks::FakeSettingsService settingsService;
+    ui::views::modbus::ModbusPage page(&settingsService);
+
+    auto* protoLabel = page.protocolLabel();
+    ASSERT_NE(protoLabel, nullptr);
+    EXPECT_EQ(protoLabel->text(), QStringLiteral("Protocol:"));
+
+    ScopedTranslator translator(QStringLiteral("Modbus-Tools_zh_CN.qm"));
+    ASSERT_TRUE(translator.isLoaded());
+
+    sendLanguageChange(page);
+
+    EXPECT_EQ(protoLabel->text(), QStringLiteral("协议:"));
+}
+
 

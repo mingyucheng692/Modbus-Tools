@@ -3098,6 +3098,10 @@ Choose update method:</source>
         <source>PDU: --</source>
         <translation>PDU: --</translation>
     </message>
+    <message>
+        <source>Protocol:</source>
+        <translation>协议:</translation>
+    </message>
 </context>
 <context>
     <name>ui::views::network::NetworkDebuggerView</name>
@@ -4297,42 +4301,42 @@ Choose update method:</source>
     <message>
         <location filename="../widgets/modbus/ModbusWorkbenchWidget.cpp" line="298" />
         <source>0x01 Read Coils</source>
-        <translation>0x01 读线圈 (Read Coils)</translation>
+        <translation>0x01 读线圈</translation>
     </message>
     <message>
         <location filename="../widgets/modbus/ModbusWorkbenchWidget.cpp" line="299" />
         <source>0x02 Read Discrete Inputs</source>
-        <translation>0x02 读离散输入 (Read Discrete Inputs)</translation>
+        <translation>0x02 读离散输入</translation>
     </message>
     <message>
         <location filename="../widgets/modbus/ModbusWorkbenchWidget.cpp" line="300" />
         <source>0x03 Read Holding Registers</source>
-        <translation>0x03 读保持寄存器 (Read Holding Registers)</translation>
+        <translation>0x03 读保持寄存器</translation>
     </message>
     <message>
         <location filename="../widgets/modbus/ModbusWorkbenchWidget.cpp" line="301" />
         <source>0x04 Read Input Registers</source>
-        <translation>0x04 读输入寄存器 (Read Input Registers)</translation>
+        <translation>0x04 读输入寄存器</translation>
     </message>
     <message>
         <location filename="../widgets/modbus/ModbusWorkbenchWidget.cpp" line="302" />
         <source>0x05 Write Single Coil</source>
-        <translation>0x05 写单线圈 (Write Single Coil)</translation>
+        <translation>0x05 写单线圈</translation>
     </message>
     <message>
         <location filename="../widgets/modbus/ModbusWorkbenchWidget.cpp" line="303" />
         <source>0x06 Write Single Register</source>
-        <translation>0x06 写单寄存器 (Write Single Register)</translation>
+        <translation>0x06 写单寄存器</translation>
     </message>
     <message>
         <location filename="../widgets/modbus/ModbusWorkbenchWidget.cpp" line="304" />
         <source>0x0F Write Multiple Coils</source>
-        <translation>0x0F 写多线圈 (Write Multiple Coils)</translation>
+        <translation>0x0F 写多线圈</translation>
     </message>
     <message>
         <location filename="../widgets/modbus/ModbusWorkbenchWidget.cpp" line="305" />
         <source>0x10 Write Multiple Registers</source>
-        <translation>0x10 写多寄存器 (Write Multiple Registers)</translation>
+        <translation>0x10 写多寄存器</translation>
     </message>
     <message>
         <location filename="../widgets/modbus/ModbusWorkbenchWidget.cpp" line="312" />

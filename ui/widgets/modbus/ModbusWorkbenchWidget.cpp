@@ -278,14 +278,10 @@ void ModbusWorkbenchWidget::setupFunctionCodeSelector(QGroupBox* group, QVBoxLay
     gl->addWidget(fcLabel_);
     fcCombo_ = new QComboBox(group);
     fcCombo_->setObjectName(QStringLiteral("workbenchFcCombo"));
-    fcCombo_->addItem(QString(), 0x01);
-    fcCombo_->addItem(QString(), 0x02);
-    fcCombo_->addItem(QString(), 0x03);
-    fcCombo_->addItem(QString(), 0x04);
-    fcCombo_->addItem(QString(), 0x05);
-    fcCombo_->addItem(QString(), 0x06);
-    fcCombo_->addItem(QString(), 0x0F);
-    fcCombo_->addItem(QString(), 0x10);
+    static constexpr uint8_t kFcCodes[] = {0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x0F, 0x10};
+    for (uint8_t fc : kFcCodes) {
+        fcCombo_->addItem(QString(), fc);
+    }
     fcCombo_->setCurrentIndex(2);
     connect(fcCombo_, QOverload<int>::of(&QComboBox::currentIndexChanged),
             this, &ModbusWorkbenchWidget::onFunctionCodeChanged);
@@ -1076,14 +1072,16 @@ void ModbusWorkbenchWidget::retranslateAddressingUi() {
     const int currentFcIdx = fcCombo_->currentIndex();
     {
         const QSignalBlocker blocker(fcCombo_);
-        fcCombo_->setItemText(0, tr("0x01 Read Coils"));
-        fcCombo_->setItemText(1, tr("0x02 Read Discrete Inputs"));
-        fcCombo_->setItemText(2, tr("0x03 Read Holding Registers"));
-        fcCombo_->setItemText(3, tr("0x04 Read Input Registers"));
-        fcCombo_->setItemText(4, tr("0x05 Write Single Coil"));
-        fcCombo_->setItemText(5, tr("0x06 Write Single Register"));
-        fcCombo_->setItemText(6, tr("0x0F Write Multiple Coils"));
-        fcCombo_->setItemText(7, tr("0x10 Write Multiple Registers"));
+        static constexpr const char* kFcCanonicalNames[] = {
+            "0x01 Read Coils", "0x02 Read Discrete Inputs",
+            "0x03 Read Holding Registers", "0x04 Read Input Registers",
+            "0x05 Write Single Coil", "0x06 Write Single Register",
+            "0x0F Write Multiple Coils", "0x10 Write Multiple Registers"
+        };
+        for (int i = 0; i < 8; ++i) {
+            fcCombo_->setItemText(i, tr(kFcCanonicalNames[i]));
+            fcCombo_->setItemData(i, QString::fromLatin1(kFcCanonicalNames[i]), Qt::ToolTipRole);
+        }
         fcCombo_->setCurrentIndex(currentFcIdx);
     }
     slaveIdLabel_->setText(tr("Slave ID (0-247):"));
