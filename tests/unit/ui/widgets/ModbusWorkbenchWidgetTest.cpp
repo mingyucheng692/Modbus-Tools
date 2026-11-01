@@ -418,3 +418,121 @@ TEST_F(ModbusWorkbenchWidgetTest, OperatorPokaYoke_GuardHintAndTooltips) {
     EXPECT_FALSE(pollCheck->toolTip().isEmpty());
     EXPECT_NE(pollCheck->toolTip(), QStringLiteral("Connect device to send commands."));
 }
+
+TEST_F(ModbusWorkbenchWidgetTest, RequestData_PersistentVisibilityAndZeroCoordinateShift) {
+    widget_->resize(400, 600);
+    widget_->show();
+
+    auto* writeGroup = widget_->writeGroup();
+    ASSERT_NE(writeGroup, nullptr);
+    EXPECT_FALSE(writeGroup->isHidden());
+
+    auto* execBtn = widget_->executeButton();
+    ASSERT_NE(execBtn, nullptr);
+
+    widget_->setFunctionCode(0x03);
+    EXPECT_FALSE(writeGroup->isHidden());
+    const int yRead = execBtn->geometry().y();
+
+    const std::vector<uint8_t> fcs = {0x01, 0x02, 0x04, 0x05, 0x06, 0x0F, 0x10};
+    for (uint8_t fc : fcs) {
+        widget_->setFunctionCode(fc);
+        EXPECT_FALSE(writeGroup->isHidden());
+        const int yCurrent = execBtn->geometry().y();
+        EXPECT_EQ(yCurrent, yRead) << "FC " << static_cast<int>(fc) << " execution button y shifted!";
+    }
+}
+
+TEST_F(ModbusWorkbenchWidgetTest, DataRadix_DecoupledFromAddressRadix) {
+    widget_->setFunctionCode(0x06);
+    widget_->setDataRadix(10);
+    EXPECT_EQ(widget_->dataRadix(), 10);
+
+    widget_->setRadix(16);
+    EXPECT_EQ(widget_->radix(), 16);
+    EXPECT_EQ(widget_->dataRadix(), 10);
+
+    widget_->setRadix(10);
+    EXPECT_EQ(widget_->radix(), 10);
+    EXPECT_EQ(widget_->dataRadix(), 10);
+}
+
+TEST_F(ModbusWorkbenchWidgetTest, DataRadix_CoilLockBinAndRegisterRadixRestore) {
+    widget_->setFunctionCode(0x06);
+    widget_->setDataRadix(16);
+    EXPECT_EQ(widget_->dataRadix(), 16);
+
+    widget_->setFunctionCode(0x05);
+    EXPECT_EQ(widget_->dataRadix(), 2);
+    auto* decBtn = widget_->findChild<QPushButton*>(QStringLiteral("workbenchDataRadixDecBtn"));
+    auto* hexBtn = widget_->findChild<QPushButton*>(QStringLiteral("workbenchDataRadixHexBtn"));
+    auto* binBtn = widget_->findChild<QPushButton*>(QStringLiteral("workbenchDataRadixBinBtn"));
+    ASSERT_NE(decBtn, nullptr);
+    ASSERT_NE(hexBtn, nullptr);
+    ASSERT_NE(binBtn, nullptr);
+    EXPECT_FALSE(decBtn->isEnabled());
+    EXPECT_FALSE(hexBtn->isEnabled());
+    EXPECT_TRUE(binBtn->isEnabled());
+    EXPECT_TRUE(binBtn->isChecked());
+
+    widget_->setFunctionCode(0x0F);
+    EXPECT_EQ(widget_->dataRadix(), 2);
+    EXPECT_FALSE(decBtn->isEnabled());
+
+    widget_->setFunctionCode(0x06);
+    EXPECT_EQ(widget_->dataRadix(), 16);
+    EXPECT_TRUE(decBtn->isEnabled());
+    EXPECT_TRUE(hexBtn->isEnabled());
+    EXPECT_TRUE(binBtn->isEnabled());
+    EXPECT_TRUE(hexBtn->isChecked());
+}
+
+TEST_F(ModbusWorkbenchWidgetTest, DataRadix_InPlaceConversion) {
+    widget_->setFunctionCode(0x06);
+    widget_->setDataRadix(10);
+    auto* edit = widget_->findChild<QLineEdit*>(QStringLiteral("workbenchFc06ValueEdit"));
+    ASSERT_NE(edit, nullptr);
+    edit->setText(QStringLiteral("1234"));
+
+    widget_->setDataRadix(16);
+    EXPECT_EQ(widget_->dataRadix(), 16);
+    EXPECT_EQ(edit->text().toUpper(), QStringLiteral("4D2"));
+    auto specHex = widget_->currentSpec();
+    EXPECT_EQ(specHex.writeData, QByteArray::fromHex("04D2"));
+
+    widget_->setDataRadix(2);
+    EXPECT_EQ(widget_->dataRadix(), 2);
+    EXPECT_EQ(edit->text(), QStringLiteral("0000010011010010"));
+    auto specBin = widget_->currentSpec();
+    EXPECT_EQ(specBin.writeData, QByteArray::fromHex("04D2"));
+
+    edit->setText(QStringLiteral("invalid_val"));
+    widget_->setDataRadix(10);
+    EXPECT_EQ(edit->text(), QStringLiteral("invalid_val"));
+}
+
+TEST_F(ModbusWorkbenchWidgetTest, Validation_WriteErrorDisplayedInWriteGroupWithoutAddressRedBorder) {
+    widget_->setFunctionCode(0x0F);
+    widget_->setQuantity(8);
+    auto* bitsEdit = widget_->findChild<QLineEdit*>(QStringLiteral("workbenchFc0fBitsEdit"));
+    auto* addrEdit = widget_->findChild<QLineEdit*>(QStringLiteral("workbenchAddressEdit"));
+    auto* writeWarning = widget_->writeWarningLabel();
+    auto* addrWarning = widget_->addressWarningLabel();
+    ASSERT_NE(bitsEdit, nullptr);
+    ASSERT_NE(addrEdit, nullptr);
+    ASSERT_NE(writeWarning, nullptr);
+    ASSERT_NE(addrWarning, nullptr);
+
+    EXPECT_TRUE(writeWarning->isHidden());
+    EXPECT_TRUE(addrWarning->isHidden());
+    EXPECT_FALSE(addrEdit->styleSheet().contains(QStringLiteral("#d32f2f")));
+
+    bitsEdit->setText(QStringLiteral("1010"));
+    emit bitsEdit->textEdited(QStringLiteral("1010"));
+
+    EXPECT_FALSE(writeWarning->isHidden());
+    EXPECT_TRUE(addrWarning->isHidden());
+    EXPECT_FALSE(addrEdit->styleSheet().contains(QStringLiteral("#d32f2f")));
+    EXPECT_TRUE(writeWarning->text().contains(QStringLiteral("4")));
+}
+

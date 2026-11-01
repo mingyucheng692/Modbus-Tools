@@ -116,6 +116,7 @@ inline constexpr char kModbusWorkbenchFunctionCode[] = "modbus/workbench/functio
 inline constexpr char kModbusWorkbenchStartAddress[] = "modbus/workbench/startAddress";
 inline constexpr char kModbusWorkbenchQuantity[] = "modbus/workbench/quantity";
 inline constexpr char kModbusWorkbenchRadix[] = "modbus/workbench/radix";
+inline constexpr char kModbusWorkbenchDataRadix[] = "modbus/workbench/dataRadix";
 inline constexpr char kModbusWorkbenchPollIntervalMs[] = "modbus/workbench/pollIntervalMs";
 inline constexpr char kModbusWorkbenchFc05Value[] = "modbus/workbench/fc05Value";
 inline constexpr char kModbusWorkbenchFc06Value[] = "modbus/workbench/fc06Value";

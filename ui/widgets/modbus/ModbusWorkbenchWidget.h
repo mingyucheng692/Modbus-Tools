@@ -55,18 +55,21 @@ public:
 
     // State getters
     [[nodiscard]] ::ui::application::modbus::ModbusExecuteSpec currentSpec() const;
-    [[nodiscard]] bool isRawMode() const noexcept;
-    [[nodiscard]] bool isPolling() const noexcept;
+    [[nodiscard]] bool isRawMode() const noexcept { return isRawMode_; }
+    [[nodiscard]] bool isPolling() const noexcept { return isPolling_; }
     [[nodiscard]] int pollingIntervalMs() const noexcept;
     [[nodiscard]] uint8_t slaveId() const noexcept;
     [[nodiscard]] uint8_t functionCode() const noexcept;
-    [[nodiscard]] uint16_t startAddress() const noexcept;
+    [[nodiscard]] uint16_t startAddress() const noexcept { return pduAddress_; }
     [[nodiscard]] uint16_t quantity() const noexcept;
-    [[nodiscard]] int radix() const noexcept;
-    [[nodiscard]] ::modbus::address::AddressBase addressBase() const noexcept;
+    [[nodiscard]] int radix() const noexcept { return radix_; }
+    [[nodiscard]] int dataRadix() const noexcept { return dataRadix_; }
+    [[nodiscard]] ::modbus::address::AddressBase addressBase() const noexcept { return addressBase_; }
     [[nodiscard]] QComboBox* addressBaseComboBox() const noexcept { return addrBaseCombo_; }
     [[nodiscard]] QLineEdit* addressEdit() const noexcept { return addressEdit_; }
     [[nodiscard]] QLabel* addressPreviewLabel() const noexcept { return addressPreviewLabel_; }
+    [[nodiscard]] QLabel* writeWarningLabel() const noexcept { return writeWarningLabel_; }
+    [[nodiscard]] QGroupBox* writeGroup() const noexcept { return writeGroup_; }
     [[nodiscard]] QPushButton* executeButton() const noexcept { return executeBtn_; }
     [[nodiscard]] QLabel* guardHintLabel() const noexcept { return guardHintLabel_; }
 
@@ -77,6 +80,7 @@ public:
     void setStartAddress(uint16_t addr);
     void setQuantity(uint16_t qty);
     void setRadix(int radix);
+    void setDataRadix(int radix);
     void setPollingIntervalMs(int ms);
     void setFc05Value(bool on);
     void setWritePayload(const QString& text);
@@ -93,6 +97,7 @@ signals:
 private slots:
     void onModeChanged(int id);
     void onRadixChanged(int id);
+    void onDataRadixChanged(int id);
     void onFunctionCodeChanged(int index);
     void onSlaveIdChanged(int val);
     void onAddressEdited();
@@ -117,23 +122,28 @@ private:
     void setupAddressBaseRow(QGroupBox* group, QFormLayout* form);
     void setupSlaveIdRow(QGroupBox* group, QFormLayout* form);
     void setupAddressAndQuantityRows(QGroupBox* group, QFormLayout* form);
+    void setupModeToggle(QWidget* container, QVBoxLayout* rootLayout);
     void setupWriteSection(QWidget* parent, QVBoxLayout* layout);
+    void setupDataRadixRow(QGroupBox* group, QVBoxLayout* wl);
     void setupWriteStackPages(QWidget* stackWidget);
-    void setupBitAndWordPages(QWidget* stackWidget);
     void setupExecutionSection(QWidget* parent, QVBoxLayout* layout);
     void setupPollControls(QVBoxLayout* gl);
     void setupRawButtons(QGroupBox* editGroup, QVBoxLayout* el);
     void updateExecuteButtonAppearance();
     void updateGuardAppearance();
     void updateAddressDisplay();
+    void updateRequestDataState(uint8_t fc);
+    void updateDataRadixHints();
     void validateInputs();
     void validateAddressRange(bool& valid, QString& errorMsg);
     void validateWriteData(bool& valid, QString& errorMsg);
-    void updateWarningAndActionState(bool valid, const QString& errorMsg, uint8_t sid);
+    void updateWarningAndActionState(
+        bool addrValid, const QString& addrError, bool writeValid, const QString& writeError, uint8_t sid);
     bool confirmWritePoll(uint8_t fc);
     void stopPollingInternal(bool emitSignal);
     void loadSettings();
-    void loadWidgetValues();
+    void loadAddressingSettings();
+    void loadExecutionAndPayloadSettings();
     void saveSettings();
     void retranslateUi();
     void retranslateAddressingUi();
@@ -153,6 +163,9 @@ private:
     bool userConfirmedWritePoll_ = false;
     uint16_t pduAddress_ = 0;
     int radix_ = 10;
+    int dataRadix_ = 10;
+    int registerDataRadix_ = 10;
+    bool writePayloadDirty_ = false;
     bool fc05IsOn_ = true;
 
     // UI Widgets
@@ -182,7 +195,13 @@ private:
 
     // Write stack
     QGroupBox* writeGroup_ = nullptr;
+    QLabel* dataRadixLabel_ = nullptr;
+    QButtonGroup* dataRadixGroup_ = nullptr;
+    QPushButton* dataRadixDecBtn_ = nullptr;
+    QPushButton* dataRadixHexBtn_ = nullptr;
+    QPushButton* dataRadixBinBtn_ = nullptr;
     QStackedLayout* writeStackedLayout_ = nullptr;
+    QLabel* readPlaceholderLabel_ = nullptr;
     QPushButton* fc05OnBtn_ = nullptr;
     QPushButton* fc05OffBtn_ = nullptr;
     QButtonGroup* fc05Group_ = nullptr;
@@ -192,6 +211,7 @@ private:
     QLabel* fc0fHintLabel_ = nullptr;
     QLineEdit* fc10WordsEdit_ = nullptr;
     QLabel* fc10HintLabel_ = nullptr;
+    QLabel* writeWarningLabel_ = nullptr;
 
     // Execution & polling
     QGroupBox* executionGroup_ = nullptr;

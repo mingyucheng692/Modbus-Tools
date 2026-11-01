@@ -4505,6 +4505,42 @@ Choose update method:</source>
         <source>Write (F5)</source>
         <translation>写入 (F5)</translation>
     </message>
+    <message>
+        <source>Request Data</source>
+        <translation>请求数据</translation>
+    </message>
+    <message>
+        <source>Data Radix:</source>
+        <translation>数据进制:</translation>
+    </message>
+    <message>
+        <source>Address Radix:</source>
+        <translation>地址进制:</translation>
+    </message>
+    <message>
+        <source>BIN</source>
+        <translation>二进制 (BIN)</translation>
+    </message>
+    <message>
+        <source>Read operation requires no request payload</source>
+        <translation>读操作无请求数据</translation>
+    </message>
+    <message>
+        <source>Register Value (0 ~ 65535):</source>
+        <translation>寄存器数值 (0 ~ 65535):</translation>
+    </message>
+    <message>
+        <source>Register Value (0x0000 ~ 0xFFFF):</source>
+        <translation>寄存器数值 (0x0000 ~ 0xFFFF):</translation>
+    </message>
+    <message>
+        <source>Register Value (16-bit 0/1):</source>
+        <translation>寄存器数值 (16 位 0/1):</translation>
+    </message>
+    <message>
+        <source>Coil Bits (LSB-first: left = start address, %1 bits):</source>
+        <translation>线圈状态 (低位在前: 左侧=起始地址, 需 %1 位):</translation>
+    </message>
 </context>
 <context>
     <name>ui::widgets::modbus::TelemetryTableModel</name>
@@ -4532,6 +4568,33 @@ Choose update method:</source>
         <location filename="../widgets/modbus/TelemetryTableModel.cpp" line="36" />
         <source>Status</source>
         <translation>状态</translation>
+    </message>
+</context>
+<context>
+    <name>ui::common::ModbusDataHelper</name>
+    <message>
+        <source>Expected quantity must be greater than zero</source>
+        <translation>期望数量必须大于零</translation>
+    </message>
+    <message>
+        <source>Unsupported radix (only 10, 16, and 2 supported)</source>
+        <translation>不支持的进制（仅支持 10、16 和 2）</translation>
+    </message>
+    <message>
+        <source>Invalid bit character: only '0' and '1' are allowed</source>
+        <translation>非法的位字符：仅允许 '0' 和 '1'</translation>
+    </message>
+    <message>
+        <source>Bit count (%1) does not match expected quantity (%2)</source>
+        <translation>位数量 (%1) 与期望数量 (%2) 不匹配</translation>
+    </message>
+    <message>
+        <source>Word count (%1) does not match expected quantity (%2)</source>
+        <translation>字数量 (%1) 与期望数量 (%2) 不匹配</translation>
+    </message>
+    <message>
+        <source>Invalid register value: '%1'</source>
+        <translation>非法的寄存器数值：'%1'</translation>
     </message>
 </context>
 </TS>

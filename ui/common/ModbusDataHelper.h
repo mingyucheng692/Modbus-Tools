@@ -27,7 +27,7 @@ int parseSmartInt(const QString& input, bool* ok = nullptr);
 // Converts user-pasted text to clean target-radix representation.
 [[nodiscard]] std::optional<QString> convertPastedText(const QString& text, int targetRadix) noexcept;
 
-// Converts numbers in text between bases (10 and 16).
+// Converts numbers in text between bases (10, 16, and 2).
 [[nodiscard]] QString convertRadix(const QString& text, int fromRadix, int toRadix) noexcept;
 
 // Validates and packs bit string ('0'/'1') into LSB-first byte array.

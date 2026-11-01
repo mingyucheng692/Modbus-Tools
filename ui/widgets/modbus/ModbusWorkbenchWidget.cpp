@@ -102,18 +102,17 @@ void ModbusWorkbenchWidget::setConfirmWritePollHandler(std::function<bool(uint8_
     if (spec.functionCode == 0x05) {
         spec.writeData = fc05IsOn_ ? QByteArray::fromHex("FF00") : QByteArray::fromHex("0000");
     } else if (spec.functionCode == 0x06) {
-        bool ok = false;
-        const int val = fc06ValueEdit_->text().toInt(&ok, radix_);
-        spec.writeData.resize(2);
-        spec.writeData[0] = static_cast<char>((val >> 8) & 0xFF);
-        spec.writeData[1] = static_cast<char>(val & 0xFF);
+        auto res = ::ui::common::data_helper::parseRegisterWords(fc06ValueEdit_->text(), dataRadix_, 1);
+        if (res.isOk()) {
+            spec.writeData = res.value();
+        }
     } else if (spec.functionCode == 0x0F) {
         auto res = ::ui::common::data_helper::packCoilBits(fc0fBitsEdit_->text(), spec.quantity);
         if (res.isOk()) {
             spec.writeData = res.value();
         }
     } else if (spec.functionCode == 0x10) {
-        auto res = ::ui::common::data_helper::parseRegisterWords(fc10WordsEdit_->text(), radix_, spec.quantity);
+        auto res = ::ui::common::data_helper::parseRegisterWords(fc10WordsEdit_->text(), dataRadix_, spec.quantity);
         if (res.isOk()) {
             spec.writeData = res.value();
         }
@@ -121,29 +120,17 @@ void ModbusWorkbenchWidget::setConfirmWritePollHandler(std::function<bool(uint8_
     return spec;
 }
 
-bool ModbusWorkbenchWidget::isRawMode() const noexcept { return isRawMode_; }
-bool ModbusWorkbenchWidget::isPolling() const noexcept { return isPolling_; }
 int ModbusWorkbenchWidget::pollingIntervalMs() const noexcept { return pollIntervalSpin_->value(); }
 uint8_t ModbusWorkbenchWidget::slaveId() const noexcept { return static_cast<uint8_t>(slaveIdSpin_->value()); }
 uint8_t ModbusWorkbenchWidget::functionCode() const noexcept { return static_cast<uint8_t>(fcCombo_->currentData().toUInt()); }
-uint16_t ModbusWorkbenchWidget::startAddress() const noexcept { return pduAddress_; }
 uint16_t ModbusWorkbenchWidget::quantity() const noexcept { return static_cast<uint16_t>(quantitySpin_->value()); }
-int ModbusWorkbenchWidget::radix() const noexcept { return radix_; }
-::modbus::address::AddressBase ModbusWorkbenchWidget::addressBase() const noexcept { return addressBase_; }
 
 void ModbusWorkbenchWidget::setMode(int mode) {
-    if (mode == 0) {
-        standardModeBtn_->setChecked(true);
-        onModeChanged(0);
-    } else {
-        rawModeBtn_->setChecked(true);
-        onModeChanged(1);
-    }
+    (mode == 0 ? standardModeBtn_ : rawModeBtn_)->setChecked(true);
+    onModeChanged(mode == 0 ? 0 : 1);
 }
 
-void ModbusWorkbenchWidget::setSlaveId(uint8_t slaveId) {
-    slaveIdSpin_->setValue(slaveId);
-}
+void ModbusWorkbenchWidget::setSlaveId(uint8_t slaveId) { slaveIdSpin_->setValue(slaveId); }
 
 void ModbusWorkbenchWidget::setFunctionCode(uint8_t fc) {
     const int idx = fcCombo_->findData(fc);
@@ -158,34 +145,32 @@ void ModbusWorkbenchWidget::setStartAddress(uint16_t addr) {
     validateInputs();
 }
 
-void ModbusWorkbenchWidget::setQuantity(uint16_t qty) {
-    quantitySpin_->setValue(qty);
-}
+void ModbusWorkbenchWidget::setQuantity(uint16_t qty) { quantitySpin_->setValue(qty); }
 
 void ModbusWorkbenchWidget::setRadix(int radix) {
-    if (radix == 16) {
-        radixHexBtn_->setChecked(true);
-        onRadixChanged(16);
-    } else {
-        radixDecBtn_->setChecked(true);
-        onRadixChanged(10);
-    }
+    (radix == 16 ? radixHexBtn_ : radixDecBtn_)->setChecked(true);
+    onRadixChanged(radix == 16 ? 16 : 10);
 }
 
-void ModbusWorkbenchWidget::setPollingIntervalMs(int ms) {
-    pollIntervalSpin_->setValue(ms);
+void ModbusWorkbenchWidget::setDataRadix(int radix) {
+    if ((radix != 10 && radix != 16 && radix != 2) || functionCode() == 0x05 || functionCode() == 0x0F) {
+        return;
+    }
+    if (radix == 16) { dataRadixHexBtn_->setChecked(true); }
+    else if (radix == 2) { dataRadixBinBtn_->setChecked(true); }
+    else { dataRadixDecBtn_->setChecked(true); }
+    onDataRadixChanged(radix);
 }
+
+void ModbusWorkbenchWidget::setPollingIntervalMs(int ms) { pollIntervalSpin_->setValue(ms); }
 
 void ModbusWorkbenchWidget::setFc05Value(bool on) {
     fc05IsOn_ = on;
-    if (on) {
-        fc05OnBtn_->setChecked(true);
-    } else {
-        fc05OffBtn_->setChecked(true);
-    }
+    (on ? fc05OnBtn_ : fc05OffBtn_)->setChecked(true);
 }
 
 void ModbusWorkbenchWidget::setWritePayload(const QString& text) {
+    writePayloadDirty_ = true;
     const uint8_t fc = functionCode();
     if (fc == 0x06) {
         fc06ValueEdit_->setText(text);
@@ -210,21 +195,7 @@ void ModbusWorkbenchWidget::setPollingChecked(bool checked) {
     pollCheckBox_->setChecked(checked);
 }
 
-void ModbusWorkbenchWidget::setupUi() {
-    auto* outerLayout = new QVBoxLayout(this);
-    outerLayout->setContentsMargins(0, 0, 0, 0);
-
-    auto* scrollArea = new QScrollArea(this);
-    scrollArea->setWidgetResizable(true);
-    scrollArea->setFrameShape(QFrame::NoFrame);
-
-    auto* container = new QWidget(scrollArea);
-    container->setObjectName(QStringLiteral("workbenchContainer"));
-    auto* rootLayout = new QVBoxLayout(container);
-    rootLayout->setObjectName(QStringLiteral("workbenchRootLayout"));
-    rootLayout->setContentsMargins(4, 4, 4, 4);
-    rootLayout->setSpacing(6);
-
+void ModbusWorkbenchWidget::setupModeToggle(QWidget* container, QVBoxLayout* rootLayout) {
     auto* topBarLayout = new QHBoxLayout();
     modeGroup_ = new QButtonGroup(this);
     standardModeBtn_ = new QPushButton(container);
@@ -240,6 +211,24 @@ void ModbusWorkbenchWidget::setupUi() {
     topBarLayout->addWidget(standardModeBtn_);
     topBarLayout->addWidget(rawModeBtn_);
     rootLayout->addLayout(topBarLayout);
+}
+
+void ModbusWorkbenchWidget::setupUi() {
+    auto* outerLayout = new QVBoxLayout(this);
+    outerLayout->setContentsMargins(0, 0, 0, 0);
+
+    auto* scrollArea = new QScrollArea(this);
+    scrollArea->setWidgetResizable(true);
+    scrollArea->setFrameShape(QFrame::NoFrame);
+
+    auto* container = new QWidget(scrollArea);
+    container->setObjectName(QStringLiteral("workbenchContainer"));
+    auto* rootLayout = new QVBoxLayout(container);
+    rootLayout->setObjectName(QStringLiteral("workbenchRootLayout"));
+    rootLayout->setContentsMargins(4, 4, 4, 4);
+    rootLayout->setSpacing(6);
+
+    setupModeToggle(container, rootLayout);
 
     auto* stackWidget = new QWidget(container);
     mainStackedLayout_ = new QStackedLayout(stackWidget);
@@ -249,7 +238,6 @@ void ModbusWorkbenchWidget::setupUi() {
 
     scrollArea->setWidget(container);
     outerLayout->addWidget(scrollArea);
-
     retranslateUi();
 }
 
@@ -402,17 +390,63 @@ void ModbusWorkbenchWidget::setupWriteSection(QWidget* parent, QVBoxLayout* layo
     writeGroup_ = new QGroupBox(parent);
     writeGroup_->setObjectName(QStringLiteral("workbenchWriteGroup"));
     auto* wl = new QVBoxLayout(writeGroup_);
+    wl->setSpacing(6);
+
+    setupDataRadixRow(writeGroup_, wl);
+
     auto* writeStackWidget = new QWidget(writeGroup_);
     writeStackedLayout_ = new QStackedLayout(writeStackWidget);
-
     setupWriteStackPages(writeStackWidget);
-
     wl->addWidget(writeStackWidget);
-    writeGroup_->hide();
+
+    writeWarningLabel_ = new QLabel(writeGroup_);
+    writeWarningLabel_->setObjectName(QStringLiteral("workbenchWriteWarning"));
+    writeWarningLabel_->setStyleSheet(QStringLiteral("color: #d32f2f; font-weight: bold;"));
+    writeWarningLabel_->setWordWrap(true);
+    writeWarningLabel_->hide();
+    wl->addWidget(writeWarningLabel_);
+
     layout->addWidget(writeGroup_);
 }
 
+void ModbusWorkbenchWidget::setupDataRadixRow(QGroupBox* group, QVBoxLayout* wl) {
+    auto* rowLayout = new QHBoxLayout();
+    rowLayout->setContentsMargins(0, 0, 0, 0);
+    dataRadixLabel_ = new QLabel(group);
+    dataRadixGroup_ = new QButtonGroup(this);
+    dataRadixDecBtn_ = new QPushButton(group);
+    dataRadixDecBtn_->setObjectName(QStringLiteral("workbenchDataRadixDecBtn"));
+    dataRadixDecBtn_->setCheckable(true);
+    dataRadixDecBtn_->setChecked(true);
+    dataRadixHexBtn_ = new QPushButton(group);
+    dataRadixHexBtn_->setObjectName(QStringLiteral("workbenchDataRadixHexBtn"));
+    dataRadixHexBtn_->setCheckable(true);
+    dataRadixBinBtn_ = new QPushButton(group);
+    dataRadixBinBtn_->setObjectName(QStringLiteral("workbenchDataRadixBinBtn"));
+    dataRadixBinBtn_->setCheckable(true);
+    dataRadixGroup_->addButton(dataRadixDecBtn_, 10);
+    dataRadixGroup_->addButton(dataRadixHexBtn_, 16);
+    dataRadixGroup_->addButton(dataRadixBinBtn_, 2);
+    connect(dataRadixGroup_, &QButtonGroup::idClicked, this, &ModbusWorkbenchWidget::onDataRadixChanged);
+    rowLayout->addWidget(dataRadixLabel_);
+    rowLayout->addWidget(dataRadixDecBtn_);
+    rowLayout->addWidget(dataRadixHexBtn_);
+    rowLayout->addWidget(dataRadixBinBtn_);
+    rowLayout->addStretch(1);
+    wl->addLayout(rowLayout);
+}
+
 void ModbusWorkbenchWidget::setupWriteStackPages(QWidget* stackWidget) {
+    auto* pRead = new QWidget(stackWidget);
+    auto* lRead = new QVBoxLayout(pRead);
+    lRead->setContentsMargins(0, 4, 0, 4);
+    readPlaceholderLabel_ = new QLabel(pRead);
+    readPlaceholderLabel_->setObjectName(QStringLiteral("workbenchReadPlaceholder"));
+    readPlaceholderLabel_->setStyleSheet(QStringLiteral("color: #757575; font-size: 11px; font-style: italic;"));
+    readPlaceholderLabel_->setWordWrap(true);
+    lRead->addWidget(readPlaceholderLabel_);
+    writeStackedLayout_->addWidget(pRead);
+
     auto* p0 = new QWidget(stackWidget);
     auto* l0 = new QHBoxLayout(p0);
     fc05Group_ = new QButtonGroup(this);
@@ -432,40 +466,26 @@ void ModbusWorkbenchWidget::setupWriteStackPages(QWidget* stackWidget) {
     l0->addWidget(fc05OffBtn_);
     writeStackedLayout_->addWidget(p0);
 
-    auto* p1 = new QWidget(stackWidget);
-    auto* l1 = new QVBoxLayout(p1);
-    fc06ValueLabel_ = new QLabel(p1);
-    l1->addWidget(fc06ValueLabel_);
-    fc06ValueEdit_ = new QLineEdit(p1);
-    fc06ValueEdit_->setObjectName(QStringLiteral("workbenchFc06ValueEdit"));
-    fc06ValueEdit_->setText(QStringLiteral("0"));
-    connect(fc06ValueEdit_, &QLineEdit::textEdited, this, &ModbusWorkbenchWidget::validateInputs);
-    l1->addWidget(fc06ValueEdit_);
-    writeStackedLayout_->addWidget(p1);
-
-    setupBitAndWordPages(stackWidget);
-}
-
-void ModbusWorkbenchWidget::setupBitAndWordPages(QWidget* stackWidget) {
-    auto* p2 = new QWidget(stackWidget);
-    auto* l2 = new QVBoxLayout(p2);
-    fc0fHintLabel_ = new QLabel(p2);
-    l2->addWidget(fc0fHintLabel_);
-    fc0fBitsEdit_ = new QLineEdit(p2);
-    fc0fBitsEdit_->setObjectName(QStringLiteral("workbenchFc0fBitsEdit"));
-    connect(fc0fBitsEdit_, &QLineEdit::textEdited, this, &ModbusWorkbenchWidget::validateInputs);
-    l2->addWidget(fc0fBitsEdit_);
-    writeStackedLayout_->addWidget(p2);
-
-    auto* p3 = new QWidget(stackWidget);
-    auto* l3 = new QVBoxLayout(p3);
-    fc10HintLabel_ = new QLabel(p3);
-    l3->addWidget(fc10HintLabel_);
-    fc10WordsEdit_ = new QLineEdit(p3);
-    fc10WordsEdit_->setObjectName(QStringLiteral("workbenchFc10WordsEdit"));
-    connect(fc10WordsEdit_, &QLineEdit::textEdited, this, &ModbusWorkbenchWidget::validateInputs);
-    l3->addWidget(fc10WordsEdit_);
-    writeStackedLayout_->addWidget(p3);
+    auto addPage = [&](QLabel*& lbl, QLineEdit*& edt, const QString& objName, const QString& initText = {}) {
+        auto* p = new QWidget(stackWidget);
+        auto* l = new QVBoxLayout(p);
+        lbl = new QLabel(p);
+        l->addWidget(lbl);
+        edt = new QLineEdit(p);
+        edt->setObjectName(objName);
+        if (!initText.isEmpty()) {
+            edt->setText(initText);
+        }
+        connect(edt, &QLineEdit::textEdited, this, [this] {
+            writePayloadDirty_ = true;
+            validateInputs();
+        });
+        l->addWidget(edt);
+        writeStackedLayout_->addWidget(p);
+    };
+    addPage(fc06ValueLabel_, fc06ValueEdit_, QStringLiteral("workbenchFc06ValueEdit"), QStringLiteral("0"));
+    addPage(fc0fHintLabel_, fc0fBitsEdit_, QStringLiteral("workbenchFc0fBitsEdit"));
+    addPage(fc10HintLabel_, fc10WordsEdit_, QStringLiteral("workbenchFc10WordsEdit"));
 }
 
 void ModbusWorkbenchWidget::setupPollControls(QVBoxLayout* gl) {
@@ -584,6 +604,88 @@ void ModbusWorkbenchWidget::onRadixChanged(int id) {
     validateInputs();
 }
 
+void ModbusWorkbenchWidget::onDataRadixChanged(int id) {
+    if (id != 10 && id != 16 && id != 2) {
+        return;
+    }
+    const int oldRadix = dataRadix_;
+    dataRadix_ = id;
+    const uint8_t fc = functionCode();
+    if (fc == 0x06 || fc == 0x10) {
+        registerDataRadix_ = id;
+        if (fc == 0x06) {
+            const QString oldText = fc06ValueEdit_->text().trimmed();
+            if (!oldText.isEmpty()) {
+                fc06ValueEdit_->setText(::ui::common::data_helper::convertRadix(oldText, oldRadix, dataRadix_));
+            }
+        } else if (fc == 0x10) {
+            const QString oldText = fc10WordsEdit_->text().trimmed();
+            if (!oldText.isEmpty()) {
+                fc10WordsEdit_->setText(::ui::common::data_helper::convertRadix(oldText, oldRadix, dataRadix_));
+            }
+        }
+    }
+    updateDataRadixHints();
+    validateInputs();
+}
+
+void ModbusWorkbenchWidget::updateRequestDataState(uint8_t fc) {
+    const bool isRead = ::modbus::base::function_traits::isReadOperation(fc);
+    const bool isCoil = (fc == 0x05 || fc == 0x0F);
+    const bool isRegister = (fc == 0x06 || fc == 0x10);
+
+    if (isRead) {
+        writeStackedLayout_->setCurrentIndex(0);
+        dataRadixDecBtn_->setEnabled(false);
+        dataRadixHexBtn_->setEnabled(false);
+        dataRadixBinBtn_->setEnabled(false);
+    } else if (isCoil) {
+        writeStackedLayout_->setCurrentIndex(fc == 0x05 ? 1 : 3);
+        dataRadix_ = 2;
+        dataRadixBinBtn_->setChecked(true);
+        dataRadixDecBtn_->setEnabled(false);
+        dataRadixHexBtn_->setEnabled(false);
+        dataRadixBinBtn_->setEnabled(true);
+    } else if (isRegister) {
+        writeStackedLayout_->setCurrentIndex(fc == 0x06 ? 2 : 4);
+        dataRadixDecBtn_->setEnabled(true);
+        dataRadixHexBtn_->setEnabled(true);
+        dataRadixBinBtn_->setEnabled(true);
+        dataRadix_ = registerDataRadix_;
+        if (dataRadix_ == 16) {
+            dataRadixHexBtn_->setChecked(true);
+        } else if (dataRadix_ == 2) {
+            dataRadixBinBtn_->setChecked(true);
+        } else {
+            dataRadix_ = 10;
+            dataRadixDecBtn_->setChecked(true);
+        }
+    }
+    updateDataRadixHints();
+}
+
+void ModbusWorkbenchWidget::updateDataRadixHints() {
+    const uint16_t qty = quantity();
+    if (fc0fHintLabel_) {
+        fc0fHintLabel_->setText(tr("Coil Bits (LSB-first: left = start address, %1 bits):").arg(qty));
+    }
+    if (fc10HintLabel_) {
+        fc10HintLabel_->setText(tr("Register Values (required: %1 words):").arg(qty));
+    }
+    if (fc06ValueLabel_) {
+        if (dataRadix_ == 16) {
+            fc06ValueLabel_->setText(tr("Register Value (0x0000 ~ 0xFFFF):"));
+            fc06ValueEdit_->setPlaceholderText(QStringLiteral("0x0000"));
+        } else if (dataRadix_ == 2) {
+            fc06ValueLabel_->setText(tr("Register Value (16-bit 0/1):"));
+            fc06ValueEdit_->setPlaceholderText(QStringLiteral("0000000000000000"));
+        } else {
+            fc06ValueLabel_->setText(tr("Register Value (0 ~ 65535):"));
+            fc06ValueEdit_->setPlaceholderText(QStringLiteral("0"));
+        }
+    }
+}
+
 void ModbusWorkbenchWidget::onFunctionCodeChanged(int /*index*/) {
     const uint8_t fc = functionCode();
 
@@ -604,15 +706,8 @@ void ModbusWorkbenchWidget::onFunctionCodeChanged(int /*index*/) {
         }
     }
 
-    if (::modbus::base::function_traits::isReadOperation(fc)) {
-        writeGroup_->hide();
-    } else {
-        writeGroup_->show();
-        if (fc == 0x05) writeStackedLayout_->setCurrentIndex(0);
-        else if (fc == 0x06) writeStackedLayout_->setCurrentIndex(1);
-        else if (fc == 0x0F) writeStackedLayout_->setCurrentIndex(2);
-        else if (fc == 0x10) writeStackedLayout_->setCurrentIndex(3);
-    }
+    writePayloadDirty_ = false;
+    updateRequestDataState(fc);
     updateExecuteButtonAppearance();
     validateInputs();
 }
@@ -632,19 +727,15 @@ void ModbusWorkbenchWidget::onAddressEdited() {
     validateInputs();
 }
 
-void ModbusWorkbenchWidget::onQuantityChanged(int /*val*/) {
-    validateInputs();
-}
-
-void ModbusWorkbenchWidget::onFc05Toggled(bool on) {
-    fc05IsOn_ = on;
-}
+void ModbusWorkbenchWidget::onQuantityChanged(int /*val*/) { validateInputs(); }
+void ModbusWorkbenchWidget::onFc05Toggled(bool on) { fc05IsOn_ = on; }
 
 void ModbusWorkbenchWidget::onExecuteClicked() {
     if (isPolling_) {
         onPollCheckBoxToggled(false);
         return;
     }
+    writePayloadDirty_ = true;
     validateInputs();
     if (executeBtn_->isEnabled()) {
         emit executeRequested(currentSpec());
@@ -657,8 +748,9 @@ void ModbusWorkbenchWidget::onPollCheckBoxToggled(bool checked) {
             stopPollingInternal(false);
             return;
         }
+        writePayloadDirty_ = true;
         validateInputs();
-        if (addressWarningLabel_->isVisible()) {
+        if (addressWarningLabel_->isVisible() || writeWarningLabel_->isVisible()) {
             stopPollingInternal(false);
             return;
         }
@@ -711,9 +803,7 @@ bool ModbusWorkbenchWidget::confirmWritePoll(uint8_t fc) {
     return btn == QMessageBox::Yes;
 }
 
-void ModbusWorkbenchWidget::onPollIntervalChanged(int val) {
-    emit pollIntervalChanged(val);
-}
+void ModbusWorkbenchWidget::onPollIntervalChanged(int val) { emit pollIntervalChanged(val); }
 
 void ModbusWorkbenchWidget::onAddMbapClicked() {
     QByteArray pdu = ::ui::common::data_helper::parseHex(rawTextEdit_->toPlainText());
@@ -783,11 +873,10 @@ void ModbusWorkbenchWidget::validateWriteData(bool& valid, QString& errorMsg) {
     const uint16_t qty = quantity();
 
     if (fc == 0x06) {
-        bool ok = false;
-        const int val = fc06ValueEdit_->text().toInt(&ok, radix_);
-        if (!ok || val < 0 || val > 65535) {
+        auto res = ::ui::common::data_helper::parseRegisterWords(fc06ValueEdit_->text(), dataRadix_, 1);
+        if (res.isErr()) {
             valid = false;
-            errorMsg = tr("Invalid register value (must be 0 ~ 65535)");
+            errorMsg = res.error();
         }
     } else if (fc == 0x0F) {
         auto res = ::ui::common::data_helper::packCoilBits(fc0fBitsEdit_->text(), qty);
@@ -796,7 +885,7 @@ void ModbusWorkbenchWidget::validateWriteData(bool& valid, QString& errorMsg) {
             errorMsg = res.error();
         }
     } else if (fc == 0x10) {
-        auto res = ::ui::common::data_helper::parseRegisterWords(fc10WordsEdit_->text(), radix_, qty);
+        auto res = ::ui::common::data_helper::parseRegisterWords(fc10WordsEdit_->text(), dataRadix_, qty);
         if (res.isErr()) {
             valid = false;
             errorMsg = res.error();
@@ -811,45 +900,50 @@ void ModbusWorkbenchWidget::validateInputs() {
         return;
     }
 
-    bool valid = true;
-    QString errorMsg;
+    bool addrValid = true;
+    QString addrError;
     const uint8_t fc = functionCode();
     const uint8_t sid = slaveId();
-    const uint16_t qty = quantity();
 
     if (sid == 0 && ::modbus::base::function_traits::isReadOperation(fc)) {
-        valid = false;
-        errorMsg = tr("Broadcast read (Slave ID 0) is forbidden per IEC 61158");
+        addrValid = false;
+        addrError = tr("Broadcast read (Slave ID 0) is forbidden per IEC 61158");
     }
 
-    if (valid) {
-        validateAddressRange(valid, errorMsg);
-    }
-    if (valid && ::modbus::base::function_traits::isWriteOperation(fc)) {
-        validateWriteData(valid, errorMsg);
+    if (addrValid) {
+        validateAddressRange(addrValid, addrError);
     }
 
-    if (fc0fHintLabel_) {
-        fc0fHintLabel_->setText(tr("Bit Sequence (required: %1 bits):").arg(qty));
-    }
-    if (fc10HintLabel_) {
-        fc10HintLabel_->setText(tr("Register Values (required: %1 words):").arg(qty));
+    bool writeValid = true;
+    QString writeError;
+    if (::modbus::base::function_traits::isWriteOperation(fc)) {
+        validateWriteData(writeValid, writeError);
     }
 
-    updateWarningAndActionState(valid, errorMsg, sid);
+    updateDataRadixHints();
+    updateWarningAndActionState(addrValid, addrError, writeValid, writeError, sid);
 }
 
-void ModbusWorkbenchWidget::updateWarningAndActionState(bool valid, const QString& errorMsg, uint8_t sid) {
-    if (!valid) {
-        addressWarningLabel_->setText(errorMsg);
+void ModbusWorkbenchWidget::updateWarningAndActionState(
+    bool addrValid, const QString& addrError, bool writeValid, const QString& writeError, uint8_t sid) {
+    if (!addrValid) {
+        addressWarningLabel_->setText(addrError);
         addressWarningLabel_->show();
-        executeBtn_->setEnabled(false);
         addressEdit_->setStyleSheet(QStringLiteral("border: 1px solid #d32f2f;"));
     } else {
         addressWarningLabel_->hide();
         addressEdit_->setStyleSheet(QString());
-        executeBtn_->setEnabled(guardState_.executeEnabled);
     }
+
+    if (!writeValid && writePayloadDirty_) {
+        writeWarningLabel_->setText(writeError);
+        writeWarningLabel_->show();
+    } else {
+        writeWarningLabel_->hide();
+    }
+
+    const bool overallValid = addrValid && writeValid;
+    executeBtn_->setEnabled(overallValid && guardState_.executeEnabled);
 
     if (sid == 0) {
         pollCheckBox_->setEnabled(false);
@@ -862,19 +956,27 @@ void ModbusWorkbenchWidget::updateWarningAndActionState(bool valid, const QStrin
         }
         pollCheckBox_->setToolTip(tr("Broadcast (Slave ID 0) does not support periodic polling"));
     } else {
-        pollCheckBox_->setEnabled(valid && guardState_.pollingEnabled);
+        pollCheckBox_->setEnabled(overallValid && guardState_.pollingEnabled);
         pollCheckBox_->setToolTip(!guardState_.pollingEnabled ? guardState_.tooltipMessage : QString());
     }
     updateGuardAppearance();
 }
 
-void ModbusWorkbenchWidget::loadWidgetValues() {
+void ModbusWorkbenchWidget::loadAddressingSettings() {
     using namespace core::common::settings_keys;
     if (settingsService_->contains(kModbusWorkbenchRadix)) {
         radix_ = settingsService_->value(kModbusWorkbenchRadix).toInt();
         if (radix_ != 16) { radix_ = 10; }
         (radix_ == 16 ? radixHexBtn_ : radixDecBtn_)->setChecked(true);
     }
+    if (settingsService_->contains(kModbusWorkbenchDataRadix)) {
+        registerDataRadix_ = settingsService_->value(kModbusWorkbenchDataRadix).toInt();
+        if (registerDataRadix_ != 16 && registerDataRadix_ != 2) { registerDataRadix_ = 10; }
+    } else if (settingsService_->contains(kModbusWorkbenchRadix)) {
+        registerDataRadix_ = settingsService_->value(kModbusWorkbenchRadix).toInt();
+        if (registerDataRadix_ != 16) { registerDataRadix_ = 10; }
+    }
+    dataRadix_ = registerDataRadix_;
     if (settingsService_->contains(kModbusWorkbenchSlaveId)) {
         slaveIdSpin_->setValue(settingsService_->value(kModbusWorkbenchSlaveId).toInt());
     }
@@ -884,6 +986,10 @@ void ModbusWorkbenchWidget::loadWidgetValues() {
     if (settingsService_->contains(kModbusWorkbenchQuantity)) {
         quantitySpin_->setValue(settingsService_->value(kModbusWorkbenchQuantity).toInt());
     }
+}
+
+void ModbusWorkbenchWidget::loadExecutionAndPayloadSettings() {
+    using namespace core::common::settings_keys;
     if (settingsService_->contains(kModbusWorkbenchPollIntervalMs)) {
         pollIntervalSpin_->setValue(settingsService_->value(kModbusWorkbenchPollIntervalMs).toInt());
     }
@@ -911,7 +1017,8 @@ void ModbusWorkbenchWidget::loadSettings() {
         return;
     }
     using namespace core::common::settings_keys;
-    loadWidgetValues();
+    loadAddressingSettings();
+    loadExecutionAndPayloadSettings();
 
     uint8_t fc = 0x03;
     if (settingsService_->contains(kModbusWorkbenchFunctionCode)) {
@@ -940,6 +1047,7 @@ void ModbusWorkbenchWidget::saveSettings() {
     settingsService_->setValue(kModbusWorkbenchStartAddress, pduAddress_);
     settingsService_->setValue(kModbusWorkbenchQuantity, quantitySpin_->value());
     settingsService_->setValue(kModbusWorkbenchRadix, radix_);
+    settingsService_->setValue(kModbusWorkbenchDataRadix, registerDataRadix_);
     settingsService_->setValue(kModbusWorkbenchPollIntervalMs, pollIntervalSpin_->value());
     settingsService_->setValue(kModbusWorkbenchFc05Value, fc05IsOn_);
     settingsService_->setValue(kModbusWorkbenchFc06Value, fc06ValueEdit_->text());
@@ -953,7 +1061,7 @@ void ModbusWorkbenchWidget::retranslateAddressingUi() {
     standardModeBtn_->setText(tr("Standard"));
     rawModeBtn_->setText(tr("Raw Frame"));
     addressingGroup_->setTitle(tr("Addressing & Parameters").replace(QLatin1Char('&'), QStringLiteral("&&")));
-    radixLabel_->setText(tr("Radix:"));
+    radixLabel_->setText(tr("Address Radix:"));
     radixDecBtn_->setText(tr("DEC"));
     radixHexBtn_->setText(tr("HEX"));
     if (addrBaseLabel_) {
@@ -984,12 +1092,17 @@ void ModbusWorkbenchWidget::retranslateAddressingUi() {
 }
 
 void ModbusWorkbenchWidget::retranslateWriteAndRawUi() {
-    writeGroup_->setTitle(tr("Write Data"));
+    writeGroup_->setTitle(tr("Request Data"));
+    dataRadixLabel_->setText(tr("Data Radix:"));
+    dataRadixDecBtn_->setText(tr("DEC"));
+    dataRadixHexBtn_->setText(tr("HEX"));
+    dataRadixBinBtn_->setText(tr("BIN"));
+    if (readPlaceholderLabel_) {
+        readPlaceholderLabel_->setText(tr("Read operation requires no request payload"));
+    }
     fc05OnBtn_->setText(tr("ON (0xFF00)"));
     fc05OffBtn_->setText(tr("OFF (0x0000)"));
-    fc06ValueLabel_->setText(tr("Register Value (0-65535):"));
-    fc0fHintLabel_->setText(tr("Bit Sequence (e.g. 10110):"));
-    fc10HintLabel_->setText(tr("Register Values (space separated):"));
+    updateDataRadixHints();
     rawGroup_->setTitle(tr("Raw Frame Dispatch (HEX)"));
     rawTextEdit_->setPlaceholderText(tr("Enter HEX bytes (e.g. 01 03 00 00 00 0A)"));
     addMbapBtn_->setText(tr("+ MBAP"));

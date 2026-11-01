@@ -89,6 +89,12 @@ TEST(ModbusDataHelperTest, ConvertRadix) {
     EXPECT_EQ(data_helper::convertRadix("10 20 30", 10, 16), "A 14 1E");
     EXPECT_EQ(data_helper::convertRadix("0A, 14, 1E", 16, 10), "10 20 30");
 
+    // Binary radix conversions (16-bit padded)
+    EXPECT_EQ(data_helper::convertRadix("1234", 10, 16), "4D2");
+    EXPECT_EQ(data_helper::convertRadix("1234", 10, 2), "0000010011010010");
+    EXPECT_EQ(data_helper::convertRadix("0000010011010010", 2, 10), "1234");
+    EXPECT_EQ(data_helper::convertRadix("0b0000010011010010", 2, 16), "4D2");
+
     // Same radix returns trimmed
     EXPECT_EQ(data_helper::convertRadix("  1000  ", 10, 10), "1000");
 
@@ -148,6 +154,15 @@ TEST(ModbusDataHelperTest, ParseRegisterWords) {
     EXPECT_EQ(static_cast<uint8_t>(resHex.value()[1]), 0x02);
     EXPECT_EQ(static_cast<uint8_t>(resHex.value()[2]), 0x03);
     EXPECT_EQ(static_cast<uint8_t>(resHex.value()[3]), 0x04);
+
+    // Binary parsing (radix 2)
+    auto resBin = data_helper::parseRegisterWords("0000010011010010 0b0000000000000001", 2, 2);
+    ASSERT_TRUE(resBin.isOk());
+    ASSERT_EQ(resBin.value().size(), 4);
+    EXPECT_EQ(static_cast<uint8_t>(resBin.value()[0]), 0x04);
+    EXPECT_EQ(static_cast<uint8_t>(resBin.value()[1]), 0xD2);
+    EXPECT_EQ(static_cast<uint8_t>(resBin.value()[2]), 0x00);
+    EXPECT_EQ(static_cast<uint8_t>(resBin.value()[3]), 0x01);
 
     // Errors
     EXPECT_TRUE(data_helper::parseRegisterWords("1000", 10, 2).isErr());       // Quantity mismatch

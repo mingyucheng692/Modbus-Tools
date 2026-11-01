@@ -1,6 +1,7 @@
 // Copyright (c) 2025 - present mingyucheng692. Licensed under the MIT License.
 
 #include "ModbusDataHelper.h"
+#include <QCoreApplication>
 #include <QRegularExpression>
 #include <QStringList>
 
@@ -148,8 +149,8 @@ std::optional<QString> data_helper::convertPastedText(const QString& text, int t
 
 QString data_helper::convertRadix(const QString& text, int fromRadix, int toRadix) noexcept {
     const QString trimmed = text.trimmed();
-    if (trimmed.isEmpty() || fromRadix == toRadix ||
-        (fromRadix != 10 && fromRadix != 16) || (toRadix != 10 && toRadix != 16)) {
+    const auto isValidRadix = [](int r) noexcept { return r == 10 || r == 16 || r == 2; };
+    if (trimmed.isEmpty() || fromRadix == toRadix || !isValidRadix(fromRadix) || !isValidRadix(toRadix)) {
         return trimmed;
     }
 
@@ -170,14 +171,23 @@ QString data_helper::convertRadix(const QString& text, int fromRadix, int toRadi
                        s.endsWith(QLatin1Char('H'), Qt::CaseInsensitive)) {
                 s = s.left(s.length() - 1);
             }
+        } else if (fromRadix == 2) {
+            if (s.startsWith(QLatin1String("0b"), Qt::CaseInsensitive)) {
+                s = s.mid(2);
+            }
         }
         bool ok = false;
         const uint32_t val = s.toUInt(&ok, fromRadix);
         if (!ok || val > 65535U) {
             return trimmed;
         }
-        resultParts.append(toRadix == 16 ? QString::number(val, 16).toUpper()
-                                         : QString::number(val, 10));
+        if (toRadix == 16) {
+            resultParts.append(QString::number(val, 16).toUpper());
+        } else if (toRadix == 2) {
+            resultParts.append(QString::number(val, 2).rightJustified(16, QLatin1Char('0')));
+        } else {
+            resultParts.append(QString::number(val, 10));
+        }
     }
 
     return resultParts.join(QLatin1Char(' '));
@@ -186,7 +196,7 @@ QString data_helper::convertRadix(const QString& text, int fromRadix, int toRadi
 ::common::Result<QByteArray, QString> data_helper::packCoilBits(const QString& bitStr, int expectedQuantity) noexcept {
     if (expectedQuantity <= 0) {
         return ::common::Result<QByteArray, QString>::err(
-            QStringLiteral("Expected quantity must be greater than zero"));
+            QCoreApplication::translate("ui::common::ModbusDataHelper", "Expected quantity must be greater than zero"));
     }
 
     QString cleaned = bitStr;
@@ -195,13 +205,13 @@ QString data_helper::convertRadix(const QString& text, int fromRadix, int toRadi
     for (const QChar& ch : cleaned) {
         if (ch != QLatin1Char('0') && ch != QLatin1Char('1')) {
             return ::common::Result<QByteArray, QString>::err(
-                QStringLiteral("Invalid bit character: only '0' and '1' are allowed"));
+                QCoreApplication::translate("ui::common::ModbusDataHelper", "Invalid bit character: only '0' and '1' are allowed"));
         }
     }
 
     if (cleaned.length() != expectedQuantity) {
         return ::common::Result<QByteArray, QString>::err(
-            QStringLiteral("Bit count (%1) does not match expected quantity (%2)")
+            QCoreApplication::translate("ui::common::ModbusDataHelper", "Bit count (%1) does not match expected quantity (%2)")
                 .arg(cleaned.length())
                 .arg(expectedQuantity));
     }
@@ -222,17 +232,17 @@ QString data_helper::convertRadix(const QString& text, int fromRadix, int toRadi
     const QString& text, int radix, int expectedQuantity) noexcept {
     if (expectedQuantity <= 0) {
         return ::common::Result<QByteArray, QString>::err(
-            QStringLiteral("Expected quantity must be greater than zero"));
+            QCoreApplication::translate("ui::common::ModbusDataHelper", "Expected quantity must be greater than zero"));
     }
-    if (radix != 10 && radix != 16) {
+    if (radix != 10 && radix != 16 && radix != 2) {
         return ::common::Result<QByteArray, QString>::err(
-            QStringLiteral("Unsupported radix (only 10 and 16 supported)"));
+            QCoreApplication::translate("ui::common::ModbusDataHelper", "Unsupported radix (only 10, 16, and 2 supported)"));
     }
 
     const QStringList parts = text.split(QRegularExpression(QStringLiteral("[\\s,;]+")), Qt::SkipEmptyParts);
     if (parts.size() != expectedQuantity) {
         return ::common::Result<QByteArray, QString>::err(
-            QStringLiteral("Word count (%1) does not match expected quantity (%2)")
+            QCoreApplication::translate("ui::common::ModbusDataHelper", "Word count (%1) does not match expected quantity (%2)")
                 .arg(parts.size())
                 .arg(expectedQuantity));
     }
@@ -249,12 +259,16 @@ QString data_helper::convertRadix(const QString& text, int fromRadix, int toRadi
                        s.endsWith(QLatin1Char('H'), Qt::CaseInsensitive)) {
                 s = s.left(s.length() - 1);
             }
+        } else if (radix == 2) {
+            if (s.startsWith(QLatin1String("0b"), Qt::CaseInsensitive)) {
+                s = s.mid(2);
+            }
         }
         bool ok = false;
         const uint32_t val = s.toUInt(&ok, radix);
         if (!ok || val > 65535U) {
             return ::common::Result<QByteArray, QString>::err(
-                QStringLiteral("Invalid register value: '%1'").arg(part));
+                QCoreApplication::translate("ui::common::ModbusDataHelper", "Invalid register value: '%1'").arg(part));
         }
         result.append(static_cast<char>((val >> 8) & 0xFF));
         result.append(static_cast<char>(val & 0xFF));
