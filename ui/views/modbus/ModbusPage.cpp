@@ -96,7 +96,6 @@ void ModbusPage::setupUi() {
     mainLayout->setSpacing(4);
 
     setupConnectionBar();
-    mainLayout->addWidget(connectionStack_->parentWidget());
 
     setupSplitterBody();
     mainLayout->addWidget(splitter_, 1);
@@ -107,15 +106,17 @@ void ModbusPage::setupUi() {
 void ModbusPage::setupConnectionBar() {
     auto* connRow = new QWidget(this);
     auto* connLayout = new QHBoxLayout(connRow);
-    connLayout->setContentsMargins(0, 0, 0, 0);
+    connLayout->setContentsMargins(0, 0, 0, 6);
     connLayout->setSpacing(4);
 
     protocolCombo_ = new QComboBox(connRow);
+    protocolCombo_->setObjectName(QStringLiteral("modbusProtocolCombo"));
     protocolCombo_->setMinimumWidth(80);
     protocolCombo_->addItem(QStringLiteral("TCP"), static_cast<int>(ui::application::modbus::SessionMode::Tcp));
     protocolCombo_->addItem(QStringLiteral("RTU"), static_cast<int>(ui::application::modbus::SessionMode::Rtu));
     protocolCombo_->addItem(QStringLiteral("ASCII"), static_cast<int>(ui::application::modbus::SessionMode::Ascii));
     connLayout->addWidget(protocolCombo_);
+    connLayout->setAlignment(protocolCombo_, Qt::AlignBottom);
 
     connectionStack_ = new QStackedWidget(connRow);
     connectionStack_->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);
@@ -132,23 +133,13 @@ void ModbusPage::setupConnectionBar() {
     connectionWidget_ = tcpConnectionWidget_;
     connLayout->addWidget(connectionStack_, 1);
 
-    addrBaseCombo_ = new QComboBox(connRow);
-    addrBaseCombo_->setMinimumWidth(110);
-    addrBaseCombo_->addItem(tr("0-Based"), static_cast<int>(::modbus::address::AddressBase::Offset0Based));
-    addrBaseCombo_->addItem(tr("1-Based"), static_cast<int>(::modbus::address::AddressBase::PlcAddress1Based));
-    connLayout->addWidget(addrBaseCombo_);
+    layout()->addWidget(connRow);
+    bindConnectionBarSignals();
+}
 
+void ModbusPage::bindConnectionBarSignals() {
     connect(protocolCombo_, QOverload<int>::of(&QComboBox::currentIndexChanged),
             this, &ModbusPage::onProtocolChanged);
-    connect(addrBaseCombo_, QOverload<int>::of(&QComboBox::currentIndexChanged),
-            this, [this](int idx) {
-                const auto base = (idx == 1) ? ::modbus::address::AddressBase::PlcAddress1Based
-                                             : ::modbus::address::AddressBase::Offset0Based;
-                if (settingsService_) {
-                    settingsService_->setValue(core::common::settings_keys::kModbusAddressBase, static_cast<int>(base));
-                }
-                updateAddressBase(base);
-            });
 
     connect(tcpConnectionWidget_, &widgets::TcpConnectionWidget::connectClicked,
             this, &ModbusPage::onTcpConnectClicked);
@@ -171,6 +162,14 @@ void ModbusPage::setupSplitterBody() {
 
     splitter_->setStretchFactor(0, 0);
     splitter_->setStretchFactor(1, 1);
+
+    connect(workbenchWidget_, &widgets::modbus::ModbusWorkbenchWidget::addressBaseChanged,
+            this, [this](::modbus::address::AddressBase base) {
+                if (settingsService_) {
+                    settingsService_->setValue(core::common::settings_keys::kModbusAddressBase, static_cast<int>(base));
+                }
+                updateAddressBase(base);
+            });
 }
 
 void ModbusPage::renderConnectionState(ui::application::modbus::SessionConnectionState state) {
@@ -188,14 +187,9 @@ void ModbusPage::renderConnectionState(ui::application::modbus::SessionConnectio
 }
 
 void ModbusPage::updateAddressBase(::modbus::address::AddressBase base) {
-    if (addrBaseCombo_) {
-        const int idx = (base == ::modbus::address::AddressBase::PlcAddress1Based) ? 1 : 0;
-        if (addrBaseCombo_->currentIndex() != idx) {
-            QSignalBlocker blocker(addrBaseCombo_);
-            addrBaseCombo_->setCurrentIndex(idx);
-        }
+    if (workbenchWidget_) {
+        workbenchWidget_->setAddressBase(base);
     }
-    if (workbenchWidget_) workbenchWidget_->setAddressBase(base);
 }
 
 void ModbusPage::setProtocolType(::modbus::parser::ProtocolType protocol) {
@@ -316,10 +310,8 @@ void ModbusPage::onDisconnectClicked() {
 }
 
 void ModbusPage::retranslateUi() {
-    if (addrBaseCombo_) {
-        addrBaseCombo_->setItemText(0, tr("0-Based"));
-        addrBaseCombo_->setItemText(1, tr("1-Based"));
-    }
+    // Top-bar protocol acronyms (TCP/RTU/ASCII) are universal; workbench and telemetry
+    // manage their own localized strings dynamically.
 }
 
 void ModbusPage::changeEvent(QEvent* event) {

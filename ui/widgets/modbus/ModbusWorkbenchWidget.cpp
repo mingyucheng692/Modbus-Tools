@@ -62,6 +62,13 @@ void ModbusWorkbenchWidget::setExecutionGuards(const ::ui::application::modbus::
 
 void ModbusWorkbenchWidget::setAddressBase(::modbus::address::AddressBase base) {
     addressBase_ = base;
+    if (addrBaseCombo_) {
+        const int idx = (base == ::modbus::address::AddressBase::PlcAddress1Based) ? 1 : 0;
+        if (addrBaseCombo_->currentIndex() != idx) {
+            const QSignalBlocker blocker(addrBaseCombo_);
+            addrBaseCombo_->setCurrentIndex(idx);
+        }
+    }
     updateAddressDisplay();
     validateInputs();
 }
@@ -210,9 +217,11 @@ void ModbusWorkbenchWidget::setupUi() {
     scrollArea->setFrameShape(QFrame::NoFrame);
 
     auto* container = new QWidget(scrollArea);
+    container->setObjectName(QStringLiteral("workbenchContainer"));
     auto* rootLayout = new QVBoxLayout(container);
-    rootLayout->setContentsMargins(8, 8, 8, 8);
-    rootLayout->setSpacing(8);
+    rootLayout->setObjectName(QStringLiteral("workbenchRootLayout"));
+    rootLayout->setContentsMargins(4, 4, 4, 4);
+    rootLayout->setSpacing(6);
 
     auto* topBarLayout = new QHBoxLayout();
     modeGroup_ = new QButtonGroup(this);
@@ -262,6 +271,7 @@ void ModbusWorkbenchWidget::setupAddressingSection(QWidget* parent, QVBoxLayout*
     gl->setSpacing(6);
 
     setupRadixSelector(addressingGroup_, gl);
+    setupAddressBaseSelector(addressingGroup_, gl);
     setupParametersInputs(addressingGroup_, gl);
 
     addressWarningLabel_ = new QLabel(addressingGroup_);
@@ -293,6 +303,29 @@ void ModbusWorkbenchWidget::setupRadixSelector(QGroupBox* group, QVBoxLayout* gl
     radixLayout->addWidget(radixHexBtn_);
     radixLayout->addStretch(1);
     gl->addLayout(radixLayout);
+}
+
+void ModbusWorkbenchWidget::setupAddressBaseSelector(QGroupBox* group, QVBoxLayout* gl) {
+    auto* baseLayout = new QHBoxLayout();
+    addrBaseLabel_ = new QLabel(group);
+    baseLayout->addWidget(addrBaseLabel_);
+
+    addrBaseCombo_ = new QComboBox(group);
+    addrBaseCombo_->setObjectName(QStringLiteral("workbenchAddrBaseCombo"));
+    addrBaseCombo_->setSizeAdjustPolicy(QComboBox::AdjustToContents);
+    addrBaseCombo_->addItem(QString(), static_cast<int>(::modbus::address::AddressBase::Offset0Based));
+    addrBaseCombo_->addItem(QString(), static_cast<int>(::modbus::address::AddressBase::PlcAddress1Based));
+    baseLayout->addWidget(addrBaseCombo_);
+    baseLayout->addStretch(1);
+    gl->addLayout(baseLayout);
+
+    connect(addrBaseCombo_, QOverload<int>::of(&QComboBox::currentIndexChanged),
+            this, [this](int idx) {
+                const auto base = (idx == 1) ? ::modbus::address::AddressBase::PlcAddress1Based
+                                             : ::modbus::address::AddressBase::Offset0Based;
+                setAddressBase(base);
+                emit addressBaseChanged(base);
+            });
 }
 
 void ModbusWorkbenchWidget::setupParametersInputs(QGroupBox* group, QVBoxLayout* gl) {
@@ -899,6 +932,14 @@ void ModbusWorkbenchWidget::retranslateAddressingUi() {
     radixLabel_->setText(tr("Radix:"));
     radixDecBtn_->setText(tr("DEC"));
     radixHexBtn_->setText(tr("HEX"));
+    if (addrBaseLabel_) {
+        addrBaseLabel_->setText(tr("Address Base:"));
+    }
+    if (addrBaseCombo_) {
+        const QSignalBlocker blocker(addrBaseCombo_);
+        addrBaseCombo_->setItemText(0, tr("0-Based"));
+        addrBaseCombo_->setItemText(1, tr("1-Based"));
+    }
     fcLabel_->setText(tr("Function Code:"));
     const int currentFcIdx = fcCombo_->currentIndex();
     {

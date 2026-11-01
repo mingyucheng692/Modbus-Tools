@@ -63,6 +63,7 @@ public:
     [[nodiscard]] uint16_t quantity() const noexcept;
     [[nodiscard]] int radix() const noexcept;
     [[nodiscard]] ::modbus::address::AddressBase addressBase() const noexcept;
+    [[nodiscard]] QComboBox* addressBaseComboBox() const noexcept { return addrBaseCombo_; }
 
     // State setters (programmatic / testing)
     void setMode(int mode);
@@ -82,6 +83,7 @@ signals:
     void pollToggleRequested(bool start, const ::ui::application::modbus::ModbusExecuteSpec& spec, bool userConfirmedWritePoll);
     void pollIntervalChanged(int intervalMs);
     void logMessageRequested(const QString& message, bool isError);
+    void addressBaseChanged(::modbus::address::AddressBase base);
 
 private slots:
     void onModeChanged(int id);
@@ -105,6 +107,7 @@ private:
     QWidget* createRawWidget();
     void setupAddressingSection(QWidget* parent, QVBoxLayout* layout);
     void setupRadixSelector(QGroupBox* group, QVBoxLayout* gl);
+    void setupAddressBaseSelector(QGroupBox* group, QVBoxLayout* gl);
     void setupParametersInputs(QGroupBox* group, QVBoxLayout* gl);
     void setupAddressAndQuantityInputs(QGroupBox* group, QVBoxLayout* gl);
     void setupWriteSection(QWidget* parent, QVBoxLayout* layout);
@@ -154,6 +157,8 @@ private:
     QButtonGroup* radixGroup_ = nullptr;
     QPushButton* radixDecBtn_ = nullptr;
     QPushButton* radixHexBtn_ = nullptr;
+    QLabel* addrBaseLabel_ = nullptr;
+    QComboBox* addrBaseCombo_ = nullptr;
     QLabel* fcLabel_ = nullptr;
     QComboBox* fcCombo_ = nullptr;
     QLabel* slaveIdLabel_ = nullptr;

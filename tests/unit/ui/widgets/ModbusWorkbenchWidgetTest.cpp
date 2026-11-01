@@ -3,6 +3,8 @@
 #include <gtest/gtest.h>
 #include <QSignalSpy>
 #include <QApplication>
+#include <QComboBox>
+#include <QVBoxLayout>
 #include <memory>
 #include "ui/widgets/modbus/ModbusWorkbenchWidget.h"
 #include "tests/mocks/UiTestDoubles.h"
@@ -71,14 +73,33 @@ TEST_F(ModbusWorkbenchWidgetTest, AddressBaseAdaptation) {
     widget_->setStartAddress(10);
     EXPECT_EQ(widget_->startAddress(), 10);
 
+    auto* combo = widget_->addressBaseComboBox();
+    ASSERT_NE(combo, nullptr);
+    EXPECT_EQ(combo->sizeAdjustPolicy(), QComboBox::AdjustToContents);
+    EXPECT_EQ(combo->currentIndex(), 0);
+
     widget_->setAddressBase(AddressBase::PlcAddress1Based);
     EXPECT_EQ(widget_->addressBase(), AddressBase::PlcAddress1Based);
+    EXPECT_EQ(combo->currentIndex(), 1);
     // PDU address stays constant across base display changes
     EXPECT_EQ(widget_->startAddress(), 10);
 
-    widget_->setAddressBase(AddressBase::Offset0Based);
+    QSignalSpy spy(widget_.get(), &ModbusWorkbenchWidget::addressBaseChanged);
+    combo->setCurrentIndex(0);
+    EXPECT_EQ(spy.count(), 1);
+    EXPECT_EQ(spy.takeFirst().at(0).value<AddressBase>(), AddressBase::Offset0Based);
     EXPECT_EQ(widget_->addressBase(), AddressBase::Offset0Based);
     EXPECT_EQ(widget_->startAddress(), 10);
+
+    auto* rootLayout = widget_->findChild<QVBoxLayout*>(QStringLiteral("workbenchRootLayout"));
+    ASSERT_NE(rootLayout, nullptr);
+    int left = 0, top = 0, right = 0, bottom = 0;
+    rootLayout->getContentsMargins(&left, &top, &right, &bottom);
+    EXPECT_EQ(top, 4);
+    EXPECT_EQ(left, 4);
+    EXPECT_EQ(right, 4);
+    EXPECT_EQ(bottom, 4);
+    EXPECT_EQ(rootLayout->spacing(), 6);
 }
 
 TEST_F(ModbusWorkbenchWidgetTest, ContinuousAddressOverflowDefense) {

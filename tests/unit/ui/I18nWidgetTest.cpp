@@ -210,6 +210,11 @@ TEST(I18nWidgets, ModbusWorkbenchWidgetRetranslate)
     EXPECT_EQ(fcCombo->itemText(0), QStringLiteral("0x01 Read Coils"));
     EXPECT_EQ(fcCombo->itemText(2), QStringLiteral("0x03 Read Holding Registers"));
 
+    auto* addrBaseCombo = widget.findChild<QComboBox*>(QStringLiteral("workbenchAddrBaseCombo"));
+    ASSERT_NE(addrBaseCombo, nullptr);
+    EXPECT_EQ(addrBaseCombo->itemText(0), QStringLiteral("0-Based"));
+    EXPECT_EQ(addrBaseCombo->itemText(1), QStringLiteral("1-Based"));
+
     // 2. In Chinese locale, verify titles, labels, buttons, and combo items are translated.
     ScopedTranslator translator(QStringLiteral("Modbus-Tools_zh_CN.qm"));
     ASSERT_TRUE(translator.isLoaded());
@@ -243,5 +248,8 @@ TEST(I18nWidgets, ModbusWorkbenchWidgetRetranslate)
     EXPECT_EQ(fcCombo->currentIndex(), 2);
     EXPECT_EQ(fcCombo->itemText(0), QStringLiteral("0x01 读线圈 (Read Coils)"));
     EXPECT_EQ(fcCombo->itemText(2), QStringLiteral("0x03 读保持寄存器 (Read Holding Registers)"));
+
+    EXPECT_EQ(addrBaseCombo->itemText(0), QStringLiteral("0-Based (偏移寻址)"));
+    EXPECT_EQ(addrBaseCombo->itemText(1), QStringLiteral("1-Based (常规寻址)"));
 }
 

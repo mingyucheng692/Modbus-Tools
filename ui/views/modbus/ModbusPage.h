@@ -81,6 +81,7 @@ private slots:
 private:
     void setupUi();
     void setupConnectionBar();
+    void bindConnectionBarSignals();
     void setupSplitterBody();
     void switchToProtocol(ui::application::modbus::SessionMode mode);
     void applyProtocolSettingsGroup(ui::application::modbus::SessionMode mode);
@@ -95,7 +96,6 @@ private:
     ui::widgets::TcpConnectionWidget* tcpConnectionWidget_ = nullptr;
     ui::widgets::SerialConnectionWidget* serialConnectionWidget_ = nullptr;
     ui::widgets::BaseConnectionWidget* connectionWidget_ = nullptr;
-    QComboBox* addrBaseCombo_ = nullptr;
 
     ui::widgets::modbus::ModbusWorkbenchWidget* workbenchWidget_ = nullptr;
     ui::widgets::modbus::ModbusTelemetryWidget* telemetryWidget_ = nullptr;

@@ -4473,6 +4473,18 @@ Choose update method:</source>
         <source>Broadcast (Slave ID 0) does not support periodic polling</source>
         <translation>广播 (从站号 0) 不支持周期轮询</translation>
     </message>
+    <message>
+        <source>Address Base:</source>
+        <translation>地址基准:</translation>
+    </message>
+    <message>
+        <source>0-Based</source>
+        <translation>0-Based (偏移寻址)</translation>
+    </message>
+    <message>
+        <source>1-Based</source>
+        <translation>1-Based (常规寻址)</translation>
+    </message>
 </context>
 <context>
     <name>ui::widgets::modbus::TelemetryTableModel</name>
