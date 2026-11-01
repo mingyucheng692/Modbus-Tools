@@ -216,11 +216,11 @@ void ModbusWorkbenchWidget::setupUi() {
 
     auto* topBarLayout = new QHBoxLayout();
     modeGroup_ = new QButtonGroup(this);
-    standardModeBtn_ = new QPushButton(tr("Standard"), container);
+    standardModeBtn_ = new QPushButton(container);
     standardModeBtn_->setObjectName(QStringLiteral("standardModeBtn"));
     standardModeBtn_->setCheckable(true);
     standardModeBtn_->setChecked(true);
-    rawModeBtn_ = new QPushButton(tr("Raw Frame"), container);
+    rawModeBtn_ = new QPushButton(container);
     rawModeBtn_->setObjectName(QStringLiteral("rawModeBtn"));
     rawModeBtn_->setCheckable(true);
     modeGroup_->addButton(standardModeBtn_, 0);
@@ -238,6 +238,8 @@ void ModbusWorkbenchWidget::setupUi() {
 
     scrollArea->setWidget(container);
     outerLayout->addWidget(scrollArea);
+
+    retranslateUi();
 }
 
 QWidget* ModbusWorkbenchWidget::createStandardWidget() {
@@ -254,32 +256,34 @@ QWidget* ModbusWorkbenchWidget::createStandardWidget() {
 }
 
 void ModbusWorkbenchWidget::setupAddressingSection(QWidget* parent, QVBoxLayout* layout) {
-    auto* group = new QGroupBox(tr("Addressing & Parameters"), parent);
-    auto* gl = new QVBoxLayout(group);
+    addressingGroup_ = new QGroupBox(parent);
+    addressingGroup_->setObjectName(QStringLiteral("workbenchAddressingGroup"));
+    auto* gl = new QVBoxLayout(addressingGroup_);
     gl->setSpacing(6);
 
-    setupRadixSelector(group, gl);
-    setupParametersInputs(group, gl);
+    setupRadixSelector(addressingGroup_, gl);
+    setupParametersInputs(addressingGroup_, gl);
 
-    addressWarningLabel_ = new QLabel(group);
+    addressWarningLabel_ = new QLabel(addressingGroup_);
     addressWarningLabel_->setObjectName(QStringLiteral("workbenchAddressWarning"));
     addressWarningLabel_->setStyleSheet(QStringLiteral("color: #d32f2f; font-weight: bold;"));
     addressWarningLabel_->setWordWrap(true);
     addressWarningLabel_->hide();
     gl->addWidget(addressWarningLabel_);
 
-    layout->addWidget(group);
+    layout->addWidget(addressingGroup_);
 }
 
 void ModbusWorkbenchWidget::setupRadixSelector(QGroupBox* group, QVBoxLayout* gl) {
     auto* radixLayout = new QHBoxLayout();
-    radixLayout->addWidget(new QLabel(tr("Radix:"), group));
+    radixLabel_ = new QLabel(group);
+    radixLayout->addWidget(radixLabel_);
     radixGroup_ = new QButtonGroup(this);
-    radixDecBtn_ = new QPushButton(tr("DEC"), group);
+    radixDecBtn_ = new QPushButton(group);
     radixDecBtn_->setObjectName(QStringLiteral("radixDecBtn"));
     radixDecBtn_->setCheckable(true);
     radixDecBtn_->setChecked(true);
-    radixHexBtn_ = new QPushButton(tr("HEX"), group);
+    radixHexBtn_ = new QPushButton(group);
     radixHexBtn_->setObjectName(QStringLiteral("radixHexBtn"));
     radixHexBtn_->setCheckable(true);
     radixGroup_->addButton(radixDecBtn_, 10);
@@ -292,24 +296,26 @@ void ModbusWorkbenchWidget::setupRadixSelector(QGroupBox* group, QVBoxLayout* gl
 }
 
 void ModbusWorkbenchWidget::setupParametersInputs(QGroupBox* group, QVBoxLayout* gl) {
-    gl->addWidget(new QLabel(tr("Function Code:"), group));
+    fcLabel_ = new QLabel(group);
+    gl->addWidget(fcLabel_);
     fcCombo_ = new QComboBox(group);
     fcCombo_->setObjectName(QStringLiteral("workbenchFcCombo"));
-    fcCombo_->addItem(tr("0x01 Read Coils"), 0x01);
-    fcCombo_->addItem(tr("0x02 Read Discrete Inputs"), 0x02);
-    fcCombo_->addItem(tr("0x03 Read Holding Registers"), 0x03);
-    fcCombo_->addItem(tr("0x04 Read Input Registers"), 0x04);
-    fcCombo_->addItem(tr("0x05 Write Single Coil"), 0x05);
-    fcCombo_->addItem(tr("0x06 Write Single Register"), 0x06);
-    fcCombo_->addItem(tr("0x0F Write Multiple Coils"), 0x0F);
-    fcCombo_->addItem(tr("0x10 Write Multiple Registers"), 0x10);
+    fcCombo_->addItem(QString(), 0x01);
+    fcCombo_->addItem(QString(), 0x02);
+    fcCombo_->addItem(QString(), 0x03);
+    fcCombo_->addItem(QString(), 0x04);
+    fcCombo_->addItem(QString(), 0x05);
+    fcCombo_->addItem(QString(), 0x06);
+    fcCombo_->addItem(QString(), 0x0F);
+    fcCombo_->addItem(QString(), 0x10);
     fcCombo_->setCurrentIndex(2);
     connect(fcCombo_, QOverload<int>::of(&QComboBox::currentIndexChanged),
             this, &ModbusWorkbenchWidget::onFunctionCodeChanged);
     gl->addWidget(fcCombo_);
 
     auto* slaveLayout = new QHBoxLayout();
-    slaveLayout->addWidget(new QLabel(tr("Slave ID (0-247):"), group));
+    slaveIdLabel_ = new QLabel(group);
+    slaveLayout->addWidget(slaveIdLabel_);
     slaveIdSpin_ = new QSpinBox(group);
     slaveIdSpin_->setObjectName(QStringLiteral("workbenchSlaveIdSpin"));
     slaveIdSpin_->setRange(0, 247);
@@ -324,7 +330,8 @@ void ModbusWorkbenchWidget::setupParametersInputs(QGroupBox* group, QVBoxLayout*
 
 void ModbusWorkbenchWidget::setupAddressAndQuantityInputs(QGroupBox* group, QVBoxLayout* gl) {
     auto* addrLayout = new QHBoxLayout();
-    addrLayout->addWidget(new QLabel(tr("Start Address:"), group));
+    startAddrLabel_ = new QLabel(group);
+    addrLayout->addWidget(startAddrLabel_);
     addressEdit_ = new QLineEdit(group);
     addressEdit_->setObjectName(QStringLiteral("workbenchAddressEdit"));
     addressEdit_->setText(QStringLiteral("0"));
@@ -333,7 +340,8 @@ void ModbusWorkbenchWidget::setupAddressAndQuantityInputs(QGroupBox* group, QVBo
     gl->addLayout(addrLayout);
 
     auto* qtyLayout = new QHBoxLayout();
-    qtyLayout->addWidget(new QLabel(tr("Quantity:"), group));
+    quantityLabel_ = new QLabel(group);
+    qtyLayout->addWidget(quantityLabel_);
     quantitySpin_ = new QSpinBox(group);
     quantitySpin_->setObjectName(QStringLiteral("workbenchQuantitySpin"));
     quantitySpin_->setRange(1, 125);
@@ -345,7 +353,8 @@ void ModbusWorkbenchWidget::setupAddressAndQuantityInputs(QGroupBox* group, QVBo
 }
 
 void ModbusWorkbenchWidget::setupWriteSection(QWidget* parent, QVBoxLayout* layout) {
-    writeGroup_ = new QGroupBox(tr("Write Data"), parent);
+    writeGroup_ = new QGroupBox(parent);
+    writeGroup_->setObjectName(QStringLiteral("workbenchWriteGroup"));
     auto* wl = new QVBoxLayout(writeGroup_);
     auto* writeStackWidget = new QWidget(writeGroup_);
     writeStackedLayout_ = new QStackedLayout(writeStackWidget);
@@ -361,11 +370,11 @@ void ModbusWorkbenchWidget::setupWriteStackPages(QWidget* stackWidget) {
     auto* p0 = new QWidget(stackWidget);
     auto* l0 = new QHBoxLayout(p0);
     fc05Group_ = new QButtonGroup(this);
-    fc05OnBtn_ = new QPushButton(tr("ON (0xFF00)"), p0);
+    fc05OnBtn_ = new QPushButton(p0);
     fc05OnBtn_->setObjectName(QStringLiteral("workbenchFc05OnBtn"));
     fc05OnBtn_->setCheckable(true);
     fc05OnBtn_->setChecked(true);
-    fc05OffBtn_ = new QPushButton(tr("OFF (0x0000)"), p0);
+    fc05OffBtn_ = new QPushButton(p0);
     fc05OffBtn_->setObjectName(QStringLiteral("workbenchFc05OffBtn"));
     fc05OffBtn_->setCheckable(true);
     fc05Group_->addButton(fc05OnBtn_, 1);
@@ -379,7 +388,8 @@ void ModbusWorkbenchWidget::setupWriteStackPages(QWidget* stackWidget) {
 
     auto* p1 = new QWidget(stackWidget);
     auto* l1 = new QVBoxLayout(p1);
-    l1->addWidget(new QLabel(tr("Register Value (0-65535):"), p1));
+    fc06ValueLabel_ = new QLabel(p1);
+    l1->addWidget(fc06ValueLabel_);
     fc06ValueEdit_ = new QLineEdit(p1);
     fc06ValueEdit_->setObjectName(QStringLiteral("workbenchFc06ValueEdit"));
     fc06ValueEdit_->setText(QStringLiteral("0"));
@@ -393,7 +403,7 @@ void ModbusWorkbenchWidget::setupWriteStackPages(QWidget* stackWidget) {
 void ModbusWorkbenchWidget::setupBitAndWordPages(QWidget* stackWidget) {
     auto* p2 = new QWidget(stackWidget);
     auto* l2 = new QVBoxLayout(p2);
-    fc0fHintLabel_ = new QLabel(tr("Bit Sequence (e.g. 10110):"), p2);
+    fc0fHintLabel_ = new QLabel(p2);
     l2->addWidget(fc0fHintLabel_);
     fc0fBitsEdit_ = new QLineEdit(p2);
     fc0fBitsEdit_->setObjectName(QStringLiteral("workbenchFc0fBitsEdit"));
@@ -403,7 +413,7 @@ void ModbusWorkbenchWidget::setupBitAndWordPages(QWidget* stackWidget) {
 
     auto* p3 = new QWidget(stackWidget);
     auto* l3 = new QVBoxLayout(p3);
-    fc10HintLabel_ = new QLabel(tr("Register Values (space separated):"), p3);
+    fc10HintLabel_ = new QLabel(p3);
     l3->addWidget(fc10HintLabel_);
     fc10WordsEdit_ = new QLineEdit(p3);
     fc10WordsEdit_->setObjectName(QStringLiteral("workbenchFc10WordsEdit"));
@@ -413,24 +423,26 @@ void ModbusWorkbenchWidget::setupBitAndWordPages(QWidget* stackWidget) {
 }
 
 void ModbusWorkbenchWidget::setupExecutionSection(QWidget* parent, QVBoxLayout* layout) {
-    auto* group = new QGroupBox(tr("Execution & Polling"), parent);
-    auto* gl = new QVBoxLayout(group);
+    executionGroup_ = new QGroupBox(parent);
+    executionGroup_->setObjectName(QStringLiteral("workbenchExecutionGroup"));
+    auto* gl = new QVBoxLayout(executionGroup_);
     gl->setSpacing(6);
 
-    executeBtn_ = new QPushButton(tr("Execute (F5)"), group);
+    executeBtn_ = new QPushButton(executionGroup_);
     executeBtn_->setObjectName(QStringLiteral("workbenchExecuteBtn"));
     executeBtn_->setShortcut(QKeySequence(Qt::Key_F5));
     connect(executeBtn_, &QPushButton::clicked, this, &ModbusWorkbenchWidget::onExecuteClicked);
     gl->addWidget(executeBtn_);
 
     auto* pollLayout = new QHBoxLayout();
-    pollCheckBox_ = new QCheckBox(tr("Periodic Polling"), group);
+    pollCheckBox_ = new QCheckBox(executionGroup_);
     pollCheckBox_->setObjectName(QStringLiteral("workbenchPollCheck"));
     connect(pollCheckBox_, &QCheckBox::toggled, this, &ModbusWorkbenchWidget::onPollCheckBoxToggled);
     pollLayout->addWidget(pollCheckBox_);
 
-    pollLayout->addWidget(new QLabel(tr("Interval:"), group));
-    pollIntervalSpin_ = new QSpinBox(group);
+    pollIntervalLabel_ = new QLabel(executionGroup_);
+    pollLayout->addWidget(pollIntervalLabel_);
+    pollIntervalSpin_ = new QSpinBox(executionGroup_);
     pollIntervalSpin_->setObjectName(QStringLiteral("workbenchPollIntervalSpin"));
     pollIntervalSpin_->setRange(50, 60000);
     pollIntervalSpin_->setSingleStep(100);
@@ -441,13 +453,13 @@ void ModbusWorkbenchWidget::setupExecutionSection(QWidget* parent, QVBoxLayout* 
     pollLayout->addWidget(pollIntervalSpin_);
     gl->addLayout(pollLayout);
 
-    writePollWarningBadge_ = new QLabel(tr("[!] Write Polling Active"), group);
+    writePollWarningBadge_ = new QLabel(executionGroup_);
     writePollWarningBadge_->setObjectName(QStringLiteral("workbenchWritePollBadge"));
     writePollWarningBadge_->setStyleSheet(QStringLiteral("color: #e65100; font-weight: bold;"));
     writePollWarningBadge_->hide();
     gl->addWidget(writePollWarningBadge_);
 
-    layout->addWidget(group);
+    layout->addWidget(executionGroup_);
 }
 
 QWidget* ModbusWorkbenchWidget::createRawWidget() {
@@ -456,38 +468,38 @@ QWidget* ModbusWorkbenchWidget::createRawWidget() {
     l->setContentsMargins(0, 0, 0, 0);
     l->setSpacing(8);
 
-    auto* editGroup = new QGroupBox(tr("Raw Frame Dispatch (HEX)"), w);
-    auto* el = new QVBoxLayout(editGroup);
+    rawGroup_ = new QGroupBox(w);
+    rawGroup_->setObjectName(QStringLiteral("workbenchRawGroup"));
+    auto* el = new QVBoxLayout(rawGroup_);
 
-    rawTextEdit_ = new QPlainTextEdit(editGroup);
+    rawTextEdit_ = new QPlainTextEdit(rawGroup_);
     rawTextEdit_->setObjectName(QStringLiteral("workbenchRawTextEdit"));
     rawTextEdit_->setFont(QFontDatabase::systemFont(QFontDatabase::FixedFont));
-    rawTextEdit_->setPlaceholderText(tr("Enter HEX bytes (e.g. 01 03 00 00 00 0A)"));
     connect(rawTextEdit_, &QPlainTextEdit::textChanged, this, &ModbusWorkbenchWidget::validateInputs);
     el->addWidget(rawTextEdit_);
 
-    setupRawButtons(editGroup, el);
+    setupRawButtons(rawGroup_, el);
 
-    l->addWidget(editGroup);
+    l->addWidget(rawGroup_);
     l->addStretch(1);
     return w;
 }
 
 void ModbusWorkbenchWidget::setupRawButtons(QGroupBox* editGroup, QVBoxLayout* el) {
     auto* btnLayout = new QHBoxLayout();
-    addMbapBtn_ = new QPushButton(tr("+ MBAP"), editGroup);
+    addMbapBtn_ = new QPushButton(editGroup);
     addMbapBtn_->setObjectName(QStringLiteral("workbenchAddMbapBtn"));
     connect(addMbapBtn_, &QPushButton::clicked, this, &ModbusWorkbenchWidget::onAddMbapClicked);
 
-    addCrcBtn_ = new QPushButton(tr("+ CRC16"), editGroup);
+    addCrcBtn_ = new QPushButton(editGroup);
     addCrcBtn_->setObjectName(QStringLiteral("workbenchAddCrcBtn"));
     connect(addCrcBtn_, &QPushButton::clicked, this, &ModbusWorkbenchWidget::onAddCrcClicked);
 
-    addLrcBtn_ = new QPushButton(tr("+ LRC"), editGroup);
+    addLrcBtn_ = new QPushButton(editGroup);
     addLrcBtn_->setObjectName(QStringLiteral("workbenchAddLrcBtn"));
     connect(addLrcBtn_, &QPushButton::clicked, this, &ModbusWorkbenchWidget::onAddLrcClicked);
 
-    cleanHexBtn_ = new QPushButton(tr("Format"), editGroup);
+    cleanHexBtn_ = new QPushButton(editGroup);
     cleanHexBtn_->setObjectName(QStringLiteral("workbenchCleanHexBtn"));
     connect(cleanHexBtn_, &QPushButton::clicked, this, &ModbusWorkbenchWidget::onCleanHexClicked);
 
@@ -497,7 +509,7 @@ void ModbusWorkbenchWidget::setupRawButtons(QGroupBox* editGroup, QVBoxLayout* e
     btnLayout->addWidget(cleanHexBtn_);
     el->addLayout(btnLayout);
 
-    rawExecuteBtn_ = new QPushButton(tr("Send Raw Frame"), editGroup);
+    rawExecuteBtn_ = new QPushButton(editGroup);
     rawExecuteBtn_->setObjectName(QStringLiteral("workbenchRawExecuteBtn"));
     connect(rawExecuteBtn_, &QPushButton::clicked, this, &ModbusWorkbenchWidget::onExecuteClicked);
     el->addWidget(rawExecuteBtn_);
@@ -880,12 +892,62 @@ void ModbusWorkbenchWidget::saveSettings() {
     settingsService_->sync();
 }
 
-void ModbusWorkbenchWidget::retranslateUi() {
+void ModbusWorkbenchWidget::retranslateAddressingUi() {
     standardModeBtn_->setText(tr("Standard"));
     rawModeBtn_->setText(tr("Raw Frame"));
-    executeBtn_->setText(isPolling_ ? tr("Stop Polling (Esc)") : tr("Execute (F5)"));
+    addressingGroup_->setTitle(tr("Addressing & Parameters").replace(QLatin1Char('&'), QStringLiteral("&&")));
+    radixLabel_->setText(tr("Radix:"));
+    radixDecBtn_->setText(tr("DEC"));
+    radixHexBtn_->setText(tr("HEX"));
+    fcLabel_->setText(tr("Function Code:"));
+    const int currentFcIdx = fcCombo_->currentIndex();
+    {
+        const QSignalBlocker blocker(fcCombo_);
+        fcCombo_->setItemText(0, tr("0x01 Read Coils"));
+        fcCombo_->setItemText(1, tr("0x02 Read Discrete Inputs"));
+        fcCombo_->setItemText(2, tr("0x03 Read Holding Registers"));
+        fcCombo_->setItemText(3, tr("0x04 Read Input Registers"));
+        fcCombo_->setItemText(4, tr("0x05 Write Single Coil"));
+        fcCombo_->setItemText(5, tr("0x06 Write Single Register"));
+        fcCombo_->setItemText(6, tr("0x0F Write Multiple Coils"));
+        fcCombo_->setItemText(7, tr("0x10 Write Multiple Registers"));
+        fcCombo_->setCurrentIndex(currentFcIdx);
+    }
+    slaveIdLabel_->setText(tr("Slave ID (0-247):"));
+    startAddrLabel_->setText(tr("Start Address:"));
+    quantityLabel_->setText(tr("Quantity:"));
+}
+
+void ModbusWorkbenchWidget::retranslateWriteAndRawUi() {
+    writeGroup_->setTitle(tr("Write Data"));
+    fc05OnBtn_->setText(tr("ON (0xFF00)"));
+    fc05OffBtn_->setText(tr("OFF (0x0000)"));
+    fc06ValueLabel_->setText(tr("Register Value (0-65535):"));
+    fc0fHintLabel_->setText(tr("Bit Sequence (e.g. 10110):"));
+    fc10HintLabel_->setText(tr("Register Values (space separated):"));
+    rawGroup_->setTitle(tr("Raw Frame Dispatch (HEX)"));
+    rawTextEdit_->setPlaceholderText(tr("Enter HEX bytes (e.g. 01 03 00 00 00 0A)"));
+    addMbapBtn_->setText(tr("+ MBAP"));
+    addCrcBtn_->setText(tr("+ CRC16"));
+    addLrcBtn_->setText(tr("+ LRC"));
+    cleanHexBtn_->setText(tr("Format"));
     rawExecuteBtn_->setText(tr("Send Raw Frame"));
+}
+
+void ModbusWorkbenchWidget::retranslateExecutionUi() {
+    executionGroup_->setTitle(tr("Execution & Polling").replace(QLatin1Char('&'), QStringLiteral("&&")));
+    executeBtn_->setText(isPolling_ ? tr("Stop Polling (Esc)") : tr("Execute (F5)"));
     pollCheckBox_->setText(tr("Periodic Polling"));
+    pollIntervalLabel_->setText(tr("Interval:"));
+    if (writePollWarningBadge_) {
+        writePollWarningBadge_->setText(tr("[!] Write Polling Active"));
+    }
+}
+
+void ModbusWorkbenchWidget::retranslateUi() {
+    retranslateAddressingUi();
+    retranslateWriteAndRawUi();
+    retranslateExecutionUi();
     updateAddressDisplay();
     validateInputs();
 }

@@ -13,6 +13,7 @@
 #include <QCheckBox>
 #include <QComboBox>
 #include <QCoreApplication>
+#include <QGroupBox>
 #include <QLabel>
 #include <QPushButton>
 #include <QDir>
@@ -193,16 +194,54 @@ TEST(I18nWidgets, ModbusWorkbenchWidgetRetranslate)
     tests::mocks::FakeSettingsService settingsService;
     ui::widgets::modbus::ModbusWorkbenchWidget widget(&settingsService);
 
+    // 1. In default English locale, verify no QGroupBox title contains a single unescaped '&'.
+    const auto initialGroupBoxes = widget.findChildren<QGroupBox*>();
+    ASSERT_FALSE(initialGroupBoxes.isEmpty());
+    for (auto* gb : initialGroupBoxes) {
+        QString stripped = gb->title();
+        stripped.replace(QStringLiteral("&&"), QString());
+        EXPECT_FALSE(stripped.contains(QLatin1Char('&')))
+            << "QGroupBox title contains single unescaped '&': " << gb->title().toStdString();
+    }
+
+    auto* fcCombo = widget.findChild<QComboBox*>(QStringLiteral("workbenchFcCombo"));
+    ASSERT_NE(fcCombo, nullptr);
+    EXPECT_EQ(fcCombo->currentIndex(), 2);
+    EXPECT_EQ(fcCombo->itemText(0), QStringLiteral("0x01 Read Coils"));
+    EXPECT_EQ(fcCombo->itemText(2), QStringLiteral("0x03 Read Holding Registers"));
+
+    // 2. In Chinese locale, verify titles, labels, buttons, and combo items are translated.
     ScopedTranslator translator(QStringLiteral("Modbus-Tools_zh_CN.qm"));
     ASSERT_TRUE(translator.isLoaded());
 
     sendLanguageChange(widget);
 
+    QSet<QString> groupTitles;
+    for (auto* gb : widget.findChildren<QGroupBox*>()) {
+        groupTitles.insert(gb->title());
+    }
+    EXPECT_TRUE(groupTitles.contains(QStringLiteral("寻址与参数")));
+    EXPECT_TRUE(groupTitles.contains(QStringLiteral("执行与轮询")));
+
+    QSet<QString> labelTexts;
+    for (auto* lbl : widget.findChildren<QLabel*>()) {
+        labelTexts.insert(lbl->text());
+    }
+    EXPECT_TRUE(labelTexts.contains(QStringLiteral("功能码:")));
+    EXPECT_TRUE(labelTexts.contains(QStringLiteral("起始地址:")));
+    EXPECT_TRUE(labelTexts.contains(QStringLiteral("从站号 (0-247):")));
+    EXPECT_TRUE(labelTexts.contains(QStringLiteral("数量:")));
+
     QSet<QString> buttonTexts;
     for (auto* btn : widget.findChildren<QPushButton*>()) {
         buttonTexts.insert(btn->text());
     }
-
     EXPECT_TRUE(buttonTexts.contains(QStringLiteral("执行 (F5)")));
+    EXPECT_TRUE(buttonTexts.contains(QStringLiteral("标准模式")));
+    EXPECT_TRUE(buttonTexts.contains(QStringLiteral("原始报文")));
+
+    EXPECT_EQ(fcCombo->currentIndex(), 2);
+    EXPECT_EQ(fcCombo->itemText(0), QStringLiteral("0x01 读线圈 (Read Coils)"));
+    EXPECT_EQ(fcCombo->itemText(2), QStringLiteral("0x03 读保持寄存器 (Read Holding Registers)"));
 }
 

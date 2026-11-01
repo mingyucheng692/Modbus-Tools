@@ -123,6 +123,9 @@ private:
     void loadWidgetValues();
     void saveSettings();
     void retranslateUi();
+    void retranslateAddressingUi();
+    void retranslateWriteAndRawUi();
+    void retranslateExecutionUi();
     void changeEvent(QEvent* event) override;
 
     infra::config::ISettingsService* settingsService_ = nullptr;
@@ -146,12 +149,18 @@ private:
     QStackedLayout* mainStackedLayout_ = nullptr;
 
     // Standard mode widgets
+    QGroupBox* addressingGroup_ = nullptr;
+    QLabel* radixLabel_ = nullptr;
     QButtonGroup* radixGroup_ = nullptr;
     QPushButton* radixDecBtn_ = nullptr;
     QPushButton* radixHexBtn_ = nullptr;
+    QLabel* fcLabel_ = nullptr;
     QComboBox* fcCombo_ = nullptr;
+    QLabel* slaveIdLabel_ = nullptr;
     QSpinBox* slaveIdSpin_ = nullptr;
+    QLabel* startAddrLabel_ = nullptr;
     QLineEdit* addressEdit_ = nullptr;
+    QLabel* quantityLabel_ = nullptr;
     QSpinBox* quantitySpin_ = nullptr;
     QLabel* addressWarningLabel_ = nullptr;
 
@@ -161,6 +170,7 @@ private:
     QPushButton* fc05OnBtn_ = nullptr;
     QPushButton* fc05OffBtn_ = nullptr;
     QButtonGroup* fc05Group_ = nullptr;
+    QLabel* fc06ValueLabel_ = nullptr;
     QLineEdit* fc06ValueEdit_ = nullptr;
     QLineEdit* fc0fBitsEdit_ = nullptr;
     QLabel* fc0fHintLabel_ = nullptr;
@@ -168,12 +178,15 @@ private:
     QLabel* fc10HintLabel_ = nullptr;
 
     // Execution & polling
+    QGroupBox* executionGroup_ = nullptr;
     QPushButton* executeBtn_ = nullptr;
     QCheckBox* pollCheckBox_ = nullptr;
+    QLabel* pollIntervalLabel_ = nullptr;
     QSpinBox* pollIntervalSpin_ = nullptr;
     QLabel* writePollWarningBadge_ = nullptr;
 
     // Raw mode widgets
+    QGroupBox* rawGroup_ = nullptr;
     QPlainTextEdit* rawTextEdit_ = nullptr;
     QPushButton* addMbapBtn_ = nullptr;
     QPushButton* addCrcBtn_ = nullptr;
