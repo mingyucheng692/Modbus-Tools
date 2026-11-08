@@ -153,10 +153,11 @@ bool RequestExecutor::tryAcquireRequestLock() {
     return true;
 }
 
-common::Result<base::Pdu, base::ModbusError> RequestExecutor::executeRequest(const base::Pdu& request, int slaveId) {
-    return execute(request, slaveId).toResult();
-}
-
+// Synchronous execution seam. Production drives executeAsync() from the
+// worker thread (ModbusWorker); execute() exists for synchronous consumers —
+// in practice the unit tests — and blocks the calling thread in a nested
+// event loop until the transaction completes. Never call it from the worker
+// thread: the nested loop would re-enter queued worker events mid-request.
 ModbusResponse RequestExecutor::execute(const base::Pdu& request, int slaveId) {
     ModbusResponse finalResponse = ModbusResponse::Error(base::ModbusError::Unknown);
     bool finished = false;
@@ -766,6 +767,12 @@ bool RequestExecutor::shouldWaitForResponse(int slaveId,
 }
 
 int RequestExecutor::determineMaxRetries(base::FunctionCode fc) const {
+    // Differentiated retry semantics: broadcast/control writes get the
+    // write-specific budget, with the global retries count acting as a floor
+    // (max(writeRetries, retries) — a writeRetries of 0 therefore cannot
+    // disable write retries while the global count is positive). Poll reads
+    // fail fast on pollRetries when configured; everything else uses the
+    // global count.
     if (isBroadcastWriteFunction(fc)) {
         return (config_->writeRetries >= 0) ? std::max(config_->writeRetries, config_->retries)
                                             : config_->retries;

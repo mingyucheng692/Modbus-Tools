@@ -161,14 +161,6 @@ void FrameExtractor::processTcpBuffer()
     while (!buffer_.isEmpty()) {
         const int integrity = base::inspectTcpAdu(buffer_);
         if (integrity > 0) {
-            if (integrity > config::Modbus::kMaxAduSize) {
-                SPDLOG_ERROR(
-                    "FrameExtractor: TCP frame size {} exceeds ADPU limit {}, discarding",
-                    integrity, config::Modbus::kMaxAduSize);
-                buffer_.remove(0, integrity);
-                ++droppedInvalidBytes_;
-                continue;
-            }
             if (buffer_.size() >= integrity) {
                 completedFrames_.push_back(buffer_.left(integrity));
                 buffer_.remove(0, integrity);

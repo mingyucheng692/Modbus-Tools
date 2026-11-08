@@ -21,6 +21,7 @@ target_sources(core PRIVATE
     modbus/base/ModbusAddressMapping.cpp
     modbus/base/RegisterValueDecoder.h
     modbus/base/RegisterValueDecoder.cpp
+    modbus/base/RegisterDataType.h
     # modbus transport
     modbus/transport/ITransport.h
     modbus/transport/ModbusSerialTransport.h

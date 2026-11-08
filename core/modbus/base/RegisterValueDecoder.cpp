@@ -171,37 +171,4 @@ DecodedRegisterValue decodeRegister(
     return res;
 }
 
-QString formatEngineeringValue(
-    const DecodedRegisterValue& decoded,
-    double scale,
-    modbus::analyzer::RegisterDataType type
-) {
-    if (!decoded.isValid) {
-        // Short-circuit: if NaN or Inf, do NOT multiply by scale, preserve clean displayText
-        return decoded.displayText;
-    }
-
-    if (scale == 1.0) {
-        return decoded.displayText;
-    }
-
-    const double scaledVal = decoded.numericValue * scale;
-    if (std::isnan(scaledVal)) {
-        return QStringLiteral("NaN");
-    }
-    if (std::isinf(scaledVal)) {
-        return (scaledVal > 0) ? QStringLiteral("+Inf") : QStringLiteral("-Inf");
-    }
-
-    switch (type) {
-    case modbus::analyzer::RegisterDataType::Float32:
-        return formatFloatScientific(scaledVal, 7);
-    case modbus::analyzer::RegisterDataType::Float64:
-        return formatFloatScientific(scaledVal, 15);
-    default:
-        // Integer types scaled to floating values
-        return formatFloatScientific(scaledVal, 12);
-    }
-}
-
 } // namespace modbus::codec

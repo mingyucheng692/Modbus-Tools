@@ -30,7 +30,6 @@ constexpr auto kBitReadQuantityMismatchText = QT_TRANSLATE_NOOP("ModbusProtocolC
 constexpr auto kRegisterReadRequestQuantityMissingText = QT_TRANSLATE_NOOP("ModbusProtocolChecks", "Request quantity missing for register-read validation");
 constexpr auto kRegisterReadPayloadLengthMismatchText = QT_TRANSLATE_NOOP("ModbusProtocolChecks", "Register-read response byte count does not match payload length");
 constexpr auto kRegisterReadQuantityMismatchText = QT_TRANSLATE_NOOP("ModbusProtocolChecks", "Register-read response byte count does not match requested quantity");
-constexpr auto kRegisterReadByteCountEvenText = QT_TRANSLATE_NOOP("ModbusProtocolChecks", "Register-read response byte count must be even");
 constexpr auto kWriteSingleEchoMismatchText = QT_TRANSLATE_NOOP("ModbusProtocolChecks", "Write-single response echo does not match request");
 constexpr auto kWriteMultipleRequestEchoMissingText = QT_TRANSLATE_NOOP("ModbusProtocolChecks", "Request echo fields missing for write-multiple validation");
 constexpr auto kWriteMultipleEchoIncompleteText = QT_TRANSLATE_NOOP("ModbusProtocolChecks", "Write-multiple response echo fields are incomplete");
@@ -283,9 +282,6 @@ QString validateResponsePdu(const Pdu& request, const Pdu& response)
         const int expectedByteCount = static_cast<int>(requestQuantity) * 2;
         if (byteCount != expectedByteCount) {
             return TrContext<kProtocolChecksContext>::tr(kRegisterReadQuantityMismatchText);
-        }
-        if ((byteCount % 2) != 0) {
-            return TrContext<kProtocolChecksContext>::tr(kRegisterReadByteCountEvenText);
         }
         return QString();
     }

@@ -62,7 +62,6 @@ public:
     explicit RequestExecutor(const Dependencies& deps);
     ~RequestExecutor();
 
-    [[nodiscard]] common::Result<base::Pdu, base::ModbusError> executeRequest(const base::Pdu& request, int slaveId);
     [[nodiscard]] ModbusResponse execute(const base::Pdu& request, int slaveId);
     void executeAsync(const base::Pdu& request, int slaveId, quint64 traceId, AsyncResponseCallback callback);
 

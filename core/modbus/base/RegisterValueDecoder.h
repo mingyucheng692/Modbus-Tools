@@ -4,8 +4,8 @@
 
 #include <QString>
 #include <QByteArrayView>
-#include "analyzer/AnalyzerCommon.h"
-#include "modbus/base/ModbusTypes.h"
+#include "RegisterDataType.h"
+#include "ModbusTypes.h"
 
 namespace modbus::codec {
 
@@ -37,13 +37,9 @@ struct DecodedRegisterValue {
     modbus::base::RegisterOrder order
 );
 
-// Formats decoded register value multiplied by scale.
-// Guarantees that if decoded.isNanOrInf is true, multiplication is bypassed to avoid NaN pollution.
-[[nodiscard]] QString formatEngineeringValue(
-    const DecodedRegisterValue& decoded,
-    double scale,
-    modbus::analyzer::RegisterDataType type = modbus::analyzer::RegisterDataType::Float32
-);
+// formatEngineeringValue() (scale application + presentation) lives with its
+// only consumer in core/analyzer — see ValueFormatter.h. The base layer
+// stops at the byte-level decode above.
 
 } // namespace modbus::codec
 

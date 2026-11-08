@@ -9,6 +9,7 @@
 #include <QCoreApplication>
 #include "analyzer/AnalyzerCommon.h"
 #include "modbus/base/ModbusTypes.h"
+#include "modbus/base/RegisterValueDecoder.h"
 
 namespace modbus::analyzer::value_formatter {
 
@@ -38,3 +39,18 @@ QString formatHexValue(const QByteArray& rawBytes, const QString& fallbackHex);
 QString formatBinaryValue(const QByteArray& rawBytes, const QString& fallbackBinary);
 
 } // namespace modbus::analyzer::value_formatter
+
+namespace modbus::codec {
+
+// Formats decoded register value multiplied by scale. Hosted in analyzer
+// (its only consumer) while staying in the modbus::codec namespace for
+// source compatibility with former base-layer call sites.
+// Guarantees that if decoded.isNanOrInf is true, multiplication is bypassed
+// to avoid NaN pollution.
+[[nodiscard]] QString formatEngineeringValue(
+    const DecodedRegisterValue& decoded,
+    double scale,
+    modbus::analyzer::RegisterDataType type
+);
+
+} // namespace modbus::codec

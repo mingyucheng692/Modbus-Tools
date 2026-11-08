@@ -20,7 +20,13 @@ public:
     ~FrameParseWorker() noexcept override;
 
 public slots:
-    // Enqueues parse request onto worker thread; input must be pre-normalized hex string from UI layer.
+    // Thread contract: callable from any thread — the request is marshalled
+    // to the worker's QThread via QueuedConnection (the object must have
+    // been moved there by FrameAnalyzerPresenter); pendingInput_/pending*
+    // state is touched exclusively on the worker thread. Input must be
+    // pre-normalized hex from the UI layer. parseFinished is delivered on
+    // the caller's thread (auto connection resolves to queued across
+    // threads); requestId round-trips so stale results can be discarded.
     void enqueueParse(const QString& input,
                       ProtocolType type,
                       uint16_t startAddress,
