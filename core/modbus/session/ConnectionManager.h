@@ -60,6 +60,13 @@ private:
     /// Failure latch: silences repetitive connection failure warnings under
     /// high-frequency polling when the peer is offline. Reset on connection success.
     bool connectFailureLogged_ = false;
+
+    /// Set while an ensureConnected() attempt owns the FSM. waitForChannelState()
+    /// pumps a nested event loop for async channels, so queued work could
+    /// re-enter ensureConnected() mid-flight and the entry-state self-heal
+    /// would corrupt the in-flight attempt. Guarded attempts fail fast with
+    /// "Connect attempt in progress". Worker-thread-only.
+    bool connectInProgress_ = false;
 };
 
 } // namespace modbus::session

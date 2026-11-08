@@ -1,8 +1,9 @@
 // Copyright (c) 2025 - present mingyucheng692. Licensed under the MIT License.
 
 #include "ConnectionManager.h"
-#include "TimeoutHelper.h"
 #include <spdlog/spdlog.h>
+#include <QEventLoop>
+#include <QTimer>
 #include <algorithm>
 #include "common/TrContext.h"
 
@@ -141,6 +142,16 @@ bool ConnectionManager::ensureConnected() {
     timeouts.writeMs = config_->timeoutMs;
     channel_->setTimeouts(timeouts);
 
+    // Reentrancy guard: waitForChannelState() pumps a nested event loop for
+    // async channels; a request lambda queued behind the connect must not
+    // re-enter here mid-flight (the entry-state self-heal below would force
+    // the in-flight Connecting state to Failed). The UI gates submits until
+    // connected, so this only catches direct programmatic misuse.
+    if (connectInProgress_) {
+        lastChannelError_ = TrContext<kConnManagerCtx>::tr("Connect attempt in progress");
+        return false;
+    }
+
     if (channel_->isOpen()) {
         // Fast path: the channel is already open. Walk the FSM to Connected
         // through legal edges.
@@ -183,6 +194,12 @@ bool ConnectionManager::ensureConnected() {
     }
 
     QString connectError;
+    connectInProgress_ = true;
+    struct InProgressGuard {
+        bool& flag;
+        ~InProgressGuard() { flag = false; }
+    } guard{connectInProgress_};
+
     if (!channel_->open()) {
         connectError = TrContext<kConnManagerCtx>::tr("Failed to dispatch channel open");
     } else {
@@ -229,36 +246,73 @@ bool ConnectionManager::ensureConnected() {
 bool ConnectionManager::waitForChannelState(io::ChannelState expectedState,
                                             std::chrono::steady_clock::time_point deadline,
                                             QString* errorOut) {
-    while (std::chrono::steady_clock::now() < deadline) {
-        if (channel_->state() == expectedState
-            || (expectedState == io::ChannelState::Open && channel_->isOpen())) {
-            return true;
-        }
-        if (hasChannelError()) {
-            if (errorOut) {
-                *errorOut = lastChannelError();
-            }
-            clearError();
-            return false;
-        }
-        if (channel_->state() == io::ChannelState::Error) {
-            if (errorOut && errorOut->isEmpty()) {
-                *errorOut = TrContext<kConnManagerCtx>::tr("Channel entered error state");
-            }
-            return false;
-        }
+    const auto reached = [this, expectedState]() {
+        return channel_->state() == expectedState
+            || (expectedState == io::ChannelState::Open && channel_->isOpen());
+    };
+    const auto failed = [this]() {
+        return hasChannelError() || channel_->state() == io::ChannelState::Error;
+    };
 
-        waitForCondition([this, expectedState]() {
-            return !lastChannelError_.isEmpty()
-                || channel_->state() == io::ChannelState::Error
-                || channel_->state() == expectedState
-                || (expectedState == io::ChannelState::Open && channel_->isOpen());
-        }, deadline);
+    if (reached()) {
+        return true;
+    }
+    if (failed()) {
+        if (errorOut) {
+            *errorOut = lastChannelError();
+        }
+        clearError();
+        return false;
     }
 
-    if (channel_->state() == expectedState
-        || (expectedState == io::ChannelState::Open && channel_->isOpen())) {
+    // For async channels (TCP/UDP) the socket lives on THIS thread: its
+    // connected()/errorOccurred() notifications need this thread's event
+    // loop, which a sleep-spin would block — the TCP first connect would
+    // idle until the deadline and always fail. Run a nested loop instead
+    // and re-check the same predicates on a 5 ms tick. Sync channels (serial)
+    // never get here because open() completed inline above.
+    const long long remainingMs = std::chrono::duration_cast<std::chrono::milliseconds>(
+        deadline - std::chrono::steady_clock::now()).count();
+
+    QEventLoop loop;
+    QTimer tick;
+    tick.setInterval(5);
+    tick.start();
+    QObject::connect(&tick, &QTimer::timeout, &loop, [&]() {
+        if (aborted_.load(std::memory_order_acquire) || reached() || failed()) {
+            loop.quit();
+        }
+    });
+    QTimer deadlineTimer;
+    deadlineTimer.setSingleShot(true);
+    QObject::connect(&deadlineTimer, &QTimer::timeout, &loop, [&]() {
+        loop.quit();
+    });
+    deadlineTimer.start(static_cast<int>(std::max<long long>(0, remainingMs)));
+    loop.exec();
+    tick.stop();
+
+    if (reached()) {
         return true;
+    }
+    if (hasChannelError()) {
+        if (errorOut) {
+            *errorOut = lastChannelError();
+        }
+        clearError();
+        return false;
+    }
+    if (channel_->state() == io::ChannelState::Error) {
+        if (errorOut && errorOut->isEmpty()) {
+            *errorOut = TrContext<kConnManagerCtx>::tr("Channel entered error state");
+        }
+        return false;
+    }
+    if (aborted_.load(std::memory_order_acquire)) {
+        if (errorOut && errorOut->isEmpty()) {
+            *errorOut = TrContext<kConnManagerCtx>::tr("Aborted");
+        }
+        return false;
     }
     if (errorOut && errorOut->isEmpty()) {
         *errorOut = TrContext<kConnManagerCtx>::tr("Connect timeout");

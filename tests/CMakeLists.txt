@@ -195,6 +195,7 @@ set(TEST_UI_WIDGETS_SOURCES
 
 set(TEST_INTEGRATION_SOURCES
     integration/session/ClientIntegrationTest.cpp
+    integration/session/TcpFirstConnectIntegrationTest.cpp
 )
 
 set(TEST_MODBUS_FUZZ_SOURCES
