@@ -3,6 +3,7 @@
 #include "ValueFormatter.h"
 #include "modbus/base/RegisterValueDecoder.h"
 #include <QRegularExpression>
+#include <cmath>
 
 namespace modbus::analyzer {
 
@@ -45,6 +46,10 @@ QString value_formatter::formatScaledValue(const QVariant& value, const DataMeta
     bool ok = false;
     const double raw = numericValueForDisplay(value, mode, &ok);
     if (!ok) return QStringLiteral("-");
+    // QVariant doubles can carry NaN/±Inf (e.g. IEEE-754 payload decoded as
+    // float); intercept before the scale multiply so the output never
+    // renders as "nan"/"inf" — matching the rawBytes path's decoding guard.
+    if (std::isnan(raw) || std::isinf(raw)) return QStringLiteral("-");
     return QString::number(raw * meta.scale, 'g', 12);
 }
 
@@ -69,7 +74,7 @@ QString value_formatter::buildDescriptionTooltip(const QVariant& value, const Da
     }
     bool ok = false;
     const double raw = numericValueForDisplay(value, mode, &ok);
-    if (ok) {
+    if (ok && !std::isnan(raw) && !std::isinf(raw)) {
         const double scaled = raw * meta.scale;
         lines << tr("Raw: %1").arg(QString::number(raw, 'g', 12));
         lines << tr("Scale: %1").arg(QString::number(meta.scale, 'g', 12));

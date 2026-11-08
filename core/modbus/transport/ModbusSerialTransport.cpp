@@ -29,7 +29,10 @@ ParseResponseResult ModbusSerialTransport::parseResponse(const QByteArray& adu) 
     if (framing_ == SerialFraming::Rtu) {
         base::RtuAduFields fields;
         if (base::inspectRtuAdu(adu, &fields) != adu.size()) {
-            SPDLOG_DEBUG("RtuTransport: reject reason=crc_mismatch frameLen={}", adu.size());
+            // CRC mismatch on a t3.5-delimited frame usually means two frames
+            // merged after an event-loop stall — the whole buffer is lost.
+            // This must stay visible in the field, not buried at debug level.
+            SPDLOG_WARN("RtuTransport: reject reason=crc_mismatch frameLen={}", adu.size());
             return {ParseResponseStatus::Invalid, std::nullopt};
         }
 

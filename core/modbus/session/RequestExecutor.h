@@ -128,6 +128,13 @@ private:
     std::chrono::steady_clock::time_point transactionStartTime_{};
     std::unique_ptr<QTimer> transactionTimer_;
     std::unique_ptr<QTimer> rtuSilenceTimer_;
+    // Cancellable replacements for the former context-less
+    // QTimer::singleShot calls (retry backoff, RTU send-window deferral).
+    // abort()/resetState() stop them so a stale fire can neither resurrect a
+    // completed transaction nor put bytes on the wire for a dead one.
+    std::unique_ptr<QTimer> retryTimer_;
+    std::unique_ptr<QTimer> sendWindowTimer_;
+    QByteArray pendingSendAdu_;
     AsyncResponseCallback activeCallback_;
 
     // --- Owned members ---

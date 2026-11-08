@@ -5,6 +5,7 @@
 #include <future>
 #include <thread>
 #include <chrono>
+#include <QtTest>
 
 #include "mocks/MockChannel.h"
 #include "mocks/MockTransport.h"
@@ -737,6 +738,51 @@ TEST_F(ModbusClientBoundaryTest, RtuLongResponseAtLowBaud_SurvivesWireTimeScalin
     auto resp = client_->sendRequest(modbus::test::MakeReadHoldingRegistersRequest(0, 16));
     feeder.join();
     ASSERT_FALSE(resp.isError()) << resp.error.toStdString();
+}
+
+// A stale send-window timer must not put bytes on the wire after abort.
+TEST_F(ModbusClientBoundaryTest, AbortDuringRtuSendWindow_StaleTimerDoesNotWrite) {
+    cfg_.retries = 0;
+    cfg_.timeoutMs = 500;
+    cfg_.baudRate = 300; // t3.5 silence ~117ms arms the deferred send window
+    cfg_.interFrameDelayUs = 0;
+    client_->setConfig(cfg_);
+    connectClient();
+
+    // Request #1 completes immediately and opens the RTU send window.
+    EXPECT_CALL(*mockTransport_, buildRequest(_, _))
+        .Times(2)
+        .WillRepeatedly(Return(QByteArray::fromHex("010300000001840A")));
+    EXPECT_CALL(*mockTransport_, parseResponse(_))
+        .WillOnce(Return(ParseResponseResult{
+            ParseResponseStatus::Ok,
+            Pdu(FunctionCode::ReadHoldingRegisters, QByteArray::fromHex("020001"))}));
+    // Exactly one wire write: request #2 is aborted while waiting for the
+    // send window, so its deferred write must never happen.
+    EXPECT_CALL(*mockChannel_, write(_)).Times(1).WillOnce(Invoke([this](QByteArrayView) {
+        writeDrainedHandler_();
+        return true;
+    }));
+
+    auto first = client_->sendRequest(makeRhrPdu());
+    ASSERT_FALSE(first.isError()) << first.error.toStdString();
+
+    bool callbackFired = false;
+    std::optional<ModbusResponse> secondResponse;
+    client_->sendRequestAsync(makeRhrPdu(), 1, 0,
+                              [&](const ModbusResponse& response) {
+                                  callbackFired = true;
+                                  secondResponse = response;
+                              });
+    client_->abort();
+
+    EXPECT_TRUE(callbackFired);
+    ASSERT_TRUE(secondResponse.has_value());
+    EXPECT_TRUE(secondResponse->isError());
+
+    // Pump the loop past the would-be send-window deadline: any stale timer
+    // fire would trip the Times(1) write expectation above.
+    QTest::qWait(200);
 }
 
 } // namespace

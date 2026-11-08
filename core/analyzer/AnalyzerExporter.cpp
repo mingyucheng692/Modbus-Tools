@@ -118,6 +118,17 @@ bool exporter::writeCsvChunk(const QString& filePath,
     for (const QString& line : lines) {
         stream << line << '\n';
     }
+    stream.flush();
+    if (stream.status() != QTextStream::Ok || file.error() != QFileDevice::NoError) {
+        // Disk-full / IO failures surface only on flush; silently returning
+        // true would corrupt the exported archive.
+        if (error) {
+            *error = file.errorString().isEmpty()
+                ? QStringLiteral("CSV write failed (stream status %1)").arg(static_cast<int>(stream.status()))
+                : file.errorString();
+        }
+        return false;
+    }
 
     return true;
 }
@@ -125,6 +136,22 @@ bool exporter::writeCsvChunk(const QString& filePath,
 QString exporter::escapeCsvValue(const QString& value) {
     QString escaped = value;
     escaped.replace(QLatin1Char('"'), QLatin1String("\"\""));
+    // CSV formula injection (CWE-1236): spreadsheet applications interpret
+    // cells starting with these characters as formulas. Prefix a tick to
+    // keep the value literal; a leading +/- followed by a digit or dot is a
+    // plain number and stays untouched.
+    const QString trimmed = escaped.trimmed();
+    if (!trimmed.isEmpty()) {
+        const QChar first = trimmed.at(0);
+        const bool plainNumber = (first == QLatin1Char('-') || first == QLatin1Char('+'))
+            && trimmed.size() > 1
+            && (trimmed.at(1).isDigit() || trimmed.at(1) == QLatin1Char('.'));
+        if (!plainNumber
+            && (first == QLatin1Char('=') || first == QLatin1Char('+')
+                || first == QLatin1Char('-') || first == QLatin1Char('@'))) {
+            escaped.prepend(QLatin1Char('\''));
+        }
+    }
     return QStringLiteral("\"%1\"").arg(escaped);
 }
 

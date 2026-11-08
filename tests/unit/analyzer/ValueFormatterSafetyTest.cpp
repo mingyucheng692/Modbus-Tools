@@ -51,11 +51,31 @@ TEST(ValueFormatterSafetyTest, HexBinaryEdgeCases) {
     // Large hex string (simulating 32-bit or 64-bit)
     QByteArray longBytes = QByteArray::fromHex("12345678");
     EXPECT_EQ(value_formatter::formatHexValue(longBytes, ""), "0x12345678");
-    
+
     // Binary grouping for 8 bits (one hex byte)
     QByteArray byteF = QByteArray::fromHex("0F");
     EXPECT_EQ(value_formatter::formatBinaryValue(byteF, ""), "0000 1111");
-    
+
     // Fallback should be returned as-is
     EXPECT_EQ(value_formatter::formatBinaryValue(QByteArray(), "N/A"), "N/A");
+}
+
+TEST(ValueFormatterSafetyTest, QVariantNaNInfIntercepted) {
+    DataMetadata meta;
+    meta.scale = 2.0;
+
+    // A QVariant double can carry NaN/±Inf (e.g. an IEEE-754 payload decoded
+    // as float); the scaled output must never render as "nan"/"inf" — the
+    // QVariant path must match the rawBytes path's decoding guard.
+    const double nan = std::numeric_limits<double>::quiet_NaN();
+    const double inf = std::numeric_limits<double>::infinity();
+    EXPECT_EQ(value_formatter::formatScaledValue(QVariant(nan), meta, NumberDisplayMode::Unsigned), "-");
+    EXPECT_EQ(value_formatter::formatScaledValue(QVariant(inf), meta, NumberDisplayMode::Unsigned), "-");
+    EXPECT_EQ(value_formatter::formatScaledValue(QVariant(-inf), meta, NumberDisplayMode::Unsigned), "-");
+
+    // Tooltip path must not emit a "Scaled: nan" line either.
+    const QString tooltip = value_formatter::buildDescriptionTooltip(QVariant(nan), meta, NumberDisplayMode::Unsigned);
+    EXPECT_FALSE(tooltip.contains("nan"));
+    EXPECT_FALSE(tooltip.contains("inf"));
+    EXPECT_FALSE(tooltip.contains("Scaled:"));
 }

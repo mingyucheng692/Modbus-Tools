@@ -3,6 +3,7 @@
 #include <gtest/gtest.h>
 
 #include "modbus/session/FrameExtractor.h"
+#include "modbus/transport/ModbusSerialTransport.h"
 #include "modbus/base/ModbusCrc.h"
 #include "helpers/ModbusTestHelpers.h"
 
@@ -10,6 +11,7 @@
 
 using namespace modbus::session;
 using namespace modbus::base;
+using namespace modbus::transport;
 
 namespace {
 
@@ -178,4 +180,32 @@ TEST(FrameExtractorTest, FrameDuration_ScalesWithBaudAndFrameLength) {
 
     // 37 bytes * 10 bits / 300 = 1233333.33us -> ceil 1233334us
     EXPECT_EQ(FrameExtractor::calculateFrameDuration(cfg, 37).count(), 1233334);
+}
+
+// Documented RTU resync strategy (see FrameExtractor.h): frames are
+// delimited by t3.5 silence alone. Two frames arriving without a gap merge
+// into one buffer; the merged buffer fails its CRC and is dropped as a
+// whole — no sliding-window resync. Recovery happens via the request retry.
+TEST(FrameExtractorTest, RtuMergedFrames_SingleBufferRejectedWhole) {
+    FrameExtractor extractor(ModbusMode::RTU, 9600);
+    auto cfg = modbus::test::MakeModbusConfig(ModbusMode::RTU);
+    cfg.baudRate = 9600;
+    extractor.setConfig(cfg);
+
+    const auto frameA = makeRtuAdu(1, 0x03, QByteArray::fromHex("020001"));
+    const auto frameB = makeRtuAdu(1, 0x03, QByteArray::fromHex("020002"));
+    extractor.feed(frameA + frameB); // single arrival -> merged buffer
+
+    const auto boundary = extractor.nextRtuFrameBoundary();
+    ASSERT_NE(boundary, std::chrono::steady_clock::time_point{});
+
+    const auto merged = extractor.tryPopRtuResponseFrame(boundary);
+    ASSERT_TRUE(merged.has_value());
+    EXPECT_EQ(*merged, frameA + frameB); // one buffer, not two frames
+
+    // The merged buffer fails the CRC check at the transport boundary.
+    ModbusSerialTransport transport(SerialFraming::Rtu);
+    (void)transport.buildRequest(modbus::test::MakeReadHoldingRegistersPdu(0, 1), 1);
+    const auto parsed = transport.parseResponse(*merged);
+    EXPECT_EQ(parsed.status, ParseResponseStatus::Invalid);
 }

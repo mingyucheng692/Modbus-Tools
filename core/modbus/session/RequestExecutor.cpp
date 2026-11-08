@@ -250,11 +250,25 @@ void RequestExecutor::executeAsync(const base::Pdu& request, int slaveId, quint6
             checkPendingResponse();
         });
     }
+    if (!retryTimer_) {
+        retryTimer_ = std::make_unique<QTimer>();
+        retryTimer_->setSingleShot(true);
+        retryTimer_->setTimerType(Qt::PreciseTimer);
+        QObject::connect(retryTimer_.get(), &QTimer::timeout, retryTimer_.get(), [this]() {
+            sendCurrentRequest();
+        });
+    }
 
     sendCurrentRequest();
 }
 
 void RequestExecutor::sendCurrentRequest() {
+    // Stale-timer guard: once the transaction has been completed (abort,
+    // reset, channel error), a pending retry/send-window timer must neither
+    // resurrect it nor drive the channel again.
+    if (!activeCallback_) {
+        return;
+    }
     if (aborted_.load()) {
         reqStateMachine_->tryTransition(RequestStateMachine::State::Aborted, "request-aborted-before-send");
         completeTransaction(ModbusResponse::Error(base::ModbusError::Aborted, QStringLiteral("Aborted")));
@@ -281,15 +295,26 @@ void RequestExecutor::sendCurrentRequest() {
     const auto now = std::chrono::steady_clock::now();
     if (config_->mode == base::ModbusMode::RTU && now < rtuSendWindowOpensAt_) {
         const auto waitDelay = std::chrono::duration_cast<std::chrono::milliseconds>(rtuSendWindowOpensAt_ - now);
-        QTimer::singleShot(std::max(1, static_cast<int>(waitDelay.count())), [this, adu]() {
-            performWrite(adu);
-        });
+        if (!sendWindowTimer_) {
+            sendWindowTimer_ = std::make_unique<QTimer>();
+            sendWindowTimer_->setSingleShot(true);
+            sendWindowTimer_->setTimerType(Qt::PreciseTimer);
+            QObject::connect(sendWindowTimer_.get(), &QTimer::timeout, sendWindowTimer_.get(), [this]() {
+                performWrite(pendingSendAdu_);
+            });
+        }
+        pendingSendAdu_ = adu;
+        sendWindowTimer_->start(std::max(1, static_cast<int>(waitDelay.count())));
     } else {
         performWrite(adu);
     }
 }
 
 void RequestExecutor::performWrite(const QByteArray& adu) {
+    if (!activeCallback_) {
+        // Stale send-window timer fired after the transaction completed.
+        return;
+    }
     if (aborted_.load()) {
         reqStateMachine_->tryTransition(RequestStateMachine::State::Aborted, "request-aborted-before-write");
         completeTransaction(ModbusResponse::Error(base::ModbusError::Aborted, QStringLiteral("Aborted")));
@@ -377,6 +402,12 @@ void RequestExecutor::abort() {
             if (rtuSilenceTimer_) {
                 rtuSilenceTimer_->stop();
             }
+            if (retryTimer_) {
+                retryTimer_->stop();
+            }
+            if (sendWindowTimer_) {
+                sendWindowTimer_->stop();
+            }
             if (activeCallback_) {
                 completeTransaction(ModbusResponse::Error(base::ModbusError::Aborted,
                                                          QStringLiteral("Aborted"),
@@ -389,6 +420,12 @@ void RequestExecutor::abort() {
         }
         if (rtuSilenceTimer_) {
             rtuSilenceTimer_->stop();
+        }
+        if (retryTimer_) {
+            retryTimer_->stop();
+        }
+        if (sendWindowTimer_) {
+            sendWindowTimer_->stop();
         }
         if (activeCallback_) {
             completeTransaction(ModbusResponse::Error(base::ModbusError::Aborted,
@@ -472,9 +509,7 @@ void RequestExecutor::checkPendingResponse() {
                         SPDLOG_WARN("Request failed, retrying... ({}/{}) trace_id={}",
                                      retryStrategy_->attemptCount(), determineMaxRetries(activeRequest_.functionCode()), currentTraceRequired());
                     }
-                    QTimer::singleShot(std::max<int>(1, static_cast<int>(retryDelay.count())), [this]() {
-                        sendCurrentRequest();
-                    });
+                    retryTimer_->start(std::max<int>(1, static_cast<int>(retryDelay.count())));
                     return;
                 }
             }
@@ -539,6 +574,12 @@ void RequestExecutor::resetState(bool clearPendingQueue) {
     if (rtuSilenceTimer_) {
         rtuSilenceTimer_->stop();
     }
+    if (retryTimer_) {
+        retryTimer_->stop();
+    }
+    if (sendWindowTimer_) {
+        sendWindowTimer_->stop();
+    }
     if (clearPendingQueue) {
         pendingRequests_.clear();
     }
@@ -580,9 +621,7 @@ void RequestExecutor::handleTimeout() {
             SPDLOG_WARN("Request failed, retrying... ({}/{}) trace_id={}",
                          retryStrategy_->attemptCount(), determineMaxRetries(activeRequest_.functionCode()), currentTraceRequired());
         }
-        QTimer::singleShot(std::max<int>(1, static_cast<int>(retryDelay.count())), [this]() {
-            sendCurrentRequest();
-        });
+        retryTimer_->start(std::max<int>(1, static_cast<int>(retryDelay.count())));
     } else {
         completeTransaction(ModbusResponse::Error(base::ModbusError::Timeout, QStringLiteral("Timeout")));
     }
@@ -669,6 +708,8 @@ std::optional<ModbusResponse> RequestExecutor::handleParsedFrame(
     }
     reqStateMachine_->tryTransition(
         RequestStateMachine::State::Failed, "response-parse-failed");
+    SPDLOG_WARN("RequestExecutor: response frame rejected (size={}) trace_id={}",
+                frame.size(), currentTraceRequired());
     return ModbusResponse::Error(base::ModbusError::InvalidAdu,
         QStringLiteral("Response parsing failed"));
 }

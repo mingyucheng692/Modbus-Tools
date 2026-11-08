@@ -10,6 +10,39 @@
 
 using namespace modbus::analyzer;
 
+TEST(AnalyzerExporterTest, WriteCsvChunk_WritesAndReportsSuccess) {
+    QTemporaryDir tempDir;
+    ASSERT_TRUE(tempDir.isValid());
+    QString error;
+    const bool ok = exporter::writeCsvChunk(tempDir.filePath("out.csv"),
+                                            {QStringLiteral("a,b"), QStringLiteral("\"q\"")},
+                                            /*firstChunk=*/true, &error);
+    ASSERT_TRUE(ok) << error.toStdString();
+
+    QFile file(tempDir.filePath("out.csv"));
+    ASSERT_TRUE(file.open(QIODevice::ReadOnly));
+    const QByteArray content = file.readAll();
+    EXPECT_TRUE(content.contains("a,b\n"));
+    EXPECT_TRUE(content.contains("\"q\"\n"));
+}
+
+TEST(AnalyzerExporterTest, EscapeCsvValue_NeutralizesFormulaInjection) {
+    // CWE-1236: leading formula triggers are defused with a tick prefix.
+    EXPECT_EQ(exporter::escapeCsvValue(QStringLiteral("=1+1")), QStringLiteral("\"'=1+1\""));
+    EXPECT_EQ(exporter::escapeCsvValue(QStringLiteral("@SUM(A1)")), QStringLiteral("\"'@SUM(A1)\""));
+    EXPECT_EQ(exporter::escapeCsvValue(QStringLiteral("-cmd")), QStringLiteral("\"'-cmd\""));
+    EXPECT_EQ(exporter::escapeCsvValue(QStringLiteral("+cmd")), QStringLiteral("\"'+cmd\""));
+    // Leading whitespace before a trigger is still defused.
+    EXPECT_EQ(exporter::escapeCsvValue(QStringLiteral(" =cmd")), QStringLiteral("\"' =cmd\""));
+
+    // Plain signed numbers stay numeric.
+    EXPECT_EQ(exporter::escapeCsvValue(QStringLiteral("-5.2")), QStringLiteral("\"-5.2\""));
+    EXPECT_EQ(exporter::escapeCsvValue(QStringLiteral("+3")), QStringLiteral("\"+3\""));
+
+    // Normal text and quote escaping unchanged.
+    EXPECT_EQ(exporter::escapeCsvValue(QStringLiteral("a\"b")), QStringLiteral("\"a\"\"b\""));
+}
+
 TEST(AnalyzerExporterTest, RoundtripWithCustomTypes) {
     QTemporaryDir tempDir;
     ASSERT_TRUE(tempDir.isValid());

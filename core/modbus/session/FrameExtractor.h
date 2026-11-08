@@ -11,6 +11,17 @@
 
 namespace modbus::session {
 
+// Role: Byte-stream frame boundary detection for RTU / ASCII / TCP.
+// Thread-safety: Owned and driven exclusively by RequestExecutor on the worker thread.
+//
+// RTU resync strategy (design decision): RTU frames are delimited solely by
+// the t3.5 inter-frame silence. If event-loop latency ever exceeds t3.5, two
+// logical frames merge into one buffer; the merged buffer fails its CRC and
+// is dropped as a whole — no sliding-window resync is attempted, because a
+// CRC-failure rescan is ambiguous (CRC16 is not a frame delimiter) and
+// quadratic in the worst case. Recovery is delegated to the request layer's
+// bounded retry; invalid data is counted and observable via
+// droppedInvalidBytes() so the failure mode stays visible in the field.
 class FrameExtractor {
 public:
     explicit FrameExtractor(modbus::base::ModbusMode mode, int baudRate);
