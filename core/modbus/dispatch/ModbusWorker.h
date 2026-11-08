@@ -60,7 +60,11 @@ private:
     void handleConnect();
     void handleDisconnect();
     void handleRequestDisconnectInThread();
-    void handleStopInThread();
+    // @p driveClient is false on the fallback paths where the worker thread
+    // never ran (or is already dead): the calling thread then only performs
+    // cross-thread-safe cleanup (client_->abort() + queue drain) and must
+    // never drive ConnectionManager/IChannel across the thread boundary.
+    void handleStopInThread(bool driveClient);
     void handleUpdateConfig(base::ModbusConfig config);
     void drainQueuedRequests(const QString& reason);
     void processQueue();
@@ -74,6 +78,13 @@ private:
     std::atomic_bool stopping_ {false};
     std::atomic_bool stopped_ {false};
     bool isProcessing_ {false};
+    // Config handed to updateConfig() before start() (activateStack() applies
+    // the config prior to launching the worker thread). Confined to the
+    // calling thread of updateConfig()/start(); applied on the worker thread
+    // via a value-captured lambda in start() — no shared state crosses the
+    // thread boundary.
+    base::ModbusConfig pendingConfig_;
+    std::atomic_bool hasPendingConfig_ {false};
     std::deque<QueuedRequest> queuedRequests_;
 
     using WorkerDedupeKey = std::tuple<uint8_t, uint8_t, uint8_t>; // (slaveId, fc, errorCode)

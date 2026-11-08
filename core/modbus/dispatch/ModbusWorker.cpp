@@ -39,6 +39,14 @@ void ModbusWorker::start() {
     if (thread_ && !thread_->isRunning()) {
         thread_->start();
     }
+    if (hasPendingConfig_.exchange(false)) {
+        // Config handed over before start() (activateStack order). The copy is
+        // captured by value here on the calling thread; the lambda reads its
+        // own copy on the worker thread once the event loop comes up.
+        QMetaObject::invokeMethod(this, [this, config = pendingConfig_]() {
+            handleUpdateConfig(config);
+        }, Qt::QueuedConnection);
+    }
 }
 
 void ModbusWorker::stop() {
@@ -56,23 +64,23 @@ void ModbusWorker::stop() {
     }
 
     if (!thread_) {
-        handleStopInThread();
+        handleStopInThread(/*driveClient=*/false);
         return;
     }
 
     if (!thread_->isRunning()) {
         SPDLOG_INFO("ModbusWorker: stop requested with non-running thread");
-        handleStopInThread();
+        handleStopInThread(/*driveClient=*/false);
         return;
     }
 
     if (QThread::currentThread() == thread_) {
-        handleStopInThread();
+        handleStopInThread(/*driveClient=*/true);
         return;
     }
 
     QMetaObject::invokeMethod(this, [this]() {
-        handleStopInThread();
+        handleStopInThread(/*driveClient=*/true);
     }, Qt::QueuedConnection);
 }
 
@@ -130,7 +138,10 @@ void ModbusWorker::requestConnect() {
 
 void ModbusWorker::requestDisconnect() {
     if (!isThreadReady(thread_)) {
-        handleRequestDisconnectInThread();
+        // No running worker thread means no session was ever driven through
+        // this worker; touching client_ here would cross the thread boundary.
+        SPDLOG_WARN("ModbusWorker: requestDisconnect ignored because worker thread is not running");
+        emit disconnectFinished();
         return;
     }
     QMetaObject::invokeMethod(this, [this]() {
@@ -140,7 +151,11 @@ void ModbusWorker::requestDisconnect() {
 
 void ModbusWorker::updateConfig(const base::ModbusConfig& config) {
     if (!isThreadReady(thread_)) {
-        handleUpdateConfig(config);
+        // activateStack() applies the config BEFORE start(). Cache it and
+        // apply on the worker thread once start() launches the loop —
+        // never drive client_ from the calling thread.
+        pendingConfig_ = config;
+        hasPendingConfig_ = true;
         return;
     }
 
@@ -167,6 +182,10 @@ void ModbusWorker::handleSubmit(base::Pdu request, int slaveId, int requestId, q
         SPDLOG_WARN("ModbusWorker: fail request trace_id={} because worker is stopping",
                      static_cast<unsigned long long>(traceId));
         emit requestFinished(requestId, session::ModbusResponse::Error("Worker is stopping"));
+        // Mirror the no-client branch: processQueue() already set
+        // isProcessing_ before this check, so leaving it set would
+        // permanently short-circuit processQueue() after a stop/start cycle.
+        isProcessing_ = false;
         return;
     }
     if (!client_) {
@@ -293,7 +312,7 @@ void ModbusWorker::handleRequestDisconnectInThread() {
     handleDisconnect();
 }
 
-void ModbusWorker::handleStopInThread() {
+void ModbusWorker::handleStopInThread(bool driveClient) {
     if (stopped_.exchange(true)) {
         stopping_.store(false);
         return;
@@ -302,7 +321,9 @@ void ModbusWorker::handleStopInThread() {
         client_->abort();
     }
     drainQueuedRequests("Worker stopped");
-    handleDisconnect();
+    if (driveClient) {
+        handleDisconnect();
+    }
     stopping_.store(false);
     emit stopped();
 }

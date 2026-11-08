@@ -152,6 +152,7 @@ set(TEST_CORE_LOGIC_SOURCES
     unit/modbus/base/RegisterValueDecoderTest.cpp
     unit/modbus/base/TrafficMetricsTest.cpp
     unit/modbus/dispatch/WorkerLogDemotionTest.cpp
+    unit/modbus/dispatch/ModbusWorkerLifecycleTest.cpp
     unit/modbus/parser/ParserRobustnessTest.cpp
     unit/modbus/parser/ParserTest.cpp
     unit/modbus/session/ModbusResponseTest.cpp
