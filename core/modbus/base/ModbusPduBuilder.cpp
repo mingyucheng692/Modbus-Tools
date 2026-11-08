@@ -2,9 +2,28 @@
 
 #include "ModbusPduBuilder.h"
 #include "ModbusEndianCodec.h"
+#include "ModbusFunctionTraits.h"
 #include <QCoreApplication>
 
 namespace modbus::base {
+
+namespace {
+
+/// IEC 61158 overflow guard: the addressed block must satisfy start + quantity <= 65536.
+bool addressRangeOverflows(int startAddress, int quantity, QString* errorOut) {
+    if (startAddress + quantity <= 65536) {
+        return false;
+    }
+    if (errorOut) {
+        *errorOut = QCoreApplication::translate("ModbusPduBuilder",
+            "Address range overflow: start %1 + quantity %2 exceeds 65536")
+                        .arg(startAddress)
+                        .arg(quantity);
+    }
+    return true;
+}
+
+} // namespace
 
 std::optional<Pdu> pdu_builder::buildReadRequest(FunctionCode fc, int startAddress, int quantity,
                                                   QString* errorOut) {
@@ -12,8 +31,17 @@ std::optional<Pdu> pdu_builder::buildReadRequest(FunctionCode fc, int startAddre
         if (errorOut) *errorOut = QCoreApplication::translate("ModbusPduBuilder", "Invalid start address");
         return std::nullopt;
     }
-    if (quantity <= 0 || quantity > 2000) {
-        if (errorOut) *errorOut = QCoreApplication::translate("ModbusPduBuilder", "Invalid quantity");
+    const int maxQuantity = function_traits::maxAllowedQuantity(fc);
+    if (quantity <= 0 || quantity > maxQuantity) {
+        if (errorOut) {
+            *errorOut = QCoreApplication::translate("ModbusPduBuilder",
+                "Invalid quantity for function code 0x%1 (allowed 1-%2)")
+                            .arg(static_cast<int>(static_cast<uint8_t>(fc)), 2, 16, QLatin1Char('0'))
+                            .arg(maxQuantity);
+        }
+        return std::nullopt;
+    }
+    if (addressRangeOverflows(startAddress, quantity, errorOut)) {
         return std::nullopt;
     }
 
@@ -109,6 +137,9 @@ std::optional<Pdu> pdu_builder::buildWriteMultipleCoils(int startAddress, int qu
         if (errorOut) *errorOut = QCoreApplication::translate("ModbusPduBuilder", "Invalid quantity for 0x0F");
         return std::nullopt;
     }
+    if (addressRangeOverflows(startAddress, quantity, errorOut)) {
+        return std::nullopt;
+    }
 
     int expectedBytes = (quantity + 7) / 8;
     if (packedData.size() != expectedBytes) {
@@ -143,6 +174,9 @@ std::optional<Pdu> pdu_builder::buildWriteMultipleRegisters(int startAddress, in
     }
     if (quantity <= 0 || quantity > 123) { // Modbus limit for TCP/RTU
         if (errorOut) *errorOut = QCoreApplication::translate("ModbusPduBuilder", "Invalid quantity for 0x10");
+        return std::nullopt;
+    }
+    if (addressRangeOverflows(startAddress, quantity, errorOut)) {
         return std::nullopt;
     }
 

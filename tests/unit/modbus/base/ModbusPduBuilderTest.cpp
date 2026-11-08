@@ -96,3 +96,42 @@ TEST(ModbusPduBuilderTest, BuildWriteRequestUnsupportedFunctionCode) {
     EXPECT_FALSE(result.has_value());
     EXPECT_FALSE(error.isEmpty());
 }
+
+TEST(ModbusPduBuilderTest, BuildReadRequestQuantityLimitPerFunctionCode) {
+    struct Limit { FunctionCode fc; int maxAllowed; };
+    const Limit limits[] = {
+        {FunctionCode::ReadCoils, 2000},
+        {FunctionCode::ReadDiscreteInputs, 2000},
+        {FunctionCode::ReadHoldingRegisters, 125},
+        {FunctionCode::ReadInputRegisters, 125},
+    };
+    for (const auto& limit : limits) {
+        EXPECT_TRUE(pdu_builder::buildReadRequest(limit.fc, 0, 1).has_value());
+        EXPECT_TRUE(pdu_builder::buildReadRequest(limit.fc, 0, limit.maxAllowed).has_value());
+        EXPECT_FALSE(pdu_builder::buildReadRequest(limit.fc, 0, limit.maxAllowed + 1).has_value());
+        EXPECT_FALSE(pdu_builder::buildReadRequest(limit.fc, 0, 0).has_value());
+        EXPECT_FALSE(pdu_builder::buildReadRequest(limit.fc, 0, 2001).has_value());
+    }
+}
+
+TEST(ModbusPduBuilderTest, BuildReadRequestAddressRangeOverflow) {
+    // IEC 61158: start + quantity must not exceed 65536.
+    EXPECT_TRUE(pdu_builder::buildReadRequest(FunctionCode::ReadHoldingRegisters, 65534, 2).has_value());
+    EXPECT_TRUE(pdu_builder::buildReadRequest(FunctionCode::ReadHoldingRegisters, 65535, 1).has_value());
+    QString error;
+    EXPECT_FALSE(pdu_builder::buildReadRequest(FunctionCode::ReadHoldingRegisters, 65535, 2, &error).has_value());
+    EXPECT_FALSE(error.isEmpty());
+}
+
+TEST(ModbusPduBuilderTest, BuildWriteMultipleAddressRangeOverflow) {
+    const QByteArray coilData(reinterpret_cast<const char*>("\xCD\x01"), 2); // 10 coils
+    const QByteArray regData(reinterpret_cast<const char*>("\x00\x01\x00\x02"), 4); // 2 registers
+
+    // FC0F: 65526 + 10 == 65536 legal; 65527 + 10 overflows.
+    EXPECT_TRUE(pdu_builder::buildWriteRequest(FunctionCode::WriteMultipleCoils, 65526, 10, coilData).has_value());
+    EXPECT_FALSE(pdu_builder::buildWriteRequest(FunctionCode::WriteMultipleCoils, 65527, 10, coilData).has_value());
+
+    // FC10: 65534 + 2 == 65536 legal; 65535 + 2 overflows.
+    EXPECT_TRUE(pdu_builder::buildWriteRequest(FunctionCode::WriteMultipleRegisters, 65534, 2, regData).has_value());
+    EXPECT_FALSE(pdu_builder::buildWriteRequest(FunctionCode::WriteMultipleRegisters, 65535, 2, regData).has_value());
+}
