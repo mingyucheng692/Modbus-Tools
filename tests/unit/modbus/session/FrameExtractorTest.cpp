@@ -255,16 +255,23 @@ TEST(FrameExtractorTest, AsciiBadLrc_SkippedUpToNextFrame) {
 
     const QByteArray badLrc = QByteArray(":010302007B00\r\n"); // LRC mismatch
     const QByteArray good = QByteArray(":010302007B7F\r\n");
-    extractor.feed(badLrc + good);
 
-    // The bad frame is not delivered; scanning resumes at the next ':' and
-    // the following valid frame is extracted intact.
+    // Feed the bad frame alone: it is dropped byte-by-byte (the extractor
+    // resyncs at the next ':') and the drop counter records the loss.
+    extractor.feed(badLrc);
+    EXPECT_FALSE(extractor.hasCompleteFrame());
+    EXPECT_GT(extractor.droppedInvalidBytes(), 0);
+
+    // The following valid frame is extracted intact; delivering a frame
+    // resets the drop-limit counter by design (it gates continuous-garbage
+    // aborts, not a session-wide statistic).
+    extractor.feed(good);
     ASSERT_TRUE(extractor.hasCompleteFrame());
     const auto frame = extractor.popFrame();
     ASSERT_TRUE(frame.has_value());
     EXPECT_EQ(*frame, good);
     EXPECT_FALSE(extractor.hasCompleteFrame());
-    EXPECT_GT(extractor.droppedInvalidBytes(), 0);
+    EXPECT_EQ(extractor.droppedInvalidBytes(), 0);
 }
 
 TEST(FrameExtractorTest, RtuOversizeOverflow_DiscardsAndCounts) {

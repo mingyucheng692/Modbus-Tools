@@ -12,12 +12,12 @@ using namespace modbus::base;
 namespace {
 
 TEST(ModbusProtocolChecksTest, InspectRtuAdu_LengthCap) {
-    // Exactly 256 bytes (1B slave + 253B PDU + 2B CRC) with valid CRC is
-    // structurally valid and must survive the size cap.
+    // Exactly 256 bytes (1B slave + 1B FC + 252B payload + 2B CRC) with valid
+    // CRC is structurally valid and must survive the size cap.
     QByteArray adu;
     adu.append(static_cast<char>(0x01));
     adu.append(static_cast<char>(0x03));
-    adu.append(QByteArray(251, '\x00'));
+    adu.append(QByteArray(252, '\x00'));
     appendModbusRtuCrc(adu);
     ASSERT_EQ(adu.size(), 256);
     EXPECT_EQ(inspectRtuAdu(adu, nullptr), 256);
@@ -32,7 +32,7 @@ TEST(ModbusProtocolChecksTest, InspectAsciiAdu_LengthCap) {
     QByteArray binary;
     binary.append(static_cast<char>(0x01));
     binary.append(static_cast<char>(0x03));
-    binary.append(QByteArray(253, '\x00'));
+    binary.append(QByteArray(252, '\x00'));
     const uint8_t lrc = calculateModbusAsciiLrc(binary);
     binary.append(static_cast<char>(lrc));
     ASSERT_EQ(binary.size(), 255);
@@ -55,9 +55,9 @@ TEST(ModbusProtocolChecksTest, InspectAsciiAdu_LengthCap) {
 TEST(ModbusProtocolChecksTest, ValidateResponsePdu_ExceptionCodeRange) {
     const Pdu request(FunctionCode::ReadHoldingRegisters, QByteArray::fromHex("00000001"));
 
-    // In-range exception (0x0A Gateway Target Device Failed) passes structure.
+    // In-range exception (0x0A Gateway Path Unavailable) passes structure.
     const Pdu inRange(FunctionCode::ReadHoldingRegisters,
-                      ExceptionCode::GatewayTargetDeviceFailed);
+                      ExceptionCode::GatewayPathUnavailable);
     EXPECT_EQ(validateResponsePdu(request, inRange), QString());
 
     // Out-of-range exception code (0x0B) is rejected.

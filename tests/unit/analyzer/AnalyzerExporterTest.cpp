@@ -21,9 +21,12 @@ TEST(AnalyzerExporterTest, WriteCsvChunk_WritesAndReportsSuccess) {
 
     QFile file(tempDir.filePath("out.csv"));
     ASSERT_TRUE(file.open(QIODevice::ReadOnly));
-    const QByteArray content = file.readAll();
-    EXPECT_TRUE(content.contains("a,b\n"));
-    EXPECT_TRUE(content.contains("\"q\"\n"));
+    // The exporter opens the file in Text mode, so line endings are the
+    // platform EOL (CRLF on Windows); compare EOL-agnostically.
+    const QString text = QString::fromUtf8(file.readAll())
+                             .replace(QStringLiteral("\r\n"), QStringLiteral("\n"));
+    EXPECT_TRUE(text.contains("a,b\n"));
+    EXPECT_TRUE(text.contains("\"q\"\n"));
 }
 
 TEST(AnalyzerExporterTest, EscapeCsvValue_NeutralizesFormulaInjection) {

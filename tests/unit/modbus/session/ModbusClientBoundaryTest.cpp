@@ -26,6 +26,23 @@ using namespace testing;
 
 namespace {
 
+// Builds a minimal RTU response ADU (slave 01) so fed bytes survive the
+// extractor's framing: the mock transport ignores the frame content, but the
+// FrameExtractor must see a plausibly shaped ADU before parseResponse runs.
+// Delivered via QMetaObject::invokeMethod on the main thread — the read
+// handler is a channel-IO-thread contract and extractor state must not be
+// touched concurrently with checkPendingResponse().
+QByteArray rtuFrame(uint8_t functionCode, const QByteArray& data) {
+    QByteArray frame;
+    frame.append(static_cast<char>(0x01)); // slave
+    frame.append(static_cast<char>(functionCode));
+    frame.append(data);
+    const uint16_t crc = calculateModbusRtuCrc(QByteArrayView(frame));
+    frame.append(static_cast<char>(crc & 0xFF));
+    frame.append(static_cast<char>((crc >> 8) & 0xFF));
+    return frame;
+}
+
 // Test Fixture
 class ModbusClientBoundaryTest : public Test {
 protected:
@@ -628,7 +645,18 @@ TEST_F(ModbusClientBoundaryTest, Exception02_FailsImmediatelyWithoutRetry) {
             ParseResponseStatus::Ok,
             Pdu(FunctionCode::ReadHoldingRegisters, ExceptionCode::IllegalDataAddress)}));
 
+    std::thread feeder([this]() {
+        std::this_thread::sleep_for(std::chrono::milliseconds(20));
+        const QByteArray frame = rtuFrame(0x83, QByteArray("\x02", 1));
+        QMetaObject::invokeMethod(QCoreApplication::instance(), [this, frame]() {
+            if (readHandler_) {
+                readHandler_(frame);
+            }
+        }, Qt::QueuedConnection);
+    });
+
     auto resp = client_->sendRequest(makeRhrPdu());
+    feeder.join();
     EXPECT_TRUE(resp.isError());
     EXPECT_EQ(resp.exceptionCode, ExceptionCode::IllegalDataAddress);
     EXPECT_EQ(resp.attemptCount, 1);
@@ -657,7 +685,23 @@ TEST_F(ModbusClientBoundaryTest, Exception04_StillRetriesPerStrategy) {
             ParseResponseStatus::Ok,
             Pdu(FunctionCode::ReadHoldingRegisters, ExceptionCode::ServerDeviceFailure)}));
 
+    // One response frame per wire attempt; the second attempt is triggered by
+    // the retry timer after the first device-state exception.
+    std::thread feeder([this]() {
+        const QByteArray frame = rtuFrame(0x83, QByteArray("\x04", 1));
+        for (int attempt = 0; attempt < 2; ++attempt) {
+            std::this_thread::sleep_for(
+                std::chrono::milliseconds(attempt == 0 ? 20 : 160));
+            QMetaObject::invokeMethod(QCoreApplication::instance(), [this, frame]() {
+                if (readHandler_) {
+                    readHandler_(frame);
+                }
+            }, Qt::QueuedConnection);
+        }
+    });
+
     auto resp = client_->sendRequest(makeRhrPdu());
+    feeder.join();
     EXPECT_TRUE(resp.isError());
     EXPECT_EQ(resp.exceptionCode, ExceptionCode::ServerDeviceFailure);
     EXPECT_EQ(resp.attemptCount, 2);
@@ -666,7 +710,9 @@ TEST_F(ModbusClientBoundaryTest, Exception04_StillRetriesPerStrategy) {
 // Exception responses go through structural validation: a malformed
 // exception PDU (payload not exactly one byte) is rejected, not trusted.
 TEST_F(ModbusClientBoundaryTest, MalformedExceptionPdu_RejectedAsInvalidPdu) {
-    cfg_.retries = 2;
+    // No retries: the classification of the invalid PDU is the assertion, and
+    // a retry would only observe a timeout error code instead.
+    cfg_.retries = 0;
     cfg_.retryIntervalMs = 20;
     client_->setConfig(cfg_);
     connectClient();
@@ -684,7 +730,18 @@ TEST_F(ModbusClientBoundaryTest, MalformedExceptionPdu_RejectedAsInvalidPdu) {
             ParseResponseStatus::Ok,
             Pdu(static_cast<FunctionCode>(0x83), QByteArray("\x02\x02", 2))}));
 
+    std::thread feeder([this]() {
+        std::this_thread::sleep_for(std::chrono::milliseconds(20));
+        const QByteArray frame = rtuFrame(0x83, QByteArray("\x02\x02", 2));
+        QMetaObject::invokeMethod(QCoreApplication::instance(), [this, frame]() {
+            if (readHandler_) {
+                readHandler_(frame);
+            }
+        }, Qt::QueuedConnection);
+    });
+
     auto resp = client_->sendRequest(makeRhrPdu());
+    feeder.join();
     EXPECT_TRUE(resp.isError());
     EXPECT_EQ(resp.errorCode, ModbusError::InvalidPdu);
 }
@@ -713,6 +770,11 @@ TEST_F(ModbusClientBoundaryTest, RtuLongResponseAtLowBaud_SurvivesWireTimeScalin
         writeDrainedHandler_();
         return true;
     }));
+    EXPECT_CALL(*mockTransport_, parseResponse(_))
+        .WillOnce(Return(ParseResponseResult{
+            ParseResponseStatus::Ok,
+            Pdu(FunctionCode::ReadHoldingRegisters,
+                QByteArray::fromHex("20") + QByteArray(32, '\x00'))}));
 
     QByteArray response;
     response.append(static_cast<char>(0x01)); // slave
@@ -726,12 +788,17 @@ TEST_F(ModbusClientBoundaryTest, RtuLongResponseAtLowBaud_SurvivesWireTimeScalin
     // Drip the response one byte every 20ms: gaps stay below t1.5/t3.5 at
     // 300 baud, so the extractor keeps a single frame; the transfer finishes
     // at ~740ms, well past the old fixed timeout but inside the scaled one.
+    // Bytes are marshalled to the main thread to respect the read-handler
+    // thread contract.
     std::thread feeder([this, response]() {
         for (int i = 0; i < response.size(); ++i) {
             std::this_thread::sleep_for(std::chrono::milliseconds(20));
-            if (readHandler_) {
-                readHandler_(QByteArrayView(response).sliced(i, 1));
-            }
+            const auto chunk = response.mid(i, 1);
+            QMetaObject::invokeMethod(QCoreApplication::instance(), [this, chunk]() {
+                if (readHandler_) {
+                    readHandler_(chunk);
+                }
+            }, Qt::QueuedConnection);
         }
     });
 
@@ -756,7 +823,7 @@ TEST_F(ModbusClientBoundaryTest, AbortDuringRtuSendWindow_StaleTimerDoesNotWrite
     EXPECT_CALL(*mockTransport_, parseResponse(_))
         .WillOnce(Return(ParseResponseResult{
             ParseResponseStatus::Ok,
-            Pdu(FunctionCode::ReadHoldingRegisters, QByteArray::fromHex("020001"))}));
+            Pdu(FunctionCode::ReadHoldingRegisters, QByteArray::fromHex("04000A000B"))}));
     // Exactly one wire write: request #2 is aborted while waiting for the
     // send window, so its deferred write must never happen.
     EXPECT_CALL(*mockChannel_, write(_)).Times(1).WillOnce(Invoke([this](QByteArrayView) {
@@ -764,7 +831,18 @@ TEST_F(ModbusClientBoundaryTest, AbortDuringRtuSendWindow_StaleTimerDoesNotWrite
         return true;
     }));
 
+    std::thread feeder([this]() {
+        std::this_thread::sleep_for(std::chrono::milliseconds(20));
+        const QByteArray frame = rtuFrame(0x03, QByteArray::fromHex("04000A000B"));
+        QMetaObject::invokeMethod(QCoreApplication::instance(), [this, frame]() {
+            if (readHandler_) {
+                readHandler_(frame);
+            }
+        }, Qt::QueuedConnection);
+    });
+
     auto first = client_->sendRequest(makeRhrPdu());
+    feeder.join();
     ASSERT_FALSE(first.isError()) << first.error.toStdString();
 
     bool callbackFired = false;
