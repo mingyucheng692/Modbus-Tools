@@ -12,7 +12,7 @@ public:
     PathResolver();
 
     /// Constructor for tests and explicit injection.
-    explicit PathResolver(QString applicationDirPath);
+    explicit PathResolver(const QString& applicationDirPath);
 
     /// Application directory captured at construction. Exposed for consumers
     /// that must resolve sibling binaries (e.g. the bundled updater) instead of

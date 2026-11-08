@@ -23,8 +23,8 @@ PathResolver::PathResolver()
 {
 }
 
-PathResolver::PathResolver(QString applicationDirPath)
-    : applicationDirPath_(QDir::cleanPath(std::move(applicationDirPath)))
+PathResolver::PathResolver(const QString& applicationDirPath)
+    : applicationDirPath_(QDir::cleanPath(applicationDirPath))
 {
 }
 

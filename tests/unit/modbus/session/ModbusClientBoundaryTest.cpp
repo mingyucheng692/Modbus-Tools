@@ -5,6 +5,7 @@
 #include <future>
 #include <thread>
 #include <chrono>
+#include <QTimer>
 #include <QtTest>
 
 #include "mocks/MockChannel.h"
@@ -785,25 +786,28 @@ TEST_F(ModbusClientBoundaryTest, RtuLongResponseAtLowBaud_SurvivesWireTimeScalin
     response.append(static_cast<char>(crc & 0xFF));
     response.append(static_cast<char>((crc >> 8) & 0xFF));
 
-    // Drip the response one byte every 20ms: gaps stay below t1.5/t3.5 at
-    // 300 baud, so the extractor keeps a single frame; the transfer finishes
-    // at ~740ms, well past the old fixed timeout but inside the scaled one.
-    // Bytes are marshalled to the main thread to respect the read-handler
-    // thread contract.
-    std::thread feeder([this, response]() {
-        for (int i = 0; i < response.size(); ++i) {
-            std::this_thread::sleep_for(std::chrono::milliseconds(20));
-            const auto chunk = response.mid(i, 1);
-            QMetaObject::invokeMethod(QCoreApplication::instance(), [this, chunk]() {
-                if (readHandler_) {
-                    readHandler_(chunk);
-                }
-            }, Qt::QueuedConnection);
+    // Drip the response one byte every 20ms on the main thread's event loop:
+    // gaps stay below t1.5 at 300 baud, so the extractor keeps a single
+    // frame, and the transfer finishes at ~740ms — well past the old fixed
+    // timeout but inside the scaled one. The synchronous request wait pumps
+    // this loop; feeding from a sleeping worker thread instead would stack
+    // scheduler latency on every byte and blow the inter-byte gap budget on
+    // loaded CI runners.
+    QTimer drip;
+    int fed = 0;
+    QObject::connect(&drip, &QTimer::timeout, &drip, [&]() {
+        if (fed < response.size() && readHandler_) {
+            readHandler_(response.mid(fed, 1));
+            ++fed;
+        }
+        if (fed >= response.size()) {
+            drip.stop();
         }
     });
+    drip.start();
 
     auto resp = client_->sendRequest(modbus::test::MakeReadHoldingRegistersRequest(0, 16));
-    feeder.join();
+    drip.stop();
     ASSERT_FALSE(resp.isError()) << resp.error.toStdString();
 }
 
