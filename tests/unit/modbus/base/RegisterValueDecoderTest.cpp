@@ -1,6 +1,7 @@
 // Copyright (c) 2025 - present mingyucheng692. Licensed under the MIT License.
 
 #include <gtest/gtest.h>
+#include "analyzer/ValueFormatter.h"
 #include "modbus/base/RegisterValueDecoder.h"
 
 using namespace modbus::codec;

@@ -68,6 +68,7 @@ public:
     [[nodiscard]] QComboBox* addressBaseComboBox() const noexcept { return addrBaseCombo_; }
     [[nodiscard]] QLineEdit* addressEdit() const noexcept { return addressEdit_; }
     [[nodiscard]] QLabel* addressPreviewLabel() const noexcept { return addressPreviewLabel_; }
+    [[nodiscard]] QLabel* addressWarningLabel() const noexcept { return addressWarningLabel_; }
     [[nodiscard]] QLabel* writeWarningLabel() const noexcept { return writeWarningLabel_; }
     [[nodiscard]] QGroupBox* writeGroup() const noexcept { return writeGroup_; }
     [[nodiscard]] QPushButton* executeButton() const noexcept { return executeBtn_; }

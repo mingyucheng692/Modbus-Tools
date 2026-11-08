@@ -5,6 +5,7 @@
 
 #include <QSignalSpy>
 #include <QThread>
+#include <QtTest>
 #include <QtCore/QCoreApplication>
 
 #include "mocks/MockChannel.h"
