@@ -58,6 +58,14 @@ std::optional<Pdu> pdu_builder::buildWriteRequest(FunctionCode fc, int startAddr
     const uint8_t fcValue = static_cast<uint8_t>(fc);
 
     if (fcValue == 0x05) {
+        if (rawData.isEmpty()) {
+            // An empty payload used to silently write coil OFF; reject it so
+            // a malformed request never reaches the wire as a real write.
+            if (errorOut) {
+                *errorOut = QCoreApplication::translate("ModbusPduBuilder", "Missing coil value for 0x05");
+            }
+            return std::nullopt;
+        }
         // value: 0xFF00 = ON, 0x0000 = OFF
         bool value = false;
         if (rawData.size() >= 2) {

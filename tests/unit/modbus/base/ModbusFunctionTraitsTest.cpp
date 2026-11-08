@@ -139,3 +139,21 @@ TEST(ModbusFunctionTraitsTest, ExceptionCodeNames) {
     EXPECT_STREQ(exceptionCodeName(static_cast<uint8_t>(0xFF)), "Unknown Exception");
 }
 
+TEST(ModbusFunctionTraitsTest, DeterministicExceptionClassification) {
+    // 0x01..0x03 are deterministic protocol errors — never retry.
+    EXPECT_TRUE(isDeterministicException(ExceptionCode::IllegalFunction));
+    EXPECT_TRUE(isDeterministicException(ExceptionCode::IllegalDataAddress));
+    EXPECT_TRUE(isDeterministicException(ExceptionCode::IllegalDataValue));
+
+    // 0x04..0x0A reflect device state — retryable per strategy.
+    EXPECT_FALSE(isDeterministicException(ExceptionCode::ServerDeviceFailure));
+    EXPECT_FALSE(isDeterministicException(ExceptionCode::Acknowledge));
+    EXPECT_FALSE(isDeterministicException(ExceptionCode::ServerDeviceBusy));
+    EXPECT_FALSE(isDeterministicException(static_cast<ExceptionCode>(0x0A)));
+
+    // Out-of-range codes are not classified deterministic.
+    EXPECT_FALSE(isDeterministicException(ExceptionCode::None));
+    EXPECT_FALSE(isDeterministicException(static_cast<ExceptionCode>(0x0B)));
+    EXPECT_FALSE(isDeterministicException(static_cast<ExceptionCode>(0xFF)));
+}
+

@@ -11,6 +11,7 @@
 #include "modbus/session/ModbusClient.h"
 #include "modbus/base/ModbusTypes.h"
 #include "modbus/base/ModbusConfig.h"
+#include "modbus/base/ModbusCrc.h"
 #include "modbus/session/RequestStateMachine.h"
 #include "modbus/session/ConnectionStateMachine.h"
 #include "helpers/ModbusTestHelpers.h"
@@ -599,6 +600,143 @@ TEST_F(ModbusClientBoundaryTest, SendRequestResult_DeliversResultDirectly) {
 
     EXPECT_TRUE(res.isOk());
     EXPECT_EQ(res.value().functionCode(), FunctionCode::ReadHoldingRegisters);
+}
+
+// Deterministic protocol exceptions (0x01..0x03) fail immediately: the
+// identical request can never succeed, so no retry may be issued.
+TEST_F(ModbusClientBoundaryTest, Exception02_FailsImmediatelyWithoutRetry) {
+    cfg_.retries = 2;
+    cfg_.retryIntervalMs = 20;
+    cfg_.retryBackoffFactor = 1.0;
+    cfg_.maxRetryIntervalMs = 20;
+    cfg_.retryJitterPercent = 0;
+    client_->setConfig(cfg_);
+    connectClient();
+
+    // Exactly one wire attempt: a retry would trip the Times(1) expectations.
+    EXPECT_CALL(*mockTransport_, buildRequest(_, _))
+        .Times(1)
+        .WillOnce(Return(QByteArray::fromHex("010300000001840A")));
+    EXPECT_CALL(*mockChannel_, write(_)).Times(1).WillOnce(Invoke([this](QByteArrayView) {
+        writeDrainedHandler_();
+        return true;
+    }));
+    EXPECT_CALL(*mockTransport_, parseResponse(_))
+        .Times(1)
+        .WillOnce(Return(ParseResponseResult{
+            ParseResponseStatus::Ok,
+            Pdu(FunctionCode::ReadHoldingRegisters, ExceptionCode::IllegalDataAddress)}));
+
+    auto resp = client_->sendRequest(makeRhrPdu());
+    EXPECT_TRUE(resp.isError());
+    EXPECT_EQ(resp.exceptionCode, ExceptionCode::IllegalDataAddress);
+    EXPECT_EQ(resp.attemptCount, 1);
+}
+
+// Device-state exceptions (0x04..0x06) keep the configured retry flow.
+TEST_F(ModbusClientBoundaryTest, Exception04_StillRetriesPerStrategy) {
+    cfg_.retries = 1;
+    cfg_.retryIntervalMs = 20;
+    cfg_.retryBackoffFactor = 1.0;
+    cfg_.maxRetryIntervalMs = 20;
+    cfg_.retryJitterPercent = 0;
+    client_->setConfig(cfg_);
+    connectClient();
+
+    EXPECT_CALL(*mockTransport_, buildRequest(_, _))
+        .Times(2)
+        .WillRepeatedly(Return(QByteArray::fromHex("010300000001840A")));
+    EXPECT_CALL(*mockChannel_, write(_)).Times(2).WillRepeatedly(Invoke([this](QByteArrayView) {
+        writeDrainedHandler_();
+        return true;
+    }));
+    EXPECT_CALL(*mockTransport_, parseResponse(_))
+        .Times(2)
+        .WillRepeatedly(Return(ParseResponseResult{
+            ParseResponseStatus::Ok,
+            Pdu(FunctionCode::ReadHoldingRegisters, ExceptionCode::ServerDeviceFailure)}));
+
+    auto resp = client_->sendRequest(makeRhrPdu());
+    EXPECT_TRUE(resp.isError());
+    EXPECT_EQ(resp.exceptionCode, ExceptionCode::ServerDeviceFailure);
+    EXPECT_EQ(resp.attemptCount, 2);
+}
+
+// Exception responses go through structural validation: a malformed
+// exception PDU (payload not exactly one byte) is rejected, not trusted.
+TEST_F(ModbusClientBoundaryTest, MalformedExceptionPdu_RejectedAsInvalidPdu) {
+    cfg_.retries = 2;
+    cfg_.retryIntervalMs = 20;
+    client_->setConfig(cfg_);
+    connectClient();
+
+    EXPECT_CALL(*mockTransport_, buildRequest(_, _))
+        .Times(1)
+        .WillOnce(Return(QByteArray::fromHex("010300000001840A")));
+    EXPECT_CALL(*mockChannel_, write(_)).Times(1).WillOnce(Invoke([this](QByteArrayView) {
+        writeDrainedHandler_();
+        return true;
+    }));
+    EXPECT_CALL(*mockTransport_, parseResponse(_))
+        .Times(1)
+        .WillOnce(Return(ParseResponseResult{
+            ParseResponseStatus::Ok,
+            Pdu(static_cast<FunctionCode>(0x83), QByteArray("\x02\x02", 2))}));
+
+    auto resp = client_->sendRequest(makeRhrPdu());
+    EXPECT_TRUE(resp.isError());
+    EXPECT_EQ(resp.errorCode, ModbusError::InvalidPdu);
+}
+
+// Transaction timeout must scale to the expected response wire time: at low
+// baud a full-length response frame takes longer than the configured timeout,
+// and the old fixed timeout declared the transaction dead mid-transfer.
+TEST_F(ModbusClientBoundaryTest, RtuLongResponseAtLowBaud_SurvivesWireTimeScaling) {
+    cfg_.retries = 0;
+    cfg_.timeoutMs = 500;
+    cfg_.baudRate = 300;
+    cfg_.interFrameDelayUs = 0;
+    cfg_.retryIntervalMs = 20;
+    cfg_.retryBackoffFactor = 1.0;
+    cfg_.maxRetryIntervalMs = 20;
+    cfg_.retryJitterPercent = 0;
+    client_->setConfig(cfg_);
+    connectClient();
+
+    // FC03 qty=16 -> 37-byte response ADU; at 300 baud (10 bits/char) the
+    // frame alone takes ~1.23s on the wire, plus t3.5 silence (~117ms).
+    // Scaled timeout ~1.35s; the old fixed timeout was ~617ms.
+    EXPECT_CALL(*mockTransport_, buildRequest(_, _))
+        .WillOnce(Return(QByteArray::fromHex("01030000001005C9")));
+    EXPECT_CALL(*mockChannel_, write(_)).WillOnce(Invoke([this](QByteArrayView) {
+        writeDrainedHandler_();
+        return true;
+    }));
+
+    QByteArray response;
+    response.append(static_cast<char>(0x01)); // slave
+    response.append(static_cast<char>(0x03)); // fc
+    response.append(static_cast<char>(0x20)); // byte count = 32
+    response.append(QByteArray(32, '\x00'));
+    const uint16_t crc = calculateModbusRtuCrc(QByteArrayView(response));
+    response.append(static_cast<char>(crc & 0xFF));
+    response.append(static_cast<char>((crc >> 8) & 0xFF));
+
+    // Drip the response one byte every 20ms: gaps stay below t1.5/t3.5 at
+    // 300 baud, so the extractor keeps a single frame; the transfer finishes
+    // at ~740ms, well past the old fixed timeout but inside the scaled one.
+    std::thread feeder([this, response]() {
+        for (int i = 0; i < response.size(); ++i) {
+            std::this_thread::sleep_for(std::chrono::milliseconds(20));
+            if (readHandler_) {
+                readHandler_(QByteArrayView(response).sliced(i, 1));
+            }
+        }
+    });
+
+    auto resp = client_->sendRequest(modbus::test::MakeReadHoldingRegistersRequest(0, 16));
+    feeder.join();
+    ASSERT_FALSE(resp.isError()) << resp.error.toStdString();
 }
 
 } // namespace

@@ -3,11 +3,24 @@
 #include "ModbusAduBuilder.h"
 #include "ModbusCrc.h"
 #include "ModbusLrc.h"
+#include <QtGlobal>
 
 namespace modbus::base {
 
+namespace {
+
+// IEC 61158 wire caps: PDU <= 253B, so RTU/ASCII ADU <= 256B and the TCP
+// payload (unit + PDU) fits the 254B MBAP length ceiling.
+constexpr qsizetype kMaxPduBytes = 253;
+
+} // namespace
+
 QByteArray buildRtuAdu(uint8_t slaveId, const Pdu& pdu) {
     const QByteArray pduBytes = pdu.toByteArray();
+    if (pduBytes.size() > kMaxPduBytes) {
+        Q_ASSERT(false && "RTU PDU exceeds the 253-byte Modbus limit");
+        return {};
+    }
     QByteArray adu;
     adu.reserve(1 + pduBytes.size() + 2);
     adu.append(static_cast<char>(slaveId));
@@ -18,6 +31,10 @@ QByteArray buildRtuAdu(uint8_t slaveId, const Pdu& pdu) {
 
 QByteArray buildTcpAdu(uint8_t unitId, const Pdu& pdu, uint16_t transactionId) {
     const QByteArray pduBytes = pdu.toByteArray();
+    if (pduBytes.size() > kMaxPduBytes) {
+        Q_ASSERT(false && "TCP PDU exceeds the 253-byte Modbus limit");
+        return {};
+    }
     const auto length = static_cast<uint16_t>(1 + pduBytes.size());
     QByteArray adu;
     adu.reserve(7 + pduBytes.size());
@@ -34,6 +51,10 @@ QByteArray buildTcpAdu(uint8_t unitId, const Pdu& pdu, uint16_t transactionId) {
 
 QByteArray buildAsciiAdu(uint8_t slaveId, const Pdu& pdu) {
     const QByteArray pduBytes = pdu.toByteArray();
+    if (pduBytes.size() > kMaxPduBytes) {
+        Q_ASSERT(false && "ASCII PDU exceeds the 253-byte Modbus limit");
+        return {};
+    }
     QByteArray raw;
     raw.reserve(1 + pduBytes.size() + 1);
     raw.append(static_cast<char>(slaveId));

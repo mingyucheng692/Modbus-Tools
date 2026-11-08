@@ -135,3 +135,12 @@ TEST(ModbusPduBuilderTest, BuildWriteMultipleAddressRangeOverflow) {
     EXPECT_TRUE(pdu_builder::buildWriteRequest(FunctionCode::WriteMultipleRegisters, 65534, 2, regData).has_value());
     EXPECT_FALSE(pdu_builder::buildWriteRequest(FunctionCode::WriteMultipleRegisters, 65535, 2, regData).has_value());
 }
+
+TEST(ModbusPduBuilderTest, BuildWriteRequestSingleCoilEmptyPayloadRejected) {
+    // An empty payload used to silently write coil OFF; it must be rejected.
+    QString error;
+    const QByteArray raw;
+    const auto result = pdu_builder::buildWriteRequest(FunctionCode::WriteSingleCoil, 0x0001, 1, raw, &error);
+    EXPECT_FALSE(result.has_value());
+    EXPECT_FALSE(error.isEmpty());
+}

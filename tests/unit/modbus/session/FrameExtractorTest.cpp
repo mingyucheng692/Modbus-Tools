@@ -151,3 +151,31 @@ TEST(FrameExtractorTest, AsciiFeedWithLeadingNoise_RecoversNextFrame) {
     ASSERT_TRUE(extracted.has_value());
     EXPECT_EQ(*extracted, QByteArray(":010302007B7F\r\n"));
 }
+
+TEST(FrameExtractorTest, FrameDuration_ZeroInputsYieldZero) {
+    auto cfg = modbus::test::MakeModbusConfig(ModbusMode::RTU);
+    cfg.baudRate = 0;
+    EXPECT_EQ(FrameExtractor::calculateFrameDuration(cfg, 100).count(), 0);
+
+    cfg.baudRate = 9600;
+    EXPECT_EQ(FrameExtractor::calculateFrameDuration(cfg, 0).count(), 0);
+}
+
+TEST(FrameExtractorTest, FrameDuration_ScalesWithBaudAndFrameLength) {
+    // 8N1: 1 start + 8 data + 0 parity + 1 stop = 10 bits per character.
+    auto cfg = modbus::test::MakeModbusConfig(ModbusMode::RTU);
+    cfg.baudRate = 9600;
+    cfg.dataBits = 8;
+    cfg.parity = 0;
+    cfg.stopBits = 1;
+
+    // 7 bytes * 10 bits / 9600 = 7291.67us -> ceil 7292us
+    EXPECT_EQ(FrameExtractor::calculateFrameDuration(cfg, 7).count(), 7292);
+
+    // 21 bytes * 10 bits / 300 = 700000us exactly (T07 slow-wire scenario).
+    cfg.baudRate = 300;
+    EXPECT_EQ(FrameExtractor::calculateFrameDuration(cfg, 21).count(), 700000);
+
+    // 37 bytes * 10 bits / 300 = 1233333.33us -> ceil 1233334us
+    EXPECT_EQ(FrameExtractor::calculateFrameDuration(cfg, 37).count(), 1233334);
+}

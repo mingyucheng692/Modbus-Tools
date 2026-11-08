@@ -5,6 +5,7 @@
 #include "Config.h"
 #include "infra/logging/Logger.h"
 #include "../base/ModbusProtocolChecks.h"
+#include "../base/ModbusFunctionTraits.h"
 #include <spdlog/spdlog.h>
 #include <chrono>
 #include <algorithm>
@@ -53,6 +54,37 @@ namespace {
         FullPacketTimeout = 2,
         Retry = 3,
     };
+
+    // Request quantity field of a read request (bytes 2..3, big endian); 0 when absent.
+    int readRequestQuantity(const base::Pdu& request) {
+        const auto data = request.data();
+        if (data.size() < 4) {
+            return 0;
+        }
+        return (static_cast<uint8_t>(data[2]) << 8) | static_cast<uint8_t>(data[3]);
+    }
+
+    // Expected RTU response ADU length (slave + FC + payload + CRC) for the
+    // active request; used to scale the transaction timeout up to the wire
+    // time of long responses at low baud rates. 0 for unknown shapes (no scaling).
+    int expectedResponseAduBytes(const base::Pdu& request) {
+        using base::FunctionCode;
+        switch (request.functionCode()) {
+        case FunctionCode::ReadCoils:
+        case FunctionCode::ReadDiscreteInputs:
+            return 5 + (readRequestQuantity(request) + 7) / 8;
+        case FunctionCode::ReadHoldingRegisters:
+        case FunctionCode::ReadInputRegisters:
+            return 5 + readRequestQuantity(request) * 2;
+        case FunctionCode::WriteSingleCoil:
+        case FunctionCode::WriteSingleRegister:
+        case FunctionCode::WriteMultipleCoils:
+        case FunctionCode::WriteMultipleRegisters:
+            return 8; // echo response: slave + FC + address + value/quantity + CRC
+        default:
+            return 0;
+        }
+    }
 
     bool isBroadcastWriteFunction(base::FunctionCode functionCode) {
         using base::FunctionCode;
@@ -305,9 +337,16 @@ void RequestExecutor::performWrite(const QByteArray& adu) {
 
     int timeoutMs = config_->timeoutMs;
     if (config_->mode == base::ModbusMode::RTU) {
-        timeoutMs += static_cast<int>(
-            std::chrono::duration_cast<std::chrono::milliseconds>(
-                FrameExtractor::calculateInterFrameDelay(*config_)).count());
+        // Scale the transaction timeout up to the expected response wire
+        // time: at low baud rates a full-length response frame takes longer
+        // to transmit than the configured timeout, which would declare the
+        // transaction dead mid-transfer and trigger a retry storm.
+        const auto frameUs = FrameExtractor::calculateFrameDuration(
+            *config_, expectedResponseAduBytes(activeRequest_));
+        const auto silence = FrameExtractor::calculateInterFrameDelay(*config_);
+        const auto wireMs = std::chrono::duration_cast<std::chrono::milliseconds>(
+            frameUs + silence).count();
+        timeoutMs = std::max(timeoutMs, static_cast<int>(wireMs));
     }
     transactionTimer_->start(std::max(10, timeoutMs));
 }
@@ -414,7 +453,15 @@ void RequestExecutor::checkPendingResponse() {
         if (parsedResult.has_value()) {
             if (parsedResult->isError()) {
                 retryStrategy_->recordAttempt();
-                if (retryStrategy_->shouldRetry() && !aborted_.load()) {
+                // Deterministic protocol exceptions (0x01..0x03) are the
+                // device's final answer: the identical request can never
+                // succeed, so the master must stop instead of blind-retrying.
+                const bool deterministicProtocolError =
+                    parsedResult->errorCode == base::ModbusError::ExceptionResponse
+                    && base::function_traits::isDeterministicException(
+                           parsedResult->exceptionCode);
+                if (retryStrategy_->shouldRetry() && !aborted_.load()
+                    && !deterministicProtocolError) {
                     reqStateMachine_->tryTransition(RequestStateMachine::State::Failed, "parse-failed-retry");
                     const auto retryDelay = retryStrategy_->nextWait();
                     const auto retryKey = std::make_tuple(
@@ -587,6 +634,16 @@ std::optional<ModbusResponse> RequestExecutor::handleParsedFrame(
     if (parseResult.status == transport::ParseResponseStatus::Ok && parseResult.pdu) {
         const auto& pdu = *parseResult.pdu;
         if (pdu.isException()) {
+            // Exception responses go through the same structural validation
+            // as normal responses (FC match + 1-byte constant payload +
+            // exception-code range) instead of bypassing it.
+            const QString exceptionValidationError = base::validateResponsePdu(request, pdu);
+            if (!exceptionValidationError.isEmpty()) {
+                reqStateMachine_->tryTransition(
+                    RequestStateMachine::State::Failed, "exception-validation-failed");
+                return ModbusResponse::Error(base::ModbusError::InvalidPdu,
+                                             exceptionValidationError);
+            }
             reqStateMachine_->tryTransition(
                 RequestStateMachine::State::Failed, "modbus-exception");
             return handleExceptionResponse(pdu, slaveId, request);

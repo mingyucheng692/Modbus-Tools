@@ -95,6 +95,15 @@ namespace modbus::base::function_traits {
     return isBroadcastAllowed(slaveId, static_cast<FunctionCode>(fc));
 }
 
+/// Deterministic protocol exceptions per IEC 61158: 0x01..0x03 mean the device
+/// parsed the request and rejected it outright — resending the identical
+/// request can never succeed, so the master must stop instead of retrying.
+/// Codes 0x04..0x0A reflect transient device state and remain retryable.
+[[nodiscard]] constexpr bool isDeterministicException(ExceptionCode code) noexcept {
+    const auto raw = static_cast<uint8_t>(code);
+    return raw >= 0x01 && raw <= 0x03;
+}
+
 [[nodiscard]] constexpr const char* functionCodeName(FunctionCode fc) noexcept {
     switch (fc) {
     case FunctionCode::ReadCoils:              return "Read Coils";

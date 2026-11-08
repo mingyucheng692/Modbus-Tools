@@ -22,6 +22,7 @@ constexpr auto kOperationWriteSingle = QT_TRANSLATE_NOOP("ModbusProtocolChecks",
 constexpr auto kOperationWriteMultiple = QT_TRANSLATE_NOOP("ModbusProtocolChecks", "Write multiple");
 constexpr auto kPayloadMismatchText = QT_TRANSLATE_NOOP("ModbusProtocolChecks", "%1 response payload length mismatch: expected %2, got %3");
 constexpr auto kExceptionFunctionCodeMismatchText = QT_TRANSLATE_NOOP("ModbusProtocolChecks", "Exception function code does not match request");
+constexpr auto kExceptionCodeOutOfRangeText = QT_TRANSLATE_NOOP("ModbusProtocolChecks", "Exception code is outside the valid range 0x01..0x0A");
 constexpr auto kResponseFunctionCodeMismatchText = QT_TRANSLATE_NOOP("ModbusProtocolChecks", "Response function code does not match request");
 constexpr auto kBitReadRequestQuantityMissingText = QT_TRANSLATE_NOOP("ModbusProtocolChecks", "Request quantity missing for bit-read validation");
 constexpr auto kBitReadPayloadLengthMismatchText = QT_TRANSLATE_NOOP("ModbusProtocolChecks", "Bit-read response byte count does not match payload length");
@@ -145,6 +146,11 @@ int inspectRtuAdu(QByteArrayView adu, RtuAduFields* fields) {
     if (adu.size() < 5) {
         return 0;
     }
+    if (adu.size() > 256) {
+        // RTU ADU cap per spec: 1B slave + 253B PDU + 2B CRC. Anything longer
+        // is physically invalid; report malformed so the caller drops it.
+        return -1;
+    }
 
     uint16_t receivedCrc = 0;
     if (!readLittleEndianUInt16(adu, adu.size() - 2, receivedCrc)) {
@@ -182,6 +188,10 @@ int inspectAsciiAdu(QByteArrayView adu, AsciiAduFields* fields)
     }
 
     const qsizetype frameLength = terminatorIndex + 2;
+    if (frameLength > 513) {
+        // ASCII frame cap per spec: ':' + 2*255 hex chars + CRLF.
+        return -1;
+    }
     const QByteArrayView asciiPayload = adu.sliced(1, terminatorIndex - 1);
     if (asciiPayload.size() < 4 || (asciiPayload.size() % 2) != 0) {
         return -1;
@@ -191,7 +201,7 @@ int inspectAsciiAdu(QByteArrayView adu, AsciiAduFields* fields)
     if (!decodeAsciiHex(asciiPayload, &binaryAdu)) {
         return -1;
     }
-    if (binaryAdu.size() < 3) {
+    if (binaryAdu.size() < 3 || binaryAdu.size() > 255) {
         return -1;
     }
 
@@ -222,6 +232,10 @@ QString validateResponsePdu(const Pdu& request, const Pdu& response)
         }
         if (response.data().size() != 1) {
             return payloadLengthMismatch(kOperationException, response.data().size(), 1);
+        }
+        const auto exceptionCode = static_cast<uint8_t>(response.data().at(0));
+        if (exceptionCode < 0x01 || exceptionCode > 0x0A) {
+            return TrContext<kProtocolChecksContext>::tr(kExceptionCodeOutOfRangeText);
         }
         return QString();
     }

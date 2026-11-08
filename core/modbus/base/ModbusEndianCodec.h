@@ -25,6 +25,9 @@ template <typename T>
 template <typename T>
 void writeBigEndian(QByteArray& data, qsizetype offset, T value) noexcept
 {
+    Q_ASSERT(offset >= 0
+             && offset + static_cast<qsizetype>(sizeof(T)) <= data.size()
+             && "writeBigEndian: offset out of bounds");
     const T encoded = qToBigEndian(value);
     std::memcpy(data.data() + offset, &encoded, sizeof(T));
 }
