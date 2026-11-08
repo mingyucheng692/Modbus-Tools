@@ -195,7 +195,6 @@ jobs:
         run: |
           New-Item -ItemType Directory -Force -Path build_ci | Out-Null
           & cmake -S . -B build_ci `
-            -DCMAKE_BUILD_TYPE=${{ steps.ci_options.outputs.build_type }} `
             -DMODBUS_TOOLS_BUILD_TESTS=${{ steps.ci_options.outputs.run_tests }} `
             -DMODBUS_TOOLS_ENABLE_ASAN=${{ steps.ci_options.outputs.enable_asan }} `
             -DMODBUS_TOOLS_ENABLE_UBSAN=${{ steps.ci_options.outputs.enable_ubsan }} 2>&1 | Tee-Object -FilePath build_ci/configure.log
@@ -231,10 +230,10 @@ jobs:
             exit 1
           }
 
-          $loggingMatches = Get-ChildItem core/logging -Recurse -Include *.cpp,*.h |
+          $loggingMatches = Get-ChildItem infra/logging -Recurse -Include *.cpp,*.h |
             Select-String -Pattern '_WIN32|Q_OS_WIN'
           if ($loggingMatches) {
-            Write-Error "Platform macro leakage detected in core/logging"
+            Write-Error "Platform macro leakage detected in infra/logging"
             $loggingMatches | ForEach-Object { Write-Host $_ }
             exit 1
           }
