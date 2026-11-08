@@ -21,7 +21,7 @@ using namespace modbus::transport;
 
 namespace {
 
-constexpr int kFuzzIterations = 256;
+constexpr int kFuzzIterations = 10000;
 
 QByteArray makeRandomBytes(std::mt19937& rng, int maxSize)
 {
@@ -76,14 +76,39 @@ TEST(ModbusParsingFuzzTest, ParserAndIntegritySurfaces_HandleDeterministicCorpus
         corpus.push_back(makeRandomBytes(rng, 300));
     }
 
+    // Seed sanity: the valid corpus entries must actually parse — guards the
+    // fuzzer itself against silently rotting into a garbage-only corpus.
+    EXPECT_TRUE(parse(makeValidTcpResponse(), ProtocolType::Tcp).isValid);
+    EXPECT_TRUE(parse(makeValidRtuResponse(), ProtocolType::Unknown).isValid);
+    EXPECT_EQ(tcpTransport.checkIntegrity(makeValidTcpResponse()),
+              static_cast<int>(makeValidTcpResponse().size()));
+    EXPECT_GT(rtuTransport.checkIntegrity(makeValidRtuResponse()), 0);
+
     for (const QByteArray& frame : corpus) {
-        EXPECT_NO_THROW({
-            (void)parse(frame, ProtocolType::Unknown);
-            (void)parse(frame, ProtocolType::Tcp);
-            (void)parse(frame, ProtocolType::Rtu, 0, 0, true);
-            (void)tcpTransport.checkIntegrity(frame);
-            (void)rtuTransport.checkIntegrity(frame);
-        });
+        // Behavioral contract: the parser is deterministic and total — the
+        // same input always yields the same verdict, and a rejection carries
+        // a diagnosis instead of failing silently.
+        const auto first = parse(frame, ProtocolType::Unknown);
+        const auto second = parse(frame, ProtocolType::Unknown);
+        EXPECT_EQ(first.isValid, second.isValid);
+        EXPECT_EQ(first.protocol, second.protocol);
+        EXPECT_EQ(first.type, second.type);
+        if (!first.isValid) {
+            EXPECT_FALSE(first.error.isEmpty());
+        }
+
+        // Protocol-forced parses agree with auto-detection when they accept.
+        const auto asTcp = parse(frame, ProtocolType::Tcp);
+        if (asTcp.isValid) {
+            EXPECT_EQ(asTcp.protocol, ProtocolType::Tcp);
+        }
+        const auto asRtu = parse(frame, ProtocolType::Rtu, 0, 0, true);
+        if (asRtu.isValid) {
+            EXPECT_EQ(asRtu.protocol, ProtocolType::Rtu);
+        }
+
+        (void)tcpTransport.checkIntegrity(frame);
+        (void)rtuTransport.checkIntegrity(frame);
     }
 }
 
@@ -124,4 +149,16 @@ TEST(ModbusParsingFuzzTest, FrameExtractorHandlesDeterministicRandomChunks)
             }
         });
     }
+
+    // State-reset contract: after reset() the extractor is fully clean —
+    // no buffered bytes, no pending frames, no residual drop accounting.
+    tcpExtractor.reset();
+    rtuExtractor.reset();
+    EXPECT_EQ(tcpExtractor.bufferSize(), 0);
+    EXPECT_FALSE(tcpExtractor.hasCompleteFrame());
+    EXPECT_EQ(tcpExtractor.droppedInvalidBytes(), 0);
+    EXPECT_EQ(rtuExtractor.bufferSize(), 0);
+    EXPECT_FALSE(rtuExtractor.hasCompleteFrame());
+    EXPECT_EQ(rtuExtractor.droppedInvalidBytes(), 0);
+    EXPECT_EQ(rtuExtractor.nextRtuFrameBoundary(), std::chrono::steady_clock::time_point{});
 }

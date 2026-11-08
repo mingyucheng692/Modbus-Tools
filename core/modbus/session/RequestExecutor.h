@@ -66,7 +66,7 @@ public:
     [[nodiscard]] ModbusResponse execute(const base::Pdu& request, int slaveId);
     void executeAsync(const base::Pdu& request, int slaveId, quint64 traceId, AsyncResponseCallback callback);
 
-    void sendRaw(const QByteArray& data);
+    bool sendRaw(const QByteArray& data);
     void abort();
     void onDataReceived(QByteArrayView data);
     void onChannelError(const QString& error);

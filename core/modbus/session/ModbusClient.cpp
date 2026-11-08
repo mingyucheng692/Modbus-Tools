@@ -285,9 +285,9 @@ void ModbusClient::sendRequestAsyncResult(
         });
 }
 
-void ModbusClient::sendRaw(const QByteArray& data) {
+bool ModbusClient::sendRaw(const QByteArray& data) {
     assertSessionAffinity();
-    requestExecutor_.sendRaw(data);
+    return requestExecutor_.sendRaw(data);
 }
 
 } // namespace modbus::session

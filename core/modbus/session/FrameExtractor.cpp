@@ -115,6 +115,7 @@ void FrameExtractor::feed(QByteArrayView data)
                     SPDLOG_WARN(
                         "FrameExtractor: discarding RTU fragment after "
                         "inter-character gap violation");
+                    droppedInvalidBytes_ += buffer_.size();
                     buffer_.clear();
                 }
             }
@@ -126,6 +127,7 @@ void FrameExtractor::feed(QByteArrayView data)
             SPDLOG_ERROR(
                 "FrameExtractor: RTU buffer exceeded {} bytes limit, clearing",
                 config::Modbus::kMaxAduSize);
+            droppedInvalidBytes_ += buffer_.size();
             buffer_.clear();
         }
 
@@ -256,6 +258,7 @@ void FrameExtractor::processRtuBuffer(std::chrono::steady_clock::time_point now)
         SPDLOG_ERROR(
             "FrameExtractor: RTU frame size {} exceeds ADPU limit {}, discarding",
             buffer_.size(), config::Modbus::kMaxAduSize);
+        droppedInvalidBytes_ += buffer_.size();
         buffer_.clear();
         lastByteReceivedAt_ = std::chrono::steady_clock::time_point{};
         return;

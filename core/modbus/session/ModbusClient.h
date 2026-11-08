@@ -47,7 +47,7 @@ public:
     void sendRequestAsyncResult(
         const base::Pdu& request, int slaveId, quint64 traceId,
         std::function<void(const common::Result<base::Pdu, base::ModbusError>&)> callback);
-    void sendRaw(const QByteArray& data);
+    bool sendRaw(const QByteArray& data);
     bool connect();
     void disconnect();
     /// Transport-level fact (delegates to ConnectionManager ->

@@ -376,14 +376,14 @@ void RequestExecutor::performWrite(const QByteArray& adu) {
     transactionTimer_->start(std::max(10, timeoutMs));
 }
 
-void RequestExecutor::sendRaw(const QByteArray& data) {
+bool RequestExecutor::sendRaw(const QByteArray& data) {
     if (!tryAcquireRequestLock()) {
         SPDLOG_DEBUG("RequestExecutor: rejected sendRaw while another request is active trace_id={}",
                      currentTrace());
-        return;
+        return false;
     }
     RequestLockGuard unlockGuard(requestLocked_);
-    channel_->write(data);
+    return channel_->write(data);
 }
 
 void RequestExecutor::abort() {
@@ -688,6 +688,20 @@ std::optional<ModbusResponse> RequestExecutor::handleParsedFrame(
             return handleExceptionResponse(pdu, slaveId, request);
         }
         if (pdu.originalFunctionCode() != request.functionCode()) {
+            // Late/stray response from a previous transaction: dropped so the
+            // active transaction keeps waiting, but the mismatch stays
+            // observable (deduped to avoid flooding under polling).
+            const auto mismatchKey = std::make_tuple(
+                static_cast<uint8_t>(slaveId),
+                static_cast<uint8_t>(request.functionCode()),
+                static_cast<uint8_t>(pdu.originalFunctionCode()));
+            if (failureDedupe_.shouldLog(mismatchKey, std::chrono::steady_clock::now())) {
+                SPDLOG_WARN("RequestExecutor: dropping response with mismatched FC "
+                            "expected=0x{:02X} got=0x{:02X} slave={} trace_id={}",
+                            static_cast<int>(request.functionCode()),
+                            static_cast<int>(pdu.originalFunctionCode()),
+                            slaveId, currentTraceRequired());
+            }
             return std::nullopt;
         }
         const QString responseValidationError = base::validateResponsePdu(request, pdu);

@@ -209,3 +209,93 @@ TEST(FrameExtractorTest, RtuMergedFrames_SingleBufferRejectedWhole) {
     const auto parsed = transport.parseResponse(*merged);
     EXPECT_EQ(parsed.status, ParseResponseStatus::Invalid);
 }
+
+TEST(FrameExtractorTest, TcpCoalescedFrames_BothExtractedInOrder) {
+    FrameExtractor extractor(ModbusMode::TCP, 9600);
+    auto cfg = modbus::test::MakeModbusConfig(ModbusMode::TCP);
+    extractor.setConfig(cfg);
+
+    const auto frameA = makeTcpAdu(1, 1, 0x03, QByteArray::fromHex("020001"));
+    const auto frameB = makeTcpAdu(2, 1, 0x03, QByteArray::fromHex("020002"));
+    extractor.feed(frameA + frameB); // both frames in one arrival
+
+    ASSERT_TRUE(extractor.hasCompleteFrame());
+    const auto first = extractor.popFrame();
+    ASSERT_TRUE(first.has_value());
+    EXPECT_EQ(*first, frameA);
+    const auto second = extractor.popFrame();
+    ASSERT_TRUE(second.has_value());
+    EXPECT_EQ(*second, frameB);
+    EXPECT_FALSE(extractor.hasCompleteFrame());
+    EXPECT_EQ(extractor.bufferSize(), 0);
+}
+
+TEST(FrameExtractorTest, TcpFragmentedFrame_AssemblesAcrossFeeds) {
+    FrameExtractor extractor(ModbusMode::TCP, 9600);
+    auto cfg = modbus::test::MakeModbusConfig(ModbusMode::TCP);
+    extractor.setConfig(cfg);
+
+    const auto adu = makeTcpAdu(7, 1, 0x03, QByteArray::fromHex("020001"));
+    extractor.feed(adu.left(4)); // MBAP header only
+    EXPECT_FALSE(extractor.hasCompleteFrame());
+    extractor.feed(adu.mid(4, 3)); // partial payload
+    EXPECT_FALSE(extractor.hasCompleteFrame());
+    extractor.feed(adu.mid(7)); // remainder completes the frame
+
+    ASSERT_TRUE(extractor.hasCompleteFrame());
+    const auto frame = extractor.popFrame();
+    ASSERT_TRUE(frame.has_value());
+    EXPECT_EQ(*frame, adu);
+}
+
+TEST(FrameExtractorTest, AsciiBadLrc_SkippedUpToNextFrame) {
+    FrameExtractor extractor(ModbusMode::ASCII, 9600);
+    auto cfg = modbus::test::MakeModbusConfig(ModbusMode::ASCII);
+    extractor.setConfig(cfg);
+
+    const QByteArray badLrc = QByteArray(":010302007B00\r\n"); // LRC mismatch
+    const QByteArray good = QByteArray(":010302007B7F\r\n");
+    extractor.feed(badLrc + good);
+
+    // The bad frame is not delivered; scanning resumes at the next ':' and
+    // the following valid frame is extracted intact.
+    ASSERT_TRUE(extractor.hasCompleteFrame());
+    const auto frame = extractor.popFrame();
+    ASSERT_TRUE(frame.has_value());
+    EXPECT_EQ(*frame, good);
+    EXPECT_FALSE(extractor.hasCompleteFrame());
+    EXPECT_GT(extractor.droppedInvalidBytes(), 0);
+}
+
+TEST(FrameExtractorTest, RtuOversizeOverflow_DiscardsAndCounts) {
+    FrameExtractor extractor(ModbusMode::RTU, 9600);
+    auto cfg = modbus::test::MakeModbusConfig(ModbusMode::RTU);
+    cfg.baudRate = 9600;
+    extractor.setConfig(cfg);
+
+    // One arrival larger than the RTU ADU cap: the whole buffer is dropped
+    // and its byte count must land in the drop accounting.
+    QByteArray oversized(300, '\x55');
+    ASSERT_GT(static_cast<int>(oversized.size()), 260);
+    extractor.feed(oversized);
+
+    EXPECT_EQ(extractor.bufferSize(), 0);
+    EXPECT_FALSE(extractor.hasCompleteFrame());
+    EXPECT_EQ(extractor.droppedInvalidBytes(), 300);
+}
+
+TEST(FrameExtractorTest, TcpDropLimit_TripsAndReports) {
+    FrameExtractor extractor(ModbusMode::TCP, 9600);
+    auto cfg = modbus::test::MakeModbusConfig(ModbusMode::TCP);
+    extractor.setConfig(cfg);
+
+    // Garbage that never forms a valid MBAP header: each byte is dropped and
+    // counted until the limit trips, then the buffer is flushed.
+    QByteArray garbage(300, '\x00');
+    garbage[0] = '\x7F'; // length field far beyond any legal frame
+    extractor.feed(garbage);
+
+    EXPECT_TRUE(extractor.hasExceededDropLimit());
+    EXPECT_EQ(extractor.bufferSize(), 0);
+    EXPECT_GT(extractor.droppedInvalidBytes(), 256);
+}
