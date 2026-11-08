@@ -320,9 +320,13 @@ jobs:
           --config "${{ steps.ci_options.outputs.build_type }}"
           --parallel
 
-      - name: Build tests (Linux)
-        if: runner.os == 'Linux' && steps.ci_options.outputs.should_run == 'true' && steps.ci_options.outputs.run_tests == 'ON'
+      - name: Build tests (POSIX)
+        if: runner.os != 'Windows' && steps.ci_options.outputs.should_run == 'true' && steps.ci_options.outputs.run_tests == 'ON'
         shell: bash
+        env:
+          # gtest_discover_tests runs the executables during the build; a
+          # headless Linux runner needs the offscreen platform plugin.
+          QT_QPA_PLATFORM: offscreen
         run: |
           cmake --build build_ci --parallel
 
@@ -334,9 +338,12 @@ jobs:
           --config "${{ steps.ci_options.outputs.build_type }}"
           --parallel
 
-      - name: Build lite tests (Linux)
-        if: runner.os == 'Linux' && steps.ci_options.outputs.should_run == 'true' && steps.ci_options.outputs.run_tests_lite == 'true'
+      - name: Build lite tests (POSIX)
+        if: runner.os != 'Windows' && steps.ci_options.outputs.should_run == 'true' && steps.ci_options.outputs.run_tests_lite == 'true'
         shell: bash
+        env:
+          # Same discovery-at-build-time constraint as Build tests (POSIX).
+          QT_QPA_PLATFORM: offscreen
         run: |
           cmake --build build_ci --target test_core_logic test_qt_core test_ui_widgets --parallel
 
@@ -348,8 +355,8 @@ jobs:
           --no-tests=error
           --output-on-failure
 
-      - name: Run tests (Linux)
-        if: runner.os == 'Linux' && steps.ci_options.outputs.should_run == 'true' && steps.ci_options.outputs.run_tests == 'ON'
+      - name: Run tests (POSIX)
+        if: runner.os != 'Windows' && steps.ci_options.outputs.should_run == 'true' && steps.ci_options.outputs.run_tests == 'ON'
         env:
           QT_QPA_PLATFORM: offscreen
         shell: bash
@@ -365,8 +372,8 @@ jobs:
           --no-tests=error
           --output-on-failure
 
-      - name: Run lite tests (Linux)
-        if: runner.os == 'Linux' && steps.ci_options.outputs.should_run == 'true' && steps.ci_options.outputs.run_tests_lite == 'true'
+      - name: Run lite tests (POSIX)
+        if: runner.os != 'Windows' && steps.ci_options.outputs.should_run == 'true' && steps.ci_options.outputs.run_tests_lite == 'true'
         env:
           QT_QPA_PLATFORM: offscreen
         shell: bash
