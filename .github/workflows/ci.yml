@@ -298,8 +298,14 @@ jobs:
         run: |
           # Reconfigure with tests enabled so test targets exist. Lite path runs
           # test_core_logic + test_qt_core + test_ui_widgets; full path builds all targets.
-          & cmake -S . -B build_ci `
-            -DCMAKE_BUILD_TYPE=${{ steps.ci_options.outputs.build_type }} `
+          # Windows uses the multi-config Visual Studio generator: a cached
+          # CMAKE_BUILD_TYPE trips the updater SHA256 guard, and per-config
+          # selection already happens at build time via --config.
+          $buildTypeArgs = @()
+          if ($env:RUNNER_OS -ne 'Windows') {
+            $buildTypeArgs += "-DCMAKE_BUILD_TYPE=${{ steps.ci_options.outputs.build_type }}"
+          }
+          & cmake -S . -B build_ci @buildTypeArgs `
             -DMODBUS_TOOLS_BUILD_TESTS=ON `
             -DMODBUS_TOOLS_ENABLE_ASAN=${{ steps.ci_options.outputs.enable_asan }} `
             -DMODBUS_TOOLS_ENABLE_UBSAN=${{ steps.ci_options.outputs.enable_ubsan }} 2>&1 | Tee-Object -FilePath build_ci/configure-tests.log

@@ -221,7 +221,10 @@ target_include_directories(test_modbus_common_objects PRIVATE
     ${PROJECT_SOURCE_DIR}/infra
     ${PROJECT_SOURCE_DIR}/core
 )
-target_link_libraries(test_modbus_common_objects PUBLIC core GTest::gtest GTest::gmock)
+# Qt6::Test must be PUBLIC: this OBJECT library's objects are linked into
+# test_core_logic, which needs the Qt6Test symbols (QSignalSpy etc.) pulled
+# in by ModbusClientBoundaryTest; a PRIVATE dependency would not propagate.
+target_link_libraries(test_modbus_common_objects PUBLIC core GTest::gtest GTest::gmock Qt6::Test)
 if(MSVC)
     target_compile_options(test_modbus_common_objects PRIVATE /utf-8 /EHsc)
 endif()
