@@ -41,12 +41,24 @@ inline QString registerDataTypeToString(RegisterDataType type)
 inline std::optional<RegisterDataType> stringToRegisterDataType(const QString& str)
 {
     const QString lower = str.trimmed().toLower();
-    if (lower == QStringLiteral("uint16") || lower == QStringLiteral("unsigned")) return RegisterDataType::UInt16;
-    if (lower == QStringLiteral("int16") || lower == QStringLiteral("signed")) return RegisterDataType::Int16;
-    if (lower == QStringLiteral("float32") || lower == QStringLiteral("float") || lower == QStringLiteral("real")) return RegisterDataType::Float32;
-    if (lower == QStringLiteral("int32") || lower == QStringLiteral("dint")) return RegisterDataType::Int32;
-    if (lower == QStringLiteral("uint32") || lower == QStringLiteral("udint")) return RegisterDataType::UInt32;
-    if (lower == QStringLiteral("float64") || lower == QStringLiteral("double")) return RegisterDataType::Float64;
+    if (lower == QStringLiteral("uint16") || lower == QStringLiteral("unsigned")) {
+        return RegisterDataType::UInt16;
+    }
+    if (lower == QStringLiteral("int16") || lower == QStringLiteral("signed")) {
+        return RegisterDataType::Int16;
+    }
+    if (lower == QStringLiteral("float32") || lower == QStringLiteral("float") || lower == QStringLiteral("real")) {
+        return RegisterDataType::Float32;
+    }
+    if (lower == QStringLiteral("int32") || lower == QStringLiteral("dint")) {
+        return RegisterDataType::Int32;
+    }
+    if (lower == QStringLiteral("uint32") || lower == QStringLiteral("udint")) {
+        return RegisterDataType::UInt32;
+    }
+    if (lower == QStringLiteral("float64") || lower == QStringLiteral("double")) {
+        return RegisterDataType::Float64;
+    }
     return std::nullopt;
 }
 
