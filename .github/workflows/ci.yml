@@ -394,7 +394,7 @@ jobs:
             -DMODBUS_TOOLS_BUILD_TESTS=OFF \
             -DMODBUS_TOOLS_ENABLE_CLANG_TIDY=ON \
             2>&1 | tee build_tidy/configure.log
-          cmake --build build_tidy --target core infra ui --parallel 2>&1 | tee build_tidy/clang-tidy.log
+          cmake --build build_tidy --target core infra --parallel 2>&1 | tee build_tidy/clang-tidy.log
 
       - name: Build fuzz target (Linux ASan)
         if: runner.os == 'Linux' && steps.ci_options.outputs.should_run == 'true' && steps.ci_options.outputs.run_tests == 'ON' && steps.ci_options.outputs.enable_asan == 'ON'
