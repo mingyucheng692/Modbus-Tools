@@ -55,8 +55,8 @@ private:
         quint64 traceId = 0;
     };
 
-    void handleSubmit(base::Pdu request, int slaveId, int requestId, quint64 traceId);
-    void handleSendRaw(QByteArray data);
+    void handleSubmit(const base::Pdu& request, int slaveId, int requestId, quint64 traceId);
+    void handleSendRaw(const QByteArray& data);
     void handleConnect();
     void handleDisconnect();
     void handleRequestDisconnectInThread();
@@ -65,7 +65,7 @@ private:
     // cross-thread-safe cleanup (client_->abort() + queue drain) and must
     // never drive ConnectionManager/IChannel across the thread boundary.
     void handleStopInThread(bool driveClient);
-    void handleUpdateConfig(base::ModbusConfig config);
+    void handleUpdateConfig(const base::ModbusConfig& config);
     void drainQueuedRequests(const QString& reason);
     void processQueue();
 

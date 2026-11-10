@@ -122,6 +122,13 @@ if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/third_party/spdlog/CMakeLists.txt")
         set(SPDLOG_WCHAR_FILENAMES ON CACHE BOOL "Support wchar filenames" FORCE)
     endif()
     add_subdirectory(third_party/spdlog)
+    # The static-analysis gate covers first-party code only: a global
+    # CMAKE_CXX_CLANG_TIDY also reaches vendored sources, whose findings
+    # (analyzer checks bypass the header filter for the main file) would
+    # block CI on third-party code we do not maintain.
+    if(TARGET spdlog)
+        set_property(TARGET spdlog PROPERTY CXX_CLANG_TIDY "")
+    endif()
 else()
     message(WARNING "spdlog submodule not found at third_party/spdlog")
 endif()

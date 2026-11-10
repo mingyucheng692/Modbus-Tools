@@ -108,7 +108,7 @@ void ModbusWorker::submit(const base::Pdu& request, int slaveId, int requestId, 
         }
         SPDLOG_INFO("ModbusWorker: enqueue request trace_id={} request_id={} slave={}",
                      static_cast<unsigned long long>(traceId), requestId, slaveId);
-        queuedRequests_.push_back(QueuedRequest{std::move(request), slaveId, requestId, traceId});
+        queuedRequests_.push_back(QueuedRequest{request, slaveId, requestId, traceId});
         // Draining runs inline on the worker thread. processQueue() re-arms
         // itself via QueuedConnection so stop()/sendRaw()/etc. can interleave
         // between items; no separate scheduleProcessQueue() hop is needed.
@@ -164,7 +164,7 @@ void ModbusWorker::updateConfig(const base::ModbusConfig& config) {
     }, Qt::QueuedConnection);
 }
 
-void ModbusWorker::handleSubmit(base::Pdu request, int slaveId, int requestId, quint64 traceId) {
+void ModbusWorker::handleSubmit(const base::Pdu& request, int slaveId, int requestId, quint64 traceId) {
     // Thread affinity guard: the thread_local TraceContext below (and the
     // request serialization it feeds) is only correct when this handler runs
     // on the worker thread. QueuedConnection guarantees that today; the
@@ -255,7 +255,7 @@ void ModbusWorker::processQueue() {
     handleSubmit(item.request, item.slaveId, item.requestId, item.traceId);
 }
 
-void ModbusWorker::handleSendRaw(QByteArray data) {
+void ModbusWorker::handleSendRaw(const QByteArray& data) {
     if (!client_) {
         return;
     }
@@ -328,7 +328,7 @@ void ModbusWorker::handleStopInThread(bool driveClient) {
     emit stopped();
 }
 
-void ModbusWorker::handleUpdateConfig(base::ModbusConfig config) {
+void ModbusWorker::handleUpdateConfig(const base::ModbusConfig& config) {
     if (client_) {
         client_->claimSessionOwnershipForCurrentThread();
         client_->setConfig(config);
