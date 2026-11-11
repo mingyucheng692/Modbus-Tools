@@ -44,7 +44,7 @@ struct TrafficStats {
         if (bytes < 1024) {
             return QStringLiteral("%1 B").arg(bytes);
         }
-        if (bytes < 1024 * 1024) {
+        if (bytes < 1024LL * 1024LL) {
             return QStringLiteral("%1 KB").arg(bytes / 1024.0, 0, 'f', 1);
         }
         if (bytes < 1024LL * 1024LL * 1024LL) {

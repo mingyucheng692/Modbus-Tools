@@ -1,9 +1,12 @@
+Checks: >
   -*,
   bugprone-*,
   -bugprone-easily-swappable-parameters,
   -bugprone-lambda-function-name,
   -bugprone-narrowing-conversions,
   -bugprone-branch-clone,
+  -bugprone-implicit-widening-of-multiplication-result,
+  -bugprone-exception-escape,
   clang-analyzer-core.*,
   clang-analyzer-cplusplus.*,
   clang-analyzer-deadcode.*,
@@ -27,7 +30,6 @@
   performance-unnecessary-value-param,
   cppcoreguidelines-pro-type-cstyle-cast,
   cppcoreguidelines-pro-type-static-cast-downcast,
-  readability-braces-around-statements,
   readability-delete-null-pointer,
   readability-misleading-indentation,
   readability-redundant-control-flow

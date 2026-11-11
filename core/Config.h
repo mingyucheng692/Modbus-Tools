@@ -104,7 +104,7 @@ struct Modbus {
 struct Logging {
     static constexpr int kAsyncQueueSize = 8192;
     static constexpr int kAsyncWorkerThreads = 1;
-    static constexpr std::size_t kMaxFileSizeBytes = 5 * 1024 * 1024;
+    static constexpr std::size_t kMaxFileSizeBytes = 5ULL * 1024ULL * 1024ULL;
     static constexpr std::size_t kMaxRotatedFiles = 5;
 };
 

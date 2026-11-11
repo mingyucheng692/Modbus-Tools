@@ -57,7 +57,7 @@ namespace {
 
     // Request quantity field of a read request (bytes 2..3, big endian); 0 when absent.
     int readRequestQuantity(const base::Pdu& request) {
-        const auto data = request.data();
+        const auto& data = request.data();
         if (data.size() < 4) {
             return 0;
         }
@@ -731,7 +731,7 @@ std::optional<ModbusResponse> RequestExecutor::handleParsedFrame(
 
 ModbusResponse RequestExecutor::handleExceptionResponse(const base::Pdu& responsePdu, int slaveId,
                                                         const base::Pdu& requestPdu) {
-    const unsigned long long traceId = currentTrace();
+    [[maybe_unused]] const unsigned long long traceId = currentTrace();
     auto dupeKey = std::make_tuple(static_cast<uint8_t>(slaveId),
                                    static_cast<uint8_t>(requestPdu.functionCode()),
                                    static_cast<uint8_t>(responsePdu.exceptionCode()));
@@ -812,7 +812,7 @@ void RequestExecutor::finishPendingRequest(int requestId, bool success,
                      requestId, currentTrace());
         return;
     }
-    const auto waitMs = std::chrono::duration_cast<std::chrono::milliseconds>(
+    [[maybe_unused]] const auto waitMs = std::chrono::duration_cast<std::chrono::milliseconds>(
         std::chrono::steady_clock::now() - it->enqueueAt).count();
     SPDLOG_DEBUG(
         "ModbusClient: finish request id={}, success={}, queue_wait={}ms, error='{}' trace_id={}",

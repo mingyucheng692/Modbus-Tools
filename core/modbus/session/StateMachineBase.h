@@ -14,6 +14,9 @@ namespace modbus::session {
 // Ownership: Base class embedded into derived state machines (ConnectionStateMachine, RequestStateMachine).
 template<typename Derived, typename StateEnum>
 class StateMachineBase {
+    friend Derived;
+    StateMachineBase() = default;
+
 public:
     using State = StateEnum;
 

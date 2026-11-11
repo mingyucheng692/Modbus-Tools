@@ -164,7 +164,7 @@ void TcpServerHandle::onNewConnection()
                     removeClient(clientId);
                 }, Qt::QueuedConnection);
             });
-        clients_.insert(clientId, std::move(entry));
+        clients_.insert(clientId, entry);
 
         SPDLOG_INFO("TcpServerHandle: client {} connected from {}:{}",
                      clientId,

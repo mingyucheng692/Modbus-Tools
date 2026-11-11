@@ -32,7 +32,7 @@ ChecksumResult computeSha256WithCancel(const QString& filePath,
                                        const QString& expectedSha,
                                        const QString& checksumsPath,
                                        const QString& targetFileName,
-                                       std::shared_ptr<std::atomic_bool> cancelToken) {
+                                       const std::shared_ptr<std::atomic_bool>& cancelToken) {
     QString actualSha;
     QString resolvedExpectedSha = expectedSha.trimmed().toLower();
 
@@ -193,7 +193,7 @@ void UpdateManager::cancelUpdate() {
     }
 }
 
-void UpdateManager::downloadAsset(const QUrl& url, const QString& filePath, std::function<void(bool, const QString&)> onFinished) {
+void UpdateManager::downloadAsset(const QUrl& url, const QString& filePath, const std::function<void(bool, const QString&)>& onFinished) {
     if (currentReply_) {
         currentReply_->abort();
     }
@@ -225,7 +225,7 @@ void UpdateManager::downloadAsset(const QUrl& url, const QString& filePath, std:
     });
 }
 
-void UpdateManager::onDownloadFinished(std::function<void(bool, const QString&)> onFinished) {
+void UpdateManager::onDownloadFinished(const std::function<void(bool, const QString&)>& onFinished) {
     if (!currentReply_) return;
     const bool canceled = cancelToken_->load() || (currentReply_->error() == QNetworkReply::OperationCanceledError);
     if (currentReply_->error() != QNetworkReply::NoError) {

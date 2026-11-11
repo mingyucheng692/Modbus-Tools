@@ -104,9 +104,9 @@ private:
 
     void downloadAsset(const QUrl& url,
                        const QString& filePath,
-                       std::function<void(bool, const QString&)> onFinished);
+                       const std::function<void(bool, const QString&)>& onFinished);
 
-    void onDownloadFinished(std::function<void(bool, const QString&)> onFinished);
+    void onDownloadFinished(const std::function<void(bool, const QString&)>& onFinished);
 
     /// Update staging dir via the injected resolver; falls back to a
     /// default resolver rooted at applicationDirPath() when none was
