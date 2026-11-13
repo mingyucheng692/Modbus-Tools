@@ -597,6 +597,72 @@ TEST_F(TcpChannelTest, AdoptSocket_SetsOptionsAndReadsPrebufferedData) {
     EXPECT_EQ(channel_->stats().bytesTx, static_cast<quint64>(reply.size()));
 }
 
+// T2-04: Entering ChannelState::Error via write timeout aborts the underlying
+// socket, rejects subsequent writes, and recovers cleanly via a new open().
+TEST_F(TcpChannelTest, WriteTimeout_AbortsSocketEntersErrorAndOpenRecovers) {
+    QTcpServer server;
+    ASSERT_TRUE(server.listen(QHostAddress::LocalHost, 0));
+
+    relay_->attach(*channel_);
+    QSignalSpy stateSpy(relay_.get(), &ChannelSignalRelay::stateChanged);
+    QSignalSpy errorSpy(relay_.get(), &ChannelSignalRelay::errorOccurred);
+    QSignalSpy newConnSpy(&server, &QTcpServer::newConnection);
+
+    io::Timeouts t;
+    t.readMs = 1000;
+    t.writeMs = 60;
+    channel_->setTimeouts(t);
+    channel_->setEndpoint(QStringLiteral("127.0.0.1"),
+                          static_cast<int>(server.serverPort()));
+    ASSERT_TRUE(channel_->open());
+    ASSERT_TRUE(waitForChannelState(*channel_, stateSpy, ChannelState::Open));
+    ASSERT_TRUE(waitForSpyCondition(newConnSpy, [&server]() {
+        return server.hasPendingConnections();
+    }, 2000));
+
+    QTcpSocket* stalledPeer = server.nextPendingConnection();
+    ASSERT_NE(stalledPeer, nullptr);
+    stalledPeer->setReadBufferSize(1);
+    QSignalSpy peerDisconnectedSpy(stalledPeer, &QTcpSocket::disconnected);
+
+    // Push enough data that the stalled peer forces bytesToWrite() > 0 across
+    // the 60ms write timeout window.
+    const QByteArray burst(64 * 1024, 'z');
+    for (int i = 0; i < 64 && channel_->state() == ChannelState::Open; ++i) {
+        channel_->write(burst);
+    }
+
+    ASSERT_TRUE(waitForSpyCondition(errorSpy, [&errorSpy]() {
+        return errorSpy.count() >= 1;
+    }, 3000));
+    EXPECT_EQ(errorSpy.takeFirst().at(0).value<ChannelErrorCode>(),
+              ChannelErrorCode::Timeout);
+    EXPECT_EQ(channel_->state(), ChannelState::Error);
+    EXPECT_FALSE(channel_->write(QByteArrayLiteral("after-error")));
+
+    // Clear the paused Qt read buffer so QAbstractSocket's read notifier wakes
+    // up and observes the abort()/RST sent by TcpChannel::onChannelError().
+    stalledPeer->setReadBufferSize(0);
+    stalledPeer->readAll();
+    ASSERT_TRUE(waitForSpyCondition(peerDisconnectedSpy, [stalledPeer, &peerDisconnectedSpy]() {
+        if (stalledPeer->bytesAvailable() > 0) {
+            stalledPeer->readAll();
+        }
+        return peerDisconnectedSpy.count() >= 1 ||
+               stalledPeer->state() == QAbstractSocket::UnconnectedState;
+    }, 2000)) << "underlying socket was not aborted on write-timeout Error";
+
+    // Reopening after Error must establish a fresh connection instead of
+    // short-circuiting on a stale connected handle.
+    stateSpy.clear();
+    newConnSpy.clear();
+    ASSERT_TRUE(channel_->open());
+    ASSERT_TRUE(waitForChannelState(*channel_, stateSpy, ChannelState::Open, 3000));
+    ASSERT_TRUE(waitForSpyCondition(newConnSpy, [&server]() {
+        return server.hasPendingConnections();
+    }, 2000));
+}
+
 } // namespace
 
 #include "TcpChannelTest.moc"

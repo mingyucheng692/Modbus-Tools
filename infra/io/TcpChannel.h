@@ -35,9 +35,14 @@ public:
 
 protected:
     QIODevice* device() override { return socket_; }
-    bool isWritable() const override { return socket_->state() == QAbstractSocket::ConnectedState; }
+    bool isWritable() const override {
+        return state() == ChannelState::Open &&
+               socket_ != nullptr &&
+               socket_->state() == QAbstractSocket::ConnectedState;
+    }
     QString logContext() const override;
     QString errorPrefix() const override { return QStringLiteral("TCP"); }
+    void onChannelError() override;
 
 private:
     void onReadyRead();

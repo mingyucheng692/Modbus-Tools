@@ -88,7 +88,7 @@ void ChannelOperationWorker::write(const QByteArray& data)
     if (channel_ && channel_->isOpen()) {
         if (channel_->write(data)) {
             emit bytesQueued(data.size());
-        } else {
+        } else if (channel_->state() != ChannelState::Error) {
             emitError(io::ChannelErrorCode::WriteFailed, "Write failed");
         }
     } else {

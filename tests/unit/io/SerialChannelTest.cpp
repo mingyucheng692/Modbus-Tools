@@ -180,4 +180,17 @@ TEST_F(SerialChannelTest, Write_WhenClosed_ReturnsFalseNoCrash) {
     EXPECT_FALSE(channel_->write(data));
 }
 
+class TestableSerialChannel : public SerialChannel {
+public:
+    using SerialChannel::isWritable;
+    using SerialChannel::setState;
+};
+
+TEST_F(SerialChannelTest, ErrorState_IsNotWritableAndRejectsWrite) {
+    TestableSerialChannel channel;
+    channel.setState(ChannelState::Error);
+    EXPECT_FALSE(channel.isWritable());
+    EXPECT_FALSE(channel.write(QByteArrayLiteral("rtu")));
+}
+
 } // namespace

@@ -51,9 +51,12 @@ bool SerialChannel::open() {
     logThreadContextOnce("SerialChannel::open", openThreadLoggedFlag());
 
     if (serial_.isOpen()) {
-        setState(ChannelState::Open);
-        flushPendingWrites();
-        return true;
+        if (state() == ChannelState::Open) {
+            flushPendingWrites();
+            return true;
+        }
+        serial_.close();
+        serial_.clearError();
     }
 
     setClosing(false);
@@ -206,8 +209,16 @@ void SerialChannel::onErrorOccurred(QSerialPort::SerialPortError error) {
         resetWriteState();
         disarmWriteTimeout();
         setState(ChannelState::Error);
+        onChannelError();
         emitError(errCode, errorText);
     }
+}
+
+void SerialChannel::onChannelError() {
+    if (serial_.isOpen()) {
+        serial_.close();
+    }
+    serial_.clearError();
 }
 
 }

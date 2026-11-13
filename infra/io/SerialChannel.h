@@ -33,9 +33,12 @@ public:
 
 protected:
     QIODevice* device() override { return &serial_; }
-    bool isWritable() const override { return serial_.isOpen(); }
+    bool isWritable() const override {
+        return state() == ChannelState::Open && serial_.isOpen();
+    }
     QString logContext() const override;
     QString errorPrefix() const override { return QStringLiteral("Serial"); }
+    void onChannelError() override;
 
 private:
     void onReadyRead();

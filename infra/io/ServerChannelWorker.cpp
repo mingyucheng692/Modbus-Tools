@@ -102,10 +102,12 @@ void ServerChannelWorker::writeToClient(int clientId, const QByteArray& data)
         return;
     }
     if (!channel->write(data)) {
-        emit channelErrorOccurred(
-            QStringLiteral("TCP Server"),
-            io::ChannelErrorCode::WriteFailed,
-            QStringLiteral("Write to client failed"));
+        if (channel->state() != ChannelState::Error) {
+            emit channelErrorOccurred(
+                QStringLiteral("TCP Server"),
+                io::ChannelErrorCode::WriteFailed,
+                QStringLiteral("Write to client failed"));
+        }
         return;
     }
     emit monitorWithClient(true, data, clientId);

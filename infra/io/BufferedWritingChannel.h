@@ -38,9 +38,12 @@ protected:
     virtual QString logContext() const = 0;
     /// Prefix for user-facing error messages, e.g. "Serial" or "TCP".
     virtual QString errorPrefix() const = 0;
+    /// Invoked after transitioning to ChannelState::Error from write failures
+    /// or write timeouts so subclasses can close/abort the underlying handle.
+    virtual void onChannelError() {}
 
     // --- Common write-queue machinery (callable by subclasses) ---
-    void flushPendingWrites();
+    bool flushPendingWrites();
     void onBytesWritten(qint64 bytes);
     void onWriteTimeout();
     void armWriteTimeout();
@@ -59,6 +62,8 @@ protected:
     bool& ioThreadLoggedFlag() { return ioThreadLogged_; }
 
 private:
+    void failWrite(ChannelErrorCode code, const QString& errorMessage);
+
     QTimer writeTimeoutTimer_;
     std::deque<QByteArray> pendingWrites_;
     qsizetype currentWriteOffset_ = 0;

@@ -108,16 +108,21 @@ bool TcpChannel::open() {
     lingerTimer_.stop();
 
     if (socket_->state() == QAbstractSocket::ConnectedState) {
-        socketDropIsError_ = true;
-        setState(ChannelState::Open);
-        flushPendingWrites();
-        return true;
-    }
-    if (socket_->state() == QAbstractSocket::ConnectingState ||
-        socket_->state() == QAbstractSocket::HostLookupState) {
-        socketDropIsError_ = true;
-        setState(ChannelState::Opening);
-        return true;
+        if (state() == ChannelState::Open) {
+            socketDropIsError_ = true;
+            flushPendingWrites();
+            return true;
+        }
+        socketDropIsError_ = false;
+        socket_->abort();
+    } else if (socket_->state() == QAbstractSocket::ConnectingState ||
+               socket_->state() == QAbstractSocket::HostLookupState) {
+        if (state() == ChannelState::Opening) {
+            socketDropIsError_ = true;
+            return true;
+        }
+        socketDropIsError_ = false;
+        socket_->abort();
     }
 
     setClosing(false);
@@ -323,10 +328,18 @@ void TcpChannel::onSocketError(QAbstractSocket::SocketError error) {
     resetWriteState();
     disarmWriteTimeout();
     setState(ChannelState::Error);
+    onChannelError();
     emitError(mapSocketError(error, current),
               QStringLiteral("TCP socket error (%1): %2")
                   .arg(static_cast<int>(error))
                   .arg(errorText));
+}
+
+void TcpChannel::onChannelError() {
+    socketDropIsError_ = false;
+    if (socket_ && socket_->state() != QAbstractSocket::UnconnectedState) {
+        socket_->abort();
+    }
 }
 
 void TcpChannel::onStateChanged(QAbstractSocket::SocketState socketState) {

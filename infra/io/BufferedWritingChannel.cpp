@@ -56,33 +56,50 @@ bool BufferedWritingChannel::write(QByteArrayView data) {
     }
 
     pendingWrites_.push_back(dataBuffer);
+    // Anchor the write timeout to the oldest un-drained frame so continuous writes
+    // cannot starve timeout detection on a stalled peer.
+    if (!writeTimeoutTimer_.isActive()) {
+        armWriteTimeout();
+    }
+    if (!flushPendingWrites()) {
+        return false;
+    }
     emitMonitor(true, dataBuffer);
-    armWriteTimeout();
-    flushPendingWrites();
     return true;
 }
 
-void BufferedWritingChannel::flushPendingWrites() {
+bool BufferedWritingChannel::flushPendingWrites() {
     QIODevice* dev = device();
+    if (!dev) {
+        return false;
+    }
     if (QThread::currentThread() != dev->thread()) {
-        QMetaObject::invokeMethod(dev, [this]() {
+        QThread* ownerThread = dev->thread();
+        if (!ownerThread || !ownerThread->isRunning()) {
+            return false;
+        }
+        return QMetaObject::invokeMethod(dev, [this]() {
             flushPendingWrites();
         }, Qt::QueuedConnection);
-        return;
     }
 
     if (!isWritable() || pendingWrites_.empty()) {
         if (pendingWrites_.empty() && dev->bytesToWrite() == 0) {
             disarmWriteTimeout();
         }
-        return;
+        return true;
     }
 
-    auto& frame = pendingWrites_.front();
-    while (currentWriteOffset_ < frame.size()) {
+    while (!pendingWrites_.empty()) {
+        const auto& frame = pendingWrites_.front();
+        const qsizetype remainingSize = frame.size() - currentWriteOffset_;
+        if (remainingSize <= 0) {
+            pendingWrites_.pop_front();
+            currentWriteOffset_ = 0;
+            continue;
+        }
         const char* dataPtr = frame.constData() + currentWriteOffset_;
-        const qint64 remaining = static_cast<qint64>(frame.size() - currentWriteOffset_);
-        const qint64 accepted = dev->write(dataPtr, remaining);
+        const qint64 accepted = dev->write(dataPtr, static_cast<qint64>(remainingSize));
         if (accepted < 0) {
             const QString err = dev->errorString().isEmpty()
                 ? QStringLiteral("%1 write failed").arg(errorPrefix())
@@ -91,39 +108,40 @@ void BufferedWritingChannel::flushPendingWrites() {
                           errorPrefix().toStdString(),
                           logContext().toStdString(),
                           err.toStdString());
-            resetWriteState();
-            disarmWriteTimeout();
-            setState(ChannelState::Error);
-            emitError(ChannelErrorCode::WriteFailed, err);
-            return;
+            failWrite(ChannelErrorCode::WriteFailed, err);
+            return false;
         }
         if (accepted == 0) {
             break;
         }
         currentWriteOffset_ += static_cast<qsizetype>(accepted);
-        armWriteTimeout();
+        if (currentWriteOffset_ < frame.size()) {
+            // Partial write: preserve order and wait for bytesWritten before retrying.
+            break;
+        }
+        pendingWrites_.pop_front();
+        currentWriteOffset_ = 0;
     }
+    return true;
 }
 
 void BufferedWritingChannel::onBytesWritten(qint64 bytes) {
-    Q_UNUSED(bytes);
-    QIODevice* dev = device();
-    bool queueDrained = false;
-    while (!pendingWrites_.empty() &&
-           currentWriteOffset_ >= pendingWrites_.front().size() &&
-           dev->bytesToWrite() == 0) {
-        addTx(pendingWrites_.front().size());
-        pendingWrites_.pop_front();
-        currentWriteOffset_ = 0;
-        queueDrained = pendingWrites_.empty();
+    if (closing_ || !isWritable() || state() == ChannelState::Error) {
+        return;
     }
-    if (queueDrained && dev->bytesToWrite() == 0) {
+    if (bytes > 0) {
+        addTx(static_cast<quint64>(bytes));
+    }
+    if (!flushPendingWrites() || state() == ChannelState::Error) {
+        return;
+    }
+    QIODevice* dev = device();
+    if (pendingWrites_.empty() && (!dev || dev->bytesToWrite() == 0)) {
         disarmWriteTimeout();
         emitWriteDrained();
-    } else if (!pendingWrites_.empty() || dev->bytesToWrite() > 0) {
+    } else if (bytes > 0) {
         armWriteTimeout();
     }
-    flushPendingWrites();
 }
 
 void BufferedWritingChannel::onWriteTimeout() {
@@ -151,12 +169,17 @@ void BufferedWritingChannel::onWriteTimeout() {
                  logContext().toStdString(),
                  draining,
                  pendingWrites_.size());
+    failWrite(ChannelErrorCode::Timeout, draining
+        ? QStringLiteral("%1 write drain timeout").arg(errorPrefix())
+        : QStringLiteral("%1 write timeout").arg(errorPrefix()));
+}
+
+void BufferedWritingChannel::failWrite(ChannelErrorCode code, const QString& errorMessage) {
     resetWriteState();
     disarmWriteTimeout();
     setState(ChannelState::Error);
-    emitError(ChannelErrorCode::Timeout, draining
-        ? QStringLiteral("%1 write drain timeout").arg(errorPrefix())
-        : QStringLiteral("%1 write timeout").arg(errorPrefix()));
+    onChannelError();
+    emitError(code, errorMessage);
 }
 
 void BufferedWritingChannel::armWriteTimeout() {

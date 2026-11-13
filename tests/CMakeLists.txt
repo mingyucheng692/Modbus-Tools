@@ -135,6 +135,7 @@ set(TEST_CORE_LOGIC_SOURCES
     unit/analyzer/ValueFormatterSafetyTest.cpp
     unit/analyzer/ValueFormatterTest.cpp
     unit/analyzer/AnalyzerExporterTest.cpp
+    unit/io/BufferedWritingChannelTest.cpp
     unit/io/ChannelOperationWorkerTest.cpp
     unit/io/SerialChannelTest.cpp
     unit/io/TcpChannelTest.cpp
