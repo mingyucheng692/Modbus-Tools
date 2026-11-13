@@ -334,8 +334,8 @@ TEST_F(TcpChannelTest, Close_StuckFlush_ForcedClosedAfterLinger) {
     QTcpServer server;
     ASSERT_TRUE(server.listen(QHostAddress::LocalHost, 0));
 
-    ChannelSignalRelay relay;
     TcpChannel channel(100); // short linger for test velocity
+    ChannelSignalRelay relay;
     relay.attach(channel);
     QSignalSpy stateSpy(&relay, &ChannelSignalRelay::stateChanged);
 
@@ -355,6 +355,7 @@ TEST_F(TcpChannelTest, Close_StuckFlush_ForcedClosedAfterLinger) {
     ASSERT_TRUE(waitForChannelState(channel, stateSpy, ChannelState::Closed, 2000))
         << "close() stranded the channel in Closing (linger fallback failed)";
     EXPECT_EQ(channel.state(), ChannelState::Closed);
+    relay.detach();
 }
 
 // T2-02: Closing during ConnectingState/HostLookupState must abort synchronously
@@ -435,8 +436,8 @@ TEST_F(TcpChannelTest, Destruct_WhileConnectingOrConnected_NoCrash) {
     QTcpServer server;
     ASSERT_TRUE(server.listen(QHostAddress::LocalHost, 0));
     {
-        ChannelSignalRelay localRelay;
         TcpChannel connectedChannel(500);
+        ChannelSignalRelay localRelay;
         localRelay.attach(connectedChannel);
         QSignalSpy stateSpy(&localRelay, &ChannelSignalRelay::stateChanged);
         connectedChannel.setEndpoint(QStringLiteral("127.0.0.1"),
@@ -574,8 +575,10 @@ TEST_F(TcpChannelTest, AdoptSocket_SetsOptionsAndReadsPrebufferedData) {
     ASSERT_TRUE(channel_->adoptSocket(accepted));
     EXPECT_EQ(channel_->state(), ChannelState::Open);
     ASSERT_NE(weakAccepted, nullptr);
-    EXPECT_EQ(weakAccepted->socketOption(QAbstractSocket::LowDelayOption).toInt(), 1);
-    EXPECT_EQ(weakAccepted->socketOption(QAbstractSocket::KeepAliveOption).toInt(), 1);
+    // POSIX/Darwin getsockopt() may return kernel bitmask flags (e.g. TF_NODELAY=4,
+    // SO_KEEPALIVE=8 on macOS) rather than normalizing enabled booleans to 1.
+    EXPECT_NE(weakAccepted->socketOption(QAbstractSocket::LowDelayOption).toInt(), 0);
+    EXPECT_NE(weakAccepted->socketOption(QAbstractSocket::KeepAliveOption).toInt(), 0);
 
     ASSERT_TRUE(waitForSpyCondition(readSpy, [&readSpy]() {
         return readSpy.count() >= 1;
