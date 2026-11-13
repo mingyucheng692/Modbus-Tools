@@ -2,9 +2,6 @@
 
 #include <gtest/gtest.h>
 #include <gmock/gmock.h>
-#include <future>
-#include <thread>
-#include <chrono>
 #include <QTimer>
 #include <QtTest>
 
@@ -162,19 +159,14 @@ TEST_F(ModbusClientBoundaryTest, SendRequest_ParseFailureNoRetry_ReturnsError) {
         .WillOnce(Return(QByteArray::fromHex("010300000001840A")));
     EXPECT_CALL(*mockChannel_, write(_)).WillOnce(Invoke([this](QByteArrayView) {
         writeDrainedHandler_();
+        feedFrameAfter(0, QByteArray::fromHex("0103020001EE5F"));
         return true;
     }));
 
     EXPECT_CALL(*mockTransport_, parseResponse(_))
         .WillOnce(Return(ParseResponseResult{ParseResponseStatus::Invalid, std::nullopt}));
 
-    std::thread responder([this]() {
-        std::this_thread::sleep_for(std::chrono::milliseconds(30));
-        if (readHandler_) readHandler_(QByteArray::fromHex("0103020001EE5F"));
-    });
-
     auto resp = client_->sendRequest(makeRhrPdu());
-    responder.join();
     EXPECT_TRUE(resp.isError());
 }
 
@@ -190,23 +182,14 @@ TEST_F(ModbusClientBoundaryTest, SendRequest_RetryReflectsInResponseCount) {
         .WillRepeatedly(Return(QByteArray::fromHex("010300000001840A")));
     EXPECT_CALL(*mockChannel_, write(_)).Times(2).WillRepeatedly(Invoke([this](QByteArrayView) {
         writeDrainedHandler_();
+        feedFrameAfter(0, QByteArray::fromHex("0103020001EE5F"));
         return true;
     }));
     EXPECT_CALL(*mockTransport_, parseResponse(_))
         .Times(2)
         .WillRepeatedly(Return(ParseResponseResult{ParseResponseStatus::Invalid, std::nullopt}));
 
-    std::thread responder([this]() {
-        // First attempt: provide a frame quickly, parse returns Invalid
-        std::this_thread::sleep_for(std::chrono::milliseconds(30));
-        if (readHandler_) readHandler_(QByteArray::fromHex("0103020001EE5F"));
-        // Second attempt: provide another frame after retry delay
-        std::this_thread::sleep_for(std::chrono::milliseconds(50));
-        if (readHandler_) readHandler_(QByteArray::fromHex("0103020001EE5F"));
-    });
-
     auto resp = client_->sendRequest(makeRhrPdu());
-    responder.join();
     EXPECT_TRUE(resp.isError());
     EXPECT_GT(resp.attemptCount, 1) << "Should have attempted at least once more after retry";
 }
@@ -235,21 +218,14 @@ TEST_F(ModbusClientBoundaryTest, Abort_DuringSendRequest_ReturnsError) {
 
     EXPECT_CALL(*mockTransport_, buildRequest(_, _))
         .WillOnce(Return(QByteArray::fromHex("010300000001840A")));
-
-    // Make write slow enough to allow abort to intervene
     EXPECT_CALL(*mockChannel_, write(_)).WillOnce(Invoke([this](QByteArrayView) {
-        std::this_thread::sleep_for(std::chrono::milliseconds(100));
+        QTimer::singleShot(0, QCoreApplication::instance(), [this]() {
+            client_->abort();
+        });
         return true;
     }));
 
-    auto future = std::async(std::launch::async, [this]() {
-        return client_->sendRequest(makeRhrPdu());
-    });
-
-    std::this_thread::sleep_for(std::chrono::milliseconds(30));
-    client_->abort();
-
-    auto resp = future.get();
+    auto resp = client_->sendRequest(makeRhrPdu());
     EXPECT_TRUE(resp.isError());
 }
 
@@ -259,16 +235,15 @@ TEST_F(ModbusClientBoundaryTest, SendRequest_ConcurrentCall_ReturnsInProgressErr
 
     EXPECT_CALL(*mockTransport_, buildRequest(_, _))
         .WillOnce(Return(QByteArray::fromHex("010300000001840A")));
-    EXPECT_CALL(*mockChannel_, write(_)).WillOnce(Invoke([this](QByteArrayView) {
-        std::this_thread::sleep_for(std::chrono::milliseconds(80));
-        return true;
-    }));
+    EXPECT_CALL(*mockChannel_, write(_)).WillOnce(Return(true));
 
-    auto first = std::async(std::launch::async, [this]() {
-        return client_->sendRequest(makeRhrPdu());
+    bool firstCompleted = false;
+    ModbusResponse firstResp;
+    client_->sendRequestAsync(makeRhrPdu(), 1, 0, [&](const ModbusResponse& response) {
+        firstCompleted = true;
+        firstResp = response;
     });
 
-    std::this_thread::sleep_for(std::chrono::milliseconds(20));
     auto second = client_->sendRequest(makeRhrPdu());
 
     EXPECT_TRUE(second.isError());
@@ -278,7 +253,8 @@ TEST_F(ModbusClientBoundaryTest, SendRequest_ConcurrentCall_ReturnsInProgressErr
     EXPECT_EQ(second.errorCode, modbus::base::ModbusError::Busy);
     EXPECT_TRUE(second.isBusy());
 
-    auto firstResp = first.get();
+    client_->abort();
+    EXPECT_TRUE(firstCompleted);
     EXPECT_TRUE(firstResp.isError());
 }
 
@@ -288,16 +264,17 @@ TEST_F(ModbusClientBoundaryTest, ChannelError_DuringRequest_ReturnsError) {
 
     EXPECT_CALL(*mockTransport_, buildRequest(_, _))
         .WillOnce(Return(QByteArray::fromHex("010300000001840A")));
-    EXPECT_CALL(*mockChannel_, write(_)).WillOnce(Return(true));
+    EXPECT_CALL(*mockChannel_, write(_)).WillOnce(Invoke([this](QByteArrayView) {
+        QTimer::singleShot(0, QCoreApplication::instance(), [this]() {
+            if (errorHandler_) {
+                errorHandler_(io::ChannelError{io::ChannelErrorCode::ConnectionReset,
+                                              QStringLiteral("Connection reset by peer")});
+            }
+        });
+        return true;
+    }));
 
-    auto future = std::async(std::launch::async, [this]() {
-        return client_->sendRequest(makeRhrPdu());
-    });
-
-    std::this_thread::sleep_for(std::chrono::milliseconds(30));
-    if (errorHandler_) errorHandler_(io::ChannelError{io::ChannelErrorCode::ConnectionReset, QStringLiteral("Connection reset by peer")});
-
-    auto resp = future.get();
+    auto resp = client_->sendRequest(makeRhrPdu());
     EXPECT_TRUE(resp.isError());
 }
 
@@ -307,18 +284,16 @@ TEST_F(ModbusClientBoundaryTest, Disconnect_DuringActiveRequest_ReturnsError) {
 
     EXPECT_CALL(*mockTransport_, buildRequest(_, _))
         .WillOnce(Return(QByteArray::fromHex("010300000001840A")));
-    EXPECT_CALL(*mockChannel_, write(_)).WillOnce(Return(true));
+    EXPECT_CALL(*mockChannel_, write(_)).WillOnce(Invoke([this](QByteArrayView) {
+        QTimer::singleShot(0, QCoreApplication::instance(), [this]() {
+            client_->disconnect();
+        });
+        return true;
+    }));
     // disconnect calls close()
     EXPECT_CALL(*mockChannel_, close()).WillRepeatedly(Return());
 
-    auto future = std::async(std::launch::async, [this]() {
-        return client_->sendRequest(makeRhrPdu());
-    });
-
-    std::this_thread::sleep_for(std::chrono::milliseconds(30));
-    client_->disconnect();
-
-    auto resp = future.get();
+    auto resp = client_->sendRequest(makeRhrPdu());
     EXPECT_TRUE(resp.isError());
 }
 
@@ -488,7 +463,14 @@ TEST_F(ModbusClientBoundaryTest, UnresponsiveThreshold_SuccessResetsCounter) {
     EXPECT_CALL(*mockTransport_, buildRequest(_, _))
         .Times(5)
         .WillRepeatedly(Return(QByteArray::fromHex("010300000001840A")));
-    EXPECT_CALL(*mockChannel_, write(_)).Times(5).WillRepeatedly(Return(true));
+    int writeCount = 0;
+    EXPECT_CALL(*mockChannel_, write(_)).Times(5).WillRepeatedly(Invoke([this, &writeCount](QByteArrayView) {
+        ++writeCount;
+        if (writeCount == 3) {
+            feedFrameAfter(0, QByteArray::fromHex("000100000007010304000A000B"));
+        }
+        return true;
+    }));
     EXPECT_CALL(*mockChannel_, close()).Times(0); // never evicted
     // Only the third request is answered (valid TCP MBAP frame for the
     // FC=03 / qty=2 request; the mock transport returns the matching Pdu).
@@ -503,14 +485,7 @@ TEST_F(ModbusClientBoundaryTest, UnresponsiveThreshold_SuccessResetsCounter) {
     }
 
     {
-        std::thread responder([this]() {
-            std::this_thread::sleep_for(std::chrono::milliseconds(30));
-            if (readHandler_) {
-                readHandler_(QByteArray::fromHex("000100000007010304000A000B"));
-            }
-        });
         auto resp = client_->sendRequest(makeRhrPdu());
-        responder.join();
         ASSERT_FALSE(resp.isError()) << resp.error.toStdString();
     }
 
@@ -614,22 +589,17 @@ TEST_F(ModbusClientBoundaryTest, SendRequestResult_DeliversResultDirectly) {
 
     EXPECT_CALL(*mockTransport_, buildRequest(_, _))
         .WillOnce(Return(QByteArray::fromHex("000100000006010300000002")));
-    EXPECT_CALL(*mockChannel_, write(_)).WillOnce(Return(true));
+    EXPECT_CALL(*mockChannel_, write(_)).WillOnce(Invoke([this](QByteArrayView) {
+        feedFrameAfter(0, QByteArray::fromHex("000100000007010304000A000B"));
+        return true;
+    }));
     EXPECT_CALL(*mockTransport_, parseResponse(_))
         .WillOnce(Return(ParseResponseResult{
             ParseResponseStatus::Ok,
             Pdu(FunctionCode::ReadHoldingRegisters,
                 QByteArray::fromHex("04000A000B"))}));
 
-    std::thread responder([this]() {
-        std::this_thread::sleep_for(std::chrono::milliseconds(20));
-        if (readHandler_) {
-            readHandler_(QByteArray::fromHex("000100000007010304000A000B"));
-        }
-    });
-
     const auto res = client_->sendRequestResult(makeRhrPdu(), 1);
-    responder.join();
 
     EXPECT_TRUE(res.isOk());
     EXPECT_EQ(res.value().functionCode(), FunctionCode::ReadHoldingRegisters);

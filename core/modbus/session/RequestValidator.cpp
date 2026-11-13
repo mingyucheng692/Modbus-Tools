@@ -30,7 +30,7 @@ Result validate(const base::Pdu& request, int slaveId, base::ModbusMode mode)
         return {false, QCoreApplication::translate("modbus::session::RequestValidator", "Invalid RTU slave id: %1").arg(slaveId)};
     }
 
-    const QByteArray data = request.data();
+    const QByteArray& data = request.data();
     if (data.size() > config::Modbus::kMaxPduDataLength) {
         return {false, QCoreApplication::translate("modbus::session::RequestValidator", "PDU data too long: %1 bytes").arg(data.size())};
     }
