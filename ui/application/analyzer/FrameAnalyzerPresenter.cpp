@@ -54,8 +54,9 @@ void FrameAnalyzerPresenter::enqueueParse(const QString& input,
     // state is owned by that thread. (The widget previously called the slot
     // directly from the GUI thread, a latent data race.)
     QMetaObject::invokeMethod(parseWorker_.get(),
-                              [this, input, type, startAddress, order, requestId]() {
-        parseWorker_->enqueueParse(input, type, startAddress, order, requestId);
+                              [worker = parseWorker_.get(), input, type,
+                               startAddress, order, requestId]() {
+        worker->enqueueParse(input, type, startAddress, order, requestId);
     }, Qt::QueuedConnection);
 }
 

@@ -68,12 +68,16 @@ int main(int argc, char *argv[])
     int exitCode = 0;
     {
         ui::MainWindow window(&settingsService, &themeController, pathResolver);
-        window.setWindowIcon(QIcon(":/assets/logo.svg"));
-        window.show();
+        if (window.isStartupAccepted()) {
+            window.setWindowIcon(QIcon(":/assets/logo.svg"));
+            window.show();
 
-        SPDLOG_INFO("Modbus-Tools initialized");
+            SPDLOG_INFO("Modbus-Tools initialized");
 
-        exitCode = app.exec();
+            exitCode = app.exec();
+        } else {
+            SPDLOG_INFO("Modbus-Tools startup cancelled during initialization");
+        }
     }
     // All QObjects are dead here; uninstall the Qt message handler, drain the
     // async queue, and stop the backend thread before process exit.

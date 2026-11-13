@@ -45,23 +45,39 @@ TEST_F(AppLifecycleCoordinatorTest, DisclaimerAcceptedFlowPersistsAcceptance) {
     EXPECT_CALL(*updateCoordinator_, refreshIndicators());
     EXPECT_CALL(*updateCoordinator_, triggerAutoCheckIfNeeded());
 
-    coordinator_->finalizeStartup();
+    EXPECT_TRUE(coordinator_->finalizeStartup());
 
     EXPECT_EQ(view_.showDisclaimerDialogCallCount, 1);
     EXPECT_TRUE(settingsController_->disclaimerAccepted());
 }
 
-TEST_F(AppLifecycleCoordinatorTest, DisclaimerRejectedFlowRequestsQuit) {
+TEST_F(AppLifecycleCoordinatorTest, DisclaimerRejectedFlowAbortsStartupWithoutRequestQuit) {
     settingsController_->setDisclaimerAccepted(false);
     view_.disclaimerDialogResult = false;
 
     EXPECT_CALL(*updateCoordinator_, refreshIndicators());
     EXPECT_CALL(*updateCoordinator_, triggerAutoCheckIfNeeded());
 
-    coordinator_->finalizeStartup();
+    EXPECT_FALSE(coordinator_->finalizeStartup());
 
     EXPECT_EQ(view_.showDisclaimerDialogCallCount, 1);
     EXPECT_FALSE(settingsController_->disclaimerAccepted());
+    EXPECT_EQ(view_.requestQuitCallCount, 0);
+}
+
+TEST_F(AppLifecycleCoordinatorTest, InitializeReturnsFalseWhenDisclaimerRejected) {
+    settingsController_->setDisclaimerAccepted(false);
+    view_.disclaimerDialogResult = false;
+
+    EXPECT_CALL(*updateCoordinator_, setCurrentLocale(testing::_));
+    EXPECT_CALL(*updateCoordinator_, refreshIndicators());
+    EXPECT_CALL(*updateCoordinator_, triggerAutoCheckIfNeeded());
+
+    EXPECT_FALSE(coordinator_->initialize());
+
+    EXPECT_EQ(view_.showDisclaimerDialogCallCount, 1);
+    EXPECT_FALSE(settingsController_->disclaimerAccepted());
+    EXPECT_EQ(view_.requestQuitCallCount, 0);
 }
 
 TEST_F(AppLifecycleCoordinatorTest, PersistOnCloseStoresWindowStateAndSyncs) {
@@ -86,7 +102,7 @@ TEST_F(AppLifecycleCoordinatorTest, InitializeRestoresStateAndFinalizesStartup) 
     EXPECT_CALL(*updateCoordinator_, refreshIndicators());
     EXPECT_CALL(*updateCoordinator_, triggerAutoCheckIfNeeded());
 
-    coordinator_->initialize();
+    EXPECT_TRUE(coordinator_->initialize());
 
     EXPECT_EQ(view_.initializeUiCallCount, 1);
     EXPECT_EQ(view_.restoreWindowGeometryCallCount, 1);
@@ -129,7 +145,7 @@ TEST_F(AppLifecycleCoordinatorTest, LogLevelPersistenceAndRestoration) {
     EXPECT_CALL(*updateCoordinator_, refreshIndicators());
     EXPECT_CALL(*updateCoordinator_, triggerAutoCheckIfNeeded());
 
-    coordinator_->initialize();
+    EXPECT_TRUE(coordinator_->initialize());
     EXPECT_EQ(logging::GetLogLevel(), spdlog::level::debug);
 }
 

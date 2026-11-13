@@ -16,7 +16,105 @@ WorkerReleaseCoordinator::WorkerReleaseCoordinator(QObject* parent)
     : QObject(parent) {
 }
 
-WorkerReleaseCoordinator::~WorkerReleaseCoordinator() noexcept = default;
+#include <QPointer>
+#include <mutex>
+
+struct WorkerReleaseCoordinator::AliveToken {
+    std::mutex mutex;
+    bool alive{true};
+};
+
+WorkerReleaseCoordinator::~WorkerReleaseCoordinator() noexcept {
+    if (aliveToken_) {
+        std::lock_guard<std::mutex> lock(aliveToken_->mutex);
+        aliveToken_->alive = false;
+    }
+
+    const auto stopThread = [this](const std::shared_ptr<QThread>& thread) {
+        if (!thread) {
+            return;
+        }
+        thread->disconnect(this);
+        if (thread->isRunning() && thread.get() != QThread::currentThread()) {
+            thread->quit();
+            thread->wait(1000);
+        }
+    };
+
+    auto contexts = std::move(pending_);
+    for (const auto& pending : contexts) {
+        if (!pending) {
+            continue;
+        }
+        if (pending->timeoutTimer) {
+            pending->timeoutTimer->stop();
+            pending->timeoutTimer->disconnect(this);
+        }
+        detachChannelWatchers(pending);
+        if (pending->worker) {
+            pending->worker->disconnect(this);
+        }
+        if (pending->channel) {
+            pending->channel->close();
+        }
+        stopThread(pending->workerThread);
+        if (pending->channelThread != pending->workerThread) {
+            stopThread(pending->channelThread);
+        }
+        releaseChannelSafely(pending);
+    }
+}
+
+bool WorkerReleaseCoordinator::sharesChannelThread(
+    const std::shared_ptr<PendingReleaseContext>& pending) const noexcept {
+    return pending && pending->workerThread && pending->channelThread
+        && pending->workerThread.get() == pending->channelThread.get();
+}
+
+void WorkerReleaseCoordinator::quitWorkerThreadIfSafe(
+    const std::shared_ptr<PendingReleaseContext>& pending) {
+    if (!pending || !pending->workerThread || !pending->workerThread->isRunning()) {
+        return;
+    }
+    if (sharesChannelThread(pending)) {
+        if (pending->worker && !pending->workerStopped) {
+            return;
+        }
+        if (pending->channel && pending->channel->state() != io::ChannelState::Closed) {
+            return;
+        }
+    }
+    pending->workerThread->quit();
+}
+
+void WorkerReleaseCoordinator::releaseChannelSafely(
+    const std::shared_ptr<PendingReleaseContext>& pending) {
+    if (!pending) {
+        return;
+    }
+    const bool channelRunning = pending->channelThread
+        && pending->channelThread->isRunning()
+        && pending->channelThread.get() != QThread::currentThread();
+    const bool workerRunning = pending->workerThread
+        && pending->workerThread->isRunning()
+        && pending->workerThread.get() != QThread::currentThread();
+    if (channelRunning || workerRunning) {
+        QThread* deferThread = channelRunning ? pending->channelThread.get()
+                                              : pending->workerThread.get();
+        QObject::connect(deferThread, &QThread::finished, deferThread,
+                         [ch = std::move(pending->channel),
+                          wk = std::move(pending->worker),
+                          cth = pending->channelThread,
+                          wth = pending->workerThread]() mutable {
+                             wk.reset();
+                             ch.reset();
+                         },
+                         Qt::QueuedConnection);
+        return;
+    }
+    pending->worker.reset();
+    pending->channel.reset();
+}
 
 void WorkerReleaseCoordinator::requestRelease(StackHandle handle,
                                               const QString& timeoutMessage,
@@ -91,9 +189,7 @@ void WorkerReleaseCoordinator::requestRelease(StackHandle handle,
                          Qt::QueuedConnection);
         pending->worker->stop();
     }
-    if (pending->workerThread && pending->workerThread->isRunning()) {
-        pending->workerThread->quit();
-    }
+    quitWorkerThreadIfSafe(pending);
     // The channel thread is deliberately NOT quit here when a channel is
     // present: TcpChannel::close() and its linger fallback are event-loop
     // driven. Quitting the IO loop first leaves the socket stranded in
@@ -102,7 +198,7 @@ void WorkerReleaseCoordinator::requestRelease(StackHandle handle,
     // crashes in QCoreApplication::sendEvent. The quit is deferred to
     // beginChannelShutdown(), which first drives the channel to Closed.
     if (pending->channelThread && pending->channelThread->isRunning()
-        && !pending->channel) {
+        && !pending->channel && !sharesChannelThread(pending)) {
         pending->channelThread->quit();
     }
     advanceStage(pending, ReleaseStage::StoppingWorker);
@@ -174,9 +270,7 @@ void WorkerReleaseCoordinator::advanceStage(
                 "WorkerReleaseCoordinator: shutdown timed out; finalizing without terminate()");
             emit releaseTimedOut(pending->timeoutMessage);
         }
-        if (pending->workerThread && pending->workerThread->isRunning()) {
-            pending->workerThread->quit();
-        }
+        quitWorkerThreadIfSafe(pending);
         beginChannelShutdown(pending);
         break;
     }
@@ -189,9 +283,7 @@ void WorkerReleaseCoordinator::onWorkerStopped(
     }
     SPDLOG_INFO("WorkerReleaseCoordinator: worker reported stopped");
     pending->workerStopped = true;
-    if (pending->workerThread && pending->workerThread->isRunning()) {
-        pending->workerThread->quit();
-    }
+    quitWorkerThreadIfSafe(pending);
     advanceStage(pending, ReleaseStage::ClosingChannel);
     tryComplete(pending);
 }
@@ -223,7 +315,7 @@ void WorkerReleaseCoordinator::tryComplete(
     // A dead worker thread is an acceptable substitute for the stopped()
     // signal: once the thread is gone no further channel access can originate
     // from the worker, so the channel shutdown/finalize may proceed.
-    const bool workerDone = pending->workerStopped
+    const bool workerDone = !pending->worker || pending->workerStopped
         || !pending->workerThread || !pending->workerThread->isRunning();
     const bool channelDone =
         pending->channelThreadFinished || !pending->channelThread
@@ -233,7 +325,9 @@ void WorkerReleaseCoordinator::tryComplete(
         || !pending->workerThread->isRunning();
     if (!workerDone || !channelDone || !workerThreadDone) {
         if (pending->stage == ReleaseStage::StoppingWorker && workerDone) {
-            advanceStage(pending, ReleaseStage::JoiningThreads);
+            advanceStage(pending,
+                         pending->channel ? ReleaseStage::ClosingChannel
+                                          : ReleaseStage::JoiningThreads);
         }
         return;
     }
@@ -287,18 +381,38 @@ void WorkerReleaseCoordinator::beginChannelShutdown(
     // The handler runs on the IO thread (inside ChannelBase::setState), so
     // it must not touch the coordinator directly — hop back to the GUI
     // thread via a queued invocation.
+    if (!aliveToken_) {
+        aliveToken_ = std::make_shared<AliveToken>();
+    }
+    const auto aliveToken = aliveToken_;
+    const std::weak_ptr<PendingReleaseContext> weakPending = pending;
+    const QPointer<WorkerReleaseCoordinator> self(this);
     pending->channelStateHandlerId = pending->channel->addStateHandler(
-        [this, pending](io::ChannelState state) {
+        [self, aliveToken, weakPending](io::ChannelState state) {
             if (state != io::ChannelState::Closed) {
                 return;
             }
-            QMetaObject::invokeMethod(this, [this, pending]() {
-                detachChannelWatchers(pending);
-                if (pending->channelThread
-                    && pending->channelThread->isRunning()) {
-                    pending->channelThread->quit();
+            std::lock_guard<std::mutex> lock(aliveToken->mutex);
+            if (!aliveToken->alive || !self) {
+                return;
+            }
+            QMetaObject::invokeMethod(self.data(), [self, aliveToken, weakPending]() {
+                {
+                    std::lock_guard<std::mutex> innerLock(aliveToken->mutex);
+                    if (!aliveToken->alive || !self) {
+                        return;
+                    }
                 }
-                tryComplete(pending);
+                const auto activePending = weakPending.lock();
+                if (!activePending) {
+                    return;
+                }
+                self->detachChannelWatchers(activePending);
+                if (activePending->channelThread
+                    && activePending->channelThread->isRunning()) {
+                    activePending->channelThread->quit();
+                }
+                self->tryComplete(activePending);
             }, Qt::QueuedConnection);
         });
     // close() is invoked from the GUI thread; TcpChannel queues the real

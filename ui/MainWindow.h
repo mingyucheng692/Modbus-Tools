@@ -48,6 +48,7 @@ public:
                         infra::platform::PathResolver& pathResolver,
                         QWidget *parent = nullptr);
     ~MainWindow() override;
+    [[nodiscard]] bool isStartupAccepted() const noexcept { return startupAccepted_; }
 
 private:
     // Main Window View
@@ -128,6 +129,7 @@ private:
     // ownership and QStyle is not a QObject (no parent), so RAII ownership is
     // required to avoid leaking the object (see plan.md L3).
     std::unique_ptr<common::CompactMenuBarStyle> menuBarStyle_;
+    bool startupAccepted_ = true;
 };
 
 } // namespace ui

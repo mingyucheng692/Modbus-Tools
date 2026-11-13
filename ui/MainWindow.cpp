@@ -102,7 +102,7 @@ MainWindow::MainWindow(infra::config::ISettingsService* settingsService,
           updateCoordinator_.get())),
       settingsService_(settingsService),
       pathResolver_(pathResolver) {
-    appLifecycleCoordinator_->initialize();
+    startupAccepted_ = appLifecycleCoordinator_->initialize();
 }
 
 MainWindow::~MainWindow() {

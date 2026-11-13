@@ -23,10 +23,10 @@ public:
                             UpdateCoordinator* updateCoordinator);
 
     void restoreFromSettings();
-    void finalizeStartup();
+    [[nodiscard]] bool finalizeStartup();
     void persistOnClose();
 
-    void initialize();
+    [[nodiscard]] bool initialize();
     void onNavigationToggleRequested();
     void onCheckForUpdatesRequested();
     void onLanguageSelected(const QString& locale);

@@ -176,6 +176,7 @@ set(TEST_QT_CORE_SOURCES
     unit/modbus/application/RequestSubmissionServiceTest.cpp
     unit/modbus/application/WorkerReleaseCoordinatorTest.cpp
     unit/ui/AppLifecycleCoordinatorTest.cpp
+    unit/ui/FrameAnalyzerPresenterTest.cpp
     unit/infra/SettingsServiceTest.cpp
     unit/ui/UpdateCheckerTest.cpp
     unit/ui/UpdateCoordinatorTest.cpp

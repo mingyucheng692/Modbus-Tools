@@ -45,7 +45,7 @@ void AppLifecycleCoordinator::restoreFromSettings() {
     view_->applyModbusSettings(timeoutMs, retryEnabled ? retries : 0, retryIntervalMs);
 }
 
-void AppLifecycleCoordinator::finalizeStartup() {
+bool AppLifecycleCoordinator::finalizeStartup() {
     core::update::UpdateManager::cleanupUpdateArtifacts();
 
     if (updateCoordinator_) {
@@ -57,9 +57,10 @@ void AppLifecycleCoordinator::finalizeStartup() {
         if (view_->showDisclaimerDialog()) {
             settingsController_->setDisclaimerAccepted(true);
         } else {
-            view_->requestQuit();
+            return false;
         }
     }
+    return true;
 }
 
 void AppLifecycleCoordinator::persistOnClose() {
@@ -68,7 +69,7 @@ void AppLifecycleCoordinator::persistOnClose() {
     settingsController_->sync();
 }
 
-void AppLifecycleCoordinator::initialize() {
+bool AppLifecycleCoordinator::initialize() {
     view_->initializeUi();
     restoreFromSettings();
     languageCoordinator_->initialize();
@@ -76,7 +77,7 @@ void AppLifecycleCoordinator::initialize() {
         updateCoordinator_->setCurrentLocale(languageCoordinator_->currentLocale());
     }
     view_->retranslateUi(languageCoordinator_->effectiveLocale());
-    finalizeStartup();
+    return finalizeStartup();
 }
 
 void AppLifecycleCoordinator::onNavigationToggleRequested() {

@@ -118,8 +118,11 @@ private:
         io::IChannel::HandlerId channelStateHandlerId = 0;
     };
 
+    [[nodiscard]] bool sharesChannelThread(
+        const std::shared_ptr<PendingReleaseContext>& pending) const noexcept;
     void advanceStage(const std::shared_ptr<PendingReleaseContext>& pending, ReleaseStage next);
-    void startRelease(std::shared_ptr<PendingReleaseContext> pending);
+    void quitWorkerThreadIfSafe(const std::shared_ptr<PendingReleaseContext>& pending);
+    void releaseChannelSafely(const std::shared_ptr<PendingReleaseContext>& pending);
     void onWorkerStopped(const std::shared_ptr<PendingReleaseContext>& pending);
     void onThreadFinished(const std::shared_ptr<PendingReleaseContext>& pending,
                           bool isChannelThread);
@@ -145,6 +148,8 @@ private:
     /// called from finalize() and the Closed observer.
     void detachChannelWatchers(const std::shared_ptr<PendingReleaseContext>& pending);
 
+    struct AliveToken;
+    std::shared_ptr<AliveToken> aliveToken_;
     std::vector<std::shared_ptr<PendingReleaseContext>> pending_;
 };
 
