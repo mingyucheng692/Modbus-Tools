@@ -3,6 +3,7 @@
 #include <gtest/gtest.h>
 #include <QCoreApplication>
 #include <QSignalSpy>
+#include <QTimer>
 
 #include "../../../ui/application/modbus/PollingController.h"
 #include "../../../ui/application/modbus/RequestSubmissionService.h"
@@ -43,7 +44,15 @@ TEST_F(PollingControllerTest, InitialState_UsesIdleDisconnectedContext) {
 }
 
 TEST_F(PollingControllerTest, SetPollingInterval) {
+    controller_->handleSessionConnected();
+    controller_->startPolling(makePollSpec());
+    auto* timer = controller_->findChild<QTimer*>();
+    ASSERT_NE(timer, nullptr);
+    EXPECT_TRUE(timer->isActive());
+
     controller_->setPollingInterval(500);
+    EXPECT_EQ(timer->interval(), 500);
+    controller_->stopPoll();
 }
 
 TEST_F(PollingControllerTest, HandlePollRequest_NotConnected_DoesNotSubmit) {

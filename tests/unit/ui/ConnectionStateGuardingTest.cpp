@@ -194,12 +194,16 @@ TEST_F(ConnectionStateGuardingTest, ModeSwitch_DuringConnecting_ControlsCorrectl
 
 // 11. View detachment lifecycle: detachView prevents dangling pointer access
 TEST_F(ConnectionStateGuardingTest, DetachView_PreventsDanglingAccess) {
+    EXPECT_CALL(*mockView_, renderConnectionState(_)).Times(0);
+    EXPECT_CALL(*mockView_, setExecutionGuards(_)).Times(0);
+
     presenter_->detachView();
     EXPECT_EQ(presenter_->view(), nullptr);
 
-    // Callbacks must safely execute with null view_
-    EXPECT_NO_THROW(presenter_->syncWidgetGuards(SessionConnectionState::Connected));
-    EXPECT_NO_THROW(presenter_->setLinked(true));
+    // Callbacks must safely execute with null view_ and still update session state
+    presenter_->syncWidgetGuards(SessionConnectionState::Connected);
+    presenter_->setLinked(true);
+    EXPECT_TRUE(presenter_->sessionPresenter()->isLinked());
 }
 
 // 12. isSessionConnected returns true for TransportConnected and Connected
@@ -218,10 +222,13 @@ TEST_F(ConnectionStateGuardingTest, RequestConnect_AntiBounceReentrancyGuard) {
     ASSERT_NE(session, nullptr);
 
     presenter_->syncWidgetGuards(SessionConnectionState::Connecting);
+    const quint64 genBefore = session->connectionGeneration();
     ModbusConnectionSpec spec;
     spec.config.mode = ::modbus::base::ModbusMode::TCP;
     spec.config.ipAddress = QStringLiteral("127.0.0.1");
     spec.config.port = 502;
 
-    EXPECT_NO_THROW(presenter_->requestConnect(spec));
+    presenter_->requestConnect(spec);
+    EXPECT_EQ(session->connectionGeneration(), genBefore);
+    EXPECT_FALSE(session->isSessionConnected());
 }

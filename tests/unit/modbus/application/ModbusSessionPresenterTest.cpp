@@ -150,14 +150,20 @@ TEST_F(ModbusSessionPresenterTest, ReleaseStack_ResetsPollingController) {
 
 TEST_F(ModbusSessionPresenterTest, SubmitRequest_NoWorker_DoesNotCrash) {
     ::modbus::base::Pdu pdu(static_cast<::modbus::base::FunctionCode>(0x03));
+    QSignalSpy responseSpy(tcpPresenter_.get(), &ModbusSessionPresenter::requestFinished);
 
-    EXPECT_NO_THROW(tcpPresenter_->submitRequest(pdu, 1, 1, 0));
+    tcpPresenter_->submitRequest(pdu, 1, 1, 0);
+    EXPECT_EQ(responseSpy.count(), 0);
+    EXPECT_FALSE(tcpPresenter_->isSessionConnected());
 }
 
 TEST_F(ModbusSessionPresenterTest, SendRaw_NoWorker_DoesNotCrash) {
     QByteArray data("\x01\x02\x03", 3);
+    QSignalSpy trafficSpy(trafficLogController_.get(), &TrafficLogController::trafficEvent);
 
-    EXPECT_NO_THROW(tcpPresenter_->sendRaw(data));
+    tcpPresenter_->sendRaw(data);
+    EXPECT_EQ(trafficSpy.count(), 0);
+    EXPECT_FALSE(tcpPresenter_->isSessionConnected());
 }
 
 TEST_F(ModbusSessionPresenterTest, SetLinked_UpdatesFlag) {

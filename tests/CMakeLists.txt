@@ -171,11 +171,14 @@ set(TEST_CORE_LOGIC_SOURCES
 
 set(TEST_QT_CORE_SOURCES
     unit/io/UdpChannelTest.cpp
+    unit/modbus/application/ModbusPagePresenterTest.cpp
     unit/modbus/application/ModbusSessionPresenterTest.cpp
     unit/modbus/application/PollingControllerTest.cpp
     unit/modbus/application/RequestSubmissionServiceTest.cpp
+    unit/modbus/application/TrafficLogControllerTest.cpp
     unit/modbus/application/WorkerReleaseCoordinatorTest.cpp
     unit/ui/AppLifecycleCoordinatorTest.cpp
+    unit/ui/ConnectionStateGuardingTest.cpp
     unit/ui/FrameAnalyzerPresenterTest.cpp
     unit/infra/SettingsServiceTest.cpp
     unit/ui/UpdateCheckerTest.cpp
@@ -189,8 +192,8 @@ if(WIN32)
 endif()
 
 set(TEST_UI_WIDGETS_SOURCES
-    unit/modbus/application/TrafficLogControllerTest.cpp
     unit/ui/common/ModbusDataHelperTest.cpp
+    unit/ui/AnalyzerLinkCoordinatorTest.cpp
     unit/ui/ByteMonitorWidgetTest.cpp
     unit/ui/ChannelControllerTest.cpp
     unit/ui/ConnectionWidgetsTest.cpp
@@ -199,15 +202,14 @@ set(TEST_UI_WIDGETS_SOURCES
     unit/ui/GenericInputWidgetTest.cpp
     unit/ui/I18nWidgetTest.cpp
     unit/ui/NavigationControllerTest.cpp
+    unit/ui/NetworkDebuggerViewTest.cpp
     unit/ui/SerialDebuggerViewTest.cpp
     unit/ui/ServerClientPanelTest.cpp
-    unit/ui/ConnectionStateGuardingTest.cpp
     unit/ui/Ieee754ConverterTest.cpp
     unit/ui/ModbusFrameBuilderWidgetTest.cpp
     unit/ui/widgets/TelemetryTableModelTest.cpp
     unit/ui/widgets/ModbusTelemetryWidgetTest.cpp
     unit/ui/widgets/ModbusWorkbenchWidgetTest.cpp
-    unit/modbus/application/ModbusPagePresenterTest.cpp
 )
 
 set(TEST_INTEGRATION_SOURCES

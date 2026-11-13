@@ -59,6 +59,8 @@ private:
 
     void updateFormVisibility();
     void clearBuilderOutput(const QString& errorMsg);
+    void commitBuiltFrame(int proto, uint8_t slaveOrUnitId, ::modbus::base::FunctionCode fc,
+                          uint16_t startPduAddr, const ::modbus::base::Pdu& pdu);
     void populateFieldTable(int protocol, uint8_t slaveOrUnitId, ::modbus::base::FunctionCode fc,
                             uint16_t startPduAddr, int quantity, const QByteArray& adu);
     void copyToClipboard(const QString& text, const QString& message);

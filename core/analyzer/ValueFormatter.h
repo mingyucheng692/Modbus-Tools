@@ -17,11 +17,6 @@ namespace modbus::analyzer::value_formatter {
 // Thread-safety: Thread-safe (reentrant pure functions).
 // Ownership: None (namespace of free functions).
 
-inline QString tr(const char* sourceText, const char* disambiguation = nullptr, int n = -1)
-{
-    return QCoreApplication::translate("modbus::analyzer::value_formatter", sourceText, disambiguation, n);
-}
-
 QString formatDecimalValue(const QVariant& value, NumberDisplayMode mode);
 
 double numericValueForDisplay(const QVariant& value, NumberDisplayMode mode, bool* ok = nullptr);

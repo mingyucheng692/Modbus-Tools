@@ -104,11 +104,13 @@ void SettingsService::initializeDefaults() {
     defaults_.insert(kAppDisclaimerAccepted, false);
     defaults_.insert(kAppMainWindowGeometry, QByteArray());
     defaults_.insert(kAppMainWindowState, QByteArray());
+    defaults_.insert(kLoggingLevel, static_cast<int>(spdlog::level::info));
 
     defaults_.insert(kModbusTimeoutMs, ::config::Modbus::kDefaultTimeoutMs);
     defaults_.insert(kModbusRetryCount, ::config::Modbus::kDefaultRetryCount);
     defaults_.insert(kModbusRetryIntervalMs, ::config::Modbus::kDefaultRetryIntervalMs);
     defaults_.insert(kModbusRetryEnabled, ::config::Modbus::kDefaultRetryEnabled);
+    defaults_.insert(kModbusAddressBase, 0);
 
     defaults_.insert(kFrameAnalyzerStartAddr, ::config::Modbus::kDefaultStandardStartAddress);
     defaults_.insert(kFrameAnalyzerDecodeMode, ::config::Modbus::kDefaultStandardFormatIndex);
@@ -164,10 +166,10 @@ void SettingsService::initializeDefaults() {
 
     // Modbus ASCII mode defaults (symmetric with RTU serial transport + standard/traffic/control)
     defaults_.insert(kModbusAsciiBaudRate, QString::fromLatin1(::config::Serial::kDefaultBaudRateText));
-    defaults_.insert(kModbusAsciiDataBits, QString::fromLatin1(::config::Serial::kDefaultDataBitsText));
-    defaults_.insert(kModbusAsciiParity, QString::fromLatin1(::config::Serial::kDefaultParityText));
+    defaults_.insert(kModbusAsciiDataBits, QString::fromLatin1(::config::Serial::kDefaultAsciiDataBitsText));
+    defaults_.insert(kModbusAsciiParity, QString::fromLatin1(::config::Serial::kDefaultAsciiParityText));
     defaults_.insert(kModbusAsciiStopBits, QString::fromLatin1(::config::Serial::kDefaultStopBitsText));
-    defaults_.insert(kModbusAsciiFlowControl, QString());
+    defaults_.insert(kModbusAsciiFlowControl, QString::fromLatin1(::config::Serial::kDefaultFlowControlText));
     defaults_.insert(kModbusAsciiPortName, QString());
     defaults_.insert(kModbusAsciiConnectionCollapsed, false);
     defaults_.insert(kModbusAsciiStandardSlaveId, ::config::Modbus::kDefaultSlaveId);
@@ -221,6 +223,29 @@ void SettingsService::initializeDefaults() {
     defaults_.insert(kSerialDebuggerInputCollapsed, false);
     defaults_.insert(kSerialDebuggerDtr, false);
     defaults_.insert(kSerialDebuggerRts, false);
+
+    defaults_.insert(kModbusWorkbenchMode, 0);
+    defaults_.insert(kModbusWorkbenchSlaveId, ::config::Modbus::kDefaultSlaveId);
+    defaults_.insert(kModbusWorkbenchFunctionCode, 0x03);
+    defaults_.insert(kModbusWorkbenchStartAddress, ::config::Modbus::kDefaultStandardStartAddress);
+    defaults_.insert(kModbusWorkbenchQuantity, ::config::Modbus::kDefaultStandardQuantity);
+    defaults_.insert(kModbusWorkbenchRadix, 10);
+    defaults_.insert(kModbusWorkbenchDataRadix, 10);
+    defaults_.insert(kModbusWorkbenchPollIntervalMs, ::config::Polling::kDefaultIntervalMs);
+    defaults_.insert(kModbusWorkbenchFc05Value, true);
+    defaults_.insert(kModbusWorkbenchFc06Value, QStringLiteral("0"));
+    defaults_.insert(kModbusWorkbenchFc0fValue, QStringLiteral("1, 0, 1, 0"));
+    defaults_.insert(kModbusWorkbenchFc10Value, QStringLiteral("100, 200"));
+    defaults_.insert(kModbusWorkbenchRawText, QString());
+
+    defaults_.insert(kModbusBuilderProtocol, 0);
+    defaults_.insert(kModbusBuilderSlaveId, QString::number(::config::Modbus::kDefaultSlaveId));
+    defaults_.insert(kModbusBuilderFunctionCode, ::config::Modbus::kDefaultControlFunctionIndex);
+    defaults_.insert(kModbusBuilderAddressBase, 0);
+    defaults_.insert(kModbusBuilderStartAddress, QStringLiteral("0x0000"));
+    defaults_.insert(kModbusBuilderQuantity, 2);
+    defaults_.insert(kModbusBuilderWriteData, QStringLiteral("0001 0002"));
+    defaults_.insert(kModbusBuilderDataFormat, 0);
 }
 
 void SettingsService::load() {

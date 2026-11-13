@@ -22,9 +22,14 @@ class QSplitter;
 class QTabWidget;
 class QTableWidget;
 class QTreeWidget;
+class QTreeWidgetItem;
 
 namespace infra::config {
 class ISettingsService;
+}
+
+namespace modbus::base {
+struct AsciiAduFields;
 }
 
 namespace ui::application::analyzer {
@@ -81,6 +86,17 @@ private:
     void setupUi();
     void retranslateUi();
     void renderResult(const ::modbus::parser::ParseResult& result);
+    void renderOverviewTree(const ::modbus::parser::ParseResult& result,
+                            const QString& protocolText,
+                            const QString& typeText);
+    void renderTransportHeaderNodes(QTreeWidgetItem* root,
+                                    const ::modbus::parser::ParseResult& result,
+                                    const ::modbus::base::AsciiAduFields& asciiFields);
+    void renderPduAndTrailerNodes(QTreeWidgetItem* root,
+                                  const ::modbus::parser::ParseResult& result,
+                                  const QString& typeText,
+                                  const ::modbus::base::AsciiAduFields& asciiFields,
+                                  bool hasAsciiFields);
     void clearResult();
 
     [[nodiscard]] QString historyItemText(const ::modbus::parser::ParseResult& result) const;

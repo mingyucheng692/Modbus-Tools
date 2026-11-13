@@ -103,8 +103,6 @@ inline constexpr char kSerialDebuggerInputCollapsed[] = "serial_debugger/ui/inpu
 inline constexpr char kSerialDebuggerDtr[] = "serial_debugger/dtr";
 inline constexpr char kSerialDebuggerRts[] = "serial_debugger/rts";
 
-inline constexpr char kModbusRtuFlowControl[] = "modbus/rtu/serial/flowControl";
-
 // Modbus ASCII mode — canonical keys (symmetric with RTU).
 inline constexpr char kModbusAsciiBaudRate[] = "modbus/ascii/serial/baudRate";
 inline constexpr char kModbusAsciiDataBits[] = "modbus/ascii/serial/dataBits";

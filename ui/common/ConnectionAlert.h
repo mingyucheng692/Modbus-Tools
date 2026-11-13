@@ -13,11 +13,6 @@ namespace ui::common {
 
 namespace connection_alert {
 
-inline QString tr(const char* sourceText, const char* disambiguation = nullptr, int n = -1)
-{
-    return QCoreApplication::translate("ui::common::connection_alert", sourceText, disambiguation, n);
-}
-
 /// True when a full GUI application instance exists. Unit tests run under a
 /// bare QCoreApplication: QMessageBox requires QApplication and its modal
 /// exec() would block automation, so callers degrade to a log there.
@@ -31,8 +26,8 @@ inline void showNotConnected(QWidget* parent) {
         return;
     }
     QMessageBox::warning(parent,
-                         QCoreApplication::translate("ConnectionAlert", "Not Connected"),
-                         QCoreApplication::translate("ConnectionAlert", "Please connect first."));
+                         QCoreApplication::translate("ui::common::connection_alert", "Not Connected"),
+                         QCoreApplication::translate("ui::common::connection_alert", "Please connect first."));
 }
 
 inline void showDisconnected(QWidget* parent) {
@@ -41,8 +36,8 @@ inline void showDisconnected(QWidget* parent) {
         return;
     }
     QMessageBox::warning(parent,
-                         QCoreApplication::translate("ConnectionAlert", "Connection Lost"),
-                         QCoreApplication::translate("ConnectionAlert", "Connection was closed."));
+                         QCoreApplication::translate("ui::common::connection_alert", "Connection Lost"),
+                         QCoreApplication::translate("ui::common::connection_alert", "Connection was closed."));
 }
 
 } // namespace connection_alert

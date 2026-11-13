@@ -22,7 +22,6 @@
 #include <QThread>
 #include <QEvent>
 #include <spdlog/spdlog.h>
-#include "../../../infra/io/IChannel.h"
 
 namespace ui::views::network {
 

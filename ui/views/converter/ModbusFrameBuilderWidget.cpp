@@ -135,9 +135,6 @@ std::optional<QByteArray> resolveWritePayload(modbus::base::FunctionCode fc,
                                               const QString& writeRawText,
                                               int fmtIdx,
                                               QString* errorMsg) {
-    auto trText = [](const char* text) {
-        return QCoreApplication::translate("ui::views::converter::ModbusFrameBuilderWidget", text);
-    };
     if (fc == modbus::base::FunctionCode::WriteSingleCoil) {
         const QString lower = writeRawText.toLower();
         if (lower == QStringLiteral("on") || lower == QStringLiteral("true") || lower == QStringLiteral("1")) {
@@ -150,7 +147,10 @@ std::optional<QByteArray> resolveWritePayload(modbus::base::FunctionCode fc,
         if (bytes && (*bytes == QByteArray::fromHex("FF00") || *bytes == QByteArray::fromHex("0000"))) {
             return *bytes;
         }
-        if (errorMsg) *errorMsg = trText("Invalid coil value. Use ON/OFF, 1/0, or FF00/0000 in the selected format.");
+        if (errorMsg) {
+            *errorMsg = ModbusFrameBuilderWidget::tr(
+                "Invalid coil value. Use ON/OFF, 1/0, or FF00/0000 in the selected format.");
+        }
         return std::nullopt;
     }
     if (fc == modbus::base::FunctionCode::WriteSingleRegister ||
@@ -158,7 +158,10 @@ std::optional<QByteArray> resolveWritePayload(modbus::base::FunctionCode fc,
         const int count = (fc == modbus::base::FunctionCode::WriteSingleRegister) ? 1 : quantity;
         const auto bytes = parseBuilderRegisters(writeRawText, fmtIdx, count);
         if (!bytes) {
-            if (errorMsg) *errorMsg = trText("Invalid register data or count. Use Hex bytes, Decimal values (0-65535), or 16 MSB-first bits per register.");
+            if (errorMsg) {
+                *errorMsg = ModbusFrameBuilderWidget::tr(
+                    "Invalid register data or count. Use Hex bytes, Decimal values (0-65535), or 16 MSB-first bits per register.");
+            }
             return std::nullopt;
         }
         return *bytes;
@@ -166,7 +169,10 @@ std::optional<QByteArray> resolveWritePayload(modbus::base::FunctionCode fc,
     if (fc == modbus::base::FunctionCode::WriteMultipleCoils) {
         const QByteArray payload = parseWriteMultipleCoilsPayload(writeRawText, fmtIdx, quantity);
         if (payload.isEmpty()) {
-            if (errorMsg) *errorMsg = trText("Invalid coil data or count. Use packed Hex bytes or one Decimal/Binary 0 or 1 per coil.");
+            if (errorMsg) {
+                *errorMsg = ModbusFrameBuilderWidget::tr(
+                    "Invalid coil data or count. Use packed Hex bytes or one Decimal/Binary 0 or 1 per coil.");
+            }
             return std::nullopt;
         }
         return payload;
@@ -548,6 +554,24 @@ void ModbusFrameBuilderWidget::clearBuilderOutput(const QString& errorMsg) {
     currentSpacedHex_.clear();
 }
 
+void ModbusFrameBuilderWidget::commitBuiltFrame(int proto, uint8_t slaveOrUnitId,
+                                                ::modbus::base::FunctionCode fc,
+                                                uint16_t startPduAddr,
+                                                const ::modbus::base::Pdu& pdu) {
+    currentAdu_ = (proto == 0) ? modbus::base::buildRtuAdu(slaveOrUnitId, pdu)
+                : (proto == 1) ? modbus::base::buildTcpAdu(slaveOrUnitId, pdu, 0x0000)
+                               : modbus::base::buildAsciiAdu(slaveOrUnitId, pdu);
+    currentSpacedHex_ = (proto == 2) ? QString::fromLatin1(currentAdu_).trimmed()
+                                     : QString::fromLatin1(currentAdu_.toHex(' ')).toUpper();
+    hexOutputEdit_->setText(currentSpacedHex_);
+    errorLabel_->setVisible(false);
+    copySpacedBtn_->setEnabled(true);
+    copyCompactBtn_->setEnabled(true);
+    copyCArrayBtn_->setEnabled(true);
+    inspectAnalyzerBtn_->setEnabled(true);
+    populateFieldTable(proto, slaveOrUnitId, fc, startPduAddr, quantitySpin_->value(), currentAdu_);
+}
+
 void ModbusFrameBuilderWidget::rebuildFrame() {
     if (!protocolCombo_ || !functionCombo_ || !slaveIdEdit_ || !addressEdit_ || !quantitySpin_) return;
     rebuildTimer_->stop();
@@ -564,7 +588,6 @@ void ModbusFrameBuilderWidget::rebuildFrame() {
             .arg(isTcp ? tr("Unit ID") : tr("Slave ID")).arg(slaveIdEdit_->text().trimmed()).arg(maxId));
         return;
     }
-    const uint8_t slaveOrUnitId = static_cast<uint8_t>(parsedId);
 
     const auto base = static_cast<modbus::address::AddressBase>(addressBaseCombo_->currentData().toInt());
     const auto addrResult = modbus::address::toPduAddress(addressEdit_->text().trimmed(), base);
@@ -581,37 +604,24 @@ void ModbusFrameBuilderWidget::rebuildFrame() {
                          fc == modbus::base::FunctionCode::ReadInputRegisters);
 
     QString errorMsg;
-    std::optional<modbus::base::Pdu> pduOpt;
-    if (isRead) {
-        pduOpt = modbus::base::pdu_builder::buildReadRequest(fc, addrResult.pduAddress, quantity, &errorMsg);
-    } else if (const auto rawPayload = resolveWritePayload(
-                   fc, quantity, writeDataEdit_->text().trimmed(), dataFormatCombo_->currentIndex(), &errorMsg)) {
-        pduOpt = modbus::base::pdu_builder::buildWriteRequest(fc, addrResult.pduAddress, quantity, *rawPayload, &errorMsg);
+    std::optional<modbus::base::Pdu> pduOpt = isRead
+        ? modbus::base::pdu_builder::buildReadRequest(fc, addrResult.pduAddress, quantity, &errorMsg)
+        : std::nullopt;
+    if (!isRead) {
+        if (const auto raw = resolveWritePayload(fc, quantity, writeDataEdit_->text().trimmed(), dataFormatCombo_->currentIndex(), &errorMsg)) {
+            pduOpt = modbus::base::pdu_builder::buildWriteRequest(fc, addrResult.pduAddress, quantity, *raw, &errorMsg);
+        }
     }
     if (!pduOpt || !errorMsg.isEmpty()) {
         clearBuilderOutput(errorMsg.isEmpty() ? tr("Failed to build Modbus PDU.") : errorMsg);
         return;
     }
-
-    const bool isSingleWrite = (fc == modbus::base::FunctionCode::WriteSingleCoil ||
-                                fc == modbus::base::FunctionCode::WriteSingleRegister);
+    const bool isSingleWrite = (fc == modbus::base::FunctionCode::WriteSingleCoil || fc == modbus::base::FunctionCode::WriteSingleRegister);
     if (static_cast<int>(addrResult.pduAddress) + (isSingleWrite ? 1 : quantity) > 65536) {
         clearBuilderOutput(tr("Address range exceeds 65535."));
         return;
     }
-
-    currentAdu_ = (proto == 0) ? modbus::base::buildRtuAdu(slaveOrUnitId, *pduOpt)
-                : (proto == 1) ? modbus::base::buildTcpAdu(slaveOrUnitId, *pduOpt, 0x0000)
-                               : modbus::base::buildAsciiAdu(slaveOrUnitId, *pduOpt);
-    currentSpacedHex_ = (proto == 2) ? QString::fromLatin1(currentAdu_).trimmed()
-                                     : QString::fromLatin1(currentAdu_.toHex(' ')).toUpper();
-    hexOutputEdit_->setText(currentSpacedHex_);
-    errorLabel_->setVisible(false);
-    copySpacedBtn_->setEnabled(true);
-    copyCompactBtn_->setEnabled(true);
-    copyCArrayBtn_->setEnabled(true);
-    inspectAnalyzerBtn_->setEnabled(true);
-    populateFieldTable(proto, slaveOrUnitId, fc, addrResult.pduAddress, quantity, currentAdu_);
+    commitBuiltFrame(proto, static_cast<uint8_t>(parsedId), fc, addrResult.pduAddress, *pduOpt);
 }
 
 void ModbusFrameBuilderWidget::populateFieldTable(int protocol, uint8_t slaveOrUnitId,

@@ -56,40 +56,40 @@ ChecksumResult computeSha256WithCancel(const QString& filePath,
     }
 
     if (resolvedExpectedSha.isEmpty()) {
-        return {false, QObject::tr("Missing or invalid expected checksum"), {}, {}};
+        return {false, UpdateManager::tr("Missing or invalid expected checksum"), {}, {}};
     }
 
     if (cancelToken && cancelToken->load(std::memory_order_relaxed)) {
-        return {false, QObject::tr("Canceled"), {}, {}};
+        return {false, UpdateManager::tr("Canceled"), {}, {}};
     }
 
     // Calculate actual SHA with block-by-block reading for responsive cancellation
     QFile file(filePath);
     if (!file.open(QIODevice::ReadOnly)) {
-        return {false, QObject::tr("Failed to open file for checksum calculation"), {}, {}};
+        return {false, UpdateManager::tr("Failed to open file for checksum calculation"), {}, {}};
     }
 
     QCryptographicHash hash(QCryptographicHash::Sha256);
     constexpr qint64 kChunkSize = 64 * 1024;
     while (!file.atEnd()) {
         if (cancelToken && cancelToken->load(std::memory_order_relaxed)) {
-            return {false, QObject::tr("Canceled"), {}, {}};
+            return {false, UpdateManager::tr("Canceled"), {}, {}};
         }
         const QByteArray chunk = file.read(kChunkSize);
         if (chunk.isEmpty() && !file.atEnd()) {
-            return {false, QObject::tr("Failed to read file chunk"), {}, {}};
+            return {false, UpdateManager::tr("Failed to read file chunk"), {}, {}};
         }
         hash.addData(chunk);
     }
 
     actualSha = hash.result().toHex();
     if (actualSha.isEmpty()) {
-        return {false, QObject::tr("Failed to calculate file checksum"), {}, {}};
+        return {false, UpdateManager::tr("Failed to calculate file checksum"), {}, {}};
     }
 
     if (actualSha.compare(resolvedExpectedSha, Qt::CaseInsensitive) != 0) {
         return {false,
-                QObject::tr("Checksum mismatch. Expected: %1, Actual: %2").arg(resolvedExpectedSha, actualSha),
+                UpdateManager::tr("Checksum mismatch. Expected: %1, Actual: %2").arg(resolvedExpectedSha, actualSha),
                 resolvedExpectedSha,
                 actualSha};
     }

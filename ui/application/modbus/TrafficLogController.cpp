@@ -172,8 +172,8 @@ void TrafficLogController::logPollSummary(const PollSummary& summary) {
 
 QString TrafficLogController::retryWord(int retryCount) {
     return (retryCount == 1)
-        ? QCoreApplication::translate("TrafficLogController", "retry")
-        : QCoreApplication::translate("TrafficLogController", "retries");
+        ? tr("retry")
+        : tr("retries");
 }
 
 QString TrafficLogController::successWithRetrySummary(const QString& baseMessage,
@@ -187,9 +187,9 @@ QString TrafficLogController::successWithRetrySummary(const QString& baseMessage
 
 QString TrafficLogController::errorWithRetrySummary(const QString& error, int retryCount) {
     if (retryCount <= 0) {
-        return QCoreApplication::translate("TrafficLogController", "Error: %1").arg(error);
+        return tr("Error: %1").arg(error);
     }
-    return QCoreApplication::translate("TrafficLogController", "Error: %1 (after %2 %3)")
+    return tr("Error: %1 (after %2 %3)")
         .arg(error)
         .arg(retryCount)
         .arg(retryWord(retryCount));

@@ -527,27 +527,27 @@ namespace {
 QString formatExceptionCode(::modbus::base::ExceptionCode code) {
     switch (code) {
     case ::modbus::base::ExceptionCode::IllegalFunction:
-        return QObject::tr("Illegal Function");
+        return ModbusPagePresenter::tr("Illegal Function");
     case ::modbus::base::ExceptionCode::IllegalDataAddress:
-        return QObject::tr("Illegal Data Address");
+        return ModbusPagePresenter::tr("Illegal Data Address");
     case ::modbus::base::ExceptionCode::IllegalDataValue:
-        return QObject::tr("Illegal Data Value");
+        return ModbusPagePresenter::tr("Illegal Data Value");
     case ::modbus::base::ExceptionCode::ServerDeviceFailure:
-        return QObject::tr("Server Device Failure");
+        return ModbusPagePresenter::tr("Server Device Failure");
     case ::modbus::base::ExceptionCode::Acknowledge:
-        return QObject::tr("Acknowledge");
+        return ModbusPagePresenter::tr("Acknowledge");
     case ::modbus::base::ExceptionCode::ServerDeviceBusy:
-        return QObject::tr("Server Device Busy");
+        return ModbusPagePresenter::tr("Server Device Busy");
     case ::modbus::base::ExceptionCode::NegativeAcknowledge:
-        return QObject::tr("Negative Acknowledge");
+        return ModbusPagePresenter::tr("Negative Acknowledge");
     case ::modbus::base::ExceptionCode::MemoryParityError:
-        return QObject::tr("Memory Parity Error");
+        return ModbusPagePresenter::tr("Memory Parity Error");
     case ::modbus::base::ExceptionCode::GatewayPathUnavailable:
-        return QObject::tr("Gateway Path Unavailable");
+        return ModbusPagePresenter::tr("Gateway Path Unavailable");
     case ::modbus::base::ExceptionCode::GatewayTargetDeviceFailed:
-        return QObject::tr("Gateway Target Device Failed To Respond");
+        return ModbusPagePresenter::tr("Gateway Target Device Failed To Respond");
     default:
-        return QObject::tr("Unknown Exception");
+        return ModbusPagePresenter::tr("Unknown Exception");
     }
 }
 

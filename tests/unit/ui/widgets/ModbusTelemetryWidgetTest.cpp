@@ -5,6 +5,7 @@
 #include <QElapsedTimer>
 #include <QEventLoop>
 #include <QFile>
+#include <QLabel>
 #include <QSignalSpy>
 #include <QApplication>
 #include <QTableView>
@@ -55,9 +56,20 @@ TEST_F(ModbusTelemetryWidgetTest, QueueOverflowHardCeiling) {
         widget_->appendTrafficEvent(ev);
     }
 
-    // Process one batch of 200 items
+    bool foundOverflowLabel = false;
+    for (auto* lbl : widget_->findChildren<QLabel*>()) {
+        if (lbl->text() == QStringLiteral("Queue overflow: 5 dropped")) {
+            foundOverflowLabel = !lbl->isHidden();
+            break;
+        }
+    }
+    EXPECT_TRUE(foundOverflowLabel);
+
+    // Process one batch of 200 items; oldest 5 (Event 0..4) must have been evicted
     QMetaObject::invokeMethod(widget_.get(), "processBatchTimeout");
     EXPECT_EQ(widget_->tableModel()->rowCount(), 200);
+    ASSERT_NE(widget_->tableModel()->rowAt(0), nullptr);
+    EXPECT_EQ(widget_->tableModel()->rowAt(0)->event.summary, QStringLiteral("Event 5"));
 }
 
 TEST_F(ModbusTelemetryWidgetTest, LinkageStateAndSignal) {
@@ -76,7 +88,26 @@ TEST_F(ModbusTelemetryWidgetTest, LinkageStateAndSignal) {
 
 TEST_F(ModbusTelemetryWidgetTest, MetricsUpdate) {
     widget_->updateMetrics(100, 95, 5, 12);
-    // Verify clear resets internal state
+    bool foundUpdatedMetrics = false;
+    for (auto* lbl : widget_->findChildren<QLabel*>()) {
+        if (lbl->text() == QStringLiteral("TX: 100 | RX: 95 | Error: 5 | RTT: 12 ms")) {
+            foundUpdatedMetrics = true;
+            break;
+        }
+    }
+    EXPECT_TRUE(foundUpdatedMetrics);
+
+    widget_->updateMetrics(0, 0, 0, 0);
+    bool foundResetMetrics = false;
+    for (auto* lbl : widget_->findChildren<QLabel*>()) {
+        if (lbl->text() == QStringLiteral("TX: 0 | RX: 0 | Error: 0 | RTT: 0 ms")) {
+            foundResetMetrics = true;
+            break;
+        }
+    }
+    EXPECT_TRUE(foundResetMetrics);
+
+    // Verify clear resets table and pending state
     widget_->clear();
     EXPECT_EQ(widget_->tableModel()->rowCount(), 0);
 }

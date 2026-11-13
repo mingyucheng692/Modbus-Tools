@@ -2,16 +2,12 @@
 
 #include "ConnectionManager.h"
 #include <spdlog/spdlog.h>
+#include <QCoreApplication>
 #include <QEventLoop>
 #include <QTimer>
 #include <algorithm>
-#include "common/TrContext.h"
 
 namespace modbus::session {
-namespace {
-    // i18n helper — uses explicit context so lupdate can categorize strings
-    constexpr char kConnManagerCtx[] = "modbus::session::ConnectionManager";
-} // namespace
 
 ConnectionManager::ConnectionManager(io::IChannel* channel,
                                      ConnectionStateMachine* stateMachine,
@@ -133,7 +129,7 @@ bool ConnectionManager::ensureConnected() {
         // Never-connected: Disconnected is the truthful state. There is no
         // Disconnected -> Failed edge, and inventing one would corrupt the
         // FSM — report via the error string instead.
-        lastChannelError_ = TrContext<kConnManagerCtx>::tr("No channel attached");
+        lastChannelError_ = QCoreApplication::translate("modbus::session::ConnectionManager", "No channel attached");
         return false;
     }
 
@@ -148,7 +144,7 @@ bool ConnectionManager::ensureConnected() {
     // the in-flight Connecting state to Failed). The UI gates submits until
     // connected, so this only catches direct programmatic misuse.
     if (connectInProgress_) {
-        lastChannelError_ = TrContext<kConnManagerCtx>::tr("Connect attempt in progress");
+        lastChannelError_ = QCoreApplication::translate("modbus::session::ConnectionManager", "Connect attempt in progress");
         return false;
     }
 
@@ -188,7 +184,7 @@ bool ConnectionManager::ensureConnected() {
         // thread) raced us; retry once from the normalized state.
         assertCleanEntryState();
         if (!transitionChecked(attemptState, "connect-attempt-retry")) {
-            lastChannelError_ = TrContext<kConnManagerCtx>::tr("State machine busy");
+            lastChannelError_ = QCoreApplication::translate("modbus::session::ConnectionManager", "State machine busy");
             return false;
         }
     }
@@ -201,7 +197,7 @@ bool ConnectionManager::ensureConnected() {
     } guard{connectInProgress_};
 
     if (!channel_->open()) {
-        connectError = TrContext<kConnManagerCtx>::tr("Failed to dispatch channel open");
+        connectError = QCoreApplication::translate("modbus::session::ConnectionManager", "Failed to dispatch channel open");
     } else {
         const auto deadline = std::chrono::steady_clock::now()
             + std::chrono::milliseconds(config_->timeoutMs);
@@ -223,7 +219,9 @@ bool ConnectionManager::ensureConnected() {
     // (e.g. "Aborted", channel error). Only synthesize a generic timeout message
     // when no specific reason was recorded, and never overwrite an existing error.
     if (lastChannelError_.isEmpty()) {
-        lastChannelError_ = connectError.isEmpty() ? TrContext<kConnManagerCtx>::tr("Connect timeout") : connectError;
+        lastChannelError_ = connectError.isEmpty()
+            ? QCoreApplication::translate("modbus::session::ConnectionManager", "Connect timeout")
+            : connectError;
     }
     if (!connectFailureLogged_) {
         if (channel_ && channel_->kind() == io::ChannelKind::Serial) {
@@ -304,18 +302,18 @@ bool ConnectionManager::waitForChannelState(io::ChannelState expectedState,
     }
     if (channel_->state() == io::ChannelState::Error) {
         if (errorOut && errorOut->isEmpty()) {
-            *errorOut = TrContext<kConnManagerCtx>::tr("Channel entered error state");
+            *errorOut = QCoreApplication::translate("modbus::session::ConnectionManager", "Channel entered error state");
         }
         return false;
     }
     if (aborted_.load(std::memory_order_acquire)) {
         if (errorOut && errorOut->isEmpty()) {
-            *errorOut = TrContext<kConnManagerCtx>::tr("Aborted");
+            *errorOut = QCoreApplication::translate("modbus::session::ConnectionManager", "Aborted");
         }
         return false;
     }
     if (errorOut && errorOut->isEmpty()) {
-        *errorOut = TrContext<kConnManagerCtx>::tr("Connect timeout");
+        *errorOut = QCoreApplication::translate("modbus::session::ConnectionManager", "Connect timeout");
     }
     return false;
 }

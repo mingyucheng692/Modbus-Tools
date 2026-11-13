@@ -404,7 +404,9 @@ void MainWindow::retranslateUi(const QString& effectiveLocale) {
     if (langEnAction_) langEnAction_->setChecked(effectiveLocale_ == config::App::kLocaleEn);
     if (langZhCnAction_) langZhCnAction_->setChecked(effectiveLocale_ == config::App::kLocaleZhCn);
     if (langZhTwAction_) langZhTwAction_->setChecked(effectiveLocale_ == config::App::kLocaleZhTw);
-    
+
+    updateThemeToggleUi();
+
     if (updateCoordinator_) {
         updateCoordinator_->refreshIndicators();
     }

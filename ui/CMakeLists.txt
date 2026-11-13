@@ -1,3 +1,5 @@
+# Copyright (c) 2025 - present mingyucheng692. Licensed under the MIT License.
+
 set(CMAKE_AUTOMOC ON)
 set(CMAKE_AUTOUIC ON)
 set(CMAKE_AUTORCC ON)
@@ -58,6 +60,11 @@ function(modbus_target_embed_translations target_name)
         VERBATIM
     )
 
+    set_source_files_properties("${resource_file}" PROPERTIES
+        SKIP_AUTOMOC ON
+        SKIP_AUTOUIC ON
+        SKIP_LINTING ON
+    )
     target_sources(${target_name} PRIVATE "${resource_file}")
 endfunction()
 
@@ -182,16 +189,23 @@ set(ui_translation_ts
     ${CMAKE_CURRENT_SOURCE_DIR}/i18n/Modbus-Tools_zh_TW.ts
 )
 
-modbus_target_embed_translations(ui
-    OUTPUT_DIR "${CMAKE_BINARY_DIR}/translations"
-    TS_FILES
-        ${ui_translation_ts}
-)
+    set_source_files_properties(assets.qrc PROPERTIES
+        SKIP_AUTOMOC ON
+        SKIP_AUTOUIC ON
+        SKIP_LINTING ON
+    )
+
+    modbus_target_embed_translations(ui
+        OUTPUT_DIR "${CMAKE_BINARY_DIR}/translations"
+        TS_FILES
+            ${ui_translation_ts}
+    )
 
 add_custom_target(update_translations
     COMMAND Qt6::lupdate
             "${CMAKE_CURRENT_SOURCE_DIR}"
             "${CMAKE_SOURCE_DIR}/core"
+            "${CMAKE_SOURCE_DIR}/infra"
             -ts ${ui_translation_ts}
             -no-obsolete
     WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"

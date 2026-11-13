@@ -1,6 +1,7 @@
 // Copyright (c) 2025 - present mingyucheng692. Licensed under the MIT License.
 
 #include "DisclaimerDialog.h"
+#include <QEvent>
 #include <QLabel>
 #include <QPushButton>
 #include <QVBoxLayout>
@@ -8,11 +9,23 @@
 #include <QFrame>
 #include <QDesktopServices>
 #include <QLocale>
+#include <QTranslator>
 #include <QUrl>
 
 namespace ui::widgets {
 
 namespace {
+constexpr char kDisclaimerContext[] = "ui::widgets::DisclaimerDialog";
+constexpr char kLanguageLabelSource[] = QT_TRANSLATE_NOOP("ui::widgets::DisclaimerDialog", "Language:");
+constexpr char kDisclaimerBodySource[] = QT_TRANSLATE_NOOP(
+    "ui::widgets::DisclaimerDialog",
+    "This tool is provided \"AS IS\" for testing and analysis only.\n\n"
+    "Improper operations may cause equipment damage or data loss.\n\n"
+    "You are solely responsible for all operations.");
+constexpr char kLearnMoreSource[] = QT_TRANSLATE_NOOP("ui::widgets::DisclaimerDialog", "📄 Learn more");
+constexpr char kAgreeSource[] = QT_TRANSLATE_NOOP("ui::widgets::DisclaimerDialog", "✅ Agree");
+constexpr char kExitSource[] = QT_TRANSLATE_NOOP("ui::widgets::DisclaimerDialog", "❌ Exit");
+
 QString systemDisclaimerLocale() {
     QLocale locale = QLocale::system();
     if (locale.language() == QLocale::Chinese) {
@@ -26,11 +39,22 @@ QString systemDisclaimerLocale() {
     }
     return QStringLiteral("en_US");
 }
+
+QString translateWithLocale(const QTranslator& translator, bool useTranslator, const char* sourceText) {
+    if (useTranslator) {
+        const QString translated = translator.translate(kDisclaimerContext, sourceText);
+        if (!translated.isEmpty()) {
+            return translated;
+        }
+    }
+    return QString::fromUtf8(sourceText);
 }
+} // namespace
 
 DisclaimerDialog::DisclaimerDialog(QWidget* parent)
     : QDialog(parent) {
     setupUi();
+    retranslateUi();
     applyLanguage(systemDisclaimerLocale());
 }
 
@@ -110,47 +134,42 @@ void DisclaimerDialog::setupUi() {
     connect(exitButton_, &QPushButton::clicked, this, &QDialog::reject);
 }
 
+void DisclaimerDialog::retranslateUi() {
+    languageLabel_->setText(tr(kLanguageLabelSource));
+    contentLabel_->setText(tr(kDisclaimerBodySource));
+    detailButton_->setText(tr(kLearnMoreSource));
+    acceptButton_->setText(tr(kAgreeSource));
+    exitButton_->setText(tr(kExitSource));
+}
+
+void DisclaimerDialog::changeEvent(QEvent* event) {
+    if (event->type() == QEvent::LanguageChange) {
+        retranslateUi();
+    }
+    QDialog::changeEvent(event);
+}
+
 void DisclaimerDialog::applyLanguage(const QString& lang) {
     currentLang_ = lang;
-    langEnButton_->setText("English");
-    langZhCnButton_->setText("简体中文");
-    langZhTwButton_->setText("繁體中文");
+    langEnButton_->setText(QStringLiteral("English"));
+    langZhCnButton_->setText(QStringLiteral("简体中文"));
+    langZhTwButton_->setText(QStringLiteral("繁體中文"));
 
-    langEnButton_->setEnabled(lang != "en_US");
-    langZhCnButton_->setEnabled(lang != "zh_CN");
-    langZhTwButton_->setEnabled(lang != "zh_TW");
+    langEnButton_->setEnabled(lang != QStringLiteral("en_US"));
+    langZhCnButton_->setEnabled(lang != QStringLiteral("zh_CN"));
+    langZhTwButton_->setEnabled(lang != QStringLiteral("zh_TW"));
 
-    if (lang == "zh_CN") {
-        languageLabel_->setText("语言切换：");
-        contentLabel_->setText(
-            "本工具按\"原样\"提供，仅供调试和学习使用。\n\n"
-            "执行不当操作可能导致设备损坏或数据丢失。\n\n"
-            "您需自行承担所有操作风险。"
-        );
-        detailButton_->setText("📄 查看详情");
-        acceptButton_->setText("✅ 同意");
-        exitButton_->setText("❌ 退出");
-    } else if (lang == "zh_TW") {
-        languageLabel_->setText("語言切換：");
-        contentLabel_->setText(
-            "本工具按「原樣」提供，僅供調試和學習使用。\n\n"
-            "執行不當操作可能導致設備損壞或數據丟失。\n\n"
-            "您需自行承擔所有操作風險。"
-        );
-        detailButton_->setText("📄 查看詳情");
-        acceptButton_->setText("✅ 同意");
-        exitButton_->setText("❌ 退出");
-    } else {
-        languageLabel_->setText("Language:");
-        contentLabel_->setText(
-            "This tool is provided \"AS IS\" for testing and analysis only.\n\n"
-            "Improper operations may cause equipment damage or data loss.\n\n"
-            "You are solely responsible for all operations."
-        );
-        detailButton_->setText("📄 Learn more");
-        acceptButton_->setText("✅ Agree");
-        exitButton_->setText("❌ Exit");
+    QTranslator translator;
+    bool loaded = false;
+    if (lang == QStringLiteral("zh_CN") || lang == QStringLiteral("zh_TW")) {
+        loaded = translator.load(QStringLiteral(":/i18n/Modbus-Tools_%1.qm").arg(lang));
     }
+
+    languageLabel_->setText(translateWithLocale(translator, loaded, kLanguageLabelSource));
+    contentLabel_->setText(translateWithLocale(translator, loaded, kDisclaimerBodySource));
+    detailButton_->setText(translateWithLocale(translator, loaded, kLearnMoreSource));
+    acceptButton_->setText(translateWithLocale(translator, loaded, kAgreeSource));
+    exitButton_->setText(translateWithLocale(translator, loaded, kExitSource));
 }
 
-}
+} // namespace ui::widgets

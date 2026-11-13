@@ -1,8 +1,8 @@
 // Copyright (c) 2025 - present mingyucheng692. Licensed under the MIT License.
 
 #include "FileExporter.h"
+#include <QCoreApplication>
 #include <QFile>
-#include <QObject>
 #include <QSaveFile>
 #include <QStringConverter>
 #include <QTextStream>
@@ -20,7 +20,7 @@ bool writeLinesStream(QIODevice& device, const QStringList& lines, QString* erro
     out.flush();
     if (out.status() != QTextStream::Ok) {
         if (error) {
-            *error = QObject::tr("Failed while writing text stream");
+            *error = QCoreApplication::translate("ui::common::FileExporter", "Failed while writing text stream");
         }
         return false;
     }

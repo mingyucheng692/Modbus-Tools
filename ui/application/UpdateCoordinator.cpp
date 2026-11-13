@@ -9,17 +9,11 @@
 #include "../core/update/UpdateManager.h"
 #include "infra/platform/PlatformInfo.h"
 
+#include <QCoreApplication>
 #include <QDateTime>
 #include <QDesktopServices>
 #include <QUrl>
 #include <spdlog/spdlog.h>
-#include "../core/common/TrContext.h"
-
-namespace {
-
-constexpr char kMainWindowCtx[] = "ui::MainWindow";
-
-} // namespace
 
 namespace ui::application {
 
@@ -155,8 +149,8 @@ void UpdateCoordinator::handleNoUpdateAvailable(const QString& currentVersion) {
     }
     if (checkingUpdateManually_ && view_) {
         view_->showUpdateInfoMessage(
-            TrContext<kMainWindowCtx>::tr("No Updates"),
-            TrContext<kMainWindowCtx>::tr("You are using the latest version: v%1").arg(currentVersion));
+            QCoreApplication::translate("ui::MainWindow", "No Updates"),
+            QCoreApplication::translate("ui::MainWindow", "You are using the latest version: v%1").arg(currentVersion));
     }
     checkingUpdateManually_ = false;
 }
@@ -166,7 +160,7 @@ void UpdateCoordinator::handleCheckFailed(const QString& reason) {
         view_->setUpdateCheckActionEnabled(true);
     }
     if (checkingUpdateManually_ && view_) {
-        view_->showUpdateWarningMessage(TrContext<kMainWindowCtx>::tr("Update Check Failed"), reason);
+        view_->showUpdateWarningMessage(QCoreApplication::translate("ui::MainWindow", "Update Check Failed"), reason);
     }
     checkingUpdateManually_ = false;
 }
@@ -181,11 +175,11 @@ void UpdateCoordinator::handleUpdateReadyToInstall(const QString& taskFile) {
         }
     } else {
         if (updateManager_ == nullptr && error.isEmpty()) {
-            error = TrContext<kMainWindowCtx>::tr("Update service unavailable");
+            error = QCoreApplication::translate("ui::MainWindow", "Update service unavailable");
         }
         SPDLOG_ERROR("UpdateCoordinator: Failed to launch updater: {}", error.toStdString());
         if (view_) {
-            view_->showUpdateCriticalMessage(TrContext<kMainWindowCtx>::tr("Update Failed"), error);
+            view_->showUpdateCriticalMessage(QCoreApplication::translate("ui::MainWindow", "Update Failed"), error);
         }
     }
     checkingUpdateManually_ = false;
@@ -194,7 +188,7 @@ void UpdateCoordinator::handleUpdateReadyToInstall(const QString& taskFile) {
 void UpdateCoordinator::handleUpdateFailed(const QString& error) {
     if (view_) view_->hideUpdateProgress();
     if (checkingUpdateManually_ && view_) {
-        view_->showUpdateWarningMessage(TrContext<kMainWindowCtx>::tr("Update Failed"), error);
+        view_->showUpdateWarningMessage(QCoreApplication::translate("ui::MainWindow", "Update Failed"), error);
     }
     checkingUpdateManually_ = false;
 }
@@ -229,8 +223,8 @@ void UpdateCoordinator::promptUpdateAction(const QString& currentVersion) {
         updateManager_->installMode() == core::update::UpdateInstallMode::DownloadOnly) {
         if (view_) {
             view_->showUpdateInfoMessage(
-                TrContext<kMainWindowCtx>::tr("Automatic Update Unsupported"),
-                TrContext<kMainWindowCtx>::tr("In-app automatic update is not supported on %1. Download the latest package instead.")
+                QCoreApplication::translate("ui::MainWindow", "Automatic Update Unsupported"),
+                QCoreApplication::translate("ui::MainWindow", "In-app automatic update is not supported on %1. Download the latest package instead.")
                     .arg(infra::platform::platformDisplayName()));
             if (view_->confirmOpenDownloadPage(pendingUpdateInfo_.latestVersion)) {
                 QDesktopServices::openUrl(QUrl(downloadUrl));

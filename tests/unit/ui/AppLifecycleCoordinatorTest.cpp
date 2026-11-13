@@ -154,9 +154,27 @@ TEST_F(AppLifecycleCoordinatorTest, AddressBasePersistenceAndRestoration) {
 
     settingsController_->setAddressBase(modbus::address::AddressBase::PlcAddress1Based);
     EXPECT_EQ(settingsController_->addressBase(), modbus::address::AddressBase::PlcAddress1Based);
+    EXPECT_EQ(settingsService_.value(QStringLiteral("modbus/addressBase")).toInt(),
+              static_cast<int>(modbus::address::AddressBase::PlcAddress1Based));
+
+    core::common::SettingsController reloaded(&settingsService_);
+    EXPECT_EQ(reloaded.addressBase(), modbus::address::AddressBase::PlcAddress1Based);
 
     settingsController_->setAddressBase(modbus::address::AddressBase::Offset0Based);
     EXPECT_EQ(settingsController_->addressBase(), modbus::address::AddressBase::Offset0Based);
+}
+
+TEST_F(AppLifecycleCoordinatorTest, NavigationToggleUpdatesViewAndPersistsSetting) {
+    EXPECT_FALSE(view_.isNavigationCollapsed());
+    EXPECT_FALSE(settingsController_->navigationCollapsed());
+
+    coordinator_->onNavigationToggleRequested();
+    EXPECT_TRUE(view_.isNavigationCollapsed());
+    EXPECT_TRUE(settingsController_->navigationCollapsed());
+
+    coordinator_->onNavigationToggleRequested();
+    EXPECT_FALSE(view_.isNavigationCollapsed());
+    EXPECT_FALSE(settingsController_->navigationCollapsed());
 }
 
 } // namespace

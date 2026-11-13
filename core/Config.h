@@ -37,6 +37,9 @@ struct Serial {
     static constexpr char kDefaultDataBitsText[] = "8";
     static constexpr char kDefaultParityText[] = "None";
     static constexpr char kDefaultStopBitsText[] = "1";
+    static constexpr char kDefaultFlowControlText[] = "none";
+    static constexpr char kDefaultAsciiDataBitsText[] = "7";
+    static constexpr char kDefaultAsciiParityText[] = "even";
     static constexpr int kDefaultBaudRate = 9600;
     static constexpr int kDefaultDataBits = 8;
     static constexpr int kDefaultStopBits = 1;

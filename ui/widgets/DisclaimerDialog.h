@@ -16,9 +16,15 @@ class DisclaimerDialog : public QDialog {
 public:
     explicit DisclaimerDialog(QWidget* parent = nullptr);
 
+    void applyLanguage(const QString& lang);
+    [[nodiscard]] const QString& currentLanguage() const noexcept { return currentLang_; }
+
+protected:
+    void changeEvent(QEvent* event) override;
+
 private:
     void setupUi();
-    void applyLanguage(const QString& lang);
+    void retranslateUi();
 
     QLabel* titleLabel_ = nullptr;
     QLabel* languageLabel_ = nullptr;

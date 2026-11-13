@@ -388,4 +388,36 @@ TEST(SettingsService, DefaultsCoverModbusAsciiNamespace)
          }) {
         EXPECT_FALSE(service.value(QString::fromLatin1(key)).isNull()) << key;
     }
+
+    EXPECT_EQ(service.value(QString::fromLatin1(kModbusAsciiDataBits)).toString(), QStringLiteral("7"));
+    EXPECT_EQ(service.value(QString::fromLatin1(kModbusAsciiParity)).toString(), QStringLiteral("even"));
+    EXPECT_EQ(service.value(QString::fromLatin1(kModbusAsciiFlowControl)).toString(), QStringLiteral("none"));
+
+    for (const char* key : {
+             kLoggingLevel,
+             kModbusAddressBase,
+             kModbusWorkbenchMode,
+             kModbusWorkbenchSlaveId,
+             kModbusWorkbenchFunctionCode,
+             kModbusWorkbenchStartAddress,
+             kModbusWorkbenchQuantity,
+             kModbusWorkbenchRadix,
+             kModbusWorkbenchDataRadix,
+             kModbusWorkbenchPollIntervalMs,
+             kModbusWorkbenchFc05Value,
+             kModbusWorkbenchFc06Value,
+             kModbusWorkbenchFc0fValue,
+             kModbusWorkbenchFc10Value,
+             kModbusWorkbenchRawText,
+             kModbusBuilderProtocol,
+             kModbusBuilderSlaveId,
+             kModbusBuilderFunctionCode,
+             kModbusBuilderAddressBase,
+             kModbusBuilderStartAddress,
+             kModbusBuilderQuantity,
+             kModbusBuilderWriteData,
+             kModbusBuilderDataFormat,
+         }) {
+        EXPECT_FALSE(service.value(QString::fromLatin1(key)).isNull()) << key;
+    }
 }

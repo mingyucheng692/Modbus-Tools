@@ -764,14 +764,149 @@ void FrameAnalyzerView::setStatusText(const QString& text, const QString& styleS
     }
 }
 
+namespace {
+
+QString formatByteHex(const QByteArray& data) {
+    return data.isEmpty() ? QStringLiteral("(empty)") : QString::fromLatin1(data.toHex(' ').toUpper());
+}
+
+QString joinUniqueDescriptions(std::initializer_list<QString> parts) {
+    QStringList uniqueParts;
+    for (const QString& part : parts) {
+        const QString trimmed = part.trimmed();
+        if (!trimmed.isEmpty() && !uniqueParts.contains(trimmed)) {
+            uniqueParts << trimmed;
+        }
+    }
+    return uniqueParts.join(QStringLiteral(" | "));
+}
+
+QTreeWidgetItem* appendTreeField(QTreeWidgetItem* parent, const QString& field,
+                                 const QString& value, const QString& desc = QString()) {
+    auto* item = new QTreeWidgetItem(parent);
+    item->setText(0, field);
+    item->setText(1, value);
+    item->setText(2, desc);
+    return item;
+}
+
+} // namespace
+
+void FrameAnalyzerView::renderTransportHeaderNodes(QTreeWidgetItem* root,
+                                                   const ParseResult& result,
+                                                   const modbus::base::AsciiAduFields& asciiFields)
+{
+    if (result.protocol == ProtocolType::Tcp) {
+        auto* mbap = appendTreeField(root, tr("MBAP Header"), formatByteHex(result.rawFrame.left(7)),
+                                     tr("Transaction + Protocol + Length + Unit ID"));
+        appendTreeField(mbap, tr("Transaction ID"),
+                        QString("%1 (%2)").arg(result.transactionId).arg(formatByteHex(result.rawFrame.mid(0, 2))),
+                        tr("Request/response correlation ID"));
+        appendTreeField(mbap, tr("Protocol ID"),
+                        QString("%1 (%2)").arg(result.protocolId).arg(formatByteHex(result.rawFrame.mid(2, 2))),
+                        tr("Modbus TCP protocol identifier"));
+        appendTreeField(mbap, tr("Length"),
+                        QString("%1 (%2)").arg(result.length).arg(formatByteHex(result.rawFrame.mid(4, 2))),
+                        tr("Remaining bytes after this field"));
+        appendTreeField(mbap, tr("Unit ID"),
+                        QString("%1 (%2)").arg(result.slaveId).arg(formatByteHex(result.rawFrame.mid(6, 1))),
+                        tr("Target slave / unit address"));
+    } else if (result.protocol == ProtocolType::Ascii) {
+        appendTreeField(root, tr("Slave ID"),
+                        QString("%1 (%2)").arg(result.slaveId).arg(formatByteHex(asciiFields.binaryAdu.mid(0, 1))),
+                        tr("Target slave address"));
+        appendTreeField(root, tr("ASCII Start"), formatByteHex(result.rawFrame.left(1)),
+                        tr("Start delimiter ':'"));
+        appendTreeField(root, tr("ASCII Payload"),
+                        QString::fromLatin1(result.rawFrame.mid(1, qMax(0, result.rawFrame.size() - 3))),
+                        tr("ASCII hex payload before CRLF"));
+    } else {
+        appendTreeField(root, tr("Slave ID"),
+                        QString("%1 (%2)").arg(result.slaveId).arg(formatByteHex(result.rawFrame.mid(0, 1))),
+                        tr("Target slave address"));
+    }
+}
+
+void FrameAnalyzerView::renderPduAndTrailerNodes(QTreeWidgetItem* root,
+                                                 const ParseResult& result,
+                                                 const QString& typeText,
+                                                 const modbus::base::AsciiAduFields& asciiFields,
+                                                 bool hasAsciiFields)
+{
+    const bool isTcp = result.protocol == ProtocolType::Tcp;
+    const QByteArray pduBytes =
+        isTcp ? result.rawFrame.mid(7, qMax(0, result.rawFrame.size() - 7)) :
+        result.protocol == ProtocolType::Ascii && hasAsciiFields
+            ? asciiFields.binaryAdu.mid(1, qMax(0, asciiFields.binaryAdu.size() - 2))
+            : result.rawFrame.mid(1, qMax(0, result.rawFrame.size() - 3));
+    const QByteArray payloadBytes = pduBytes.size() > 1 ? pduBytes.mid(1) : QByteArray();
+    const QByteArray functionCodeBytes =
+        isTcp ? result.rawFrame.mid(7, 1) :
+        result.protocol == ProtocolType::Ascii && hasAsciiFields ? asciiFields.binaryAdu.mid(1, 1) : result.rawFrame.mid(1, 1);
+
+    auto* pdu = appendTreeField(root, tr("PDU"), formatByteHex(pduBytes), tr("Function code + payload"));
+    const QString fcHex = QStringLiteral("0x%1").arg(static_cast<int>(result.functionCode), 2, 16, QChar('0')).toUpper();
+    appendTreeField(pdu, tr("Function Code"), QString("%1 (%2)").arg(fcHex).arg(formatByteHex(functionCodeBytes)),
+                    joinUniqueDescriptions({typeText, result.isException ? tr("Exception response") : tr("Normal response")}));
+    appendTreeField(pdu, tr("Payload"), formatByteHex(payloadBytes),
+                    result.isException ? tr("Exception detail payload") : tr("Application data payload"));
+    if (result.isException) {
+        appendTreeField(pdu, tr("Exception Code"),
+                        QStringLiteral("0x%1").arg(static_cast<int>(result.exceptionCode), 2, 16, QChar('0')).toUpper(),
+                        joinUniqueDescriptions({result.error, tr("Exception detail payload")}));
+    }
+    if (result.protocol == ProtocolType::Rtu) {
+        QString crcDesc = result.checksumValid ? tr("CRC valid") : tr("CRC invalid");
+        if (!result.checksumValid) {
+            crcDesc = joinUniqueDescriptions({crcDesc, tr("Expected 0x%1").arg(QString::number(result.calculatedChecksum, 16).toUpper())});
+        }
+        appendTreeField(root, tr("CRC16"),
+                        QString("%1 (%2)").arg(QStringLiteral("0x%1").arg(result.checksum, 4, 16, QChar('0')).toUpper())
+                                          .arg(formatByteHex(result.rawFrame.right(2))), crcDesc);
+    } else if (result.protocol == ProtocolType::Ascii) {
+        appendTreeField(root, tr("LRC"),
+                        QString("%1 (%2)").arg(QStringLiteral("0x%1").arg(result.checksum, 2, 16, QChar('0')).toUpper())
+                                          .arg(hasAsciiFields ? formatByteHex(asciiFields.binaryAdu.right(1)) : QStringLiteral("(n/a)")),
+                        result.checksumValid ? tr("LRC valid") : tr("LRC invalid"));
+        appendTreeField(root, tr("CRLF"), formatByteHex(result.rawFrame.right(2)), tr("ASCII frame terminator"));
+    }
+}
+
+void FrameAnalyzerView::renderOverviewTree(const ParseResult& result,
+                                           const QString& protocolText,
+                                           const QString& typeText)
+{
+    if (!overviewTree) return;
+    overviewTree->clear();
+    if (isLiveMode) {
+        auto* root = new QTreeWidgetItem(overviewTree);
+        root->setText(0, tr("Structure"));
+        root->setText(1, tr("(Unavailable in Live Mode)"));
+        root->setText(2, tr("Logical parsing is disabled for high-frequency linkage"));
+        root->setExpanded(true);
+        return;
+    }
+
+    modbus::base::AsciiAduFields asciiFields;
+    const bool hasAsciiFields =
+        result.protocol == ProtocolType::Ascii
+        && modbus::base::inspectAsciiAdu(result.rawFrame, &asciiFields) == result.rawFrame.size();
+
+    auto* root = new QTreeWidgetItem(overviewTree);
+    root->setText(0, tr("Frame"));
+    root->setText(1, tr("%1 bytes").arg(result.rawFrame.size()));
+    root->setText(2, joinUniqueDescriptions({protocolText, typeText}));
+
+    appendTreeField(root, tr("Frame Bytes"), formatByteHex(result.rawFrame), tr("Complete raw frame"));
+    renderTransportHeaderNodes(root, result, asciiFields);
+    renderPduAndTrailerNodes(root, result, typeText, asciiFields, hasAsciiFields);
+    overviewTree->expandAll();
+}
+
 void FrameAnalyzerView::renderResult(const ParseResult& result)
 {
-    if (overviewTree) {
-        overviewTree->clear();
-    }
-    if (dataTable) {
-        dataTable->clearTable();
-    }
+    if (overviewTree) overviewTree->clear();
+    if (dataTable) dataTable->clearTable();
 
     if (!result.isValid) {
         updateResetButtonState();
@@ -784,183 +919,13 @@ void FrameAnalyzerView::renderResult(const ParseResult& result)
     const QString protocolText =
         result.protocol == ProtocolType::Tcp ? tr("TCP") :
         result.protocol == ProtocolType::Rtu ? tr("RTU") :
-        result.protocol == ProtocolType::Ascii ? tr("ASCII") :
-        tr("Unknown");
+        result.protocol == ProtocolType::Ascii ? tr("ASCII") : tr("Unknown");
     const QString typeText =
         result.type == FrameType::Request ? tr("Request") :
         result.type == FrameType::Response ? tr("Response") :
-        result.type == FrameType::Exception ? tr("Exception") :
-        tr("Unknown");
+        result.type == FrameType::Exception ? tr("Exception") : tr("Unknown");
 
-    auto byteHex = [](const QByteArray& data) {
-        return data.isEmpty() ? QStringLiteral("(empty)") : QString::fromLatin1(data.toHex(' ').toUpper());
-    };
-
-    modbus::base::AsciiAduFields asciiFields;
-    const bool hasAsciiFields =
-        result.protocol == ProtocolType::Ascii
-        && modbus::base::inspectAsciiAdu(result.rawFrame, &asciiFields) == result.rawFrame.size();
-
-    auto buildDescription = [](std::initializer_list<QString> parts) {
-        QStringList uniqueParts;
-        for (const QString& part : parts) {
-            const QString trimmed = part.trimmed();
-            if (trimmed.isEmpty() || uniqueParts.contains(trimmed)) {
-                continue;
-            }
-            uniqueParts << trimmed;
-        }
-        return uniqueParts.join(QStringLiteral(" | "));
-    };
-
-    // Helper for adding tree items
-    auto addTreeItem = [](QTreeWidgetItem* parent, const QString& field, const QString& value, const QString& desc = QString()) {
-        auto* item = new QTreeWidgetItem(parent);
-        item->setText(0, field);
-        item->setText(1, value);
-        item->setText(2, desc);
-        return item;
-    };
-
-    if (overviewTree) {
-        overviewTree->clear();
-        if (isLiveMode) {
-            auto* root = new QTreeWidgetItem(overviewTree);
-            root->setText(0, tr("Structure"));
-            root->setText(1, tr("(Unavailable in Live Mode)"));
-            root->setText(2, tr("Logical parsing is disabled for high-frequency linkage"));
-            root->setExpanded(true);
-        } else {
-            auto* root = new QTreeWidgetItem(overviewTree);
-            root->setText(0, tr("Frame"));
-            root->setText(1, tr("%1 bytes").arg(result.rawFrame.size()));
-            root->setText(2, buildDescription({protocolText, typeText}));
-
-            addTreeItem(root, tr("Frame Bytes"), byteHex(result.rawFrame), tr("Complete raw frame"));
-
-            if (result.protocol == ProtocolType::Tcp) {
-                auto* mbap = addTreeItem(
-                    root,
-                    tr("MBAP Header"),
-                    byteHex(result.rawFrame.left(7)),
-                    tr("Transaction + Protocol + Length + Unit ID"));
-                addTreeItem(
-                    mbap,
-                    tr("Transaction ID"),
-                    QString("%1 (%2)").arg(result.transactionId).arg(byteHex(result.rawFrame.mid(0, 2))),
-                    tr("Request/response correlation ID"));
-                addTreeItem(
-                    mbap,
-                    tr("Protocol ID"),
-                    QString("%1 (%2)").arg(result.protocolId).arg(byteHex(result.rawFrame.mid(2, 2))),
-                    tr("Modbus TCP protocol identifier"));
-                addTreeItem(
-                    mbap,
-                    tr("Length"),
-                    QString("%1 (%2)").arg(result.length).arg(byteHex(result.rawFrame.mid(4, 2))),
-                    tr("Remaining bytes after this field"));
-                addTreeItem(
-                    mbap,
-                    tr("Unit ID"),
-                    QString("%1 (%2)").arg(result.slaveId).arg(byteHex(result.rawFrame.mid(6, 1))),
-                    tr("Target slave / unit address"));
-            } else if (result.protocol == ProtocolType::Ascii) {
-                addTreeItem(
-                    root,
-                    tr("Slave ID"),
-                    QString("%1 (%2)").arg(result.slaveId).arg(byteHex(asciiFields.binaryAdu.mid(0, 1))),
-                    tr("Target slave address"));
-                addTreeItem(
-                    root,
-                    tr("ASCII Start"),
-                    byteHex(result.rawFrame.left(1)),
-                    tr("Start delimiter ':'"));
-                addTreeItem(
-                    root,
-                    tr("ASCII Payload"),
-                    QString::fromLatin1(result.rawFrame.mid(1, qMax(0, result.rawFrame.size() - 3))),
-                    tr("ASCII hex payload before CRLF"));
-            } else {
-                addTreeItem(
-                    root,
-                    tr("Slave ID"),
-                    QString("%1 (%2)").arg(result.slaveId).arg(byteHex(result.rawFrame.mid(0, 1))),
-                    tr("Target slave address"));
-            }
-
-            const bool isTcp = result.protocol == ProtocolType::Tcp;
-            const QByteArray pduBytes =
-                isTcp ? result.rawFrame.mid(7, qMax(0, result.rawFrame.size() - 7)) :
-                result.protocol == ProtocolType::Ascii && hasAsciiFields
-                    ? asciiFields.binaryAdu.mid(1, qMax(0, asciiFields.binaryAdu.size() - 2))
-                    : result.rawFrame.mid(1, qMax(0, result.rawFrame.size() - 3));
-            const QByteArray payloadBytes =
-                pduBytes.size() > 1 ? pduBytes.mid(1) : QByteArray();
-            const QByteArray functionCodeBytes =
-                isTcp ? result.rawFrame.mid(7, 1) :
-                result.protocol == ProtocolType::Ascii && hasAsciiFields
-                    ? asciiFields.binaryAdu.mid(1, 1)
-                    : result.rawFrame.mid(1, 1);
-
-            auto* pdu = addTreeItem(
-                root,
-                tr("PDU"),
-                byteHex(pduBytes),
-                tr("Function code + payload"));
-            const QString fcHex = QStringLiteral("0x%1").arg(static_cast<int>(result.functionCode), 2, 16, QChar('0')).toUpper();
-            addTreeItem(
-                pdu,
-                tr("Function Code"),
-                    QString("%1 (%2)").arg(fcHex).arg(byteHex(functionCodeBytes)),
-                buildDescription({typeText, result.isException ? tr("Exception response") : tr("Normal response")}));
-            addTreeItem(
-                pdu,
-                tr("Payload"),
-                byteHex(payloadBytes),
-                result.isException ? tr("Exception detail payload") : tr("Application data payload"));
-
-            if (result.isException) {
-                addTreeItem(
-                    pdu,
-                    tr("Exception Code"),
-                    QStringLiteral("0x%1").arg(static_cast<int>(result.exceptionCode), 2, 16, QChar('0')).toUpper(),
-                    buildDescription({result.error, tr("Exception detail payload")}));
-            }
-
-            if (result.protocol == ProtocolType::Rtu) {
-                QString crcDescription = result.checksumValid ? tr("CRC valid") : tr("CRC invalid");
-                if (!result.checksumValid) {
-                    crcDescription = buildDescription({
-                        crcDescription,
-                        tr("Expected 0x%1").arg(QString::number(result.calculatedChecksum, 16).toUpper())
-                    });
-                }
-                addTreeItem(
-                    root,
-                    tr("CRC16"),
-                    QString("%1 (%2)")
-                        .arg(QStringLiteral("0x%1").arg(result.checksum, 4, 16, QChar('0')).toUpper())
-                        .arg(byteHex(result.rawFrame.right(2))),
-                    crcDescription);
-            }
-            if (result.protocol == ProtocolType::Ascii) {
-                addTreeItem(
-                    root,
-                    tr("LRC"),
-                    QString("%1 (%2)")
-                        .arg(QStringLiteral("0x%1").arg(result.checksum, 2, 16, QChar('0')).toUpper())
-                        .arg(hasAsciiFields ? byteHex(asciiFields.binaryAdu.right(1)) : QStringLiteral("(n/a)")),
-                    result.checksumValid ? tr("LRC valid") : tr("LRC invalid"));
-                addTreeItem(
-                    root,
-                    tr("CRLF"),
-                    byteHex(result.rawFrame.right(2)),
-                    tr("ASCII frame terminator"));
-            }
-
-            overviewTree->expandAll();
-        }
-    }
+    renderOverviewTree(result, protocolText, typeText);
 
     if (dataTable) {
         modbus::address::AddressBase addressBase = modbus::address::AddressBase::Offset0Based;

@@ -1127,10 +1127,10 @@ void ModbusWorkbenchWidget::retranslateAddressingUi() {
     {
         const QSignalBlocker blocker(fcCombo_);
         static constexpr const char* kFcCanonicalNames[] = {
-            "0x01 Read Coils", "0x02 Read Discrete Inputs",
-            "0x03 Read Holding Registers", "0x04 Read Input Registers",
-            "0x05 Write Single Coil", "0x06 Write Single Register",
-            "0x0F Write Multiple Coils", "0x10 Write Multiple Registers"
+            QT_TR_NOOP("0x01 Read Coils"), QT_TR_NOOP("0x02 Read Discrete Inputs"),
+            QT_TR_NOOP("0x03 Read Holding Registers"), QT_TR_NOOP("0x04 Read Input Registers"),
+            QT_TR_NOOP("0x05 Write Single Coil"), QT_TR_NOOP("0x06 Write Single Register"),
+            QT_TR_NOOP("0x0F Write Multiple Coils"), QT_TR_NOOP("0x10 Write Multiple Registers")
         };
         for (int i = 0; i < 8; ++i) {
             fcCombo_->setItemText(i, tr(kFcCanonicalNames[i]));

@@ -4,13 +4,23 @@
 
 #include "../../../ui/widgets/SerialConnectionWidget.h"
 #include "../../../ui/widgets/TcpConnectionWidget.h"
+#include "../../../ui/widgets/DisclaimerDialog.h"
 #include "../../../ui/widgets/modbus/ModbusTelemetryWidget.h"
 #include "../../../ui/widgets/modbus/ModbusWorkbenchWidget.h"
 #include "../../../ui/views/modbus/ModbusPage.h"
-#include "../../../ui/application/AnalyzerLinkCoordinator.h"
+#include "../../../ui/application/modbus/ModbusPagePresenter.h"
+#include "../../../ui/application/modbus/ModbusSessionPresenter.h"
+#include "../../../core/modbus/session/SessionTypes.h"
+#include "../../../ui/MainWindow.h"
+#include "../../../ui/common/ThemeController.h"
+#include "../../../infra/platform/PathResolver.h"
+#include "../../mocks/MockModbusPageView.h"
 #include "../../mocks/UiTestDoubles.h"
 
 #include <QApplication>
+#include <QMenuBar>
+#include <QTemporaryDir>
+#include <QToolButton>
 #include <QSignalSpy>
 #include <QCheckBox>
 #include <QComboBox>
@@ -305,11 +315,67 @@ TEST(I18nWidgets, ModbusPage_StatusBannerAndProtocolComboGuard)
     EXPECT_TRUE(combo->isEnabled());
 }
 
-TEST(I18nWidgets, AnalyzerLinkCoordinator_BindNullPointers_IsSafeNoOp)
+TEST(I18nWidgets, DisclaimerDialog_RetranslatesAcrossThreeLocales)
 {
-    ui::application::AnalyzerLinkCoordinator coordinator;
-    EXPECT_NO_THROW(coordinator.bind(nullptr, nullptr));
-    EXPECT_EQ(coordinator.state(), ui::application::AnalyzerLinkCoordinator::LinkState::Idle);
+    ui::widgets::DisclaimerDialog dialog;
+    auto hasButtonText = [&](const QString& expected) {
+        for (auto* btn : dialog.findChildren<QPushButton*>()) {
+            if (btn->text() == expected) return true;
+        }
+        return false;
+    };
+
+    dialog.applyLanguage(QStringLiteral("en_US"));
+    EXPECT_EQ(dialog.currentLanguage(), QStringLiteral("en_US"));
+    EXPECT_TRUE(hasButtonText(QStringLiteral("✅ Agree")));
+
+    dialog.applyLanguage(QStringLiteral("zh_CN"));
+    EXPECT_EQ(dialog.currentLanguage(), QStringLiteral("zh_CN"));
+    EXPECT_TRUE(hasButtonText(QStringLiteral("✅ 同意并继续")));
+
+    dialog.applyLanguage(QStringLiteral("zh_TW"));
+    EXPECT_EQ(dialog.currentLanguage(), QStringLiteral("zh_TW"));
+    EXPECT_TRUE(hasButtonText(QStringLiteral("✅ 同意並繼續")));
+
+    dialog.applyLanguage(QStringLiteral("en_US"));
+    EXPECT_TRUE(hasButtonText(QStringLiteral("✅ Agree")));
 }
+
+TEST(I18nWidgets, MainWindow_RetranslateUiUpdatesThemeToggleTooltip)
+{
+    QTemporaryDir sandbox;
+    ASSERT_TRUE(sandbox.isValid());
+    infra::platform::PathResolver resolver(sandbox.path());
+    tests::mocks::FakeSettingsService settings;
+    settings.setValue(QStringLiteral("app/disclaimerAccepted"), true);
+    settings.setValue(QStringLiteral("app/updateCheckFrequency"), QStringLiteral("never"));
+    settings.setValue(QStringLiteral("app/language"), QStringLiteral("en_US"));
+    ui::common::ThemeController theme(settings);
+    ui::MainWindow window(&settings, &theme, resolver);
+
+    auto* cornerBtn = qobject_cast<QToolButton*>(window.menuBar()->cornerWidget(Qt::TopRightCorner));
+    ASSERT_NE(cornerBtn, nullptr);
+    EXPECT_EQ(cornerBtn->toolTip(), QStringLiteral("Theme: Auto"));
+
+    ScopedTranslator translator(QStringLiteral("Modbus-Tools_zh_CN.qm"));
+    ASSERT_TRUE(translator.isLoaded());
+    static_cast<ui::application::IMainWindowView&>(window).retranslateUi(QStringLiteral("zh_CN"));
+    EXPECT_EQ(cornerBtn->toolTip(), QStringLiteral("主题：自动"));
+}
+
+TEST(I18nWidgets, ModbusPagePresenter_ExceptionCodeTranslatesUnderClassContext)
+{
+    ScopedTranslator translator(QStringLiteral("Modbus-Tools_zh_CN.qm"));
+    ASSERT_TRUE(translator.isLoaded());
+
+    const auto resp = ::modbus::session::ModbusResponse::Error(
+        ::modbus::base::ModbusError::ExceptionResponse,
+        QString(),
+        1,
+        ::modbus::base::ExceptionCode::IllegalDataAddress);
+    EXPECT_EQ(ui::application::modbus::ModbusPagePresenter::formatModbusError(resp),
+              QStringLiteral("Modbus 异常：非法数据地址 (0x02)"));
+}
+
 
 

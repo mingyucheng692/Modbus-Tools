@@ -70,15 +70,19 @@ QString value_formatter::buildDescriptionTooltip(const QVariant& value, const Da
 {
     QStringList lines;
     if (!meta.description.trimmed().isEmpty()) {
-        lines << tr("Description: %1").arg(meta.description.trimmed());
+        lines << QCoreApplication::translate("modbus::analyzer::value_formatter", "Description: %1")
+                     .arg(meta.description.trimmed());
     }
     bool ok = false;
     const double raw = numericValueForDisplay(value, mode, &ok);
     if (ok && !std::isnan(raw) && !std::isinf(raw)) {
         const double scaled = raw * meta.scale;
-        lines << tr("Raw: %1").arg(QString::number(raw, 'g', 12));
-        lines << tr("Scale: %1").arg(QString::number(meta.scale, 'g', 12));
-        lines << tr("Scaled: %1").arg(QString::number(scaled, 'g', 12));
+        lines << QCoreApplication::translate("modbus::analyzer::value_formatter", "Raw: %1")
+                     .arg(QString::number(raw, 'g', 12));
+        lines << QCoreApplication::translate("modbus::analyzer::value_formatter", "Scale: %1")
+                     .arg(QString::number(meta.scale, 'g', 12));
+        lines << QCoreApplication::translate("modbus::analyzer::value_formatter", "Scaled: %1")
+                     .arg(QString::number(scaled, 'g', 12));
     }
     return lines.join('\n');
 }
@@ -91,16 +95,21 @@ QString value_formatter::buildDescriptionTooltip(
 {
     QStringList lines;
     if (!meta.description.trimmed().isEmpty()) {
-        lines << tr("Description: %1").arg(meta.description.trimmed());
+        lines << QCoreApplication::translate("modbus::analyzer::value_formatter", "Description: %1")
+                     .arg(meta.description.trimmed());
     }
     const auto decoded = modbus::codec::decodeRegister(rawBytes, type, order);
     if (decoded.isValid) {
-        lines << tr("Raw: %1").arg(decoded.displayText);
-        lines << tr("Scale: %1").arg(QString::number(meta.scale, 'g', 12));
+        lines << QCoreApplication::translate("modbus::analyzer::value_formatter", "Raw: %1")
+                     .arg(decoded.displayText);
+        lines << QCoreApplication::translate("modbus::analyzer::value_formatter", "Scale: %1")
+                     .arg(QString::number(meta.scale, 'g', 12));
         if (decoded.isNanOrInf) {
-            lines << tr("Scaled: %1").arg(decoded.displayText);
+            lines << QCoreApplication::translate("modbus::analyzer::value_formatter", "Scaled: %1")
+                         .arg(decoded.displayText);
         } else {
-            lines << tr("Scaled: %1").arg(modbus::codec::formatEngineeringValue(decoded, meta.scale, type));
+            lines << QCoreApplication::translate("modbus::analyzer::value_formatter", "Scaled: %1")
+                         .arg(modbus::codec::formatEngineeringValue(decoded, meta.scale, type));
         }
     }
     return lines.join('\n');
