@@ -162,4 +162,8 @@ struct Io {
     static constexpr int kMaxChunkSizeBytes = 65536;
 };
 
+struct Update {
+    static constexpr int kCheckTransferTimeoutMs = 15000;
+};
+
 } // namespace config

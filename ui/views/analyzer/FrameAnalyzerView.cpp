@@ -303,7 +303,7 @@ void FrameAnalyzerView::createResultGroup()
     liveLayout->addWidget(linkagePauseBtn);
 
     linkageStopBtn = new QPushButton(tr("Stop Link"), this);
-    linkageStopBtn->setStyleSheet(QStringLiteral("color: #EF4444; border: 1px solid #EF4444; background-color: white; font-weight: bold; padding: 0 10px; border-radius: 4px;"));
+    linkageStopBtn->setStyleSheet(QStringLiteral("color: #EF4444; border: 1px solid #EF4444; background-color: transparent; font-weight: bold; padding: 0 10px; border-radius: 4px;"));
     linkageStopBtn->setMinimumHeight(28);
     linkageStopBtn->setVisible(false);
     connect(linkageStopBtn, &QPushButton::clicked, this, [this]() {
@@ -329,10 +329,10 @@ void FrameAnalyzerView::createResultGroup()
     connect(displayModeCombo, qOverload<int>(&QComboBox::currentIndexChanged), this, [this]() {
         globalDataType = static_cast<RegisterDataType>(displayModeCombo->currentData().toInt());
         displayMode = (globalDataType == RegisterDataType::Int16) ? NumberDisplayMode::Signed : NumberDisplayMode::Unsigned;
-        if (!isLiveMode && !inputEditor->toPlainText().trimmed().isEmpty()) {
-            onParseClicked();
-        } else if (currentResult.isValid) {
+        if (currentResult.isValid) {
             renderResult(currentResult);
+        } else if (!isLiveMode && !inputEditor->toPlainText().trimmed().isEmpty()) {
+            onParseClicked();
         }
     });
 
@@ -346,10 +346,10 @@ void FrameAnalyzerView::createResultGroup()
     registerOrderCombo->setMinimumWidth(60);
     connect(registerOrderCombo, qOverload<int>(&QComboBox::currentIndexChanged), this, [this](int index) {
         registerOrder = static_cast<modbus::base::RegisterOrder>(registerOrderCombo->itemData(index).toInt());
-        if (!isLiveMode && !inputEditor->toPlainText().trimmed().isEmpty()) {
-            onParseClicked();
-        } else if (currentResult.isValid) {
+        if (currentResult.isValid) {
             renderResult(currentResult);
+        } else if (!isLiveMode && !inputEditor->toPlainText().trimmed().isEmpty()) {
+            onParseClicked();
         }
     });
 
@@ -388,7 +388,10 @@ void FrameAnalyzerView::createResultGroup()
     toggleHistoryBtn = new QPushButton(this);
     toggleHistoryBtn->setMinimumWidth(0);
     toggleHistoryBtn->setMinimumHeight(28);
-    connect(toggleHistoryBtn, &QPushButton::clicked, this, [this]() { setHistoryCollapsed(!historyCollapsed); });
+    connect(toggleHistoryBtn, &QPushButton::clicked, this, [this]() {
+        setHistoryCollapsed(!historyCollapsed);
+        saveSettings();
+    });
     updateHistoryToggleText();
     resultToolbarLayout->addWidget(toggleHistoryBtn);
 
@@ -455,7 +458,7 @@ void FrameAnalyzerView::setHistoryCollapsed(bool collapsed)
             totalWidth = width();
         }
         if (totalWidth <= 200) {
-            totalWidth = 1000; // Ensure a sane default if parent width is also unavailable
+            totalWidth = config::Ui::kFrameAnalyzerAdaptiveHistoryCollapseWidth; // Ensure a sane default if parent width is also unavailable
         }
 
         int hWidth = qMax(config::Ui::kFrameAnalyzerMinHistoryWidth, lastHistoryPanelWidth);
@@ -507,7 +510,27 @@ void FrameAnalyzerView::addToHistory(const modbus::parser::ParseResult& result)
 
 void FrameAnalyzerView::onFormatClicked()
 {
-    const QString text = normalizeHexInput(inputEditor->toPlainText());
+    const QString rawText = inputEditor->toPlainText();
+    const QString rawTrimmed = rawText.trimmed();
+    const bool isAsciiProtocol = protocolCombo &&
+        protocolCombo->currentData().value<ProtocolType>() == ProtocolType::Ascii;
+
+    if (rawTrimmed.startsWith(QLatin1Char(':'))) {
+        const QString normalizedAscii = normalizeHexInput(rawText);
+        if (normalizedAscii.startsWith(QLatin1Char(':'))) {
+            inputEditor->setPlainText(normalizedAscii);
+        } else {
+            QString hexBody = rawTrimmed.mid(1);
+            hexBody.remove(QRegularExpression(QStringLiteral("[^0-9A-Fa-f]")));
+            inputEditor->setPlainText(QStringLiteral(":") + hexBody.toUpper());
+        }
+        return;
+    }
+
+    const QString text = normalizeHexInput(rawText);
+    if (isAsciiProtocol && text.isEmpty() && !rawTrimmed.isEmpty()) {
+        return;
+    }
 
     QString formatted;
     for (int i = 0; i < text.length(); i += 2) {
@@ -548,12 +571,18 @@ void FrameAnalyzerView::loadAndParseHex(const QString& hex)
 
 void FrameAnalyzerView::onClearClicked()
 {
+    const bool wasLive = isLiveMode;
     ++latestParseRequestId;
     parseInProgress = false;
     if (parseBtn) parseBtn->setEnabled(true);
     if (pasteAndParseBtn) pasteAndParseBtn->setEnabled(true);
+    currentResult = ::modbus::parser::ParseResult{};
+    lastLiveResult = ::modbus::parser::ParseResult{};
     inputEditor->clear();
     clearResult();
+    if (wasLive) {
+        emit linkageStopRequested();
+    }
 }
 
 void FrameAnalyzerView::onParseClicked()
@@ -849,7 +878,7 @@ void FrameAnalyzerView::renderResult(const ParseResult& result)
                 addTreeItem(
                     root,
                     tr("ASCII Payload"),
-                    QString::fromLatin1(result.rawFrame.mid(1, result.rawFrame.size() - 3)),
+                    QString::fromLatin1(result.rawFrame.mid(1, qMax(0, result.rawFrame.size() - 3))),
                     tr("ASCII hex payload before CRLF"));
             } else {
                 addTreeItem(
@@ -979,6 +1008,7 @@ void FrameAnalyzerView::clearResult()
     if (registerOrderCombo) registerOrderCombo->setEnabled(true);
 
     if (wasLive && lastLiveResult.isValid) {
+        currentResult = lastLiveResult;
         renderResult(lastLiveResult);
     } else {
         if (dataTable) dataTable->clearTable();
@@ -1050,19 +1080,29 @@ void FrameAnalyzerView::loadSettings()
 {
     if (!settingsService_) return;
 
-    QSignalBlocker blocker(startAddrEdit);
-    const QString startAddr = settingsService_->value(core::common::settings_keys::kFrameAnalyzerStartAddr).toString();
-    if (!startAddr.isEmpty()) {
-        startAddrEdit->setText(startAddr);
-    } else {
-        startAddrEdit->setText(QString::number(config::Modbus::kDefaultStandardStartAddress));
+    {
+        QSignalBlocker blocker(startAddrEdit);
+        const QString startAddr = settingsService_->value(core::common::settings_keys::kFrameAnalyzerStartAddr).toString();
+        if (!startAddr.isEmpty()) {
+            startAddrEdit->setText(startAddr);
+        } else {
+            startAddrEdit->setText(QString::number(config::Modbus::kDefaultStandardStartAddress));
+        }
     }
 
     const int mode = settingsService_->value(core::common::settings_keys::kFrameAnalyzerDecodeMode).toInt();
     if (displayModeCombo && mode >= 0 && mode < displayModeCombo->count()) {
+        QSignalBlocker blocker(displayModeCombo);
         displayModeCombo->setCurrentIndex(mode);
         globalDataType = static_cast<RegisterDataType>(displayModeCombo->currentData().toInt());
         displayMode = (globalDataType == RegisterDataType::Int16) ? NumberDisplayMode::Signed : NumberDisplayMode::Unsigned;
+    }
+
+    if (settingsService_->contains(core::common::settings_keys::kFrameAnalyzerHistoryCollapsed)) {
+        const bool collapsed = settingsService_->value(core::common::settings_keys::kFrameAnalyzerHistoryCollapsed).toBool();
+        if (collapsed != historyCollapsed) {
+            setHistoryCollapsed(collapsed);
+        }
     }
 }
 
@@ -1071,12 +1111,13 @@ void FrameAnalyzerView::saveSettings()
     if (!settingsService_) return;
     settingsService_->setValue(core::common::settings_keys::kFrameAnalyzerStartAddr, startAddrEdit->text());
     settingsService_->setValue(core::common::settings_keys::kFrameAnalyzerDecodeMode, displayModeCombo->currentIndex());
+    settingsService_->setValue(core::common::settings_keys::kFrameAnalyzerHistoryCollapsed, historyCollapsed);
 }
 
 void FrameAnalyzerView::updateAdaptiveLayout()
 {
     if (!contentSplitter || !toggleHistoryBtn) return;
-    const bool shouldCollapse = width() < 1000;
+    const bool shouldCollapse = width() < config::Ui::kFrameAnalyzerAdaptiveHistoryCollapseWidth;
     if (shouldCollapse != historyAutoCollapsed) {
         historyAutoCollapsed = shouldCollapse;
         setHistoryCollapsed(shouldCollapse);
@@ -1150,7 +1191,15 @@ void FrameAnalyzerView::retranslateUi()
         }
     } else {
         if (liveLabel) liveLabel->setText(QString());
-        if (statusLabel) setStatusText(tr("Ready"), QStringLiteral("color: gray;"));
+        if (statusLabel) {
+            if (parseInProgress) {
+                setStatusText(tr("Parsing..."), QStringLiteral("color: gray;"));
+            } else if (!currentResult.isValid) {
+                setStatusText(
+                    currentResult.error.isEmpty() ? tr("Ready") : currentResult.error,
+                    currentResult.error.isEmpty() ? QStringLiteral("color: gray;") : QStringLiteral("color: red;"));
+            }
+        }
     }
 
     if (formatBtn) formatBtn->setText(tr("Format"));
@@ -1187,6 +1236,9 @@ void FrameAnalyzerView::retranslateUi()
 
     updateResetButtonState();
     refreshHistoryList();
+    if (!isLiveMode && !parseInProgress && currentResult.isValid) {
+        renderResult(currentResult);
+    }
 }
 
 } // namespace ui::views::analyzer

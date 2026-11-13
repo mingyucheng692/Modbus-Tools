@@ -29,6 +29,7 @@ public:
                     ::modbus::address::AddressBase addressBase = ::modbus::address::AddressBase::Offset0Based);
     void clearTable();
     void exportCsv();
+    [[nodiscard]] bool exportCsvToFile(const QString& filePath, QString* error = nullptr) const;
     void resetSelectedToDefault();
     void resetAllToDefault();
     void batchSetSelectedType(::modbus::analyzer::RegisterDataType targetType);

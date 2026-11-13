@@ -45,6 +45,16 @@ TEST(ModbusDataHelperTest, ParseSmartInt) {
     
     data_helper::parseSmartInt("0x12H", &ok);
     EXPECT_FALSE(ok);
+
+    // Signed hex literals must be rejected in 0x and H modes.
+    data_helper::parseSmartInt("0x-10", &ok);
+    EXPECT_FALSE(ok);
+    data_helper::parseSmartInt("0x+10", &ok);
+    EXPECT_FALSE(ok);
+    data_helper::parseSmartInt("-10H", &ok);
+    EXPECT_FALSE(ok);
+    data_helper::parseSmartInt("+10H", &ok);
+    EXPECT_FALSE(ok);
 }
 
 TEST(ModbusDataHelperTest, ConvertPastedText) {

@@ -16,6 +16,7 @@
 #include "widgets/GenericInputWidget.h"
 #include "widgets/ByteMonitorWidget.h"
 #include "widgets/ServerClientPanel.h"
+#include "modbus/base/ModbusAduBuilder.h"
 
 #include <QListView>
 #include <QListWidget>
@@ -37,6 +38,7 @@
 #include <QLineEdit>
 #include <QPlainTextEdit>
 #include <QPushButton>
+#include <QResizeEvent>
 #include <QSignalSpy>
 #include <QSpinBox>
 #include <QTabWidget>
@@ -254,7 +256,7 @@ TEST_F(FrameBuilderTest, CopyFormats_ContainExactFrame) {
     EXPECT_EQ(spy.takeFirst().at(0).toString(), QStringLiteral("010300000002C40B"));
 
     button(*widget, "builderCopyCArray")->click();
-    const QString expectedCArray = QStringLiteral("const uint8_t frame[8] = { 0X01, 0X03, 0X00, 0X00, 0X00, 0X02, 0XC4, 0X0B };");
+    const QString expectedCArray = QStringLiteral("const uint8_t frame[8] = { 0x01, 0x03, 0x00, 0x00, 0x00, 0x02, 0xC4, 0x0B };");
     ASSERT_EQ(spy.count(), 1);
     EXPECT_EQ(spy.takeFirst().at(0).toString(), expectedCArray);
 
@@ -575,6 +577,95 @@ TEST(NetworkDebuggerLoopback, Udp_RapidRebindResetsManualDisconnectAndGeneration
 
     ASSERT_TRUE(QMetaObject::invokeMethod(&view, "onUnbindClicked", Qt::DirectConnection));
     EXPECT_TRUE(await([&]() { return monitorContains(view, QStringLiteral("Closed")); }));
+}
+
+TEST(FrameAnalyzerViewBatch4Test, FormatProtectsAsciiAndModeSwitchDoesNotDuplicateHistory) {
+    tests::mocks::FakeSettingsService settings;
+    Analyzer analyzer(&settings);
+    auto* editor = analyzer.findChild<QPlainTextEdit*>();
+    auto* historyList = analyzer.findChild<QListWidget*>();
+    ASSERT_NE(editor, nullptr);
+    ASSERT_NE(historyList, nullptr);
+
+    QPushButton* formatBtn = nullptr;
+    QPushButton* parseBtn = nullptr;
+    for (auto* btn : analyzer.findChildren<QPushButton*>()) {
+        if (btn->text() == QStringLiteral("Format")) formatBtn = btn;
+        if (btn->text() == QStringLiteral("Parse")) parseBtn = btn;
+    }
+    ASSERT_NE(formatBtn, nullptr);
+    ASSERT_NE(parseBtn, nullptr);
+
+    // Format must preserve Modbus ASCII ':' frame prefix cleanly.
+    editor->setPlainText(QStringLiteral(":010300000002fa"));
+    formatBtn->click();
+    EXPECT_EQ(editor->toPlainText(), QStringLiteral(":010300000002FA\n"));
+
+    auto* presenter = analyzer.findChild<Presenter*>();
+    ASSERT_NE(presenter, nullptr);
+    QSignalSpy parsed(presenter, &Presenter::parseFinished);
+    const QByteArray validRtu = ::modbus::base::buildRtuAdu(
+        1, ::modbus::base::Pdu(::modbus::base::FunctionCode::ReadHoldingRegisters,
+                              QByteArray::fromHex("0442F6E979")));
+    editor->setPlainText(QString::fromLatin1(validRtu.toHex(' ').toUpper()));
+    parseBtn->click();
+    ASSERT_TRUE(parsed.wait(3000));
+    EXPECT_EQ(historyList->count(), 1);
+
+    // Switching decode mode or byte order recomputes decoded view without adding duplicate history.
+    auto combos = analyzer.findChildren<QComboBox*>();
+    ASSERT_GE(combos.size(), 3);
+    combos.at(1)->setCurrentIndex(2); // Float32
+    combos.at(2)->setCurrentIndex(1); // BADC
+    EXPECT_EQ(historyList->count(), 1);
+
+    // LanguageChange must preserve active success status instead of overwriting with "Ready".
+    QEvent langEvent(QEvent::LanguageChange);
+    QApplication::sendEvent(&analyzer, &langEvent);
+    bool hasSuccessStatus = false;
+    for (auto* lbl : analyzer.findChildren<QLabel*>()) {
+        if (lbl->text().contains(QStringLiteral("Success"))) {
+            hasSuccessStatus = true;
+            break;
+        }
+    }
+    EXPECT_TRUE(hasSuccessStatus);
+}
+
+TEST(FrameAnalyzerViewBatch4Test, ClearInLiveModeSyncsLinkageAndCollapsedSettingPersists) {
+    tests::mocks::FakeSettingsService settings;
+    Analyzer analyzer(&settings);
+    analyzer.resize(1200, 800);
+    QResizeEvent expandEvent(QSize(1200, 800), QSize(640, 480));
+    QApplication::sendEvent(&analyzer, &expandEvent);
+
+    ::modbus::base::Pdu pdu(::modbus::base::FunctionCode::ReadHoldingRegisters, QByteArray::fromHex("02000A"));
+    analyzer.processLivePdu(pdu, ::modbus::parser::ProtocolType::Rtu, 0);
+
+    QPushButton* clearBtn = nullptr;
+    QPushButton* historyBtn = nullptr;
+    for (auto* btn : analyzer.findChildren<QPushButton*>()) {
+        if (btn->text() == QStringLiteral("Clear")) clearBtn = btn;
+        if (btn->text().startsWith(QStringLiteral("History"))) historyBtn = btn;
+    }
+    ASSERT_NE(clearBtn, nullptr);
+    ASSERT_NE(historyBtn, nullptr);
+
+    QSignalSpy stopSpy(&analyzer, &Analyzer::linkageStopRequested);
+    clearBtn->click();
+    EXPECT_EQ(stopSpy.count(), 1);
+    EXPECT_EQ(analyzer.findChild<QTableWidget*>()->rowCount(), 0);
+
+    historyBtn->click();
+    EXPECT_TRUE(settings.value(QStringLiteral("frame_analyzer/historyCollapsed")).toBool());
+
+    // Resize below kFrameAnalyzerAdaptiveHistoryCollapseWidth (1040), even above old 1000.
+    historyBtn->click(); // expand back to false first
+    EXPECT_FALSE(settings.value(QStringLiteral("frame_analyzer/historyCollapsed")).toBool());
+    analyzer.resize(1020, 800);
+    QResizeEvent shrinkEvent(QSize(1020, 800), QSize(1200, 800));
+    QApplication::sendEvent(&analyzer, &shrinkEvent);
+    EXPECT_EQ(historyBtn->text(), QStringLiteral("History"));
 }
 
 } // namespace

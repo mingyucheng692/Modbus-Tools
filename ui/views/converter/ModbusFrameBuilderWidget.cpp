@@ -2,6 +2,7 @@
 
 #include "ModbusFrameBuilderWidget.h"
 #include "common/ModbusDataHelper.h"
+#include "common/SettingsKeys.h"
 #include "infra/config/ISettingsService.h"
 #include "modbus/base/ModbusAduBuilder.h"
 #include "modbus/base/ModbusPduBuilder.h"
@@ -98,6 +99,79 @@ QString formatFunctionCodeName(modbus::base::FunctionCode fc) {
     default:
         return QStringLiteral("0x%1").arg(static_cast<int>(fc), 2, 16, QLatin1Char('0')).toUpper();
     }
+}
+
+QByteArray parseWriteMultipleCoilsPayload(const QString& rawText, int fmtIdx, int quantity) {
+    QByteArray payload;
+    if (fmtIdx == 0) {
+        const auto bytes = parseBuilderHex(rawText);
+        if (bytes && bytes->size() == (quantity + 7) / 8) payload = *bytes;
+    } else if (fmtIdx == 1 || fmtIdx == 2) {
+        QString bits;
+        bool valid = true;
+        if (fmtIdx == 1) {
+            const auto tokens = rawText.split(QRegularExpression(QStringLiteral("[\\s,;]+")), Qt::SkipEmptyParts);
+            for (const QString& token : tokens) {
+                if (token != QStringLiteral("0") && token != QStringLiteral("1")) valid = false;
+                bits += token;
+            }
+        } else {
+            valid = QRegularExpression(QStringLiteral("\\A[01\\s,;]+\\z")).match(rawText).hasMatch();
+            bits = rawText;
+            bits.remove(QRegularExpression(QStringLiteral("[\\s,;]+")));
+        }
+        if (valid && bits.size() == quantity) payload = ui::common::data_helper::parseBinary(bits);
+    }
+    if (!payload.isEmpty() && quantity % 8 != 0) {
+        // Unused high bits in the last coil byte must be zero on the wire.
+        const auto mask = static_cast<uint8_t>((1U << (quantity % 8)) - 1U);
+        payload[payload.size() - 1] = static_cast<char>(static_cast<uint8_t>(payload.back()) & mask);
+    }
+    return payload;
+}
+
+std::optional<QByteArray> resolveWritePayload(modbus::base::FunctionCode fc,
+                                              int quantity,
+                                              const QString& writeRawText,
+                                              int fmtIdx,
+                                              QString* errorMsg) {
+    auto trText = [](const char* text) {
+        return QCoreApplication::translate("ui::views::converter::ModbusFrameBuilderWidget", text);
+    };
+    if (fc == modbus::base::FunctionCode::WriteSingleCoil) {
+        const QString lower = writeRawText.toLower();
+        if (lower == QStringLiteral("on") || lower == QStringLiteral("true") || lower == QStringLiteral("1")) {
+            return QByteArray::fromHex("FF00");
+        }
+        if (lower == QStringLiteral("off") || lower == QStringLiteral("false") || lower == QStringLiteral("0")) {
+            return QByteArray::fromHex("0000");
+        }
+        const auto bytes = parseBuilderRegisters(writeRawText, fmtIdx, 1);
+        if (bytes && (*bytes == QByteArray::fromHex("FF00") || *bytes == QByteArray::fromHex("0000"))) {
+            return *bytes;
+        }
+        if (errorMsg) *errorMsg = trText("Invalid coil value. Use ON/OFF, 1/0, or FF00/0000 in the selected format.");
+        return std::nullopt;
+    }
+    if (fc == modbus::base::FunctionCode::WriteSingleRegister ||
+        fc == modbus::base::FunctionCode::WriteMultipleRegisters) {
+        const int count = (fc == modbus::base::FunctionCode::WriteSingleRegister) ? 1 : quantity;
+        const auto bytes = parseBuilderRegisters(writeRawText, fmtIdx, count);
+        if (!bytes) {
+            if (errorMsg) *errorMsg = trText("Invalid register data or count. Use Hex bytes, Decimal values (0-65535), or 16 MSB-first bits per register.");
+            return std::nullopt;
+        }
+        return *bytes;
+    }
+    if (fc == modbus::base::FunctionCode::WriteMultipleCoils) {
+        const QByteArray payload = parseWriteMultipleCoilsPayload(writeRawText, fmtIdx, quantity);
+        if (payload.isEmpty()) {
+            if (errorMsg) *errorMsg = trText("Invalid coil data or count. Use packed Hex bytes or one Decimal/Binary 0 or 1 per coil.");
+            return std::nullopt;
+        }
+        return payload;
+    }
+    return QByteArray();
 }
 
 void addBreakdownRow(QTableWidget* table, const QString& field, const QString& hex, const QString& desc) {
@@ -212,9 +286,9 @@ void ModbusFrameBuilderWidget::setupUi() {
 
     dataFormatLabel_ = new QLabel(tr("Data Format:"), paramGroup_);
     dataFormatCombo_ = new QComboBox(paramGroup_);
-    dataFormatCombo_->addItem(QStringLiteral("Hex"), 0);
-    dataFormatCombo_->addItem(QStringLiteral("Decimal"), 1);
-    dataFormatCombo_->addItem(QStringLiteral("Binary"), 2);
+    dataFormatCombo_->addItem(tr("Hex"), 0);
+    dataFormatCombo_->addItem(tr("Decimal"), 1);
+    dataFormatCombo_->addItem(tr("Binary"), 2);
     paramLayout->addWidget(dataFormatLabel_, 3, 2);
     paramLayout->addWidget(dataFormatCombo_, 3, 3);
 
@@ -353,6 +427,13 @@ void ModbusFrameBuilderWidget::retranslateUi() {
         addressBaseCombo_->setItemText(1, tr("1-Based (PLC: 1-65536)"));
     }
 
+    if (dataFormatCombo_) {
+        const QSignalBlocker blocker(dataFormatCombo_);
+        dataFormatCombo_->setItemText(0, tr("Hex"));
+        dataFormatCombo_->setItemText(1, tr("Decimal"));
+        dataFormatCombo_->setItemText(2, tr("Binary"));
+    }
+
     if (functionCombo_) {
         const QSignalBlocker blocker(functionCombo_);
         for (int i = 0; i < functionCombo_->count(); ++i) {
@@ -454,189 +535,83 @@ void ModbusFrameBuilderWidget::updateFormVisibility() {
     if (dataFormatCombo_) dataFormatCombo_->setVisible(showWrite);
 }
 
-void ModbusFrameBuilderWidget::rebuildFrame() {
-    if (!protocolCombo_ || !functionCombo_ || !slaveIdEdit_ || !addressEdit_ || !quantitySpin_) {
-        return;
-    }
+void ModbusFrameBuilderWidget::clearBuilderOutput(const QString& errorMsg) {
+    errorLabel_->setText(errorMsg);
+    errorLabel_->setVisible(true);
+    hexOutputEdit_->clear();
+    breakdownTable_->setRowCount(0);
+    copySpacedBtn_->setEnabled(false);
+    copyCompactBtn_->setEnabled(false);
+    copyCArrayBtn_->setEnabled(false);
+    inspectAnalyzerBtn_->setEnabled(false);
+    currentAdu_.clear();
+    currentSpacedHex_.clear();
+}
 
+void ModbusFrameBuilderWidget::rebuildFrame() {
+    if (!protocolCombo_ || !functionCombo_ || !slaveIdEdit_ || !addressEdit_ || !quantitySpin_) return;
     rebuildTimer_->stop();
+
     const int proto = protocolCombo_->currentIndex();
     const bool isTcp = (proto == 1);
     const auto fc = static_cast<modbus::base::FunctionCode>(functionCombo_->currentData().toInt());
 
-    // 1. Parse Slave/Unit ID
     bool idOk = false;
     const int parsedId = ui::common::data_helper::parseSmartInt(slaveIdEdit_->text().trimmed(), &idOk);
     const int maxId = isTcp ? 255 : 247;
     if (!idOk || parsedId < 1 || parsedId > maxId) {
-        errorLabel_->setText(tr("Invalid %1 (%2). Valid range: 1 - %3.")
-                                 .arg(isTcp ? tr("Unit ID") : tr("Slave ID"))
-                                 .arg(slaveIdEdit_->text().trimmed())
-                                 .arg(maxId));
-        errorLabel_->setVisible(true);
-        hexOutputEdit_->clear();
-        breakdownTable_->setRowCount(0);
-        copySpacedBtn_->setEnabled(false);
-        copyCompactBtn_->setEnabled(false);
-        copyCArrayBtn_->setEnabled(false);
-        inspectAnalyzerBtn_->setEnabled(false);
-        currentAdu_.clear();
-        currentSpacedHex_.clear();
+        clearBuilderOutput(tr("Invalid %1 (%2). Valid range: 1 - %3.")
+            .arg(isTcp ? tr("Unit ID") : tr("Slave ID")).arg(slaveIdEdit_->text().trimmed()).arg(maxId));
         return;
     }
     const uint8_t slaveOrUnitId = static_cast<uint8_t>(parsedId);
 
-    // 2. Parse Start Address
     const auto base = static_cast<modbus::address::AddressBase>(addressBaseCombo_->currentData().toInt());
     const auto addrResult = modbus::address::toPduAddress(addressEdit_->text().trimmed(), base);
     if (!addrResult.isValid) {
-        errorLabel_->setText(addrResult.errorMessage.isEmpty()
-                                 ? tr("Invalid start address: %1").arg(addressEdit_->text().trimmed())
-                                 : addrResult.errorMessage);
-        errorLabel_->setVisible(true);
-        hexOutputEdit_->clear();
-        breakdownTable_->setRowCount(0);
-        copySpacedBtn_->setEnabled(false);
-        copyCompactBtn_->setEnabled(false);
-        copyCArrayBtn_->setEnabled(false);
-        inspectAnalyzerBtn_->setEnabled(false);
-        currentAdu_.clear();
-        currentSpacedHex_.clear();
+        clearBuilderOutput(addrResult.errorMessage.isEmpty()
+            ? tr("Invalid start address: %1").arg(addressEdit_->text().trimmed()) : addrResult.errorMessage);
         return;
     }
-    const uint16_t startAddress = addrResult.pduAddress;
 
-    // 3. Resolve Quantity and Write Data
     const int quantity = quantitySpin_->value();
-    const QString writeRawText = writeDataEdit_->text().trimmed();
-    const int fmtIdx = dataFormatCombo_->currentIndex();
-
-    std::optional<modbus::base::Pdu> pduOpt;
-    QString errorMsg;
-
     const bool isRead = (fc == modbus::base::FunctionCode::ReadCoils ||
                          fc == modbus::base::FunctionCode::ReadDiscreteInputs ||
                          fc == modbus::base::FunctionCode::ReadHoldingRegisters ||
                          fc == modbus::base::FunctionCode::ReadInputRegisters);
 
+    QString errorMsg;
+    std::optional<modbus::base::Pdu> pduOpt;
     if (isRead) {
-        pduOpt = modbus::base::pdu_builder::buildReadRequest(fc, startAddress, quantity, &errorMsg);
-    } else {
-        QByteArray rawPayload;
-        if (fc == modbus::base::FunctionCode::WriteSingleCoil) {
-            const QString lower = writeRawText.toLower();
-            std::optional<bool> coilOn;
-            if (lower == QStringLiteral("on") || lower == QStringLiteral("true") || lower == QStringLiteral("1")) {
-                coilOn = true;
-            } else if (lower == QStringLiteral("off") || lower == QStringLiteral("false") || lower == QStringLiteral("0")) {
-                coilOn = false;
-            } else {
-                const auto bytes = parseBuilderRegisters(writeRawText, fmtIdx, 1);
-                if (bytes && (*bytes == QByteArray::fromHex("FF00") || *bytes == QByteArray::fromHex("0000"))) {
-                    coilOn = (*bytes == QByteArray::fromHex("FF00"));
-                }
-            }
-            if (!coilOn.has_value()) {
-                errorMsg = tr("Invalid coil value. Use ON/OFF, 1/0, or FF00/0000 in the selected format.");
-            } else {
-                rawPayload = *coilOn ? QByteArray::fromHex("FF00") : QByteArray::fromHex("0000");
-            }
-        } else if (fc == modbus::base::FunctionCode::WriteSingleRegister ||
-                   fc == modbus::base::FunctionCode::WriteMultipleRegisters) {
-            const int count = (fc == modbus::base::FunctionCode::WriteSingleRegister) ? 1 : quantity;
-            const auto bytes = parseBuilderRegisters(writeRawText, fmtIdx, count);
-            if (!bytes) {
-                errorMsg = tr("Invalid register data or count. Use Hex bytes, Decimal values (0-65535), or 16 MSB-first bits per register.");
-            } else {
-                rawPayload = *bytes;
-            }
-        } else if (fc == modbus::base::FunctionCode::WriteMultipleCoils) {
-            if (fmtIdx == 0) {
-                const auto bytes = parseBuilderHex(writeRawText);
-                if (bytes && bytes->size() == (quantity + 7) / 8) rawPayload = *bytes;
-            } else if (fmtIdx == 1 || fmtIdx == 2) {
-                QString bits;
-                bool valid = true;
-                if (fmtIdx == 1) {
-                    const auto tokens = writeRawText.split(QRegularExpression(QStringLiteral("[\\s,;]+")), Qt::SkipEmptyParts);
-                    for (const QString& token : tokens) {
-                        if (token != QStringLiteral("0") && token != QStringLiteral("1")) valid = false;
-                        bits += token;
-                    }
-                } else {
-                    valid = QRegularExpression(QStringLiteral("\\A[01\\s,;]+\\z")).match(writeRawText).hasMatch();
-                    bits = writeRawText;
-                    bits.remove(QRegularExpression(QStringLiteral("[\\s,;]+")));
-                }
-                if (valid && bits.size() == quantity) rawPayload = ui::common::data_helper::parseBinary(bits);
-            }
-            if (rawPayload.isEmpty()) {
-                errorMsg = tr("Invalid coil data or count. Use packed Hex bytes or one Decimal/Binary 0 or 1 per coil.");
-            } else if (quantity % 8 != 0) {
-                // Unused high bits in the last coil byte must be zero on the wire.
-                const auto mask = static_cast<uint8_t>((1U << (quantity % 8)) - 1U);
-                rawPayload[rawPayload.size() - 1] = static_cast<char>(static_cast<uint8_t>(rawPayload.back()) & mask);
-            }
-        }
-
-        if (errorMsg.isEmpty()) {
-            pduOpt = modbus::base::pdu_builder::buildWriteRequest(fc, startAddress, quantity, rawPayload, &errorMsg);
-        }
+        pduOpt = modbus::base::pdu_builder::buildReadRequest(fc, addrResult.pduAddress, quantity, &errorMsg);
+    } else if (const auto rawPayload = resolveWritePayload(
+                   fc, quantity, writeDataEdit_->text().trimmed(), dataFormatCombo_->currentIndex(), &errorMsg)) {
+        pduOpt = modbus::base::pdu_builder::buildWriteRequest(fc, addrResult.pduAddress, quantity, *rawPayload, &errorMsg);
     }
-
     if (!pduOpt || !errorMsg.isEmpty()) {
-        errorLabel_->setText(errorMsg.isEmpty() ? tr("Failed to build Modbus PDU.") : errorMsg);
-        errorLabel_->setVisible(true);
-        hexOutputEdit_->clear();
-        breakdownTable_->setRowCount(0);
-        copySpacedBtn_->setEnabled(false);
-        copyCompactBtn_->setEnabled(false);
-        copyCArrayBtn_->setEnabled(false);
-        inspectAnalyzerBtn_->setEnabled(false);
-        currentAdu_.clear();
-        currentSpacedHex_.clear();
+        clearBuilderOutput(errorMsg.isEmpty() ? tr("Failed to build Modbus PDU.") : errorMsg);
         return;
     }
 
     const bool isSingleWrite = (fc == modbus::base::FunctionCode::WriteSingleCoil ||
                                 fc == modbus::base::FunctionCode::WriteSingleRegister);
-    if (static_cast<int>(startAddress) + (isSingleWrite ? 1 : quantity) > 65536) {
-        errorLabel_->setText(tr("Address range exceeds 65535."));
-        errorLabel_->setVisible(true);
-        hexOutputEdit_->clear();
-        breakdownTable_->setRowCount(0);
-        copySpacedBtn_->setEnabled(false);
-        copyCompactBtn_->setEnabled(false);
-        copyCArrayBtn_->setEnabled(false);
-        inspectAnalyzerBtn_->setEnabled(false);
-        currentAdu_.clear();
-        currentSpacedHex_.clear();
+    if (static_cast<int>(addrResult.pduAddress) + (isSingleWrite ? 1 : quantity) > 65536) {
+        clearBuilderOutput(tr("Address range exceeds 65535."));
         return;
     }
 
-    // 4. Encapsulate into Application Data Unit (ADU)
-    if (proto == 0) { // RTU
-        currentAdu_ = modbus::base::buildRtuAdu(slaveOrUnitId, *pduOpt);
-        currentSpacedHex_ = QString::fromLatin1(currentAdu_.toHex(' ')).toUpper();
-        hexOutputEdit_->setText(currentSpacedHex_);
-    } else if (proto == 1) { // TCP
-        currentAdu_ = modbus::base::buildTcpAdu(slaveOrUnitId, *pduOpt, 0x0000);
-        currentSpacedHex_ = QString::fromLatin1(currentAdu_.toHex(' ')).toUpper();
-        hexOutputEdit_->setText(currentSpacedHex_);
-    } else { // ASCII
-        currentAdu_ = modbus::base::buildAsciiAdu(slaveOrUnitId, *pduOpt);
-        currentSpacedHex_ = QString::fromLatin1(currentAdu_).trimmed();
-        hexOutputEdit_->setText(currentSpacedHex_);
-    }
-
+    currentAdu_ = (proto == 0) ? modbus::base::buildRtuAdu(slaveOrUnitId, *pduOpt)
+                : (proto == 1) ? modbus::base::buildTcpAdu(slaveOrUnitId, *pduOpt, 0x0000)
+                               : modbus::base::buildAsciiAdu(slaveOrUnitId, *pduOpt);
+    currentSpacedHex_ = (proto == 2) ? QString::fromLatin1(currentAdu_).trimmed()
+                                     : QString::fromLatin1(currentAdu_.toHex(' ')).toUpper();
+    hexOutputEdit_->setText(currentSpacedHex_);
     errorLabel_->setVisible(false);
     copySpacedBtn_->setEnabled(true);
     copyCompactBtn_->setEnabled(true);
     copyCArrayBtn_->setEnabled(true);
     inspectAnalyzerBtn_->setEnabled(true);
-
-    // 5. Populate Detailed Field Breakdown
-    populateFieldTable(proto, slaveOrUnitId, fc, startAddress, quantity, currentAdu_);
+    populateFieldTable(proto, slaveOrUnitId, fc, addrResult.pduAddress, quantity, currentAdu_);
 }
 
 void ModbusFrameBuilderWidget::populateFieldTable(int protocol, uint8_t slaveOrUnitId,
@@ -846,9 +821,10 @@ void ModbusFrameBuilderWidget::onCopyCArrayClicked() {
         QStringList hexBytes;
         hexBytes.reserve(currentAdu_.size());
         for (int i = 0; i < currentAdu_.size(); ++i) {
-            hexBytes.append(QString("0x%1")
-                                .arg(static_cast<uint8_t>(currentAdu_.at(i)), 2, 16, QLatin1Char('0'))
-                                .toUpper());
+            hexBytes.append(QStringLiteral("0x%1")
+                                .arg(QString::number(static_cast<uint8_t>(currentAdu_.at(i)), 16)
+                                         .rightJustified(2, QLatin1Char('0'))
+                                         .toUpper()));
         }
         cCode = QString("const uint8_t frame[%1] = { %2 };")
                     .arg(currentAdu_.size())
@@ -876,38 +852,44 @@ void ModbusFrameBuilderWidget::loadSettings() {
     if (!settingsService_) return;
     isSyncing_ = true;
 
-    auto getSetting = [this](const QString& key, const QVariant& def) -> QVariant {
+    auto getSetting = [this](const char* keyPtr, const QVariant& def) -> QVariant {
+        const QString key = QString::fromLatin1(keyPtr);
         if (!settingsService_->contains(key)) return def;
         const QVariant v = settingsService_->value(key);
         return v.isValid() ? v : def;
     };
 
-    const int proto = getSetting(QStringLiteral("tools/builder/protocol"), 0).toInt();
+    const int proto = getSetting(core::common::settings_keys::kModbusBuilderProtocol, 0).toInt();
     if (proto >= 0 && proto < protocolCombo_->count()) {
         protocolCombo_->setCurrentIndex(proto);
     }
 
-    slaveIdEdit_->setText(getSetting(QStringLiteral("tools/builder/slaveId"), QStringLiteral("1")).toString());
+    slaveIdEdit_->setText(
+        getSetting(core::common::settings_keys::kModbusBuilderSlaveId, QStringLiteral("1")).toString());
 
-    const int fcIdx = getSetting(QStringLiteral("tools/builder/functionCode"), 2).toInt();
+    const int fcIdx = getSetting(core::common::settings_keys::kModbusBuilderFunctionCode, 2).toInt();
     if (fcIdx >= 0 && fcIdx < functionCombo_->count()) {
         functionCombo_->setCurrentIndex(fcIdx);
     }
 
-    addressBaseCombo_->setCurrentIndex(
-        getSetting(QStringLiteral("tools/builder/addressBase"), 0).toInt());
+    const int baseIdx = getSetting(core::common::settings_keys::kModbusBuilderAddressBase, 0).toInt();
+    if (baseIdx >= 0 && baseIdx < addressBaseCombo_->count()) {
+        addressBaseCombo_->setCurrentIndex(baseIdx);
+    }
 
     addressEdit_->setText(
-        getSetting(QStringLiteral("tools/builder/startAddress"), QStringLiteral("0x0000")).toString());
+        getSetting(core::common::settings_keys::kModbusBuilderStartAddress, QStringLiteral("0x0000")).toString());
 
     quantitySpin_->setValue(
-        getSetting(QStringLiteral("tools/builder/quantity"), 2).toInt());
+        getSetting(core::common::settings_keys::kModbusBuilderQuantity, 2).toInt());
 
     writeDataEdit_->setText(
-        getSetting(QStringLiteral("tools/builder/writeData"), QStringLiteral("0001 0002")).toString());
+        getSetting(core::common::settings_keys::kModbusBuilderWriteData, QStringLiteral("0001 0002")).toString());
 
-    dataFormatCombo_->setCurrentIndex(
-        getSetting(QStringLiteral("tools/builder/dataFormat"), 0).toInt());
+    const int fmtIdx = getSetting(core::common::settings_keys::kModbusBuilderDataFormat, 0).toInt();
+    if (fmtIdx >= 0 && fmtIdx < dataFormatCombo_->count()) {
+        dataFormatCombo_->setCurrentIndex(fmtIdx);
+    }
 
     isSyncing_ = false;
 }
@@ -915,14 +897,22 @@ void ModbusFrameBuilderWidget::loadSettings() {
 void ModbusFrameBuilderWidget::saveSettings() {
     if (!settingsService_ || isSyncing_) return;
 
-    settingsService_->setValue(QStringLiteral("tools/builder/protocol"), protocolCombo_->currentIndex());
-    settingsService_->setValue(QStringLiteral("tools/builder/slaveId"), slaveIdEdit_->text());
-    settingsService_->setValue(QStringLiteral("tools/builder/functionCode"), functionCombo_->currentIndex());
-    settingsService_->setValue(QStringLiteral("tools/builder/addressBase"), addressBaseCombo_->currentIndex());
-    settingsService_->setValue(QStringLiteral("tools/builder/startAddress"), addressEdit_->text());
-    settingsService_->setValue(QStringLiteral("tools/builder/quantity"), quantitySpin_->value());
-    settingsService_->setValue(QStringLiteral("tools/builder/writeData"), writeDataEdit_->text());
-    settingsService_->setValue(QStringLiteral("tools/builder/dataFormat"), dataFormatCombo_->currentIndex());
+    settingsService_->setValue(QString::fromLatin1(core::common::settings_keys::kModbusBuilderProtocol),
+                               protocolCombo_->currentIndex());
+    settingsService_->setValue(QString::fromLatin1(core::common::settings_keys::kModbusBuilderSlaveId),
+                               slaveIdEdit_->text());
+    settingsService_->setValue(QString::fromLatin1(core::common::settings_keys::kModbusBuilderFunctionCode),
+                               functionCombo_->currentIndex());
+    settingsService_->setValue(QString::fromLatin1(core::common::settings_keys::kModbusBuilderAddressBase),
+                               addressBaseCombo_->currentIndex());
+    settingsService_->setValue(QString::fromLatin1(core::common::settings_keys::kModbusBuilderStartAddress),
+                               addressEdit_->text());
+    settingsService_->setValue(QString::fromLatin1(core::common::settings_keys::kModbusBuilderQuantity),
+                               quantitySpin_->value());
+    settingsService_->setValue(QString::fromLatin1(core::common::settings_keys::kModbusBuilderWriteData),
+                               writeDataEdit_->text());
+    settingsService_->setValue(QString::fromLatin1(core::common::settings_keys::kModbusBuilderDataFormat),
+                               dataFormatCombo_->currentIndex());
 }
 
 } // namespace ui::views::converter

@@ -19,6 +19,64 @@
 #include <QStringConverter>
 #include <QVariant>
 
+namespace {
+
+QByteArray encodeTextWithEncoding(const QString& text, int encoding) {
+    switch (encoding) {
+    case 1: { // Latin-1
+        QByteArray data;
+        data.reserve(text.size());
+        for (const QChar& ch : text) {
+            data.append(ch.unicode() <= 0xFF ? static_cast<char>(ch.unicode()) : '?');
+        }
+        return data;
+    }
+    case 3: { // ASCII
+        QByteArray data;
+        data.reserve(text.size());
+        for (const QChar& ch : text) {
+            data.append(ch.unicode() <= 0x7F ? static_cast<char>(ch.unicode()) : '?');
+        }
+        return data;
+    }
+    default:
+        return text.toUtf8();
+    }
+}
+
+QString decodeBytesWithEncoding(const QByteArray& data, int encoding) {
+    if (encoding == 1) {
+        return QString::fromLatin1(data);
+    }
+    if (encoding == 3) {
+        QString decoded;
+        decoded.reserve(data.size());
+        for (const unsigned char byte : data) {
+            decoded.append(byte <= 0x7F ? QChar::fromLatin1(static_cast<char>(byte)) : QLatin1Char('?'));
+        }
+        return decoded;
+    }
+    return QString::fromUtf8(data);
+}
+
+bool tryParseCleanHex(const QString& text, QByteArray* out) {
+    QString clean;
+    clean.reserve(text.size());
+    for (const QChar& ch : text) {
+        if (ch.isSpace()) continue;
+        const bool isHex = (ch >= QLatin1Char('0') && ch <= QLatin1Char('9')) ||
+                           (ch >= QLatin1Char('a') && ch <= QLatin1Char('f')) ||
+                           (ch >= QLatin1Char('A') && ch <= QLatin1Char('F'));
+        if (!isHex) return false;
+        clean.append(ch);
+    }
+    if (clean.size() % 2 != 0) return false;
+    if (out) *out = QByteArray::fromHex(clean.toLatin1());
+    return true;
+}
+
+} // namespace
+
 namespace ui::widgets {
 
 GenericInputWidget::GenericInputWidget(infra::config::ISettingsService* settingsService, QWidget *parent)
@@ -37,6 +95,12 @@ void GenericInputWidget::setupUi() {
     // 1. Input Area
     inputEdit_ = new QTextEdit(this);
     inputEdit_->setLineWrapMode(QTextEdit::WidgetWidth);
+    connect(inputEdit_, &QTextEdit::textChanged, this, [this]() {
+        if (!inputEdit_->styleSheet().isEmpty()) {
+            inputEdit_->setStyleSheet(QString());
+            inputEdit_->setToolTip(QString());
+        }
+    });
     mainLayout->addWidget(inputEdit_);
 
     // 2. Control Area
@@ -133,34 +197,35 @@ void GenericInputWidget::setupUi() {
 }
 
 void GenericInputWidget::onFormatChanged() {
-    QString text = inputEdit_->toPlainText();
+    const QString text = inputEdit_->toPlainText();
+    inputEdit_->setStyleSheet(QString());
+    inputEdit_->setToolTip(QString());
     if (text.isEmpty()) return;
-    
-    // Prevent recursive signal if setText triggers change? No, QRadioButton toggled triggers this.
-    // Changing text doesn't trigger format change.
-    
+
+    const int encoding = encodingCombo_ ? encodingCombo_->currentData().toInt() : 0;
     if (hexRadio_->isChecked()) {
-        // Was Ascii, now Hex
-        // Convert text (treated as Ascii) to Hex
-        // But wait, if the user typed "Hello", we want "48 65 6C 6C 6F"
-        // If the user was in ASCII mode, text is ASCII.
-        QByteArray data = text.toUtf8();
-        inputEdit_->setText(data.toHex(' '));
-    } else {
-        // Was Hex, now Ascii
-        // Convert Hex string to Ascii
-        QString hex = text;
-        hex.remove(' ');
-        QByteArray data = QByteArray::fromHex(hex.toUtf8());
-        // Check for non-printable chars?
-        // QTextEdit handles them somewhat, but null bytes might be an issue.
-        // For now, just set as Utf8
-        inputEdit_->setText(QString::fromUtf8(data));
+        const QByteArray data = encodeTextWithEncoding(text, encoding);
+        inputEdit_->setText(QString::fromLatin1(data.toHex(' ').toUpper()));
+        return;
     }
+
+    QByteArray parsedHex;
+    if (!tryParseCleanHex(text, &parsedHex)) {
+        const QSignalBlocker b1(hexRadio_);
+        const QSignalBlocker b2(asciiRadio_);
+        hexRadio_->setChecked(true);
+        inputEdit_->setStyleSheet(QStringLiteral("QTextEdit { border: 1px solid #EF4444; }"));
+        inputEdit_->setToolTip(tr("Invalid HEX input: enter an even number of hex digits (0-9, A-F)."));
+        return;
+    }
+    inputEdit_->setText(decodeBytesWithEncoding(parsedHex, encoding));
 }
 
 void GenericInputWidget::setSettingsGroup(const QString& group) {
     settingsGroup_ = group;
+    if (sendHistoryCombo_) {
+        sendHistoryCombo_->clear();
+    }
     loadSettings();
 }
 
@@ -169,7 +234,9 @@ void GenericInputWidget::loadSettings() {
     const QString key = settingsGroup_ + "/format";
     QString format = settingsService_->value(key).toString().toLower();
     const bool autoSend = settingsService_->value(settingsGroup_ + "/autoSend").toBool();
-    const int intervalMs = settingsService_->value(settingsGroup_ + "/intervalMs").toInt();
+    const int intervalMs = settingsService_->contains(settingsGroup_ + "/intervalMs")
+        ? settingsService_->value(settingsGroup_ + "/intervalMs").toInt()
+        : config::GenericIo::kDefaultInputIntervalMs;
     const int lineEnding = settingsService_->contains(settingsGroup_ + "/lineEnding")
         ? settingsService_->value(settingsGroup_ + "/lineEnding").toInt() : 0;
     const int encoding = settingsService_->contains(settingsGroup_ + "/encoding")
@@ -218,27 +285,7 @@ QByteArray GenericInputWidget::getData() const {
         data = QByteArray::fromHex(hex.toUtf8());
     } else {
         const int enc = encodingCombo_->currentData().toInt();
-        switch (enc) {
-        case 1: { // Latin-1
-            data.reserve(text.size());
-            for (const QChar& ch : text) {
-                if (ch.unicode() <= 0xFF)
-                    data.append(static_cast<char>(ch.unicode()));
-                else
-                    data.append('?');
-            }
-            break;
-        }
-        case 3: { // ASCII
-            data.reserve(text.size());
-            for (const QChar& ch : text) {
-                data.append(ch.unicode() <= 0x7F
-                    ? static_cast<char>(ch.unicode()) : '?');
-            }
-            break;
-        }
-        default: data = text.toUtf8(); break;
-        }
+        data = encodeTextWithEncoding(text, enc);
     }
 
     const int ending = lineEndingCombo_->currentData().toInt();
@@ -321,13 +368,14 @@ void GenericInputWidget::saveHistory() {
 
 void GenericInputWidget::loadHistory() {
     if (!sendHistoryCombo_) return;
+    sendHistoryCombo_->clear();
+    sendHistoryCombo_->setCurrentIndex(-1);
     if (settingsGroup_.isEmpty() || !settingsService_) return;
 
     const QString key = settingsGroup_ + "/sendHistory";
     if (!settingsService_->contains(key)) return;
 
     const QStringList items = settingsService_->value(key).toStringList();
-    sendHistoryCombo_->clear();
     for (const QString& item : items) {
         sendHistoryCombo_->addItem(item);
     }
@@ -346,9 +394,11 @@ void GenericInputWidget::retranslateUi() {
     }
     if (autoSendCheck_) {
         autoSendCheck_->setText(tr("Auto Send"));
+        autoSendCheck_->setToolTip(tr("Send repeatedly at fixed interval"));
     }
     if (intervalSpin_) {
         intervalSpin_->setSuffix(tr(" ms"));
+        intervalSpin_->setToolTip(tr("Auto-send interval (ms)"));
     }
     if (sendBtn_) {
         sendBtn_->setText(tr("Send"));
@@ -362,6 +412,19 @@ void GenericInputWidget::retranslateUi() {
         lineEndingCombo_->addItem(tr("LF (\\n)"), QVariant(2));
         lineEndingCombo_->addItem(tr("CRLF (\\r\\n)"), QVariant(3));
         lineEndingCombo_->setCurrentIndex(current);
+        lineEndingCombo_->setToolTip(tr("Line ending appended on send"));
+    }
+    if (encodingCombo_) {
+        QSignalBlocker b(encodingCombo_);
+        const int current = encodingCombo_->currentIndex();
+        encodingCombo_->setItemText(0, tr("UTF-8"));
+        encodingCombo_->setItemText(1, tr("Latin-1"));
+        encodingCombo_->setItemText(2, tr("ASCII"));
+        encodingCombo_->setCurrentIndex(current);
+        encodingCombo_->setToolTip(tr("Text character encoding"));
+    }
+    if (sendHistoryCombo_) {
+        sendHistoryCombo_->setToolTip(tr("Recent sent messages"));
     }
 }
 

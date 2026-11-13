@@ -59,12 +59,20 @@ void RegisterTypeDelegate::setModelData(
     if (!combo || !model) return;
 
     const int selectedValue = combo->currentData().toInt();
-    model->setData(index, selectedValue, Qt::UserRole);
-    if (selectedValue == -1) {
-        model->setData(index, tr("Default"), Qt::DisplayRole);
-    } else {
-        model->setData(index, combo->currentText(), Qt::DisplayRole);
+    const QVariant currentUserData = index.data(Qt::UserRole);
+    if (currentUserData.isValid() && currentUserData.toInt() == selectedValue) {
+        return;
     }
+
+    const QString storedDefault = index.data(Qt::UserRole + 1).toString();
+    const QString displayText = (selectedValue == -1)
+        ? (storedDefault.isEmpty() ? tr("Default") : storedDefault)
+        : combo->currentText();
+
+    // Update DisplayRole before UserRole so table observers keyed on UserRole
+    // ignore the first notification and only re-render once per commit.
+    model->setData(index, displayText, Qt::DisplayRole);
+    model->setData(index, selectedValue, Qt::UserRole);
 }
 
 void RegisterTypeDelegate::updateEditorGeometry(

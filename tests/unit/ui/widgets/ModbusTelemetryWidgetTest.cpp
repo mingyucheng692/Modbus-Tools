@@ -1,9 +1,14 @@
 // Copyright (c) 2025 - present mingyucheng692. Licensed under the MIT License.
 
 #include <gtest/gtest.h>
+#include <QCoreApplication>
+#include <QElapsedTimer>
+#include <QEventLoop>
+#include <QFile>
 #include <QSignalSpy>
 #include <QApplication>
 #include <QTableView>
+#include <QTemporaryDir>
 #include "ui/widgets/modbus/ModbusTelemetryWidget.h"
 
 using namespace ui::widgets::modbus;
@@ -106,5 +111,62 @@ TEST_F(ModbusTelemetryWidgetTest, InspectorFormatsDecodedValuesWithoutPrintfBug)
 
     EXPECT_TRUE(details.contains(QStringLiteral("[+00] 1234")));
     EXPECT_TRUE(details.contains(QStringLiteral("[+01] 5678")));
+}
+
+TEST_F(ModbusTelemetryWidgetTest, BatchTimerRunsOnlyWhileEventsAreQueued) {
+    EXPECT_FALSE(widget_->isBatchTimerActive());
+
+    ::ui::common::TrafficEvent evt;
+    evt.direction = ::ui::common::TrafficDirection::None;
+    evt.summary = QStringLiteral("System notice");
+    widget_->appendTrafficEvent(evt);
+    EXPECT_TRUE(widget_->isBatchTimerActive());
+
+    QElapsedTimer deadline;
+    deadline.start();
+    while (widget_->isBatchTimerActive() && deadline.elapsed() < 2000) {
+        QCoreApplication::processEvents(QEventLoop::AllEvents, 50);
+    }
+    EXPECT_FALSE(widget_->isBatchTimerActive());
+}
+
+TEST_F(ModbusTelemetryWidgetTest, CopySelectedSysRowAndExportCsvSafety) {
+    ::ui::common::TrafficEvent evt;
+    evt.direction = ::ui::common::TrafficDirection::None;
+    evt.summary = QStringLiteral("Line \"A\", ok");
+    widget_->appendTrafficEvent(evt);
+
+    QElapsedTimer deadline;
+    deadline.start();
+    while (widget_->isBatchTimerActive() && deadline.elapsed() < 2000) {
+        QCoreApplication::processEvents(QEventLoop::AllEvents, 50);
+    }
+
+    auto* table = widget_->findChild<QTableView*>();
+    ASSERT_NE(table, nullptr);
+    ASSERT_EQ(table->model()->rowCount(), 1);
+    table->selectRow(0);
+
+    QSignalSpy copySpy(widget_.get(), &ModbusTelemetryWidget::rowCopied);
+    ASSERT_TRUE(QMetaObject::invokeMethod(widget_.get(), "onCopySelectedRow", Qt::DirectConnection));
+    ASSERT_EQ(copySpy.count(), 1);
+    const QString copiedText = copySpy.takeFirst().at(0).toString();
+    EXPECT_TRUE(copiedText.contains(QStringLiteral("SYS |")));
+    EXPECT_TRUE(copiedText.contains(QStringLiteral("Line \"A\", ok")));
+    EXPECT_FALSE(copiedText.contains(QStringLiteral("RX")));
+
+    QTemporaryDir tempDir;
+    ASSERT_TRUE(tempDir.isValid());
+    const QString csvPath = tempDir.filePath(QStringLiteral("telemetry.csv"));
+    QString error;
+    EXPECT_TRUE(widget_->exportToFile(csvPath, &error)) << error.toStdString();
+
+    QFile csvFile(csvPath);
+    ASSERT_TRUE(csvFile.open(QIODevice::ReadOnly | QIODevice::Text));
+    const QString csvContent = QString::fromUtf8(csvFile.readAll());
+    EXPECT_TRUE(csvContent.contains(QStringLiteral("\"Line \"\"A\"\", ok\"")));
+
+    EXPECT_FALSE(widget_->exportToFile(tempDir.path(), &error));
+    EXPECT_FALSE(error.isEmpty());
 }
 

@@ -1,6 +1,7 @@
 // Copyright (c) 2025 - present mingyucheng692. Licensed under the MIT License.
 
 #include "ModbusTelemetryWidget.h"
+#include "common/FileExporter.h"
 #include "modbus/base/ModbusFunctionTraits.h"
 #include <QVBoxLayout>
 #include <QHBoxLayout>
@@ -15,7 +16,8 @@
 #include <QTextEdit>
 #include <QSplitter>
 #include <QFileDialog>
-#include <QFile>
+#include <QSaveFile>
+#include <QMessageBox>
 #include <QTextStream>
 #include <QJsonDocument>
 #include <QJsonArray>
@@ -26,6 +28,28 @@
 #include <QFontDatabase>
 
 namespace ui::widgets::modbus {
+
+namespace {
+
+QString directionLabel(::ui::common::TrafficDirection dir) {
+    switch (dir) {
+    case ::ui::common::TrafficDirection::Tx:
+        return QStringLiteral("TX");
+    case ::ui::common::TrafficDirection::Rx:
+        return QStringLiteral("RX");
+    case ::ui::common::TrafficDirection::None:
+        return QStringLiteral("SYS");
+    }
+    return QStringLiteral("SYS");
+}
+
+QString csvEscapeField(const QString& value) {
+    QString escaped = value;
+    escaped.replace(QLatin1Char('"'), QStringLiteral("\"\""));
+    return QStringLiteral("\"%1\"").arg(escaped);
+}
+
+} // namespace
 
 ModbusTelemetryWidget::ModbusTelemetryWidget(QWidget* parent)
     : QWidget(parent) {
@@ -52,7 +76,6 @@ void ModbusTelemetryWidget::setupUi() {
     batchTimer_ = new QTimer(this);
     batchTimer_->setInterval(kBatchIntervalMs);
     connect(batchTimer_, &QTimer::timeout, this, &ModbusTelemetryWidget::processBatchTimeout);
-    batchTimer_->start();
 }
 
 void ModbusTelemetryWidget::setupToolbar() {
@@ -185,10 +208,16 @@ void ModbusTelemetryWidget::appendTrafficEvent(const ::ui::common::TrafficEvent&
         overflowLabel_->show();
     }
     pendingEvents_.append(event);
+    if (batchTimer_ && !batchTimer_->isActive()) {
+        batchTimer_->start();
+    }
 }
 
 void ModbusTelemetryWidget::processBatchTimeout() {
     if (pendingEvents_.isEmpty()) {
+        if (batchTimer_ && batchTimer_->isActive()) {
+            batchTimer_->stop();
+        }
         return;
     }
 
@@ -212,6 +241,9 @@ void ModbusTelemetryWidget::processBatchTimeout() {
     tableModel_->appendRows(rowsToAdd);
     if (autoScroll_) {
         tableView_->scrollToBottom();
+    }
+    if (pendingEvents_.isEmpty() && batchTimer_ && batchTimer_->isActive()) {
+        batchTimer_->stop();
     }
 }
 
@@ -256,6 +288,9 @@ void ModbusTelemetryWidget::setAutoScrollEnabled(bool enabled) {
 
 void ModbusTelemetryWidget::clear() {
     pendingEvents_.clear();
+    if (batchTimer_ && batchTimer_->isActive()) {
+        batchTimer_->stop();
+    }
     droppedEventsCount_ = 0;
     overflowLabel_->hide();
     tableModel_->clear();
@@ -362,6 +397,67 @@ void ModbusTelemetryWidget::onFilterChanged(int index) {
     }
 }
 
+QStringList ModbusTelemetryWidget::buildCsvLines() const {
+    QStringList lines;
+    lines.reserve(tableModel_->rowCount() + 1);
+    lines.append(QStringLiteral("RowId,Timestamp,Direction,Length,PayloadHex,Status"));
+    for (int i = 0; i < tableModel_->rowCount(); ++i) {
+        const auto* r = tableModel_->rowAt(i);
+        if (!r) continue;
+        const QString payloadOrSummary =
+            (r->event.direction == ::ui::common::TrafficDirection::None || r->event.payload.isEmpty())
+                ? r->event.summary
+                : QString::fromLatin1(r->event.payload.toHex(' ').toUpper());
+        lines.append(QStringLiteral("%1,%2,%3,%4,%5,%6")
+                         .arg(r->rowId)
+                         .arg(csvEscapeField(r->event.timestamp.toString(QStringLiteral("hh:mm:ss.zzz"))))
+                         .arg(directionLabel(r->event.direction))
+                         .arg(r->event.payload.size())
+                         .arg(csvEscapeField(payloadOrSummary))
+                         .arg(csvEscapeField(r->statusText)));
+    }
+    return lines;
+}
+
+bool ModbusTelemetryWidget::exportJsonToFile(const QString& filePath, QString* error) const {
+    QJsonArray arr;
+    for (int i = 0; i < tableModel_->rowCount(); ++i) {
+        const auto* r = tableModel_->rowAt(i);
+        if (!r) continue;
+        QJsonObject obj;
+        obj[QStringLiteral("id")] = static_cast<qint64>(r->rowId);
+        obj[QStringLiteral("timestamp")] = r->event.timestamp.toString(Qt::ISODateWithMs);
+        obj[QStringLiteral("direction")] = directionLabel(r->event.direction);
+        obj[QStringLiteral("payloadHex")] = QString::fromLatin1(r->event.payload.toHex());
+        obj[QStringLiteral("status")] = r->statusText;
+        arr.append(obj);
+    }
+
+    QSaveFile file(filePath);
+    if (!file.open(QIODevice::WriteOnly | QIODevice::Text)) {
+        if (error) *error = file.errorString();
+        return false;
+    }
+    const QByteArray payload = QJsonDocument(arr).toJson();
+    if (file.write(payload) != payload.size() || file.error() != QFileDevice::NoError) {
+        if (error) *error = file.errorString();
+        file.cancelWriting();
+        return false;
+    }
+    if (!file.commit()) {
+        if (error) *error = file.errorString();
+        return false;
+    }
+    return true;
+}
+
+bool ModbusTelemetryWidget::exportToFile(const QString& filePath, QString* error) const {
+    if (filePath.endsWith(QStringLiteral(".json"), Qt::CaseInsensitive)) {
+        return exportJsonToFile(filePath, error);
+    }
+    return ::ui::common::exportLinesToFile(filePath, buildCsvLines(), false, error);
+}
+
 void ModbusTelemetryWidget::onExportClicked() {
     const QString filePath = QFileDialog::getSaveFileName(
         this, tr("Export Telemetry"), QString(),
@@ -369,44 +465,36 @@ void ModbusTelemetryWidget::onExportClicked() {
     if (filePath.isEmpty()) {
         return;
     }
-
-    QFile file(filePath);
-    if (!file.open(QIODevice::WriteOnly | QIODevice::Text)) {
-        return;
-    }
-
-    if (filePath.endsWith(QStringLiteral(".json"), Qt::CaseInsensitive)) {
-        QJsonArray arr;
-        for (int i = 0; i < tableModel_->rowCount(); ++i) {
-            const auto* r = tableModel_->rowAt(i);
-            if (!r) continue;
-            QJsonObject obj;
-            obj[QStringLiteral("id")] = static_cast<qint64>(r->rowId);
-            obj[QStringLiteral("timestamp")] = r->event.timestamp.toString(Qt::ISODateWithMs);
-            obj[QStringLiteral("direction")] = r->event.direction == ::ui::common::TrafficDirection::Tx ? QStringLiteral("TX") : (r->event.direction == ::ui::common::TrafficDirection::Rx ? QStringLiteral("RX") : QStringLiteral("SYS"));
-            obj[QStringLiteral("payloadHex")] = QString::fromLatin1(r->event.payload.toHex());
-            obj[QStringLiteral("status")] = r->statusText;
-            arr.append(obj);
-        }
-        file.write(QJsonDocument(arr).toJson());
-    } else {
-        QTextStream out(&file);
-        out << "RowId,Timestamp,Direction,Length,PayloadHex,Status\n";
-        for (int i = 0; i < tableModel_->rowCount(); ++i) {
-            const auto* r = tableModel_->rowAt(i);
-            if (!r) continue;
-            out << r->rowId << ","
-                << r->event.timestamp.toString(QStringLiteral("hh:mm:ss.zzz")) << ","
-                << (r->event.direction == ::ui::common::TrafficDirection::Tx ? "TX" : (r->event.direction == ::ui::common::TrafficDirection::Rx ? "RX" : "SYS")) << ","
-                << r->event.payload.size() << ",\""
-                << QString::fromLatin1(r->event.payload.toHex(' ').toUpper()) << "\",\""
-                << r->statusText << "\"\n";
-        }
+    QString errorMsg;
+    if (!exportToFile(filePath, &errorMsg)) {
+        emit exportFailed(errorMsg);
+        QMessageBox::warning(this, tr("Export Failed"),
+                             tr("Failed to export telemetry data: %1").arg(errorMsg));
     }
 }
 
+QString ModbusTelemetryWidget::formatRowTextForCopy(const TelemetryRowView& row) {
+    if (row.event.direction == ::ui::common::TrafficDirection::None) {
+        return QStringLiteral("[%1] %2 | %3 | %4")
+            .arg(row.event.timestamp.toString(QStringLiteral("hh:mm:ss.zzz")))
+            .arg(directionLabel(row.event.direction))
+            .arg(row.statusText)
+            .arg(row.event.summary);
+    }
+    return QStringLiteral("[%1] %2 | %3 | %4 bytes\n%5")
+        .arg(row.event.timestamp.toString(QStringLiteral("hh:mm:ss.zzz")))
+        .arg(directionLabel(row.event.direction))
+        .arg(row.statusText)
+        .arg(row.event.payload.size())
+        .arg(QString::fromLatin1(row.event.payload.toHex(' ').toUpper()));
+}
+
 void ModbusTelemetryWidget::onCopySelectedRow() {
-    const auto indexes = tableView_->selectionModel()->selectedRows();
+    auto* selModel = tableView_ ? tableView_->selectionModel() : nullptr;
+    if (!selModel) {
+        return;
+    }
+    const auto indexes = selModel->selectedRows();
     if (indexes.isEmpty()) {
         return;
     }
@@ -416,13 +504,9 @@ void ModbusTelemetryWidget::onCopySelectedRow() {
         return;
     }
 
-    QString text = QStringLiteral("[%1] %2 | %3 | %4 bytes\n%5")
-                       .arg(row->event.timestamp.toString(QStringLiteral("hh:mm:ss.zzz")))
-                       .arg(row->event.direction == ::ui::common::TrafficDirection::Tx ? QStringLiteral("TX") : QStringLiteral("RX"))
-                       .arg(row->statusText)
-                       .arg(row->event.payload.size())
-                       .arg(QString::fromLatin1(row->event.payload.toHex(' ').toUpper()));
+    const QString text = formatRowTextForCopy(*row);
     QGuiApplication::clipboard()->setText(text);
+    emit rowCopied(text);
 }
 
 void ModbusTelemetryWidget::keyPressEvent(QKeyEvent* event) {
@@ -476,8 +560,17 @@ void ModbusTelemetryWidget::retranslateUi() {
     if (exportBtn_) {
         exportBtn_->setText(tr("Export..."));
     }
-    if (inspectorHeaderLabel_ && !tableView_->selectionModel()->hasSelection()) {
-        inspectorHeaderLabel_->setText(tr("Frame Details"));
+    if (inspectorHeaderLabel_) {
+        const auto* selModel = tableView_ ? tableView_->selectionModel() : nullptr;
+        if (!selModel || !selModel->hasSelection()) {
+            inspectorHeaderLabel_->setText(tr("Frame Details"));
+        } else {
+            const auto indexes = selModel->selectedRows();
+            if (!indexes.isEmpty() && proxyModel_ && tableModel_) {
+                const int sourceRow = proxyModel_->mapToSource(indexes.first()).row();
+                updateInspectorContent(tableModel_->rowAt(sourceRow));
+            }
+        }
     }
     if (inspectorDetailsText_) {
         inspectorDetailsText_->setPlaceholderText(tr("Select a frame to inspect details"));

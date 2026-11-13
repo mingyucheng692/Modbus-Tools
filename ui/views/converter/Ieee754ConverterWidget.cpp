@@ -38,6 +38,53 @@ QString formatDouble(double val, int sigDigits = 9) {
     return modbus::codec::formatFloatScientific(val, sigDigits);
 }
 
+bool tryParseFloatText(const QString& text, bool isFloat32, uint64_t* rawOut) {
+    bool ok = false;
+    if (isFloat32) {
+        float val = 0.0f;
+        if (text.compare(QStringLiteral("nan"), Qt::CaseInsensitive) == 0) {
+            val = std::numeric_limits<float>::quiet_NaN();
+            ok = true;
+        } else if (text.compare(QStringLiteral("+inf"), Qt::CaseInsensitive) == 0 ||
+                   text.compare(QStringLiteral("inf"), Qt::CaseInsensitive) == 0) {
+            val = std::numeric_limits<float>::infinity();
+            ok = true;
+        } else if (text.compare(QStringLiteral("-inf"), Qt::CaseInsensitive) == 0) {
+            val = -std::numeric_limits<float>::infinity();
+            ok = true;
+        } else {
+            val = text.toFloat(&ok);
+        }
+        if (ok && rawOut) {
+            uint32_t u32 = 0;
+            std::memcpy(&u32, &val, 4);
+            *rawOut = u32;
+        }
+        return ok;
+    }
+
+    double val = 0.0;
+    if (text.compare(QStringLiteral("nan"), Qt::CaseInsensitive) == 0) {
+        val = std::numeric_limits<double>::quiet_NaN();
+        ok = true;
+    } else if (text.compare(QStringLiteral("+inf"), Qt::CaseInsensitive) == 0 ||
+               text.compare(QStringLiteral("inf"), Qt::CaseInsensitive) == 0) {
+        val = std::numeric_limits<double>::infinity();
+        ok = true;
+    } else if (text.compare(QStringLiteral("-inf"), Qt::CaseInsensitive) == 0) {
+        val = -std::numeric_limits<double>::infinity();
+        ok = true;
+    } else {
+        val = text.toDouble(&ok);
+    }
+    if (ok && rawOut) {
+        uint64_t u64 = 0;
+        std::memcpy(&u64, &val, 8);
+        *rawOut = u64;
+    }
+    return ok;
+}
+
 } // namespace
 
 Ieee754ConverterWidget::Ieee754ConverterWidget(QWidget* parent)
@@ -108,7 +155,15 @@ void Ieee754ConverterWidget::setupUi()
     addPresetTo(row1Layout, QStringLiteral("π"), 3.141592653589793);
     row1Layout->addStretch(1);
 
-    maxNormalBtn_ = addPresetTo(row2Layout, tr("Max Normal"), std::numeric_limits<float>::max());
+    maxNormalBtn_ = new QPushButton(tr("Max Normal"), presetsGroup_);
+    maxNormalBtn_->setFixedHeight(22);
+    connect(maxNormalBtn_, &QPushButton::clicked, this, [this]() {
+        const double maxNormal = (precision_ == Precision::Float32)
+            ? static_cast<double>(std::numeric_limits<float>::max())
+            : std::numeric_limits<double>::max();
+        onPresetClicked(maxNormal);
+    });
+    row2Layout->addWidget(maxNormalBtn_);
     infBtn_ = addPresetTo(row2Layout, tr("+Infinity"), std::numeric_limits<double>::infinity());
     nanBtn_ = addPresetTo(row2Layout, tr("NaN"), std::numeric_limits<double>::quiet_NaN());
     row2Layout->addStretch(1);
@@ -263,7 +318,8 @@ void Ieee754ConverterWidget::retranslateUi()
         matrixTable_->setColumnWidth(6, 185);
     }
 
-    updateAllViewsFromRaw();
+    updateMatrixTable();
+    updateBitfieldBreakdown();
 }
 
 void Ieee754ConverterWidget::onPrecisionChanged(int id)
@@ -295,53 +351,12 @@ void Ieee754ConverterWidget::onFloatInputEdited()
     isSyncing_ = true;
 
     const QString text = floatEdit_->text().trimmed();
-    bool ok = false;
-
-    if (precision_ == Precision::Float32) {
-        float val = 0.0f;
-        if (text.compare(QStringLiteral("nan"), Qt::CaseInsensitive) == 0) {
-            val = std::numeric_limits<float>::quiet_NaN();
-            ok = true;
-        } else if (text.compare(QStringLiteral("+inf"), Qt::CaseInsensitive) == 0 ||
-                   text.compare(QStringLiteral("inf"), Qt::CaseInsensitive) == 0) {
-            val = std::numeric_limits<float>::infinity();
-            ok = true;
-        } else if (text.compare(QStringLiteral("-inf"), Qt::CaseInsensitive) == 0) {
-            val = -std::numeric_limits<float>::infinity();
-            ok = true;
-        } else {
-            val = text.toFloat(&ok);
-        }
-
-        if (ok) {
-            uint32_t u32 = 0;
-            std::memcpy(&u32, &val, 4);
-            rawData_ = u32;
-        }
-    } else {
-        double val = 0.0;
-        if (text.compare(QStringLiteral("nan"), Qt::CaseInsensitive) == 0) {
-            val = std::numeric_limits<double>::quiet_NaN();
-            ok = true;
-        } else if (text.compare(QStringLiteral("+inf"), Qt::CaseInsensitive) == 0 ||
-                   text.compare(QStringLiteral("inf"), Qt::CaseInsensitive) == 0) {
-            val = std::numeric_limits<double>::infinity();
-            ok = true;
-        } else if (text.compare(QStringLiteral("-inf"), Qt::CaseInsensitive) == 0) {
-            val = -std::numeric_limits<double>::infinity();
-            ok = true;
-        } else {
-            val = text.toDouble(&ok);
-        }
-
-        if (ok) {
-            uint64_t u64 = 0;
-            std::memcpy(&u64, &val, 8);
-            rawData_ = u64;
-        }
-    }
+    uint64_t parsedRaw = 0;
+    const bool ok = tryParseFloatText(text, precision_ == Precision::Float32, &parsedRaw);
 
     if (ok) {
+        rawData_ = parsedRaw;
+        clearInputValidationErrors();
         // Keep floatEdit_ as is to preserve user typing, update remaining controls
         uint8_t bytes[8];
         if (precision_ == Precision::Float32) {
@@ -367,6 +382,8 @@ void Ieee754ConverterWidget::onFloatInputEdited()
 
         updateMatrixTable();
         updateBitfieldBreakdown();
+    } else {
+        setFieldValidationError(floatEdit_, tr("Invalid floating-point value (use finite number, nan, inf, or -inf)."));
     }
 
     isSyncing_ = false;
@@ -393,6 +410,7 @@ void Ieee754ConverterWidget::onHexInputEdited()
     }
 
     if (ok) {
+        clearInputValidationErrors();
         // Update float, signed, unsigned
         if (precision_ == Precision::Float32) {
             float fVal = 0.0f;
@@ -414,6 +432,12 @@ void Ieee754ConverterWidget::onHexInputEdited()
 
         updateMatrixTable();
         updateBitfieldBreakdown();
+    } else {
+        setFieldValidationError(
+            hexEdit_,
+            precision_ == Precision::Float32
+                ? tr("Invalid hex value (expected up to 8 hex digits).")
+                : tr("Invalid hex value (expected up to 16 hex digits)."));
     }
 
     isSyncing_ = false;
@@ -442,9 +466,16 @@ void Ieee754ConverterWidget::onSignedIntInputEdited()
     }
 
     if (ok) {
+        clearInputValidationErrors();
         updateInputFields();
         updateMatrixTable();
         updateBitfieldBreakdown();
+    } else {
+        setFieldValidationError(
+            signedEdit_,
+            precision_ == Precision::Float32
+                ? tr("Invalid signed 32-bit integer.")
+                : tr("Invalid signed 64-bit integer."));
     }
 
     isSyncing_ = false;
@@ -469,9 +500,16 @@ void Ieee754ConverterWidget::onUnsignedIntInputEdited()
     }
 
     if (ok) {
+        clearInputValidationErrors();
         updateInputFields();
         updateMatrixTable();
         updateBitfieldBreakdown();
+    } else {
+        setFieldValidationError(
+            unsignedEdit_,
+            precision_ == Precision::Float32
+                ? tr("Invalid unsigned 32-bit integer.")
+                : tr("Invalid unsigned 64-bit integer."));
     }
 
     isSyncing_ = false;
@@ -498,6 +536,7 @@ void Ieee754ConverterWidget::onPresetClicked(double value, bool isSpecial, uint6
 void Ieee754ConverterWidget::updateAllViewsFromRaw()
 {
     isSyncing_ = true;
+    clearInputValidationErrors();
     updateInputFields();
     updateMatrixTable();
     updateBitfieldBreakdown();
@@ -670,108 +709,142 @@ void Ieee754ConverterWidget::updateMatrixTable()
     }
 }
 
+void Ieee754ConverterWidget::clearInputValidationErrors()
+{
+    for (QLineEdit* edit : {floatEdit_, hexEdit_, signedEdit_, unsignedEdit_}) {
+        if (edit) {
+            edit->setStyleSheet(QString());
+            edit->setToolTip(QString());
+        }
+    }
+    if (inputHintLabel_) {
+        inputHintLabel_->setStyleSheet(QStringLiteral("color: #6B7280; font-size: 11px;"));
+        inputHintLabel_->setText(tr("Editing any field instantly derives all others in real-time."));
+    }
+}
+
+void Ieee754ConverterWidget::setFieldValidationError(QLineEdit* edit, const QString& reason)
+{
+    clearInputValidationErrors();
+    if (edit) {
+        edit->setStyleSheet(QStringLiteral("QLineEdit { border: 1px solid #EF4444; }"));
+        edit->setToolTip(reason);
+    }
+    if (inputHintLabel_) {
+        inputHintLabel_->setStyleSheet(QStringLiteral("color: #EF4444; font-size: 11px;"));
+        inputHintLabel_->setText(reason);
+    }
+}
+
 void Ieee754ConverterWidget::updateBitfieldBreakdown()
 {
     if (!binaryFullLabel_ || !signBitLabel_ || !expBitsLabel_ || !fracBitsLabel_ || !formulaLabel_) {
         return;
     }
-
     if (precision_ == Precision::Float32) {
-        const uint32_t u32 = static_cast<uint32_t>(rawData_);
-        const uint32_t sign = (u32 >> 31) & 0x01;
-        const uint32_t exp = (u32 >> 23) & 0xFF;
-        const uint32_t frac = u32 & 0x7FFFFF;
-
-        // Binary string formatted
-        QString binSign = QString::number(sign, 2);
-        QString binExp = QString::number(exp, 2).rightJustified(8, QLatin1Char('0'));
-        QString binFrac = QString::number(frac, 2).rightJustified(23, QLatin1Char('0'));
-
-        binaryFullLabel_->setText(QStringLiteral("<span style='color: #3B82F6;'>%1</span> "
-                                                 "<span style='color: #10B981;'>%2</span> "
-                                                 "<span style='color: #F59E0B;'>%3</span>")
-                                      .arg(binSign, binExp, binFrac));
-
-        // Sign details
-        signBitLabel_->setText(tr("Sign [Bit 31]: %1 (%2)").arg(sign).arg(sign == 0 ? tr("Positive +") : tr("Negative -")));
-
-        // Exponent details
-        if (exp == 0xFF) {
-            expBitsLabel_->setText(tr("Exp [Bits 30-23]: 0xFF (Special: %1)")
-                                       .arg(frac == 0 ? tr("Infinity") : tr("NaN")));
-        } else if (exp == 0) {
-            expBitsLabel_->setText(tr("Exp [Bits 30-23]: 0 (Subnormal, 2^-126)"));
-        } else {
-            const int actualExp = static_cast<int>(exp) - 127;
-            expBitsLabel_->setText(tr("Exp [Bits 30-23]: %1 (Actual: %1 - 127 = %2, 2^%2)")
-                                       .arg(exp).arg(actualExp));
-        }
-
-        // Mantissa details
-        double fracVal = 0.0;
-        for (int i = 0; i < 23; ++i) {
-            if ((frac >> (22 - i)) & 1) {
-                fracVal += std::pow(2.0, -(i + 1));
-            }
-        }
-        const double significand = (exp == 0) ? fracVal : (1.0 + fracVal);
-        fracBitsLabel_->setText(tr("Mantissa [Bits 22-0]: %1 (Significand: %2)")
-                                    .arg(QString::number(frac, 16).toUpper().rightJustified(6, QLatin1Char('0')))
-                                    .arg(significand, 0, 'g', 8));
-
-        // Evaluation formula
-        float fVal = 0.0f;
-        std::memcpy(&fVal, &rawData_, 4);
-        formulaLabel_->setText(tr("Formula: (-1)^%1 × 2^(%2 - 127) × (1 + 0x%3/2^23) = %4")
-                                   .arg(sign)
-                                   .arg(exp)
-                                   .arg(QString::number(frac, 16).toUpper())
-                                   .arg(formatDouble(fVal, 7)));
+        updateFloat32Bitfield();
     } else {
-        const uint64_t u64 = rawData_;
-        const uint64_t sign = (u64 >> 63) & 0x01;
-        const uint64_t exp = (u64 >> 52) & 0x7FF;
-        const uint64_t frac = u64 & 0x000FFFFFFFFFFFFFULL;
+        updateFloat64Bitfield();
+    }
+}
 
-        QString binSign = QString::number(sign, 2);
-        QString binExp = QString::number(exp, 2).rightJustified(11, QLatin1Char('0'));
-        QString binFrac = QString::number(frac, 2).rightJustified(52, QLatin1Char('0'));
+void Ieee754ConverterWidget::updateFloat32Bitfield()
+{
+    const uint32_t u32 = static_cast<uint32_t>(rawData_);
+    const uint32_t sign = (u32 >> 31) & 0x01;
+    const uint32_t exp = (u32 >> 23) & 0xFF;
+    const uint32_t frac = u32 & 0x7FFFFF;
 
-        binaryFullLabel_->setText(QStringLiteral("<span style='color: #3B82F6;'>%1</span> "
-                                                 "<span style='color: #10B981;'>%2</span> "
-                                                 "<span style='color: #F59E0B;'>%3</span>")
-                                      .arg(binSign, binExp, binFrac));
+    const QString binSign = QString::number(sign, 2);
+    const QString binExp = QString::number(exp, 2).rightJustified(8, QLatin1Char('0'));
+    const QString binFrac = QString::number(frac, 2).rightJustified(23, QLatin1Char('0'));
+    binaryFullLabel_->setText(QStringLiteral("<span style='color: #3B82F6;'>%1</span> "
+                                             "<span style='color: #10B981;'>%2</span> "
+                                             "<span style='color: #F59E0B;'>%3</span>")
+                                  .arg(binSign, binExp, binFrac));
+    signBitLabel_->setText(tr("Sign [Bit 31]: %1 (%2)").arg(sign).arg(sign == 0 ? tr("Positive +") : tr("Negative -")));
 
-        signBitLabel_->setText(tr("Sign [Bit 63]: %1 (%2)").arg(sign).arg(sign == 0 ? tr("Positive +") : tr("Negative -")));
+    if (exp == 0xFF) {
+        expBitsLabel_->setText(tr("Exp [Bits 30-23]: 0xFF (Special: %1)").arg(frac == 0 ? tr("Infinity") : tr("NaN")));
+    } else if (exp == 0) {
+        expBitsLabel_->setText(tr("Exp [Bits 30-23]: 0 (Subnormal, 2^-126)"));
+    } else {
+        expBitsLabel_->setText(tr("Exp [Bits 30-23]: %1 (Actual: %1 - 127 = %2, 2^%2)")
+                                   .arg(exp).arg(static_cast<int>(exp) - 127));
+    }
 
-        if (exp == 0x7FF) {
-            expBitsLabel_->setText(tr("Exp [Bits 62-52]: 0x7FF (Special: %1)")
-                                       .arg(frac == 0 ? tr("Infinity") : tr("NaN")));
-        } else if (exp == 0) {
-            expBitsLabel_->setText(tr("Exp [Bits 62-52]: 0 (Subnormal, 2^-1022)"));
-        } else {
-            const int actualExp = static_cast<int>(exp) - 1023;
-            expBitsLabel_->setText(tr("Exp [Bits 62-52]: %1 (Actual: %1 - 1023 = %2, 2^%2)")
-                                       .arg(exp).arg(actualExp));
-        }
+    double fracVal = 0.0;
+    for (int i = 0; i < 23; ++i) {
+        if ((frac >> (22 - i)) & 1) fracVal += std::pow(2.0, -(i + 1));
+    }
+    const double significand = (exp == 0) ? fracVal : (1.0 + fracVal);
+    const QString fracHex = QString::number(frac, 16).toUpper();
+    fracBitsLabel_->setText(tr("Mantissa [Bits 22-0]: %1 (Significand: %2)")
+                                .arg(fracHex.rightJustified(6, QLatin1Char('0'))).arg(significand, 0, 'g', 8));
 
-        double fracVal = 0.0;
-        for (int i = 0; i < 52; ++i) {
-            if ((frac >> (51 - i)) & 1) {
-                fracVal += std::pow(2.0, -(i + 1));
-            }
-        }
-        const double significand = (exp == 0) ? fracVal : (1.0 + fracVal);
-        fracBitsLabel_->setText(tr("Mantissa [Bits 51-0]: %1 (Significand: %2)")
-                                    .arg(QString::number(frac, 16).toUpper().rightJustified(13, QLatin1Char('0')))
-                                    .arg(significand, 0, 'g', 15));
+    float fVal = 0.0f;
+    std::memcpy(&fVal, &rawData_, 4);
+    if (exp == 0xFF) {
+        formulaLabel_->setText(frac == 0
+            ? tr("Formula: (-1)^%1 × ∞ = %2").arg(sign).arg(formatDouble(fVal, 7))
+            : tr("Formula: NaN (Exp = 0xFF, Frac = 0x%1 ≠ 0)").arg(fracHex));
+    } else if (exp == 0) {
+        formulaLabel_->setText(frac == 0
+            ? tr("Formula: (-1)^%1 × 0 = %2").arg(sign).arg(sign == 0 ? QStringLiteral("0") : QStringLiteral("-0"))
+            : tr("Formula: (-1)^%1 × 2^(-126) × (0 + 0x%2/2^23) = %3").arg(sign).arg(fracHex).arg(formatDouble(fVal, 7)));
+    } else {
+        formulaLabel_->setText(tr("Formula: (-1)^%1 × 2^(%2 - 127) × (1 + 0x%3/2^23) = %4")
+                                   .arg(sign).arg(exp).arg(fracHex).arg(formatDouble(fVal, 7)));
+    }
+}
 
-        double dVal = 0.0;
-        std::memcpy(&dVal, &rawData_, 8);
+void Ieee754ConverterWidget::updateFloat64Bitfield()
+{
+    const uint64_t u64 = rawData_;
+    const uint64_t sign = (u64 >> 63) & 0x01;
+    const uint64_t exp = (u64 >> 52) & 0x7FF;
+    const uint64_t frac = u64 & 0x000FFFFFFFFFFFFFULL;
+
+    const QString binSign = QString::number(sign, 2);
+    const QString binExp = QString::number(exp, 2).rightJustified(11, QLatin1Char('0'));
+    const QString binFrac = QString::number(frac, 2).rightJustified(52, QLatin1Char('0'));
+    binaryFullLabel_->setText(QStringLiteral("<span style='color: #3B82F6;'>%1</span> "
+                                             "<span style='color: #10B981;'>%2</span> "
+                                             "<span style='color: #F59E0B;'>%3</span>")
+                                  .arg(binSign, binExp, binFrac));
+    signBitLabel_->setText(tr("Sign [Bit 63]: %1 (%2)").arg(sign).arg(sign == 0 ? tr("Positive +") : tr("Negative -")));
+
+    if (exp == 0x7FF) {
+        expBitsLabel_->setText(tr("Exp [Bits 62-52]: 0x7FF (Special: %1)").arg(frac == 0 ? tr("Infinity") : tr("NaN")));
+    } else if (exp == 0) {
+        expBitsLabel_->setText(tr("Exp [Bits 62-52]: 0 (Subnormal, 2^-1022)"));
+    } else {
+        expBitsLabel_->setText(tr("Exp [Bits 62-52]: %1 (Actual: %1 - 1023 = %2, 2^%2)")
+                                   .arg(exp).arg(static_cast<int>(exp) - 1023));
+    }
+
+    double fracVal = 0.0;
+    for (int i = 0; i < 52; ++i) {
+        if ((frac >> (51 - i)) & 1) fracVal += std::pow(2.0, -(i + 1));
+    }
+    const double significand = (exp == 0) ? fracVal : (1.0 + fracVal);
+    const QString fracHex = QString::number(frac, 16).toUpper();
+    fracBitsLabel_->setText(tr("Mantissa [Bits 51-0]: %1 (Significand: %2)")
+                                .arg(fracHex.rightJustified(13, QLatin1Char('0'))).arg(significand, 0, 'g', 15));
+
+    double dVal = 0.0;
+    std::memcpy(&dVal, &rawData_, 8);
+    if (exp == 0x7FF) {
+        formulaLabel_->setText(frac == 0
+            ? tr("Formula: (-1)^%1 × ∞ = %2").arg(sign).arg(formatDouble(dVal, 15))
+            : tr("Formula: NaN (Exp = 0x7FF, Frac = 0x%1 ≠ 0)").arg(fracHex));
+    } else if (exp == 0) {
+        formulaLabel_->setText(frac == 0
+            ? tr("Formula: (-1)^%1 × 0 = %2").arg(sign).arg(sign == 0 ? QStringLiteral("0") : QStringLiteral("-0"))
+            : tr("Formula: (-1)^%1 × 2^(-1022) × (0 + 0x%2/2^52) = %3").arg(sign).arg(fracHex).arg(formatDouble(dVal, 15)));
+    } else {
         formulaLabel_->setText(tr("Formula: (-1)^%1 × 2^(%2 - 1023) × (1 + Frac) = %3")
-                                   .arg(sign)
-                                   .arg(exp)
-                                   .arg(formatDouble(dVal, 15)));
+                                   .arg(sign).arg(exp).arg(formatDouble(dVal, 15)));
     }
 }
 
@@ -798,6 +871,9 @@ void Ieee754ConverterWidget::copyToClipboard(const QString& text, const QString&
     auto* clipboard = QGuiApplication::clipboard();
     if (clipboard) {
         clipboard->setText(text);
+    }
+    emit copiedToClipboard(text);
+    if (isVisible()) {
         QToolTip::showText(QCursor::pos(), successMsg, this, {}, 2000);
     }
 }

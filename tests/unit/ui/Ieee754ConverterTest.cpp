@@ -4,11 +4,14 @@
 #include "views/converter/Ieee754ConverterWidget.h"
 
 #include <QApplication>
+#include <QEvent>
+#include <QLabel>
 #include <QLineEdit>
 #include <QTableWidget>
 #include <QRadioButton>
 #include <QPushButton>
-#include <QClipboard>
+#include <QSignalSpy>
+#include <limits>
 
 namespace ui::views::converter {
 
@@ -138,6 +141,72 @@ TEST_F(Ieee754ConverterTest, SpecialValues_NaNAndInfinity) {
     EXPECT_TRUE(ok);
     EXPECT_EQ((nanVal >> 23) & 0xFF, 0xFF);
     EXPECT_NE(nanVal & 0x7FFFFF, 0);
+}
+
+TEST_F(Ieee754ConverterTest, MaxNormalIsDynamicByPrecisionAndLanguageChangePreservesEdits) {
+    auto lineEdits = widget_->findChildren<QLineEdit*>();
+    ASSERT_GE(lineEdits.size(), 4);
+    QLineEdit* floatEdit = lineEdits[0];
+    QLineEdit* hexEdit = lineEdits[1];
+
+    auto radios = widget_->findChildren<QRadioButton*>();
+    ASSERT_GE(radios.size(), 2);
+    radios[1]->click(); // Float64
+
+    QPushButton* maxNormalBtn = nullptr;
+    for (auto* btn : widget_->findChildren<QPushButton*>()) {
+        if (btn->text().contains(QStringLiteral("Max Normal"))) {
+            maxNormalBtn = btn;
+            break;
+        }
+    }
+    ASSERT_NE(maxNormalBtn, nullptr);
+    maxNormalBtn->click();
+    // IEEE 754 Double Max Normal = 0x7FEFFFFFFFFFFFFF
+    EXPECT_EQ(hexEdit->text(), QStringLiteral("7F EF FF FF FF FF FF FF"));
+
+    // LanguageChange must preserve active line edit contents without resetting from rawData_.
+    floatEdit->setText(QStringLiteral("not-committed-999"));
+    QEvent langEvent(QEvent::LanguageChange);
+    QApplication::sendEvent(widget_.get(), &langEvent);
+    EXPECT_EQ(floatEdit->text(), QStringLiteral("not-committed-999"));
+}
+
+TEST_F(Ieee754ConverterTest, InvalidInputAppliesErrorBorderAndSubnormalFormulaAndCopySignalWork) {
+    auto lineEdits = widget_->findChildren<QLineEdit*>();
+    ASSERT_GE(lineEdits.size(), 4);
+    QLineEdit* floatEdit = lineEdits[0];
+    QLineEdit* hexEdit = lineEdits[1];
+
+    floatEdit->setText(QStringLiteral("not-a-float"));
+    QMetaObject::invokeMethod(floatEdit, "textEdited", Q_ARG(QString, QStringLiteral("not-a-float")));
+    EXPECT_TRUE(floatEdit->styleSheet().contains(QStringLiteral("#EF4444")));
+
+    // Float32 smallest subnormal (0x00000001): formula must use 2^(-126) and (0 + ...), not (1 + ...).
+    hexEdit->setText(QStringLiteral("00 00 00 01"));
+    QMetaObject::invokeMethod(hexEdit, "textEdited", Q_ARG(QString, QStringLiteral("00 00 00 01")));
+    EXPECT_TRUE(floatEdit->styleSheet().isEmpty());
+
+    bool foundSubnormalFormula = false;
+    for (auto* label : widget_->findChildren<QLabel*>()) {
+        if (label->text().contains(QStringLiteral("2^(-126)")) && label->text().contains(QStringLiteral("(0 + 0x1/2^23)"))) {
+            foundSubnormalFormula = true;
+            break;
+        }
+    }
+    EXPECT_TRUE(foundSubnormalFormula);
+
+    QSignalSpy copiedSpy(widget_.get(), &Ieee754ConverterWidget::copiedToClipboard);
+    QPushButton* copyHexBtn = nullptr;
+    for (auto* btn : widget_->findChildren<QPushButton*>()) {
+        if (btn->text().contains(QStringLiteral("Hex"))) {
+            copyHexBtn = btn;
+            break;
+        }
+    }
+    ASSERT_NE(copyHexBtn, nullptr);
+    copyHexBtn->click();
+    EXPECT_EQ(copiedSpy.count(), 1);
 }
 
 } // namespace ui::views::converter

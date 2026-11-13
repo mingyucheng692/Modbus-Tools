@@ -7,6 +7,7 @@
 
 #include <QJsonArray>
 #include <QJsonObject>
+#include <QSignalSpy>
 #include <QtGlobal>
 
 // Prerelease channel runtime gate (R1): MODBUS_TOOLS_PRERELEASE env var,
@@ -137,4 +138,25 @@ TEST(UpdateCheckerAssetSelection, ForeignPlatformAssetsFallBackToReleasePage)
         releaseUrl).url;
 
     EXPECT_EQ(resolvedUrl, releaseUrl);
+}
+
+TEST(UpdateCheckerPayloadHandling, MalformedAndNonArrayPayloadsEmitCheckFailed)
+{
+    ui::common::UpdateChecker checker;
+    QSignalSpy failedSpy(&checker, &ui::common::UpdateChecker::checkFailed);
+    QSignalSpy noUpdateSpy(&checker, &ui::common::UpdateChecker::noUpdateAvailable);
+
+    checker.handleReleasesPayload(QByteArrayLiteral("{invalid json"));
+    EXPECT_EQ(failedSpy.count(), 1);
+    EXPECT_EQ(noUpdateSpy.count(), 0);
+
+    failedSpy.clear();
+    checker.handleReleasesPayload(QByteArrayLiteral(R"({"message":"API rate limit exceeded"})"));
+    EXPECT_EQ(failedSpy.count(), 1);
+    EXPECT_EQ(noUpdateSpy.count(), 0);
+
+    failedSpy.clear();
+    checker.handleReleasesPayload(QByteArrayLiteral("[]"));
+    EXPECT_EQ(failedSpy.count(), 0);
+    EXPECT_EQ(noUpdateSpy.count(), 1);
 }

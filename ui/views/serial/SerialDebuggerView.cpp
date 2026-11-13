@@ -2,7 +2,9 @@
 
 #include "SerialDebuggerView.h"
 #include "Config.h"
+#include "core/common/SettingsKeys.h"
 #include "infra/config/ISettingsService.h"
+#include "../../common/ConnectionAlert.h"
 #include "../../widgets/SerialConnectionWidget.h"
 #include "../../widgets/ByteMonitorWidget.h"
 #include "../../widgets/GenericInputWidget.h"
@@ -14,16 +16,43 @@
 #include <QMetaObject>
 #include <QCheckBox>
 #include <QEvent>
+#include <QSignalBlocker>
 #include <spdlog/spdlog.h>
 
 namespace ui::views::serial {
 
+namespace {
+
+QString channelStateText(io::ChannelState state) {
+    switch (state) {
+    case io::ChannelState::Closed:
+        return SerialDebuggerView::tr("Closed");
+    case io::ChannelState::Opening:
+        return SerialDebuggerView::tr("Opening");
+    case io::ChannelState::Open:
+        return SerialDebuggerView::tr("Open");
+    case io::ChannelState::Closing:
+        return SerialDebuggerView::tr("Closing");
+    case io::ChannelState::Error:
+        return SerialDebuggerView::tr("Error");
+    default:
+        return SerialDebuggerView::tr("Unknown");
+    }
+}
+
+} // namespace
+
 SerialDebuggerView::SerialDebuggerView(infra::config::ISettingsService* settingsService, QWidget *parent)
     : GenericChannelViewBase(settingsService, parent),
-      channelCtrl_(this) {
+      channelCtrl_(this),
+      disconnectAlertHandler_([this]() { ui::common::connection_alert::showDisconnected(this); }) {
     channelController_ = &channelCtrl_;
     setupUi();
     startWorker();
+}
+
+void SerialDebuggerView::setDisconnectAlertHandler(DisconnectAlertHandler handler) noexcept {
+    disconnectAlertHandler_ = std::move(handler);
 }
 
 SerialDebuggerView::~SerialDebuggerView() noexcept {
@@ -90,8 +119,12 @@ void SerialDebuggerView::setupUi() {
     dtrCheck_->setEnabled(false);
     rtsCheck_->setEnabled(false);
     if (settingsService_) {
-        dtrCheck_->setChecked(settingsService_->value(QStringLiteral("serial_debugger/dtr")).toBool());
-        rtsCheck_->setChecked(settingsService_->value(QStringLiteral("serial_debugger/rts")).toBool());
+        const QSignalBlocker dtrBlocker(dtrCheck_);
+        const QSignalBlocker rtsBlocker(rtsCheck_);
+        dtrCheck_->setChecked(
+            settingsService_->value(core::common::settings_keys::kSerialDebuggerDtr).toBool());
+        rtsCheck_->setChecked(
+            settingsService_->value(core::common::settings_keys::kSerialDebuggerRts).toBool());
     }
 
     retranslateUi();
@@ -126,33 +159,10 @@ void SerialDebuggerView::onConnectClicked(const io::SerialConfig& config) {
                               Q_ARG(quint64, generation));
 }
 
-void SerialDebuggerView::onWorkerStateChanged(io::ChannelState state, quint64 generation) {
-    if (generation != connectionGeneration_) {
+void SerialDebuggerView::applyConnectionWidgetState(io::ChannelState state) {
+    if (!connectionWidget_) {
         return;
     }
-
-    const bool wasConnected = isConnected_;
-
-    isConnected_ = (state == io::ChannelState::Open);
-    if (!isConnected_ && channelController_ && channelController_->isAutoSendActive()) {
-        channelController_->stopAutoSend();
-        if (inputWidget_) {
-            inputWidget_->setAutoSendEnabled(false);
-        }
-    }
-    dtrCheck_->setEnabled(isConnected_);
-    rtsCheck_->setEnabled(isConnected_);
-
-    QString stateStr;
-    switch (state) {
-        case io::ChannelState::Closed: stateStr = tr("Closed"); break;
-        case io::ChannelState::Opening: stateStr = tr("Opening"); break;
-        case io::ChannelState::Open: stateStr = tr("Open"); break;
-        case io::ChannelState::Closing: stateStr = tr("Closing"); break;
-        case io::ChannelState::Error: stateStr = tr("Error"); break;
-        default: stateStr = tr("Unknown"); break;
-    }
-
     switch (state) {
     case io::ChannelState::Opening:
         connectionWidget_->setDisplayState(widgets::SerialConnectionWidget::DisplayState::Connecting);
@@ -168,13 +178,53 @@ void SerialDebuggerView::onWorkerStateChanged(io::ChannelState state, quint64 ge
         connectionWidget_->setConnected(false);
         break;
     }
+}
+
+void SerialDebuggerView::applySerialControlLines() {
+    const bool dtr = dtrCheck_ && dtrCheck_->isChecked();
+    const bool rts = rtsCheck_ && rtsCheck_->isChecked();
+    if (auto* worker = channelCtrl_.worker()) {
+        QMetaObject::invokeMethod(worker, "setDtr", Qt::QueuedConnection, Q_ARG(bool, dtr));
+        QMetaObject::invokeMethod(worker, "setRts", Qt::QueuedConnection, Q_ARG(bool, rts));
+    }
+    emit serialControlLinesApplied(dtr, rts);
+}
+
+void SerialDebuggerView::onWorkerStateChanged(io::ChannelState state, quint64 generation) {
+    if (generation != connectionGeneration_) {
+        return;
+    }
+
+    const bool wasConnected = isConnected_;
+    isConnected_ = (state == io::ChannelState::Open);
+    if (!isConnected_ && channelController_ && channelController_->isAutoSendActive()) {
+        channelController_->stopAutoSend();
+        if (inputWidget_) {
+            inputWidget_->setAutoSendEnabled(false);
+        }
+    }
+    dtrCheck_->setEnabled(isConnected_);
+    rtsCheck_->setEnabled(isConnected_);
+    applyConnectionWidgetState(state);
 
     if (monitor_) {
-        monitor_->appendInfo(tr("State changed: %1").arg(stateStr));
+        monitor_->appendInfo(tr("State changed: %1").arg(channelStateText(state)));
     }
 
     if (isConnected_) {
         manualDisconnectRequested_ = false;
+        applySerialControlLines();
+        return;
+    }
+
+    const bool isPassiveDisconnect = wasConnected
+        && !manualDisconnectRequested_
+        && (state == io::ChannelState::Closed || state == io::ChannelState::Error);
+    if (isPassiveDisconnect) {
+        emit unexpectedDisconnectDetected();
+        if (disconnectAlertHandler_) {
+            disconnectAlertHandler_();
+        }
     }
 }
 
@@ -191,7 +241,9 @@ void SerialDebuggerView::onWorkerError(const QString& deviceHint, io::ChannelErr
             case io::ChannelErrorCode::ConnectionReset: localizedMsg = tr("Connection reset"); break;
             default: localizedMsg = tr("Unknown error"); break;
         }
-        const QString displayMsg = error.isEmpty() ? localizedMsg : error;
+        const QString displayMsg = (error.isEmpty() || error == localizedMsg)
+            ? localizedMsg
+            : QStringLiteral("%1 (%2)").arg(localizedMsg, error);
         monitor_->appendError(tr("Error: %1").arg(displayMsg));
     }
     const QString hint = deviceHint.isEmpty() ? QStringLiteral("Serial Worker") : deviceHint;
@@ -206,7 +258,7 @@ void SerialDebuggerView::onWorkerMonitor(bool isTx, const QByteArray& data) {
 
 void SerialDebuggerView::onDtrChanged(bool checked) {
     if (settingsService_) {
-        settingsService_->setValue(QStringLiteral("serial_debugger/dtr"), checked);
+        settingsService_->setValue(core::common::settings_keys::kSerialDebuggerDtr, checked);
     }
     auto* worker = channelCtrl_.worker();
     if (!worker) return;
@@ -217,7 +269,7 @@ void SerialDebuggerView::onDtrChanged(bool checked) {
 
 void SerialDebuggerView::onRtsChanged(bool checked) {
     if (settingsService_) {
-        settingsService_->setValue(QStringLiteral("serial_debugger/rts"), checked);
+        settingsService_->setValue(core::common::settings_keys::kSerialDebuggerRts, checked);
     }
     auto* worker = channelCtrl_.worker();
     if (!worker) return;

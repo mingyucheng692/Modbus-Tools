@@ -55,7 +55,7 @@ void ModbusSettingsDialog::setupUi() {
         retryIntervalSpin_->setEnabled(enabled);
     };
     updateRetryControls(initialSettings_.retryEnabled);
-    connect(retryEnableCheck_, &QCheckBox::toggled, updateRetryControls);
+    connect(retryEnableCheck_, &QCheckBox::toggled, this, updateRetryControls);
 
     logLevelCombo_ = new QComboBox(this);
     logLevelCombo_->addItem(QCoreApplication::translate("ui::MainWindow", "Debug"), static_cast<int>(spdlog::level::debug));
@@ -63,7 +63,8 @@ void ModbusSettingsDialog::setupUi() {
     logLevelCombo_->addItem(QCoreApplication::translate("ui::MainWindow", "Warning"), static_cast<int>(spdlog::level::warn));
     logLevelCombo_->addItem(QCoreApplication::translate("ui::MainWindow", "Error"), static_cast<int>(spdlog::level::err));
     const int logIdx = logLevelCombo_->findData(initialSettings_.logLevel);
-    logLevelCombo_->setCurrentIndex(logIdx >= 0 ? logIdx : static_cast<int>(spdlog::level::info));
+    const int defaultLogIdx = logLevelCombo_->findData(static_cast<int>(spdlog::level::info));
+    logLevelCombo_->setCurrentIndex(logIdx >= 0 ? logIdx : (defaultLogIdx >= 0 ? defaultLogIdx : 0));
     formLayout->addRow(QCoreApplication::translate("ui::MainWindow", "Log Level:"), logLevelCombo_);
 
     addressBaseCombo_ = new QComboBox(this);

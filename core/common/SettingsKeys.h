@@ -149,4 +149,13 @@ inline constexpr char kModbusWorkbenchFc0fValue[] = "modbus/workbench/fc0fValue"
 inline constexpr char kModbusWorkbenchFc10Value[] = "modbus/workbench/fc10Value";
 inline constexpr char kModbusWorkbenchRawText[] = "modbus/workbench/rawText";
 
+inline constexpr char kModbusBuilderProtocol[] = "tools/builder/protocol";
+inline constexpr char kModbusBuilderSlaveId[] = "tools/builder/slaveId";
+inline constexpr char kModbusBuilderFunctionCode[] = "tools/builder/functionCode";
+inline constexpr char kModbusBuilderAddressBase[] = "tools/builder/addressBase";
+inline constexpr char kModbusBuilderStartAddress[] = "tools/builder/startAddress";
+inline constexpr char kModbusBuilderQuantity[] = "tools/builder/quantity";
+inline constexpr char kModbusBuilderWriteData[] = "tools/builder/writeData";
+inline constexpr char kModbusBuilderDataFormat[] = "tools/builder/dataFormat";
+
 }

@@ -25,15 +25,15 @@ QByteArray parseBinary(const QString& input);
 int parseSmartInt(const QString& input, bool* ok = nullptr);
 
 // Converts user-pasted text to clean target-radix representation.
-[[nodiscard]] std::optional<QString> convertPastedText(const QString& text, int targetRadix) noexcept;
+[[nodiscard]] std::optional<QString> convertPastedText(const QString& text, int targetRadix);
 
 // Converts numbers in text between bases (10, 16, and 2).
-[[nodiscard]] QString convertRadix(const QString& text, int fromRadix, int toRadix) noexcept;
+[[nodiscard]] QString convertRadix(const QString& text, int fromRadix, int toRadix);
 
 // Validates and packs bit string ('0'/'1') into LSB-first byte array.
-[[nodiscard]] ::common::Result<QByteArray, QString> packCoilBits(const QString& bitStr, int expectedQuantity) noexcept;
+[[nodiscard]] ::common::Result<QByteArray, QString> packCoilBits(const QString& bitStr, int expectedQuantity);
 
 // Validates and parses register values into big-endian byte array.
-[[nodiscard]] ::common::Result<QByteArray, QString> parseRegisterWords(const QString& text, int radix, int expectedQuantity) noexcept;
+[[nodiscard]] ::common::Result<QByteArray, QString> parseRegisterWords(const QString& text, int radix, int expectedQuantity);
 
 } // namespace ui::common::data_helper

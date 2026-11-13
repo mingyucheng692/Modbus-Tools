@@ -32,6 +32,9 @@ public:
     explicit Ieee754ConverterWidget(QWidget* parent = nullptr);
     ~Ieee754ConverterWidget() override = default;
 
+signals:
+    void copiedToClipboard(const QString& text);
+
 protected:
     void changeEvent(QEvent* event) override;
 
@@ -52,6 +55,10 @@ private:
     void updateInputFields();
     void updateMatrixTable();
     void updateBitfieldBreakdown();
+    void updateFloat32Bitfield();
+    void updateFloat64Bitfield();
+    void clearInputValidationErrors();
+    void setFieldValidationError(QLineEdit* edit, const QString& reason);
     void copyToClipboard(const QString& text, const QString& successMsg);
 
     [[nodiscard]] QString formatBinaryWithSpaces(uint64_t val, int bitCount) const;

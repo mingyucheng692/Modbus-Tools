@@ -72,10 +72,12 @@ int data_helper::parseSmartInt(const QString& input, bool* ok) {
 
     bool parseOk = false;
     int val = 0;
-    if (has0x) {
-        val = s.mid(2).toInt(&parseOk, 16);
-    } else if (hasH) {
-        val = s.left(s.length() - 1).toInt(&parseOk, 16);
+    if (has0x || hasH) {
+        const QString hexBody = (has0x ? s.mid(2) : s.left(s.length() - 1)).trimmed();
+        if (hexBody.startsWith(QLatin1Char('+')) || hexBody.startsWith(QLatin1Char('-'))) {
+            return 0;
+        }
+        val = hexBody.toInt(&parseOk, 16);
     } else {
         val = s.toInt(&parseOk, 10);
     }
@@ -84,7 +86,7 @@ int data_helper::parseSmartInt(const QString& input, bool* ok) {
     return val;
 }
 
-std::optional<QString> data_helper::convertPastedText(const QString& text, int targetRadix) noexcept {
+std::optional<QString> data_helper::convertPastedText(const QString& text, int targetRadix) {
     const QString trimmed = text.trimmed();
     if (trimmed.isEmpty() || (targetRadix != 10 && targetRadix != 16)) {
         return std::nullopt;
@@ -147,7 +149,7 @@ std::optional<QString> data_helper::convertPastedText(const QString& text, int t
     return convertedParts.join(QLatin1Char(' '));
 }
 
-QString data_helper::convertRadix(const QString& text, int fromRadix, int toRadix) noexcept {
+QString data_helper::convertRadix(const QString& text, int fromRadix, int toRadix) {
     const QString trimmed = text.trimmed();
     const auto isValidRadix = [](int r) noexcept { return r == 10 || r == 16 || r == 2; };
     if (trimmed.isEmpty() || fromRadix == toRadix || !isValidRadix(fromRadix) || !isValidRadix(toRadix)) {
@@ -193,7 +195,7 @@ QString data_helper::convertRadix(const QString& text, int fromRadix, int toRadi
     return resultParts.join(QLatin1Char(' '));
 }
 
-::common::Result<QByteArray, QString> data_helper::packCoilBits(const QString& bitStr, int expectedQuantity) noexcept {
+::common::Result<QByteArray, QString> data_helper::packCoilBits(const QString& bitStr, int expectedQuantity) {
     if (expectedQuantity <= 0) {
         return ::common::Result<QByteArray, QString>::err(
             QCoreApplication::translate("ui::common::ModbusDataHelper", "Expected quantity must be greater than zero"));
@@ -229,7 +231,7 @@ QString data_helper::convertRadix(const QString& text, int fromRadix, int toRadi
 }
 
 ::common::Result<QByteArray, QString> data_helper::parseRegisterWords(
-    const QString& text, int radix, int expectedQuantity) noexcept {
+    const QString& text, int radix, int expectedQuantity) {
     if (expectedQuantity <= 0) {
         return ::common::Result<QByteArray, QString>::err(
             QCoreApplication::translate("ui::common::ModbusDataHelper", "Expected quantity must be greater than zero"));

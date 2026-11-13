@@ -6,6 +6,7 @@
 #include "../ChannelController.h"
 #include "../../../infra/io/IChannel.h"
 #include "../../../infra/io/SerialConfig.h"
+#include <functional>
 
 namespace ui::widgets {
 class SerialConnectionWidget;
@@ -34,8 +35,19 @@ class SerialDebuggerView : public GenericChannelViewBase {
     Q_OBJECT
 
 public:
+    using DisconnectAlertHandler = std::function<void()>;
+
     explicit SerialDebuggerView(infra::config::ISettingsService* settingsService, QWidget *parent = nullptr);
     ~SerialDebuggerView() noexcept override;
+
+    void setDisconnectAlertHandler(DisconnectAlertHandler handler) noexcept;
+    [[nodiscard]] bool isConnected() const noexcept { return isConnected_; }
+    [[nodiscard]] QCheckBox* dtrCheck() const noexcept { return dtrCheck_; }
+    [[nodiscard]] QCheckBox* rtsCheck() const noexcept { return rtsCheck_; }
+
+signals:
+    void unexpectedDisconnectDetected();
+    void serialControlLinesApplied(bool dtr, bool rts);
 
 private slots:
     void onConnectClicked(const io::SerialConfig& config);
@@ -53,6 +65,8 @@ protected:
 private:
     void setupUi();
     void startWorker();
+    void applySerialControlLines();
+    void applyConnectionWidgetState(io::ChannelState state);
 
     // UI Components
     widgets::SerialConnectionWidget* connectionWidget_ = nullptr;
@@ -66,6 +80,7 @@ private:
 
     // Channel controller (composite) – manages worker thread
     ChannelController channelCtrl_;
+    DisconnectAlertHandler disconnectAlertHandler_;
 
     /// Monotonic connection-attempt counter, bumped on every user connect.
     /// Stale worker emissions from a torn-down channel carry an older generation

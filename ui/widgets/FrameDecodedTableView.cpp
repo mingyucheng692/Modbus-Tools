@@ -17,6 +17,7 @@
 #include <QDateTime>
 #include <QItemSelectionModel>
 #include <QSignalBlocker>
+#include <cmath>
 
 using namespace modbus::parser;
 using namespace modbus::analyzer;
@@ -244,11 +245,13 @@ void FrameDecodedTableView::renderData(const ParseResult& result,
 
             // 4: Type
             auto* typeItem = new QTableWidgetItem();
+            const QString defaultTypeText = tr("Default (%1)").arg(registerDataTypeToString(globalDataType_));
+            typeItem->setData(Qt::UserRole + 1, defaultTypeText);
             if (meta.customType.has_value()) {
                 typeItem->setText(registerDataTypeToString(*meta.customType));
                 typeItem->setData(Qt::UserRole, static_cast<int>(*meta.customType));
             } else {
-                typeItem->setText(tr("Default (%1)").arg(registerDataTypeToString(globalDataType_)));
+                typeItem->setText(defaultTypeText);
                 typeItem->setData(Qt::UserRole, -1);
             }
             typeItem->setFlags(typeItem->flags() | Qt::ItemIsEditable);
@@ -296,11 +299,14 @@ void FrameDecodedTableView::onItemChanged(QTableWidgetItem* itemChanged)
 
     if (col == 4) {
         const QVariant typeVal = itemChanged->data(Qt::UserRole);
-        if (typeVal.isValid() && typeVal.toInt() >= 0) {
-            meta.customType = static_cast<RegisterDataType>(typeVal.toInt());
-        } else {
-            meta.customType = std::nullopt;
+        const std::optional<RegisterDataType> newType =
+            (typeVal.isValid() && typeVal.toInt() >= 0)
+                ? std::optional<RegisterDataType>(static_cast<RegisterDataType>(typeVal.toInt()))
+                : std::nullopt;
+        if (meta.customType == newType) {
+            return;
         }
+        meta.customType = newType;
         metadataByAddress_.insert(address, meta);
         if (currentResult_.isValid) {
             renderData(currentResult_, globalDataType_, registerOrder_, addressBase_);
@@ -311,7 +317,7 @@ void FrameDecodedTableView::onItemChanged(QTableWidgetItem* itemChanged)
     } else if (col == 5) {
         bool ok = false;
         const double parsedScale = itemChanged->text().toDouble(&ok);
-        if (!ok) {
+        if (!ok || !std::isfinite(parsedScale) || parsedScale == 0.0) {
             QSignalBlocker blocker(this);
             itemChanged->setText(QString::number(meta.scale, 'g', 12));
             return;
@@ -508,6 +514,35 @@ void FrameDecodedTableView::keyPressEvent(QKeyEvent* event)
     QTableWidget::keyPressEvent(event);
 }
 
+bool FrameDecodedTableView::exportCsvToFile(const QString& filePath, QString* error) const
+{
+    if (!currentResult_.isValid || rowCount() == 0) {
+        if (error) {
+            *error = tr("There is no data to export.");
+        }
+        return false;
+    }
+
+    QStringList lines;
+    QStringList headers;
+    for (int c = 0; c < columnCount(); ++c) {
+        const auto* headerItem = horizontalHeaderItem(c);
+        headers << exporter::escapeCsvValue(headerItem ? headerItem->text() : QString());
+    }
+    lines << headers.join(QLatin1Char(','));
+
+    for (int r = 0; r < rowCount(); ++r) {
+        QStringList row;
+        for (int c = 0; c < columnCount(); ++c) {
+            const auto* cell = item(r, c);
+            row << exporter::escapeCsvValue(cell ? cell->text() : QString());
+        }
+        lines << row.join(QLatin1Char(','));
+    }
+
+    return exporter::writeCsvChunk(filePath, lines, true, error);
+}
+
 void FrameDecodedTableView::exportCsv()
 {
     if (!currentResult_.isValid || rowCount() == 0) {
@@ -520,23 +555,8 @@ void FrameDecodedTableView::exportCsv()
         tr("CSV Files (*.csv)"));
     if (filePath.isEmpty()) return;
 
-    QStringList lines;
-    QStringList headers;
-    for (int c = 0; c < columnCount(); ++c) {
-        headers << exporter::escapeCsvValue(horizontalHeaderItem(c)->text());
-    }
-    lines << headers.join(QLatin1Char(','));
-
-    for (int r = 0; r < rowCount(); ++r) {
-        QStringList row;
-        for (int c = 0; c < columnCount(); ++c) {
-            row << exporter::escapeCsvValue(item(r, c)->text());
-        }
-        lines << row.join(QLatin1Char(','));
-    }
-
     QString error;
-    if (!exporter::writeCsvChunk(filePath, lines, true, &error)) {
+    if (!exportCsvToFile(filePath, &error)) {
         QMessageBox::warning(this, tr("Export Failed"), error);
     }
 }

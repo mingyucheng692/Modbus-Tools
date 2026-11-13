@@ -24,6 +24,9 @@ public:
     /// intercept checks without touching the network.
     virtual void checkForUpdates();
 
+    /// Parses GitHub releases JSON payload and emits updateAvailable, noUpdateAvailable, or checkFailed.
+    void handleReleasesPayload(const QByteArray& rawData);
+
     static QString currentVersion();
     static QString packagePlatform();
     static QString releasePageUrl();

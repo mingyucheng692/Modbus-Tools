@@ -46,15 +46,20 @@ public:
     [[nodiscard]] TelemetryTableModel* tableModel() const noexcept { return tableModel_; }
     [[nodiscard]] QTableView* tableView() const noexcept { return tableView_; }
     [[nodiscard]] bool isAutoScrollEnabled() const noexcept { return autoScroll_; }
+    [[nodiscard]] bool isBatchTimerActive() const noexcept { return batchTimer_ && batchTimer_->isActive(); }
     void setAutoScrollEnabled(bool enabled);
     [[nodiscard]] QString inspectorDetailsText() const noexcept;
+    [[nodiscard]] bool exportToFile(const QString& filePath, QString* error = nullptr) const;
 
     [[nodiscard]] static QString formatInspectorDetails(const ::modbus::parser::ParseResult& pr, int aduLength);
+    [[nodiscard]] static QString formatRowTextForCopy(const TelemetryRowView& row);
 
 signals:
     void linkageToggled(bool active);
     void rawFramesToggled(bool enabled);
     void frameSelectedForAnalysis(const QByteArray& payload);
+    void rowCopied(const QString& text);
+    void exportFailed(const QString& error);
 
 protected:
     void keyPressEvent(QKeyEvent* event) override;
@@ -76,6 +81,8 @@ private:
     void updateInspectorContent(const TelemetryRowView* row);
     void updateMetricsLabel();
     void retranslateUi();
+    [[nodiscard]] QStringList buildCsvLines() const;
+    [[nodiscard]] bool exportJsonToFile(const QString& filePath, QString* error) const;
 
     TelemetryTableModel* tableModel_ = nullptr;
     QSortFilterProxyModel* proxyModel_ = nullptr;
