@@ -10,6 +10,7 @@
 #include <QFile>
 #include <QSettings>
 #include <QTemporaryDir>
+#include <QTimer>
 #include <iterator>
 #include <functional>
 
@@ -293,5 +294,98 @@ TEST(SettingsService, DefaultsCoverMigratedKeyNamespaces)
     };
     for (const QString& key : canonicalKeys) {
         EXPECT_FALSE(service.value(key).isNull()) << key.toStdString();
+    }
+}
+
+TEST(SettingsService, LoadWithoutMigrationDoesNotScheduleSyncOrWriteFile)
+{
+    QTemporaryDir sandbox;
+    ASSERT_TRUE(sandbox.isValid());
+
+    infra::platform::PathResolver pathResolver = makeIsolatedResolver(sandbox.path());
+    ConfigFileGuard guard(pathResolver.resolveConfigDir());
+    infra::config::SettingsService service(pathResolver);
+
+    const auto* syncTimer = service.findChild<QTimer*>();
+    ASSERT_NE(syncTimer, nullptr);
+    EXPECT_FALSE(syncTimer->isActive());
+    EXPECT_FALSE(QFile::exists(guard.path()));
+}
+
+TEST(SettingsService, DestructorFlushesPendingDirtyValuesWithoutExplicitSync)
+{
+    QTemporaryDir sandbox;
+    ASSERT_TRUE(sandbox.isValid());
+
+    infra::platform::PathResolver pathResolver = makeIsolatedResolver(sandbox.path());
+    ConfigFileGuard guard(pathResolver.resolveConfigDir());
+    {
+        infra::config::SettingsService service(pathResolver);
+        service.setValue(QString::fromLatin1(core::common::settings_keys::kAppThemeMode),
+                         QStringLiteral("light"));
+        const auto* syncTimer = service.findChild<QTimer*>();
+        ASSERT_NE(syncTimer, nullptr);
+        EXPECT_TRUE(syncTimer->isActive());
+    }
+
+    QSettings reader(guard.path(), QSettings::IniFormat);
+    EXPECT_EQ(reader.value(QString::fromLatin1(core::common::settings_keys::kAppThemeMode)).toString().toStdString(),
+              std::string("light"));
+}
+
+TEST(SettingsService, MigrateLegacyKeysClearsOldKeyFromMemoryImmediately)
+{
+    QTemporaryDir sandbox;
+    ASSERT_TRUE(sandbox.isValid());
+
+    infra::platform::PathResolver pathResolver = makeIsolatedResolver(sandbox.path());
+    ConfigFileGuard guard(pathResolver.resolveConfigDir());
+    {
+        QSettings writer(guard.path(), QSettings::IniFormat);
+        writer.setValue(QStringLiteral("serial/baudRate"), QStringLiteral("38400"));
+    }
+
+    infra::config::SettingsService service(pathResolver);
+    EXPECT_FALSE(service.contains(QStringLiteral("serial/baudRate")));
+    EXPECT_EQ(service.value(QString::fromLatin1(core::common::settings_keys::kModbusRtuBaudRate)).toString().toStdString(),
+              std::string("38400"));
+}
+
+TEST(SettingsService, DefaultsCoverModbusAsciiNamespace)
+{
+    QTemporaryDir sandbox;
+    ASSERT_TRUE(sandbox.isValid());
+
+    infra::platform::PathResolver pathResolver = makeIsolatedResolver(sandbox.path());
+    ConfigFileGuard guard(pathResolver.resolveConfigDir());
+    infra::config::SettingsService service(pathResolver);
+
+    using namespace core::common::settings_keys;
+    for (const char* key : {
+             kModbusAsciiBaudRate,
+             kModbusAsciiDataBits,
+             kModbusAsciiParity,
+             kModbusAsciiStopBits,
+             kModbusAsciiFlowControl,
+             kModbusAsciiPortName,
+             kModbusAsciiConnectionCollapsed,
+             kModbusAsciiStandardSlaveId,
+             kModbusAsciiStandardStartAddr,
+             kModbusAsciiStandardQuantity,
+             kModbusAsciiStandardFormatIndex,
+             kModbusAsciiStandardCollapsed,
+             kModbusAsciiRawCollapsed,
+             kModbusAsciiTrafficAutoScroll,
+             kModbusAsciiTrafficShowTx,
+             kModbusAsciiTrafficShowRx,
+             kModbusAsciiTrafficCollapsed,
+             kModbusAsciiControlEnablePoll,
+             kModbusAsciiControlIntervalMs,
+             kModbusAsciiControlFcIndex,
+             kModbusAsciiControlAddr,
+             kModbusAsciiControlQty,
+             kModbusAsciiDataMonitorCollapsed,
+         }) {
+        EXPECT_FALSE(service.value(QString::fromLatin1(key)).isNull()) << key;
     }
 }

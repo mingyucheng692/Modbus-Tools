@@ -1,6 +1,5 @@
 // Copyright (c) 2025 - present mingyucheng692. Licensed under the MIT License.
 
-#include <gmock/gmock.h>
 #include <gtest/gtest.h>
 #include <QSignalSpy>
 #include <QCoreApplication>
@@ -9,12 +8,11 @@
 #include "../../../infra/io/SerialConfig.h"
 #include "../../helpers/ModbusTestHelpers.h"
 
-using namespace testing;
 using namespace io;
 
 namespace {
 
-class ChannelOperationWorkerTest : public Test {
+class ChannelOperationWorkerTest : public ::testing::Test {
 protected:
     void SetUp() override {
         worker_ = std::make_unique<ChannelOperationWorker>();

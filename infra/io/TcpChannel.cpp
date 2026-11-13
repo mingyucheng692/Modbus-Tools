@@ -5,6 +5,7 @@
 #include "infra/logging/TraceContext.h"
 #include <spdlog/spdlog.h>
 #include <QCoreApplication>
+#include <QHostAddress>
 #include <QThread>
 #include <QMetaObject>
 

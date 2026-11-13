@@ -42,6 +42,7 @@ public:
 
     explicit SettingsService(infra::platform::PathResolver& pathResolver,
                              QObject* parent = nullptr);
+    ~SettingsService() noexcept override;
 
     QVariant value(const QString& key) const override;
     bool contains(const QString& key) const override;
@@ -65,12 +66,6 @@ private:
     QSet<QString> keysToRemove_;
     std::unique_ptr<QSettings> settings_;
     QTimer* syncTimer_ = nullptr;
-    infra::platform::PathResolver& pathResolver_;
 };
 
 } // namespace infra::config
-
-namespace ui::common {
-    // Alias for compatibility
-    using SettingsService = ::infra::config::SettingsService;
-} // namespace ui::common

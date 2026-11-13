@@ -79,10 +79,10 @@ static void QtMessageHandler(QtMsgType type, const QMessageLogContext& context, 
     }
 }
 
-bool ensureLogDirectoryWritable(const QString& logDir, QString* errorMessage)
+bool ensureLogDirectoryExists(const QString& logDir, QString* errorMessage)
 {
     if (logDir.isEmpty()) {
-        if (errorMessage) {
+        if (errorMessage != nullptr) {
             *errorMessage = QCoreApplication::translate("logging", "Log directory path is empty.");
         }
         return false;
@@ -90,58 +90,97 @@ bool ensureLogDirectoryWritable(const QString& logDir, QString* errorMessage)
 
     QDir dir(logDir);
     if (!dir.exists() && !dir.mkpath(QStringLiteral("."))) {
-        if (errorMessage) {
+        if (errorMessage != nullptr) {
             *errorMessage = QCoreApplication::translate("logging", "Failed to create log directory: %1").arg(logDir);
         }
         return false;
     }
+    return true;
+}
 
-    const QString probePath = dir.filePath(QStringLiteral(".write_probe"));
-    QFile probeFile(probePath);
-    if (!probeFile.open(QIODevice::WriteOnly | QIODevice::Truncate)) {
-        if (errorMessage) {
-            *errorMessage = QCoreApplication::translate("logging", "Log directory is not writable: %1").arg(logDir);
+QString buildTargetLogPath(const QDir& dir)
+{
+    const QString timestamp = QDateTime::currentDateTimeUtc().toString("yyyyMMdd-HHmmss'Z'");
+    const QString fileName = QStringLiteral("modbus-tools_%1_%2.log")
+                                 .arg(timestamp)
+                                 .arg(QCoreApplication::applicationPid());
+    return dir.filePath(fileName);
+}
+
+bool probeTargetLogWritable(const QString& targetLogPath, QString* errorMessage)
+{
+    // Verify the exact target file can be opened before constructing rotating_file_sink_mt,
+    // because the repo builds with -fno-exceptions and sink creation failures would std::abort().
+    const bool existedBeforeProbe = QFile::exists(targetLogPath);
+    QFile probeFile(targetLogPath);
+    if (!probeFile.open(QIODevice::WriteOnly | QIODevice::Append)) {
+        if (errorMessage != nullptr) {
+            *errorMessage = QCoreApplication::translate("logging", "Log file is not writable: %1").arg(targetLogPath);
         }
         return false;
     }
     probeFile.close();
-    probeFile.remove();
+    if (!existedBeforeProbe) {
+        QFile::remove(targetLogPath);
+    }
     return true;
 }
 
-bool Init(const QString& logDir, QString* errorMessage) noexcept
+void pruneOldLogs(QDir& dir, int maxAllowedFiles)
 {
-    if (errorMessage) {
-        errorMessage->clear();
-    }
-
-    if (!ensureLogDirectoryWritable(logDir, errorMessage)) {
-        return false;
-    }
-
-    QDir dir(logDir);
-
-    // 1. Global log disk-space protection: scan historical timestamped logs and prune old files.
-    const int maxAllowedFiles = config::Logging::kMaxRotatedFiles;
     dir.setNameFilters(QStringList() << QStringLiteral("modbus-tools_*.log*"));
     dir.setFilter(QDir::Files | QDir::NoSymLinks);
     dir.setSorting(QDir::Time | QDir::Reversed); // Oldest files first
 
-    QFileInfoList fileList = dir.entryInfoList();
+    const QFileInfoList fileList = dir.entryInfoList();
     if (fileList.size() >= maxAllowedFiles) {
-        int filesToDelete = fileList.size() - maxAllowedFiles + 1; // Prune excess to reserve slot for new log file
+        const int filesToDelete = fileList.size() - maxAllowedFiles + 1;
         for (int i = 0; i < filesToDelete; ++i) {
             QFile::remove(fileList[i].absoluteFilePath());
         }
     }
+}
 
-    // 2. Initialize current run's timestamped log file
+spdlog::level::level_enum resolveEffectiveLogLevel()
+{
+    auto effectiveLogLevel = kDefaultLogLevel;
+    const QByteArray envLevel = qgetenv("MODBUS_TOOLS_LOG_LEVEL").toUpper();
+    if (envLevel.isEmpty()) {
+        return effectiveLogLevel;
+    }
+    if (envLevel == "TRACE") return spdlog::level::trace;
+    if (envLevel == "DEBUG") return spdlog::level::debug;
+    if (envLevel == "INFO") return spdlog::level::info;
+    if (envLevel == "WARN" || envLevel == "WARNING") return spdlog::level::warn;
+    if (envLevel == "ERR" || envLevel == "ERROR") return spdlog::level::err;
+    if (envLevel == "CRITICAL" || envLevel == "FATAL") return spdlog::level::critical;
+    if (envLevel == "OFF") return spdlog::level::off;
+    return effectiveLogLevel;
+}
+
+bool Init(const QString& logDir, QString* errorMessage) noexcept
+{
+    if (errorMessage != nullptr) {
+        errorMessage->clear();
+    }
+
+    if (!ensureLogDirectoryExists(logDir, errorMessage)) {
+        return false;
+    }
+
+    QDir dir(logDir);
+    const QString targetLogPath = buildTargetLogPath(dir);
+    if (!probeTargetLogWritable(targetLogPath, errorMessage)) {
+        return false;
+    }
+
+    // Global log disk-space protection: prune oldest historical logs before creating current sink.
+    const int maxAllowedFiles = static_cast<int>(config::Logging::kMaxRotatedFiles);
+    pruneOldLogs(dir, maxAllowedFiles);
+
     auto consoleSink = std::make_shared<spdlog::sinks::stdout_color_sink_mt>();
-    
-    const QString timestamp = QDateTime::currentDateTimeUtc().toString("yyyyMMdd-HHmmss'Z'");
-    const QString fileName = QStringLiteral("modbus-tools_%1.log").arg(timestamp);
-    const spdlog::filename_t filePath = encodePathForSpdlog(dir.filePath(fileName));
-    
+    const spdlog::filename_t filePath = encodePathForSpdlog(targetLogPath);
+
     // rotating_file_sink bounds per-file size during long-running sessions.
     auto fileSink = std::make_shared<spdlog::sinks::rotating_file_sink_mt>(
         filePath,
@@ -172,18 +211,8 @@ bool Init(const QString& logDir, QString* errorMessage) noexcept
     logger->set_formatter(std::make_unique<spdlog::pattern_formatter>(
         "%Y-%m-%d %H:%M:%S.%eZ [%t] [%^%l%$] %v",
         spdlog::pattern_time_type::utc));
-    auto effectiveLogLevel = kDefaultLogLevel;
-    const QByteArray envLevel = qgetenv("MODBUS_TOOLS_LOG_LEVEL").toUpper();
-    if (!envLevel.isEmpty()) {
-        if (envLevel == "TRACE") effectiveLogLevel = spdlog::level::trace;
-        else if (envLevel == "DEBUG") effectiveLogLevel = spdlog::level::debug;
-        else if (envLevel == "INFO") effectiveLogLevel = spdlog::level::info;
-        else if (envLevel == "WARN" || envLevel == "WARNING") effectiveLogLevel = spdlog::level::warn;
-        else if (envLevel == "ERR" || envLevel == "ERROR") effectiveLogLevel = spdlog::level::err;
-        else if (envLevel == "CRITICAL" || envLevel == "FATAL") effectiveLogLevel = spdlog::level::critical;
-        else if (envLevel == "OFF") effectiveLogLevel = spdlog::level::off;
-    }
 
+    const auto effectiveLogLevel = resolveEffectiveLogLevel();
     logger->set_level(effectiveLogLevel);
     logger->flush_on(kDefaultFlushLevel);
     spdlog::set_error_handler([](const std::string& message) {
@@ -195,6 +224,15 @@ bool Init(const QString& logDir, QString* errorMessage) noexcept
 
     qInstallMessageHandler(QtMessageHandler);
     return true;
+}
+
+void Shutdown() noexcept
+{
+    qInstallMessageHandler(nullptr);
+    if (auto logger = spdlog::default_logger()) {
+        logger->flush();
+    }
+    spdlog::shutdown();
 }
 
 void SetLogLevel(spdlog::level::level_enum level) noexcept {

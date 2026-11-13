@@ -21,6 +21,9 @@ namespace logging {
 
 [[nodiscard]] bool Init(const QString& logDir, QString* errorMessage = nullptr) noexcept;
 
+/// Uninstalls the Qt message handler, flushes queued log entries, and shuts down spdlog.
+void Shutdown() noexcept;
+
 void SetLogLevel(spdlog::level::level_enum level) noexcept;
 
 [[nodiscard]] spdlog::level::level_enum GetLogLevel() noexcept;

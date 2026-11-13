@@ -1,7 +1,6 @@
 // Copyright (c) 2025 - present mingyucheng692. Licensed under the MIT License.
 
 #include "SerialChannel.h"
-#include "infra/logging/Logger.h"
 #include "infra/logging/TraceContext.h"
 #include <spdlog/spdlog.h>
 #include <QThread>

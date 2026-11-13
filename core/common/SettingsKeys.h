@@ -105,6 +105,31 @@ inline constexpr char kSerialDebuggerRts[] = "serial_debugger/rts";
 
 inline constexpr char kModbusRtuFlowControl[] = "modbus/rtu/serial/flowControl";
 
+// Modbus ASCII mode — canonical keys (symmetric with RTU).
+inline constexpr char kModbusAsciiBaudRate[] = "modbus/ascii/serial/baudRate";
+inline constexpr char kModbusAsciiDataBits[] = "modbus/ascii/serial/dataBits";
+inline constexpr char kModbusAsciiParity[] = "modbus/ascii/serial/parity";
+inline constexpr char kModbusAsciiStopBits[] = "modbus/ascii/serial/stopBits";
+inline constexpr char kModbusAsciiFlowControl[] = "modbus/ascii/serial/flowControl";
+inline constexpr char kModbusAsciiPortName[] = "modbus/ascii/serial/portName";
+inline constexpr char kModbusAsciiConnectionCollapsed[] = "modbus/ascii/serial/ui/connectionSettingsCollapsed";
+inline constexpr char kModbusAsciiStandardSlaveId[] = "modbus/ascii/standard/slaveId";
+inline constexpr char kModbusAsciiStandardStartAddr[] = "modbus/ascii/standard/startAddr";
+inline constexpr char kModbusAsciiStandardQuantity[] = "modbus/ascii/standard/quantity";
+inline constexpr char kModbusAsciiStandardFormatIndex[] = "modbus/ascii/standard/formatIndex";
+inline constexpr char kModbusAsciiStandardCollapsed[] = "modbus/ascii/standard/ui/standardCollapsed";
+inline constexpr char kModbusAsciiRawCollapsed[] = "modbus/ascii/standard/ui/rawCollapsed";
+inline constexpr char kModbusAsciiTrafficAutoScroll[] = "modbus/ascii/traffic/autoScroll";
+inline constexpr char kModbusAsciiTrafficShowTx[] = "modbus/ascii/traffic/showTx";
+inline constexpr char kModbusAsciiTrafficShowRx[] = "modbus/ascii/traffic/showRx";
+inline constexpr char kModbusAsciiTrafficCollapsed[] = "modbus/ascii/traffic/ui/trafficMonitorCollapsed";
+inline constexpr char kModbusAsciiControlEnablePoll[] = "modbus/ascii/control/enablePoll";
+inline constexpr char kModbusAsciiControlIntervalMs[] = "modbus/ascii/control/intervalMs";
+inline constexpr char kModbusAsciiControlFcIndex[] = "modbus/ascii/control/fcIndex";
+inline constexpr char kModbusAsciiControlAddr[] = "modbus/ascii/control/addr";
+inline constexpr char kModbusAsciiControlQty[] = "modbus/ascii/control/qty";
+inline constexpr char kModbusAsciiDataMonitorCollapsed[] = "modbus/ascii/ui/dataMonitorCollapsed";
+
 // Network Debugger (UDP mode) — canonical keys.
 inline constexpr char kNetworkDebuggerUdpRemoteIp[] = "network_debugger/udp/remoteIp";
 inline constexpr char kNetworkDebuggerUdpRemotePort[] = "network_debugger/udp/remotePort";

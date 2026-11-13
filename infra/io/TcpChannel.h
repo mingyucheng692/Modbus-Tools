@@ -4,7 +4,6 @@
 #include "core/Config.h"
 #include "BufferedWritingChannel.h"
 #include <QTcpSocket>
-#include <QHostAddress>
 
 class QIODevice;
 

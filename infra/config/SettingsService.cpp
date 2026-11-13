@@ -8,6 +8,7 @@
 #include <QDir>
 #include <QSettings>
 #include <QTimer>
+#include <spdlog/spdlog.h>
 
 namespace {
 
@@ -24,8 +25,7 @@ SettingsService::SettingsService(infra::platform::PathResolver& pathResolver,
                                  QObject* parent)
     : QObject(parent),
       settings_(std::make_unique<QSettings>(resolveConfigFilePath(pathResolver), QSettings::IniFormat)),
-      syncTimer_(new QTimer(this)),
-      pathResolver_(pathResolver) {
+      syncTimer_(new QTimer(this)) {
     syncTimer_->setSingleShot(true);
     syncTimer_->setInterval(::config::Settings::kSyncDebounceMs);
     connect(syncTimer_, &QTimer::timeout, this, &SettingsService::sync);
@@ -35,6 +35,15 @@ SettingsService::SettingsService(infra::platform::PathResolver& pathResolver,
 
     if (auto* app = QCoreApplication::instance()) {
         connect(app, &QCoreApplication::aboutToQuit, this, &SettingsService::sync);
+    }
+}
+
+SettingsService::~SettingsService() noexcept {
+    if (syncTimer_ != nullptr && syncTimer_->isActive()) {
+        syncTimer_->stop();
+    }
+    if (!dirtyKeys_.isEmpty() || !keysToRemove_.isEmpty()) {
+        sync();
     }
 }
 
@@ -75,6 +84,11 @@ void SettingsService::sync() {
         values_.remove(*it);
     }
     settings_->sync();
+    if (settings_->status() != QSettings::NoError) {
+        SPDLOG_WARN("SettingsService: failed to sync '{}', status={}",
+                    settings_->fileName().toStdString(),
+                    static_cast<int>(settings_->status()));
+    }
     dirtyKeys_.clear();
     keysToRemove_.clear();
 }
@@ -149,30 +163,31 @@ void SettingsService::initializeDefaults() {
     defaults_.insert(QString(kModbusRtuStandardStartAddr) + "Str", QString::number(::config::Modbus::kDefaultStandardStartAddress));
 
     // Modbus ASCII mode defaults (symmetric with RTU serial transport + standard/traffic/control)
-    defaults_.insert(QStringLiteral("modbus/ascii/serial/baudRate"), QString::fromLatin1(::config::Serial::kDefaultBaudRateText));
-    defaults_.insert(QStringLiteral("modbus/ascii/serial/dataBits"), QString::fromLatin1(::config::Serial::kDefaultDataBitsText));
-    defaults_.insert(QStringLiteral("modbus/ascii/serial/parity"), QString::fromLatin1(::config::Serial::kDefaultParityText));
-    defaults_.insert(QStringLiteral("modbus/ascii/serial/stopBits"), QString::fromLatin1(::config::Serial::kDefaultStopBitsText));
-    defaults_.insert(QStringLiteral("modbus/ascii/serial/portName"), QString());
-    defaults_.insert(QStringLiteral("modbus/ascii/serial/ui/connectionSettingsCollapsed"), false);
-    defaults_.insert(QStringLiteral("modbus/ascii/standard/slaveId"), ::config::Modbus::kDefaultSlaveId);
-    defaults_.insert(QStringLiteral("modbus/ascii/standard/startAddr"), ::config::Modbus::kDefaultStandardStartAddress);
-    defaults_.insert(QStringLiteral("modbus/ascii/standard/quantity"), ::config::Modbus::kDefaultStandardQuantity);
-    defaults_.insert(QStringLiteral("modbus/ascii/standard/formatIndex"), ::config::Modbus::kDefaultStandardFormatIndex);
-    defaults_.insert(QStringLiteral("modbus/ascii/standard/ui/standardCollapsed"), false);
-    defaults_.insert(QStringLiteral("modbus/ascii/standard/ui/rawCollapsed"), true);
-    defaults_.insert(QStringLiteral("modbus/ascii/traffic/autoScroll"), true);
-    defaults_.insert(QStringLiteral("modbus/ascii/traffic/showTx"), true);
-    defaults_.insert(QStringLiteral("modbus/ascii/traffic/showRx"), true);
-    defaults_.insert(QStringLiteral("modbus/ascii/traffic/ui/trafficMonitorCollapsed"), false);
-    defaults_.insert(QStringLiteral("modbus/ascii/control/enablePoll"), false);
-    defaults_.insert(QStringLiteral("modbus/ascii/control/intervalMs"), ::config::Modbus::kDefaultControlIntervalMs);
-    defaults_.insert(QStringLiteral("modbus/ascii/control/fcIndex"), ::config::Modbus::kDefaultControlFunctionIndex);
-    defaults_.insert(QStringLiteral("modbus/ascii/control/addr"), ::config::Modbus::kDefaultControlAddress);
-    defaults_.insert(QStringLiteral("modbus/ascii/control/qty"), ::config::Modbus::kDefaultControlQuantity);
-    defaults_.insert(QStringLiteral("modbus/ascii/ui/dataMonitorCollapsed"), false);
-    defaults_.insert(QStringLiteral("modbus/ascii/standard/slaveIdStr"), QString::number(::config::Modbus::kDefaultSlaveId));
-    defaults_.insert(QStringLiteral("modbus/ascii/standard/startAddrStr"), QString::number(::config::Modbus::kDefaultStandardStartAddress));
+    defaults_.insert(kModbusAsciiBaudRate, QString::fromLatin1(::config::Serial::kDefaultBaudRateText));
+    defaults_.insert(kModbusAsciiDataBits, QString::fromLatin1(::config::Serial::kDefaultDataBitsText));
+    defaults_.insert(kModbusAsciiParity, QString::fromLatin1(::config::Serial::kDefaultParityText));
+    defaults_.insert(kModbusAsciiStopBits, QString::fromLatin1(::config::Serial::kDefaultStopBitsText));
+    defaults_.insert(kModbusAsciiFlowControl, QString());
+    defaults_.insert(kModbusAsciiPortName, QString());
+    defaults_.insert(kModbusAsciiConnectionCollapsed, false);
+    defaults_.insert(kModbusAsciiStandardSlaveId, ::config::Modbus::kDefaultSlaveId);
+    defaults_.insert(kModbusAsciiStandardStartAddr, ::config::Modbus::kDefaultStandardStartAddress);
+    defaults_.insert(kModbusAsciiStandardQuantity, ::config::Modbus::kDefaultStandardQuantity);
+    defaults_.insert(kModbusAsciiStandardFormatIndex, ::config::Modbus::kDefaultStandardFormatIndex);
+    defaults_.insert(kModbusAsciiStandardCollapsed, false);
+    defaults_.insert(kModbusAsciiRawCollapsed, true);
+    defaults_.insert(kModbusAsciiTrafficAutoScroll, true);
+    defaults_.insert(kModbusAsciiTrafficShowTx, true);
+    defaults_.insert(kModbusAsciiTrafficShowRx, true);
+    defaults_.insert(kModbusAsciiTrafficCollapsed, false);
+    defaults_.insert(kModbusAsciiControlEnablePoll, false);
+    defaults_.insert(kModbusAsciiControlIntervalMs, ::config::Modbus::kDefaultControlIntervalMs);
+    defaults_.insert(kModbusAsciiControlFcIndex, ::config::Modbus::kDefaultControlFunctionIndex);
+    defaults_.insert(kModbusAsciiControlAddr, ::config::Modbus::kDefaultControlAddress);
+    defaults_.insert(kModbusAsciiControlQty, ::config::Modbus::kDefaultControlQuantity);
+    defaults_.insert(kModbusAsciiDataMonitorCollapsed, false);
+    defaults_.insert(QString(kModbusAsciiStandardSlaveId) + "Str", QString::number(::config::Modbus::kDefaultSlaveId));
+    defaults_.insert(QString(kModbusAsciiStandardStartAddr) + "Str", QString::number(::config::Modbus::kDefaultStandardStartAddress));
 
     defaults_.insert(kNetworkDebuggerClientIp, QString::fromLatin1(::config::Network::kDefaultDeviceAddress));
     defaults_.insert(kNetworkDebuggerClientPort, ::config::Network::kDefaultNetworkDebuggerPort);
@@ -217,7 +232,6 @@ void SettingsService::load() {
     }
 
     migrateLegacyKeys();
-    scheduleSync();
 }
 
 void SettingsService::migrateLegacyKeys() {
@@ -243,6 +257,7 @@ void SettingsService::migrateLegacyKeys() {
                 values_.insert(newKey, settings_->value(oldKey));
                 dirtyKeys_.insert(newKey);
             }
+            values_.remove(oldKey);
             keysToRemove_.insert(oldKey);
             hasMigration = true;
             break;

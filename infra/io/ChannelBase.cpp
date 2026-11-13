@@ -14,6 +14,9 @@ ChannelState ChannelBase::state() const
 
 void ChannelBase::moveToThread(QThread* thread)
 {
+    if (thread == nullptr) {
+        return;
+    }
     deviceThread_ = thread;
 }
 
@@ -200,7 +203,10 @@ void ChannelBase::assertOwnerThreadForDestruction(const char* className)
                     "Cross-thread destruction is UAF. Ensure ioThread "
                     "quit()+wait() completes before releasing the channel.",
                     className, className);
-    spdlog::default_logger()->flush();
+    if (auto logger = spdlog::default_logger()) {
+        logger->flush();
+    }
+    std::fflush(stderr);
     std::abort();
 }
 

@@ -75,8 +75,8 @@ int main(int argc, char *argv[])
 
         exitCode = app.exec();
     }
-    // All QObjects are dead here; drain the async queue and stop the backend
-    // thread so the final log lines reach disk before process exit.
-    spdlog::shutdown();
+    // All QObjects are dead here; uninstall the Qt message handler, drain the
+    // async queue, and stop the backend thread before process exit.
+    logging::Shutdown();
     return exitCode;
 }
