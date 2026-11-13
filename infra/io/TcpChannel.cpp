@@ -17,6 +17,24 @@ unsigned long long threadToken(QThread* thread)
     return static_cast<unsigned long long>(reinterpret_cast<quintptr>(thread));
 }
 
+ChannelErrorCode mapSocketError(QAbstractSocket::SocketError error,
+                                ChannelState stateBeforeError)
+{
+    switch (error) {
+    case QAbstractSocket::SocketTimeoutError:
+        return ChannelErrorCode::Timeout;
+    case QAbstractSocket::RemoteHostClosedError:
+        return ChannelErrorCode::ConnectionReset;
+    case QAbstractSocket::NetworkError:
+        return (stateBeforeError == ChannelState::Open ||
+                stateBeforeError == ChannelState::Closed)
+            ? ChannelErrorCode::ConnectionReset
+            : ChannelErrorCode::ConnectionFailed;
+    default:
+        return ChannelErrorCode::ConnectionFailed;
+    }
+}
+
 } // namespace
 
 TcpChannel::TcpChannel(int closeLingerMs)
@@ -40,7 +58,15 @@ TcpChannel::TcpChannel(int closeLingerMs)
 TcpChannel::~TcpChannel() {
     assertOwnerThreadForDestruction("TcpChannel");
     close();
+    if (socket_ && QThread::currentThread() == socket_->thread()) {
+        connectTimer_.stop();
+        lingerTimer_.stop();
+        if (socket_->state() != QAbstractSocket::UnconnectedState) {
+            socket_->abort();
+        }
+    }
     delete socket_;
+    socket_ = nullptr;
 }
 
 void TcpChannel::wireSocketSignals() {
@@ -87,7 +113,8 @@ bool TcpChannel::open() {
         flushPendingWrites();
         return true;
     }
-    if (socket_->state() == QAbstractSocket::ConnectingState) {
+    if (socket_->state() == QAbstractSocket::ConnectingState ||
+        socket_->state() == QAbstractSocket::HostLookupState) {
         socketDropIsError_ = true;
         setState(ChannelState::Opening);
         return true;
@@ -116,7 +143,9 @@ bool TcpChannel::open() {
 
     setState(ChannelState::Opening);
     socketDropIsError_ = true;
-    socket_->abort();
+    if (socket_->state() != QAbstractSocket::UnconnectedState) {
+        socket_->abort();
+    }
     socket_->setSocketOption(QAbstractSocket::LowDelayOption, 1);
     socket_->setSocketOption(QAbstractSocket::KeepAliveOption, 1);
     socket_->connectToHost(ip_, port_);
@@ -142,10 +171,10 @@ void TcpChannel::moveToThread(QThread* thread) {
 }
 
 void TcpChannel::close() {
-    socketDropIsError_ = false;
     if (QThread::currentThread() != socket_->thread()) {
         QThread* ownerThread = socket_->thread();
         if (!ownerThread || !ownerThread->isRunning()) {
+            socketDropIsError_ = false;
             setClosing(false);
             resetWriteState();
             setState(ChannelState::Closed);
@@ -157,21 +186,24 @@ void TcpChannel::close() {
         return;
     }
 
+    socketDropIsError_ = false;
     resetWriteState();
     disarmWriteTimeout();
     connectTimer_.stop();
     setState(ChannelState::Closing);
     setClosing(true);
-    if (socket_->state() == QAbstractSocket::UnconnectedState) {
-        socket_->close();
-        setClosing(false);
-        setState(ChannelState::Closed);
-        return;
-    }
-    if (socket_->state() == QAbstractSocket::ConnectedState ||
-        socket_->state() == QAbstractSocket::ConnectingState) {
+
+    const auto sockState = socket_->state();
+    if (sockState == QAbstractSocket::HostLookupState ||
+        sockState == QAbstractSocket::ConnectingState) {
+        // Half-open or DNS-resolving sockets have no established session to
+        // FIN-flush; abort immediately so pending ConnectEx/socket handles tear
+        // down synchronously without entering a stranded Closing linger.
+        socket_->abort();
+    } else if (sockState == QAbstractSocket::ConnectedState) {
         socket_->disconnectFromHost();
     }
+
     if (socket_->state() == QAbstractSocket::UnconnectedState) {
         socket_->close();
         setClosing(false);
@@ -183,7 +215,9 @@ void TcpChannel::close() {
     // fallback: if the graceful close does not land in Closed within
     // closeLingerMs_, onLingerTimeout() force-aborts so the channel can
     // never be stranded in Closing forever.
-    lingerTimer_.start(closeLingerMs_);
+    if (!lingerTimer_.isActive()) {
+        lingerTimer_.start(closeLingerMs_);
+    }
 }
 
 void TcpChannel::onLingerTimeout() {
@@ -201,10 +235,26 @@ void TcpChannel::onLingerTimeout() {
 }
 
 void TcpChannel::setEndpoint(const QString& ip, int port) {
+    if (QThread::currentThread() != socket_->thread()) {
+        QThread* ownerThread = socket_->thread();
+        if (ownerThread && ownerThread->isRunning()) {
+            QMetaObject::invokeMethod(socket_, [this, ip, port]() {
+                setEndpoint(ip, port);
+            }, Qt::QueuedConnection);
+            return;
+        }
+        // Owner thread is not running: update endpoint fields directly without
+        // calling QTcpSocket methods from a non-owner thread.
+        ip_ = ip;
+        port_ = port;
+        return;
+    }
+
     // Defensive: if the socket is in an active state, tear down the old
     // connection before changing the endpoint to prevent stale connections.
-    if (socket_->state() == QAbstractSocket::ConnectedState ||
-        socket_->state() == QAbstractSocket::ConnectingState) {
+    if (socket_->state() != QAbstractSocket::UnconnectedState ||
+        state() == ChannelState::Open ||
+        state() == ChannelState::Opening) {
         close();
     }
     ip_ = ip;
@@ -225,6 +275,10 @@ void TcpChannel::onReadyRead() {
 
 void TcpChannel::onConnected() {
     assertOwnerThread(*socket_, __func__);
+    if (isClosing() || state() == ChannelState::Error ||
+        socket_->state() != QAbstractSocket::ConnectedState) {
+        return;
+    }
     logThreadContextOnce("TcpChannel::onConnected", ioThreadLoggedFlag());
     connectTimer_.stop();
     setClosing(false);
@@ -269,13 +323,19 @@ void TcpChannel::onSocketError(QAbstractSocket::SocketError error) {
     resetWriteState();
     disarmWriteTimeout();
     setState(ChannelState::Error);
-    emitError(ChannelErrorCode::ConnectionFailed, QStringLiteral("TCP socket error (%1): %2")
-        .arg(static_cast<int>(error))
-        .arg(errorText));
+    emitError(mapSocketError(error, current),
+              QStringLiteral("TCP socket error (%1): %2")
+                  .arg(static_cast<int>(error))
+                  .arg(errorText));
 }
 
 void TcpChannel::onStateChanged(QAbstractSocket::SocketState socketState) {
     assertOwnerThread(*socket_, __func__);
+    // Discard stale queued notifications already superseded by a newer
+    // synchronous socket transition (e.g. close()->open() or abort()).
+    if (!socket_ || socketState != socket_->state()) {
+        return;
+    }
     // Error is sticky: once the channel-layer FSM is in Error (peer reset,
     // connect timeout, socket failure) subsequent QAbstractSocket state
     // notifications (e.g. UnconnectedState after abort()) must not silently
@@ -286,8 +346,10 @@ void TcpChannel::onStateChanged(QAbstractSocket::SocketState socketState) {
     }
     switch (socketState) {
         case QAbstractSocket::ConnectedState:
-            setState(ChannelState::Open);
-            flushPendingWrites();
+            if (!isClosing()) {
+                setState(ChannelState::Open);
+                flushPendingWrites();
+            }
             break;
         case QAbstractSocket::UnconnectedState:
             resetWriteState();
@@ -309,7 +371,9 @@ void TcpChannel::onStateChanged(QAbstractSocket::SocketState socketState) {
             setState(ChannelState::Opening);
             break;
         case QAbstractSocket::ClosingState:
-            setState(ChannelState::Closing);
+            if (state() == ChannelState::Open || state() == ChannelState::Opening) {
+                setState(ChannelState::Closing);
+            }
             break;
         default:
             break;
@@ -320,6 +384,15 @@ bool TcpChannel::adoptSocket(QTcpSocket* socket) {
     if (!socket || socket->state() != QAbstractSocket::ConnectedState) {
         return false;
     }
+    if (QThread::currentThread() != socket_->thread() ||
+        socket->thread() != QThread::currentThread()) {
+        return false;
+    }
+    connectTimer_.stop();
+    lingerTimer_.stop();
+    setClosing(false);
+    resetWriteState();
+    disarmWriteTimeout();
     // Detach from the QTcpServer: nextPendingConnection() parents the socket
     // to the server, so leaving it parented would double-delete once both the
     // server and this channel go away. The channel now owns the object — and
@@ -327,13 +400,23 @@ bool TcpChannel::adoptSocket(QTcpSocket* socket) {
     // constructor-created socket is safe: it was never opened, so it carries
     // no socket notifiers or pending events.
     socket->setParent(nullptr);
+    if (socket_->state() != QAbstractSocket::UnconnectedState) {
+        socket_->abort();
+    }
     delete socket_;
     socket_ = socket;
+    socket_->setSocketOption(QAbstractSocket::LowDelayOption, 1);
+    socket_->setSocketOption(QAbstractSocket::KeepAliveOption, 1);
     wireSocketSignals();
     ip_ = socket_->peerAddress().toString();
     port_ = socket_->peerPort();
     socketDropIsError_ = true;
     setState(ChannelState::Open);
+    if (socket_->bytesAvailable() > 0) {
+        QMetaObject::invokeMethod(socket_, [this]() {
+            onReadyRead();
+        }, Qt::QueuedConnection);
+    }
     return true;
 }
 

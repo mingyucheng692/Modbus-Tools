@@ -36,12 +36,20 @@ TEST_F(ChannelOperationWorkerTest, Construct_DestructNoCrash) {
     EXPECT_NE(worker_, nullptr);
 }
 
-// Open TCP — verify the attempt does not crash (async-safe)
-// NOTE: openTcp creates a real TcpChannel with QTcpSocket which starts an async
-// connectToHost. Destroying the socket while Windows IOCP is in flight causes
-// SEH. This test is skipped in lightweight CI; integration test covers TCP path.
+// Open TCP — verify the attempt does not crash even if destroyed while connectToHost
+// is in flight (half-open ConnectingState must abort safely before socket teardown).
+TEST_F(ChannelOperationWorkerTest, OpenTcp_NoCrash) {
+    QSignalSpy stateSpy(worker_.get(), &ChannelOperationWorker::stateChangedWithGeneration);
 
-// TEST_F(ChannelOperationWorkerTest, OpenTcp_NoCrash) { ... }
+    worker_->openTcp(QStringLiteral("127.0.0.1"), 1502, 7);
+    ASSERT_GE(stateSpy.count(), 1);
+    EXPECT_EQ(stateSpy.at(0).at(1).toULongLong(), 7u);
+
+    worker_->close();
+    worker_.reset();
+    QCoreApplication::processEvents(QEventLoop::AllEvents, 20);
+    SUCCEED();
+}
 
 // Open Serial — verify error path works
 TEST_F(ChannelOperationWorkerTest, OpenSerial_InvalidPort_EmitsError) {
