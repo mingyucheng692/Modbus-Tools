@@ -17,11 +17,6 @@ ServerChannelWorker::ServerChannelWorker(QObject* parent)
         auto* channel = serverHandle_->clientChannel(clientId);
         if (!channel) return;
 
-        channel->setReadHandler([this, clientId](QByteArrayView data) {
-            QByteArray copy(data.data(), data.size());
-            emit monitorWithClient(false, copy, clientId);
-        });
-
         channel->setMonitor([this, clientId](bool isTx, const QByteArray& data) {
             emit monitorWithClient(isTx, data, clientId);
         });
@@ -110,7 +105,6 @@ void ServerChannelWorker::writeToClient(int clientId, const QByteArray& data)
         }
         return;
     }
-    emit monitorWithClient(true, data, clientId);
 }
 
 } // namespace io

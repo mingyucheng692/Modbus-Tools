@@ -64,8 +64,10 @@ TEST_F(ChannelOperationWorkerTest, OpenSerial_InvalidPort_EmitsError) {
     for (int i = 0; i < 10 && errorSpy.count() == 0; ++i) {
         QCoreApplication::processEvents();
     }
+    // Pump one more turn so any late queued duplicate QSerialPort::errorOccurred would surface.
+    QCoreApplication::processEvents(QEventLoop::AllEvents, 20);
 
-    EXPECT_GE(errorSpy.count(), 1);
+    EXPECT_EQ(errorSpy.count(), 1);
 }
 
 TEST_F(ChannelOperationWorkerTest, OpenSerial_EmptyPortName_EmitsError) {
@@ -78,8 +80,10 @@ TEST_F(ChannelOperationWorkerTest, OpenSerial_EmptyPortName_EmitsError) {
     for (int i = 0; i < 10 && errorSpy.count() == 0; ++i) {
         QCoreApplication::processEvents();
     }
+    // Pump one more turn so any late queued duplicate QSerialPort::errorOccurred would surface.
+    QCoreApplication::processEvents(QEventLoop::AllEvents, 20);
 
-    EXPECT_GE(errorSpy.count(), 1);
+    EXPECT_EQ(errorSpy.count(), 1);
 }
 
 // Generation plumbing: openSerial carries the same monotonic
@@ -156,6 +160,16 @@ TEST_F(ChannelOperationWorkerTest, RepeatedWrites_WithoutChannel_EmitsMultipleEr
     worker_->write(QByteArrayLiteral("data2"));
 
     EXPECT_GE(errorSpy.count(), 2);
+}
+
+TEST_F(ChannelOperationWorkerTest, OpenUdp_GenerationPlumbing_AttachesGenerationToStates) {
+    QSignalSpy spy(worker_.get(), &ChannelOperationWorker::stateChangedWithGeneration);
+
+    worker_->openUdp(QStringLiteral("127.0.0.1"), 0, QString(), 0, 99);
+    ASSERT_GE(spy.count(), 1);
+    for (const auto& args : spy) {
+        EXPECT_EQ(args.at(1).toULongLong(), 99u);
+    }
 }
 
 } // namespace

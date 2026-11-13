@@ -170,6 +170,7 @@ set(TEST_CORE_LOGIC_SOURCES
 )
 
 set(TEST_QT_CORE_SOURCES
+    unit/io/UdpChannelTest.cpp
     unit/modbus/application/ModbusSessionPresenterTest.cpp
     unit/modbus/application/PollingControllerTest.cpp
     unit/modbus/application/RequestSubmissionServiceTest.cpp

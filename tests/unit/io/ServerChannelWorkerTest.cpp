@@ -159,4 +159,77 @@ TEST(ServerChannelWorkerTest, OpenTcpServer_Success_EmitsOpen) {
     EXPECT_EQ(closedSpy.last().at(0).value<ChannelState>(), ChannelState::Closed);
 }
 
+TEST(ServerChannelWorkerTest, ClientTraffic_MonitorWithClientEmitsOncePerRxAndTx) {
+    QTcpServer portProbe;
+    ASSERT_TRUE(portProbe.listen(QHostAddress::LocalHost, 0));
+    const int port = static_cast<int>(portProbe.serverPort());
+    portProbe.close();
+
+    ServerChannelWorker worker;
+    QSignalSpy connSpy(&worker, &ServerChannelWorker::clientConnected);
+    QSignalSpy monitorSpy(&worker, &ServerChannelWorker::monitorWithClient);
+
+    worker.openTcpServer(QStringLiteral("127.0.0.1"), port, 2);
+
+    QTcpSocket client;
+    QSignalSpy clientConnSpy(&client, &QTcpSocket::connected);
+    client.connectToHost(QHostAddress::LocalHost, static_cast<quint16>(port));
+    ASSERT_TRUE(spinUntil([&connSpy, &clientConnSpy]() {
+        return connSpy.count() >= 1 && clientConnSpy.count() >= 1;
+    }));
+    const int clientId = connSpy.at(0).at(0).toInt();
+
+    const QByteArray rxPayload = QByteArrayLiteral("hello-server");
+    client.write(rxPayload);
+    client.flush();
+    ASSERT_TRUE(spinUntil([&monitorSpy]() { return monitorSpy.count() >= 1; }));
+    // Give any duplicate emissions an extra event-loop pass to appear.
+    spinUntil([]() { return false; }, 15);
+    ASSERT_EQ(monitorSpy.count(), 1);
+    EXPECT_FALSE(monitorSpy.at(0).at(0).toBool());
+    EXPECT_EQ(monitorSpy.at(0).at(1).toByteArray(), rxPayload);
+    EXPECT_EQ(monitorSpy.at(0).at(2).toInt(), clientId);
+
+    monitorSpy.clear();
+    const QByteArray txPayload = QByteArrayLiteral("hello-client");
+    worker.writeToClient(clientId, txPayload);
+    ASSERT_TRUE(spinUntil([&client, &txPayload]() {
+        return client.bytesAvailable() >= txPayload.size();
+    }));
+    spinUntil([]() { return false; }, 15);
+    ASSERT_EQ(monitorSpy.count(), 1);
+    EXPECT_TRUE(monitorSpy.at(0).at(0).toBool());
+    EXPECT_EQ(monitorSpy.at(0).at(1).toByteArray(), txPayload);
+    EXPECT_EQ(monitorSpy.at(0).at(2).toInt(), clientId);
+    EXPECT_EQ(client.readAll(), txPayload);
+
+    worker.closeAllClients();
+}
+
+TEST(ServerChannelWorkerTest, MaxClientsOne_RejectsSecondConnection) {
+    QTcpServer portProbe;
+    ASSERT_TRUE(portProbe.listen(QHostAddress::LocalHost, 0));
+    const int port = static_cast<int>(portProbe.serverPort());
+    portProbe.close();
+
+    ServerChannelWorker worker;
+    QSignalSpy connSpy(&worker, &ServerChannelWorker::clientConnected);
+    worker.openTcpServer(QStringLiteral("127.0.0.1"), port, 1);
+
+    QTcpSocket client1;
+    client1.connectToHost(QHostAddress::LocalHost, static_cast<quint16>(port));
+    ASSERT_TRUE(spinUntil([&connSpy]() { return connSpy.count() >= 1; }));
+
+    QTcpSocket client2;
+    QSignalSpy client2DisconnSpy(&client2, &QTcpSocket::disconnected);
+    client2.connectToHost(QHostAddress::LocalHost, static_cast<quint16>(port));
+    ASSERT_TRUE(spinUntil([&client2DisconnSpy, &client2]() {
+        return client2DisconnSpy.count() >= 1 ||
+               client2.state() == QAbstractSocket::UnconnectedState;
+    }));
+    EXPECT_EQ(connSpy.count(), 1);
+
+    worker.closeAllClients();
+}
+
 } // namespace

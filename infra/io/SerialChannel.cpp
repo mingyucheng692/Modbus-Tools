@@ -72,7 +72,8 @@ bool SerialChannel::open() {
 
     setState(ChannelState::Opening);
 
-    serial_.setPortName(config_.portName);
+    const QString portName = config_.portName.trimmed();
+    serial_.setPortName(portName);
     serial_.setBaudRate(config_.baudRate);
     serial_.setDataBits(static_cast<QSerialPort::DataBits>(config_.dataBits));
     serial_.setStopBits(static_cast<QSerialPort::StopBits>(config_.stopBits));
@@ -81,33 +82,30 @@ bool SerialChannel::open() {
     // Block-oriented reading delegates intra-character (t1.5) inter-frame timing
     // to kernel/UART drivers, minimizing context switches and CPU consumption at high baud rates.
 
-    if (serial_.open(QIODevice::ReadWrite)) {
+    opening_ = true;
+    const bool opened = serial_.open(QIODevice::ReadWrite);
+    opening_ = false;
+    if (opened) {
         serial_.clear(QSerialPort::Input);
         setState(ChannelState::Open);
         return true;
     } else {
         const auto serialErr = serial_.error();
         QString err = serial_.errorString();
+        serial_.clearError();
         ChannelErrorCode errCode = ChannelErrorCode::ConnectionFailed;
         if (serialErr == QSerialPort::PermissionError) {
             errCode = ChannelErrorCode::PermissionDenied;
-            err = QObject::tr("%1 is busy or in use, unable to open").arg(config_.portName);
+            err = QObject::tr("%1 is busy or in use, unable to open").arg(portName);
         } else if (serialErr == QSerialPort::DeviceNotFoundError) {
             errCode = ChannelErrorCode::PortNotFound;
         }
         SPDLOG_WARN("SerialChannel: open failed port={} baud={} error={}",
-                     config_.portName.toStdString(), config_.baudRate, err.toStdString());
+                     portName.toStdString(), config_.baudRate, err.toStdString());
         setState(ChannelState::Error);
         emitError(errCode, err);
         return false;
     }
-}
-
-bool SerialChannel::write(QByteArrayView data) {
-    if (QThread::currentThread() == serial_.thread() && serial_.isOpen()) {
-        serial_.clear(QSerialPort::Input);
-    }
-    return BufferedWritingChannel::write(data);
 }
 
 void SerialChannel::moveToThread(QThread* thread) {
@@ -149,24 +147,42 @@ void SerialChannel::setConfig(const SerialConfig& config) {
     config_ = config;
 }
 
-void SerialChannel::setDtr(bool set) {
-    if (marshalToOwner(serial_, [this, set]() { this->setDtr(set); })) return;
-    if (isOpen()) {
-        serial_.setDataTerminalReady(set);
+bool SerialChannel::setDtr(bool set) {
+    if (QThread::currentThread() != serial_.thread()) {
+        QThread* ownerThread = serial_.thread();
+        if (!ownerThread || !ownerThread->isRunning()) {
+            return false;
+        }
+        return QMetaObject::invokeMethod(&serial_, [this, set]() {
+            this->setDtr(set);
+        }, Qt::QueuedConnection);
     }
+    if (!serial_.isOpen()) {
+        return false;
+    }
+    return serial_.setDataTerminalReady(set);
 }
 
-void SerialChannel::setRts(bool set) {
-    if (marshalToOwner(serial_, [this, set]() { this->setRts(set); })) return;
-    if (isOpen()) {
-        serial_.setRequestToSend(set);
+bool SerialChannel::setRts(bool set) {
+    if (QThread::currentThread() != serial_.thread()) {
+        QThread* ownerThread = serial_.thread();
+        if (!ownerThread || !ownerThread->isRunning()) {
+            return false;
+        }
+        return QMetaObject::invokeMethod(&serial_, [this, set]() {
+            this->setRts(set);
+        }, Qt::QueuedConnection);
     }
+    if (!serial_.isOpen()) {
+        return false;
+    }
+    return serial_.setRequestToSend(set);
 }
 
 bool SerialChannel::setSerialControl(SerialSignal signal, bool value) {
     switch (signal) {
-    case SerialSignal::Dtr: setDtr(value); return true;
-    case SerialSignal::Rts: setRts(value); return true;
+    case SerialSignal::Dtr: return setDtr(value);
+    case SerialSignal::Rts: return setRts(value);
     }
     return false;
 }
@@ -188,7 +204,7 @@ void SerialChannel::onReadyRead() {
 
 void SerialChannel::onErrorOccurred(QSerialPort::SerialPortError error) {
     if (error != QSerialPort::NoError) {
-        if (isClosing()) {
+        if (isClosing() || opening_ || state() == ChannelState::Error) {
             return;
         }
         QString errorText = serial_.errorString().isEmpty()

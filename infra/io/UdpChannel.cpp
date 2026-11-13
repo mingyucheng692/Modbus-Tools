@@ -61,8 +61,10 @@ bool UdpChannel::open()
     }
 
     if (socket_.state() == QAbstractSocket::BoundState) {
-        setState(ChannelState::Open);
-        return true;
+        if (state() == ChannelState::Open) {
+            return true;
+        }
+        socket_.abort();
     }
 
     closing_ = false;
@@ -70,13 +72,15 @@ bool UdpChannel::open()
     socket_.abort();
 
     if (!socket_.bind(localAddress_, localPort_, QUdpSocket::ShareAddress)) {
+        const QString err = socket_.errorString().isEmpty()
+            ? QStringLiteral("UDP bind failed")
+            : socket_.errorString();
         SPDLOG_ERROR("UdpChannel: bind failed {}:{} error={}",
                       localAddress_.toString().toStdString(),
                       localPort_,
-                      socket_.errorString().toStdString());
-        emitError(ChannelErrorCode::ConnectionFailed, socket_.errorString().isEmpty()
-                      ? QStringLiteral("UDP bind failed")
-                      : socket_.errorString());
+                      err.toStdString());
+        setState(ChannelState::Error);
+        emitError(ChannelErrorCode::ConnectionFailed, err);
         return false;
     }
 
@@ -125,7 +129,7 @@ bool UdpChannel::write(QByteArrayView data)
         }, Qt::QueuedConnection);
     }
 
-    if (socket_.state() != QAbstractSocket::BoundState) {
+    if (state() != ChannelState::Open || socket_.state() != QAbstractSocket::BoundState) {
         return false;
     }
 
@@ -134,12 +138,13 @@ bool UdpChannel::write(QByteArrayView data)
         return true;
     }
 
-    qint64 sent = 0;
-    if (hasRemotePeer_) {
-        sent = socket_.writeDatagram(buffer, remoteAddress_, remotePort_);
-    } else {
-        sent = socket_.writeDatagram(buffer, localAddress_, localPort_);
+    if (!hasRemotePeer_ || remotePort_ == 0 || remoteAddress_.isNull()) {
+        SPDLOG_WARN("UdpChannel: write rejected because remote peer is not configured");
+        emitError(ChannelErrorCode::WriteFailed,
+                  QStringLiteral("UDP remote peer is not configured"));
+        return false;
     }
+    const qint64 sent = socket_.writeDatagram(buffer, remoteAddress_, remotePort_);
 
     if (sent < 0) {
         SPDLOG_ERROR("UdpChannel: writeDatagram failed error={}",
@@ -156,18 +161,36 @@ void UdpChannel::onReadyRead()
 {
     while (socket_.hasPendingDatagrams()) {
         const qint64 size = socket_.pendingDatagramSize();
-        if (size <= 0) continue;
+        if (size < 0) {
+            break;
+        }
+        if (size == 0) {
+            socket_.readDatagram(nullptr, 0);
+            continue;
+        }
 
         QByteArray buffer(static_cast<qsizetype>(size), Qt::Uninitialized);
         QHostAddress senderAddr;
         quint16 senderPort = 0;
         const qint64 read = socket_.readDatagram(buffer.data(), size, &senderAddr, &senderPort);
-        if (read <= 0) continue;
+        if (read < 0) {
+            break;
+        }
+        if (read == 0) {
+            continue;
+        }
 
         buffer.resize(static_cast<qsizetype>(read));
 
         if (hasRemotePeer_) {
-            if (senderAddr != remoteAddress_ || senderPort != remotePort_) {
+            const bool broadcastTarget = remoteAddress_.isBroadcast() ||
+                                         remoteAddress_ == QHostAddress::Broadcast;
+            if (broadcastTarget) {
+                if (senderPort != remotePort_) {
+                    continue;
+                }
+            } else if (!senderAddr.isEqual(remoteAddress_, QHostAddress::TolerantConversion) ||
+                       senderPort != remotePort_) {
                 continue;
             }
         }
@@ -183,14 +206,19 @@ void UdpChannel::onSocketError(QAbstractSocket::SocketError error)
     Q_UNUSED(error);
     if (closing_) return;
 
-    SPDLOG_ERROR("UdpChannel: socket error {}",
-                  socket_.errorString().toStdString());
-    emitError(ChannelErrorCode::ConnectionFailed, socket_.errorString());
+    const QString err = socket_.errorString().isEmpty()
+        ? QStringLiteral("UDP socket error")
+        : socket_.errorString();
+    SPDLOG_ERROR("UdpChannel: socket error {}", err.toStdString());
+    setState(ChannelState::Error);
+    emitError(ChannelErrorCode::ConnectionFailed, err);
 }
 
 void UdpChannel::onStateChanged(QAbstractSocket::SocketState socketState)
 {
-    if (closing_) return;
+    if (closing_ || socketState != socket_.state() || state() == ChannelState::Error) {
+        return;
+    }
 
     switch (socketState) {
     case QAbstractSocket::UnconnectedState:

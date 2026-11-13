@@ -193,4 +193,27 @@ TEST_F(SerialChannelTest, ErrorState_IsNotWritableAndRejectsWrite) {
     EXPECT_FALSE(channel.write(QByteArrayLiteral("rtu")));
 }
 
+TEST_F(SerialChannelTest, SerialConfig_InvalidParityAndFlowControl_ConsistentWithAndWithoutErrorOut) {
+    SerialConfig badParity;
+    badParity.portName = QStringLiteral("COM1");
+    badParity.parity = static_cast<QSerialPort::Parity>(99);
+    QString err;
+    EXPECT_FALSE(badParity.isValid(&err));
+    EXPECT_FALSE(err.isEmpty());
+    EXPECT_FALSE(badParity.isValid(nullptr));
+
+    SerialConfig badFlow;
+    badFlow.portName = QStringLiteral("COM1");
+    badFlow.flowControl = static_cast<QSerialPort::FlowControl>(99);
+    err.clear();
+    EXPECT_FALSE(badFlow.isValid(&err));
+    EXPECT_FALSE(err.isEmpty());
+    EXPECT_FALSE(badFlow.isValid(nullptr));
+}
+
+TEST_F(SerialChannelTest, SetSerialControl_WhenClosed_ReturnsFalse) {
+    EXPECT_FALSE(channel_->setSerialControl(SerialSignal::Dtr, true));
+    EXPECT_FALSE(channel_->setSerialControl(SerialSignal::Rts, true));
+}
+
 } // namespace

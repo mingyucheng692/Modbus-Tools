@@ -20,15 +20,14 @@ public:
 
     ChannelKind kind() const override { return ChannelKind::Serial; }
     bool open() override;
-    bool write(QByteArrayView data) override;
     void moveToThread(QThread* thread) override;
     void close() override;
 
     void setConfig(const SerialConfig& config);
 
     // Control signals
-    void setDtr(bool set);
-    void setRts(bool set);
+    bool setDtr(bool set);
+    bool setRts(bool set);
     bool setSerialControl(SerialSignal signal, bool value) override;
 
 protected:
@@ -46,6 +45,7 @@ private:
 
     QSerialPort serial_;
     SerialConfig config_;
+    bool opening_ = false;
 };
 
 }

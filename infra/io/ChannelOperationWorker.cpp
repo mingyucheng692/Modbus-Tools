@@ -36,7 +36,7 @@ void ChannelOperationWorker::openTcp(const QString& ip, int port, quint64 genera
 
     setupChannel();
 
-    if (!channel_->open()) {
+    if (!channel_->open() && channel_->state() != ChannelState::Error) {
         emitError(io::ChannelErrorCode::ConnectionFailed, "Failed to open TCP connection");
     }
 }
@@ -53,15 +53,17 @@ void ChannelOperationWorker::openSerial(const SerialConfig& config, quint64 gene
 
     setupChannel();
 
-    if (!channel_->open()) {
+    if (!channel_->open() && channel_->state() != ChannelState::Error) {
         emitError(io::ChannelErrorCode::ConnectionFailed, "Failed to open serial port");
     }
 }
 
 void ChannelOperationWorker::openUdp(const QString& localIp, int localPort,
-                                      const QString& remoteIp, int remotePort)
+                                      const QString& remoteIp, int remotePort,
+                                      quint64 generation)
 {
     cleanupChannel();
+    channelGeneration_ = generation;
     deviceHint_ = QString("UDP %1:%2").arg(localIp).arg(localPort);
 
     auto udp = std::make_shared<UdpChannel>();
@@ -71,7 +73,7 @@ void ChannelOperationWorker::openUdp(const QString& localIp, int localPort,
 
     setupChannel();
 
-    if (!channel_->open()) {
+    if (!channel_->open() && channel_->state() != ChannelState::Error) {
         emitError(io::ChannelErrorCode::ConnectionFailed, "Failed to open UDP channel");
     }
 }

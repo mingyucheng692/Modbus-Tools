@@ -27,7 +27,8 @@ public slots:
     // stateChangedWithGeneration emissions from a torn-down serial channel are dropped by the view layer.
     void openSerial(const SerialConfig& config, quint64 generation);
     void openUdp(const QString& localIp, int localPort,
-                 const QString& remoteIp = {}, int remotePort = 0);
+                 const QString& remoteIp = {}, int remotePort = 0,
+                 quint64 generation = 0);
     void close();
     void write(const QByteArray& data);
 
