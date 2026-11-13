@@ -10,9 +10,11 @@
 #include <QLabel>
 #include <QLineEdit>
 #include <QPushButton>
+#include <QShortcut>
 #include <QSpinBox>
 #include <QVBoxLayout>
 #include <memory>
+#include "Config.h"
 #include "ui/widgets/modbus/ModbusWorkbenchWidget.h"
 #include "tests/mocks/UiTestDoubles.h"
 #include "core/common/SettingsKeys.h"
@@ -552,6 +554,128 @@ TEST_F(ModbusWorkbenchWidgetTest, FunctionCode_ShortCaptionAndCanonicalEnglishTo
         const QString tip = fcCombo->itemData(i, Qt::ToolTipRole).toString();
         EXPECT_EQ(tip, QString::fromLatin1(kExpectedTooltips[i]));
     }
+}
+
+TEST_F(ModbusWorkbenchWidgetTest, StartupState_DefaultFc03DisablesDataRadixButtons) {
+    ModbusWorkbenchWidget standalone(nullptr);
+    EXPECT_EQ(standalone.functionCode(), 0x03);
+    auto* decBtn = standalone.findChild<QPushButton*>(QStringLiteral("workbenchDataRadixDecBtn"));
+    auto* hexBtn = standalone.findChild<QPushButton*>(QStringLiteral("workbenchDataRadixHexBtn"));
+    auto* binBtn = standalone.findChild<QPushButton*>(QStringLiteral("workbenchDataRadixBinBtn"));
+    ASSERT_NE(decBtn, nullptr);
+    ASSERT_NE(hexBtn, nullptr);
+    ASSERT_NE(binBtn, nullptr);
+    EXPECT_FALSE(decBtn->isEnabled());
+    EXPECT_FALSE(hexBtn->isEnabled());
+    EXPECT_FALSE(binBtn->isEnabled());
+}
+
+TEST_F(ModbusWorkbenchWidgetTest, LoadSettings_HighCoilQuantityNotClampedTo125) {
+    tests::mocks::FakeSettingsService persisted;
+    persisted.setValue(core::common::settings_keys::kModbusWorkbenchFunctionCode, 0x01);
+    persisted.setValue(core::common::settings_keys::kModbusWorkbenchQuantity, 1500);
+
+    ModbusWorkbenchWidget restored(&persisted);
+    EXPECT_EQ(restored.functionCode(), 0x01);
+    EXPECT_EQ(restored.quantity(), 1500);
+}
+
+TEST_F(ModbusWorkbenchWidgetTest, PollIntervalSpin_UsesConfigPollingMinMax) {
+    auto* pollSpin = widget_->findChild<QSpinBox*>(QStringLiteral("workbenchPollIntervalSpin"));
+    ASSERT_NE(pollSpin, nullptr);
+    EXPECT_EQ(pollSpin->minimum(), config::Polling::kMinIntervalMs);
+    EXPECT_EQ(pollSpin->maximum(), config::Polling::kMaxIntervalMs);
+    EXPECT_EQ(pollSpin->singleStep(), config::Polling::kIntervalStepMs);
+}
+
+TEST_F(ModbusWorkbenchWidgetTest, Polling_AutoStopsOnParameterChanges) {
+    QSignalSpy stopSpy(widget_.get(), &ModbusWorkbenchWidget::pollToggleRequested);
+    auto* addrEdit = widget_->findChild<QLineEdit*>(QStringLiteral("workbenchAddressEdit"));
+    ASSERT_NE(addrEdit, nullptr);
+
+    widget_->setFunctionCode(0x03);
+    widget_->setPollingChecked(true);
+    ASSERT_TRUE(widget_->isPolling());
+    stopSpy.clear();
+    widget_->setQuantity(20);
+    EXPECT_FALSE(widget_->isPolling());
+    ASSERT_EQ(stopSpy.count(), 1);
+    EXPECT_FALSE(stopSpy.last().at(0).toBool());
+
+    widget_->setPollingChecked(true);
+    ASSERT_TRUE(widget_->isPolling());
+    stopSpy.clear();
+    addrEdit->setText(QStringLiteral("5"));
+    emit addrEdit->textEdited(QStringLiteral("5"));
+    EXPECT_FALSE(widget_->isPolling());
+    ASSERT_EQ(stopSpy.count(), 1);
+
+    widget_->setPollingChecked(true);
+    ASSERT_TRUE(widget_->isPolling());
+    stopSpy.clear();
+    widget_->setSlaveId(2);
+    EXPECT_FALSE(widget_->isPolling());
+    ASSERT_EQ(stopSpy.count(), 1);
+
+    widget_->setPollingChecked(true);
+    ASSERT_TRUE(widget_->isPolling());
+    stopSpy.clear();
+    widget_->setFunctionCode(0x04);
+    EXPECT_FALSE(widget_->isPolling());
+    ASSERT_EQ(stopSpy.count(), 1);
+
+    widget_->setFunctionCode(0x06);
+    widget_->setWritePayload(QStringLiteral("42"));
+    widget_->setPollingChecked(true);
+    ASSERT_TRUE(widget_->isPolling());
+    stopSpy.clear();
+    auto* fc06Edit = widget_->findChild<QLineEdit*>(QStringLiteral("workbenchFc06ValueEdit"));
+    ASSERT_NE(fc06Edit, nullptr);
+    fc06Edit->setText(QStringLiteral("99"));
+    emit fc06Edit->textEdited(QStringLiteral("99"));
+    EXPECT_FALSE(widget_->isPolling());
+    ASSERT_EQ(stopSpy.count(), 1);
+}
+
+TEST_F(ModbusWorkbenchWidgetTest, Polling_StopButtonAndShortcutWorkInStandardAndRawModes) {
+    auto* execBtn = widget_->findChild<QPushButton*>(QStringLiteral("workbenchExecuteBtn"));
+    auto* stopShortcut = widget_->findChild<QShortcut*>(QStringLiteral("workbenchStopPollShortcut"));
+    ASSERT_NE(execBtn, nullptr);
+    ASSERT_NE(stopShortcut, nullptr);
+
+    widget_->setPollingChecked(true);
+    ASSERT_TRUE(widget_->isPolling());
+    EXPECT_TRUE(execBtn->isEnabled());
+    EXPECT_FALSE(stopShortcut->isEnabled());
+
+    // Switch to Raw mode while polling stays active: shortcut enables and stops polling cleanly.
+    widget_->setMode(1);
+    EXPECT_TRUE(widget_->isRawMode());
+    EXPECT_TRUE(execBtn->isEnabled());
+    EXPECT_TRUE(stopShortcut->isEnabled());
+
+    QSignalSpy stopSpy(widget_.get(), &ModbusWorkbenchWidget::pollToggleRequested);
+    emit stopShortcut->activated();
+    EXPECT_FALSE(widget_->isPolling());
+    ASSERT_EQ(stopSpy.count(), 1);
+    EXPECT_FALSE(stopSpy.last().at(0).toBool());
+    EXPECT_FALSE(stopShortcut->isEnabled());
+}
+
+TEST_F(ModbusWorkbenchWidgetTest, Validation_EmptyFc0fDisablesExecuteWithActionableHintWithoutPrematureWarning) {
+    auto* execBtn = widget_->findChild<QPushButton*>(QStringLiteral("workbenchExecuteBtn"));
+    auto* writeWarning = widget_->writeWarningLabel();
+    auto* hintLabel = widget_->guardHintLabel();
+    ASSERT_NE(execBtn, nullptr);
+    ASSERT_NE(writeWarning, nullptr);
+    ASSERT_NE(hintLabel, nullptr);
+
+    widget_->setFunctionCode(0x0F);
+    EXPECT_FALSE(execBtn->isEnabled());
+    EXPECT_TRUE(writeWarning->isHidden());
+    EXPECT_FALSE(hintLabel->isHidden());
+    EXPECT_FALSE(hintLabel->text().isEmpty());
+    EXPECT_EQ(execBtn->toolTip(), hintLabel->text());
 }
 
 

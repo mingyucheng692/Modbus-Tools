@@ -15,10 +15,12 @@
 #include <QPlainTextEdit>
 #include <QPushButton>
 #include <QScrollArea>
+#include <QShortcut>
 #include <QSpinBox>
 #include <QStackedLayout>
 #include <QVBoxLayout>
 
+#include "Config.h"
 #include "common/ModbusDataHelper.h"
 #include "infra/config/ISettingsService.h"
 #include "core/common/SettingsKeys.h"
@@ -141,6 +143,7 @@ void ModbusWorkbenchWidget::setFunctionCode(uint8_t fc) {
 
 void ModbusWorkbenchWidget::setStartAddress(uint16_t addr) {
     pduAddress_ = addr;
+    stopPollingOnParameterChange(tr("Polling automatically stopped due to address change"));
     updateAddressDisplay();
     validateInputs();
 }
@@ -238,6 +241,17 @@ void ModbusWorkbenchWidget::setupUi() {
 
     scrollArea->setWidget(container);
     outerLayout->addWidget(scrollArea);
+
+    stopPollShortcut_ = new QShortcut(QKeySequence(Qt::Key_Escape), this);
+    stopPollShortcut_->setObjectName(QStringLiteral("workbenchStopPollShortcut"));
+    stopPollShortcut_->setEnabled(false);
+    connect(stopPollShortcut_, &QShortcut::activated, this, [this]() {
+        if (isPolling_) {
+            onExecuteClicked();
+        }
+    });
+
+    updateRequestDataState(functionCode());
     retranslateUi();
 }
 
@@ -432,25 +446,27 @@ void ModbusWorkbenchWidget::setupDataRadixRow(QGroupBox* group, QVBoxLayout* wl)
     wl->addLayout(rowLayout);
 }
 
-void ModbusWorkbenchWidget::setupWriteStackPages(QWidget* stackWidget) {
-    auto* pRead = new QWidget(stackWidget);
-    auto* lRead = new QVBoxLayout(pRead);
-    lRead->setContentsMargins(0, 4, 0, 4);
-    readPlaceholderLabel_ = new QLabel(pRead);
+void ModbusWorkbenchWidget::setupReadPlaceholderPage(QWidget* stackWidget) {
+    auto* page = new QWidget(stackWidget);
+    auto* layout = new QVBoxLayout(page);
+    layout->setContentsMargins(0, 4, 0, 4);
+    readPlaceholderLabel_ = new QLabel(page);
     readPlaceholderLabel_->setObjectName(QStringLiteral("workbenchReadPlaceholder"));
     readPlaceholderLabel_->setStyleSheet(QStringLiteral("color: #757575; font-size: 11px; font-style: italic;"));
     readPlaceholderLabel_->setWordWrap(true);
-    lRead->addWidget(readPlaceholderLabel_);
-    writeStackedLayout_->addWidget(pRead);
+    layout->addWidget(readPlaceholderLabel_);
+    writeStackedLayout_->addWidget(page);
+}
 
-    auto* p0 = new QWidget(stackWidget);
-    auto* l0 = new QHBoxLayout(p0);
+void ModbusWorkbenchWidget::setupFc05Page(QWidget* stackWidget) {
+    auto* page = new QWidget(stackWidget);
+    auto* layout = new QHBoxLayout(page);
     fc05Group_ = new QButtonGroup(this);
-    fc05OnBtn_ = new QPushButton(p0);
+    fc05OnBtn_ = new QPushButton(page);
     fc05OnBtn_->setObjectName(QStringLiteral("workbenchFc05OnBtn"));
     fc05OnBtn_->setCheckable(true);
     fc05OnBtn_->setChecked(true);
-    fc05OffBtn_ = new QPushButton(p0);
+    fc05OffBtn_ = new QPushButton(page);
     fc05OffBtn_->setObjectName(QStringLiteral("workbenchFc05OffBtn"));
     fc05OffBtn_->setCheckable(true);
     fc05Group_->addButton(fc05OnBtn_, 1);
@@ -458,30 +474,40 @@ void ModbusWorkbenchWidget::setupWriteStackPages(QWidget* stackWidget) {
     connect(fc05Group_, &QButtonGroup::idClicked, this, [this](int id) {
         onFc05Toggled(id == 1);
     });
-    l0->addWidget(fc05OnBtn_);
-    l0->addWidget(fc05OffBtn_);
-    writeStackedLayout_->addWidget(p0);
+    layout->addWidget(fc05OnBtn_);
+    layout->addWidget(fc05OffBtn_);
+    writeStackedLayout_->addWidget(page);
+}
 
-    auto addPage = [&](QLabel*& lbl, QLineEdit*& edt, const QString& objName, const QString& initText = {}) {
-        auto* p = new QWidget(stackWidget);
-        auto* l = new QVBoxLayout(p);
-        lbl = new QLabel(p);
-        l->addWidget(lbl);
-        edt = new QLineEdit(p);
-        edt->setObjectName(objName);
-        if (!initText.isEmpty()) {
-            edt->setText(initText);
-        }
-        connect(edt, &QLineEdit::textEdited, this, [this] {
-            writePayloadDirty_ = true;
-            validateInputs();
-        });
-        l->addWidget(edt);
-        writeStackedLayout_->addWidget(p);
-    };
-    addPage(fc06ValueLabel_, fc06ValueEdit_, QStringLiteral("workbenchFc06ValueEdit"), QStringLiteral("0"));
-    addPage(fc0fHintLabel_, fc0fBitsEdit_, QStringLiteral("workbenchFc0fBitsEdit"));
-    addPage(fc10HintLabel_, fc10WordsEdit_, QStringLiteral("workbenchFc10WordsEdit"));
+void ModbusWorkbenchWidget::addWriteLinePage(QWidget* stackWidget, QLabel*& lbl, QLineEdit*& edt,
+                                             const QString& objName, const QString& initText) {
+    auto* page = new QWidget(stackWidget);
+    auto* layout = new QVBoxLayout(page);
+    lbl = new QLabel(page);
+    layout->addWidget(lbl);
+    edt = new QLineEdit(page);
+    edt->setObjectName(objName);
+    if (!initText.isEmpty()) {
+        edt->setText(initText);
+    }
+    connect(edt, &QLineEdit::textEdited, this, [this]() {
+        stopPollingOnParameterChange(tr("Polling automatically stopped due to payload change"));
+        writePayloadDirty_ = true;
+        validateInputs();
+    });
+    layout->addWidget(edt);
+    writeStackedLayout_->addWidget(page);
+}
+
+void ModbusWorkbenchWidget::setupWriteStackPages(QWidget* stackWidget) {
+    setupReadPlaceholderPage(stackWidget);
+    setupFc05Page(stackWidget);
+    addWriteLinePage(stackWidget, fc06ValueLabel_, fc06ValueEdit_,
+                     QStringLiteral("workbenchFc06ValueEdit"), QStringLiteral("0"));
+    addWriteLinePage(stackWidget, fc0fHintLabel_, fc0fBitsEdit_,
+                     QStringLiteral("workbenchFc0fBitsEdit"));
+    addWriteLinePage(stackWidget, fc10HintLabel_, fc10WordsEdit_,
+                     QStringLiteral("workbenchFc10WordsEdit"));
 }
 
 void ModbusWorkbenchWidget::setupPollControls(QVBoxLayout* gl) {
@@ -495,9 +521,9 @@ void ModbusWorkbenchWidget::setupPollControls(QVBoxLayout* gl) {
     pollLayout->addWidget(pollIntervalLabel_);
     pollIntervalSpin_ = new QSpinBox(executionGroup_);
     pollIntervalSpin_->setObjectName(QStringLiteral("workbenchPollIntervalSpin"));
-    pollIntervalSpin_->setRange(50, 60000);
-    pollIntervalSpin_->setSingleStep(100);
-    pollIntervalSpin_->setValue(1000);
+    pollIntervalSpin_->setRange(config::Polling::kMinIntervalMs, config::Polling::kMaxIntervalMs);
+    pollIntervalSpin_->setSingleStep(config::Polling::kIntervalStepMs);
+    pollIntervalSpin_->setValue(config::Polling::kDefaultIntervalMs);
     pollIntervalSpin_->setSuffix(QStringLiteral(" ms"));
     connect(pollIntervalSpin_, QOverload<int>::of(&QSpinBox::valueChanged),
             this, &ModbusWorkbenchWidget::onPollIntervalChanged);
@@ -591,6 +617,7 @@ void ModbusWorkbenchWidget::setupRawButtons(QGroupBox* editGroup, QVBoxLayout* e
 void ModbusWorkbenchWidget::onModeChanged(int id) {
     isRawMode_ = (id == 1);
     mainStackedLayout_->setCurrentIndex(isRawMode_ ? 1 : 0);
+    updateExecuteButtonAppearance();
     validateInputs();
 }
 
@@ -685,9 +712,13 @@ void ModbusWorkbenchWidget::updateDataRadixHints() {
 void ModbusWorkbenchWidget::onFunctionCodeChanged(int /*index*/) {
     const uint8_t fc = functionCode();
 
-    if (isPolling_ && ::modbus::base::function_traits::isWriteOperation(fc)) {
-        stopPollingInternal(true);
-        emit logMessageRequested(tr("Polling automatically stopped due to write operation switch"), true);
+    if (isPolling_) {
+        const bool isWrite = ::modbus::base::function_traits::isWriteOperation(fc);
+        stopPollingOnParameterChange(
+            isWrite ? QString() : tr("Polling automatically stopped due to function code change"));
+        if (isWrite) {
+            emit logMessageRequested(tr("Polling automatically stopped due to write operation switch"), true);
+        }
     }
 
     const uint16_t maxQty = ::modbus::base::function_traits::maxAllowedQuantity(fc);
@@ -708,10 +739,8 @@ void ModbusWorkbenchWidget::onFunctionCodeChanged(int /*index*/) {
     validateInputs();
 }
 
-void ModbusWorkbenchWidget::onSlaveIdChanged(int val) {
-    if (val == 0 && isPolling_) {
-        stopPollingInternal(true);
-    }
+void ModbusWorkbenchWidget::onSlaveIdChanged(int /*val*/) {
+    stopPollingOnParameterChange(tr("Polling automatically stopped due to Slave ID change"));
     validateInputs();
 }
 
@@ -720,11 +749,19 @@ void ModbusWorkbenchWidget::onAddressEdited() {
     if (res.isValid) {
         pduAddress_ = res.pduAddress;
     }
+    stopPollingOnParameterChange(tr("Polling automatically stopped due to address change"));
     validateInputs();
 }
 
-void ModbusWorkbenchWidget::onQuantityChanged(int /*val*/) { validateInputs(); }
-void ModbusWorkbenchWidget::onFc05Toggled(bool on) { fc05IsOn_ = on; }
+void ModbusWorkbenchWidget::onQuantityChanged(int /*val*/) {
+    stopPollingOnParameterChange(tr("Polling automatically stopped due to quantity change"));
+    validateInputs();
+}
+
+void ModbusWorkbenchWidget::onFc05Toggled(bool on) {
+    fc05IsOn_ = on;
+    stopPollingOnParameterChange(tr("Polling automatically stopped due to payload change"));
+}
 
 void ModbusWorkbenchWidget::onExecuteClicked() {
     if (isPolling_) {
@@ -745,8 +782,7 @@ void ModbusWorkbenchWidget::onPollCheckBoxToggled(bool checked) {
             return;
         }
         writePayloadDirty_ = true;
-        validateInputs();
-        if (addressWarningLabel_->isVisible() || writeWarningLabel_->isVisible()) {
+        if (!validateInputs()) {
             stopPollingInternal(false);
             return;
         }
@@ -780,8 +816,19 @@ void ModbusWorkbenchWidget::stopPollingInternal(bool emitSignal) {
     pollCheckBox_->blockSignals(true);
     pollCheckBox_->setChecked(false);
     pollCheckBox_->blockSignals(false);
+    validateInputs();
     if (emitSignal) {
         emit pollToggleRequested(false, currentSpec(), false);
+    }
+}
+
+void ModbusWorkbenchWidget::stopPollingOnParameterChange(const QString& reason) {
+    if (!isPolling_) {
+        return;
+    }
+    stopPollingInternal(true);
+    if (!reason.isEmpty()) {
+        emit logMessageRequested(reason, false);
     }
 }
 
@@ -889,11 +936,14 @@ void ModbusWorkbenchWidget::validateWriteData(bool& valid, QString& errorMsg) {
     }
 }
 
-void ModbusWorkbenchWidget::validateInputs() {
+bool ModbusWorkbenchWidget::validateInputs() {
     if (isRawMode_) {
         const QByteArray raw = ::ui::common::data_helper::parseHex(rawTextEdit_->toPlainText());
         rawExecuteBtn_->setEnabled(!raw.isEmpty() && guardState_.rawSendEnabled);
-        return;
+        if (executeBtn_) {
+            executeBtn_->setEnabled(isPolling_);
+        }
+        return !raw.isEmpty();
     }
 
     bool addrValid = true;
@@ -918,6 +968,7 @@ void ModbusWorkbenchWidget::validateInputs() {
 
     updateDataRadixHints();
     updateWarningAndActionState(addrValid, addrError, writeValid, writeError, sid);
+    return addrValid && writeValid;
 }
 
 void ModbusWorkbenchWidget::updateWarningAndActionState(
@@ -938,8 +989,9 @@ void ModbusWorkbenchWidget::updateWarningAndActionState(
         writeWarningLabel_->hide();
     }
 
+    lastValidationHint_ = !addrValid ? addrError : (!writeValid ? writeError : QString());
     const bool overallValid = addrValid && writeValid;
-    executeBtn_->setEnabled(overallValid && guardState_.executeEnabled);
+    executeBtn_->setEnabled(isPolling_ || (overallValid && guardState_.executeEnabled));
 
     if (sid == 0) {
         pollCheckBox_->setEnabled(false);
@@ -1013,8 +1065,6 @@ void ModbusWorkbenchWidget::loadSettings() {
         return;
     }
     using namespace core::common::settings_keys;
-    loadAddressingSettings();
-    loadExecutionAndPayloadSettings();
 
     uint8_t fc = 0x03;
     if (settingsService_->contains(kModbusWorkbenchFunctionCode)) {
@@ -1023,7 +1073,12 @@ void ModbusWorkbenchWidget::loadSettings() {
             fc = savedFc;
         }
     }
+    // Apply function code before addressing settings so quantitySpin_ inherits
+    // the saved FC's maximum (e.g. 2000 for Coils vs 125 for Registers).
     setFunctionCode(fc);
+
+    loadAddressingSettings();
+    loadExecutionAndPayloadSettings();
 
     if (settingsService_->contains(kModbusWorkbenchMode)) {
         setMode(settingsService_->value(kModbusWorkbenchMode).toInt());
@@ -1050,7 +1105,6 @@ void ModbusWorkbenchWidget::saveSettings() {
     settingsService_->setValue(kModbusWorkbenchFc0fValue, fc0fBitsEdit_->text());
     settingsService_->setValue(kModbusWorkbenchFc10Value, fc10WordsEdit_->text());
     settingsService_->setValue(kModbusWorkbenchRawText, rawTextEdit_->toPlainText());
-    settingsService_->sync();
 }
 
 void ModbusWorkbenchWidget::retranslateAddressingUi() {
@@ -1125,6 +1179,9 @@ void ModbusWorkbenchWidget::updateExecuteButtonAppearance() {
     if (!executeBtn_) {
         return;
     }
+    if (stopPollShortcut_) {
+        stopPollShortcut_->setEnabled(isPolling_ && isRawMode_);
+    }
     if (isPolling_) {
         executeBtn_->setText(tr("Stop Polling (Esc)"));
         executeBtn_->setShortcut(QKeySequence(Qt::Key_Escape));
@@ -1141,16 +1198,21 @@ void ModbusWorkbenchWidget::updateExecuteButtonAppearance() {
 }
 
 void ModbusWorkbenchWidget::updateGuardAppearance() {
+    const bool showGuardMsg = !guardState_.executeEnabled && !guardState_.tooltipMessage.isEmpty();
+    const bool showValidationMsg = !showGuardMsg && guardState_.executeEnabled
+        && !isPolling_ && !lastValidationHint_.isEmpty();
+    const QString tip = showGuardMsg
+        ? guardState_.tooltipMessage
+        : (showValidationMsg ? lastValidationHint_ : QString());
+
     if (guardHintLabel_) {
-        const bool showHint = !guardState_.executeEnabled && !guardState_.tooltipMessage.isEmpty();
-        if (showHint) {
-            guardHintLabel_->setText(guardState_.tooltipMessage);
+        if (!tip.isEmpty()) {
+            guardHintLabel_->setText(tip);
             guardHintLabel_->show();
         } else {
             guardHintLabel_->hide();
         }
     }
-    const QString tip = (!guardState_.executeEnabled) ? guardState_.tooltipMessage : QString();
     if (executeBtn_) {
         executeBtn_->setToolTip(tip);
     }

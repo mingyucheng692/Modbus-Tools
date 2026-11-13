@@ -7,6 +7,7 @@
 #include "../../../ui/widgets/modbus/ModbusTelemetryWidget.h"
 #include "../../../ui/widgets/modbus/ModbusWorkbenchWidget.h"
 #include "../../../ui/views/modbus/ModbusPage.h"
+#include "../../../ui/application/AnalyzerLinkCoordinator.h"
 #include "../../mocks/UiTestDoubles.h"
 
 #include <QApplication>
@@ -271,6 +272,44 @@ TEST(I18nWidgets, ModbusPage_RetranslateProtocolLabel)
     sendLanguageChange(page);
 
     EXPECT_EQ(protoLabel->text(), QStringLiteral("协议:"));
+}
+
+TEST(I18nWidgets, ModbusPage_StatusBannerAndProtocolComboGuard)
+{
+    tests::mocks::FakeSettingsService settingsService;
+    ui::views::modbus::ModbusPage page(&settingsService);
+
+    auto* banner = page.statusBannerLabel();
+    auto* combo = page.protocolCombo();
+    ASSERT_NE(banner, nullptr);
+    ASSERT_NE(combo, nullptr);
+
+    EXPECT_TRUE(banner->isHidden());
+    EXPECT_TRUE(combo->isEnabled());
+
+    page.showStatusMessage(QStringLiteral("Device not connected"), true);
+    EXPECT_FALSE(banner->isHidden());
+    EXPECT_EQ(banner->text(), QStringLiteral("Device not connected"));
+
+    page.showStatusMessage(QString(), false);
+    EXPECT_TRUE(banner->isHidden());
+
+    ui::application::modbus::ExecutionGuardState locked;
+    locked.protocolSwitchEnabled = false;
+    page.setExecutionGuards(locked);
+    EXPECT_FALSE(combo->isEnabled());
+
+    ui::application::modbus::ExecutionGuardState unlocked;
+    unlocked.protocolSwitchEnabled = true;
+    page.setExecutionGuards(unlocked);
+    EXPECT_TRUE(combo->isEnabled());
+}
+
+TEST(I18nWidgets, AnalyzerLinkCoordinator_BindNullPointers_IsSafeNoOp)
+{
+    ui::application::AnalyzerLinkCoordinator coordinator;
+    EXPECT_NO_THROW(coordinator.bind(nullptr, nullptr));
+    EXPECT_EQ(coordinator.state(), ui::application::AnalyzerLinkCoordinator::LinkState::Idle);
 }
 
 

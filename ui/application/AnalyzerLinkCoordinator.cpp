@@ -31,6 +31,9 @@ AnalyzerLinkCoordinator::~AnalyzerLinkCoordinator() = default;
 
 void AnalyzerLinkCoordinator::bind(views::modbus::ModbusPage* modbusView,
                                    views::analyzer::FrameAnalyzerView* frameAnalyzer) {
+    if (!modbusView || !frameAnalyzer) {
+        return;
+    }
     modbusView_ = modbusView;
     frameAnalyzer_ = frameAnalyzer;
     applyState();

@@ -341,4 +341,28 @@ TEST_F(PollingControllerTest, DegradedState_DifferentiatingErrorsReportImmediate
     EXPECT_EQ(trafficSpy.count(), 2);
 }
 
+TEST_F(PollingControllerTest, IsSuppressingTrafficLog_RemainsTrueBetweenPollTicks) {
+    controller_->handleSessionConnected();
+    const auto spec = makePollSpec();
+
+    EXPECT_FALSE(controller_->isSuppressingTrafficLog());
+
+    controller_->handlePollRequest(spec);
+    processStateMachine();
+    EXPECT_TRUE(controller_->isPollingActive());
+    EXPECT_TRUE(controller_->isSuppressingTrafficLog());
+
+    // After tick completes, polling stays active between timer ticks.
+    controller_->handleResponse(true, 5, 0, QString());
+    processStateMachine();
+    EXPECT_FALSE(controller_->context().requestInFlight);
+    EXPECT_TRUE(controller_->isPollingActive());
+    EXPECT_TRUE(controller_->isSuppressingTrafficLog());
+
+    controller_->stopPoll();
+    processStateMachine();
+    EXPECT_FALSE(controller_->isPollingActive());
+    EXPECT_FALSE(controller_->isSuppressingTrafficLog());
+}
+
 } // namespace

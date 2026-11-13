@@ -5,13 +5,10 @@
 #include "RequestSubmissionService.h"
 #include "PollingController.h"
 #include "TrafficLogController.h"
-#include "../../widgets/BaseConnectionWidget.h"
-#include "../../common/ConnectionAlert.h"
 #include "modbus/factory/ModbusFactory.h"
 #include "modbus/session/ModbusClient.h"
 #include <QMetaObject>
 #include <QPointer>
-#include <QApplication>
 #include <QThread>
 #include <spdlog/spdlog.h>
 
@@ -240,7 +237,6 @@ void ModbusSessionPresenter::requestRelease(const QString& timeoutMessage) {
         return;
     }
 
-    syncConnectionWidget(SessionConnectionState::Disconnecting);
     releaseCoordinator_->requestRelease(std::move(handle), timeoutMessage);
 }
 
@@ -332,12 +328,6 @@ void ModbusSessionPresenter::setRequestService(RequestSubmissionService* service
     requestService_ = service;
 }
 
-void ModbusSessionPresenter::setConnectionWidget(ui::widgets::BaseConnectionWidget* widget) {
-    assertGuiThread("setConnectionWidget must be called on the GUI thread");
-    connectionWidget_ = widget;
-    syncConnectionWidget(connectionState_);
-}
-
 void ModbusSessionPresenter::assertGuiThread(const char* context) const {
     assertObjectThread(this, context);
 }
@@ -360,40 +350,12 @@ void ModbusSessionPresenter::onConnectionStateChanged(SessionConnectionState sta
     case SessionConnectionState::TransportConnected:
         break; // path-dependent / intermediate — do not touch disconnectIsExplicit_ here
     }
-    syncConnectionWidget(state);
-}
-
-void ModbusSessionPresenter::syncConnectionWidget(SessionConnectionState state) {
-    assertGuiThread("syncConnectionWidget must run on the GUI thread");
-    if (!connectionWidget_) {
-        return;
-    }
-
-    switch (state) {
-    case SessionConnectionState::Disconnected:
-        connectionWidget_->setConnected(false);
-        return;
-    case SessionConnectionState::Connected:
-    case SessionConnectionState::TransportConnected:
-        connectionWidget_->setConnected(true);
-        return;
-    case SessionConnectionState::Connecting:
-        connectionWidget_->setDisplayState(ui::widgets::DisplayState::Connecting);
-        return;
-    case SessionConnectionState::Disconnecting:
-        connectionWidget_->setDisplayState(ui::widgets::DisplayState::Disconnecting);
-        return;
-    }
 }
 
 void ModbusSessionPresenter::onReleaseCompleted() {
     assertGuiThread("onReleaseCompleted must run on the GUI thread");
     SPDLOG_INFO("ModbusSessionPresenter[{}]: Release completed",
                  modeDescriptor(mode_).logName);
-    if (!worker_ && !channel_ && !client_
-        && connectionState_ != SessionConnectionState::Connecting) {
-        syncConnectionWidget(SessionConnectionState::Disconnected);
-    }
     if (trafficLogController_) {
         trafficLogController_->logConnectionInfo(tr("Release completed"));
     }
@@ -579,9 +541,6 @@ void ModbusSessionPresenter::handleChannelStateTransition(io::ChannelState state
 
     switch (state) {
     case io::ChannelState::Opening:
-        if (currentState != SessionConnectionState::Connected) {
-            syncConnectionWidget(SessionConnectionState::Connecting);
-        }
         return;
     case io::ChannelState::Open:
         if (currentState != SessionConnectionState::Connected && isTcp && trafficLogController_) {
@@ -589,7 +548,6 @@ void ModbusSessionPresenter::handleChannelStateTransition(io::ChannelState state
         }
         return;
     case io::ChannelState::Closing:
-        syncConnectionWidget(SessionConnectionState::Disconnecting);
         return;
     case io::ChannelState::Closed:
     case io::ChannelState::Error: {
@@ -619,7 +577,7 @@ void ModbusSessionPresenter::handleChannelStateTransition(io::ChannelState state
             trafficLogController_->logConnectionInfo(logMsg);
         }
         if (shouldShowDisconnectAlert) {
-            ui::common::connection_alert::showDisconnected(qApp->activeWindow());
+            emit unexpectedDisconnectAlertRequested();
         }
 
         if (disconnectIsExplicit_) {

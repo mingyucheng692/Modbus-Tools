@@ -42,6 +42,9 @@ void ModbusPagePresenter::createServices() {
     connect(pollingController_, &PollingController::trafficEvent,
             trafficLogController_, &TrafficLogController::publishEvent);
 
+    if (hasTimingParams_) {
+        sessionPresenter_->updateSettings(timingParams_);
+    }
     syncWidgetGuards(SessionConnectionState::Disconnected);
 }
 
@@ -84,6 +87,8 @@ void ModbusPagePresenter::wireConnections() {
                 [this]() { syncWidgetGuards(SessionConnectionState::Connected); });
         connect(sessionPresenter_, &ModbusSessionPresenter::sessionDisconnected, this,
                 [this](const QString&) { syncWidgetGuards(SessionConnectionState::Disconnected); });
+        connect(sessionPresenter_, &ModbusSessionPresenter::unexpectedDisconnectAlertRequested,
+                this, &ModbusPagePresenter::sessionConnectionLostAlert);
     }
 }
 
@@ -104,13 +109,21 @@ void ModbusPagePresenter::teardownServices() {
 }
 
 void ModbusPagePresenter::switchMode(SessionMode newMode) {
+    if (isSwitchingMode_) {
+        pendingMode_ = newMode;
+        return;
+    }
     if (newMode == mode_) {
         return;
     }
     pendingMode_ = newMode;
     if (sessionPresenter_) {
+        isSwitchingMode_ = true;
+        syncWidgetGuards(sessionPresenter_->connectionState());
         connect(sessionPresenter_, &ModbusSessionPresenter::stackReleased,
                 this, &ModbusPagePresenter::onStackReleasedForSwitch, Qt::UniqueConnection);
+        connect(sessionPresenter_, &ModbusSessionPresenter::stackReleaseTimedOut,
+                this, &ModbusPagePresenter::onStackReleaseTimedOutForSwitch, Qt::UniqueConnection);
         if (sessionPresenter_->isSessionConnected()) {
             sessionPresenter_->requestDisconnect();
         } else {
@@ -134,11 +147,14 @@ void ModbusPagePresenter::onStackReleasedForSwitch() {
     if (!sessionPresenter_) return;
     disconnect(sessionPresenter_, &ModbusSessionPresenter::stackReleased,
                this, &ModbusPagePresenter::onStackReleasedForSwitch);
+    disconnect(sessionPresenter_, &ModbusSessionPresenter::stackReleaseTimedOut,
+               this, &ModbusPagePresenter::onStackReleaseTimedOutForSwitch);
 
     QMetaObject::invokeMethod(this, [this]() {
         teardownServices();
         mode_ = pendingMode_;
         linked_ = false;
+        isSwitchingMode_ = false;
         lastSyncedState_.reset();
         createServices();
         wireConnections();
@@ -148,7 +164,26 @@ void ModbusPagePresenter::onStackReleasedForSwitch() {
     }, Qt::QueuedConnection);
 }
 
+void ModbusPagePresenter::onStackReleaseTimedOutForSwitch(const QString& message) {
+    if (sessionPresenter_) {
+        disconnect(sessionPresenter_, &ModbusSessionPresenter::stackReleased,
+                   this, &ModbusPagePresenter::onStackReleasedForSwitch);
+        disconnect(sessionPresenter_, &ModbusSessionPresenter::stackReleaseTimedOut,
+                   this, &ModbusPagePresenter::onStackReleaseTimedOutForSwitch);
+    }
+    isSwitchingMode_ = false;
+    syncWidgetGuards(sessionPresenter_ ? sessionPresenter_->connectionState()
+                                       : SessionConnectionState::Disconnected);
+    if (view_) {
+        view_->setProtocolType(modeDescriptor(mode_).protocolType);
+        view_->showStatusMessage(message, true);
+    }
+}
+
 void ModbusPagePresenter::setLinked(bool linked) {
+    if (linked_ == linked) {
+        return;
+    }
     linked_ = linked;
     if (sessionPresenter_) {
         sessionPresenter_->setLinked(linked);
@@ -156,6 +191,7 @@ void ModbusPagePresenter::setLinked(bool linked) {
     if (view_) {
         view_->setLinkageState(linked);
     }
+    emit linkageToggled(linked);
 }
 
 bool ModbusPagePresenter::isLinked() const noexcept {
@@ -179,6 +215,10 @@ TrafficLogController* ModbusPagePresenter::trafficLogController() const noexcept
 }
 
 void ModbusPagePresenter::requestConnect(const ModbusConnectionSpec& spec) {
+    if (isSwitchingMode_) {
+        SPDLOG_INFO("ModbusPagePresenter: connect request ignored (mode switch in progress)");
+        return;
+    }
     if (!sessionPresenter_) {
         SPDLOG_WARN("ModbusPagePresenter: requestConnect dropped (no session presenter)");
         return;
@@ -188,15 +228,19 @@ void ModbusPagePresenter::requestConnect(const ModbusConnectionSpec& spec) {
         return;
     }
     sessionPresenter_->requestConnect(spec);
+    syncWidgetGuards(sessionPresenter_->connectionState());
 }
 
 void ModbusPagePresenter::requestDisconnect() {
     if (sessionPresenter_) {
         sessionPresenter_->requestDisconnect();
+        syncWidgetGuards(sessionPresenter_->connectionState());
     }
 }
 
 void ModbusPagePresenter::updateSettings(const ModbusTimingParams& params) {
+    timingParams_ = params;
+    hasTimingParams_ = true;
     if (sessionPresenter_) {
         sessionPresenter_->updateSettings(params);
     }
@@ -230,11 +274,16 @@ bool ModbusPagePresenter::ensureConnected() {
 
 void ModbusPagePresenter::syncWidgetGuards(SessionConnectionState state) {
     const bool isPolling = pollingController_ ? pollingController_->isPollingActive() : false;
-    if (lastSyncedState_.has_value() && *lastSyncedState_ == state && lastPollingActive_ == isPolling) {
+    const bool protocolSwitchEnabled = (state == SessionConnectionState::Disconnected) && !isSwitchingMode_;
+    if (lastSyncedState_.has_value()
+        && *lastSyncedState_ == state
+        && lastPollingActive_ == isPolling
+        && lastProtocolSwitchEnabled_ == protocolSwitchEnabled) {
         return;
     }
     lastSyncedState_ = state;
     lastPollingActive_ = isPolling;
+    lastProtocolSwitchEnabled_ = protocolSwitchEnabled;
 
     const bool isConnected = (state == SessionConnectionState::Connected);
     const bool isTransportConnected = (state == SessionConnectionState::TransportConnected);
@@ -244,6 +293,7 @@ void ModbusPagePresenter::syncWidgetGuards(SessionConnectionState state) {
     guards.rawSendEnabled = (isConnected || (mode_ != SessionMode::Tcp && isTransportConnected));
     guards.executeEnabled = (isConnected || isTransportConnected);
     guards.pollingEnabled = isConnected;
+    guards.protocolSwitchEnabled = protocolSwitchEnabled;
 
     if (state == SessionConnectionState::Connecting) {
         guards.tooltipMessage = tr("Connecting — please wait before sending commands.");

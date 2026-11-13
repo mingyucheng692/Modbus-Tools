@@ -91,6 +91,7 @@ void PollingController::handlePollRequest(const PollSpec& spec) {
 
 void PollingController::startPolling(const PollSpec& spec) {
     context_.currentSpec = spec;
+    context_.suppressTrafficLog = true;
     setPollingInterval(spec.intervalMs);
     if (!context_.requestInFlight && (context_.sessionConnected || context_.state != PollState::Idle)) {
         buildAndSubmit();
@@ -141,7 +142,6 @@ void PollingController::buildAndSubmit() {
 void PollingController::handleResponse(bool success, int rttMs, int retryCount,
                                        const QString& error) {
     context_.requestInFlight = false;
-    context_.suppressTrafficLog = false;
     handlePollCompletion(success, rttMs, retryCount, error);
 }
 
@@ -370,7 +370,7 @@ PollState PollingController::currentState() const {
 }
 
 bool PollingController::isSuppressingTrafficLog() const {
-    return context_.suppressTrafficLog;
+    return isPollingActive() || context_.suppressTrafficLog;
 }
 
 void PollingController::setSessionConnectedInternal(bool connected, bool stopActivePolling) {

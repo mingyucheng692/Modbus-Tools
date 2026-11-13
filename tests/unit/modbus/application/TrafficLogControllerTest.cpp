@@ -7,6 +7,7 @@
 #include "../../../ui/application/modbus/PollingController.h"
 #include "../../../ui/application/modbus/RequestSubmissionService.h"
 #include "../../../ui/application/modbus/ModbusTypes.h"
+#include "Config.h"
 #include <QSignalSpy>
 
 using namespace testing;
@@ -119,6 +120,43 @@ TEST_F(TrafficLogControllerTest, PublishEvent_EmitsTrafficEventSignal) {
     ASSERT_EQ(spy.count(), 1);
     auto ev = spy.first().at(0).value<ui::common::TrafficEvent>();
     EXPECT_EQ(ev.summary, QStringLiteral("Connected successfully"));
+}
+
+TEST_F(TrafficLogControllerTest, LogRawFrame_SuppressedBetweenPollTicksWhenRawDisabled_AndSampledWhenRawEnabled) {
+    pollingController_->handleSessionConnected();
+    PollSpec spec;
+    spec.functionCode = 0x03;
+    spec.startAddress = 0;
+    spec.quantity = 4;
+    spec.slaveId = 1;
+    spec.intervalMs = 500;
+    pollingController_->handlePollRequest(spec);
+    pollingController_->handleResponse(true, 5, 0, QString());
+
+    ASSERT_TRUE(pollingController_->isPollingActive());
+    ASSERT_TRUE(pollingController_->isSuppressingTrafficLog());
+
+    QSignalSpy spy(controller_.get(), &TrafficLogController::trafficEvent);
+    controller_->setRawFramesEnabled(false);
+    controller_->logRawFrame(ui::common::TrafficDirection::Tx, QByteArray::fromHex("010300000004"));
+    controller_->logRawFrame(ui::common::TrafficDirection::Rx, QByteArray::fromHex("0103080000"));
+    EXPECT_EQ(spy.count(), 0);
+
+    controller_->setRawFramesEnabled(true);
+    for (int i = 0; i < config::Ui::kRawFrameSampleRate; ++i) {
+        controller_->logRawFrame(ui::common::TrafficDirection::Tx, QByteArray::fromHex("010300000004"));
+    }
+    ASSERT_EQ(spy.count(), 1);
+    const auto sampled = spy.first().first().value<ui::common::TrafficEvent>();
+    EXPECT_TRUE(sampled.isPoll);
+
+    PollSummary summary;
+    summary.successCount = 1;
+    summary.avgRttMs = 5;
+    controller_->logPollSummary(summary);
+    ASSERT_EQ(spy.count(), 2);
+    const auto summaryEv = spy.last().first().value<ui::common::TrafficEvent>();
+    EXPECT_TRUE(summaryEv.summary.contains(QStringLiteral("raw frames: 1 shown")));
 }
 
 } // namespace

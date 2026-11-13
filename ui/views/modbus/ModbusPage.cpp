@@ -5,6 +5,7 @@
 #include "common/SettingsKeys.h"
 #include "infra/config/ISettingsService.h"
 #include "../../application/modbus/ModbusPagePresenter.h"
+#include "../../common/ConnectionAlert.h"
 #include "../../widgets/BaseConnectionWidget.h"
 #include "../../widgets/TcpConnectionWidget.h"
 #include "../../widgets/SerialConnectionWidget.h"
@@ -20,28 +21,27 @@
 #include <QSignalBlocker>
 #include <spdlog/spdlog.h>
 
+namespace ui::views::modbus {
+
 namespace {
 
-void initializeAsciiSerialDefaults(infra::config::ISettingsService* settingsService) {
-    if (!settingsService) return;
-    const auto ensureValue = [settingsService](const QString& key, const QVariant& val) {
-        if (!settingsService->contains(key)) settingsService->setValue(key, val);
-    };
-    ensureValue(QStringLiteral("modbus/ascii/serial/baudRate"), QStringLiteral("9600"));
-    ensureValue(QStringLiteral("modbus/ascii/serial/dataBits"), QStringLiteral("7"));
-    ensureValue(QStringLiteral("modbus/ascii/serial/parity"), QStringLiteral("even"));
-    ensureValue(QStringLiteral("modbus/ascii/serial/stopBits"), QStringLiteral("1"));
-    ensureValue(QStringLiteral("modbus/ascii/serial/flowControl"), QStringLiteral("none"));
+void applyPresenterTiming(::modbus::base::ModbusConfig& config,
+                          const ui::application::modbus::ModbusPagePresenter* presenter,
+                          const ui::widgets::modbus::ModbusWorkbenchWidget* workbench) {
+    const auto timing = presenter
+        ? presenter->timingParams()
+        : ui::application::modbus::ModbusTimingParams{};
+    config.slaveId = workbench ? workbench->slaveId() : config::Modbus::kDefaultSlaveId;
+    config.timeoutMs = static_cast<int>(timing.timeout.count());
+    config.retries = timing.retryCount;
+    config.retryIntervalMs = static_cast<int>(timing.retryInterval.count());
 }
 
 } // namespace
 
-namespace ui::views::modbus {
-
 ModbusPage::ModbusPage(infra::config::ISettingsService* settingsService, QWidget* parent)
     : QWidget(parent),
       settingsService_(settingsService) {
-    initializeAsciiSerialDefaults(settingsService_);
     setupUi();
 }
 
@@ -56,6 +56,8 @@ void ModbusPage::bindPresenter(ui::application::modbus::ModbusPagePresenter* pre
     if (!pagePresenter_) return;
 
     if (workbenchWidget_) {
+        connect(workbenchWidget_, &widgets::modbus::ModbusWorkbenchWidget::executeRequested,
+                this, [this]() { showStatusMessage(QString(), false); });
         connect(workbenchWidget_, &widgets::modbus::ModbusWorkbenchWidget::executeRequested,
                 pagePresenter_, &ui::application::modbus::ModbusPagePresenter::executeRequest);
         connect(workbenchWidget_, &widgets::modbus::ModbusWorkbenchWidget::pollToggleRequested,
@@ -79,6 +81,8 @@ void ModbusPage::bindPresenter(ui::application::modbus::ModbusPagePresenter* pre
             this, &ModbusPage::linkageToggled);
     connect(pagePresenter_, &ui::application::modbus::ModbusPagePresenter::linkageSourceDisconnected,
             this, &ModbusPage::linkageSourceDisconnected);
+    connect(pagePresenter_, &ui::application::modbus::ModbusPagePresenter::sessionConnectionLostAlert,
+            this, [this]() { ui::common::connection_alert::showDisconnected(this); });
 
     int baseVal = 0;
     if (settingsService_) {
@@ -97,6 +101,7 @@ void ModbusPage::setupUi() {
     mainLayout->setSpacing(4);
 
     setupConnectionBar();
+    setupStatusBanner(mainLayout);
 
     setupSplitterBody();
     mainLayout->addWidget(splitter_, 1);
@@ -162,6 +167,14 @@ void ModbusPage::bindConnectionBarSignals() {
             this, &ModbusPage::onDisconnectClicked);
 }
 
+void ModbusPage::setupStatusBanner(QVBoxLayout* mainLayout) {
+    statusBannerLabel_ = new QLabel(this);
+    statusBannerLabel_->setObjectName(QStringLiteral("modbusStatusBannerLabel"));
+    statusBannerLabel_->setWordWrap(true);
+    statusBannerLabel_->hide();
+    mainLayout->addWidget(statusBannerLabel_);
+}
+
 void ModbusPage::setupSplitterBody() {
     splitter_ = new QSplitter(Qt::Horizontal, this);
     workbenchWidget_ = new widgets::modbus::ModbusWorkbenchWidget(settingsService_, splitter_);
@@ -188,6 +201,7 @@ void ModbusPage::renderConnectionState(ui::application::modbus::SessionConnectio
     using namespace ui::application::modbus;
     if (state == SessionConnectionState::Connected) {
         connectionWidget_->setConnected(true);
+        showStatusMessage(QString(), false);
     } else if (state == SessionConnectionState::Disconnected) {
         connectionWidget_->setConnected(false);
     } else if (state == SessionConnectionState::Disconnecting) {
@@ -217,6 +231,9 @@ void ModbusPage::updateMetrics(int tx, int rx, int err, int rttMs) {
 }
 
 void ModbusPage::setExecutionGuards(const ui::application::modbus::ExecutionGuardState& state) {
+    if (protocolCombo_) {
+        protocolCombo_->setEnabled(state.protocolSwitchEnabled);
+    }
     if (workbenchWidget_) workbenchWidget_->setExecutionGuards(state);
 }
 
@@ -225,8 +242,19 @@ void ModbusPage::setLinkageState(bool active) {
 }
 
 void ModbusPage::showStatusMessage(const QString& message, bool isError) {
-    Q_UNUSED(isError);
     setToolTip(message);
+    if (!statusBannerLabel_) return;
+    if (message.trimmed().isEmpty()) {
+        statusBannerLabel_->clear();
+        statusBannerLabel_->hide();
+        return;
+    }
+    const QString style = isError
+        ? QStringLiteral("background-color: #ffebee; color: #b71c1c; border: 1px solid #ef9a9a; border-radius: 3px; padding: 4px 8px;")
+        : QStringLiteral("background-color: #fff8e1; color: #5d4037; border: 1px solid #ffe082; border-radius: 3px; padding: 4px 8px;");
+    statusBannerLabel_->setStyleSheet(style);
+    statusBannerLabel_->setText(message);
+    statusBannerLabel_->show();
 }
 
 void ModbusPage::updateModbusSettings(int timeoutMs, int retries, int retryIntervalMs) {
@@ -279,14 +307,12 @@ void ModbusPage::applyProtocolSettingsGroup(ui::application::modbus::SessionMode
 
 void ModbusPage::onTcpConnectClicked(const QString& ip, int port) {
     SPDLOG_INFO("ModbusPage: TCP connect requested to {}:{}", ip.toStdString(), port);
+    showStatusMessage(QString(), false);
     ::modbus::base::ModbusConfig config;
     config.mode = ::modbus::base::ModbusMode::TCP;
     config.ipAddress = ip;
     config.port = port;
-    config.slaveId = workbenchWidget_ ? workbenchWidget_->slaveId() : 1;
-    config.timeoutMs = 1000;
-    config.retries = 0;
-    config.retryIntervalMs = 200;
+    applyPresenterTiming(config, pagePresenter_, workbenchWidget_);
 
     ui::application::modbus::ModbusConnectionSpec spec;
     spec.config = config;
@@ -296,6 +322,7 @@ void ModbusPage::onTcpConnectClicked(const QString& ip, int port) {
 void ModbusPage::onSerialConnectClicked(const io::SerialConfig& config) {
     const auto descriptor = ui::application::modbus::modeDescriptor(currentMode_);
     SPDLOG_INFO("ModbusPage: {} connect requested to {}", descriptor.logName, config.portName.toStdString());
+    showStatusMessage(QString(), false);
 
     ::modbus::base::ModbusConfig modbusConfig;
     modbusConfig.mode = descriptor.modbusMode;
@@ -304,10 +331,7 @@ void ModbusPage::onSerialConnectClicked(const io::SerialConfig& config) {
     modbusConfig.dataBits = config.dataBits;
     modbusConfig.stopBits = static_cast<int>(config.stopBits);
     modbusConfig.parity = static_cast<int>(config.parity);
-    modbusConfig.slaveId = workbenchWidget_ ? workbenchWidget_->slaveId() : 1;
-    modbusConfig.timeoutMs = 1000;
-    modbusConfig.retries = 0;
-    modbusConfig.retryIntervalMs = 200;
+    applyPresenterTiming(modbusConfig, pagePresenter_, workbenchWidget_);
 
     ui::application::modbus::ModbusConnectionSpec spec;
     spec.config = modbusConfig;

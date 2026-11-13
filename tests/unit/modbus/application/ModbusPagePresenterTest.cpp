@@ -9,6 +9,8 @@
 #include "ui/application/modbus/RequestSubmissionService.h"
 #include "ui/application/modbus/TrafficLogController.h"
 #include "mocks/MockModbusPageView.h"
+#include <QCoreApplication>
+#include <QSignalSpy>
 
 using namespace testing;
 using namespace ui::application::modbus;
@@ -106,5 +108,87 @@ TEST_F(ModbusPagePresenterTest, DetachView_NullifiesView) {
     EXPECT_EQ(presenter_->view(), mockView_.get());
     presenter_->detachView();
     EXPECT_EQ(presenter_->view(), nullptr);
+}
+
+TEST_F(ModbusPagePresenterTest, SwitchMode_DoubleSwitchBackToOriginal_RestoresTargetModeAndReenablesSwitch) {
+    ExecutionGuardState lastGuards;
+    EXPECT_CALL(*mockView_, setExecutionGuards(_))
+        .WillRepeatedly(SaveArg<0>(&lastGuards));
+    EXPECT_CALL(*mockView_, setProtocolType(::modbus::parser::ProtocolType::Tcp)).Times(1);
+
+    presenter_->switchMode(SessionMode::Rtu);
+    EXPECT_TRUE(presenter_->isSwitchingMode());
+    EXPECT_FALSE(lastGuards.protocolSwitchEnabled);
+
+    // Rapid switch back to Tcp before async release completes (LWW).
+    presenter_->switchMode(SessionMode::Tcp);
+    QCoreApplication::processEvents();
+    QCoreApplication::processEvents();
+
+    EXPECT_FALSE(presenter_->isSwitchingMode());
+    EXPECT_EQ(presenter_->mode(), SessionMode::Tcp);
+    EXPECT_TRUE(lastGuards.protocolSwitchEnabled);
+}
+
+TEST_F(ModbusPagePresenterTest, SwitchMode_DoubleSwitchToThirdProtocol_LandsOnLatestTarget) {
+    EXPECT_CALL(*mockView_, setProtocolType(::modbus::parser::ProtocolType::Ascii)).Times(1);
+
+    presenter_->switchMode(SessionMode::Rtu);
+    presenter_->switchMode(SessionMode::Ascii);
+    QCoreApplication::processEvents();
+    QCoreApplication::processEvents();
+
+    EXPECT_FALSE(presenter_->isSwitchingMode());
+    EXPECT_EQ(presenter_->mode(), SessionMode::Ascii);
+}
+
+TEST_F(ModbusPagePresenterTest, UpdateSettings_CachedAcrossSwitchMode) {
+    ModbusTimingParams custom;
+    custom.timeout = std::chrono::milliseconds(3456);
+    custom.retryCount = 2;
+    custom.retryInterval = std::chrono::milliseconds(123);
+    presenter_->updateSettings(custom);
+
+    presenter_->switchMode(SessionMode::Rtu);
+    QCoreApplication::processEvents();
+    QCoreApplication::processEvents();
+
+    EXPECT_TRUE(presenter_->hasTimingParams());
+    EXPECT_EQ(presenter_->timingParams().timeout, std::chrono::milliseconds(3456));
+    EXPECT_EQ(presenter_->timingParams().retryCount, 2);
+    EXPECT_EQ(presenter_->timingParams().retryInterval, std::chrono::milliseconds(123));
+}
+
+TEST_F(ModbusPagePresenterTest, SetLinked_EmitsLinkageToggledOnlyOnChange) {
+    QSignalSpy spy(presenter_.get(), &ModbusPagePresenter::linkageToggled);
+
+    presenter_->setLinked(true);
+    EXPECT_EQ(spy.count(), 1);
+    EXPECT_TRUE(spy.last().first().toBool());
+
+    presenter_->setLinked(true);
+    EXPECT_EQ(spy.count(), 1);
+
+    presenter_->setLinked(false);
+    EXPECT_EQ(spy.count(), 2);
+    EXPECT_FALSE(spy.last().first().toBool());
+}
+
+TEST_F(ModbusPagePresenterTest, ConnectionGuards_LockProtocolSwitchWhenNotDisconnected) {
+    ExecutionGuardState guards;
+    EXPECT_CALL(*mockView_, setExecutionGuards(_))
+        .WillRepeatedly(SaveArg<0>(&guards));
+
+    presenter_->syncWidgetGuards(SessionConnectionState::Connecting);
+    EXPECT_FALSE(guards.protocolSwitchEnabled);
+
+    presenter_->syncWidgetGuards(SessionConnectionState::TransportConnected);
+    EXPECT_FALSE(guards.protocolSwitchEnabled);
+
+    presenter_->syncWidgetGuards(SessionConnectionState::Connected);
+    EXPECT_FALSE(guards.protocolSwitchEnabled);
+
+    presenter_->syncWidgetGuards(SessionConnectionState::Disconnected);
+    EXPECT_TRUE(guards.protocolSwitchEnabled);
 }
 

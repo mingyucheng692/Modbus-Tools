@@ -40,6 +40,10 @@ public:
     void requestConnect(const ModbusConnectionSpec& spec);
     void requestDisconnect();
     void updateSettings(const ModbusTimingParams& params);
+    [[nodiscard]] const ModbusTimingParams& timingParams() const noexcept { return timingParams_; }
+    [[nodiscard]] bool hasTimingParams() const noexcept { return hasTimingParams_; }
+    [[nodiscard]] SessionMode mode() const noexcept { return mode_; }
+    [[nodiscard]] bool isSwitchingMode() const noexcept { return isSwitchingMode_; }
 
     void setLinked(bool linked);
     [[nodiscard]] bool isLinked() const noexcept;
@@ -73,12 +77,14 @@ signals:
                              uint16_t addr);
     void linkageToggled(bool active);
     void linkageSourceDisconnected();
+    void sessionConnectionLostAlert();
 
 private:
     void createServices();
     void wireConnections();
     void teardownServices();
     void onStackReleasedForSwitch();
+    void onStackReleaseTimedOutForSwitch(const QString& message);
 
     void handleRawExecute(const ModbusExecuteSpec& spec);
     void handleStandardExecute(const ModbusExecuteSpec& spec);
@@ -95,6 +101,9 @@ private:
     IModbusPageView* view_ = nullptr;
     SessionMode mode_;
     SessionMode pendingMode_{};
+    bool isSwitchingMode_ = false;
+    ModbusTimingParams timingParams_{};
+    bool hasTimingParams_ = false;
 
     ModbusSessionPresenter* sessionPresenter_ = nullptr;
     std::unique_ptr<RequestSubmissionService> requestService_;
@@ -102,6 +111,7 @@ private:
     QPointer<TrafficLogController> trafficLogController_;
     std::optional<SessionConnectionState> lastSyncedState_ = std::nullopt;
     bool lastPollingActive_ = false;
+    bool lastProtocolSwitchEnabled_ = true;
 
     bool linked_ = false;
     int txCount_ = 0;

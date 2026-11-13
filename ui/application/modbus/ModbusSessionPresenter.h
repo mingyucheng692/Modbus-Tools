@@ -14,11 +14,6 @@
 #include "ModbusTypes.h"
 
 class QThread;
-class QWidget;
-
-namespace ui::widgets {
-class BaseConnectionWidget;
-}
 
 namespace ui::application::modbus {
 class RequestSubmissionService;
@@ -62,7 +57,6 @@ public:
     void setTrafficLogController(TrafficLogController* controller);
     void setPollingController(PollingController* controller);
     void setRequestService(RequestSubmissionService* service);
-    void setConnectionWidget(ui::widgets::BaseConnectionWidget* widget);
 
     void setLinked(bool linked);
     bool isLinked() const;
@@ -89,6 +83,7 @@ signals:
     void stackReleased();
     void stackReleaseTimedOut(const QString& message);
     void linkageSourceDisconnected();
+    void unexpectedDisconnectAlertRequested();
 
 private:
     void initStack(const ::modbus::base::ModbusConfig& config);
@@ -119,7 +114,6 @@ private:
     void syncStateFromCore();
 
     void onConnectionStateChanged(SessionConnectionState state);
-    void syncConnectionWidget(SessionConnectionState state);
 
     bool hasLiveOrPendingStack() const;
     // Hands the current live stack off to releaseCoordinator_ for bounded
@@ -154,7 +148,6 @@ private:
     // presenter's queued handlers can run again), so no QPointer guard is
     // possible or needed.
     RequestSubmissionService* requestService_ = nullptr;
-    QPointer<ui::widgets::BaseConnectionWidget> connectionWidget_;
     std::unique_ptr<WorkerReleaseCoordinator> releaseCoordinator_;
     std::function<void()> deferredAction_;
 };

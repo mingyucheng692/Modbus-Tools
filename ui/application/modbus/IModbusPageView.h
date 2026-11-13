@@ -18,6 +18,7 @@ struct ExecutionGuardState {
     bool pollingEnabled = false;
     bool pollingActive = false;
     bool rawSendEnabled = false;
+    bool protocolSwitchEnabled = true;
     QString tooltipMessage;
 };
 

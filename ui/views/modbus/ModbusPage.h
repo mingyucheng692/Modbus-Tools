@@ -12,6 +12,7 @@ class QComboBox;
 class QLabel;
 class QStackedWidget;
 class QSplitter;
+class QVBoxLayout;
 
 namespace infra::config {
 class ISettingsService;
@@ -65,6 +66,8 @@ public:
     [[nodiscard]] ui::widgets::modbus::ModbusWorkbenchWidget* workbenchWidget() const noexcept { return workbenchWidget_; }
     [[nodiscard]] ui::widgets::modbus::ModbusTelemetryWidget* telemetryWidget() const noexcept { return telemetryWidget_; }
     [[nodiscard]] QLabel* protocolLabel() const noexcept { return protocolLabel_; }
+    [[nodiscard]] QLabel* statusBannerLabel() const noexcept { return statusBannerLabel_; }
+    [[nodiscard]] QComboBox* protocolCombo() const noexcept { return protocolCombo_; }
 
 signals:
     void linkageDataReceived(const ::modbus::base::Pdu& pdu, ::modbus::parser::ProtocolType protocol, uint16_t addr);
@@ -83,6 +86,7 @@ private slots:
 private:
     void setupUi();
     void setupConnectionBar();
+    void setupStatusBanner(QVBoxLayout* mainLayout);
     void bindConnectionBarSignals();
     void setupSplitterBody();
     void switchToProtocol(ui::application::modbus::SessionMode mode);
@@ -102,6 +106,7 @@ private:
 
     ui::widgets::modbus::ModbusWorkbenchWidget* workbenchWidget_ = nullptr;
     ui::widgets::modbus::ModbusTelemetryWidget* telemetryWidget_ = nullptr;
+    QLabel* statusBannerLabel_ = nullptr;
     QSplitter* splitter_ = nullptr;
 };
 

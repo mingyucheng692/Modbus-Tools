@@ -19,6 +19,7 @@ class QLabel;
 class QLineEdit;
 class QPlainTextEdit;
 class QPushButton;
+class QShortcut;
 class QSpinBox;
 class QStackedLayout;
 class QVBoxLayout;
@@ -127,6 +128,10 @@ private:
     void setupWriteSection(QWidget* parent, QVBoxLayout* layout);
     void setupDataRadixRow(QGroupBox* group, QVBoxLayout* wl);
     void setupWriteStackPages(QWidget* stackWidget);
+    void setupReadPlaceholderPage(QWidget* stackWidget);
+    void setupFc05Page(QWidget* stackWidget);
+    void addWriteLinePage(QWidget* stackWidget, QLabel*& lbl, QLineEdit*& edt,
+                          const QString& objName, const QString& initText = {});
     void setupExecutionSection(QWidget* parent, QVBoxLayout* layout);
     void setupPollControls(QVBoxLayout* gl);
     void setupRawButtons(QGroupBox* editGroup, QVBoxLayout* el);
@@ -135,13 +140,14 @@ private:
     void updateAddressDisplay();
     void updateRequestDataState(uint8_t fc);
     void updateDataRadixHints();
-    void validateInputs();
+    bool validateInputs();
     void validateAddressRange(bool& valid, QString& errorMsg);
     void validateWriteData(bool& valid, QString& errorMsg);
     void updateWarningAndActionState(
         bool addrValid, const QString& addrError, bool writeValid, const QString& writeError, uint8_t sid);
     bool confirmWritePoll(uint8_t fc);
     void stopPollingInternal(bool emitSignal);
+    void stopPollingOnParameterChange(const QString& reason = {});
     void loadSettings();
     void loadAddressingSettings();
     void loadExecutionAndPayloadSettings();
@@ -217,11 +223,13 @@ private:
     // Execution & polling
     QGroupBox* executionGroup_ = nullptr;
     QPushButton* executeBtn_ = nullptr;
+    QShortcut* stopPollShortcut_ = nullptr;
     QCheckBox* pollCheckBox_ = nullptr;
     QLabel* pollIntervalLabel_ = nullptr;
     QSpinBox* pollIntervalSpin_ = nullptr;
     QLabel* writePollWarningBadge_ = nullptr;
     QLabel* guardHintLabel_ = nullptr;
+    QString lastValidationHint_;
 
     // Raw mode widgets
     QGroupBox* rawGroup_ = nullptr;
