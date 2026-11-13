@@ -181,6 +181,12 @@ set(TEST_QT_CORE_SOURCES
     unit/ui/UpdateCoordinatorTest.cpp
 )
 
+if(WIN32)
+    list(APPEND TEST_QT_CORE_SOURCES
+        unit/platform/Win32ProcessRunnerTest.cpp
+    )
+endif()
+
 set(TEST_UI_WIDGETS_SOURCES
     unit/modbus/application/TrafficLogControllerTest.cpp
     unit/ui/common/ModbusDataHelperTest.cpp

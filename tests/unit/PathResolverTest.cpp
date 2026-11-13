@@ -55,3 +55,18 @@ TEST(PathResolver, CleansInjectedApplicationDirPath)
     EXPECT_EQ(QDir::cleanPath(resolver.applicationDirPath()).toStdString(),
               QDir::cleanPath(resolver.resolveConfigDir()).toStdString());
 }
+
+TEST(PathResolver, EmptyOrRelativeBaseFallsBackToAbsoluteDirectory)
+{
+    const infra::platform::PathResolver emptyResolver(QStringLiteral("   "));
+    EXPECT_FALSE(emptyResolver.applicationDirPath().isEmpty());
+    EXPECT_TRUE(QDir::isAbsolutePath(emptyResolver.applicationDirPath()));
+    EXPECT_TRUE(QDir::isAbsolutePath(emptyResolver.resolveConfigDir()));
+    EXPECT_TRUE(QDir::isAbsolutePath(emptyResolver.resolveLogDir()));
+    EXPECT_TRUE(QDir::isAbsolutePath(emptyResolver.resolveUpdateStagingDir()));
+
+    const infra::platform::PathResolver relativeResolver(QStringLiteral("relative/subdir"));
+    EXPECT_TRUE(QDir::isAbsolutePath(relativeResolver.applicationDirPath()));
+    EXPECT_TRUE(QDir::isAbsolutePath(relativeResolver.resolveLogDir()));
+    EXPECT_TRUE(QDir::isAbsolutePath(relativeResolver.resolveUpdateStagingDir()));
+}

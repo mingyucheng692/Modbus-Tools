@@ -14,6 +14,10 @@ if(WIN32)
         win/Win32ProcessRunner.h
         win/Win32ProcessRunner.cpp
     )
+    target_compile_definitions(infra_platform PRIVATE
+        WIN32_LEAN_AND_MEAN
+        NOMINMAX
+    )
 endif()
 
 target_link_libraries(infra_platform

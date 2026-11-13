@@ -5,6 +5,7 @@
 #include <QDir>
 #include <QFileInfo>
 #include <QStringList>
+#include <algorithm>
 #include <spdlog/spdlog.h>
 #include <vector>
 #include <windows.h>
@@ -12,29 +13,78 @@
 
 namespace {
 
-QString quoteProcessArgument(const QString& argument)
+struct LaunchPaths {
+    std::wstring nativeExecutable;
+    std::wstring nativeWorkingDirectory;
+};
+
+LaunchPaths prepareLaunchPaths(const QString& executablePath)
 {
-    QString escaped = argument;
-    escaped.replace('"', QStringLiteral("\\\""));
-    if (escaped.contains(' ') || escaped.contains('\t') || escaped.contains('"')) {
-        return QStringLiteral("\"%1\"").arg(escaped);
-    }
-    return escaped;
+    const QString nativeExe = QDir::toNativeSeparators(executablePath);
+    const QString nativeWorkDir = QDir::toNativeSeparators(QFileInfo(executablePath).absolutePath());
+    return {
+        nativeExe.toStdWString(),
+        nativeWorkDir.toStdWString(),
+    };
 }
 
-QString buildProcessArguments(const QStringList& arguments)
+} // namespace
+
+namespace infra::platform {
+
+QString Win32ProcessRunner::quoteProcessArgument(const QString& argument)
+{
+    if (argument.isEmpty()) {
+        return QStringLiteral("\"\"");
+    }
+
+    const bool needsQuoting = std::any_of(argument.cbegin(), argument.cend(), [](QChar ch) {
+        const ushort code = ch.unicode();
+        return code == u' ' || code == u'\t' || code == u'\n' || code == u'\v' || code == u'"';
+    });
+    if (!needsQuoting) {
+        return argument;
+    }
+
+    QString quoted;
+    quoted.reserve(argument.size() + 4);
+    quoted.append(QLatin1Char('"'));
+
+    int backslashCount = 0;
+    for (const QChar ch : argument) {
+        if (ch == QLatin1Char('\\')) {
+            ++backslashCount;
+            continue;
+        }
+        if (ch == QLatin1Char('"')) {
+            quoted.append(QString(backslashCount * 2 + 1, QLatin1Char('\\')));
+            quoted.append(QLatin1Char('"'));
+            backslashCount = 0;
+            continue;
+        }
+        if (backslashCount > 0) {
+            quoted.append(QString(backslashCount, QLatin1Char('\\')));
+            backslashCount = 0;
+        }
+        quoted.append(ch);
+    }
+
+    if (backslashCount > 0) {
+        quoted.append(QString(backslashCount * 2, QLatin1Char('\\')));
+    }
+    quoted.append(QLatin1Char('"'));
+    return quoted;
+}
+
+QString Win32ProcessRunner::buildProcessArguments(const QStringList& arguments)
 {
     QStringList quotedArguments;
     quotedArguments.reserve(arguments.size());
     for (const QString& argument : arguments) {
         quotedArguments.push_back(quoteProcessArgument(argument));
     }
-    return quotedArguments.join(' ');
+    return quotedArguments.join(QLatin1Char(' '));
 }
-
-} // namespace
-
-namespace infra::platform {
 
 bool Win32ProcessRunner::supportsElevatedLaunch() const noexcept
 {
@@ -45,29 +95,32 @@ bool Win32ProcessRunner::startElevated(const QString& executablePath,
                                        const QStringList& arguments,
                                        QString* errorMessage)
 {
-    const QString nativeExecutablePath = QDir::toNativeSeparators(executablePath);
-    const QString nativeWorkingDirectory = QDir::toNativeSeparators(QFileInfo(executablePath).absolutePath());
-    const QString parameters = buildProcessArguments(arguments);
+    if (errorMessage != nullptr) {
+        errorMessage->clear();
+    }
+
+    const LaunchPaths paths = prepareLaunchPaths(executablePath);
+    const std::wstring parametersW = buildProcessArguments(arguments).toStdWString();
 
     SHELLEXECUTEINFOW shellExecInfo{};
     shellExecInfo.cbSize = sizeof(SHELLEXECUTEINFOW);
-    shellExecInfo.fMask = SEE_MASK_NOCLOSEPROCESS;
-    shellExecInfo.hwnd = nullptr;
+    shellExecInfo.fMask = SEE_MASK_NOCLOSEPROCESS | SEE_MASK_FLAG_NO_UI;
     shellExecInfo.lpVerb = L"runas";
-
-    const std::wstring executablePathW = nativeExecutablePath.toStdWString();
-    const std::wstring parametersW = parameters.toStdWString();
-    const std::wstring workingDirectoryW = nativeWorkingDirectory.toStdWString();
-    shellExecInfo.lpFile = executablePathW.c_str();
-    shellExecInfo.lpParameters = parametersW.c_str();
-    shellExecInfo.lpDirectory = workingDirectoryW.c_str();
+    shellExecInfo.lpFile = paths.nativeExecutable.c_str();
+    shellExecInfo.lpParameters = parametersW.empty() ? nullptr : parametersW.c_str();
+    shellExecInfo.lpDirectory = paths.nativeWorkingDirectory.c_str();
     shellExecInfo.nShow = SW_SHOWNORMAL;
 
     if (!ShellExecuteExW(&shellExecInfo)) {
         const DWORD lastError = GetLastError();
-        SPDLOG_ERROR("Win32ProcessRunner: ShellExecuteExW failed with error {}", static_cast<unsigned long>(lastError));
+        SPDLOG_ERROR("Win32ProcessRunner: ShellExecuteExW failed with error {}",
+                     static_cast<unsigned long>(lastError));
         if (errorMessage != nullptr) {
-            *errorMessage = QStringLiteral("Failed to launch updater (Access Denied or System Error)");
+            *errorMessage = (lastError == ERROR_CANCELLED)
+                ? QStringLiteral("Elevated launch was cancelled by user (ERROR_CANCELLED, error %1)")
+                      .arg(static_cast<unsigned long>(lastError))
+                : QStringLiteral("Failed to launch elevated updater process (error %1)")
+                      .arg(static_cast<unsigned long>(lastError));
         }
         return false;
     }
@@ -82,13 +135,17 @@ bool Win32ProcessRunner::startNonElevated(const QString& executablePath,
                                           const QStringList& arguments,
                                           QString* errorMessage)
 {
-    const QString nativeExecutablePath = QDir::toNativeSeparators(executablePath);
-    const QString nativeWorkingDirectory = QDir::toNativeSeparators(QFileInfo(executablePath).absolutePath());
-    const QString commandLine = QStringLiteral("\"%1\" %2")
-                                    .arg(nativeExecutablePath, buildProcessArguments(arguments));
+    if (errorMessage != nullptr) {
+        errorMessage->clear();
+    }
 
+    const LaunchPaths paths = prepareLaunchPaths(executablePath);
+    const QString quotedExecutable = quoteProcessArgument(QDir::toNativeSeparators(executablePath));
+    const QString quotedArgs = buildProcessArguments(arguments);
+    const QString commandLine = quotedArgs.isEmpty()
+        ? quotedExecutable
+        : QStringLiteral("%1 %2").arg(quotedExecutable, quotedArgs);
     const std::wstring commandLineW = commandLine.toStdWString();
-    const std::wstring workingDirectoryW = nativeWorkingDirectory.toStdWString();
 
     // Build a mutable copy for CreateProcessW (it modifies the buffer).
     std::vector<wchar_t> mutableCmdLine(commandLineW.begin(), commandLineW.end());
@@ -99,21 +156,22 @@ bool Win32ProcessRunner::startNonElevated(const QString& executablePath,
     PROCESS_INFORMATION processInfo{};
 
     const BOOL success = CreateProcessW(
-        nativeExecutablePath.toStdWString().c_str(),  // lpApplicationName
-        mutableCmdLine.data(),                         // lpCommandLine
-        nullptr,                                       // lpProcessAttributes
-        nullptr,                                       // lpThreadAttributes
-        FALSE,                                         // bInheritHandles
-        CREATE_NEW_CONSOLE,                            // dwCreationFlags
-        nullptr,                                       // lpEnvironment
-        workingDirectoryW.c_str(),                     // lpCurrentDirectory
-        &startupInfo,                                  // lpStartupInfo
-        &processInfo                                   // lpProcessInformation
+        paths.nativeExecutable.c_str(),
+        mutableCmdLine.data(),
+        nullptr,
+        nullptr,
+        FALSE,
+        CREATE_NEW_CONSOLE,
+        nullptr,
+        paths.nativeWorkingDirectory.c_str(),
+        &startupInfo,
+        &processInfo
     );
 
     if (!success) {
         const DWORD lastError = GetLastError();
-        SPDLOG_ERROR("Win32ProcessRunner: CreateProcessW failed with error {}", static_cast<unsigned long>(lastError));
+        SPDLOG_ERROR("Win32ProcessRunner: CreateProcessW failed with error {}",
+                     static_cast<unsigned long>(lastError));
         if (errorMessage != nullptr) {
             *errorMessage = QStringLiteral("Failed to launch updater process (error %1)")
                                 .arg(static_cast<unsigned long>(lastError));

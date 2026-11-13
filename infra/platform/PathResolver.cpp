@@ -4,33 +4,47 @@
 
 #include <QCoreApplication>
 #include <QDir>
-#include <utility>
 
 namespace {
 
 constexpr auto kLogsDirectoryName = "logs";
 constexpr auto kUpdateStagingDirectoryName = "update";
 
+QString normalizeApplicationDirPath(const QString& applicationDirPath)
+{
+    QString resolved = applicationDirPath.trimmed();
+    if (resolved.isEmpty() && QCoreApplication::instance() != nullptr) {
+        resolved = QCoreApplication::applicationDirPath().trimmed();
+    }
+    if (resolved.isEmpty()) {
+        resolved = QDir::tempPath();
+    }
+    return QDir::cleanPath(QDir(resolved).absolutePath());
+}
+
+QString resolveAbsoluteSubdir(const QString& baseDir, const char* subdirName)
+{
+    const QString normalizedBase = normalizeApplicationDirPath(baseDir);
+    return QDir::cleanPath(QDir(normalizedBase).absoluteFilePath(QString::fromLatin1(subdirName)));
+}
+
 } // namespace
 
 namespace infra::platform {
 
 PathResolver::PathResolver()
-    : PathResolver([]() -> QString {
-          const auto* app = QCoreApplication::instance();
-          return app == nullptr ? QString() : QCoreApplication::applicationDirPath();
-      }())
+    : PathResolver(QString())
 {
 }
 
 PathResolver::PathResolver(const QString& applicationDirPath)
-    : applicationDirPath_(QDir::cleanPath(applicationDirPath))
+    : applicationDirPath_(normalizeApplicationDirPath(applicationDirPath))
 {
 }
 
 QString PathResolver::resolveLogDir() const
 {
-    return QDir(applicationDirPath_).filePath(QString::fromLatin1(kLogsDirectoryName));
+    return resolveAbsoluteSubdir(applicationDirPath_, kLogsDirectoryName);
 }
 
 QString PathResolver::resolveConfigDir() const
@@ -40,7 +54,7 @@ QString PathResolver::resolveConfigDir() const
 
 QString PathResolver::resolveUpdateStagingDir() const
 {
-    return QDir(applicationDirPath_).filePath(QString::fromLatin1(kUpdateStagingDirectoryName));
+    return resolveAbsoluteSubdir(applicationDirPath_, kUpdateStagingDirectoryName);
 }
 
 } // namespace infra::platform
