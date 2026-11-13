@@ -491,4 +491,90 @@ TEST(NetworkDebuggerLoopback, Udp_SendReceiveAndUnbind) {
     EXPECT_TRUE(await([&]() { return monitorContains(view, QStringLiteral("Closed")); }));
 }
 
+TEST(NetworkDebuggerLoopback, TcpClient_ProtocolLockedWhileActive) {
+    QTcpServer server;
+    ASSERT_TRUE(server.listen(QHostAddress::LocalHost, 0));
+    tests::mocks::FakeSettingsService settings;
+    Network view(&settings);
+    auto* protocolCombo = view.findChild<QComboBox*>();
+    ASSERT_NE(protocolCombo, nullptr);
+    EXPECT_TRUE(protocolCombo->isEnabled());
+
+    ui::widgets::TcpConnectionWidget* connection = nullptr;
+    for (auto* candidate : view.findChildren<ui::widgets::TcpConnectionWidget*>()) {
+        if (candidate->role() == ui::widgets::TcpRole::Client) {
+            connection = candidate;
+        }
+    }
+    ASSERT_NE(connection, nullptr);
+    connection->connectClicked(QStringLiteral("127.0.0.1"), server.serverPort());
+    EXPECT_FALSE(protocolCombo->isEnabled());
+    ASSERT_TRUE(await([&]() { return server.hasPendingConnections() && monitorContains(view, QStringLiteral("Connected")); }));
+    EXPECT_FALSE(protocolCombo->isEnabled());
+
+    connection->disconnectClicked();
+    EXPECT_TRUE(await([&]() { return protocolCombo->isEnabled(); }));
+}
+
+TEST(NetworkDebuggerLoopback, TcpServer_AutoSendStopsWhenServerStops) {
+    QTcpServer reservation;
+    ASSERT_TRUE(reservation.listen(QHostAddress::LocalHost, 0));
+    const int port = reservation.serverPort();
+    reservation.close();
+
+    tests::mocks::FakeSettingsService settings;
+    Network view(&settings);
+    view.findChild<QComboBox*>()->setCurrentIndex(1);
+
+    ui::widgets::TcpConnectionWidget* connection = nullptr;
+    for (auto* candidate : view.findChildren<ui::widgets::TcpConnectionWidget*>()) {
+        if (candidate->role() == ui::widgets::TcpRole::Server) {
+            connection = candidate;
+        }
+    }
+    auto* input = view.findChild<ui::widgets::GenericInputWidget*>();
+    ASSERT_NE(connection, nullptr);
+    ASSERT_NE(input, nullptr);
+
+    connection->startListenClicked(QStringLiteral("127.0.0.1"), port);
+    ASSERT_TRUE(await([&]() { return monitorContains(view, QStringLiteral("Listening")); }));
+
+    QTcpSocket peer;
+    peer.connectToHost(QHostAddress::LocalHost, port);
+    auto* panel = view.findChild<ui::widgets::ServerClientPanel*>();
+    ASSERT_NE(panel, nullptr);
+    ASSERT_TRUE(await([&]() { return panel->hasClients() && peer.state() == QAbstractSocket::ConnectedState; }));
+
+    input->setAutoSendEnabled(true);
+    EXPECT_TRUE(input->isAutoSendEnabled());
+
+    connection->stopListenClicked();
+    EXPECT_TRUE(await([&]() { return !input->isAutoSendEnabled(); }));
+    EXPECT_TRUE(await([&]() { return peer.state() == QAbstractSocket::UnconnectedState; }));
+}
+
+TEST(NetworkDebuggerLoopback, Udp_RapidRebindResetsManualDisconnectAndGeneration) {
+    QUdpSocket peer;
+    ASSERT_TRUE(peer.bind(QHostAddress::LocalHost, 0));
+    tests::mocks::FakeSettingsService settings;
+    Network view(&settings);
+    view.findChild<QComboBox*>()->setCurrentIndex(2);
+
+    ASSERT_TRUE(QMetaObject::invokeMethod(&view, "onBindClicked", Qt::DirectConnection,
+        Q_ARG(QString, QStringLiteral("127.0.0.1")), Q_ARG(int, 0),
+        Q_ARG(QString, QStringLiteral("127.0.0.1")), Q_ARG(int, peer.localPort())));
+    ASSERT_TRUE(QMetaObject::invokeMethod(&view, "onUnbindClicked", Qt::DirectConnection));
+    ASSERT_TRUE(QMetaObject::invokeMethod(&view, "onBindClicked", Qt::DirectConnection,
+        Q_ARG(QString, QStringLiteral("127.0.0.1")), Q_ARG(int, 0),
+        Q_ARG(QString, QStringLiteral("127.0.0.1")), Q_ARG(int, peer.localPort())));
+    ASSERT_TRUE(await([&]() { return monitorContains(view, QStringLiteral("Connected")); }));
+
+    view.findChild<ui::widgets::GenericInputWidget*>()->sendRequested(QByteArray::fromHex("CAFEBABE"));
+    ASSERT_TRUE(await([&]() { return peer.hasPendingDatagrams(); }));
+    EXPECT_EQ(peer.receiveDatagram().data(), QByteArray::fromHex("CAFEBABE"));
+
+    ASSERT_TRUE(QMetaObject::invokeMethod(&view, "onUnbindClicked", Qt::DirectConnection));
+    EXPECT_TRUE(await([&]() { return monitorContains(view, QStringLiteral("Closed")); }));
+}
+
 } // namespace

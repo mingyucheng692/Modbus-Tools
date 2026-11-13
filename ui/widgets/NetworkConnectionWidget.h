@@ -39,7 +39,7 @@ protected:
     // ---- Settings ----
     void loadSettings() override;
     void saveSettings() override;
-    void retranslateUi();
+    void retranslateUi() override;
 
     // ---- UI Setup ----
     void setupCommonUi();

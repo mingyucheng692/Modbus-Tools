@@ -6,6 +6,7 @@
 #include "../ChannelController.h"
 #include "../../../infra/io/IChannel.h"
 #include <QList>
+#include <memory>
 
 class QComboBox;
 class QStackedWidget;
@@ -79,6 +80,8 @@ private:
     void startWorker();
     void startServerWorker();
     void stopServerWorker();
+    void stopAutoSendUi();
+    void setProtocolSelectorEnabled(bool enabled);
     void switchToProtocol(Protocol protocol);
     void retranslateUi() override;
 
@@ -102,9 +105,9 @@ private:
     // Channel controller (composite) – manages client worker thread
     ChannelController channelCtrl_;
 
-    // Backend - Server
-    io::ServerChannelWorker* serverWorker_ = nullptr;
-    QThread* serverThread_ = nullptr;
+    // Backend - Server (thread declared before worker for safe reverse teardown)
+    std::shared_ptr<QThread> serverThread_;
+    std::shared_ptr<io::ServerChannelWorker> serverWorker_;
 
     Protocol currentProtocol_ = Protocol::TcpClient;
     bool suppressDisconnectAlert_ = false;

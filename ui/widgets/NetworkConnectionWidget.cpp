@@ -99,8 +99,12 @@ void NetworkConnectionWidget::loadSettings() {
     const QString ipKey = settingsGroup_ + QStringLiteral("/ip");
     const QString portKey = settingsGroup_ + QStringLiteral("/port");
 
-    ipEdit_->setText(settingsService_->value(ipKey).toString());
-    portEdit_->setValue(settingsService_->value(portKey).toInt());
+    ipEdit_->setText(settingsService_->contains(ipKey)
+        ? settingsService_->value(ipKey).toString()
+        : QString());
+    portEdit_->setValue(settingsService_->contains(portKey)
+        ? settingsService_->value(portKey).toInt()
+        : defaultPort_);
 }
 
 void NetworkConnectionWidget::saveSettings() {

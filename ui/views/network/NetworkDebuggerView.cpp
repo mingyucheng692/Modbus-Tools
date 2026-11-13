@@ -87,7 +87,7 @@ NetworkDebuggerView::NetworkDebuggerView(infra::config::ISettingsService* settin
 
 NetworkDebuggerView::~NetworkDebuggerView() noexcept {
     stopServerWorker();
-    // channelCtrl_ is a value member, destroyed automatically.
+    channelCtrl_.destroyWorker(this);
 }
 
 void NetworkDebuggerView::startWorker() {
@@ -201,48 +201,54 @@ void NetworkDebuggerView::setupUi() {
 }
 
 void NetworkDebuggerView::startServerWorker() {
-    serverThread_ = new QThread();
-    auto* serverWorker = new io::ServerChannelWorker();
-    serverWorker->moveToThread(serverThread_);
-    connect(serverThread_, &QThread::finished, serverThread_, &QObject::deleteLater);
+    if (serverWorker_ || serverThread_) {
+        stopServerWorker();
+    }
+    serverThread_ = std::shared_ptr<QThread>(
+        new QThread(), &core::common::ThreadGuard::releaseThread);
+    auto* rawServerWorker = new io::ServerChannelWorker();
+    rawServerWorker->moveToThread(serverThread_.get());
+    serverWorker_ = std::shared_ptr<io::ServerChannelWorker>(
+        rawServerWorker,
+        [](io::ServerChannelWorker* w) {
+            core::common::ThreadGuard::releaseWorker(w, [w]() { w->closeAllClients(); });
+        });
 
-    connect(serverWorker, &io::ServerChannelWorker::clientConnected,
+    connect(rawServerWorker, &io::ServerChannelWorker::clientConnected,
             this, &NetworkDebuggerView::onServerClientConnected);
-    connect(serverWorker, &io::ServerChannelWorker::clientDisconnected,
+    connect(rawServerWorker, &io::ServerChannelWorker::clientDisconnected,
             this, &NetworkDebuggerView::onServerClientDisconnected);
-    connect(serverWorker, &io::ServerChannelWorker::monitorWithClient,
+    connect(rawServerWorker, &io::ServerChannelWorker::monitorWithClient,
             this, &NetworkDebuggerView::onServerMonitorWithClient);
-    connect(serverWorker, &io::ServerChannelWorker::stateChanged,
+    connect(rawServerWorker, &io::ServerChannelWorker::stateChanged,
             this, &NetworkDebuggerView::onServerStateChanged);
-    connect(serverWorker, &io::ServerChannelWorker::channelErrorOccurred,
+    connect(rawServerWorker, &io::ServerChannelWorker::channelErrorOccurred,
             this, &NetworkDebuggerView::onServerError);
 
     serverThread_->start();
-    serverWorker_ = serverWorker;
 }
 
 void NetworkDebuggerView::stopServerWorker() {
-    auto* thread = serverThread_;
-    auto* serverWorker = serverWorker_;
-    serverThread_ = nullptr;
-    serverWorker_ = nullptr;
-    // Explicit teardown on the server thread BEFORE deleteLater(): stopping
-    // the listener and closing every client channel is a visible state
-    // change (clientDisconnected emissions) that must not depend on the
-    // destructor running during thread drain (shutdown race).
-    channelCtrl_.stopWorkerPair(thread, serverWorker, {}, [serverWorker](QObject*) {
-        QMetaObject::invokeMethod(serverWorker, "closeAllClients",
-                                  Qt::DirectConnection);
-    });
+    ChannelController::releaseWorkerPair(serverThread_, serverWorker_, this);
+}
+
+void NetworkDebuggerView::stopAutoSendUi() {
+    if (channelController_ && channelController_->isAutoSendActive()) {
+        channelController_->stopAutoSend();
+    }
+    if (inputWidget_) {
+        inputWidget_->setAutoSendEnabled(false);
+    }
+}
+
+void NetworkDebuggerView::setProtocolSelectorEnabled(bool enabled) {
+    if (protocolCombo_) {
+        protocolCombo_->setEnabled(enabled);
+    }
 }
 
 void NetworkDebuggerView::switchToProtocol(Protocol protocol) {
-    if (channelController_ && channelController_->isAutoSendActive()) {
-        channelController_->stopAutoSend();
-        if (inputWidget_) {
-            inputWidget_->setAutoSendEnabled(false);
-        }
-    }
+    stopAutoSendUi();
     currentProtocol_ = protocol;
 
     switch (protocol) {
@@ -279,7 +285,9 @@ void NetworkDebuggerView::switchToProtocol(Protocol protocol) {
 }
 
 void NetworkDebuggerView::onProtocolChanged(int index) {
-    if (isConnected_) return;
+    if (isConnected_ || (protocolCombo_ && !protocolCombo_->isEnabled())) {
+        return;
+    }
     currentProtocol_ = static_cast<Protocol>(protocolCombo_->itemData(index).toInt());
     switchToProtocol(currentProtocol_);
 }
@@ -297,6 +305,7 @@ void NetworkDebuggerView::onConnectClicked(const QString& ip, int port) {
     if (monitor_) {
         monitor_->appendInfo(tr("Connecting to %1:%2...").arg(ip).arg(port));
     }
+    setProtocolSelectorEnabled(false);
     tcpClientWidget_->setDisplayState(widgets::TcpConnectionWidget::DisplayState::Connecting);
 
     QMetaObject::invokeMethod(worker, "openTcp",
@@ -310,12 +319,14 @@ void NetworkDebuggerView::onStartListenClicked(const QString& ip, int port) {
     if (!serverWorker_) return;
 
     SPDLOG_INFO("NetworkDebugger: Starting TCP server on {}:{}", ip.toStdString(), port);
+    ++connectionGeneration_;
     if (monitor_) {
         monitor_->appendInfo(tr("Starting TCP server on %1:%2...").arg(ip).arg(port));
     }
+    setProtocolSelectorEnabled(false);
     tcpServerWidget_->setDisplayState(widgets::TcpConnectionWidget::DisplayState::Connecting);
 
-    QMetaObject::invokeMethod(serverWorker_, "openTcpServer",
+    QMetaObject::invokeMethod(serverWorker_.get(), "openTcpServer",
                               Qt::QueuedConnection,
                               Q_ARG(QString, ip),
                               Q_ARG(int, port),
@@ -325,11 +336,13 @@ void NetworkDebuggerView::onStartListenClicked(const QString& ip, int port) {
 void NetworkDebuggerView::onStopListenClicked() {
     if (!serverWorker_) return;
 
+    stopAutoSendUi();
     if (monitor_) {
         monitor_->appendInfo(tr("Stopping TCP server..."));
     }
+    setProtocolSelectorEnabled(false);
     tcpServerWidget_->setDisplayState(widgets::TcpConnectionWidget::DisplayState::Disconnecting);
-    QMetaObject::invokeMethod(serverWorker_, "closeAllClients", Qt::QueuedConnection);
+    QMetaObject::invokeMethod(serverWorker_.get(), "closeAllClients", Qt::QueuedConnection);
 }
 
 void NetworkDebuggerView::onBindClicked(const QString& localIp, int localPort,
@@ -349,6 +362,9 @@ void NetworkDebuggerView::onBindClicked(const QString& localIp, int localPort,
     }
 
     suppressDisconnectAlert_ = false;
+    manualDisconnectRequested_ = false;
+    const quint64 generation = ++connectionGeneration_;
+    setProtocolSelectorEnabled(false);
     udpWidget_->setDisplayState(widgets::UdpConnectionWidget::DisplayState::Connecting);
 
     QMetaObject::invokeMethod(worker, "openUdp",
@@ -356,7 +372,8 @@ void NetworkDebuggerView::onBindClicked(const QString& localIp, int localPort,
                               Q_ARG(QString, localIp),
                               Q_ARG(int, localPort),
                               Q_ARG(QString, remoteIp),
-                              Q_ARG(int, remotePort));
+                              Q_ARG(int, remotePort),
+                              Q_ARG(quint64, generation));
 }
 
 void NetworkDebuggerView::onUnbindClicked() {
@@ -364,6 +381,9 @@ void NetworkDebuggerView::onUnbindClicked() {
     if (!worker) return;
 
     suppressDisconnectAlert_ = true;
+    manualDisconnectRequested_ = true;
+    stopAutoSendUi();
+    setProtocolSelectorEnabled(false);
     udpWidget_->setDisplayState(widgets::UdpConnectionWidget::DisplayState::Disconnecting);
     QMetaObject::invokeMethod(worker, "close", Qt::QueuedConnection);
 }
@@ -398,7 +418,7 @@ void NetworkDebuggerView::onSendRequested(const QByteArray& data) {
             }
 
             for (const int clientId : targetClientIds) {
-                QMetaObject::invokeMethod(serverWorker_, "writeToClient",
+                QMetaObject::invokeMethod(serverWorker_.get(), "writeToClient",
                                           Qt::QueuedConnection,
                                           Q_ARG(int, clientId),
                                           Q_ARG(QByteArray, data));
@@ -409,7 +429,7 @@ void NetworkDebuggerView::onSendRequested(const QByteArray& data) {
 }
 
 void NetworkDebuggerView::onWorkerStateChanged(io::ChannelState state, quint64 generation) {
-    if (generation != connectionGeneration_) {
+    if (generation != connectionGeneration_ || currentProtocol_ == Protocol::TcpServer) {
         return;
     }
 
@@ -420,11 +440,8 @@ void NetworkDebuggerView::onWorkerStateChanged(io::ChannelState state, quint64 g
         suppressDisconnectAlert_ || manualDisconnectRequested_);
 
     isConnected_ = (state == io::ChannelState::Open);
-    if (!isConnected_ && channelController_ && channelController_->isAutoSendActive()) {
-        channelController_->stopAutoSend();
-        if (inputWidget_) {
-            inputWidget_->setAutoSendEnabled(false);
-        }
+    if (!isConnected_) {
+        stopAutoSendUi();
     }
     if (transition.clearSuppressDisconnectAlert) {
         suppressDisconnectAlert_ = false;
@@ -444,6 +461,7 @@ void NetworkDebuggerView::onWorkerStateChanged(io::ChannelState state, quint64 g
 
     switch (state) {
     case io::ChannelState::Opening:
+        setProtocolSelectorEnabled(false);
         if (currentProtocol_ == Protocol::TcpClient) {
             tcpClientWidget_->setDisplayState(DisplayState::Connecting);
         } else {
@@ -451,6 +469,7 @@ void NetworkDebuggerView::onWorkerStateChanged(io::ChannelState state, quint64 g
         }
         break;
     case io::ChannelState::Open:
+        setProtocolSelectorEnabled(false);
         if (currentProtocol_ == Protocol::TcpClient) {
             tcpClientWidget_->setConnected(true);
         } else {
@@ -458,6 +477,7 @@ void NetworkDebuggerView::onWorkerStateChanged(io::ChannelState state, quint64 g
         }
         break;
     case io::ChannelState::Closing:
+        setProtocolSelectorEnabled(false);
         if (currentProtocol_ == Protocol::TcpClient) {
             tcpClientWidget_->setDisplayState(DisplayState::Disconnecting);
         } else {
@@ -466,6 +486,7 @@ void NetworkDebuggerView::onWorkerStateChanged(io::ChannelState state, quint64 g
         break;
     case io::ChannelState::Closed:
     case io::ChannelState::Error:
+        setProtocolSelectorEnabled(true);
         if (currentProtocol_ == Protocol::TcpClient) {
             tcpClientWidget_->setConnected(false);
         } else {
@@ -481,16 +502,15 @@ void NetworkDebuggerView::onWorkerStateChanged(io::ChannelState state, quint64 g
         ui::common::connection_alert::showDisconnected(this);
     }
 
-    auto* activeWidget = (currentProtocol_ == Protocol::TcpClient)
-        ? static_cast<widgets::BaseConnectionWidget*>(tcpClientWidget_)
-        : static_cast<widgets::BaseConnectionWidget*>(udpWidget_);
-
     if (state == io::ChannelState::Open) {
         manualDisconnectRequested_ = false;
     }
 }
 
 void NetworkDebuggerView::onWorkerError(const QString& deviceHint, io::ChannelErrorCode code, const QString& error) {
+    if (currentProtocol_ == Protocol::TcpServer) {
+        return;
+    }
     if (monitor_) {
         QString localizedMsg;
         switch (code) {
@@ -504,6 +524,12 @@ void NetworkDebuggerView::onWorkerError(const QString& deviceHint, io::ChannelEr
             default: localizedMsg = tr("Unknown error"); break;
         }
         monitor_->appendError(tr("Error: %1").arg(localizedMsg));
+    }
+    if (!isConnected_ && (code == io::ChannelErrorCode::ConnectionFailed
+                          || code == io::ChannelErrorCode::PortNotFound
+                          || code == io::ChannelErrorCode::PermissionDenied)) {
+        stopAutoSendUi();
+        setProtocolSelectorEnabled(true);
     }
     const QString hint = deviceHint.isEmpty() ? QStringLiteral("TCP Worker") : deviceHint;
     SPDLOG_ERROR("{} Error (code={}): {}", hint.toStdString(), static_cast<int>(code), error.toStdString());
@@ -538,10 +564,25 @@ void NetworkDebuggerView::onServerMonitorWithClient(bool isTx, const QByteArray&
 }
 
 void NetworkDebuggerView::onServerStateChanged(io::ChannelState state) {
+    if (currentProtocol_ != Protocol::TcpServer) {
+        if (state == io::ChannelState::Closed || state == io::ChannelState::Error) {
+            if (serverClientPanel_) {
+                serverClientPanel_->clearClients();
+            }
+            if (tcpServerWidget_) {
+                tcpServerWidget_->setConnected(false);
+            }
+        }
+        return;
+    }
+
     // The worker's state contract (see ServerChannelWorker.h) emits only
     // Open and Closed; the Opening/Closing branches below are defensive
     // in case an intermediate listen state is ever introduced.
     isConnected_ = (state == io::ChannelState::Open);
+    if (!isConnected_) {
+        stopAutoSendUi();
+    }
 
     QString stateStr;
     switch (state) {
@@ -555,16 +596,20 @@ void NetworkDebuggerView::onServerStateChanged(io::ChannelState state) {
 
     switch (state) {
     case io::ChannelState::Opening:
+        setProtocolSelectorEnabled(false);
         tcpServerWidget_->setDisplayState(DisplayState::Connecting);
         break;
     case io::ChannelState::Open:
+        setProtocolSelectorEnabled(false);
         tcpServerWidget_->setConnected(true);
         break;
     case io::ChannelState::Closing:
+        setProtocolSelectorEnabled(false);
         tcpServerWidget_->setDisplayState(DisplayState::Disconnecting);
         break;
     case io::ChannelState::Closed:
     case io::ChannelState::Error:
+        setProtocolSelectorEnabled(true);
         if (serverClientPanel_) {
             serverClientPanel_->clearClients();
         }
@@ -578,6 +623,9 @@ void NetworkDebuggerView::onServerStateChanged(io::ChannelState state) {
 }
 
 void NetworkDebuggerView::onServerError(const QString& deviceHint, io::ChannelErrorCode code, const QString& error) {
+    if (currentProtocol_ != Protocol::TcpServer) {
+        return;
+    }
     if (monitor_) {
         QString localizedMsg;
         switch (code) {
@@ -592,6 +640,10 @@ void NetworkDebuggerView::onServerError(const QString& deviceHint, io::ChannelEr
         }
         monitor_->appendError(tr("Server Error: %1").arg(localizedMsg));
     }
+    if (!isConnected_) {
+        stopAutoSendUi();
+        setProtocolSelectorEnabled(true);
+    }
     const QString hint = deviceHint.isEmpty() ? QStringLiteral("TCP Server") : deviceHint;
     SPDLOG_ERROR("{} Error (code={}): {}", hint.toStdString(), static_cast<int>(code), error.toStdString());
 }
@@ -603,7 +655,7 @@ void NetworkDebuggerView::onDisconnectSelectedClientsRequested(const QList<int>&
     }
 
     for (const int clientId : clientIds) {
-        QMetaObject::invokeMethod(serverWorker_, "closeClient",
+        QMetaObject::invokeMethod(serverWorker_.get(), "closeClient",
                                   Qt::QueuedConnection,
                                   Q_ARG(int, clientId));
     }
@@ -617,7 +669,7 @@ void NetworkDebuggerView::onDisconnectAllClientsRequested()
 
     const QList<int> clientIds = serverClientPanel_->allClientIds();
     for (const int clientId : clientIds) {
-        QMetaObject::invokeMethod(serverWorker_, "closeClient",
+        QMetaObject::invokeMethod(serverWorker_.get(), "closeClient",
                                   Qt::QueuedConnection,
                                   Q_ARG(int, clientId));
     }

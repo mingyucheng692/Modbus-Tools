@@ -18,37 +18,35 @@ ChannelController::~ChannelController() noexcept {
 
 io::ChannelOperationWorker* ChannelController::createWorker() {
     if (worker_) {
-        return worker_;
+        return worker_.get();
     }
 
-    workerThread_ = new QThread();
-    auto* worker = new io::ChannelOperationWorker();
-    worker->moveToThread(workerThread_);
-    connect(workerThread_, &QThread::finished, workerThread_, &QObject::deleteLater);
+    workerThread_ = std::shared_ptr<QThread>(
+        new QThread(), &core::common::ThreadGuard::releaseThread);
+    auto* rawWorker = new io::ChannelOperationWorker();
+    rawWorker->moveToThread(workerThread_.get());
+    worker_ = std::shared_ptr<io::ChannelOperationWorker>(
+        rawWorker,
+        [](io::ChannelOperationWorker* w) {
+            core::common::ThreadGuard::releaseWorker(w, [w]() { w->close(); });
+        });
 
     workerThread_->start();
-    worker_ = worker;
-    return worker_;
+    return worker_.get();
 }
 
-void ChannelController::destroyWorker() {
+void ChannelController::destroyWorker(QObject* receiverToDisconnect) {
     stopAutoSend();
-    auto* thread = workerThread_;
-    auto* worker = worker_;
-    workerThread_ = nullptr;
-    worker_ = nullptr;
-    stopWorkerPair(thread, worker,
-                   {},
-                   [](QObject* w) {
-                       static_cast<io::ChannelOperationWorker*>(w)->close();
-                   });
+    releaseWorkerPair(workerThread_,
+                      worker_,
+                      receiverToDisconnect ? receiverToDisconnect : parent());
 }
 
 void ChannelController::write(const QByteArray& data) {
     if (!worker_) {
         return;
     }
-    QMetaObject::invokeMethod(worker_, "write",
+    QMetaObject::invokeMethod(worker_.get(), "write",
                               Qt::QueuedConnection,
                               Q_ARG(QByteArray, data));
 }
@@ -58,7 +56,7 @@ void ChannelController::disconnect() {
     if (!worker_) {
         return;
     }
-    QMetaObject::invokeMethod(worker_, "close", Qt::QueuedConnection);
+    QMetaObject::invokeMethod(worker_.get(), "close", Qt::QueuedConnection);
 }
 
 void ChannelController::startAutoSend(int intervalMs, std::function<void()> sendAction) {
@@ -89,45 +87,6 @@ void ChannelController::setAutoSendInterval(int intervalMs) {
 
 bool ChannelController::isAutoSendActive() const {
     return autoSendTimer_ && autoSendTimer_->isActive();
-}
-
-void ChannelController::stopWorkerPair(QThread* thread, QObject* worker,
-                                       const std::function<void()>& onPreStop,
-                                       const std::function<void(QObject*)>& onCloseInThread) {
-    if (onPreStop) {
-        onPreStop();
-    }
-
-    if (!thread) {
-        return;
-    }
-
-    if (!worker) {
-        if (thread->isRunning()) {
-            thread->quit();
-        } else {
-            delete thread;
-        }
-        return;
-    }
-
-    // Disconnect before shutdown to prevent signal loss
-    // during the stop sequence (worker may still emit signals while cleaning up).
-    worker->disconnect(this);
-
-    if (!thread->isRunning()) {
-        delete worker;
-        delete thread;
-        return;
-    }
-
-    QMetaObject::invokeMethod(worker, [worker, thread, onCloseInThread]() {
-        QObject::connect(worker, &QObject::destroyed, thread, &QThread::quit, Qt::UniqueConnection);
-        if (onCloseInThread) {
-            onCloseInThread(worker);
-        }
-        worker->deleteLater();
-    }, Qt::QueuedConnection);
 }
 
 } // namespace ui::views

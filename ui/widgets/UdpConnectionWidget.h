@@ -34,6 +34,7 @@ protected:
     void setupProtocolUi() override;
     void updateProtocolUi() override;
     void setupButtonConnection() override;
+    void retranslateUi() override;
 
     [[nodiscard]] StateDisplayInfo getStateDisplayInfo(DisplayState state) const override;
     [[nodiscard]] bool isActiveState(DisplayState state) const override;

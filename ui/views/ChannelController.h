@@ -3,13 +3,16 @@
 #pragma once
 
 #include <QObject>
+#include <QMetaObject>
+#include <QThread>
 #include <functional>
+#include <memory>
+#include <utility>
+#include "common/ThreadGuard.h"
 
 namespace io {
 class ChannelOperationWorker;
 }
-
-class QThread;
 
 namespace ui::views {
 
@@ -24,9 +27,9 @@ public:
     ~ChannelController() noexcept override;
 
     io::ChannelOperationWorker* createWorker();
-    void destroyWorker();
+    void destroyWorker(QObject* receiverToDisconnect = nullptr);
 
-    io::ChannelOperationWorker* worker() const { return worker_; }
+    io::ChannelOperationWorker* worker() const { return worker_.get(); }
     bool hasWorker() const { return worker_ != nullptr; }
 
     void write(const QByteArray& data);
@@ -37,15 +40,30 @@ public:
     void setAutoSendInterval(int intervalMs);
     [[nodiscard]] bool isAutoSendActive() const;
 
-    // Precondition: Caller must nullify its member pointers before calling.
-    // Teardown sequence: executes onPreStop, invokes onCloseInThread on worker thread, then triggers deleteLater + quit.
-    void stopWorkerPair(QThread* thread, QObject* worker,
-                        const std::function<void()>& onPreStop = {},
-                        const std::function<void(QObject*)>& onCloseInThread = {});
+    // Releases a ThreadGuard-managed (QThread, Worker) pair cleanly:
+    // disconnects business signals to receiverToDisconnect, triggers worker teardown
+    // on the worker thread, waits up to 1000ms for the worker loop to exit, then
+    // tears down the thread handle via ThreadGuard::releaseThread.
+    template <typename Worker>
+    static void releaseWorkerPair(std::shared_ptr<QThread>& thread,
+                                  std::shared_ptr<Worker>& worker,
+                                  QObject* receiverToDisconnect = nullptr) {
+        if (worker && receiverToDisconnect) {
+            QObject::disconnect(worker.get(), nullptr, receiverToDisconnect, nullptr);
+        }
+        auto localWorker = std::move(worker);
+        auto localThread = std::move(thread);
+        localWorker.reset();
+        if (localThread && localThread->isRunning()
+            && QThread::currentThread() != localThread.get()) {
+            localThread->wait(1000);
+        }
+        localThread.reset();
+    }
 
 private:
-    QThread* workerThread_ = nullptr;
-    io::ChannelOperationWorker* worker_ = nullptr;
+    std::shared_ptr<QThread> workerThread_;
+    std::shared_ptr<io::ChannelOperationWorker> worker_;
     QTimer* autoSendTimer_ = nullptr;
     std::function<void()> autoSendAction_;
 };

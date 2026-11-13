@@ -8,6 +8,7 @@
 #include <QColor>
 #include <QString>
 #include <QElapsedTimer>
+#include <deque>
 #include "LogListModel.h"
 #include "modbus/telemetry/TrafficMetrics.h"
 
@@ -29,12 +30,13 @@ namespace ui::widgets {
 using TrafficStats = ::modbus::telemetry::TrafficStats;
 
 struct PendingLine {
-    enum class Kind { Tx, Rx, Info, Warn, Error };
+    using Kind = LogEntry::Kind;
     Kind kind = Kind::Info;
     QByteArray payload;
     QString message;
     qint64 elapsedMs = 0;
     QString wallTimeString;
+    QString clientLabel;
 };
 
 class ByteMonitorWidget : public QWidget {
@@ -42,7 +44,7 @@ class ByteMonitorWidget : public QWidget {
 
 public:
     explicit ByteMonitorWidget(infra::config::ISettingsService* settingsService, QWidget* parent = nullptr);
-    ~ByteMonitorWidget() override;
+    ~ByteMonitorWidget() noexcept override;
 
     void appendTx(const QByteArray& data);
     void appendRx(const QByteArray& data);
@@ -57,6 +59,7 @@ public:
 signals:
     void txDataReceived(QByteArray data);
     void rxDataReceived(QByteArray data);
+    void clientTrafficReceived(bool isTx, QByteArray data, int clientId);
     void infoMessageReceived(QString message);
     void errorMessageReceived(QString message);
     void warnMessageReceived(QString message);
@@ -64,6 +67,7 @@ signals:
 private slots:
     void onTxData(QByteArray data);
     void onRxData(QByteArray data);
+    void onClientTrafficData(bool isTx, QByteArray data, int clientId);
     void onInfoMessage(QString message);
     void onErrorMessage(QString message);
     void onWarnMessage(QString message);
@@ -88,6 +92,12 @@ private:
     };
 
     void setupUi();
+    void enqueueTraffic(bool isTx, QByteArray data, const QString& clientLabel);
+    void enqueueStatusMessage(PendingLine::Kind kind, QString message);
+    void enqueuePendingLine(PendingLine&& line);
+    QString currentWallTime() const;
+    LogEntry buildLogEntry(const PendingLine& line);
+    void reformatLogEntry(LogEntry& entry) const;
     void appendLogLine(const QString& text, const QColor& color);
     void flushPending();
     QString formatData(const QByteArray& data) const;
@@ -118,7 +128,8 @@ private:
     QLabel* rxStatsLabel_ = nullptr;
     QWidget* statsBar_ = nullptr;
     QTimer* flushTimer_ = nullptr;
-    QList<PendingLine> pendingLines_;
+    std::deque<PendingLine> pendingLines_;
+    int droppedPendingCount_ = 0;
 
     DisplayMode displayMode_ = DisplayMode::Hex;
     TimestampFormat timestampFormat_ = TimestampFormat::Absolute;

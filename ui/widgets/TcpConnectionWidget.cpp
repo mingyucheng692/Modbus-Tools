@@ -120,4 +120,11 @@ void TcpConnectionWidget::updateProtocolUi() {
     }
 }
 
+void TcpConnectionWidget::retranslateUi() {
+    NetworkConnectionWidget::retranslateUi();
+    if (hostLabel_) {
+        hostLabel_->setText(role_ == TcpRole::Client ? tr("Host:") : tr("Listen:"));
+    }
+}
+
 } // namespace ui::widgets

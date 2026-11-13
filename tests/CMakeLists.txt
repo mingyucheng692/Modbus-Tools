@@ -191,6 +191,9 @@ endif()
 set(TEST_UI_WIDGETS_SOURCES
     unit/modbus/application/TrafficLogControllerTest.cpp
     unit/ui/common/ModbusDataHelperTest.cpp
+    unit/ui/ByteMonitorWidgetTest.cpp
+    unit/ui/ChannelControllerTest.cpp
+    unit/ui/ConnectionWidgetsTest.cpp
     unit/ui/I18nWidgetTest.cpp
     unit/ui/NavigationControllerTest.cpp
     unit/ui/ServerClientPanelTest.cpp

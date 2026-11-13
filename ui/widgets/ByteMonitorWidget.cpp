@@ -47,6 +47,8 @@ ByteMonitorWidget::ByteMonitorWidget(infra::config::ISettingsService* settingsSe
             this, &ByteMonitorWidget::onTxData, Qt::QueuedConnection);
     connect(this, &ByteMonitorWidget::rxDataReceived,
             this, &ByteMonitorWidget::onRxData, Qt::QueuedConnection);
+    connect(this, &ByteMonitorWidget::clientTrafficReceived,
+            this, &ByteMonitorWidget::onClientTrafficData, Qt::QueuedConnection);
     connect(this, &ByteMonitorWidget::infoMessageReceived,
             this, &ByteMonitorWidget::onInfoMessage, Qt::QueuedConnection);
     connect(this, &ByteMonitorWidget::errorMessageReceived,
@@ -59,8 +61,11 @@ ByteMonitorWidget::ByteMonitorWidget(infra::config::ISettingsService* settingsSe
     connect(flushTimer_, &QTimer::timeout, this, &ByteMonitorWidget::onFlushPending);
 }
 
-ByteMonitorWidget::~ByteMonitorWidget() {
-    flushPending();
+ByteMonitorWidget::~ByteMonitorWidget() noexcept {
+    if (flushTimer_) {
+        flushTimer_->stop();
+    }
+    pendingLines_.clear();
 }
 
 void ByteMonitorWidget::setupUi() {
@@ -190,9 +195,7 @@ void ByteMonitorWidget::appendMessage(bool isTx, const QByteArray& data) {
 }
 
 void ByteMonitorWidget::appendMessageWithClient(bool isTx, const QByteArray& data, int clientId) {
-    QByteArray tagged = QByteArrayLiteral("[Client ") + QByteArray::number(clientId) + QByteArrayLiteral("] ");
-    tagged.append(data);
-    appendMessage(isTx, tagged);
+    emit clientTrafficReceived(isTx, data, clientId);
 }
 
 void ByteMonitorWidget::appendInfo(const QString& message) {
@@ -208,8 +211,11 @@ void ByteMonitorWidget::appendWarn(const QString& message) {
 }
 
 void ByteMonitorWidget::clear() {
-    flushPending();
+    if (flushTimer_) {
+        flushTimer_->stop();
+    }
     pendingLines_.clear();
+    droppedPendingCount_ = 0;
     stats_.reset();
     lastAppendTimeMs_ = 0;
     if (logModel_) {
@@ -218,62 +224,70 @@ void ByteMonitorWidget::clear() {
     updateStatsDisplay();
 }
 
-void ByteMonitorWidget::onTxData(QByteArray data) {
-    if (!data.isEmpty() && !showTxCheck_->isChecked()) {
-        return;
-    }
-    stats_.update(TrafficStats::Direction::Tx, data.size());
-    const QString wallTime = (timestampFormat_ == TimestampFormat::Absolute)
+QString ByteMonitorWidget::currentWallTime() const {
+    return (timestampFormat_ == TimestampFormat::Absolute)
         ? QDateTime::currentDateTimeUtc().toLocalTime().toString("HH:mm:ss.zzz")
         : QString();
-    pendingLines_.append({PendingLine::Kind::Tx, std::move(data), {}, elapsedTimer_.elapsed(), wallTime});
-    if (flushTimer_ && !flushTimer_->isActive()) {
+}
+
+void ByteMonitorWidget::enqueuePendingLine(PendingLine&& line) {
+    constexpr size_t kMaxPendingLines = static_cast<size_t>(config::Ui::kTrafficMonitorMaxBlockCount);
+    while (pendingLines_.size() >= kMaxPendingLines) {
+        pendingLines_.pop_front();
+        ++droppedPendingCount_;
+    }
+    pendingLines_.push_back(std::move(line));
+    if (!paused_ && flushTimer_ && !flushTimer_->isActive()) {
         flushTimer_->start();
     }
+}
+
+void ByteMonitorWidget::enqueueTraffic(bool isTx, QByteArray data, const QString& clientLabel) {
+    const bool show = isTx ? showTxCheck_->isChecked() : showRxCheck_->isChecked();
+    if (!data.isEmpty() && !show) {
+        return;
+    }
+    stats_.update(isTx ? TrafficStats::Direction::Tx : TrafficStats::Direction::Rx, data.size());
+    PendingLine line;
+    line.kind = isTx ? PendingLine::Kind::Tx : PendingLine::Kind::Rx;
+    line.payload = std::move(data);
+    line.elapsedMs = elapsedTimer_.elapsed();
+    line.wallTimeString = currentWallTime();
+    line.clientLabel = clientLabel;
+    enqueuePendingLine(std::move(line));
+}
+
+void ByteMonitorWidget::enqueueStatusMessage(PendingLine::Kind kind, QString message) {
+    PendingLine line;
+    line.kind = kind;
+    line.message = std::move(message);
+    line.elapsedMs = elapsedTimer_.elapsed();
+    line.wallTimeString = currentWallTime();
+    enqueuePendingLine(std::move(line));
+}
+
+void ByteMonitorWidget::onTxData(QByteArray data) {
+    enqueueTraffic(true, std::move(data), QString());
 }
 
 void ByteMonitorWidget::onRxData(QByteArray data) {
-    if (!data.isEmpty() && !showRxCheck_->isChecked()) {
-        return;
-    }
-    stats_.update(TrafficStats::Direction::Rx, data.size());
-    const QString wallTime = (timestampFormat_ == TimestampFormat::Absolute)
-        ? QDateTime::currentDateTimeUtc().toLocalTime().toString("HH:mm:ss.zzz")
-        : QString();
-    pendingLines_.append({PendingLine::Kind::Rx, std::move(data), {}, elapsedTimer_.elapsed(), wallTime});
-    if (flushTimer_ && !flushTimer_->isActive()) {
-        flushTimer_->start();
-    }
+    enqueueTraffic(false, std::move(data), QString());
+}
+
+void ByteMonitorWidget::onClientTrafficData(bool isTx, QByteArray data, int clientId) {
+    enqueueTraffic(isTx, std::move(data), QStringLiteral("[Client %1]").arg(clientId));
 }
 
 void ByteMonitorWidget::onInfoMessage(QString message) {
-    const QString wallTime = (timestampFormat_ == TimestampFormat::Absolute)
-        ? QDateTime::currentDateTimeUtc().toLocalTime().toString("HH:mm:ss.zzz")
-        : QString();
-    pendingLines_.append({PendingLine::Kind::Info, {}, std::move(message), elapsedTimer_.elapsed(), wallTime});
-    if (flushTimer_ && !flushTimer_->isActive()) {
-        flushTimer_->start();
-    }
+    enqueueStatusMessage(PendingLine::Kind::Info, std::move(message));
 }
 
 void ByteMonitorWidget::onErrorMessage(QString message) {
-    const QString wallTime = (timestampFormat_ == TimestampFormat::Absolute)
-        ? QDateTime::currentDateTimeUtc().toLocalTime().toString("HH:mm:ss.zzz")
-        : QString();
-    pendingLines_.append({PendingLine::Kind::Error, {}, std::move(message), elapsedTimer_.elapsed(), wallTime});
-    if (flushTimer_ && !flushTimer_->isActive()) {
-        flushTimer_->start();
-    }
+    enqueueStatusMessage(PendingLine::Kind::Error, std::move(message));
 }
 
 void ByteMonitorWidget::onWarnMessage(QString message) {
-    const QString wallTime = (timestampFormat_ == TimestampFormat::Absolute)
-        ? QDateTime::currentDateTimeUtc().toLocalTime().toString("HH:mm:ss.zzz")
-        : QString();
-    pendingLines_.append({PendingLine::Kind::Warn, {}, std::move(message), elapsedTimer_.elapsed(), wallTime});
-    if (flushTimer_ && !flushTimer_->isActive()) {
-        flushTimer_->start();
-    }
+    enqueueStatusMessage(PendingLine::Kind::Warn, std::move(message));
 }
 
 void ByteMonitorWidget::onFlushPending() {
@@ -294,11 +308,14 @@ void ByteMonitorWidget::onTimestampFormatChanged(int index) {
 
 void ByteMonitorWidget::onPauseToggled(bool checked) {
     paused_ = checked;
-    if (!paused_) {
-        if (autoScrollCheck_ && autoScrollCheck_->isChecked() && logView_) {
-            logView_->scrollToBottom();
+    if (paused_) {
+        if (flushTimer_) {
+            flushTimer_->stop();
         }
+        return;
     }
+    flushPending();
+    updateStatsDisplay();
 }
 
 void ByteMonitorWidget::onClearClicked() {
@@ -353,8 +370,70 @@ void ByteMonitorWidget::appendLogLine(const QString& text, const QColor& color) 
     onInfoMessage(text);
 }
 
+void ByteMonitorWidget::reformatLogEntry(LogEntry& entry) const {
+    const QString& ts = entry.timestampText;
+    const auto formatTraffic = [&entry, this]() {
+        const QString formatted = formatData(entry.rawBytes);
+        return entry.clientLabel.isEmpty()
+            ? formatted
+            : QStringLiteral("%1 %2").arg(entry.clientLabel, formatted);
+    };
+    switch (entry.kind) {
+    case LogEntry::Kind::Tx: {
+        const QString body = formatTraffic();
+        entry.text = ts.isEmpty() ? tr("[TX] %1").arg(body)
+                                  : tr("[%1] [TX] %2").arg(ts, body);
+        entry.color = colorForTx();
+        break;
+    }
+    case LogEntry::Kind::Rx: {
+        const QString body = formatTraffic();
+        entry.text = ts.isEmpty() ? tr("[RX] %1").arg(body)
+                                  : tr("[%1] [RX] %2").arg(ts, body);
+        entry.color = colorForRx();
+        break;
+    }
+    case LogEntry::Kind::Info:
+        entry.text = ts.isEmpty() ? tr("[INFO] %1").arg(entry.message)
+                                  : tr("[%1] [INFO] %2").arg(ts, entry.message);
+        entry.color = colorForInfo();
+        break;
+    case LogEntry::Kind::Warn:
+        entry.text = ts.isEmpty() ? tr("[WARN] %1").arg(entry.message)
+                                  : tr("[%1] [WARN] %2").arg(ts, entry.message);
+        entry.color = colorForWarn();
+        break;
+    case LogEntry::Kind::Error:
+        entry.text = ts.isEmpty() ? tr("[ERROR] %1").arg(entry.message)
+                                  : tr("[%1] [ERROR] %2").arg(ts, entry.message);
+        entry.color = colorForError();
+        break;
+    }
+}
+
+LogEntry ByteMonitorWidget::buildLogEntry(const PendingLine& line) {
+    QString ts;
+    if (timestampFormat_ == TimestampFormat::Relative) {
+        const qint64 delta = (lastAppendTimeMs_ == 0) ? 0 : (line.elapsedMs - lastAppendTimeMs_);
+        lastAppendTimeMs_ = line.elapsedMs;
+        ts = QStringLiteral("+%1ms").arg(delta);
+    } else if (timestampFormat_ == TimestampFormat::Absolute) {
+        lastAppendTimeMs_ = line.elapsedMs;
+        ts = line.wallTimeString;
+    }
+
+    LogEntry entry;
+    entry.kind = line.kind;
+    entry.rawBytes = line.payload;
+    entry.message = line.message;
+    entry.timestampText = ts;
+    entry.clientLabel = line.clientLabel;
+    reformatLogEntry(entry);
+    return entry;
+}
+
 void ByteMonitorWidget::flushPending() {
-    if (pendingLines_.isEmpty() || !logModel_) {
+    if (paused_ || (pendingLines_.empty() && droppedPendingCount_ == 0) || !logModel_) {
         if (flushTimer_) {
             flushTimer_->stop();
         }
@@ -362,55 +441,25 @@ void ByteMonitorWidget::flushPending() {
     }
 
     QList<LogEntry> batch;
-    batch.reserve(pendingLines_.size());
+    batch.reserve(static_cast<qsizetype>(pendingLines_.size()) + (droppedPendingCount_ > 0 ? 1 : 0));
+    if (droppedPendingCount_ > 0) {
+        PendingLine notice;
+        notice.kind = PendingLine::Kind::Info;
+        notice.message = tr("Paused overflow: dropped %1 buffered log entries").arg(droppedPendingCount_);
+        notice.elapsedMs = elapsedTimer_.elapsed();
+        notice.wallTimeString = currentWallTime();
+        batch.append(buildLogEntry(notice));
+        droppedPendingCount_ = 0;
+    }
     for (const auto& line : pendingLines_) {
-        QString ts;
-        if (timestampFormat_ == TimestampFormat::Relative) {
-            const qint64 delta = (lastAppendTimeMs_ == 0) ? 0 : (line.elapsedMs - lastAppendTimeMs_);
-            lastAppendTimeMs_ = line.elapsedMs;
-            ts = QStringLiteral("+%1ms").arg(delta);
-        } else if (timestampFormat_ == TimestampFormat::Absolute) {
-            lastAppendTimeMs_ = line.elapsedMs;
-            ts = line.wallTimeString;
-        }
-
-        QString text;
-        QColor color;
-        switch (line.kind) {
-        case PendingLine::Kind::Tx:
-            text = ts.isEmpty() ? tr("[TX] %1").arg(formatData(line.payload))
-                                : tr("[%1] [TX] %2").arg(ts, formatData(line.payload));
-            color = colorForTx();
-            break;
-        case PendingLine::Kind::Rx:
-            text = ts.isEmpty() ? tr("[RX] %1").arg(formatData(line.payload))
-                                : tr("[%1] [RX] %2").arg(ts, formatData(line.payload));
-            color = colorForRx();
-            break;
-        case PendingLine::Kind::Info:
-            text = ts.isEmpty() ? tr("[INFO] %1").arg(line.message)
-                                : tr("[%1] [INFO] %2").arg(ts, line.message);
-            color = colorForInfo();
-            break;
-        case PendingLine::Kind::Warn:
-            text = ts.isEmpty() ? tr("[WARN] %1").arg(line.message)
-                                : tr("[%1] [WARN] %2").arg(ts, line.message);
-            color = colorForWarn();
-            break;
-        case PendingLine::Kind::Error:
-            text = ts.isEmpty() ? tr("[ERROR] %1").arg(line.message)
-                                : tr("[%1] [ERROR] %2").arg(ts, line.message);
-            color = colorForError();
-            break;
-        }
-        batch.append({std::move(text), color});
+        batch.append(buildLogEntry(line));
     }
     pendingLines_.clear();
     if (flushTimer_) {
         flushTimer_->stop();
     }
     logModel_->appendEntries(batch);
-    if (autoScrollCheck_ && autoScrollCheck_->isChecked() && logView_ && !paused_) {
+    if (autoScrollCheck_ && autoScrollCheck_->isChecked() && logView_) {
         logView_->scrollToBottom();
     }
 }
@@ -461,7 +510,9 @@ void ByteMonitorWidget::updateStatsDisplay() {
 }
 
 void ByteMonitorWidget::rebuildDisplay() {
-    flushPending();
+    if (!paused_) {
+        flushPending();
+    }
     if (!logModel_) {
         return;
     }
@@ -470,21 +521,15 @@ void ByteMonitorWidget::rebuildDisplay() {
     QList<LogEntry> rebuilt;
     rebuilt.reserve(count);
     for (int i = 0; i < count; ++i) {
-        const QString line = logModel_->lineAt(i);
-        QColor color = Qt::gray;
-        if (line.contains(QLatin1String("[TX]"))) {
-            color = colorForTx();
-        } else if (line.contains(QLatin1String("[RX]"))) {
-            color = colorForRx();
-        } else if (line.contains(QLatin1String("[ERROR]"))) {
-            color = colorForError();
-        } else if (line.contains(QLatin1String("[WARN]"))) {
-            color = colorForWarn();
+        LogEntry entry = logModel_->entryAt(i);
+        if (!entry.rawBytes.isEmpty() || !entry.message.isEmpty() ||
+            entry.kind == LogEntry::Kind::Tx || entry.kind == LogEntry::Kind::Rx) {
+            reformatLogEntry(entry);
         }
-        rebuilt.append({line, color});
+        rebuilt.append(std::move(entry));
     }
     logModel_->replaceEntries(rebuilt);
-    if (autoScrollCheck_ && autoScrollCheck_->isChecked() && logView_) {
+    if (autoScrollCheck_ && autoScrollCheck_->isChecked() && logView_ && !paused_) {
         logView_->scrollToBottom();
     }
 }

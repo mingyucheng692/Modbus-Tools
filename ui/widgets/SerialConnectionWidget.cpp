@@ -95,8 +95,10 @@ bool usesDisconnectAction(SerialConnectionWidget::DisplayState state)
 
 SerialConnectionWidget::SerialConnectionWidget(infra::config::ISettingsService* settingsService, QWidget *parent)
     : BaseConnectionWidget(settingsService, parent) {
+    suppressSettingsSave_ = true;
     setupUi();
     refreshPorts();
+    suppressSettingsSave_ = false;
 }
 
 SerialConnectionWidget::~SerialConnectionWidget() = default;
@@ -168,12 +170,38 @@ void SerialConnectionWidget::applyInputWidgetsState(bool enabled) {
     refreshBtn_->setEnabled(enabled);
 }
 
+void SerialConnectionWidget::stripOfflinePortEntries() {
+    if (!portCombo_) return;
+    for (int i = portCombo_->count() - 1; i >= 0; --i) {
+        if (portCombo_->itemData(i, Qt::UserRole + 1).toBool()) {
+            portCombo_->removeItem(i);
+        }
+    }
+}
+
+void SerialConnectionWidget::ensureOfflinePortEntry(const QString& portName) {
+    if (!portCombo_ || portName.isEmpty()) return;
+    const int existing = portCombo_->findData(portName);
+    if (existing >= 0) {
+        portCombo_->setCurrentIndex(existing);
+        return;
+    }
+    portCombo_->addItem(tr("%1 (Offline)").arg(portName), portName);
+    const int addedIndex = portCombo_->count() - 1;
+    portCombo_->setItemData(addedIndex, true, Qt::UserRole + 1);
+    portCombo_->setCurrentIndex(addedIndex);
+}
+
 void SerialConnectionWidget::refreshPorts() {
+    QSignalBlocker blocker(portCombo_);
     QString currentPortName = portCombo_->currentData().toString();
     if (currentPortName.isEmpty()) {
         currentPortName = portCombo_->currentText();
     }
-    
+    const QString savedPortName = (!settingsGroup_.isEmpty() && settingsService_)
+        ? settingsService_->value(settingsGroup_ + QStringLiteral("/portName")).toString()
+        : QString();
+
     portCombo_->clear();
     const auto infos = QSerialPortInfo::availablePorts();
     for (const QSerialPortInfo &info : infos) {
@@ -183,11 +211,15 @@ void SerialConnectionWidget::refreshPorts() {
         }
         portCombo_->addItem(itemText, info.portName());
     }
-    
-    int index = portCombo_->findData(currentPortName); 
-    
-    if (index != -1) {
+
+    const QString preferredPort = !currentPortName.isEmpty() ? currentPortName : savedPortName;
+    const int index = preferredPort.isEmpty() ? -1 : portCombo_->findData(preferredPort);
+    if (index >= 0) {
         portCombo_->setCurrentIndex(index);
+    } else if (!savedPortName.isEmpty()) {
+        // Keep unplugged configured port selected without overwriting saved settings.
+        ensureOfflinePortEntry(savedPortName);
+        return;
     } else if (portCombo_->count() > 0) {
         portCombo_->setCurrentIndex(0);
     }
@@ -303,15 +335,15 @@ void SerialConnectionWidget::setupUi() {
 
 void SerialConnectionWidget::loadSettings() {
     loadCommonSettings();
-    if (!settingsService_) return;
+    if (!settingsService_ || settingsGroup_.isEmpty()) return;
+    QSignalBlocker b0(portCombo_);
     QSignalBlocker b1(baudCombo_);
     QSignalBlocker b2(dataBitsCombo_);
     QSignalBlocker b3(parityCombo_);
     QSignalBlocker b4(stopBitsCombo_);
     QSignalBlocker b5(flowControlCombo_);
 
-    const QString defaultGroup = QStringLiteral("serial_debugger");
-    const QString group = settingsGroup_.isEmpty() ? defaultGroup : settingsGroup_;
+    const QString group = settingsGroup_;
     const QString baudKey = group + QStringLiteral("/baudRate");
     const QString dataBitsKey = group + QStringLiteral("/dataBits");
     const QString parityKey = group + QStringLiteral("/parity");
@@ -362,20 +394,22 @@ void SerialConnectionWidget::loadSettings() {
         flowControlCombo_->setCurrentIndex(flowIndex);
     }
 
+    stripOfflinePortEntries();
     if (!portName.isEmpty()) {
         const int portIndex = portCombo_->findData(portName);
         if (portIndex >= 0) {
             portCombo_->setCurrentIndex(portIndex);
+        } else {
+            ensureOfflinePortEntry(portName);
         }
     }
 }
 
 void SerialConnectionWidget::saveSettings() {
     saveCommonSettings();
-    if (!settingsService_) return;
+    if (suppressSettingsSave_ || !settingsService_ || settingsGroup_.isEmpty()) return;
 
-    const QString defaultGroup = QStringLiteral("serial_debugger");
-    const QString group = settingsGroup_.isEmpty() ? defaultGroup : settingsGroup_;
+    const QString group = settingsGroup_;
     const QString baudKey = group + QStringLiteral("/baudRate");
     const QString dataBitsKey = group + QStringLiteral("/dataBits");
     const QString parityKey = group + QStringLiteral("/parity");
@@ -415,6 +449,15 @@ void SerialConnectionWidget::retranslateUi() {
     repopulateFlowControlOptions(flowControlCombo_);
     if (refreshBtn_) {
         refreshBtn_->setToolTip(tr("Refresh Ports"));
+    }
+    if (portCombo_) {
+        QSignalBlocker blocker(portCombo_);
+        for (int i = 0; i < portCombo_->count(); ++i) {
+            if (portCombo_->itemData(i, Qt::UserRole + 1).toBool()) {
+                portCombo_->setItemText(
+                    i, tr("%1 (Offline)").arg(portCombo_->itemData(i).toString()));
+            }
+        }
     }
 }
 

@@ -35,8 +35,7 @@ UdpConnectionWidget::UdpConnectionWidget(infra::config::ISettingsService* settin
 
         remotePortLabel_ = new QLabel(this);
         remotePortEdit_ = new QSpinBox(this);
-        remotePortEdit_->setRange(config::Network::kMinTcpPort,
-                                  config::Network::kMaxTcpPort);
+        remotePortEdit_->setRange(0, config::Network::kMaxTcpPort);
         remotePortEdit_->setValue(0);
         remotePortEdit_->setButtonSymbols(QAbstractSpinBox::NoButtons);
         remotePortEdit_->setAlignment(Qt::AlignCenter);
@@ -121,13 +120,20 @@ NetworkConnectionWidget::DisplayState UdpConnectionWidget::connectedState() cons
 }
 
 void UdpConnectionWidget::updateProtocolUi() {
-    if (displayState_ != DisplayState::Disconnected) return;
-    hostLabel_->setText(tr("Local:"));
-    connectBtn_->setText(tr("Bind"));
     if (remoteIpLabel_) remoteIpLabel_->setVisible(true);
     if (remoteIpEdit_) remoteIpEdit_->setVisible(true);
     if (remotePortLabel_) remotePortLabel_->setVisible(true);
     if (remotePortEdit_) remotePortEdit_->setVisible(true);
+    if (displayState_ == DisplayState::Disconnected && connectBtn_) {
+        connectBtn_->setText(tr("Bind"));
+    }
+}
+
+void UdpConnectionWidget::retranslateUi() {
+    NetworkConnectionWidget::retranslateUi();
+    if (hostLabel_) hostLabel_->setText(tr("Local:"));
+    if (remoteIpLabel_) remoteIpLabel_->setText(tr("Remote:"));
+    if (remotePortLabel_) remotePortLabel_->setText(tr("Remote Port:"));
 }
 
 // ---- Settings (UDP-specific remote fields) ----
@@ -140,19 +146,37 @@ void UdpConnectionWidget::loadSettings() {
     QSignalBlocker b1(remoteIpEdit_);
     QSignalBlocker b2(remotePortEdit_);
 
-    remoteIpEdit_->setText(settingsService_->value(kNetworkDebuggerUdpRemoteIp).toString());
-    remotePortEdit_->setValue(settingsService_->contains(kNetworkDebuggerUdpRemotePort)
-        ? settingsService_->value(kNetworkDebuggerUdpRemotePort).toInt() : 0);
+    const QString remoteIpKey = settingsGroup_.isEmpty()
+        ? QString::fromLatin1(kNetworkDebuggerUdpRemoteIp)
+        : (settingsGroup_ + QStringLiteral("/remoteIp"));
+    const QString remotePortKey = settingsGroup_.isEmpty()
+        ? QString::fromLatin1(kNetworkDebuggerUdpRemotePort)
+        : (settingsGroup_ + QStringLiteral("/remotePort"));
+
+    remoteIpEdit_->setText(settingsService_->contains(remoteIpKey)
+        ? settingsService_->value(remoteIpKey).toString()
+        : QString());
+    remotePortEdit_->setValue(settingsService_->contains(remotePortKey)
+        ? settingsService_->value(remotePortKey).toInt()
+        : 0);
 }
 
 void UdpConnectionWidget::saveSettings() {
     NetworkConnectionWidget::saveSettings();
     if (!settingsService_) return;
+
+    const QString remoteIpKey = settingsGroup_.isEmpty()
+        ? QString::fromLatin1(kNetworkDebuggerUdpRemoteIp)
+        : (settingsGroup_ + QStringLiteral("/remoteIp"));
+    const QString remotePortKey = settingsGroup_.isEmpty()
+        ? QString::fromLatin1(kNetworkDebuggerUdpRemotePort)
+        : (settingsGroup_ + QStringLiteral("/remotePort"));
+
     if (remoteIpEdit_) {
-        settingsService_->setValue(kNetworkDebuggerUdpRemoteIp, remoteIpEdit_->text());
+        settingsService_->setValue(remoteIpKey, remoteIpEdit_->text());
     }
     if (remotePortEdit_) {
-        settingsService_->setValue(kNetworkDebuggerUdpRemotePort, remotePortEdit_->value());
+        settingsService_->setValue(remotePortKey, remotePortEdit_->value());
     }
 }
 

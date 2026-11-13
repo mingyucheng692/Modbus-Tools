@@ -48,7 +48,9 @@ protected:
 
 private:
     void setupUi();
-    void retranslateUi();
+    void retranslateUi() override;
+    void stripOfflinePortEntries();
+    void ensureOfflinePortEntry(const QString& portName);
 
     QLabel* portLabel_ = nullptr;
     QComboBox* portCombo_ = nullptr;
@@ -63,6 +65,7 @@ private:
     QComboBox* stopBitsCombo_ = nullptr;
     QLabel* flowControlLabel_ = nullptr;
     QComboBox* flowControlCombo_ = nullptr;
+    bool suppressSettingsSave_ = false;
 };
 
 } // namespace ui::widgets
