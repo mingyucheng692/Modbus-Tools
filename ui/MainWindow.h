@@ -17,6 +17,7 @@ class QActionGroup;
 class QMenu;
 class QEvent;
 class QCloseEvent;
+class QResizeEvent;
 class QObject;
 class QWidget;
 class QToolButton;
@@ -49,12 +50,12 @@ public:
                         QWidget *parent = nullptr);
     ~MainWindow() override;
     [[nodiscard]] bool isStartupAccepted() const noexcept { return startupAccepted_; }
+    void setNavigationCollapsed(bool collapsed) override;
+    [[nodiscard]] bool isNavigationCollapsed() const override;
 
 private:
     // Main Window View
     void initializeUi() override;
-    void setNavigationCollapsed(bool collapsed) override;
-    [[nodiscard]] bool isNavigationCollapsed() const override;
     void restoreWindowGeometry(const QByteArray& geometry) override;
     void restoreWindowState(const QByteArray& state) override;
     [[nodiscard]] QByteArray saveWindowGeometry() const override;
@@ -82,6 +83,7 @@ private:
     void applyAddressBaseToViews(::modbus::address::AddressBase base);
     void changeEvent(QEvent* event) override;
     void closeEvent(QCloseEvent* event) override;
+    void resizeEvent(QResizeEvent* event) override;
 
     // UI Components
     QListWidget* navigationList_ = nullptr;

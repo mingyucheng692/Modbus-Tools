@@ -33,7 +33,7 @@ ModbusWorkbenchWidget::ModbusWorkbenchWidget(infra::config::ISettingsService* se
                                              QWidget* parent)
     : QWidget(parent)
     , settingsService_(settingsService) {
-    setMinimumWidth(360);
+    setMinimumWidth(280);
     guardState_.executeEnabled = true;
     guardState_.pollingEnabled = true;
     guardState_.rawSendEnabled = true;
@@ -218,7 +218,11 @@ void ModbusWorkbenchWidget::setupModeToggle(QWidget* container, QVBoxLayout* roo
 
 void ModbusWorkbenchWidget::setupUi() {
     auto* outerLayout = new QVBoxLayout(this);
-    outerLayout->setContentsMargins(0, 0, 0, 0);
+    outerLayout->setObjectName(QStringLiteral("workbenchRootLayout"));
+    outerLayout->setContentsMargins(4, 4, 4, 4);
+    outerLayout->setSpacing(6);
+
+    setupModeToggle(this, outerLayout);
 
     auto* scrollArea = new QScrollArea(this);
     scrollArea->setWidgetResizable(true);
@@ -226,21 +230,20 @@ void ModbusWorkbenchWidget::setupUi() {
 
     auto* container = new QWidget(scrollArea);
     container->setObjectName(QStringLiteral("workbenchContainer"));
-    auto* rootLayout = new QVBoxLayout(container);
-    rootLayout->setObjectName(QStringLiteral("workbenchRootLayout"));
-    rootLayout->setContentsMargins(4, 4, 4, 4);
-    rootLayout->setSpacing(6);
-
-    setupModeToggle(container, rootLayout);
+    auto* containerLayout = new QVBoxLayout(container);
+    containerLayout->setContentsMargins(0, 0, 0, 0);
+    containerLayout->setSpacing(6);
 
     auto* stackWidget = new QWidget(container);
     mainStackedLayout_ = new QStackedLayout(stackWidget);
     mainStackedLayout_->addWidget(createStandardWidget());
     mainStackedLayout_->addWidget(createRawWidget());
-    rootLayout->addWidget(stackWidget);
+    containerLayout->addWidget(stackWidget);
 
     scrollArea->setWidget(container);
-    outerLayout->addWidget(scrollArea);
+    outerLayout->addWidget(scrollArea, 1);
+
+    setupExecutionSection(this, outerLayout);
 
     stopPollShortcut_ = new QShortcut(QKeySequence(Qt::Key_Escape), this);
     stopPollShortcut_->setObjectName(QStringLiteral("workbenchStopPollShortcut"));
@@ -263,7 +266,6 @@ QWidget* ModbusWorkbenchWidget::createStandardWidget() {
 
     setupAddressingSection(w, l);
     setupWriteSection(w, l);
-    setupExecutionSection(w, l);
     l->addStretch(1);
     return w;
 }
@@ -292,6 +294,8 @@ void ModbusWorkbenchWidget::setupFunctionCodeSelector(QGroupBox* group, QVBoxLay
     gl->addWidget(fcLabel_);
     fcCombo_ = new QComboBox(group);
     fcCombo_->setObjectName(QStringLiteral("workbenchFcCombo"));
+    fcCombo_->setSizeAdjustPolicy(QComboBox::AdjustToMinimumContentsLengthWithIcon);
+    fcCombo_->setMinimumContentsLength(16);
     static constexpr uint8_t kFcCodes[] = {0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x0F, 0x10};
     for (uint8_t fc : kFcCodes) {
         fcCombo_->addItem(QString(), fc);
@@ -569,18 +573,19 @@ QWidget* ModbusWorkbenchWidget::createRawWidget() {
 
     rawGroup_ = new QGroupBox(w);
     rawGroup_->setObjectName(QStringLiteral("workbenchRawGroup"));
+    rawGroup_->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
     auto* el = new QVBoxLayout(rawGroup_);
 
     rawTextEdit_ = new QPlainTextEdit(rawGroup_);
     rawTextEdit_->setObjectName(QStringLiteral("workbenchRawTextEdit"));
+    rawTextEdit_->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
     rawTextEdit_->setFont(QFontDatabase::systemFont(QFontDatabase::FixedFont));
     connect(rawTextEdit_, &QPlainTextEdit::textChanged, this, &ModbusWorkbenchWidget::validateInputs);
-    el->addWidget(rawTextEdit_);
+    el->addWidget(rawTextEdit_, 1);
 
     setupRawButtons(rawGroup_, el);
 
-    l->addWidget(rawGroup_);
-    l->addStretch(1);
+    l->addWidget(rawGroup_, 1);
     return w;
 }
 
@@ -610,6 +615,7 @@ void ModbusWorkbenchWidget::setupRawButtons(QGroupBox* editGroup, QVBoxLayout* e
 
     rawExecuteBtn_ = new QPushButton(editGroup);
     rawExecuteBtn_->setObjectName(QStringLiteral("workbenchRawExecuteBtn"));
+    rawExecuteBtn_->hide();
     connect(rawExecuteBtn_, &QPushButton::clicked, this, &ModbusWorkbenchWidget::onExecuteClicked);
     el->addWidget(rawExecuteBtn_);
 }
@@ -617,6 +623,19 @@ void ModbusWorkbenchWidget::setupRawButtons(QGroupBox* editGroup, QVBoxLayout* e
 void ModbusWorkbenchWidget::onModeChanged(int id) {
     isRawMode_ = (id == 1);
     mainStackedLayout_->setCurrentIndex(isRawMode_ ? 1 : 0);
+    const bool showPolling = !isRawMode_;
+    if (pollCheckBox_) {
+        pollCheckBox_->setVisible(showPolling);
+    }
+    if (pollIntervalLabel_) {
+        pollIntervalLabel_->setVisible(showPolling);
+    }
+    if (pollIntervalSpin_) {
+        pollIntervalSpin_->setVisible(showPolling);
+    }
+    if (writePollWarningBadge_) {
+        writePollWarningBadge_->setVisible(showPolling && isPolling_ && ::modbus::base::function_traits::isWriteOperation(functionCode()));
+    }
     updateExecuteButtonAppearance();
     validateInputs();
 }
@@ -939,11 +958,14 @@ void ModbusWorkbenchWidget::validateWriteData(bool& valid, QString& errorMsg) {
 bool ModbusWorkbenchWidget::validateInputs() {
     if (isRawMode_) {
         const QByteArray raw = ::ui::common::data_helper::parseHex(rawTextEdit_->toPlainText());
-        rawExecuteBtn_->setEnabled(!raw.isEmpty() && guardState_.rawSendEnabled);
+        const bool rawValid = !raw.isEmpty();
+        rawExecuteBtn_->setEnabled(rawValid && guardState_.rawSendEnabled);
         if (executeBtn_) {
-            executeBtn_->setEnabled(isPolling_);
+            executeBtn_->setEnabled(isPolling_ || (rawValid && guardState_.rawSendEnabled));
         }
-        return !raw.isEmpty();
+        lastValidationHint_ = raw.isEmpty() ? tr("Raw frame hex data is required.") : QString();
+        updateGuardAppearance();
+        return rawValid;
     }
 
     bool addrValid = true;
@@ -1186,6 +1208,10 @@ void ModbusWorkbenchWidget::updateExecuteButtonAppearance() {
         executeBtn_->setText(tr("Stop Polling (Esc)"));
         executeBtn_->setShortcut(QKeySequence(Qt::Key_Escape));
         executeBtn_->setStyleSheet(QString());
+    } else if (isRawMode_) {
+        executeBtn_->setText(tr("Send Raw Frame (F5)"));
+        executeBtn_->setShortcut(QKeySequence(Qt::Key_F5));
+        executeBtn_->setStyleSheet(QString());
     } else if (::modbus::base::function_traits::isWriteOperation(functionCode())) {
         executeBtn_->setText(tr("Write (F5)"));
         executeBtn_->setShortcut(QKeySequence(Qt::Key_F5));
@@ -1198,8 +1224,11 @@ void ModbusWorkbenchWidget::updateExecuteButtonAppearance() {
 }
 
 void ModbusWorkbenchWidget::updateGuardAppearance() {
-    const bool showGuardMsg = !guardState_.executeEnabled && !guardState_.tooltipMessage.isEmpty();
-    const bool showValidationMsg = !showGuardMsg && guardState_.executeEnabled
+    const bool showGuardMsg = isRawMode_
+        ? (!guardState_.rawSendEnabled && !guardState_.tooltipMessage.isEmpty())
+        : (!guardState_.executeEnabled && !guardState_.tooltipMessage.isEmpty());
+    const bool showValidationMsg = !showGuardMsg
+        && (isRawMode_ ? guardState_.rawSendEnabled : guardState_.executeEnabled)
         && !isPolling_ && !lastValidationHint_.isEmpty();
     const QString tip = showGuardMsg
         ? guardState_.tooltipMessage

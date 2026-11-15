@@ -7,6 +7,8 @@
 #include "ui/widgets/TcpConnectionWidget.h"
 #include "ui/widgets/UdpConnectionWidget.h"
 #include "ui/widgets/CollapsibleSection.h"
+#include "ui/widgets/modbus/ModbusWorkbenchWidget.h"
+#include "ui/widgets/modbus/ModbusTelemetryWidget.h"
 #include "ui/views/modbus/ModbusPage.h"
 #include "mocks/UiTestDoubles.h"
 
@@ -19,6 +21,7 @@
 #include <QLineEdit>
 #include <QPushButton>
 #include <QSpinBox>
+#include <QSplitter>
 #include <QStackedWidget>
 #include <QTranslator>
 
@@ -319,6 +322,25 @@ TEST(ConnectionWidgets, SerialConnectionWidget_ResponsiveLayoutNarrowAndWide) {
     widget.resize(520, 80);
     QCoreApplication::processEvents();
     EXPECT_TRUE(widget.isTwoRowLayout());
+}
+
+TEST(ConnectionWidgets, ModbusPage_SplitterZeroOverlapInNarrowWindow) {
+    tests::mocks::FakeSettingsService settings;
+    ui::views::modbus::ModbusPage page(&settings);
+    page.resize(720, 520);
+    page.show();
+    QCoreApplication::processEvents();
+
+    auto* workbench = page.findChild<ui::widgets::modbus::ModbusWorkbenchWidget*>();
+    auto* telemetry = page.findChild<ui::widgets::modbus::ModbusTelemetryWidget*>();
+    auto* splitter = page.findChild<QSplitter*>();
+    ASSERT_NE(workbench, nullptr);
+    ASSERT_NE(telemetry, nullptr);
+    ASSERT_NE(splitter, nullptr);
+
+    EXPECT_FALSE(splitter->childrenCollapsible());
+    EXPECT_LE(workbench->geometry().right(), telemetry->geometry().left());
+    EXPECT_EQ(workbench->geometry().bottom(), telemetry->geometry().bottom());
 }
 
 } // namespace

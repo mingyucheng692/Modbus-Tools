@@ -38,6 +38,7 @@
 #include <QApplication>
 #include <QEvent>
 #include <QCloseEvent>
+#include <QResizeEvent>
 #include <QMessageBox>
 #include <QProgressDialog>
 #include <QPushButton>
@@ -208,6 +209,11 @@ void MainWindow::navigateTo(MainPage page) {
 
 void MainWindow::setNavigationCollapsed(bool collapsed) {
     if (navigationController_) {
+        if (width() < config::Ui::kNavigationAutoCollapseWidth && !collapsed) {
+            navigationController_->setUserOverridden(true);
+        } else if (collapsed) {
+            navigationController_->setUserOverridden(false);
+        }
         navigationController_->setCollapsed(collapsed);
     }
 }
@@ -423,6 +429,13 @@ void MainWindow::closeEvent(QCloseEvent* event) {
         appLifecycleCoordinator_->onCloseRequested();
     }
     QMainWindow::closeEvent(event);
+}
+
+void MainWindow::resizeEvent(QResizeEvent* event) {
+    QMainWindow::resizeEvent(event);
+    if (navigationController_ && event) {
+        navigationController_->updateAdaptiveLayout(event->size().width());
+    }
 }
 
 } // namespace ui

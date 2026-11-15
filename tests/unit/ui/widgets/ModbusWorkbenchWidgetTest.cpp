@@ -9,6 +9,7 @@
 #include <QGroupBox>
 #include <QLabel>
 #include <QLineEdit>
+#include <QPlainTextEdit>
 #include <QPushButton>
 #include <QShortcut>
 #include <QSpinBox>
@@ -676,6 +677,48 @@ TEST_F(ModbusWorkbenchWidgetTest, Validation_EmptyFc0fDisablesExecuteWithActiona
     EXPECT_FALSE(hintLabel->isHidden());
     EXPECT_FALSE(hintLabel->text().isEmpty());
     EXPECT_EQ(execBtn->toolTip(), hintLabel->text());
+}
+
+TEST_F(ModbusWorkbenchWidgetTest, StickyExecutionFooter_DockedAtBottomAcrossWindowHeights) {
+    widget_->show();
+
+    auto* execBtn = widget_->executeButton();
+    auto* execGroup = widget_->findChild<QGroupBox*>(QStringLiteral("workbenchExecutionGroup"));
+    auto* rawBtn = widget_->findChild<QPushButton*>(QStringLiteral("workbenchRawExecuteBtn"));
+    auto* pollCheck = widget_->findChild<QCheckBox*>(QStringLiteral("workbenchPollCheck"));
+    auto* rawText = widget_->findChild<QPlainTextEdit*>(QStringLiteral("workbenchRawTextEdit"));
+    ASSERT_NE(execBtn, nullptr);
+    ASSERT_NE(execGroup, nullptr);
+    ASSERT_NE(rawBtn, nullptr);
+    ASSERT_NE(pollCheck, nullptr);
+    ASSERT_NE(rawText, nullptr);
+
+    // Test in short window (height 480)
+    widget_->resize(320, 480);
+    QCoreApplication::processEvents();
+
+    EXPECT_TRUE(execBtn->isVisible());
+    EXPECT_TRUE(execGroup->isVisible());
+    // Execution group bottom is within widget bounds (docked at footer, zero bottom clipping)
+    EXPECT_LE(execGroup->geometry().bottom(), widget_->rect().bottom());
+    EXPECT_LE(execBtn->geometry().bottom(), execGroup->rect().bottom());
+
+    // Switch to Raw Mode
+    widget_->setMode(1);
+    QCoreApplication::processEvents();
+    EXPECT_TRUE(widget_->isRawMode());
+    EXPECT_TRUE(rawBtn->isHidden()); // Duplicate button hidden
+    EXPECT_TRUE(execBtn->isVisible());
+    EXPECT_EQ(execBtn->text(), QStringLiteral("Send Raw Frame (F5)"));
+    EXPECT_TRUE(pollCheck->isHidden()); // Polling controls hidden in Raw mode
+
+    // Test in tall window (height 900)
+    const int rawHeight480 = rawText->height();
+    widget_->resize(320, 900);
+    QCoreApplication::processEvents();
+
+    EXPECT_LE(execGroup->geometry().bottom(), widget_->rect().bottom());
+    EXPECT_GT(rawText->height(), rawHeight480 + 200); // Raw editor naturally expands
 }
 
 

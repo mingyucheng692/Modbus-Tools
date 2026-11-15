@@ -219,8 +219,9 @@ void ModbusPage::setupStatusBanner(QVBoxLayout* mainLayout) {
 
 void ModbusPage::setupSplitterBody() {
     splitter_ = new QSplitter(Qt::Horizontal, this);
+    splitter_->setChildrenCollapsible(false);
     workbenchWidget_ = new widgets::modbus::ModbusWorkbenchWidget(settingsService_, splitter_);
-    workbenchWidget_->setMinimumWidth(360);
+    workbenchWidget_->setMinimumWidth(280);
     splitter_->addWidget(workbenchWidget_);
 
     telemetryWidget_ = new widgets::modbus::ModbusTelemetryWidget(splitter_);

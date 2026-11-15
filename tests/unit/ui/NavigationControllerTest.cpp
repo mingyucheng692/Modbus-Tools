@@ -100,4 +100,74 @@ TEST(NavigationControllerTest, UtilitiesInspectChangesMainWindowPageAndParsesFra
     EXPECT_TRUE(qvariant_cast<modbus::parser::ParseResult>(parsed.at(0).at(0)).isValid);
 }
 
+TEST(NavigationControllerTest, AdaptiveLayout_AutoCollapsesOnNarrowWindowAndRestoresOnWide) {
+    QListWidget navigationList;
+    QWidget navigationPane;
+    QToolButton navigationToggleButton;
+    ui::shell::NavigationController controller(&navigationList, &navigationPane, &navigationToggleButton);
+    controller.initialize({QStringLiteral("TCP"), QStringLiteral("RTU")});
+
+    // Start wide (1200px)
+    controller.updateAdaptiveLayout(1200);
+    EXPECT_FALSE(controller.isCollapsed());
+    EXPECT_FALSE(controller.isAutoCollapsed());
+
+    // Shrink to narrow (850px < kNavigationAutoCollapseWidth 920)
+    controller.updateAdaptiveLayout(850);
+    EXPECT_TRUE(controller.isCollapsed());
+    EXPECT_TRUE(controller.isAutoCollapsed());
+
+    // User manual expand override while narrow
+    controller.setUserOverridden(true);
+    controller.setCollapsed(false);
+    EXPECT_FALSE(controller.isCollapsed());
+    EXPECT_TRUE(controller.isUserOverridden());
+
+    // Minor resize in narrow band (840px) does not force re-collapse
+    controller.updateAdaptiveLayout(840);
+    EXPECT_FALSE(controller.isCollapsed());
+
+    // Enlarge back to wide (1000px >= 920)
+    controller.updateAdaptiveLayout(1000);
+    EXPECT_FALSE(controller.isCollapsed());
+    EXPECT_FALSE(controller.isUserOverridden());
+    EXPECT_FALSE(controller.isAutoCollapsed());
+}
+
+TEST(NavigationControllerTest, MainWindow_AdaptiveNavigationLayout) {
+    QTemporaryDir sandbox;
+    ASSERT_TRUE(sandbox.isValid());
+    infra::platform::PathResolver resolver(sandbox.path());
+    tests::mocks::FakeSettingsService settings;
+    settings.setValue(QStringLiteral("app/disclaimerAccepted"), true);
+    settings.setValue(QStringLiteral("app/updateCheckFrequency"), QStringLiteral("never"));
+    settings.setValue(QStringLiteral("app/language"), QStringLiteral("en_US"));
+    ui::common::ThemeController theme(settings);
+    ui::MainWindow window(&settings, &theme, resolver);
+    window.resize(1200, 800);
+    window.show();
+    QCoreApplication::processEvents();
+
+    EXPECT_FALSE(window.isNavigationCollapsed());
+
+    // Shrink below auto-collapse threshold
+    window.resize(850, 800);
+    QCoreApplication::processEvents();
+    EXPECT_TRUE(window.isNavigationCollapsed());
+
+    // Manual expand in narrow window
+    window.setNavigationCollapsed(false);
+    EXPECT_FALSE(window.isNavigationCollapsed());
+
+    // Minor resize in narrow width does not override manual expand
+    window.resize(830, 800);
+    QCoreApplication::processEvents();
+    EXPECT_FALSE(window.isNavigationCollapsed());
+
+    // Expand back to wide window
+    window.resize(1100, 800);
+    QCoreApplication::processEvents();
+    EXPECT_FALSE(window.isNavigationCollapsed());
+}
+
 } // namespace
