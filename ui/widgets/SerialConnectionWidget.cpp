@@ -8,6 +8,8 @@
 #include "../../core/common/TrContext.h"
 #include <QHBoxLayout>
 #include <QVBoxLayout>
+#include <QGridLayout>
+#include <QResizeEvent>
 #include <QComboBox>
 #include <QPushButton>
 #include <QLabel>
@@ -226,79 +228,167 @@ void SerialConnectionWidget::refreshPorts() {
     saveSettings();
 }
 
+QSize SerialConnectionWidget::minimumSizeHint() const {
+    if (section_) {
+        return QSize(360, section_->minimumSizeHint().height());
+    }
+    return BaseConnectionWidget::minimumSizeHint();
+}
+
+void SerialConnectionWidget::setTwoRowLayout(bool twoRow) {
+    if (isTwoRow_ == twoRow) return;
+    applyLayoutMode(twoRow);
+    updateGeometry();
+    if (section_) section_->updateGeometry();
+}
+
+void SerialConnectionWidget::applyLayoutMode(bool twoRow) {
+    isTwoRow_ = twoRow;
+    if (!gridLayout_) return;
+
+    if (twoRow) {
+        // Row 0: Port, Refresh, Baud, Data
+        gridLayout_->addWidget(portLabel_, 0, 0);
+        gridLayout_->addWidget(portCombo_, 0, 1);
+        gridLayout_->addWidget(refreshBtn_, 0, 2);
+        gridLayout_->addWidget(baudLabel_, 0, 3);
+        gridLayout_->addWidget(baudCombo_, 0, 4);
+        gridLayout_->addWidget(dataBitsLabel_, 0, 5);
+        gridLayout_->addWidget(dataBitsCombo_, 0, 6);
+
+        // Row 1: Stop, Parity, Flow, Connect, Status
+        gridLayout_->addWidget(stopBitsLabel_, 1, 0);
+        gridLayout_->addWidget(stopBitsCombo_, 1, 1);
+        gridLayout_->addWidget(parityLabel_, 1, 3);
+        gridLayout_->addWidget(parityCombo_, 1, 4);
+        gridLayout_->addWidget(flowControlLabel_, 1, 5);
+        gridLayout_->addWidget(flowControlCombo_, 1, 6);
+        gridLayout_->addWidget(connectBtn_, 1, 7);
+        gridLayout_->addWidget(statusLabel_, 1, 8);
+
+        gridLayout_->setColumnStretch(9, 1);
+        gridLayout_->setColumnStretch(15, 0);
+    } else {
+        // Single row: all in Row 0
+        gridLayout_->addWidget(portLabel_, 0, 0);
+        gridLayout_->addWidget(portCombo_, 0, 1);
+        gridLayout_->addWidget(refreshBtn_, 0, 2);
+        gridLayout_->addWidget(baudLabel_, 0, 3);
+        gridLayout_->addWidget(baudCombo_, 0, 4);
+        gridLayout_->addWidget(dataBitsLabel_, 0, 5);
+        gridLayout_->addWidget(dataBitsCombo_, 0, 6);
+        gridLayout_->addWidget(parityLabel_, 0, 7);
+        gridLayout_->addWidget(parityCombo_, 0, 8);
+        gridLayout_->addWidget(stopBitsLabel_, 0, 9);
+        gridLayout_->addWidget(stopBitsCombo_, 0, 10);
+        gridLayout_->addWidget(flowControlLabel_, 0, 11);
+        gridLayout_->addWidget(flowControlCombo_, 0, 12);
+        gridLayout_->addWidget(connectBtn_, 0, 13);
+        gridLayout_->addWidget(statusLabel_, 0, 14);
+
+        gridLayout_->setColumnStretch(9, 0);
+        gridLayout_->setColumnStretch(15, 1);
+    }
+}
+
+void SerialConnectionWidget::updateResponsiveLayout(int availableWidth) {
+    if (availableWidth <= 0) return;
+    static constexpr int kCollapseThreshold = 630;
+    static constexpr int kExpandThreshold = 650;
+
+    if (isTwoRow_ && availableWidth >= kExpandThreshold) {
+        applyLayoutMode(false);
+        updateGeometry();
+        if (section_) section_->updateGeometry();
+    } else if (!isTwoRow_ && availableWidth < kCollapseThreshold) {
+        applyLayoutMode(true);
+        updateGeometry();
+        if (section_) section_->updateGeometry();
+    }
+}
+
+void SerialConnectionWidget::resizeEvent(QResizeEvent* event) {
+    BaseConnectionWidget::resizeEvent(event);
+    if (event) {
+        updateResponsiveLayout(event->size().width());
+    }
+}
+
 void SerialConnectionWidget::setupUi() {
-    auto* layout = setupBaseUi();
+    gridLayout_ = new QGridLayout();
+    gridLayout_->setSizeConstraint(QLayout::SetNoConstraint);
+    gridLayout_->setContentsMargins(4, 0, 4, 0);
+    gridLayout_->setHorizontalSpacing(4);
+    gridLayout_->setVerticalSpacing(2);
+    setupBaseUiWithLayout(gridLayout_);
 
     // Port
     portLabel_ = new QLabel(this);
-    layout->addWidget(portLabel_);
     portCombo_ = new QComboBox(this);
     portCombo_->setSizeAdjustPolicy(QComboBox::AdjustToMinimumContentsLengthWithIcon);
     portCombo_->setMinimumContentsLength(5);
     portCombo_->setMinimumWidth(50);
-    layout->addWidget(portCombo_);
 
     refreshBtn_ = new QPushButton(QStringLiteral("R"), this);
-    refreshBtn_->setFixedWidth(30);
+    refreshBtn_->setFixedWidth(28);
     refreshBtn_->setToolTip(tr("Refresh Ports"));
     connect(refreshBtn_, &QPushButton::clicked, this, &SerialConnectionWidget::refreshPorts);
-    layout->addWidget(refreshBtn_);
 
     // Baud
     baudLabel_ = new QLabel(this);
-    layout->addWidget(baudLabel_);
     baudCombo_ = new QComboBox(this);
+    baudCombo_->setSizeAdjustPolicy(QComboBox::AdjustToMinimumContentsLengthWithIcon);
+    baudCombo_->setMinimumContentsLength(6);
     baudCombo_->addItems({QString::fromLatin1(config::Serial::kDefaultBaudRateText),
                           QStringLiteral("19200"),
                           QStringLiteral("38400"),
                           QStringLiteral("57600"),
                           QStringLiteral("115200")});
     baudCombo_->setCurrentText(QString::fromLatin1(config::Serial::kDefaultBaudRateText));
-    layout->addWidget(baudCombo_);
 
     // Data Bits
     dataBitsLabel_ = new QLabel(this);
-    layout->addWidget(dataBitsLabel_);
     dataBitsCombo_ = new QComboBox(this);
+    dataBitsCombo_->setSizeAdjustPolicy(QComboBox::AdjustToMinimumContentsLengthWithIcon);
+    dataBitsCombo_->setMinimumContentsLength(2);
     dataBitsCombo_->addItems({QString::fromLatin1(config::Serial::kDefaultDataBitsText), QStringLiteral("7")});
     dataBitsCombo_->setCurrentText(QString::fromLatin1(config::Serial::kDefaultDataBitsText));
     dataBitsCombo_->setMinimumWidth(36);
-    layout->addWidget(dataBitsCombo_);
 
     // Parity
     parityLabel_ = new QLabel(this);
-    layout->addWidget(parityLabel_);
     parityCombo_ = new QComboBox(this);
+    parityCombo_->setSizeAdjustPolicy(QComboBox::AdjustToMinimumContentsLengthWithIcon);
+    parityCombo_->setMinimumContentsLength(4);
     parityCombo_->setMinimumWidth(48);
-    layout->addWidget(parityCombo_);
 
     // Stop Bits
     stopBitsLabel_ = new QLabel(this);
-    layout->addWidget(stopBitsLabel_);
     stopBitsCombo_ = new QComboBox(this);
+    stopBitsCombo_->setSizeAdjustPolicy(QComboBox::AdjustToMinimumContentsLengthWithIcon);
+    stopBitsCombo_->setMinimumContentsLength(3);
     stopBitsCombo_->addItems({QString::fromLatin1(config::Serial::kDefaultStopBitsText),
                               QStringLiteral("1.5"),
                               QStringLiteral("2")});
     stopBitsCombo_->setMinimumWidth(36);
-    layout->addWidget(stopBitsCombo_);
 
     // Flow Control
     flowControlLabel_ = new QLabel(this);
-    layout->addWidget(flowControlLabel_);
     flowControlCombo_ = new QComboBox(this);
-    flowControlCombo_->setMinimumWidth(60);
-    layout->addWidget(flowControlCombo_);
+    flowControlCombo_->setSizeAdjustPolicy(QComboBox::AdjustToMinimumContentsLengthWithIcon);
+    flowControlCombo_->setMinimumContentsLength(4);
+    flowControlCombo_->setMinimumWidth(56);
 
     // Create common widgets (connectBtn_, statusLabel_)
     createCommonWidgets(section_->contentWidget());
 
-    layout->addSpacing(4);
-    layout->addWidget(connectBtn_);
-    layout->addWidget(statusLabel_);
-    
-    layout->addStretch();
+    // Initially start in 2-row layout to ensure low initial minimumSizeHint
+    isTwoRow_ = true;
+    applyLayoutMode(true);
+
     auto* mainLayout = qobject_cast<QHBoxLayout*>(this->layout());
     if (mainLayout) {
+        mainLayout->setSizeConstraint(QLayout::SetNoConstraint);
         mainLayout->addWidget(section_);
     }
 
@@ -459,6 +549,7 @@ void SerialConnectionWidget::retranslateUi() {
             }
         }
     }
+    updateResponsiveLayout(width());
 }
 
 } // namespace ui::widgets

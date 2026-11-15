@@ -26,6 +26,9 @@ public:
     void setExpanded(bool expanded);
     bool isExpanded() const;
     void setSettingsKey(const QString& key);
+    void setCollapsible(bool collapsible);
+    [[nodiscard]] bool isCollapsible() const;
+    [[nodiscard]] QLabel* titleLabel() const noexcept { return titleLabel_; }
 
 signals:
     void expandedChanged(bool expanded);
@@ -45,6 +48,7 @@ private:
     QString settingsKey_;
     infra::config::ISettingsService* settingsService_ = nullptr;
     bool expanded_ = true;
+    bool collapsible_ = true;
 };
 
 } // namespace ui::widgets

@@ -78,16 +78,36 @@ void BaseConnectionWidget::retranslateCommonUi() {
     }
 }
 
+bool BaseConnectionWidget::isSectionExpanded() const {
+    return section_ ? section_->isExpanded() : true;
+}
+
+void BaseConnectionWidget::setSectionExpanded(bool expanded) {
+    if (section_) {
+        section_->setExpanded(expanded);
+    }
+}
+
 QHBoxLayout* BaseConnectionWidget::setupBaseUi() {
+    auto* layout = new QHBoxLayout();
+    layout->setContentsMargins(4, 0, 4, 0);
+    layout->setSpacing(2);
+    setupBaseUiWithLayout(layout);
+    return layout;
+}
+
+void BaseConnectionWidget::setupBaseUiWithLayout(QLayout* contentLayout) {
     auto* mainLayout = new QHBoxLayout(this);
     mainLayout->setContentsMargins(0, 0, 0, 0);
     mainLayout->setSpacing(0);
 
     section_ = new CollapsibleSection(settingsService_, this);
-    auto* layout = new QHBoxLayout(section_->contentWidget());
-    layout->setContentsMargins(4, 0, 4, 0);
-    layout->setSpacing(2);
-    return layout;
+    connect(section_, &CollapsibleSection::expandedChanged,
+            this, &BaseConnectionWidget::sectionExpandedChanged);
+
+    if (contentLayout) {
+        section_->contentWidget()->setLayout(contentLayout);
+    }
 }
 
 void BaseConnectionWidget::finishBaseUi(const QString& sectionSettingsKey) {

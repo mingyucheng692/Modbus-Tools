@@ -81,6 +81,21 @@ bool CollapsibleSection::isExpanded() const {
     return expanded_;
 }
 
+void CollapsibleSection::setCollapsible(bool collapsible) {
+    if (collapsible_ == collapsible) {
+        return;
+    }
+    collapsible_ = collapsible;
+    if (toggleButton_) {
+        toggleButton_->setVisible(collapsible_);
+    }
+    updateSectionGeometry();
+}
+
+bool CollapsibleSection::isCollapsible() const {
+    return collapsible_;
+}
+
 void CollapsibleSection::setSettingsKey(const QString& key) {
     settingsKey_ = key;
     loadSettings();
@@ -97,6 +112,9 @@ void CollapsibleSection::updateToggleUi() {
 void CollapsibleSection::updateSectionGeometry() {
     if (!bodyGroup_) {
         return;
+    }
+    if (headerWidget_ && toggleButton_) {
+        headerWidget_->setMinimumHeight(toggleButton_->sizeHint().height());
     }
     if (expanded_) {
         bodyGroup_->setMaximumHeight(QWIDGETSIZE_MAX);

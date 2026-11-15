@@ -9,6 +9,7 @@ class QLabel;
 class QPushButton;
 class QEvent;
 class QHBoxLayout;
+class QLayout;
 
 namespace infra::config {
 class ISettingsService;
@@ -47,9 +48,12 @@ public:
     explicit BaseConnectionWidget(infra::config::ISettingsService* settingsService, QWidget* parent = nullptr);
     ~BaseConnectionWidget() override;
     void setSettingsGroup(const QString& group);
+    [[nodiscard]] bool isSectionExpanded() const;
+    void setSectionExpanded(bool expanded);
 
 signals:
     void disconnectClicked();
+    void sectionExpandedChanged(bool expanded);
 
 public slots:
     virtual void setConnected(bool connected) = 0;
@@ -65,6 +69,7 @@ protected:
     void saveCommonSettings();
     void retranslateCommonUi();
     QHBoxLayout* setupBaseUi();
+    void setupBaseUiWithLayout(QLayout* contentLayout);
     void finishBaseUi(const QString& sectionSettingsKey = {});
     virtual void retranslateUi();
 

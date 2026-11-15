@@ -9,6 +9,8 @@
 class QComboBox;
 class QPushButton;
 class QLabel;
+class QGridLayout;
+class QResizeEvent;
 
 class QString;
 
@@ -28,6 +30,9 @@ public:
     ~SerialConnectionWidget() override;
 
     [[nodiscard]] io::SerialConfig getConfig() const;
+    [[nodiscard]] bool isTwoRowLayout() const noexcept { return isTwoRow_; }
+    void setTwoRowLayout(bool twoRow);
+    QSize minimumSizeHint() const override;
 
 signals:
     void connectClicked(const io::SerialConfig& config);
@@ -39,6 +44,7 @@ public slots:
 protected:
     void loadSettings() override;
     void saveSettings() override;
+    void resizeEvent(QResizeEvent* event) override;
 
     // Display-state template method hooks: Serial supplies the
     // per-state display strings and its own input-widget list; the skeleton
@@ -48,10 +54,14 @@ protected:
 
 private:
     void setupUi();
+    void applyLayoutMode(bool twoRow);
+    void updateResponsiveLayout(int availableWidth);
     void retranslateUi() override;
     void stripOfflinePortEntries();
     void ensureOfflinePortEntry(const QString& portName);
 
+    QGridLayout* gridLayout_ = nullptr;
+    bool isTwoRow_ = true;
     QLabel* portLabel_ = nullptr;
     QComboBox* portCombo_ = nullptr;
     QPushButton* refreshBtn_ = nullptr;

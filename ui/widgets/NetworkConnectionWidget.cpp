@@ -29,8 +29,9 @@ void NetworkConnectionWidget::setupCommonUi() {
     hostLabel_ = new QLabel(this);
     layout->addWidget(hostLabel_);
     ipEdit_ = new QLineEdit(this);
-    ipEdit_->setMinimumWidth(112);
-    ipEdit_->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);
+    ipEdit_->setMinimumWidth(128);
+    ipEdit_->setMaximumWidth(196);
+    ipEdit_->setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Fixed);
     layout->addWidget(ipEdit_);
 
     // Port
@@ -52,7 +53,7 @@ void NetworkConnectionWidget::setupCommonUi() {
     layout->addWidget(connectBtn_);
     layout->addWidget(statusLabel_);
 
-    layout->addStretch();
+    layout->addStretch(1);
     auto* mainLayout = qobject_cast<QHBoxLayout*>(this->layout());
     if (mainLayout) {
         mainLayout->addWidget(section_);

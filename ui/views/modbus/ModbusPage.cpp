@@ -7,6 +7,7 @@
 #include "../../application/modbus/ModbusPagePresenter.h"
 #include "../../common/ConnectionAlert.h"
 #include "../../widgets/BaseConnectionWidget.h"
+#include "../../widgets/CollapsibleSection.h"
 #include "../../widgets/TcpConnectionWidget.h"
 #include "../../widgets/SerialConnectionWidget.h"
 #include "../../widgets/modbus/ModbusWorkbenchWidget.h"
@@ -36,6 +37,25 @@ void applyPresenterTiming(::modbus::base::ModbusConfig& config,
     config.retries = timing.retryCount;
     config.retryIntervalMs = static_cast<int>(timing.retryInterval.count());
 }
+
+class CompactStackedWidget : public QStackedWidget {
+public:
+    using QStackedWidget::QStackedWidget;
+
+    QSize sizeHint() const override {
+        if (auto* curr = currentWidget()) {
+            return curr->sizeHint();
+        }
+        return QStackedWidget::sizeHint();
+    }
+
+    QSize minimumSizeHint() const override {
+        if (auto* curr = currentWidget()) {
+            return curr->minimumSizeHint();
+        }
+        return QStackedWidget::minimumSizeHint();
+    }
+};
 
 } // namespace
 
@@ -114,28 +134,32 @@ void ModbusPage::setupConnectionBar() {
     auto* connLayout = new QHBoxLayout(connRow);
     connLayout->setContentsMargins(0, 0, 0, 6);
     connLayout->setSpacing(4);
+    connLayout->setAlignment(Qt::AlignTop);
 
-    auto* protoCol = new QWidget(connRow);
-    auto* protoLayout = new QVBoxLayout(protoCol);
-    protoLayout->setContentsMargins(0, 0, 0, 0);
-    protoLayout->setSpacing(2);
+    protoSection_ = new widgets::CollapsibleSection(nullptr, connRow);
+    protoSection_->setObjectName(QStringLiteral("modbusProtocolSection"));
+    protoSection_->setTitle(tr("Protocol:"));
+    protoSection_->setCollapsible(false);
+    protoSection_->setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Preferred);
+    protocolLabel_ = protoSection_->titleLabel();
 
-    protocolLabel_ = new QLabel(protoCol);
-    protocolLabel_->setObjectName(QStringLiteral("modbusProtocolLabel"));
-    protoLayout->addWidget(protocolLabel_);
+    auto* protoContentLayout = new QHBoxLayout(protoSection_->contentWidget());
+    protoContentLayout->setContentsMargins(4, 0, 4, 0);
+    protoContentLayout->setSpacing(2);
 
-    protocolCombo_ = new QComboBox(protoCol);
+    protocolCombo_ = new QComboBox(protoSection_->contentWidget());
     protocolCombo_->setObjectName(QStringLiteral("modbusProtocolCombo"));
     protocolCombo_->setMinimumWidth(80);
     protocolCombo_->addItem(QStringLiteral("TCP"), static_cast<int>(ui::application::modbus::SessionMode::Tcp));
     protocolCombo_->addItem(QStringLiteral("RTU"), static_cast<int>(ui::application::modbus::SessionMode::Rtu));
     protocolCombo_->addItem(QStringLiteral("ASCII"), static_cast<int>(ui::application::modbus::SessionMode::Ascii));
-    protoLayout->addWidget(protocolCombo_);
-    connLayout->addWidget(protoCol);
-    connLayout->setAlignment(protoCol, Qt::AlignBottom);
+    protoContentLayout->addWidget(protocolCombo_);
 
-    connectionStack_ = new QStackedWidget(connRow);
-    connectionStack_->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);
+    connLayout->addWidget(protoSection_, 0, Qt::AlignTop);
+
+    connectionStack_ = new CompactStackedWidget(connRow);
+    connectionStack_->setFrameShape(QFrame::NoFrame);
+    connectionStack_->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Preferred);
 
     tcpConnectionWidget_ = new widgets::TcpConnectionWidget(widgets::TcpRole::Client, settingsService_, connectionStack_);
     tcpConnectionWidget_->setSettingsGroup(QStringLiteral("modbus/tcp"));
@@ -147,15 +171,33 @@ void ModbusPage::setupConnectionBar() {
 
     connectionStack_->setCurrentIndex(0);
     connectionWidget_ = tcpConnectionWidget_;
-    connLayout->addWidget(connectionStack_, 1);
+    connLayout->addWidget(connectionStack_, 1, Qt::AlignTop);
 
     layout()->addWidget(connRow);
     bindConnectionBarSignals();
+
+    if (connectionWidget_) {
+        protoSection_->setExpanded(connectionWidget_->isSectionExpanded());
+    }
 }
 
 void ModbusPage::bindConnectionBarSignals() {
     connect(protocolCombo_, QOverload<int>::of(&QComboBox::currentIndexChanged),
             this, &ModbusPage::onProtocolChanged);
+
+    auto syncSectionExpanded = [this](bool expanded) {
+        if (protoSection_) {
+            protoSection_->setExpanded(expanded);
+        }
+        if (connectionStack_) {
+            connectionStack_->updateGeometry();
+        }
+    };
+
+    connect(tcpConnectionWidget_, &widgets::BaseConnectionWidget::sectionExpandedChanged,
+            this, syncSectionExpanded);
+    connect(serialConnectionWidget_, &widgets::BaseConnectionWidget::sectionExpandedChanged,
+            this, syncSectionExpanded);
 
     connect(tcpConnectionWidget_, &widgets::TcpConnectionWidget::connectClicked,
             this, &ModbusPage::onTcpConnectClicked);
@@ -292,6 +334,11 @@ void ModbusPage::switchToProtocol(ui::application::modbus::SessionMode mode) {
         connectionWidget_ = tcpConnectionWidget_;
     }
 
+    if (protoSection_ && connectionWidget_) {
+        protoSection_->setExpanded(connectionWidget_->isSectionExpanded());
+    }
+    connectionStack_->updateGeometry();
+
     if (pagePresenter_) pagePresenter_->switchMode(mode);
     setProtocolType(descriptor.protocolType);
 }
@@ -345,8 +392,8 @@ void ModbusPage::onDisconnectClicked() {
 }
 
 void ModbusPage::retranslateUi() {
-    if (protocolLabel_) {
-        protocolLabel_->setText(tr("Protocol:"));
+    if (protoSection_) {
+        protoSection_->setTitle(tr("Protocol:"));
     }
 }
 

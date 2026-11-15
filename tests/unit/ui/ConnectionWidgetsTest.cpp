@@ -6,6 +6,8 @@
 #include "ui/widgets/SerialConnectionWidget.h"
 #include "ui/widgets/TcpConnectionWidget.h"
 #include "ui/widgets/UdpConnectionWidget.h"
+#include "ui/widgets/CollapsibleSection.h"
+#include "ui/views/modbus/ModbusPage.h"
 #include "mocks/UiTestDoubles.h"
 
 #include <QApplication>
@@ -14,8 +16,10 @@
 #include <QDir>
 #include <QEvent>
 #include <QLabel>
+#include <QLineEdit>
 #include <QPushButton>
 #include <QSpinBox>
+#include <QStackedWidget>
 #include <QTranslator>
 
 namespace {
@@ -230,6 +234,91 @@ TEST(ConnectionWidgets, TcpAndUdpRetranslateActiveStateLabels) {
     EXPECT_TRUE(foundLocalLabel);
     EXPECT_TRUE(foundRemoteLabel);
     EXPECT_TRUE(foundRemotePortLabel);
+}
+
+TEST(ConnectionWidgets, ModbusPage_ProtocolSectionAlignsWithConnectionStack) {
+    tests::mocks::FakeSettingsService settings;
+    ui::views::modbus::ModbusPage page(&settings);
+    page.resize(900, 600);
+    page.show();
+    QCoreApplication::processEvents();
+
+    auto* protoLabel = page.protocolLabel();
+    ASSERT_NE(protoLabel, nullptr);
+    auto* protoSection = page.findChild<ui::widgets::CollapsibleSection*>(QStringLiteral("modbusProtocolSection"));
+    ASSERT_NE(protoSection, nullptr);
+    auto* connStack = page.findChild<QStackedWidget*>();
+    ASSERT_NE(connStack, nullptr);
+
+    // Initial state (expanded)
+    EXPECT_LE(std::abs(protoSection->geometry().y() - connStack->geometry().y()), 2);
+    EXPECT_LE(std::abs(protoSection->height() - connStack->height()), 8);
+
+    // Collapse connection settings
+    auto* currentConn = qobject_cast<ui::widgets::BaseConnectionWidget*>(connStack->currentWidget());
+    ASSERT_NE(currentConn, nullptr);
+    currentConn->setSectionExpanded(false);
+    QCoreApplication::processEvents();
+
+    EXPECT_FALSE(protoSection->isExpanded());
+    EXPECT_LE(std::abs(protoSection->geometry().y() - connStack->geometry().y()), 2);
+    EXPECT_LE(std::abs(protoSection->height() - connStack->height()), 8);
+
+    // Re-expand
+    currentConn->setSectionExpanded(true);
+    QCoreApplication::processEvents();
+    EXPECT_TRUE(protoSection->isExpanded());
+    EXPECT_LE(std::abs(protoSection->geometry().y() - connStack->geometry().y()), 2);
+    EXPECT_LE(std::abs(protoSection->height() - connStack->height()), 8);
+}
+
+TEST(ConnectionWidgets, NetworkConnectionWidget_HostWidthIsBounded) {
+    tests::mocks::FakeSettingsService settings;
+    ui::widgets::TcpConnectionWidget widget(ui::widgets::TcpRole::Client, &settings);
+    widget.show();
+
+    auto* ipEdit = widget.findChild<QLineEdit*>();
+    ASSERT_NE(ipEdit, nullptr);
+    auto* portEdit = widget.findChild<QSpinBox*>();
+    ASSERT_NE(portEdit, nullptr);
+
+    EXPECT_EQ(ipEdit->minimumWidth(), 128);
+    EXPECT_EQ(ipEdit->maximumWidth(), 196);
+
+    widget.resize(560, 60);
+    QCoreApplication::processEvents();
+    const int gap560 = portEdit->geometry().x() - ipEdit->geometry().right();
+    const int ipWidth560 = ipEdit->width();
+
+    widget.resize(1100, 60);
+    QCoreApplication::processEvents();
+    const int gap1100 = portEdit->geometry().x() - ipEdit->geometry().right();
+
+    EXPECT_LE(ipEdit->width(), 196);
+    // Gap between ipEdit and portEdit remains constant (Host anchor locked)
+    EXPECT_EQ(gap560, gap1100);
+}
+
+TEST(ConnectionWidgets, SerialConnectionWidget_ResponsiveLayoutNarrowAndWide) {
+    tests::mocks::FakeSettingsService settings;
+    ui::widgets::SerialConnectionWidget widget(&settings);
+    widget.show();
+
+    // Narrow width (< 630px): should be in 2-row layout with low minimum width
+    widget.resize(500, 80);
+    QCoreApplication::processEvents();
+    EXPECT_TRUE(widget.isTwoRowLayout());
+    EXPECT_LE(widget.minimumSizeHint().width(), 380);
+
+    // Wide width (>= 650px): should switch to 1-row layout
+    widget.resize(750, 60);
+    QCoreApplication::processEvents();
+    EXPECT_FALSE(widget.isTwoRowLayout());
+
+    // Narrow width again: should fold back to 2-row layout
+    widget.resize(520, 80);
+    QCoreApplication::processEvents();
+    EXPECT_TRUE(widget.isTwoRowLayout());
 }
 
 } // namespace

@@ -22,6 +22,7 @@ namespace ui::widgets {
 class BaseConnectionWidget;
 class TcpConnectionWidget;
 class SerialConnectionWidget;
+class CollapsibleSection;
 }
 
 namespace ui::widgets::modbus {
@@ -99,6 +100,7 @@ private:
 
     QLabel* protocolLabel_ = nullptr;
     QComboBox* protocolCombo_ = nullptr;
+    ui::widgets::CollapsibleSection* protoSection_ = nullptr;
     QStackedWidget* connectionStack_ = nullptr;
     ui::widgets::TcpConnectionWidget* tcpConnectionWidget_ = nullptr;
     ui::widgets::SerialConnectionWidget* serialConnectionWidget_ = nullptr;
