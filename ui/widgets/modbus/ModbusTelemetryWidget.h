@@ -4,12 +4,18 @@
 
 #include <QWidget>
 #include <QList>
+#include <QMap>
 #include <QTimer>
 #include <cstdint>
 #include "TelemetryTableModel.h"
 #include "TelemetryRowView.h"
 #include "common/TrafficEvent.h"
+#include "modbus/base/ModbusTypes.h"
+#include "modbus/base/ModbusByteOrder.h"
+#include "modbus/base/RegisterDataType.h"
 #include "modbus/parser/ModbusFrameParser.h"
+#include "analyzer/AnalyzerCommon.h"
+#include "analyzer/ValueFormatter.h"
 
 class QTableView;
 class QSortFilterProxyModel;
@@ -65,7 +71,24 @@ public:
     [[nodiscard]] QLabel* errStatsLabel() const noexcept { return errStatsLabel_; }
     [[nodiscard]] QLabel* rttStatsLabel() const noexcept { return rttStatsLabel_; }
 
+    void setMetadataMap(const QMap<uint16_t, ::modbus::analyzer::DataMetadata>& meta);
+    [[nodiscard]] const QMap<uint16_t, ::modbus::analyzer::DataMetadata>& metadataMap() const noexcept { return metadataByAddress_; }
+    [[nodiscard]] QComboBox* decodeTypeCombo() const noexcept { return decodeTypeCombo_; }
+    [[nodiscard]] QComboBox* orderCombo() const noexcept { return orderCombo_; }
+    [[nodiscard]] ::modbus::analyzer::RegisterDataType currentDecodeType() const noexcept { return currentDataType_; }
+    [[nodiscard]] ::modbus::base::RegisterOrder currentRegisterOrder() const noexcept { return currentOrder_; }
+    void setDecodeType(::modbus::analyzer::RegisterDataType type);
+    void setRegisterOrder(::modbus::base::RegisterOrder order);
+    void applyDecodeCapability(const ::modbus::analyzer::value_formatter::FrameDecodeEvaluation& eval);
+
     [[nodiscard]] static QString formatInspectorDetails(const ::modbus::parser::ParseResult& pr, int aduLength);
+    [[nodiscard]] QString formatInspectorDetails(
+        const ::modbus::parser::ParseResult& pr,
+        int aduLength,
+        bool isTx,
+        ::modbus::analyzer::RegisterDataType type,
+        ::modbus::base::RegisterOrder order,
+        const QMap<uint16_t, ::modbus::analyzer::DataMetadata>& metadata = {}) const;
     [[nodiscard]] static QString formatRowTextForCopy(const TelemetryRowView& row);
 
 signals:
@@ -89,6 +112,7 @@ private slots:
     void onExportClicked();
     void onCopySelectedRow();
     void onInspectInAnalyzerClicked();
+    void onDecodeConfigChanged();
 
 private:
     void setupUi();
@@ -96,6 +120,8 @@ private:
     void applyToolbarLayout(bool twoRow);
     void setupTableView();
     void setupInspector();
+    void applyInspectorHeaderLayout(bool twoRow);
+    void updateResponsiveInspectorHeader(int availableWidth);
     void setupMetricsRibbon();
     void updateInspectorContent(const TelemetryRowView* row);
     void updateMetricsLabel();
@@ -131,9 +157,19 @@ private:
     QLabel* metricsLabel_ = nullptr;
 
     // Inspector controls
+    QWidget* inspectorHeaderWidget_ = nullptr;
+    QGridLayout* inspectorHeaderLayout_ = nullptr;
+    bool isTwoRowInspectorHeader_ = false;
     QLabel* inspectorHeaderLabel_ = nullptr;
+    QLabel* decodeLabel_ = nullptr;
+    QComboBox* decodeTypeCombo_ = nullptr;
+    QLabel* orderLabel_ = nullptr;
+    QComboBox* orderCombo_ = nullptr;
     QPushButton* inspectInAnalyzerBtn_ = nullptr;
     QTextEdit* inspectorDetailsText_ = nullptr;
+    QMap<uint16_t, ::modbus::analyzer::DataMetadata> metadataByAddress_;
+    ::modbus::analyzer::RegisterDataType currentDataType_ = ::modbus::analyzer::RegisterDataType::UInt16;
+    ::modbus::base::RegisterOrder currentOrder_ = ::modbus::base::RegisterOrder::ABCD;
 
     // Backpressure & flow control state
     QTimer* batchTimer_ = nullptr;

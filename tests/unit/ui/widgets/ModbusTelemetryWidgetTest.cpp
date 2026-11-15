@@ -9,6 +9,7 @@
 #include <QPushButton>
 #include <QSignalSpy>
 #include <QApplication>
+#include <QComboBox>
 #include <QTableView>
 #include <QTemporaryDir>
 #include "ui/widgets/modbus/ModbusTelemetryWidget.h"
@@ -314,5 +315,139 @@ TEST_F(ModbusTelemetryWidgetTest, InspectInAnalyzerWorkflow) {
     // Deselect row disables inspect button
     widget_->tableView()->clearSelection();
     EXPECT_FALSE(inspectBtn->isEnabled());
+}
+
+TEST_F(ModbusTelemetryWidgetTest, InPlaceDecodeAndByteOrder) {
+    widget_->setProtocolType(::modbus::parser::ProtocolType::Rtu);
+
+    // 0x03 Response: 2 registers (4 bytes: 41 20 00 00 -> 10.0 in Float32 ABCD)
+    // ADU: [UID: 01] [FC: 03] [ByteCount: 04] [41 20 00 00] [CRC: EF C5]
+    const QByteArray payload = QByteArray::fromHex("01030441200000EFC5");
+    TrafficEvent ev;
+    ev.direction = TrafficDirection::Rx;
+    ev.payload = payload;
+
+    widget_->appendTrafficEvent(ev);
+    QMetaObject::invokeMethod(widget_.get(), "processBatchTimeout");
+    ASSERT_EQ(widget_->tableModel()->rowCount(), 1);
+
+    widget_->tableView()->selectRow(0);
+
+    auto* decodeCombo = widget_->decodeTypeCombo();
+    auto* orderCombo = widget_->orderCombo();
+    ASSERT_NE(decodeCombo, nullptr);
+    ASSERT_NE(orderCombo, nullptr);
+
+    EXPECT_TRUE(decodeCombo->isEnabled());
+    EXPECT_TRUE(orderCombo->isEnabled());
+
+    // Switch to Float32 ABCD
+    widget_->setDecodeType(::modbus::analyzer::RegisterDataType::Float32);
+    widget_->setRegisterOrder(::modbus::base::RegisterOrder::ABCD);
+
+    QString text = widget_->inspectorDetailsText();
+    EXPECT_TRUE(text.contains(QStringLiteral("Float32")));
+    EXPECT_TRUE(text.contains(QStringLiteral("ABCD")));
+    EXPECT_TRUE(text.contains(QStringLiteral("10")));
+
+    // Switch to CDAB
+    widget_->setRegisterOrder(::modbus::base::RegisterOrder::CDAB);
+    text = widget_->inspectorDetailsText();
+    EXPECT_TRUE(text.contains(QStringLiteral("CDAB")));
+}
+
+TEST_F(ModbusTelemetryWidgetTest, SemanticGuardMatrix) {
+    widget_->setProtocolType(::modbus::parser::ProtocolType::Rtu);
+
+    auto* decodeCombo = widget_->decodeTypeCombo();
+    auto* orderCombo = widget_->orderCombo();
+    ASSERT_NE(decodeCombo, nullptr);
+    ASSERT_NE(orderCombo, nullptr);
+
+    // 1. 0x06 Write Single Register: Decode is enabled (16-bit), Order is disabled
+    TrafficEvent ev06;
+    ev06.direction = TrafficDirection::Tx;
+    ev06.payload = QByteArray::fromHex("010600010064D9E1"); // Write reg 1 with 100
+    widget_->appendTrafficEvent(ev06);
+    QMetaObject::invokeMethod(widget_.get(), "processBatchTimeout");
+    widget_->tableView()->selectRow(0);
+
+    EXPECT_TRUE(decodeCombo->isEnabled());
+    EXPECT_FALSE(orderCombo->isEnabled());
+
+    // 2. 0x01 Read Coils RX: Bits operation -> Decode and Order both disabled
+    widget_->clear();
+    TrafficEvent ev01;
+    ev01.direction = TrafficDirection::Rx;
+    ev01.payload = QByteArray::fromHex("01010105918B"); // 1 byte coils (Coil 0=1, Coil 1=0, Coil 2=1)
+    widget_->appendTrafficEvent(ev01);
+    QMetaObject::invokeMethod(widget_.get(), "processBatchTimeout");
+    widget_->tableView()->selectRow(0);
+
+    EXPECT_FALSE(decodeCombo->isEnabled());
+    EXPECT_FALSE(orderCombo->isEnabled());
+    EXPECT_TRUE(widget_->inspectorDetailsText().contains(QStringLiteral("ON")));
+    EXPECT_TRUE(widget_->inspectorDetailsText().contains(QStringLiteral("OFF")));
+
+    // 3. 0x03 Read Request TX: No register data payload -> Decode and Order disabled
+    widget_->clear();
+    TrafficEvent ev03Tx;
+    ev03Tx.direction = TrafficDirection::Tx;
+    ev03Tx.payload = QByteArray::fromHex("010300000002C40B");
+    widget_->appendTrafficEvent(ev03Tx);
+    QMetaObject::invokeMethod(widget_.get(), "processBatchTimeout");
+    widget_->tableView()->selectRow(0);
+
+    EXPECT_FALSE(decodeCombo->isEnabled());
+    EXPECT_FALSE(orderCombo->isEnabled());
+
+    // 4. 0x10 Write Multiple Registers Echo RX: No data payload -> Decode and Order disabled
+    widget_->clear();
+    TrafficEvent ev10Rx;
+    ev10Rx.direction = TrafficDirection::Rx;
+    ev10Rx.payload = QByteArray::fromHex("01100000000241C8");
+    widget_->appendTrafficEvent(ev10Rx);
+    QMetaObject::invokeMethod(widget_.get(), "processBatchTimeout");
+    widget_->tableView()->selectRow(0);
+
+    EXPECT_FALSE(decodeCombo->isEnabled());
+    EXPECT_FALSE(orderCombo->isEnabled());
+
+    // 5. Exception Response (0x83): No data payload -> Decode and Order disabled
+    widget_->clear();
+    TrafficEvent evEx;
+    evEx.direction = TrafficDirection::Rx;
+    evEx.payload = QByteArray::fromHex("018302C0F1");
+    widget_->appendTrafficEvent(evEx);
+    QMetaObject::invokeMethod(widget_.get(), "processBatchTimeout");
+    widget_->tableView()->selectRow(0);
+
+    EXPECT_FALSE(decodeCombo->isEnabled());
+    EXPECT_FALSE(orderCombo->isEnabled());
+}
+
+TEST_F(ModbusTelemetryWidgetTest, MetadataScaleAndDescriptionRendering) {
+    widget_->setProtocolType(::modbus::parser::ProtocolType::Rtu);
+
+    // 0x03 Response with register value = 200 (0x00C8) at address 0
+    TrafficEvent ev;
+    ev.direction = TrafficDirection::Rx;
+    ev.payload = QByteArray::fromHex("01030200C8B9D2");
+    widget_->appendTrafficEvent(ev);
+    QMetaObject::invokeMethod(widget_.get(), "processBatchTimeout");
+
+    // Inject metadata: scale = 0.5, description = "WaterTemperature"
+    QMap<uint16_t, ::modbus::analyzer::DataMetadata> metaMap;
+    ::modbus::analyzer::DataMetadata meta;
+    meta.scale = 0.5;
+    meta.description = QStringLiteral("WaterTemperature");
+    metaMap.insert(0, meta);
+    widget_->setMetadataMap(metaMap);
+
+    widget_->tableView()->selectRow(0);
+    const QString details = widget_->inspectorDetailsText();
+
+    EXPECT_TRUE(details.contains(QStringLiteral("WaterTemperature")));
+    EXPECT_TRUE(details.contains(QStringLiteral("100"))); // 200 * 0.5 = 100
 }
 

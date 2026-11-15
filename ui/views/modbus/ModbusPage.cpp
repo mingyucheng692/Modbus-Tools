@@ -320,6 +320,12 @@ bool ModbusPage::isLinked() const {
     return pagePresenter_ ? pagePresenter_->isLinked() : false;
 }
 
+void ModbusPage::setMetadataMap(const QMap<uint16_t, ::modbus::analyzer::DataMetadata>& meta) {
+    if (telemetryWidget_) {
+        telemetryWidget_->setMetadataMap(meta);
+    }
+}
+
 void ModbusPage::onProtocolChanged(int index) {
     if (index < 0 || index >= protocolCombo_->count()) return;
     const auto mode = static_cast<ui::application::modbus::SessionMode>(protocolCombo_->itemData(index).toInt());

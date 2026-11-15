@@ -157,6 +157,237 @@ QString value_formatter::formatBinaryValue(const QByteArray& rawBytes, const QSt
     return groupBits(QString("%1").arg(masked, bitWidth, 2, QChar('0')));
 }
 
+value_formatter::FrameDecodeEvaluation value_formatter::evaluateFrameDecodeCapability(
+    const ::modbus::parser::ParseResult& pr,
+    bool isTx
+) {
+    using ::modbus::base::FunctionCode;
+    FrameDecodeEvaluation eval;
+
+    if (!pr.isValid && pr.error.isEmpty() && pr.rawFrame.isEmpty()) {
+        eval.capability = FrameDecodeCapability::NoDataPayload;
+        eval.capabilityHint = QCoreApplication::translate("ValueFormatter", "No Modbus frame payload");
+        return eval;
+    }
+
+    if (pr.isException || static_cast<int>(pr.functionCode) >= 0x80) {
+        eval.capability = FrameDecodeCapability::NoDataPayload;
+        eval.capabilityHint = QCoreApplication::translate("ValueFormatter", "Exception response contains no register data payload");
+        return eval;
+    }
+
+    // Read Requests (0x01..0x04 TX)
+    if (isTx && (pr.functionCode == FunctionCode::ReadCoils ||
+                 pr.functionCode == FunctionCode::ReadDiscreteInputs ||
+                 pr.functionCode == FunctionCode::ReadHoldingRegisters ||
+                 pr.functionCode == FunctionCode::ReadInputRegisters)) {
+        eval.capability = FrameDecodeCapability::NoDataPayload;
+        eval.capabilityHint = QCoreApplication::translate("ValueFormatter", "Read request frame contains no register data payload");
+        return eval;
+    }
+
+    // Write Echo Confirmations (0x0F, 0x10 RX)
+    if (!isTx && (pr.functionCode == FunctionCode::WriteMultipleCoils ||
+                  pr.functionCode == FunctionCode::WriteMultipleRegisters)) {
+        eval.capability = FrameDecodeCapability::NoDataPayload;
+        eval.capabilityHint = QCoreApplication::translate("ValueFormatter", "Write confirmation echo contains no register data payload");
+        return eval;
+    }
+
+    // Write Single Register (0x06 TX & RX)
+    if (pr.functionCode == FunctionCode::WriteSingleRegister) {
+        eval.capability = FrameDecodeCapability::SingleRegister;
+        eval.enableDecodeCombo = true;
+        eval.enableOrderCombo = false;
+        eval.allowMultiWordTypes = false;
+        eval.capabilityHint = QCoreApplication::translate("ValueFormatter", "Multi-word byte ordering not applicable to 16-bit register");
+        if (!pr.dataItems.isEmpty() && pr.dataItems[0].rawBytes.size() >= 2) {
+            eval.registerBytes = pr.dataItems[0].rawBytes.left(2);
+            eval.startAddress = pr.dataItems[0].address;
+            eval.registerCount = 1;
+        } else if (pr.pduData.size() == 5) {
+            eval.registerBytes = pr.pduData.mid(3, 2);
+            eval.startAddress = (static_cast<uint8_t>(pr.pduData[1]) << 8) | static_cast<uint8_t>(pr.pduData[2]);
+            eval.registerCount = 1;
+        }
+        return eval;
+    }
+
+    // Discrete Bits: 0x01/0x02 RX, 0x05 TX/RX, 0x0F TX
+    if (pr.functionCode == FunctionCode::ReadCoils ||
+        pr.functionCode == FunctionCode::ReadDiscreteInputs ||
+        pr.functionCode == FunctionCode::WriteSingleCoil ||
+        (pr.functionCode == FunctionCode::WriteMultipleCoils && isTx)) {
+        eval.capability = FrameDecodeCapability::DiscreteBits;
+        eval.enableDecodeCombo = false;
+        eval.enableOrderCombo = false;
+        eval.allowMultiWordTypes = false;
+        eval.capabilityHint = QCoreApplication::translate("ValueFormatter", "Discrete coil/bit operation");
+        return eval;
+    }
+
+    // Full Registers: 0x03/0x04 RX, 0x10 TX
+    if (((pr.functionCode == FunctionCode::ReadHoldingRegisters ||
+          pr.functionCode == FunctionCode::ReadInputRegisters) && !isTx) ||
+        (pr.functionCode == FunctionCode::WriteMultipleRegisters && isTx)) {
+        eval.capability = FrameDecodeCapability::FullRegisters;
+        eval.enableDecodeCombo = true;
+        eval.enableOrderCombo = true;
+        eval.allowMultiWordTypes = true;
+        eval.capabilityHint.clear();
+
+        for (const auto& item : pr.dataItems) {
+            if (item.rawBytes.size() >= 2) {
+                eval.registerBytes.append(item.rawBytes.left(2));
+            }
+        }
+        eval.registerCount = eval.registerBytes.size() / 2;
+        if (!pr.dataItems.isEmpty()) {
+            eval.startAddress = pr.dataItems[0].address;
+        }
+        return eval;
+    }
+
+    eval.capability = FrameDecodeCapability::NoDataPayload;
+    eval.capabilityHint = QCoreApplication::translate("ValueFormatter", "No Modbus register payload");
+    return eval;
+}
+
+QString value_formatter::formatDecodedSummary(
+    const ::modbus::parser::ParseResult& pr,
+    const FrameDecodeEvaluation& eval,
+    RegisterDataType type,
+    modbus::base::RegisterOrder order,
+    const QMap<uint16_t, DataMetadata>& metadata
+) {
+    if (eval.capability == FrameDecodeCapability::DiscreteBits) {
+        if (pr.dataItems.isEmpty()) {
+            return QCoreApplication::translate("ValueFormatter", "No discrete bit data available");
+        }
+        QStringList lines;
+        lines.reserve(pr.dataItems.size());
+        for (int i = 0; i < pr.dataItems.size(); ++i) {
+            const auto& item = pr.dataItems[i];
+            const bool isOn = item.value.toBool();
+            const QString state = isOn ? QStringLiteral("ON") : QStringLiteral("OFF");
+            if (metadata.contains(item.address) && !metadata.value(item.address).description.isEmpty()) {
+                lines.append(QStringLiteral("[+%1] Coil %2 (%3): %4")
+                                 .arg(i, 2, 10, QLatin1Char('0'))
+                                 .arg(item.address, 4, 10, QLatin1Char('0'))
+                                 .arg(metadata.value(item.address).description)
+                                 .arg(state));
+            } else {
+                lines.append(QStringLiteral("[+%1] Coil %2: %3")
+                                 .arg(i, 2, 10, QLatin1Char('0'))
+                                 .arg(item.address, 4, 10, QLatin1Char('0'))
+                                 .arg(state));
+            }
+        }
+        return lines.join(QLatin1Char('\n'));
+    }
+
+    if (eval.capability == FrameDecodeCapability::SingleRegister) {
+        if (eval.registerBytes.size() < 2) {
+            return QCoreApplication::translate("ValueFormatter", "<Incomplete register data>");
+        }
+        const RegisterDataType actType = (type == RegisterDataType::Int16) ? RegisterDataType::Int16 : RegisterDataType::UInt16;
+        const QByteArrayView slice(eval.registerBytes.constData(), 2);
+        const uint16_t addr = eval.startAddress;
+        if (metadata.contains(addr)) {
+            const auto& meta = metadata.value(addr);
+            const QString valStr = formatScaledValue(slice, meta, actType, order);
+            if (!meta.description.isEmpty()) {
+                return QStringLiteral("[+00] Addr %1 (%2): %3")
+                    .arg(addr, 4, 10, QLatin1Char('0'))
+                    .arg(meta.description)
+                    .arg(valStr);
+            }
+            return QStringLiteral("[+00] Addr %1: %2")
+                .arg(addr, 4, 10, QLatin1Char('0'))
+                .arg(valStr);
+        }
+        const auto decoded = modbus::codec::decodeRegister(slice, actType, order);
+        return QStringLiteral("[+00] Addr %1: %2")
+            .arg(addr, 4, 10, QLatin1Char('0'))
+            .arg(decoded.displayText);
+    }
+
+    if (eval.capability == FrameDecodeCapability::FullRegisters) {
+        int reqBytes = 2;
+        switch (type) {
+        case RegisterDataType::UInt16:
+        case RegisterDataType::Int16:
+            reqBytes = 2;
+            break;
+        case RegisterDataType::UInt32:
+        case RegisterDataType::Int32:
+        case RegisterDataType::Float32:
+            reqBytes = 4;
+            break;
+        case RegisterDataType::Float64:
+            reqBytes = 8;
+            break;
+        }
+
+        if (eval.registerBytes.size() < reqBytes) {
+            return QCoreApplication::translate("ValueFormatter",
+                "<Incomplete: requires %1 registers (%2 bytes), available: %3 (%4 bytes)>")
+                .arg(reqBytes / 2)
+                .arg(reqBytes)
+                .arg(eval.registerCount)
+                .arg(eval.registerBytes.size());
+        }
+
+        QStringList lines;
+        const int totalBytes = eval.registerBytes.size();
+        int offset = 0;
+        int regIndex = 0;
+        while (offset + reqBytes <= totalBytes) {
+            const QByteArrayView slice(eval.registerBytes.constData() + offset, reqBytes);
+            const uint16_t addr = eval.startAddress + regIndex;
+            QString line;
+            if (metadata.contains(addr)) {
+                const auto& meta = metadata.value(addr);
+                const QString valStr = formatScaledValue(slice, meta, type, order);
+                if (!meta.description.isEmpty()) {
+                    line = QStringLiteral("[+%1] Addr %2 (%3): %4")
+                        .arg(regIndex, 2, 10, QLatin1Char('0'))
+                        .arg(addr, 4, 10, QLatin1Char('0'))
+                        .arg(meta.description)
+                        .arg(valStr);
+                } else {
+                    line = QStringLiteral("[+%1] Addr %2: %3")
+                        .arg(regIndex, 2, 10, QLatin1Char('0'))
+                        .arg(addr, 4, 10, QLatin1Char('0'))
+                        .arg(valStr);
+                }
+            } else {
+                const auto decoded = modbus::codec::decodeRegister(slice, type, order);
+                line = QStringLiteral("[+%1] Addr %2: %3")
+                    .arg(regIndex, 2, 10, QLatin1Char('0'))
+                    .arg(addr, 4, 10, QLatin1Char('0'))
+                    .arg(decoded.displayText);
+            }
+            lines.append(line);
+            offset += reqBytes;
+            regIndex += (reqBytes / 2);
+        }
+
+        if (offset < totalBytes) {
+            const int leftoverBytes = totalBytes - offset;
+            const int leftoverRegs = leftoverBytes / 2;
+            lines.append(QStringLiteral("[+%1] Leftover: <Incomplete: %2 registers (%3 bytes) available, %4 required>")
+                             .arg(regIndex, 2, 10, QLatin1Char('0'))
+                             .arg(leftoverRegs)
+                             .arg(leftoverBytes)
+                             .arg(reqBytes / 2));
+        }
+        return lines.join(QLatin1Char('\n'));
+    }
+
+    return QString();
+}
+
 } // namespace modbus::analyzer
 
 namespace modbus::codec {

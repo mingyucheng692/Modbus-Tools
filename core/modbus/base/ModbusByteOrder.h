@@ -99,5 +99,15 @@ inline void rearrangeBytes64(const uint8_t* src, uint8_t* dst, RegisterOrder ord
     return rearrange64(src.data(), order);
 }
 
+[[nodiscard]] constexpr const char* registerOrderToString(RegisterOrder order) noexcept {
+    switch (order) {
+    case RegisterOrder::ABCD: return "ABCD";
+    case RegisterOrder::BADC: return "BADC";
+    case RegisterOrder::CDAB: return "CDAB";
+    case RegisterOrder::DCBA: return "DCBA";
+    }
+    return "ABCD";
+}
+
 } // namespace modbus::base
 

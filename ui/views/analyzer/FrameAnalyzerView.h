@@ -59,10 +59,12 @@ public:
 
     void exitLiveMode();
     void setLivePaused(bool paused);
+    [[nodiscard]] QMap<uint16_t, ::modbus::analyzer::DataMetadata> metadataSnapshot() const;
 
 signals:
     void linkagePauseToggled(bool paused);
     void linkageStopRequested();
+    void metadataSnapshotChanged(const QMap<uint16_t, ::modbus::analyzer::DataMetadata>& metadata);
 
 private slots:
     void onParseClicked();

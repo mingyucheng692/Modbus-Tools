@@ -11,6 +11,7 @@
 #include <QHeaderView>
 #include <QScrollBar>
 #include <QSortFilterProxyModel>
+#include <QStandardItemModel>
 #include <QLabel>
 #include <QPushButton>
 #include <QComboBox>
@@ -179,6 +180,7 @@ void ModbusTelemetryWidget::resizeEvent(QResizeEvent* event) {
     QWidget::resizeEvent(event);
     if (event) {
         updateResponsiveToolbar(event->size().width());
+        updateResponsiveInspectorHeader(event->size().width());
     }
 }
 
@@ -276,24 +278,47 @@ void ModbusTelemetryWidget::setupInspector() {
     layout->setContentsMargins(0, 0, 0, 0);
     layout->setSpacing(2);
 
-    auto* headerWidget = new QWidget(container);
-    auto* headerLayout = new QHBoxLayout(headerWidget);
-    headerLayout->setContentsMargins(2, 2, 2, 2);
-    headerLayout->setSpacing(6);
+    inspectorHeaderWidget_ = new QWidget(container);
+    inspectorHeaderLayout_ = new QGridLayout(inspectorHeaderWidget_);
+    inspectorHeaderLayout_->setContentsMargins(2, 2, 2, 2);
+    inspectorHeaderLayout_->setSpacing(4);
 
-    inspectorHeaderLabel_ = new QLabel(tr("Frame Details"), headerWidget);
+    inspectorHeaderLabel_ = new QLabel(tr("Frame Details"), inspectorHeaderWidget_);
     inspectorHeaderLabel_->setStyleSheet(QStringLiteral("font-weight: bold; background-color: palette(alternate-base); padding: 2px;"));
-    headerLayout->addWidget(inspectorHeaderLabel_);
-    headerLayout->addStretch(1);
 
-    inspectInAnalyzerBtn_ = new QPushButton(tr("Inspect in Analyzer ↗"), headerWidget);
+    decodeLabel_ = new QLabel(tr("Decode:"), inspectorHeaderWidget_);
+    decodeTypeCombo_ = new QComboBox(inspectorHeaderWidget_);
+    decodeTypeCombo_->setObjectName(QStringLiteral("inspectorDecodeTypeCombo"));
+    decodeTypeCombo_->setSizeAdjustPolicy(QComboBox::AdjustToContents);
+    decodeTypeCombo_->addItem(QStringLiteral("UInt16"), static_cast<int>(::modbus::analyzer::RegisterDataType::UInt16));
+    decodeTypeCombo_->addItem(QStringLiteral("Int16"), static_cast<int>(::modbus::analyzer::RegisterDataType::Int16));
+    decodeTypeCombo_->addItem(QStringLiteral("UInt32"), static_cast<int>(::modbus::analyzer::RegisterDataType::UInt32));
+    decodeTypeCombo_->addItem(QStringLiteral("Int32"), static_cast<int>(::modbus::analyzer::RegisterDataType::Int32));
+    decodeTypeCombo_->addItem(QStringLiteral("Float32"), static_cast<int>(::modbus::analyzer::RegisterDataType::Float32));
+    decodeTypeCombo_->addItem(QStringLiteral("Float64"), static_cast<int>(::modbus::analyzer::RegisterDataType::Float64));
+
+    orderLabel_ = new QLabel(tr("Order:"), inspectorHeaderWidget_);
+    orderCombo_ = new QComboBox(inspectorHeaderWidget_);
+    orderCombo_->setObjectName(QStringLiteral("inspectorOrderCombo"));
+    orderCombo_->setSizeAdjustPolicy(QComboBox::AdjustToContents);
+    orderCombo_->addItem(QStringLiteral("ABCD"), static_cast<int>(::modbus::base::RegisterOrder::ABCD));
+    orderCombo_->addItem(QStringLiteral("CDAB"), static_cast<int>(::modbus::base::RegisterOrder::CDAB));
+    orderCombo_->addItem(QStringLiteral("BADC"), static_cast<int>(::modbus::base::RegisterOrder::BADC));
+    orderCombo_->addItem(QStringLiteral("DCBA"), static_cast<int>(::modbus::base::RegisterOrder::DCBA));
+
+    connect(decodeTypeCombo_, QOverload<int>::of(&QComboBox::currentIndexChanged),
+            this, &ModbusTelemetryWidget::onDecodeConfigChanged);
+    connect(orderCombo_, QOverload<int>::of(&QComboBox::currentIndexChanged),
+            this, &ModbusTelemetryWidget::onDecodeConfigChanged);
+
+    inspectInAnalyzerBtn_ = new QPushButton(tr("Inspect in Analyzer ↗"), inspectorHeaderWidget_);
     inspectInAnalyzerBtn_->setObjectName(QStringLiteral("inspectInAnalyzerBtn"));
     inspectInAnalyzerBtn_->setEnabled(false);
     inspectInAnalyzerBtn_->setToolTip(tr("Send the selected frame payload to Frame Analyzer for deep parsing"));
     connect(inspectInAnalyzerBtn_, &QPushButton::clicked, this, &ModbusTelemetryWidget::onInspectInAnalyzerClicked);
-    headerLayout->addWidget(inspectInAnalyzerBtn_);
 
-    layout->addWidget(headerWidget);
+    applyInspectorHeaderLayout(false);
+    layout->addWidget(inspectorHeaderWidget_);
 
     inspectorDetailsText_ = new QTextEdit(container);
     inspectorDetailsText_->setReadOnly(true);
@@ -303,6 +328,143 @@ void ModbusTelemetryWidget::setupInspector() {
     layout->addWidget(inspectorDetailsText_, 1);
 
     splitter_->addWidget(container);
+}
+
+void ModbusTelemetryWidget::applyInspectorHeaderLayout(bool twoRow) {
+    if (!inspectorHeaderLayout_) return;
+
+    isTwoRowInspectorHeader_ = twoRow;
+
+    inspectorHeaderLayout_->removeWidget(inspectorHeaderLabel_);
+    inspectorHeaderLayout_->removeWidget(decodeLabel_);
+    inspectorHeaderLayout_->removeWidget(decodeTypeCombo_);
+    inspectorHeaderLayout_->removeWidget(orderLabel_);
+    inspectorHeaderLayout_->removeWidget(orderCombo_);
+    inspectorHeaderLayout_->removeWidget(inspectInAnalyzerBtn_);
+
+    if (twoRow) {
+        inspectorHeaderLayout_->addWidget(inspectorHeaderLabel_, 0, 0, 1, 3);
+        inspectorHeaderLayout_->addWidget(inspectInAnalyzerBtn_, 0, 3, 1, 1, Qt::AlignRight);
+        inspectorHeaderLayout_->addWidget(decodeLabel_, 1, 0);
+        inspectorHeaderLayout_->addWidget(decodeTypeCombo_, 1, 1);
+        inspectorHeaderLayout_->addWidget(orderLabel_, 1, 2);
+        inspectorHeaderLayout_->addWidget(orderCombo_, 1, 3);
+        inspectorHeaderLayout_->setColumnStretch(0, 0);
+        inspectorHeaderLayout_->setColumnStretch(1, 0);
+        inspectorHeaderLayout_->setColumnStretch(2, 0);
+        inspectorHeaderLayout_->setColumnStretch(3, 1);
+        inspectorHeaderLayout_->setColumnStretch(4, 0);
+        inspectorHeaderLayout_->setColumnStretch(5, 0);
+    } else {
+        inspectorHeaderLayout_->addWidget(inspectorHeaderLabel_, 0, 0);
+        inspectorHeaderLayout_->addWidget(decodeLabel_, 0, 1);
+        inspectorHeaderLayout_->addWidget(decodeTypeCombo_, 0, 2);
+        inspectorHeaderLayout_->addWidget(orderLabel_, 0, 3);
+        inspectorHeaderLayout_->addWidget(orderCombo_, 0, 4);
+        inspectorHeaderLayout_->addWidget(inspectInAnalyzerBtn_, 0, 5, Qt::AlignRight);
+        inspectorHeaderLayout_->setColumnStretch(0, 0);
+        inspectorHeaderLayout_->setColumnStretch(1, 0);
+        inspectorHeaderLayout_->setColumnStretch(2, 0);
+        inspectorHeaderLayout_->setColumnStretch(3, 0);
+        inspectorHeaderLayout_->setColumnStretch(4, 1);
+        inspectorHeaderLayout_->setColumnStretch(5, 0);
+    }
+}
+
+void ModbusTelemetryWidget::updateResponsiveInspectorHeader(int availableWidth) {
+    const bool needTwoRow = isTwoRowInspectorHeader_ ? (availableWidth < 490) : (availableWidth < 460);
+    if (needTwoRow != isTwoRowInspectorHeader_) {
+        applyInspectorHeaderLayout(needTwoRow);
+    }
+}
+
+void ModbusTelemetryWidget::setMetadataMap(const QMap<uint16_t, ::modbus::analyzer::DataMetadata>& meta) {
+    metadataByAddress_ = meta;
+    const auto* selModel = tableView_ ? tableView_->selectionModel() : nullptr;
+    if (selModel && selModel->hasSelection() && proxyModel_ && tableModel_) {
+        const auto indexes = selModel->selectedRows();
+        if (!indexes.isEmpty()) {
+            const int sourceRow = proxyModel_->mapToSource(indexes.first()).row();
+            updateInspectorContent(tableModel_->rowAt(sourceRow));
+        }
+    }
+}
+
+void ModbusTelemetryWidget::setDecodeType(::modbus::analyzer::RegisterDataType type) {
+    currentDataType_ = type;
+    if (decodeTypeCombo_) {
+        const int idx = decodeTypeCombo_->findData(static_cast<int>(type));
+        if (idx >= 0 && decodeTypeCombo_->currentIndex() != idx) {
+            decodeTypeCombo_->setCurrentIndex(idx);
+        }
+    }
+}
+
+void ModbusTelemetryWidget::setRegisterOrder(::modbus::base::RegisterOrder order) {
+    currentOrder_ = order;
+    if (orderCombo_) {
+        const int idx = orderCombo_->findData(static_cast<int>(order));
+        if (idx >= 0 && orderCombo_->currentIndex() != idx) {
+            orderCombo_->setCurrentIndex(idx);
+        }
+    }
+}
+
+void ModbusTelemetryWidget::applyDecodeCapability(const ::modbus::analyzer::value_formatter::FrameDecodeEvaluation& eval) {
+    if (!decodeTypeCombo_ || !orderCombo_) return;
+
+    decodeTypeCombo_->setEnabled(eval.enableDecodeCombo);
+    orderCombo_->setEnabled(eval.enableOrderCombo);
+
+    if (eval.capability == ::modbus::analyzer::value_formatter::FrameDecodeCapability::SingleRegister) {
+        if (currentDataType_ != ::modbus::analyzer::RegisterDataType::UInt16 &&
+            currentDataType_ != ::modbus::analyzer::RegisterDataType::Int16) {
+            setDecodeType(::modbus::analyzer::RegisterDataType::UInt16);
+        }
+        if (auto* model = qobject_cast<QStandardItemModel*>(decodeTypeCombo_->model())) {
+            for (int i = 0; i < decodeTypeCombo_->count(); ++i) {
+                const auto t = static_cast<::modbus::analyzer::RegisterDataType>(decodeTypeCombo_->itemData(i).toInt());
+                const bool is16 = (t == ::modbus::analyzer::RegisterDataType::UInt16 || t == ::modbus::analyzer::RegisterDataType::Int16);
+                if (auto* item = model->item(i)) {
+                    item->setEnabled(is16);
+                }
+            }
+        }
+        decodeTypeCombo_->setToolTip(tr("16-bit scalar register"));
+        orderCombo_->setToolTip(eval.capabilityHint);
+    } else if (eval.capability == ::modbus::analyzer::value_formatter::FrameDecodeCapability::FullRegisters) {
+        if (auto* model = qobject_cast<QStandardItemModel*>(decodeTypeCombo_->model())) {
+            for (int i = 0; i < decodeTypeCombo_->count(); ++i) {
+                if (auto* item = model->item(i)) {
+                    item->setEnabled(true);
+                }
+            }
+        }
+        decodeTypeCombo_->setToolTip(tr("Target register data representation type"));
+        orderCombo_->setToolTip(tr("Multi-word byte/word ordering convention"));
+    } else {
+        decodeTypeCombo_->setToolTip(eval.capabilityHint);
+        orderCombo_->setToolTip(eval.capabilityHint);
+    }
+}
+
+void ModbusTelemetryWidget::onDecodeConfigChanged() {
+    if (decodeTypeCombo_) {
+        currentDataType_ = static_cast<::modbus::analyzer::RegisterDataType>(
+            decodeTypeCombo_->currentData().toInt());
+    }
+    if (orderCombo_) {
+        currentOrder_ = static_cast<::modbus::base::RegisterOrder>(
+            orderCombo_->currentData().toInt());
+    }
+    const auto* selModel = tableView_ ? tableView_->selectionModel() : nullptr;
+    if (selModel && selModel->hasSelection() && proxyModel_ && tableModel_) {
+        const auto indexes = selModel->selectedRows();
+        if (!indexes.isEmpty()) {
+            const int sourceRow = proxyModel_->mapToSource(indexes.first()).row();
+            updateInspectorContent(tableModel_->rowAt(sourceRow));
+        }
+    }
 }
 
 void ModbusTelemetryWidget::onInspectInAnalyzerClicked() {
@@ -442,11 +604,17 @@ void ModbusTelemetryWidget::clear() {
     if (inspectInAnalyzerBtn_) {
         inspectInAnalyzerBtn_->setEnabled(false);
     }
+    ::modbus::analyzer::value_formatter::FrameDecodeEvaluation noEval;
+    noEval.capabilityHint = tr("Select a frame to inspect details");
+    applyDecodeCapability(noEval);
 }
 
 void ModbusTelemetryWidget::onSelectionChanged() {
     const auto indexes = tableView_->selectionModel()->selectedRows();
     if (indexes.isEmpty()) {
+        ::modbus::analyzer::value_formatter::FrameDecodeEvaluation noEval;
+        noEval.capabilityHint = tr("Select a frame to inspect details");
+        applyDecodeCapability(noEval);
         updateInspectorContent(nullptr);
         if (inspectInAnalyzerBtn_) {
             inspectInAnalyzerBtn_->setEnabled(false);
@@ -455,9 +623,17 @@ void ModbusTelemetryWidget::onSelectionChanged() {
     }
     const int sourceRow = proxyModel_->mapToSource(indexes.first()).row();
     const TelemetryRowView* row = tableModel_->rowAt(sourceRow);
+    if (!row) {
+        updateInspectorContent(nullptr);
+        return;
+    }
+
+    const bool isTx = (row->event.direction == ::ui::common::TrafficDirection::Tx);
+    const auto eval = ::modbus::analyzer::value_formatter::evaluateFrameDecodeCapability(row->parseResult, isTx);
+    applyDecodeCapability(eval);
     updateInspectorContent(row);
 
-    const bool hasPayload = (row && !row->event.payload.isEmpty());
+    const bool hasPayload = (!row->event.payload.isEmpty());
     if (inspectInAnalyzerBtn_) {
         inspectInAnalyzerBtn_->setEnabled(hasPayload);
     }
@@ -471,8 +647,34 @@ QString ModbusTelemetryWidget::inspectorDetailsText() const noexcept {
 }
 
 QString ModbusTelemetryWidget::formatInspectorDetails(const ::modbus::parser::ParseResult& pr, int aduLength) {
+    ModbusTelemetryWidget dummy;
+    return dummy.formatInspectorDetails(pr, aduLength, false, ::modbus::analyzer::RegisterDataType::UInt16, ::modbus::base::RegisterOrder::ABCD, {});
+}
+
+QString ModbusTelemetryWidget::formatInspectorDetails(
+    const ::modbus::parser::ParseResult& pr,
+    int aduLength,
+    bool isTx,
+    ::modbus::analyzer::RegisterDataType type,
+    ::modbus::base::RegisterOrder order,
+    const QMap<uint16_t, ::modbus::analyzer::DataMetadata>& metadata) const {
+
     QString details;
     QTextStream out(&details);
+
+    // 1. In-place decoded values / semantic summary at top
+    const auto eval = ::modbus::analyzer::value_formatter::evaluateFrameDecodeCapability(pr, isTx);
+    const QString decodedSummary = ::modbus::analyzer::value_formatter::formatDecodedSummary(
+        pr, eval, type, order, metadata);
+    if (!decodedSummary.isEmpty()) {
+        out << tr("--- Decoded Values (%1 / %2) ---")
+                   .arg(::modbus::analyzer::registerDataTypeToString(type),
+                        QString::fromLatin1(::modbus::base::registerOrderToString(order)))
+            << "\n" << decodedSummary << "\n\n";
+    }
+
+    // 2. Frame structure details
+    out << tr("--- Frame Structure ---\n");
     const auto fcHex = QString::number(static_cast<int>(pr.functionCode), 16).rightJustified(2, QLatin1Char('0')).toUpper();
     const auto fcName = QString::fromLatin1(::modbus::base::function_traits::functionCodeName(pr.functionCode));
 
@@ -520,7 +722,8 @@ void ModbusTelemetryWidget::updateInspectorContent(const TelemetryRowView* row) 
         return;
     }
 
-    const auto dirStr = (row->event.direction == ::ui::common::TrafficDirection::Tx) ? QStringLiteral("TX") : QStringLiteral("RX");
+    const bool isTx = (row->event.direction == ::ui::common::TrafficDirection::Tx);
+    const auto dirStr = isTx ? QStringLiteral("TX") : QStringLiteral("RX");
     inspectorHeaderLabel_->setText(tr("[#%1] %2 | %3 | %4 bytes | %5")
                          .arg(row->rowId)
                          .arg(dirStr)
@@ -528,7 +731,8 @@ void ModbusTelemetryWidget::updateInspectorContent(const TelemetryRowView* row) 
                          .arg(row->event.payload.size())
                          .arg(row->statusText));
 
-    inspectorDetailsText_->setPlainText(formatInspectorDetails(row->parseResult, row->event.payload.size()));
+    inspectorDetailsText_->setPlainText(formatInspectorDetails(
+        row->parseResult, row->event.payload.size(), isTx, currentDataType_, currentOrder_, metadataByAddress_));
 }
 
 void ModbusTelemetryWidget::onFilterChanged(int index) {
@@ -727,6 +931,12 @@ void ModbusTelemetryWidget::retranslateUi() {
     if (inspectInAnalyzerBtn_) {
         inspectInAnalyzerBtn_->setText(tr("Inspect in Analyzer ↗"));
         inspectInAnalyzerBtn_->setToolTip(tr("Send the selected frame payload to Frame Analyzer for deep parsing"));
+    }
+    if (decodeLabel_) {
+        decodeLabel_->setText(tr("Decode:"));
+    }
+    if (orderLabel_) {
+        orderLabel_->setText(tr("Order:"));
     }
     if (inspectorHeaderLabel_) {
         const auto* selModel = tableView_ ? tableView_->selectionModel() : nullptr;

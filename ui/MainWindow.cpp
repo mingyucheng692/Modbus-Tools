@@ -140,6 +140,12 @@ void MainWindow::initializeUi() {
     }
     applyAddressBaseToViews(settingsController_->addressBase());
 
+    if (frameAnalyzer_ && modbusView_) {
+        modbusView_->setMetadataMap(frameAnalyzer_->metadataSnapshot());
+        connect(frameAnalyzer_, &views::analyzer::FrameAnalyzerView::metadataSnapshotChanged,
+                modbusView_, &views::modbus::ModbusPage::setMetadataMap);
+    }
+
     if (modbusView_) {
         connect(modbusView_, &views::modbus::ModbusPage::inspectInAnalyzerRequested,
                 this, [this](const QString& hex) {

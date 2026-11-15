@@ -426,4 +426,26 @@ TEST(FrameAnalyzerViewBatch4Test, ClearInLiveModeSyncsLinkageAndCollapsedSetting
     EXPECT_EQ(historyBtn->text(), QStringLiteral("History"));
 }
 
+TEST(FrameAnalyzerViewBatch4Test, WriteEchoInLiveModeDoesNotClearDecodedTable) {
+    tests::mocks::FakeSettingsService settings;
+    Analyzer analyzer(&settings);
+    analyzer.resize(1200, 800);
+
+    // 1. Send 0x03 read response PDU (2 registers: 00 0A, 00 14)
+    ::modbus::base::Pdu readPdu(::modbus::base::FunctionCode::ReadHoldingRegisters, QByteArray::fromHex("04000A0014"));
+    analyzer.processLivePdu(readPdu, ::modbus::parser::ProtocolType::Rtu, 100);
+
+    auto* table = analyzer.findChild<QTableWidget*>();
+    ASSERT_NE(table, nullptr);
+    const int countAfterRead = table->rowCount();
+    EXPECT_GT(countAfterRead, 0);
+
+    // 2. Send 0x10 write echo confirmation PDU (addr: 100, qty: 2) -> 4 bytes data: 00 64 00 02
+    ::modbus::base::Pdu writeEchoPdu(::modbus::base::FunctionCode::WriteMultipleRegisters, QByteArray::fromHex("00640002"));
+    analyzer.processLivePdu(writeEchoPdu, ::modbus::parser::ProtocolType::Rtu, 100);
+
+    // Assert rows were NOT cleared!
+    EXPECT_EQ(table->rowCount(), countAfterRead);
+}
+
 } // namespace

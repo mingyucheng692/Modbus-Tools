@@ -4,8 +4,10 @@
 
 #include <QWidget>
 #include <QString>
+#include <QMap>
 #include "application/modbus/IModbusPageView.h"
 #include "application/modbus/ModbusTypes.h"
+#include "analyzer/AnalyzerCommon.h"
 #include "infra/io/SerialConfig.h"
 
 class QComboBox;
@@ -62,6 +64,7 @@ public:
     void updateModbusSettings(int timeoutMs, int retries, int retryIntervalMs);
     void setLinked(bool linked);
     [[nodiscard]] bool isLinked() const;
+    void setMetadataMap(const QMap<uint16_t, ::modbus::analyzer::DataMetadata>& meta);
     [[nodiscard]] ui::application::modbus::SessionMode currentMode() const noexcept { return currentMode_; }
 
     [[nodiscard]] ui::widgets::modbus::ModbusWorkbenchWidget* workbenchWidget() const noexcept { return workbenchWidget_; }

@@ -413,6 +413,9 @@ void FrameAnalyzerView::createResultGroup()
             this, [this](int count, bool hasCustom) {
         updateResetButtonState(count, hasCustom);
     });
+    connect(dataTable, &FrameDecodedTableView::metadataChanged, this, [this]() {
+        emit metadataSnapshotChanged(dataTable->metadataMap());
+    });
     resultTabs->addTab(dataTable, tr("Decoded Data"));
 
     contentSplitter = new QSplitter(Qt::Horizontal, this);
@@ -691,6 +694,7 @@ void FrameAnalyzerView::onImportJsonClicked()
 
     if (dataTable) {
         dataTable->setMetadataMap(result.metadata);
+        emit metadataSnapshotChanged(result.metadata);
     }
     updateResetButtonState();
     if (!inputEditor->toPlainText().trimmed().isEmpty()) {
@@ -983,6 +987,11 @@ void FrameAnalyzerView::clearResult()
     updateResetButtonState();
 }
 
+QMap<uint16_t, ::modbus::analyzer::DataMetadata> FrameAnalyzerView::metadataSnapshot() const
+{
+    return dataTable ? dataTable->metadataMap() : QMap<uint16_t, ::modbus::analyzer::DataMetadata>{};
+}
+
 void FrameAnalyzerView::processLivePdu(const modbus::base::Pdu& pdu, modbus::parser::ProtocolType protocol, uint16_t addr)
 {
     isLiveMode = true;
@@ -1020,7 +1029,19 @@ void FrameAnalyzerView::processLivePdu(const modbus::base::Pdu& pdu, modbus::par
     if (registerOrderCombo) registerOrderCombo->setEnabled(false); // Linkage mode byte order is governed by session layer
 
     lastLiveResult = result;
-    if (!isLivePaused) renderResult(result);
+    if (!isLivePaused) {
+        const bool hasDecodablePayload = !result.dataItems.isEmpty() &&
+            (!result.dataItems[0].rawBytes.isEmpty() || result.dataItems[0].value.isValid());
+        if (hasDecodablePayload) {
+            renderResult(result);
+        } else {
+            const QString typeText =
+                result.type == FrameType::Request ? tr("Request") :
+                result.type == FrameType::Response ? tr("Response") :
+                result.type == FrameType::Exception ? tr("Exception") : tr("Unknown");
+            renderOverviewTree(result, protocolStr, typeText);
+        }
+    }
 }
 
 void FrameAnalyzerView::exitLiveMode()
