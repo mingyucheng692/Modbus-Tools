@@ -23,10 +23,10 @@ struct TelemetryRowView {
     QColor statusColor;
 };
 
-[[nodiscard]] inline void deriveRowStatus(const ::ui::common::TrafficEvent& event,
-                                         const ::modbus::parser::ParseResult& parseResult,
-                                         QString& outText,
-                                         QColor& outColor) noexcept {
+inline void deriveRowStatus(const ::ui::common::TrafficEvent& event,
+                            const ::modbus::parser::ParseResult& parseResult,
+                            QString& outText,
+                            QColor& outColor) noexcept {
     using ::ui::common::TrafficDirection;
     using ::ui::common::TrafficEventLevel;
     using ::modbus::parser::ProtocolType;

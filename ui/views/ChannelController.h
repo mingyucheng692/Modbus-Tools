@@ -10,6 +10,8 @@
 #include <utility>
 #include "common/ThreadGuard.h"
 
+class QTimer;
+
 namespace io {
 class ChannelOperationWorker;
 }
