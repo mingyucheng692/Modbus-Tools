@@ -34,6 +34,8 @@ public:
               views::analyzer::FrameAnalyzerView* frameAnalyzer);
 
     LinkState state() const;
+    [[nodiscard]] bool isLive() const noexcept { return state_ == LinkState::Live; }
+    void pauseLiveLink();
 
 private:
     // --- Signal handlers (wired in bind()) ---

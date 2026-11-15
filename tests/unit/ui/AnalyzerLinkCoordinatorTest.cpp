@@ -82,4 +82,20 @@ TEST(AnalyzerLinkCoordinatorTest, StopRequestedAndSourceDisconnectedResetToIdle)
     EXPECT_FALSE(modbusPage.telemetryWidget()->isLinkageActive());
 }
 
+TEST(AnalyzerLinkCoordinatorTest, PauseLiveLinkSwitchesToPausedState) {
+    tests::mocks::FakeSettingsService settings;
+    ui::views::modbus::ModbusPage modbusPage(&settings);
+    ui::views::analyzer::FrameAnalyzerView analyzerView(&settings);
+    Coordinator coordinator;
+    coordinator.bind(&modbusPage, &analyzerView);
+
+    EXPECT_FALSE(coordinator.isLive());
+    emit modbusPage.linkageToggled(true);
+    EXPECT_TRUE(coordinator.isLive());
+
+    coordinator.pauseLiveLink();
+    EXPECT_FALSE(coordinator.isLive());
+    EXPECT_EQ(coordinator.state(), LinkState::Paused);
+}
+
 } // namespace

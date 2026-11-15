@@ -70,6 +70,7 @@ public slots:
     void changePollInterval(int intervalMs);
     void handleLogMessage(const QString& message, bool isError);
     void setRawFramesEnabled(bool enabled);
+    void onResetMetricsRequested();
 
 signals:
     void linkageDataReceived(const ::modbus::base::Pdu& pdu,

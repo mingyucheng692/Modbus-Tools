@@ -6,6 +6,7 @@
 #include <QEventLoop>
 #include <QFile>
 #include <QLabel>
+#include <QPushButton>
 #include <QSignalSpy>
 #include <QApplication>
 #include <QTableView>
@@ -199,5 +200,119 @@ TEST_F(ModbusTelemetryWidgetTest, CopySelectedSysRowAndExportCsvSafety) {
 
     EXPECT_FALSE(widget_->exportToFile(tempDir.path(), &error));
     EXPECT_FALSE(error.isEmpty());
+}
+
+TEST_F(ModbusTelemetryWidgetTest, AutoScrollButtonLabelIsConstant) {
+    auto* btn = widget_->autoScrollButton();
+    ASSERT_NE(btn, nullptr);
+    const QString textOn = btn->text();
+    EXPECT_FALSE(textOn.contains(QStringLiteral(": ON")));
+    EXPECT_FALSE(textOn.contains(QStringLiteral(": OFF")));
+
+    widget_->setAutoScrollEnabled(false);
+    const QString textOff = btn->text();
+    EXPECT_EQ(textOn, textOff);
+    EXPECT_FALSE(textOff.contains(QStringLiteral(": ON")));
+    EXPECT_FALSE(textOff.contains(QStringLiteral(": OFF")));
+}
+
+TEST_F(ModbusTelemetryWidgetTest, ResponsiveToolbarTwoRowMode) {
+    // Narrow layout (< 460px) triggers two-row mode
+    widget_->updateResponsiveToolbar(350);
+    EXPECT_TRUE(widget_->isTwoRowToolbar());
+
+    // Wide layout (>= 490px) triggers one-row mode
+    widget_->updateResponsiveToolbar(600);
+    EXPECT_FALSE(widget_->isTwoRowToolbar());
+
+    // Hysteresis deadband: at 475px, if already in wide mode, stays wide
+    widget_->updateResponsiveToolbar(475);
+    EXPECT_FALSE(widget_->isTwoRowToolbar());
+
+    // At 475px, if in narrow mode, stays narrow
+    widget_->updateResponsiveToolbar(400);
+    EXPECT_TRUE(widget_->isTwoRowToolbar());
+    widget_->updateResponsiveToolbar(475);
+    EXPECT_TRUE(widget_->isTwoRowToolbar());
+
+    // Verify all buttons retain sufficient size
+    widget_->resize(320, 500);
+    widget_->show();
+    QCoreApplication::processEvents();
+
+    auto* autoScrollBtn = widget_->autoScrollButton();
+    auto* clearBtn = widget_->clearButton();
+    auto* exportBtn = widget_->exportButton();
+    auto* liveBtn = widget_->liveAnalyzerButton();
+
+    ASSERT_NE(autoScrollBtn, nullptr);
+    ASSERT_NE(clearBtn, nullptr);
+    ASSERT_NE(exportBtn, nullptr);
+    ASSERT_NE(liveBtn, nullptr);
+
+    EXPECT_GE(autoScrollBtn->width(), autoScrollBtn->sizeHint().width());
+    EXPECT_GE(clearBtn->width(), clearBtn->sizeHint().width());
+    EXPECT_GE(exportBtn->width(), exportBtn->sizeHint().width());
+    EXPECT_GE(liveBtn->width(), liveBtn->sizeHint().width());
+}
+
+TEST_F(ModbusTelemetryWidgetTest, KpiMetricsRibbonAndReset) {
+    widget_->updateMetrics(15, 12, 3, 45);
+
+    auto* txLbl = widget_->txStatsLabel();
+    auto* rxLbl = widget_->rxStatsLabel();
+    auto* errLbl = widget_->errStatsLabel();
+    auto* rttLbl = widget_->rttStatsLabel();
+    auto* resetBtn = widget_->resetStatsButton();
+
+    ASSERT_NE(txLbl, nullptr);
+    ASSERT_NE(rxLbl, nullptr);
+    ASSERT_NE(errLbl, nullptr);
+    ASSERT_NE(rttLbl, nullptr);
+    ASSERT_NE(resetBtn, nullptr);
+
+    EXPECT_TRUE(txLbl->text().contains(QStringLiteral("15")));
+    EXPECT_TRUE(rxLbl->text().contains(QStringLiteral("12")));
+    EXPECT_TRUE(errLbl->text().contains(QStringLiteral("3")));
+    EXPECT_TRUE(rttLbl->text().contains(QStringLiteral("45 ms")));
+
+    QSignalSpy resetSpy(widget_.get(), &ModbusTelemetryWidget::resetMetricsRequested);
+    resetBtn->click();
+    EXPECT_EQ(resetSpy.count(), 1);
+}
+
+TEST_F(ModbusTelemetryWidgetTest, InspectInAnalyzerWorkflow) {
+    auto* inspectBtn = widget_->inspectInAnalyzerButton();
+    ASSERT_NE(inspectBtn, nullptr);
+    EXPECT_FALSE(inspectBtn->isEnabled());
+
+    const QByteArray testPayload = QByteArray::fromHex("0103020064B844");
+    TrafficEvent ev;
+    ev.direction = TrafficDirection::Rx;
+    ev.payload = testPayload;
+
+    widget_->appendTrafficEvent(ev);
+    QMetaObject::invokeMethod(widget_.get(), "processBatchTimeout");
+    ASSERT_EQ(widget_->tableModel()->rowCount(), 1);
+
+    // Selecting the row enables the Inspect button
+    widget_->tableView()->selectRow(0);
+    EXPECT_TRUE(inspectBtn->isEnabled());
+
+    // Clicking inspect button emits inspectInAnalyzerRequested
+    QSignalSpy inspectSpy(widget_.get(), &ModbusTelemetryWidget::inspectInAnalyzerRequested);
+    inspectBtn->click();
+    ASSERT_EQ(inspectSpy.count(), 1);
+    const QString hexArg = inspectSpy.takeFirst().at(0).toString();
+    EXPECT_EQ(hexArg, QString::fromLatin1(testPayload.toHex(' ').toUpper()));
+
+    // Double-clicking the row also emits inspectInAnalyzerRequested
+    emit widget_->tableView()->doubleClicked(widget_->tableModel()->index(0, 0));
+    ASSERT_EQ(inspectSpy.count(), 1);
+    EXPECT_EQ(inspectSpy.takeFirst().at(0).toString(), QString::fromLatin1(testPayload.toHex(' ').toUpper()));
+
+    // Deselect row disables inspect button
+    widget_->tableView()->clearSelection();
+    EXPECT_FALSE(inspectBtn->isEnabled());
 }
 

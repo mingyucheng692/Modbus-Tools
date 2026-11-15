@@ -5,6 +5,8 @@
 #include "modbus/base/ModbusFunctionTraits.h"
 #include <QVBoxLayout>
 #include <QHBoxLayout>
+#include <QGridLayout>
+#include <QResizeEvent>
 #include <QTableView>
 #include <QHeaderView>
 #include <QScrollBar>
@@ -62,6 +64,7 @@ void ModbusTelemetryWidget::setupUi() {
     mainLayout->setSpacing(4);
 
     setupToolbar();
+    setupMetricsRibbon();
 
     splitter_ = new QSplitter(Qt::Vertical, this);
     setupTableView();
@@ -71,51 +74,155 @@ void ModbusTelemetryWidget::setupUi() {
     splitter_->setStretchFactor(1, 3);
     mainLayout->addWidget(splitter_, 1);
 
-    setupFooter();
-
     batchTimer_ = new QTimer(this);
     batchTimer_->setInterval(kBatchIntervalMs);
     connect(batchTimer_, &QTimer::timeout, this, &ModbusTelemetryWidget::processBatchTimeout);
 }
 
 void ModbusTelemetryWidget::setupToolbar() {
-    auto* toolLayout = new QHBoxLayout();
-    toolLayout->setContentsMargins(0, 0, 0, 0);
-    toolLayout->setSpacing(6);
+    toolbarWidget_ = new QWidget(this);
+    toolbarWidget_->setObjectName(QStringLiteral("telemetryToolbar"));
+    toolbarLayout_ = new QGridLayout(toolbarWidget_);
+    toolbarLayout_->setContentsMargins(0, 0, 0, 0);
+    toolbarLayout_->setHorizontalSpacing(6);
+    toolbarLayout_->setVerticalSpacing(4);
 
-    filterCombo_ = new QComboBox(this);
+    filterCombo_ = new QComboBox(toolbarWidget_);
+    filterCombo_->setObjectName(QStringLiteral("telemetryFilterCombo"));
     filterCombo_->addItems({tr("All"), tr("TX"), tr("RX"), tr("SYS"), tr("Errors")});
     connect(filterCombo_, QOverload<int>::of(&QComboBox::currentIndexChanged),
             this, &ModbusTelemetryWidget::onFilterChanged);
-    filterLabel_ = new QLabel(tr("Filter:"), this);
-    toolLayout->addWidget(filterLabel_);
-    toolLayout->addWidget(filterCombo_);
+    filterLabel_ = new QLabel(tr("Filter:"), toolbarWidget_);
+    filterLabel_->setObjectName(QStringLiteral("telemetryFilterLabel"));
 
-    rawFramesCheck_ = new QCheckBox(tr("Raw Frames"), this);
+    rawFramesCheck_ = new QCheckBox(tr("Raw Frames"), toolbarWidget_);
+    rawFramesCheck_->setObjectName(QStringLiteral("telemetryRawFramesCheck"));
     connect(rawFramesCheck_, &QCheckBox::toggled, this, &ModbusTelemetryWidget::rawFramesToggled);
-    toolLayout->addWidget(rawFramesCheck_);
 
-    autoScrollBtn_ = new QPushButton(tr("Auto-Scroll: ON"), this);
+    autoScrollBtn_ = new QPushButton(tr("Auto-Scroll"), toolbarWidget_);
+    autoScrollBtn_->setObjectName(QStringLiteral("telemetryAutoScrollBtn"));
     autoScrollBtn_->setCheckable(true);
     autoScrollBtn_->setChecked(true);
+    autoScrollBtn_->setToolTip(tr("Automatically scroll to latest telemetry event"));
     connect(autoScrollBtn_, &QPushButton::toggled, this, &ModbusTelemetryWidget::setAutoScrollEnabled);
-    toolLayout->addWidget(autoScrollBtn_);
 
-    clearBtn_ = new QPushButton(tr("Clear (Ctrl+L)"), this);
+    clearBtn_ = new QPushButton(tr("Clear"), toolbarWidget_);
+    clearBtn_->setObjectName(QStringLiteral("telemetryClearBtn"));
+    clearBtn_->setToolTip(tr("Clear telemetry events (Ctrl+L)"));
     connect(clearBtn_, &QPushButton::clicked, this, &ModbusTelemetryWidget::clear);
-    toolLayout->addWidget(clearBtn_);
 
-    exportBtn_ = new QPushButton(tr("Export..."), this);
+    exportBtn_ = new QPushButton(tr("Export..."), toolbarWidget_);
+    exportBtn_->setObjectName(QStringLiteral("telemetryExportBtn"));
+    exportBtn_->setToolTip(tr("Export telemetry table to CSV or JSON"));
     connect(exportBtn_, &QPushButton::clicked, this, &ModbusTelemetryWidget::onExportClicked);
-    toolLayout->addWidget(exportBtn_);
 
-    overflowLabel_ = new QLabel(this);
+    liveAnalyzerBtn_ = new QPushButton(tr("Live → Analyzer"), toolbarWidget_);
+    liveAnalyzerBtn_->setObjectName(QStringLiteral("liveAnalyzerBtn"));
+    liveAnalyzerBtn_->setCheckable(true);
+    liveAnalyzerBtn_->setChecked(true);
+    liveAnalyzerBtn_->setToolTip(tr("Stream received responses directly to Frame Analyzer in real time"));
+    connect(liveAnalyzerBtn_, &QPushButton::toggled, this, &ModbusTelemetryWidget::linkageToggled);
+
+    overflowLabel_ = new QLabel(toolbarWidget_);
+    overflowLabel_->setObjectName(QStringLiteral("telemetryOverflowLabel"));
     overflowLabel_->setStyleSheet(QStringLiteral("color: #DC3545; font-weight: bold;"));
     overflowLabel_->hide();
-    toolLayout->addWidget(overflowLabel_);
 
-    toolLayout->addStretch(1);
-    qobject_cast<QVBoxLayout*>(layout())->addLayout(toolLayout);
+    applyToolbarLayout(isTwoRowToolbar_);
+    qobject_cast<QVBoxLayout*>(layout())->addWidget(toolbarWidget_);
+}
+
+void ModbusTelemetryWidget::applyToolbarLayout(bool twoRow) {
+    isTwoRowToolbar_ = twoRow;
+    while (QLayoutItem* item = toolbarLayout_->takeAt(0)) {
+        delete item;
+    }
+
+    if (twoRow) {
+        toolbarLayout_->addWidget(filterLabel_, 0, 0);
+        toolbarLayout_->addWidget(filterCombo_, 0, 1);
+        toolbarLayout_->addWidget(autoScrollBtn_, 0, 2);
+        toolbarLayout_->addWidget(clearBtn_, 0, 3);
+        toolbarLayout_->addWidget(overflowLabel_, 0, 4);
+        toolbarLayout_->setColumnStretch(5, 1);
+
+        toolbarLayout_->addWidget(rawFramesCheck_, 1, 0, 1, 2);
+        toolbarLayout_->addWidget(exportBtn_, 1, 2);
+        toolbarLayout_->addWidget(liveAnalyzerBtn_, 1, 3);
+        toolbarLayout_->setColumnStretch(5, 1);
+    } else {
+        toolbarLayout_->addWidget(filterLabel_, 0, 0);
+        toolbarLayout_->addWidget(filterCombo_, 0, 1);
+        toolbarLayout_->addWidget(rawFramesCheck_, 0, 2);
+        toolbarLayout_->addWidget(autoScrollBtn_, 0, 3);
+        toolbarLayout_->addWidget(clearBtn_, 0, 4);
+        toolbarLayout_->addWidget(exportBtn_, 0, 5);
+        toolbarLayout_->addWidget(liveAnalyzerBtn_, 0, 6);
+        toolbarLayout_->addWidget(overflowLabel_, 0, 7);
+        toolbarLayout_->setColumnStretch(8, 1);
+    }
+}
+
+void ModbusTelemetryWidget::updateResponsiveToolbar(int availableWidth) {
+    if (availableWidth <= 0) return;
+    static constexpr int kCollapseThreshold = 460;
+    static constexpr int kExpandThreshold = 490;
+
+    if (isTwoRowToolbar_ && availableWidth >= kExpandThreshold) {
+        applyToolbarLayout(false);
+    } else if (!isTwoRowToolbar_ && availableWidth < kCollapseThreshold) {
+        applyToolbarLayout(true);
+    }
+}
+
+void ModbusTelemetryWidget::resizeEvent(QResizeEvent* event) {
+    QWidget::resizeEvent(event);
+    if (event) {
+        updateResponsiveToolbar(event->size().width());
+    }
+}
+
+void ModbusTelemetryWidget::setupMetricsRibbon() {
+    metricsRibbon_ = new QWidget(this);
+    metricsRibbon_->setObjectName(QStringLiteral("telemetryMetricsRibbon"));
+    auto* ribbonLayout = new QHBoxLayout(metricsRibbon_);
+    ribbonLayout->setContentsMargins(0, 2, 0, 2);
+    ribbonLayout->setSpacing(12);
+
+    txStatsLabel_ = new QLabel(metricsRibbon_);
+    txStatsLabel_->setObjectName(QStringLiteral("txStatsLabel"));
+    txStatsLabel_->setStyleSheet(QStringLiteral("color: #1976D2; font-weight: bold; font-family: monospace;"));
+    ribbonLayout->addWidget(txStatsLabel_);
+
+    rxStatsLabel_ = new QLabel(metricsRibbon_);
+    rxStatsLabel_->setObjectName(QStringLiteral("rxStatsLabel"));
+    rxStatsLabel_->setStyleSheet(QStringLiteral("color: #388E3C; font-weight: bold; font-family: monospace;"));
+    ribbonLayout->addWidget(rxStatsLabel_);
+
+    errStatsLabel_ = new QLabel(metricsRibbon_);
+    errStatsLabel_->setObjectName(QStringLiteral("errStatsLabel"));
+    ribbonLayout->addWidget(errStatsLabel_);
+
+    rttStatsLabel_ = new QLabel(metricsRibbon_);
+    rttStatsLabel_->setObjectName(QStringLiteral("rttStatsLabel"));
+    rttStatsLabel_->setStyleSheet(QStringLiteral("color: #616161; font-family: monospace;"));
+    ribbonLayout->addWidget(rttStatsLabel_);
+
+    ribbonLayout->addStretch(1);
+
+    resetStatsBtn_ = new QPushButton(tr("Reset Stats"), metricsRibbon_);
+    resetStatsBtn_->setObjectName(QStringLiteral("resetStatsBtn"));
+    resetStatsBtn_->setToolTip(tr("Reset communication statistics (TX, RX, Error, RTT)"));
+    connect(resetStatsBtn_, &QPushButton::clicked, this, &ModbusTelemetryWidget::resetMetricsRequested);
+    ribbonLayout->addWidget(resetStatsBtn_);
+
+    metricsLabel_ = new QLabel(metricsRibbon_);
+    metricsLabel_->setObjectName(QStringLiteral("telemetryMetricsLabel"));
+    metricsLabel_->hide();
+    ribbonLayout->addWidget(metricsLabel_);
+
+    updateMetricsLabel();
+    qobject_cast<QVBoxLayout*>(layout())->addWidget(metricsRibbon_);
 }
 
 void ModbusTelemetryWidget::setupTableView() {
@@ -149,10 +256,15 @@ void ModbusTelemetryWidget::setupTableView() {
         if (value < vBar->maximum() - 2) {
             if (autoScroll_) {
                 autoScroll_ = false;
-                autoScrollBtn_->setChecked(false);
-                autoScrollBtn_->setText(tr("Auto-Scroll: OFF"));
+                if (autoScrollBtn_) {
+                    autoScrollBtn_->setChecked(false);
+                }
             }
         }
+    });
+
+    connect(tableView_, &QTableView::doubleClicked, this, [this](const QModelIndex&) {
+        onInspectInAnalyzerClicked();
     });
 
     splitter_->addWidget(tableView_);
@@ -164,9 +276,24 @@ void ModbusTelemetryWidget::setupInspector() {
     layout->setContentsMargins(0, 0, 0, 0);
     layout->setSpacing(2);
 
-    inspectorHeaderLabel_ = new QLabel(tr("Frame Details"), container);
+    auto* headerWidget = new QWidget(container);
+    auto* headerLayout = new QHBoxLayout(headerWidget);
+    headerLayout->setContentsMargins(2, 2, 2, 2);
+    headerLayout->setSpacing(6);
+
+    inspectorHeaderLabel_ = new QLabel(tr("Frame Details"), headerWidget);
     inspectorHeaderLabel_->setStyleSheet(QStringLiteral("font-weight: bold; background-color: palette(alternate-base); padding: 2px;"));
-    layout->addWidget(inspectorHeaderLabel_);
+    headerLayout->addWidget(inspectorHeaderLabel_);
+    headerLayout->addStretch(1);
+
+    inspectInAnalyzerBtn_ = new QPushButton(tr("Inspect in Analyzer ↗"), headerWidget);
+    inspectInAnalyzerBtn_->setObjectName(QStringLiteral("inspectInAnalyzerBtn"));
+    inspectInAnalyzerBtn_->setEnabled(false);
+    inspectInAnalyzerBtn_->setToolTip(tr("Send the selected frame payload to Frame Analyzer for deep parsing"));
+    connect(inspectInAnalyzerBtn_, &QPushButton::clicked, this, &ModbusTelemetryWidget::onInspectInAnalyzerClicked);
+    headerLayout->addWidget(inspectInAnalyzerBtn_);
+
+    layout->addWidget(headerWidget);
 
     inspectorDetailsText_ = new QTextEdit(container);
     inspectorDetailsText_->setReadOnly(true);
@@ -178,23 +305,21 @@ void ModbusTelemetryWidget::setupInspector() {
     splitter_->addWidget(container);
 }
 
-void ModbusTelemetryWidget::setupFooter() {
-    auto* footerLayout = new QHBoxLayout();
-    footerLayout->setContentsMargins(0, 0, 0, 0);
-    footerLayout->setSpacing(10);
-
-    metricsLabel_ = new QLabel(this);
-    updateMetricsLabel();
-    footerLayout->addWidget(metricsLabel_);
-
-    footerLayout->addStretch(1);
-
-    linkageCheck_ = new QCheckBox(tr("Link to Frame Analyzer"), this);
-    linkageCheck_->setChecked(true);
-    connect(linkageCheck_, &QCheckBox::toggled, this, &ModbusTelemetryWidget::linkageToggled);
-    footerLayout->addWidget(linkageCheck_);
-
-    qobject_cast<QVBoxLayout*>(layout())->addLayout(footerLayout);
+void ModbusTelemetryWidget::onInspectInAnalyzerClicked() {
+    if (!tableView_ || !proxyModel_ || !tableModel_) {
+        return;
+    }
+    const auto indexes = tableView_->selectionModel()->selectedRows();
+    if (indexes.isEmpty()) {
+        return;
+    }
+    const int sourceRow = proxyModel_->mapToSource(indexes.first()).row();
+    const TelemetryRowView* row = tableModel_->rowAt(sourceRow);
+    if (!row || row->event.payload.isEmpty()) {
+        return;
+    }
+    const QString hexStr = row->event.payload.toHex(' ').toUpper();
+    emit inspectInAnalyzerRequested(hexStr);
 }
 
 void ModbusTelemetryWidget::appendTrafficEvent(const ::ui::common::TrafficEvent& event) {
@@ -260,28 +385,46 @@ void ModbusTelemetryWidget::updateMetrics(int tx, int rx, int err, int rttMs) {
 }
 
 void ModbusTelemetryWidget::updateMetricsLabel() {
-    metricsLabel_->setText(tr("TX: %1 | RX: %2 | Error: %3 | RTT: %4 ms")
-                               .arg(txCount_)
-                               .arg(rxCount_)
-                               .arg(errCount_)
-                               .arg(rttMs_));
+    if (txStatsLabel_) {
+        txStatsLabel_->setText(tr("TX: %1").arg(txCount_));
+    }
+    if (rxStatsLabel_) {
+        rxStatsLabel_->setText(tr("RX: %1").arg(rxCount_));
+    }
+    if (errStatsLabel_) {
+        errStatsLabel_->setText(tr("ERR: %1").arg(errCount_));
+        errStatsLabel_->setStyleSheet(errCount_ > 0
+            ? QStringLiteral("color: #D32F2F; font-weight: bold; font-family: monospace;")
+            : QStringLiteral("color: #757575; font-family: monospace;"));
+    }
+    if (rttStatsLabel_) {
+        rttStatsLabel_->setText(rttMs_ > 0 ? tr("RTT: %1 ms").arg(rttMs_) : tr("RTT: --"));
+    }
+    if (metricsLabel_) {
+        metricsLabel_->setText(tr("TX: %1 | RX: %2 | Error: %3 | RTT: %4 ms")
+                                   .arg(txCount_)
+                                   .arg(rxCount_)
+                                   .arg(errCount_)
+                                   .arg(rttMs_));
+    }
 }
 
 void ModbusTelemetryWidget::setLinkageState(bool active) {
-    if (linkageCheck_->isChecked() != active) {
-        linkageCheck_->setChecked(active);
+    if (liveAnalyzerBtn_ && liveAnalyzerBtn_->isChecked() != active) {
+        liveAnalyzerBtn_->setChecked(active);
     }
 }
 
 bool ModbusTelemetryWidget::isLinkageActive() const noexcept {
-    return linkageCheck_->isChecked();
+    return liveAnalyzerBtn_ && liveAnalyzerBtn_->isChecked();
 }
 
 void ModbusTelemetryWidget::setAutoScrollEnabled(bool enabled) {
     autoScroll_ = enabled;
-    autoScrollBtn_->setChecked(enabled);
-    autoScrollBtn_->setText(enabled ? tr("Auto-Scroll: ON") : tr("Auto-Scroll: OFF"));
-    if (enabled) {
+    if (autoScrollBtn_ && autoScrollBtn_->isChecked() != enabled) {
+        autoScrollBtn_->setChecked(enabled);
+    }
+    if (enabled && tableView_) {
         tableView_->scrollToBottom();
     }
 }
@@ -296,19 +439,29 @@ void ModbusTelemetryWidget::clear() {
     tableModel_->clear();
     inspectorDetailsText_->clear();
     inspectorHeaderLabel_->setText(tr("Frame Details"));
+    if (inspectInAnalyzerBtn_) {
+        inspectInAnalyzerBtn_->setEnabled(false);
+    }
 }
 
 void ModbusTelemetryWidget::onSelectionChanged() {
     const auto indexes = tableView_->selectionModel()->selectedRows();
     if (indexes.isEmpty()) {
         updateInspectorContent(nullptr);
+        if (inspectInAnalyzerBtn_) {
+            inspectInAnalyzerBtn_->setEnabled(false);
+        }
         return;
     }
     const int sourceRow = proxyModel_->mapToSource(indexes.first()).row();
     const TelemetryRowView* row = tableModel_->rowAt(sourceRow);
     updateInspectorContent(row);
 
-    if (row && !row->event.payload.isEmpty() && linkageCheck_->isChecked()) {
+    const bool hasPayload = (row && !row->event.payload.isEmpty());
+    if (inspectInAnalyzerBtn_) {
+        inspectInAnalyzerBtn_->setEnabled(hasPayload);
+    }
+    if (hasPayload && isLinkageActive()) {
         emit frameSelectedForAnalysis(row->event.payload);
     }
 }
@@ -552,13 +705,28 @@ void ModbusTelemetryWidget::retranslateUi() {
         rawFramesCheck_->setText(tr("Raw Frames"));
     }
     if (autoScrollBtn_) {
-        autoScrollBtn_->setText(autoScroll_ ? tr("Auto-Scroll: ON") : tr("Auto-Scroll: OFF"));
+        autoScrollBtn_->setText(tr("Auto-Scroll"));
+        autoScrollBtn_->setToolTip(tr("Automatically scroll to latest telemetry event"));
     }
     if (clearBtn_) {
-        clearBtn_->setText(tr("Clear (Ctrl+L)"));
+        clearBtn_->setText(tr("Clear"));
+        clearBtn_->setToolTip(tr("Clear telemetry events (Ctrl+L)"));
     }
     if (exportBtn_) {
         exportBtn_->setText(tr("Export..."));
+        exportBtn_->setToolTip(tr("Export telemetry table to CSV or JSON"));
+    }
+    if (liveAnalyzerBtn_) {
+        liveAnalyzerBtn_->setText(tr("Live → Analyzer"));
+        liveAnalyzerBtn_->setToolTip(tr("Stream received responses directly to Frame Analyzer in real time"));
+    }
+    if (resetStatsBtn_) {
+        resetStatsBtn_->setText(tr("Reset Stats"));
+        resetStatsBtn_->setToolTip(tr("Reset communication statistics (TX, RX, Error, RTT)"));
+    }
+    if (inspectInAnalyzerBtn_) {
+        inspectInAnalyzerBtn_->setText(tr("Inspect in Analyzer ↗"));
+        inspectInAnalyzerBtn_->setToolTip(tr("Send the selected frame payload to Frame Analyzer for deep parsing"));
     }
     if (inspectorHeaderLabel_) {
         const auto* selModel = tableView_ ? tableView_->selectionModel() : nullptr;
@@ -574,9 +742,6 @@ void ModbusTelemetryWidget::retranslateUi() {
     }
     if (inspectorDetailsText_) {
         inspectorDetailsText_->setPlaceholderText(tr("Select a frame to inspect details"));
-    }
-    if (linkageCheck_) {
-        linkageCheck_->setText(tr("Link to Frame Analyzer"));
     }
     updateMetricsLabel();
     if (tableModel_) {

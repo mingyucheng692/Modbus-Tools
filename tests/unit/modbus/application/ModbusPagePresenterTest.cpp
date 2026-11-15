@@ -192,3 +192,8 @@ TEST_F(ModbusPagePresenterTest, ConnectionGuards_LockProtocolSwitchWhenNotDiscon
     EXPECT_TRUE(guards.protocolSwitchEnabled);
 }
 
+TEST_F(ModbusPagePresenterTest, ResetMetrics_ResetsCountersAndUpdatesView) {
+    EXPECT_CALL(*mockView_, updateMetrics(0, 0, 0, 0)).Times(AtLeast(1));
+    presenter_->onResetMetricsRequested();
+}
+

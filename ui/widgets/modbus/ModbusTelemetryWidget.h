@@ -19,6 +19,8 @@ class QComboBox;
 class QCheckBox;
 class QTextEdit;
 class QSplitter;
+class QGridLayout;
+class QResizeEvent;
 
 namespace ui::widgets::modbus {
 
@@ -50,6 +52,18 @@ public:
     void setAutoScrollEnabled(bool enabled);
     [[nodiscard]] QString inspectorDetailsText() const noexcept;
     [[nodiscard]] bool exportToFile(const QString& filePath, QString* error = nullptr) const;
+    [[nodiscard]] bool isTwoRowToolbar() const noexcept { return isTwoRowToolbar_; }
+    void updateResponsiveToolbar(int availableWidth);
+    [[nodiscard]] QPushButton* autoScrollButton() const noexcept { return autoScrollBtn_; }
+    [[nodiscard]] QPushButton* clearButton() const noexcept { return clearBtn_; }
+    [[nodiscard]] QPushButton* exportButton() const noexcept { return exportBtn_; }
+    [[nodiscard]] QPushButton* liveAnalyzerButton() const noexcept { return liveAnalyzerBtn_; }
+    [[nodiscard]] QPushButton* resetStatsButton() const noexcept { return resetStatsBtn_; }
+    [[nodiscard]] QPushButton* inspectInAnalyzerButton() const noexcept { return inspectInAnalyzerBtn_; }
+    [[nodiscard]] QLabel* txStatsLabel() const noexcept { return txStatsLabel_; }
+    [[nodiscard]] QLabel* rxStatsLabel() const noexcept { return rxStatsLabel_; }
+    [[nodiscard]] QLabel* errStatsLabel() const noexcept { return errStatsLabel_; }
+    [[nodiscard]] QLabel* rttStatsLabel() const noexcept { return rttStatsLabel_; }
 
     [[nodiscard]] static QString formatInspectorDetails(const ::modbus::parser::ParseResult& pr, int aduLength);
     [[nodiscard]] static QString formatRowTextForCopy(const TelemetryRowView& row);
@@ -58,12 +72,15 @@ signals:
     void linkageToggled(bool active);
     void rawFramesToggled(bool enabled);
     void frameSelectedForAnalysis(const QByteArray& payload);
+    void inspectInAnalyzerRequested(const QString& hexString);
+    void resetMetricsRequested();
     void rowCopied(const QString& text);
     void exportFailed(const QString& error);
 
 protected:
     void keyPressEvent(QKeyEvent* event) override;
     void changeEvent(QEvent* event) override;
+    void resizeEvent(QResizeEvent* event) override;
 
 private slots:
     void processBatchTimeout();
@@ -71,13 +88,15 @@ private slots:
     void onFilterChanged(int index);
     void onExportClicked();
     void onCopySelectedRow();
+    void onInspectInAnalyzerClicked();
 
 private:
     void setupUi();
     void setupToolbar();
+    void applyToolbarLayout(bool twoRow);
     void setupTableView();
     void setupInspector();
-    void setupFooter();
+    void setupMetricsRibbon();
     void updateInspectorContent(const TelemetryRowView* row);
     void updateMetricsLabel();
     void retranslateUi();
@@ -90,21 +109,31 @@ private:
     QSplitter* splitter_ = nullptr;
 
     // Toolbar controls
+    QWidget* toolbarWidget_ = nullptr;
+    QGridLayout* toolbarLayout_ = nullptr;
+    bool isTwoRowToolbar_ = false;
     QLabel* filterLabel_ = nullptr;
     QComboBox* filterCombo_ = nullptr;
     QCheckBox* rawFramesCheck_ = nullptr;
     QPushButton* autoScrollBtn_ = nullptr;
     QPushButton* clearBtn_ = nullptr;
     QPushButton* exportBtn_ = nullptr;
+    QPushButton* liveAnalyzerBtn_ = nullptr;
     QLabel* overflowLabel_ = nullptr;
+
+    // KPI Metrics Ribbon controls
+    QWidget* metricsRibbon_ = nullptr;
+    QLabel* txStatsLabel_ = nullptr;
+    QLabel* rxStatsLabel_ = nullptr;
+    QLabel* errStatsLabel_ = nullptr;
+    QLabel* rttStatsLabel_ = nullptr;
+    QPushButton* resetStatsBtn_ = nullptr;
+    QLabel* metricsLabel_ = nullptr;
 
     // Inspector controls
     QLabel* inspectorHeaderLabel_ = nullptr;
+    QPushButton* inspectInAnalyzerBtn_ = nullptr;
     QTextEdit* inspectorDetailsText_ = nullptr;
-
-    // Footer controls
-    QLabel* metricsLabel_ = nullptr;
-    QCheckBox* linkageCheck_ = nullptr;
 
     // Backpressure & flow control state
     QTimer* batchTimer_ = nullptr;

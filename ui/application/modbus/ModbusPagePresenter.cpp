@@ -472,6 +472,14 @@ void ModbusPagePresenter::notifyMetrics() {
     }
 }
 
+void ModbusPagePresenter::onResetMetricsRequested() {
+    txCount_ = 0;
+    rxCount_ = 0;
+    errCount_ = 0;
+    lastRttMs_ = 0;
+    notifyMetrics();
+}
+
 void ModbusPagePresenter::handleRequestFinished(int requestId,
                                                 const ::modbus::session::ModbusResponse& response) {
     if (!requestService_) return;

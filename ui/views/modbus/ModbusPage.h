@@ -74,6 +74,7 @@ signals:
     void linkageDataReceived(const ::modbus::base::Pdu& pdu, ::modbus::parser::ProtocolType protocol, uint16_t addr);
     void linkageToggled(bool active);
     void linkageSourceDisconnected();
+    void inspectInAnalyzerRequested(const QString& hexString);
 
 protected:
     void changeEvent(QEvent* event) override;

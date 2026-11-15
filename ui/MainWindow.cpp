@@ -140,6 +140,19 @@ void MainWindow::initializeUi() {
     }
     applyAddressBaseToViews(settingsController_->addressBase());
 
+    if (modbusView_) {
+        connect(modbusView_, &views::modbus::ModbusPage::inspectInAnalyzerRequested,
+                this, [this](const QString& hex) {
+                    if (analyzerLinkCoordinator_ && analyzerLinkCoordinator_->isLive()) {
+                        analyzerLinkCoordinator_->pauseLiveLink();
+                    }
+                    if (frameAnalyzer_) {
+                        frameAnalyzer_->loadAndParseHex(hex);
+                    }
+                    navigateTo(MainPage::FrameAnalyzer);
+                });
+    }
+
     if (pages.utilities) {
         connect(pages.utilities, &views::tools::UtilitiesView::inspectInAnalyzerRequested,
                 this, [this](const QString& hex) {

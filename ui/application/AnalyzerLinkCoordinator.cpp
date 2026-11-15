@@ -54,6 +54,12 @@ AnalyzerLinkCoordinator::LinkState AnalyzerLinkCoordinator::state() const {
     return state_;
 }
 
+void AnalyzerLinkCoordinator::pauseLiveLink() {
+    if (state_ == LinkState::Live) {
+        requestPause(true);
+    }
+}
+
 // --- Signal handlers ---
 
 void AnalyzerLinkCoordinator::handleLinkageToggled(bool active) {

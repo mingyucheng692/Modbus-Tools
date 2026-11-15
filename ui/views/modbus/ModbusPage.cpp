@@ -237,6 +237,11 @@ void ModbusPage::setupSplitterBody() {
                 }
                 updateAddressBase(base);
             });
+
+    connect(telemetryWidget_, &widgets::modbus::ModbusTelemetryWidget::resetMetricsRequested,
+            pagePresenter_, &application::modbus::ModbusPagePresenter::onResetMetricsRequested);
+    connect(telemetryWidget_, &widgets::modbus::ModbusTelemetryWidget::inspectInAnalyzerRequested,
+            this, &ModbusPage::inspectInAnalyzerRequested);
 }
 
 void ModbusPage::renderConnectionState(ui::application::modbus::SessionConnectionState state) {
