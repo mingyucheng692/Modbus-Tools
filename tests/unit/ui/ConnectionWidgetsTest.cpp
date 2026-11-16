@@ -10,6 +10,9 @@
 #include "ui/widgets/modbus/ModbusWorkbenchWidget.h"
 #include "ui/widgets/modbus/ModbusTelemetryWidget.h"
 #include "ui/views/modbus/ModbusPage.h"
+#include "ui/MainWindow.h"
+#include "ui/common/ThemeController.h"
+#include "infra/platform/PathResolver.h"
 #include "mocks/UiTestDoubles.h"
 
 #include <QApplication>
@@ -17,12 +20,15 @@
 #include <QCoreApplication>
 #include <QDir>
 #include <QEvent>
+#include <QGroupBox>
 #include <QLabel>
 #include <QLineEdit>
 #include <QPushButton>
 #include <QSpinBox>
 #include <QSplitter>
 #include <QStackedWidget>
+#include <QTemporaryDir>
+#include <QToolButton>
 #include <QTranslator>
 
 namespace {
@@ -341,6 +347,142 @@ TEST(ConnectionWidgets, ModbusPage_SplitterZeroOverlapInNarrowWindow) {
     EXPECT_FALSE(splitter->childrenCollapsible());
     EXPECT_LE(workbench->geometry().right(), telemetry->geometry().left());
     EXPECT_EQ(workbench->geometry().bottom(), telemetry->geometry().bottom());
+}
+
+TEST(ConnectionWidgets, ModbusPage_GeometryInvariants_AcrossMatrix) {
+    tests::mocks::FakeSettingsService settings;
+    ui::views::modbus::ModbusPage page(&settings);
+    page.show();
+
+    auto* workbench = page.findChild<ui::widgets::modbus::ModbusWorkbenchWidget*>();
+    auto* telemetry = page.findChild<ui::widgets::modbus::ModbusTelemetryWidget*>();
+    auto* splitter = page.findChild<QSplitter*>();
+    auto* protoCombo = page.protocolCombo();
+    auto* execGroup = page.findChild<QGroupBox*>(QStringLiteral("workbenchExecutionGroup"));
+    ASSERT_NE(workbench, nullptr);
+    ASSERT_NE(telemetry, nullptr);
+    ASSERT_NE(splitter, nullptr);
+    ASSERT_NE(protoCombo, nullptr);
+    ASSERT_NE(execGroup, nullptr);
+
+    const std::vector<QSize> targetSizes = {
+        QSize(720, 520),
+        QSize(800, 600),
+        QSize(1040, 768),
+        QSize(1440, 900)
+    };
+
+    // Protocols: 0 (TCP), 1 (RTU), 2 (ASCII)
+    // Modes: 0 (Standard), 1 (Raw Frame)
+    for (int protoIdx = 0; protoIdx < 3; ++protoIdx) {
+        protoCombo->setCurrentIndex(protoIdx);
+        for (int modeIdx = 0; modeIdx < 2; ++modeIdx) {
+            workbench->setMode(modeIdx);
+            for (const auto& size : targetSizes) {
+                page.resize(size);
+                QCoreApplication::processEvents();
+
+                // 1. Splitter zero overlap & bottom alignment
+                EXPECT_LE(workbench->geometry().right(), telemetry->geometry().left());
+                EXPECT_EQ(workbench->geometry().bottom(), telemetry->geometry().bottom());
+
+                // 2. Sticky execution bar visible in page rect
+                const QPoint execTopLeft = execGroup->mapTo(&page, QPoint(0, 0));
+                EXPECT_GE(execTopLeft.y(), 0);
+                EXPECT_LE(execTopLeft.y() + execGroup->height(), page.height());
+
+                // 3. Host QLineEdit width bounded in TCP mode
+                if (protoIdx == 0) {
+                    auto* ipEdit = page.findChild<QLineEdit*>();
+                    if (ipEdit && ipEdit->isVisible()) {
+                        EXPECT_LE(ipEdit->width(), 196);
+                        EXPECT_GE(ipEdit->width(), 128);
+                    }
+                }
+
+                // 4. Telemetry toolbar button metrics: width >= sizeHint().width()
+                auto* autoScrollBtn = telemetry->findChild<QToolButton*>(QStringLiteral("telemetryAutoScrollBtn"));
+                auto* clearBtn = telemetry->findChild<QToolButton*>(QStringLiteral("telemetryClearBtn"));
+                auto* exportBtn = telemetry->findChild<QToolButton*>(QStringLiteral("telemetryExportBtn"));
+                auto* linkageBtn = telemetry->findChild<QToolButton*>(QStringLiteral("liveAnalyzerBtn"));
+                if (autoScrollBtn) EXPECT_GE(autoScrollBtn->width(), autoScrollBtn->sizeHint().width());
+                if (clearBtn) EXPECT_GE(clearBtn->width(), clearBtn->sizeHint().width());
+                if (exportBtn) EXPECT_GE(exportBtn->width(), exportBtn->sizeHint().width());
+                if (linkageBtn) EXPECT_GE(linkageBtn->width(), linkageBtn->sizeHint().width());
+            }
+        }
+    }
+}
+
+TEST(ConnectionWidgets, MainWindow_AllFivePages_ZeroOverlapAtMinimumDimensions) {
+    QTemporaryDir sandbox;
+    ASSERT_TRUE(sandbox.isValid());
+    infra::platform::PathResolver resolver(sandbox.path());
+    tests::mocks::FakeSettingsService settings;
+    settings.setValue(QStringLiteral("app/disclaimerAccepted"), true);
+    settings.setValue(QStringLiteral("app/updateCheckFrequency"), QStringLiteral("never"));
+    settings.setValue(QStringLiteral("app/language"), QStringLiteral("en_US"));
+    ui::common::ThemeController theme(settings);
+    ui::MainWindow window(&settings, &theme, resolver);
+
+    // 1. Minimum dimensions 720x520
+    window.resize(720, 520);
+    window.show();
+    QCoreApplication::processEvents();
+
+    EXPECT_TRUE(window.isNavigationCollapsed());
+
+    QStackedWidget* stack = nullptr;
+    for (auto* candidate : window.findChildren<QStackedWidget*>()) {
+        if (candidate->count() == 5) {
+            stack = candidate;
+            break;
+        }
+    }
+    ASSERT_NE(stack, nullptr);
+
+    // Switch across all 5 pages
+    for (int pageIdx = 0; pageIdx < 5; ++pageIdx) {
+        stack->setCurrentIndex(pageIdx);
+        QCoreApplication::processEvents();
+
+        auto* currentWidget = stack->currentWidget();
+        ASSERT_NE(currentWidget, nullptr);
+        EXPECT_GT(currentWidget->width(), 0);
+        EXPECT_LE(currentWidget->width(), stack->width());
+        EXPECT_GT(currentWidget->height(), 0);
+        EXPECT_LE(currentWidget->height(), stack->height());
+
+        // Ensure child CollapsibleSections (if present) are bounded
+        const auto collapsibleSections = currentWidget->findChildren<ui::widgets::CollapsibleSection*>();
+        for (auto* section : collapsibleSections) {
+            if (section->isVisible() && section->parentWidget()) {
+                EXPECT_LE(section->width(), section->parentWidget()->width());
+            }
+            // Test collapsible toggling without crash/overflow
+            section->setExpanded(false);
+            QCoreApplication::processEvents();
+            EXPECT_FALSE(section->isExpanded());
+            section->setExpanded(true);
+            QCoreApplication::processEvents();
+            EXPECT_TRUE(section->isExpanded());
+        }
+    }
+
+    // 2. Wide dimensions 1280x800
+    window.resize(1280, 800);
+    QCoreApplication::processEvents();
+    EXPECT_FALSE(window.isNavigationCollapsed());
+
+    for (int pageIdx = 0; pageIdx < 5; ++pageIdx) {
+        stack->setCurrentIndex(pageIdx);
+        QCoreApplication::processEvents();
+
+        auto* currentWidget = stack->currentWidget();
+        ASSERT_NE(currentWidget, nullptr);
+        EXPECT_GT(currentWidget->width(), 0);
+        EXPECT_LE(currentWidget->width(), stack->width());
+    }
 }
 
 } // namespace
