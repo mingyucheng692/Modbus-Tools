@@ -19,12 +19,17 @@ void TrafficLogController::setPollingController(PollingController* controller) {
     pollingController_ = controller;
 }
 
-void TrafficLogController::setRawFramesEnabled(bool enabled) noexcept {
-    rawFramesEnabled_ = enabled;
+void TrafficLogController::setPollFramesEnabled(bool enabled) noexcept {
+    pollFramesEnabled_ = enabled;
+    if (!enabled) {
+        pollCyclePhase_ = 0;
+        sampleCurrentCycle_ = false;
+        hasActiveCycle_ = false;
+    }
 }
 
-bool TrafficLogController::isRawFramesEnabled() const noexcept {
-    return rawFramesEnabled_;
+bool TrafficLogController::isPollFramesEnabled() const noexcept {
+    return pollFramesEnabled_;
 }
 
 void TrafficLogController::publishEvent(ui::common::TrafficEvent event) {
@@ -43,17 +48,24 @@ void TrafficLogController::logRawFrame(ui::common::TrafficDirection direction,
                                        const QByteArray& data) {
     const bool suppressLog = pollingController_
         && pollingController_->isSuppressingTrafficLog();
-    const bool rawEnabled = rawFramesEnabled_;
-    const bool allowRawFrameLog = !suppressLog || rawEnabled;
-    if (!allowRawFrameLog) return;
+    const bool pollEnabled = pollFramesEnabled_;
+    const bool allowFrameLog = !suppressLog || pollEnabled;
+    if (!allowFrameLog) return;
 
-    if (suppressLog && rawEnabled) {
-        rawFramePhase_ = (rawFramePhase_ + 1) % config::Ui::kRawFrameSampleRate;
-        if (rawFramePhase_ != 0) {
-            ++rawFramesDropped_;
+    if (suppressLog && pollEnabled) {
+        if (direction == ui::common::TrafficDirection::Tx || !hasActiveCycle_) {
+            pollCyclePhase_ = (pollCyclePhase_ + 1) % config::Ui::kPollFrameSampleRate;
+            sampleCurrentCycle_ = (pollCyclePhase_ == 0);
+            hasActiveCycle_ = (direction == ui::common::TrafficDirection::Tx);
+        } else if (direction == ui::common::TrafficDirection::Rx) {
+            hasActiveCycle_ = false;
+        }
+
+        if (!sampleCurrentCycle_) {
+            ++pollFramesSkipped_;
             return;
         }
-        ++rawFramesShown_;
+        ++pollFramesShown_;
     }
 
     ui::common::TrafficEvent event;
@@ -158,12 +170,12 @@ void TrafficLogController::logPollSummary(const PollSummary& summary) {
         .arg(summary.retryCount)
         .arg(summary.avgRttMs);
 
-    if (rawFramesShown_ > 0 || rawFramesDropped_ > 0) {
-        summaryText += tr(" (raw frames: %1 shown, %2 sampled)")
-            .arg(rawFramesShown_)
-            .arg(rawFramesDropped_);
-        rawFramesShown_ = 0;
-        rawFramesDropped_ = 0;
+    if (pollFramesShown_ > 0 || pollFramesSkipped_ > 0) {
+        summaryText += tr(" (poll frames: %1 shown, %2 skipped)")
+            .arg(pollFramesShown_)
+            .arg(pollFramesSkipped_);
+        pollFramesShown_ = 0;
+        pollFramesSkipped_ = 0;
     }
 
     event.summary = summaryText;

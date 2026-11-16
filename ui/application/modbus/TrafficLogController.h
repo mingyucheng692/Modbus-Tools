@@ -24,8 +24,8 @@ public:
                                   QObject* parent = nullptr);
 
     void setPollingController(PollingController* controller);
-    void setRawFramesEnabled(bool enabled) noexcept;
-    [[nodiscard]] bool isRawFramesEnabled() const noexcept;
+    void setPollFramesEnabled(bool enabled) noexcept;
+    [[nodiscard]] bool isPollFramesEnabled() const noexcept;
 
     void logConnectionInfo(const QString& message);
     void logRawFrame(ui::common::TrafficDirection direction, const QByteArray& data);
@@ -54,11 +54,13 @@ private:
     static QString errorWithRetrySummary(const QString& error, int retryCount);
 
     PollingController* pollingController_ = nullptr;
-    bool rawFramesEnabled_ = false;
+    bool pollFramesEnabled_ = false;
 
-    int rawFramePhase_ = 0;
-    int rawFramesShown_ = 0;
-    int rawFramesDropped_ = 0;
+    int pollCyclePhase_ = 0;
+    bool sampleCurrentCycle_ = false;
+    bool hasActiveCycle_ = false;
+    int pollFramesShown_ = 0;
+    int pollFramesSkipped_ = 0;
 };
 
 } // namespace ui::application::modbus

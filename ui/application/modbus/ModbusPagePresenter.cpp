@@ -444,9 +444,9 @@ void ModbusPagePresenter::handleLogMessage(const QString& message, bool isError)
     }
 }
 
-void ModbusPagePresenter::setRawFramesEnabled(bool enabled) {
+void ModbusPagePresenter::setPollFramesEnabled(bool enabled) {
     if (trafficLogController_) {
-        trafficLogController_->setRawFramesEnabled(enabled);
+        trafficLogController_->setPollFramesEnabled(enabled);
     }
 }
 

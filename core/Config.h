@@ -154,10 +154,10 @@ struct Ui {
     static constexpr int kTrafficMonitorMaxBlockCount = 1000;
     static constexpr int kByteMonitorMaxBlockCount = 50000;
     static constexpr int kDataMonitorFlushIntervalMs = 33;
-    /// Raw Frames sampling: pass 1 poll frame per N, drop the rest (manual frames
+    /// Poll Frames sampling: pass 1 poll frame cycle per N, drop the rest (manual frames
     /// are never sampled). Keeps the UI thread responsive under fast polling while
-    /// Raw Frames mode is enabled.
-    static constexpr int kRawFrameSampleRate = 10;
+    /// Poll Frames mode is enabled.
+    static constexpr int kPollFrameSampleRate = 10;
 };
 
 struct Io {

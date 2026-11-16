@@ -91,8 +91,8 @@ void ModbusPage::bindPresenter(ui::application::modbus::ModbusPagePresenter* pre
     if (telemetryWidget_) {
         connect(telemetryWidget_, &widgets::modbus::ModbusTelemetryWidget::linkageToggled,
                 pagePresenter_, &ui::application::modbus::ModbusPagePresenter::setLinked);
-        connect(telemetryWidget_, &widgets::modbus::ModbusTelemetryWidget::rawFramesToggled,
-                pagePresenter_, &ui::application::modbus::ModbusPagePresenter::setRawFramesEnabled);
+        connect(telemetryWidget_, &widgets::modbus::ModbusTelemetryWidget::pollFramesToggled,
+                pagePresenter_, &ui::application::modbus::ModbusPagePresenter::setPollFramesEnabled);
     }
 
     connect(pagePresenter_, &ui::application::modbus::ModbusPagePresenter::linkageDataReceived,

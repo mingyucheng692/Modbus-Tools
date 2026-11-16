@@ -90,15 +90,17 @@ void ModbusTelemetryWidget::setupToolbar() {
 
     filterCombo_ = new QComboBox(toolbarWidget_);
     filterCombo_->setObjectName(QStringLiteral("telemetryFilterCombo"));
-    filterCombo_->addItems({tr("All"), tr("TX"), tr("RX"), tr("SYS"), tr("Errors")});
+    filterCombo_->addItems({tr("All"), tr("TX"), tr("RX"), tr("SYS"), tr("Err & Warn"), tr("Errors"), tr("Warnings")});
+    filterCombo_->setToolTip(tr("Filter telemetry log by direction or event severity"));
     connect(filterCombo_, QOverload<int>::of(&QComboBox::currentIndexChanged),
             this, &ModbusTelemetryWidget::onFilterChanged);
     filterLabel_ = new QLabel(tr("Filter:"), toolbarWidget_);
     filterLabel_->setObjectName(QStringLiteral("telemetryFilterLabel"));
 
-    rawFramesCheck_ = new QCheckBox(tr("Raw Frames"), toolbarWidget_);
-    rawFramesCheck_->setObjectName(QStringLiteral("telemetryRawFramesCheck"));
-    connect(rawFramesCheck_, &QCheckBox::toggled, this, &ModbusTelemetryWidget::rawFramesToggled);
+    pollFramesCheck_ = new QCheckBox(tr("Poll Frames"), toolbarWidget_);
+    pollFramesCheck_->setObjectName(QStringLiteral("telemetryPollFramesCheck"));
+    pollFramesCheck_->setToolTip(tr("Sample 1 in 10 polling request/response frame pairs in traffic log; manual requests are always logged in full"));
+    connect(pollFramesCheck_, &QCheckBox::toggled, this, &ModbusTelemetryWidget::pollFramesToggled);
 
     autoScrollBtn_ = new QPushButton(tr("Auto-Scroll"), toolbarWidget_);
     autoScrollBtn_->setObjectName(QStringLiteral("telemetryAutoScrollBtn"));
@@ -147,14 +149,14 @@ void ModbusTelemetryWidget::applyToolbarLayout(bool twoRow) {
         toolbarLayout_->addWidget(overflowLabel_, 0, 4);
         toolbarLayout_->setColumnStretch(5, 1);
 
-        toolbarLayout_->addWidget(rawFramesCheck_, 1, 0, 1, 2);
+        toolbarLayout_->addWidget(pollFramesCheck_, 1, 0, 1, 2);
         toolbarLayout_->addWidget(exportBtn_, 1, 2);
         toolbarLayout_->addWidget(liveAnalyzerBtn_, 1, 3);
         toolbarLayout_->setColumnStretch(5, 1);
     } else {
         toolbarLayout_->addWidget(filterLabel_, 0, 0);
         toolbarLayout_->addWidget(filterCombo_, 0, 1);
-        toolbarLayout_->addWidget(rawFramesCheck_, 0, 2);
+        toolbarLayout_->addWidget(pollFramesCheck_, 0, 2);
         toolbarLayout_->addWidget(autoScrollBtn_, 0, 3);
         toolbarLayout_->addWidget(clearBtn_, 0, 4);
         toolbarLayout_->addWidget(exportBtn_, 0, 5);
@@ -748,9 +750,15 @@ void ModbusTelemetryWidget::onFilterChanged(int index) {
     } else if (index == 3) { // SYS
         proxyModel_->setFilterKeyColumn(TelemetryTableModel::ColDirection);
         proxyModel_->setFilterFixedString(QStringLiteral("SYS"));
-    } else if (index == 4) { // Errors
+    } else if (index == 4) { // Err & Warn
+        proxyModel_->setFilterKeyColumn(TelemetryTableModel::ColStatus);
+        proxyModel_->setFilterRegularExpression(QStringLiteral("Error|Warning|Exception|Malformed"));
+    } else if (index == 5) { // Errors
         proxyModel_->setFilterKeyColumn(TelemetryTableModel::ColStatus);
         proxyModel_->setFilterRegularExpression(QStringLiteral("Error|Exception|Malformed"));
+    } else if (index == 6) { // Warnings
+        proxyModel_->setFilterKeyColumn(TelemetryTableModel::ColStatus);
+        proxyModel_->setFilterRegularExpression(QStringLiteral("Warning"));
     }
 }
 
@@ -892,7 +900,7 @@ void ModbusTelemetryWidget::changeEvent(QEvent* event) {
     QWidget::changeEvent(event);
 }
 
-void ModbusTelemetryWidget::retranslateUi() {
+void ModbusTelemetryWidget::retranslateToolbarUi() {
     if (filterLabel_) {
         filterLabel_->setText(tr("Filter:"));
     }
@@ -902,11 +910,15 @@ void ModbusTelemetryWidget::retranslateUi() {
         filterCombo_->setItemText(1, tr("TX"));
         filterCombo_->setItemText(2, tr("RX"));
         filterCombo_->setItemText(3, tr("SYS"));
-        filterCombo_->setItemText(4, tr("Errors"));
+        filterCombo_->setItemText(4, tr("Err & Warn"));
+        filterCombo_->setItemText(5, tr("Errors"));
+        filterCombo_->setItemText(6, tr("Warnings"));
         filterCombo_->setCurrentIndex(cur);
+        filterCombo_->setToolTip(tr("Filter telemetry log by direction or event severity"));
     }
-    if (rawFramesCheck_) {
-        rawFramesCheck_->setText(tr("Raw Frames"));
+    if (pollFramesCheck_) {
+        pollFramesCheck_->setText(tr("Poll Frames"));
+        pollFramesCheck_->setToolTip(tr("Sample 1 in 10 polling request/response frame pairs in traffic log; manual requests are always logged in full"));
     }
     if (autoScrollBtn_) {
         autoScrollBtn_->setText(tr("Auto-Scroll"));
@@ -928,6 +940,9 @@ void ModbusTelemetryWidget::retranslateUi() {
         resetStatsBtn_->setText(tr("Reset Stats"));
         resetStatsBtn_->setToolTip(tr("Reset communication statistics (TX, RX, Error, RTT)"));
     }
+}
+
+void ModbusTelemetryWidget::retranslateInspectorUi() {
     if (inspectInAnalyzerBtn_) {
         inspectInAnalyzerBtn_->setText(tr("Inspect in Analyzer ↗"));
         inspectInAnalyzerBtn_->setToolTip(tr("Send the selected frame payload to Frame Analyzer for deep parsing"));
@@ -953,6 +968,11 @@ void ModbusTelemetryWidget::retranslateUi() {
     if (inspectorDetailsText_) {
         inspectorDetailsText_->setPlaceholderText(tr("Select a frame to inspect details"));
     }
+}
+
+void ModbusTelemetryWidget::retranslateUi() {
+    retranslateToolbarUi();
+    retranslateInspectorUi();
     updateMetricsLabel();
     if (tableModel_) {
         tableModel_->retranslate();

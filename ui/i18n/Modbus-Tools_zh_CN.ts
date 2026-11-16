@@ -1651,8 +1651,8 @@ Choose update method:</source>
     </message>
     <message>
         <location filename="../application/modbus/TrafficLogController.cpp" line="162" />
-        <source> (raw frames: %1 shown, %2 sampled)</source>
-        <translation>（原始帧：已显示 %1，已抽样省略 %2）</translation>
+        <source> (poll frames: %1 shown, %2 skipped)</source>
+        <translation>（轮询采样帧：已显示 %1，已省略 %2）</translation>
     </message>
     <message>
         <location filename="../application/modbus/TrafficLogController.cpp" line="175" />
@@ -4472,6 +4472,18 @@ You are solely responsible for all operations.</source>
         <translation>仅错误</translation>
     </message>
     <message>
+        <location filename="../widgets/modbus/ModbusTelemetryWidget.cpp" line="93" />
+        <location filename="../widgets/modbus/ModbusTelemetryWidget.cpp" line="905" />
+        <source>Err &amp; Warn</source>
+        <translation>错误与警告</translation>
+    </message>
+    <message>
+        <location filename="../widgets/modbus/ModbusTelemetryWidget.cpp" line="93" />
+        <location filename="../widgets/modbus/ModbusTelemetryWidget.cpp" line="905" />
+        <source>Warnings</source>
+        <translation>仅警告</translation>
+    </message>
+    <message>
         <location filename="../widgets/modbus/ModbusTelemetryWidget.cpp" line="96" />
         <location filename="../widgets/modbus/ModbusTelemetryWidget.cpp" line="897" />
         <source>Filter:</source>
@@ -4480,8 +4492,8 @@ You are solely responsible for all operations.</source>
     <message>
         <location filename="../widgets/modbus/ModbusTelemetryWidget.cpp" line="99" />
         <location filename="../widgets/modbus/ModbusTelemetryWidget.cpp" line="909" />
-        <source>Raw Frames</source>
-        <translation>原始帧</translation>
+        <source>Poll Frames</source>
+        <translation>轮询采样帧</translation>
     </message>
     <message>
         <location filename="../widgets/modbus/ModbusTelemetryWidget.cpp" line="115" />

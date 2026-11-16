@@ -206,7 +206,7 @@ TEST_F(TrafficLogControllerTest, SetPollingController_UpdatesReference) {
     ASSERT_TRUE(newPollingController->isSuppressingTrafficLog());
 
     QSignalSpy spy(controller_.get(), &TrafficLogController::trafficEvent);
-    controller_->setRawFramesEnabled(false);
+    controller_->setPollFramesEnabled(false);
     controller_->logRawFrame(ui::common::TrafficDirection::Tx, QByteArray::fromHex("010300000002"));
     EXPECT_EQ(spy.count(), 0);
 }
@@ -220,7 +220,7 @@ TEST_F(TrafficLogControllerTest, PublishEvent_EmitsTrafficEventSignal) {
     EXPECT_EQ(ev.summary, QStringLiteral("Connected successfully"));
 }
 
-TEST_F(TrafficLogControllerTest, LogRawFrame_SuppressedBetweenPollTicksWhenRawDisabled_AndSampledWhenRawEnabled) {
+TEST_F(TrafficLogControllerTest, LogRawFrame_SuppressedBetweenPollTicksWhenPollDisabled_AndSampledPairsWhenPollEnabled) {
     pollingController_->handleSessionConnected();
     PollSpec spec;
     spec.functionCode = 0x03;
@@ -235,26 +235,31 @@ TEST_F(TrafficLogControllerTest, LogRawFrame_SuppressedBetweenPollTicksWhenRawDi
     ASSERT_TRUE(pollingController_->isSuppressingTrafficLog());
 
     QSignalSpy spy(controller_.get(), &TrafficLogController::trafficEvent);
-    controller_->setRawFramesEnabled(false);
+    controller_->setPollFramesEnabled(false);
     controller_->logRawFrame(ui::common::TrafficDirection::Tx, QByteArray::fromHex("010300000004"));
     controller_->logRawFrame(ui::common::TrafficDirection::Rx, QByteArray::fromHex("0103080000"));
     EXPECT_EQ(spy.count(), 0);
 
-    controller_->setRawFramesEnabled(true);
-    for (int i = 0; i < config::Ui::kRawFrameSampleRate; ++i) {
+    controller_->setPollFramesEnabled(true);
+    for (int i = 0; i < config::Ui::kPollFrameSampleRate; ++i) {
         controller_->logRawFrame(ui::common::TrafficDirection::Tx, QByteArray::fromHex("010300000004"));
+        controller_->logRawFrame(ui::common::TrafficDirection::Rx, QByteArray::fromHex("0103080000"));
     }
-    ASSERT_EQ(spy.count(), 1);
-    const auto sampled = spy.first().first().value<ui::common::TrafficEvent>();
-    EXPECT_TRUE(sampled.isPoll);
+    ASSERT_EQ(spy.count(), 2);
+    const auto sampledTx = spy.at(0).first().value<ui::common::TrafficEvent>();
+    const auto sampledRx = spy.at(1).first().value<ui::common::TrafficEvent>();
+    EXPECT_TRUE(sampledTx.isPoll);
+    EXPECT_TRUE(sampledRx.isPoll);
+    EXPECT_EQ(sampledTx.direction, ui::common::TrafficDirection::Tx);
+    EXPECT_EQ(sampledRx.direction, ui::common::TrafficDirection::Rx);
 
     PollSummary summary;
-    summary.successCount = 1;
+    summary.successCount = 10;
     summary.avgRttMs = 5;
     controller_->logPollSummary(summary);
-    ASSERT_EQ(spy.count(), 2);
+    ASSERT_EQ(spy.count(), 3);
     const auto summaryEv = spy.last().first().value<ui::common::TrafficEvent>();
-    EXPECT_TRUE(summaryEv.summary.contains(QStringLiteral("raw frames: 1 shown")));
+    EXPECT_TRUE(summaryEv.summary.contains(QStringLiteral("poll frames: 2 shown, 18 skipped")));
 }
 
 } // namespace

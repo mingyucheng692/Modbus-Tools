@@ -96,12 +96,12 @@ TEST_F(ModbusPagePresenterTest, HandleLogMessage_RoutesWithoutError) {
     EXPECT_NO_THROW(presenter_->handleLogMessage(QStringLiteral("error log"), true));
 }
 
-TEST_F(ModbusPagePresenterTest, SetRawFramesEnabled_UpdatesTrafficLogController) {
-    presenter_->setRawFramesEnabled(true);
-    EXPECT_TRUE(presenter_->trafficLogController()->isRawFramesEnabled());
+TEST_F(ModbusPagePresenterTest, SetPollFramesEnabled_UpdatesTrafficLogController) {
+    presenter_->setPollFramesEnabled(true);
+    EXPECT_TRUE(presenter_->trafficLogController()->isPollFramesEnabled());
 
-    presenter_->setRawFramesEnabled(false);
-    EXPECT_FALSE(presenter_->trafficLogController()->isRawFramesEnabled());
+    presenter_->setPollFramesEnabled(false);
+    EXPECT_FALSE(presenter_->trafficLogController()->isPollFramesEnabled());
 }
 
 TEST_F(ModbusPagePresenterTest, DetachView_NullifiesView) {

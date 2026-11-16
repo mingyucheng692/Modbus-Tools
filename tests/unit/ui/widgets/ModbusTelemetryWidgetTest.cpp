@@ -9,6 +9,7 @@
 #include <QPushButton>
 #include <QSignalSpy>
 #include <QApplication>
+#include <QCheckBox>
 #include <QComboBox>
 #include <QTableView>
 #include <QTemporaryDir>
@@ -449,5 +450,110 @@ TEST_F(ModbusTelemetryWidgetTest, MetadataScaleAndDescriptionRendering) {
 
     EXPECT_TRUE(details.contains(QStringLiteral("WaterTemperature")));
     EXPECT_TRUE(details.contains(QStringLiteral("100"))); // 200 * 0.5 = 100
+}
+
+TEST_F(ModbusTelemetryWidgetTest, FilterComboboxSeverityFiltering) {
+    widget_->setProtocolType(::modbus::parser::ProtocolType::Rtu);
+
+    auto* combo = widget_->filterComboBox();
+    ASSERT_NE(combo, nullptr);
+    EXPECT_EQ(combo->count(), 7);
+    EXPECT_EQ(combo->itemText(0), QStringLiteral("All"));
+    EXPECT_EQ(combo->itemText(1), QStringLiteral("TX"));
+    EXPECT_EQ(combo->itemText(2), QStringLiteral("RX"));
+    EXPECT_EQ(combo->itemText(3), QStringLiteral("SYS"));
+    EXPECT_EQ(combo->itemText(4), QStringLiteral("Err & Warn"));
+    EXPECT_EQ(combo->itemText(5), QStringLiteral("Errors"));
+    EXPECT_EQ(combo->itemText(6), QStringLiteral("Warnings"));
+
+    // 1. TX event
+    TrafficEvent evTx;
+    evTx.direction = TrafficDirection::Tx;
+    evTx.payload = QByteArray::fromHex("010300000002C40B");
+    widget_->appendTrafficEvent(evTx);
+
+    // 2. RX success event (CRC 0x322A -> little-endian bytes: 2A 32)
+    TrafficEvent evRx;
+    evRx.direction = TrafficDirection::Rx;
+    evRx.payload = QByteArray::fromHex("010304000100022A32");
+    widget_->appendTrafficEvent(evRx);
+
+    // 3. SYS info event
+    TrafficEvent evInfo;
+    evInfo.direction = TrafficDirection::None;
+    evInfo.level = TrafficEventLevel::Info;
+    evInfo.summary = QStringLiteral("Poll Summary: 1 ok, 0 err");
+    widget_->appendTrafficEvent(evInfo);
+
+    // 4. SYS warning event
+    TrafficEvent evWarn;
+    evWarn.direction = TrafficDirection::None;
+    evWarn.level = TrafficEventLevel::Warning;
+    evWarn.summary = QStringLiteral("Poll Warning: 1 consecutive failure(s): Request timed out");
+    widget_->appendTrafficEvent(evWarn);
+
+    // 5. SYS error event
+    TrafficEvent evErr;
+    evErr.direction = TrafficDirection::None;
+    evErr.level = TrafficEventLevel::Error;
+    evErr.summary = QStringLiteral("Error: Request timed out");
+    widget_->appendTrafficEvent(evErr);
+
+    // 6. RX Exception event
+    TrafficEvent evEx;
+    evEx.direction = TrafficDirection::Rx;
+    evEx.payload = QByteArray::fromHex("018302C0F1");
+    widget_->appendTrafficEvent(evEx);
+
+    QMetaObject::invokeMethod(widget_.get(), "processBatchTimeout");
+    ASSERT_EQ(widget_->tableModel()->rowCount(), 6);
+
+    auto* proxy = widget_->tableView()->model();
+    ASSERT_NE(proxy, nullptr);
+
+    // Index 0: All -> 6
+    combo->setCurrentIndex(0);
+    EXPECT_EQ(proxy->rowCount(), 6);
+
+    // Index 1: TX -> 1
+    combo->setCurrentIndex(1);
+    EXPECT_EQ(proxy->rowCount(), 1);
+
+    // Index 2: RX -> 2 (evRx, evEx)
+    combo->setCurrentIndex(2);
+    EXPECT_EQ(proxy->rowCount(), 2);
+
+    // Index 3: SYS -> 3 (evInfo, evWarn, evErr)
+    combo->setCurrentIndex(3);
+    EXPECT_EQ(proxy->rowCount(), 3);
+
+    // Index 4: Err & Warn -> 3 (evWarn, evErr, evEx)
+    combo->setCurrentIndex(4);
+    EXPECT_EQ(proxy->rowCount(), 3);
+
+    // Index 5: Errors -> 2 (evErr, evEx; evWarn excluded)
+    combo->setCurrentIndex(5);
+    EXPECT_EQ(proxy->rowCount(), 2);
+
+    // Index 6: Warnings -> 1 (evWarn; evErr and evEx excluded)
+    combo->setCurrentIndex(6);
+    EXPECT_EQ(proxy->rowCount(), 1);
+}
+
+TEST_F(ModbusTelemetryWidgetTest, PollFramesToggleAndTooltip) {
+    auto* check = widget_->pollFramesCheckBox();
+    ASSERT_NE(check, nullptr);
+    EXPECT_EQ(check->objectName(), QStringLiteral("telemetryPollFramesCheck"));
+    EXPECT_EQ(check->text(), QStringLiteral("Poll Frames"));
+    EXPECT_FALSE(check->toolTip().isEmpty());
+
+    QSignalSpy spy(widget_.get(), &ModbusTelemetryWidget::pollFramesToggled);
+    check->setChecked(true);
+    EXPECT_EQ(spy.count(), 1);
+    EXPECT_TRUE(spy.takeFirst().at(0).toBool());
+
+    check->setChecked(false);
+    EXPECT_EQ(spy.count(), 1);
+    EXPECT_FALSE(spy.takeFirst().at(0).toBool());
 }
 

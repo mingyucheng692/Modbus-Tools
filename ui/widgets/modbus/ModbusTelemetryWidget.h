@@ -66,6 +66,8 @@ public:
     [[nodiscard]] QPushButton* liveAnalyzerButton() const noexcept { return liveAnalyzerBtn_; }
     [[nodiscard]] QPushButton* resetStatsButton() const noexcept { return resetStatsBtn_; }
     [[nodiscard]] QPushButton* inspectInAnalyzerButton() const noexcept { return inspectInAnalyzerBtn_; }
+    [[nodiscard]] QComboBox* filterComboBox() const noexcept { return filterCombo_; }
+    [[nodiscard]] QCheckBox* pollFramesCheckBox() const noexcept { return pollFramesCheck_; }
     [[nodiscard]] QLabel* txStatsLabel() const noexcept { return txStatsLabel_; }
     [[nodiscard]] QLabel* rxStatsLabel() const noexcept { return rxStatsLabel_; }
     [[nodiscard]] QLabel* errStatsLabel() const noexcept { return errStatsLabel_; }
@@ -93,7 +95,7 @@ public:
 
 signals:
     void linkageToggled(bool active);
-    void rawFramesToggled(bool enabled);
+    void pollFramesToggled(bool enabled);
     void frameSelectedForAnalysis(const QByteArray& payload);
     void inspectInAnalyzerRequested(const QString& hexString);
     void resetMetricsRequested();
@@ -126,6 +128,8 @@ private:
     void updateInspectorContent(const TelemetryRowView* row);
     void updateMetricsLabel();
     void retranslateUi();
+    void retranslateToolbarUi();
+    void retranslateInspectorUi();
     [[nodiscard]] QStringList buildCsvLines() const;
     [[nodiscard]] bool exportJsonToFile(const QString& filePath, QString* error) const;
 
@@ -140,7 +144,7 @@ private:
     bool isTwoRowToolbar_ = false;
     QLabel* filterLabel_ = nullptr;
     QComboBox* filterCombo_ = nullptr;
-    QCheckBox* rawFramesCheck_ = nullptr;
+    QCheckBox* pollFramesCheck_ = nullptr;
     QPushButton* autoScrollBtn_ = nullptr;
     QPushButton* clearBtn_ = nullptr;
     QPushButton* exportBtn_ = nullptr;
