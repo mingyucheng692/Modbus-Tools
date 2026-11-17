@@ -4908,11 +4908,6 @@ You are solely responsible for all operations.</source>
         <translation>格式化</translation>
     </message>
     <message>
-        <location filename="../widgets/modbus/ModbusWorkbenchWidget.cpp" line="1186" />
-        <source>Send Raw Frame</source>
-        <translation>发送原始报文</translation>
-    </message>
-    <message>
         <location filename="../widgets/modbus/ModbusWorkbenchWidget.cpp" line="739" />
         <source>Polling automatically stopped due to write operation switch</source>
         <translation>切换至写操作，已自动停止轮询</translation>

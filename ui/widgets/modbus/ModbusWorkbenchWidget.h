@@ -19,6 +19,7 @@ class QLabel;
 class QLineEdit;
 class QPlainTextEdit;
 class QPushButton;
+class QScrollArea;
 class QShortcut;
 class QSpinBox;
 class QStackedLayout;
@@ -71,7 +72,11 @@ public:
     [[nodiscard]] QLabel* addressPreviewLabel() const noexcept { return addressPreviewLabel_; }
     [[nodiscard]] QLabel* addressWarningLabel() const noexcept { return addressWarningLabel_; }
     [[nodiscard]] QLabel* writeWarningLabel() const noexcept { return writeWarningLabel_; }
+    [[nodiscard]] QGroupBox* addressingGroup() const noexcept { return addressingGroup_; }
     [[nodiscard]] QGroupBox* writeGroup() const noexcept { return writeGroup_; }
+    [[nodiscard]] QGroupBox* executionGroup() const noexcept { return executionGroup_; }
+    [[nodiscard]] QScrollArea* scrollArea() const noexcept { return scrollArea_; }
+    [[nodiscard]] QComboBox* functionCodeComboBox() const noexcept { return fcCombo_; }
     [[nodiscard]] QPushButton* executeButton() const noexcept { return executeBtn_; }
     [[nodiscard]] QLabel* guardHintLabel() const noexcept { return guardHintLabel_; }
 
@@ -231,6 +236,10 @@ private:
     QLabel* guardHintLabel_ = nullptr;
     QString lastValidationHint_;
 
+    // Layout structure
+    QVBoxLayout* outerLayout_ = nullptr;
+    QScrollArea* scrollArea_ = nullptr;
+
     // Raw mode widgets
     QGroupBox* rawGroup_ = nullptr;
     QPlainTextEdit* rawTextEdit_ = nullptr;
@@ -238,7 +247,6 @@ private:
     QPushButton* addCrcBtn_ = nullptr;
     QPushButton* addLrcBtn_ = nullptr;
     QPushButton* cleanHexBtn_ = nullptr;
-    QPushButton* rawExecuteBtn_ = nullptr;
 };
 
 } // namespace ui::widgets::modbus

@@ -11,6 +11,8 @@
 #include <QLineEdit>
 #include <QPlainTextEdit>
 #include <QPushButton>
+#include <QScrollArea>
+#include <QScrollBar>
 #include <QShortcut>
 #include <QSpinBox>
 #include <QVBoxLayout>
@@ -378,8 +380,6 @@ TEST_F(ModbusWorkbenchWidgetTest, OperatorPokaYoke_GuardHintAndTooltips) {
     ASSERT_NE(hint, nullptr);
     auto* execBtn = widget_->executeButton();
     ASSERT_NE(execBtn, nullptr);
-    auto* rawBtn = widget_->findChild<QPushButton*>(QStringLiteral("workbenchRawExecuteBtn"));
-    ASSERT_NE(rawBtn, nullptr);
     auto* pollCheck = widget_->findChild<QCheckBox*>(QStringLiteral("workbenchPollCheck"));
     ASSERT_NE(pollCheck, nullptr);
 
@@ -398,10 +398,17 @@ TEST_F(ModbusWorkbenchWidgetTest, OperatorPokaYoke_GuardHintAndTooltips) {
     EXPECT_FALSE(hint->isHidden());
     EXPECT_EQ(hint->text(), QStringLiteral("Connect device to send commands."));
 
-    // Tooltips propagated to action buttons
+    // Tooltips propagated to action buttons and execution disabled
     EXPECT_EQ(execBtn->toolTip(), QStringLiteral("Connect device to send commands."));
-    EXPECT_EQ(rawBtn->toolTip(), QStringLiteral("Connect device to send commands."));
+    EXPECT_FALSE(execBtn->isEnabled());
     EXPECT_EQ(pollCheck->toolTip(), QStringLiteral("Connect device to send commands."));
+
+    // In Raw Mode, executeBtn_ also reflects rawSendEnabled guard, tooltip and text
+    widget_->setMode(1);
+    EXPECT_EQ(execBtn->toolTip(), QStringLiteral("Connect device to send commands."));
+    EXPECT_FALSE(execBtn->isEnabled());
+    EXPECT_EQ(execBtn->text(), QStringLiteral("Send Raw Frame (F5)"));
+    widget_->setMode(0);
 
     // Connected state: execute enabled, tooltip cleared
     guards.executeEnabled = true;
@@ -413,7 +420,6 @@ TEST_F(ModbusWorkbenchWidgetTest, OperatorPokaYoke_GuardHintAndTooltips) {
     // Hint label hidden, tooltips cleared
     EXPECT_TRUE(hint->isHidden());
     EXPECT_TRUE(execBtn->toolTip().isEmpty());
-    EXPECT_TRUE(rawBtn->toolTip().isEmpty());
     EXPECT_TRUE(pollCheck->toolTip().isEmpty());
 
     // When slaveId is 0, broadcast tooltip takes precedence on pollCheck
@@ -684,12 +690,10 @@ TEST_F(ModbusWorkbenchWidgetTest, StickyExecutionFooter_DockedAtBottomAcrossWind
 
     auto* execBtn = widget_->executeButton();
     auto* execGroup = widget_->findChild<QGroupBox*>(QStringLiteral("workbenchExecutionGroup"));
-    auto* rawBtn = widget_->findChild<QPushButton*>(QStringLiteral("workbenchRawExecuteBtn"));
     auto* pollCheck = widget_->findChild<QCheckBox*>(QStringLiteral("workbenchPollCheck"));
     auto* rawText = widget_->findChild<QPlainTextEdit*>(QStringLiteral("workbenchRawTextEdit"));
     ASSERT_NE(execBtn, nullptr);
     ASSERT_NE(execGroup, nullptr);
-    ASSERT_NE(rawBtn, nullptr);
     ASSERT_NE(pollCheck, nullptr);
     ASSERT_NE(rawText, nullptr);
 
@@ -707,7 +711,6 @@ TEST_F(ModbusWorkbenchWidgetTest, StickyExecutionFooter_DockedAtBottomAcrossWind
     widget_->setMode(1);
     QCoreApplication::processEvents();
     EXPECT_TRUE(widget_->isRawMode());
-    EXPECT_TRUE(rawBtn->isHidden()); // Duplicate button hidden
     EXPECT_TRUE(execBtn->isVisible());
     EXPECT_EQ(execBtn->text(), QStringLiteral("Send Raw Frame (F5)"));
     EXPECT_TRUE(pollCheck->isHidden()); // Polling controls hidden in Raw mode
@@ -719,6 +722,52 @@ TEST_F(ModbusWorkbenchWidgetTest, StickyExecutionFooter_DockedAtBottomAcrossWind
 
     EXPECT_LE(execGroup->geometry().bottom(), widget_->rect().bottom());
     EXPECT_GT(rawText->height(), rawHeight480 + 200); // Raw editor naturally expands
+}
+
+TEST_F(ModbusWorkbenchWidgetTest, ZeroHorizontalScrollBarAndBorderIntegrityAtMinimumWidth) {
+    widget_->resize(280, 520);
+    widget_->show();
+    QCoreApplication::processEvents();
+
+    auto* scroll = widget_->scrollArea();
+    ASSERT_NE(scroll, nullptr);
+    auto* addressingGroup = widget_->addressingGroup();
+    ASSERT_NE(addressingGroup, nullptr);
+    auto* writeGroup = widget_->writeGroup();
+    ASSERT_NE(writeGroup, nullptr);
+
+    EXPECT_EQ(scroll->horizontalScrollBarPolicy(), Qt::ScrollBarAlwaysOff);
+    EXPECT_FALSE(scroll->horizontalScrollBar()->isVisible());
+
+    // Right edges of groups must not be clipped by scrollArea viewport
+    const int vpWidth = scroll->viewport()->width();
+    EXPECT_LE(addressingGroup->geometry().right(), vpWidth);
+    EXPECT_LE(writeGroup->geometry().right(), vpWidth);
+}
+
+TEST_F(ModbusWorkbenchWidgetTest, TightVerticalDockingInTallWindowWithoutVoid) {
+    widget_->setMode(0); // Standard mode
+    widget_->resize(1280, 900);
+    widget_->show();
+    widget_->scrollArea()->updateGeometry();
+    widget_->layout()->activate();
+    QCoreApplication::processEvents();
+
+    auto* execGroup = widget_->executionGroup();
+    ASSERT_NE(execGroup, nullptr);
+    auto* writeGroup = widget_->writeGroup();
+    ASSERT_NE(writeGroup, nullptr);
+
+    // writeGroup bottom position mapped into widget coordinates
+    const QPoint writeGroupBottomInWidget = writeGroup->mapTo(widget_.get(), QPoint(0, writeGroup->height()));
+    // executionGroup should tightly hug below writeGroup without massive empty void (gap <= 20px)
+    EXPECT_LE(execGroup->y() - writeGroupBottomInWidget.y(), 20);
+    EXPECT_GT(execGroup->y(), writeGroupBottomInWidget.y());
+
+    // In short window, execution group remains visible within widget bounds
+    widget_->resize(720, 520);
+    QCoreApplication::processEvents();
+    EXPECT_LE(execGroup->geometry().bottom(), widget_->rect().bottom());
 }
 
 

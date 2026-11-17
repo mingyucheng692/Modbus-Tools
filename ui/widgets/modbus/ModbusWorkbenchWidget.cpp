@@ -29,6 +29,26 @@
 
 namespace ui::widgets::modbus {
 
+namespace {
+
+class WorkbenchScrollArea : public QScrollArea {
+public:
+    explicit WorkbenchScrollArea(QWidget* parent = nullptr) : QScrollArea(parent) {}
+
+    [[nodiscard]] QSize sizeHint() const override {
+        if (widget()) {
+            return widget()->sizeHint();
+        }
+        return QScrollArea::sizeHint();
+    }
+
+    [[nodiscard]] QSize minimumSizeHint() const override {
+        return QSize(0, 0);
+    }
+};
+
+} // namespace
+
 ModbusWorkbenchWidget::ModbusWorkbenchWidget(infra::config::ISettingsService* settingsService,
                                              QWidget* parent)
     : QWidget(parent)
@@ -58,7 +78,6 @@ void ModbusWorkbenchWidget::setExecutionGuards(const ::ui::application::modbus::
             userConfirmedWritePoll_ = false;
         }
     }
-    rawExecuteBtn_->setEnabled(guards.rawSendEnabled);
     updateExecuteButtonAppearance();
     validateInputs();
     updateGuardAppearance();
@@ -217,19 +236,24 @@ void ModbusWorkbenchWidget::setupModeToggle(QWidget* container, QVBoxLayout* roo
 }
 
 void ModbusWorkbenchWidget::setupUi() {
-    auto* outerLayout = new QVBoxLayout(this);
-    outerLayout->setObjectName(QStringLiteral("workbenchRootLayout"));
-    outerLayout->setContentsMargins(4, 4, 4, 4);
-    outerLayout->setSpacing(6);
+    outerLayout_ = new QVBoxLayout(this);
+    outerLayout_->setObjectName(QStringLiteral("workbenchRootLayout"));
+    outerLayout_->setContentsMargins(4, 4, 4, 4);
+    outerLayout_->setSpacing(6);
 
-    setupModeToggle(this, outerLayout);
+    setupModeToggle(this, outerLayout_);
 
-    auto* scrollArea = new QScrollArea(this);
-    scrollArea->setWidgetResizable(true);
-    scrollArea->setFrameShape(QFrame::NoFrame);
+    scrollArea_ = new WorkbenchScrollArea(this);
+    scrollArea_->setObjectName(QStringLiteral("workbenchScrollArea"));
+    scrollArea_->setWidgetResizable(true);
+    scrollArea_->setFrameShape(QFrame::NoFrame);
+    scrollArea_->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+    scrollArea_->setVerticalScrollBarPolicy(Qt::ScrollBarAsNeeded);
+    scrollArea_->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Preferred);
 
-    auto* container = new QWidget(scrollArea);
+    auto* container = new QWidget(scrollArea_);
     container->setObjectName(QStringLiteral("workbenchContainer"));
+    container->setSizePolicy(QSizePolicy::Ignored, QSizePolicy::Preferred);
     auto* containerLayout = new QVBoxLayout(container);
     containerLayout->setContentsMargins(0, 0, 0, 0);
     containerLayout->setSpacing(6);
@@ -240,10 +264,11 @@ void ModbusWorkbenchWidget::setupUi() {
     mainStackedLayout_->addWidget(createRawWidget());
     containerLayout->addWidget(stackWidget);
 
-    scrollArea->setWidget(container);
-    outerLayout->addWidget(scrollArea, 1);
+    scrollArea_->setWidget(container);
+    outerLayout_->addWidget(scrollArea_, 0);
 
-    setupExecutionSection(this, outerLayout);
+    setupExecutionSection(this, outerLayout_);
+    outerLayout_->addStretch(1);
 
     stopPollShortcut_ = new QShortcut(QKeySequence(Qt::Key_Escape), this);
     stopPollShortcut_->setObjectName(QStringLiteral("workbenchStopPollShortcut"));
@@ -266,7 +291,6 @@ QWidget* ModbusWorkbenchWidget::createStandardWidget() {
 
     setupAddressingSection(w, l);
     setupWriteSection(w, l);
-    l->addStretch(1);
     return w;
 }
 
@@ -295,7 +319,7 @@ void ModbusWorkbenchWidget::setupFunctionCodeSelector(QGroupBox* group, QVBoxLay
     fcCombo_ = new QComboBox(group);
     fcCombo_->setObjectName(QStringLiteral("workbenchFcCombo"));
     fcCombo_->setSizeAdjustPolicy(QComboBox::AdjustToMinimumContentsLengthWithIcon);
-    fcCombo_->setMinimumContentsLength(16);
+    fcCombo_->setMinimumContentsLength(12);
     static constexpr uint8_t kFcCodes[] = {0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x0F, 0x10};
     for (uint8_t fc : kFcCodes) {
         fcCombo_->addItem(QString(), fc);
@@ -326,14 +350,19 @@ void ModbusWorkbenchWidget::setupRadixRow(QGroupBox* group, QFormLayout* form) {
     radixLabel_ = new QLabel(group);
     auto* radixLayout = new QHBoxLayout();
     radixLayout->setContentsMargins(0, 0, 0, 0);
+    radixLayout->setSpacing(4);
     radixGroup_ = new QButtonGroup(this);
     radixDecBtn_ = new QPushButton(group);
     radixDecBtn_->setObjectName(QStringLiteral("radixDecBtn"));
     radixDecBtn_->setCheckable(true);
     radixDecBtn_->setChecked(true);
+    radixDecBtn_->setMinimumWidth(36);
+    radixDecBtn_->setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Fixed);
     radixHexBtn_ = new QPushButton(group);
     radixHexBtn_->setObjectName(QStringLiteral("radixHexBtn"));
     radixHexBtn_->setCheckable(true);
+    radixHexBtn_->setMinimumWidth(36);
+    radixHexBtn_->setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Fixed);
     radixGroup_->addButton(radixDecBtn_, 10);
     radixGroup_->addButton(radixHexBtn_, 16);
     connect(radixGroup_, &QButtonGroup::idClicked, this, &ModbusWorkbenchWidget::onRadixChanged);
@@ -426,18 +455,25 @@ void ModbusWorkbenchWidget::setupWriteSection(QWidget* parent, QVBoxLayout* layo
 void ModbusWorkbenchWidget::setupDataRadixRow(QGroupBox* group, QVBoxLayout* wl) {
     auto* rowLayout = new QHBoxLayout();
     rowLayout->setContentsMargins(0, 0, 0, 0);
+    rowLayout->setSpacing(4);
     dataRadixLabel_ = new QLabel(group);
     dataRadixGroup_ = new QButtonGroup(this);
     dataRadixDecBtn_ = new QPushButton(group);
     dataRadixDecBtn_->setObjectName(QStringLiteral("workbenchDataRadixDecBtn"));
     dataRadixDecBtn_->setCheckable(true);
     dataRadixDecBtn_->setChecked(true);
+    dataRadixDecBtn_->setMinimumWidth(36);
+    dataRadixDecBtn_->setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Fixed);
     dataRadixHexBtn_ = new QPushButton(group);
     dataRadixHexBtn_->setObjectName(QStringLiteral("workbenchDataRadixHexBtn"));
     dataRadixHexBtn_->setCheckable(true);
+    dataRadixHexBtn_->setMinimumWidth(36);
+    dataRadixHexBtn_->setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Fixed);
     dataRadixBinBtn_ = new QPushButton(group);
     dataRadixBinBtn_->setObjectName(QStringLiteral("workbenchDataRadixBinBtn"));
     dataRadixBinBtn_->setCheckable(true);
+    dataRadixBinBtn_->setMinimumWidth(36);
+    dataRadixBinBtn_->setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Fixed);
     dataRadixGroup_->addButton(dataRadixDecBtn_, 10);
     dataRadixGroup_->addButton(dataRadixHexBtn_, 16);
     dataRadixGroup_->addButton(dataRadixBinBtn_, 2);
@@ -488,6 +524,7 @@ void ModbusWorkbenchWidget::addWriteLinePage(QWidget* stackWidget, QLabel*& lbl,
     auto* page = new QWidget(stackWidget);
     auto* layout = new QVBoxLayout(page);
     lbl = new QLabel(page);
+    lbl->setWordWrap(true);
     layout->addWidget(lbl);
     edt = new QLineEdit(page);
     edt->setObjectName(objName);
@@ -612,12 +649,6 @@ void ModbusWorkbenchWidget::setupRawButtons(QGroupBox* editGroup, QVBoxLayout* e
     btnLayout->addWidget(addLrcBtn_);
     btnLayout->addWidget(cleanHexBtn_);
     el->addLayout(btnLayout);
-
-    rawExecuteBtn_ = new QPushButton(editGroup);
-    rawExecuteBtn_->setObjectName(QStringLiteral("workbenchRawExecuteBtn"));
-    rawExecuteBtn_->hide();
-    connect(rawExecuteBtn_, &QPushButton::clicked, this, &ModbusWorkbenchWidget::onExecuteClicked);
-    el->addWidget(rawExecuteBtn_);
 }
 
 void ModbusWorkbenchWidget::onModeChanged(int id) {
@@ -635,6 +666,20 @@ void ModbusWorkbenchWidget::onModeChanged(int id) {
     }
     if (writePollWarningBadge_) {
         writePollWarningBadge_->setVisible(showPolling && isPolling_ && ::modbus::base::function_traits::isWriteOperation(functionCode()));
+    }
+    if (scrollArea_ && outerLayout_) {
+        const int scrollIdx = outerLayout_->indexOf(scrollArea_);
+        const int stretchIdx = outerLayout_->count() - 1;
+        if (isRawMode_) {
+            scrollArea_->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
+            outerLayout_->setStretch(scrollIdx, 1);
+            outerLayout_->setStretch(stretchIdx, 0);
+        } else {
+            scrollArea_->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Preferred);
+            outerLayout_->setStretch(scrollIdx, 0);
+            outerLayout_->setStretch(stretchIdx, 1);
+        }
+        scrollArea_->updateGeometry();
     }
     updateExecuteButtonAppearance();
     validateInputs();
@@ -704,6 +749,9 @@ void ModbusWorkbenchWidget::updateRequestDataState(uint8_t fc) {
         }
     }
     updateDataRadixHints();
+    if (scrollArea_) {
+        scrollArea_->updateGeometry();
+    }
 }
 
 void ModbusWorkbenchWidget::updateDataRadixHints() {
@@ -959,7 +1007,6 @@ bool ModbusWorkbenchWidget::validateInputs() {
     if (isRawMode_) {
         const QByteArray raw = ::ui::common::data_helper::parseHex(rawTextEdit_->toPlainText());
         const bool rawValid = !raw.isEmpty();
-        rawExecuteBtn_->setEnabled(rawValid && guardState_.rawSendEnabled);
         if (executeBtn_) {
             executeBtn_->setEnabled(isPolling_ || (rawValid && guardState_.rawSendEnabled));
         }
@@ -1183,7 +1230,6 @@ void ModbusWorkbenchWidget::retranslateWriteAndRawUi() {
     addCrcBtn_->setText(tr("+ CRC16"));
     addLrcBtn_->setText(tr("+ LRC"));
     cleanHexBtn_->setText(tr("Format"));
-    rawExecuteBtn_->setText(tr("Send Raw Frame"));
 }
 
 void ModbusWorkbenchWidget::retranslateExecutionUi() {
@@ -1244,9 +1290,6 @@ void ModbusWorkbenchWidget::updateGuardAppearance() {
     }
     if (executeBtn_) {
         executeBtn_->setToolTip(tip);
-    }
-    if (rawExecuteBtn_) {
-        rawExecuteBtn_->setToolTip((!guardState_.rawSendEnabled) ? guardState_.tooltipMessage : QString());
     }
     if (pollCheckBox_ && slaveId() != 0) {
         pollCheckBox_->setToolTip((!guardState_.pollingEnabled) ? guardState_.tooltipMessage : QString());
