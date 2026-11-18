@@ -410,12 +410,12 @@ TEST(ConnectionWidgets, ModbusPage_GeometryInvariants_AcrossMatrix) {
                 auto* clearBtn = telemetry->findChild<QPushButton*>(QStringLiteral("telemetryClearBtn"));
                 auto* exportBtn = telemetry->findChild<QPushButton*>(QStringLiteral("telemetryExportBtn"));
                 auto* linkageBtn = telemetry->findChild<QPushButton*>(QStringLiteral("liveAnalyzerBtn"));
-                auto* pollFramesCheck = telemetry->findChild<QCheckBox*>(QStringLiteral("telemetryPollFramesCheck"));
+                auto* pollFramesBtn = telemetry->findChild<QPushButton*>(QStringLiteral("telemetryPollFramesBtn"));
                 if (autoScrollBtn && autoScrollBtn->isVisible()) EXPECT_GE(autoScrollBtn->width(), autoScrollBtn->minimumSizeHint().width());
                 if (clearBtn && clearBtn->isVisible()) EXPECT_GE(clearBtn->width(), clearBtn->minimumSizeHint().width());
                 if (exportBtn && exportBtn->isVisible()) EXPECT_GE(exportBtn->width(), exportBtn->minimumSizeHint().width());
                 if (linkageBtn && linkageBtn->isVisible()) EXPECT_GE(linkageBtn->width(), linkageBtn->minimumSizeHint().width());
-                if (pollFramesCheck && pollFramesCheck->isVisible()) EXPECT_GE(pollFramesCheck->width(), pollFramesCheck->minimumSizeHint().width());
+                if (pollFramesBtn && pollFramesBtn->isVisible()) EXPECT_GE(pollFramesBtn->width(), pollFramesBtn->minimumSizeHint().width());
 
                 // 5. Workbench scroll area zero horizontal scrollbar
                 auto* scrollArea = workbench->findChild<QScrollArea*>(QStringLiteral("workbenchScrollArea"));

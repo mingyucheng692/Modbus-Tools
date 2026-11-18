@@ -22,9 +22,10 @@ class QSortFilterProxyModel;
 class QLabel;
 class QPushButton;
 class QComboBox;
-class QCheckBox;
 class QTextEdit;
 class QSplitter;
+class QVBoxLayout;
+class QHBoxLayout;
 class QGridLayout;
 class QResizeEvent;
 
@@ -71,7 +72,7 @@ public:
     [[nodiscard]] QPushButton* resetStatsButton() const noexcept { return resetStatsBtn_; }
     [[nodiscard]] QPushButton* inspectInAnalyzerButton() const noexcept { return inspectInAnalyzerBtn_; }
     [[nodiscard]] QComboBox* filterComboBox() const noexcept { return filterCombo_; }
-    [[nodiscard]] QCheckBox* pollFramesCheckBox() const noexcept { return pollFramesCheck_; }
+    [[nodiscard]] QPushButton* pollFramesButton() const noexcept { return pollFramesBtn_; }
     [[nodiscard]] QLabel* txStatsLabel() const noexcept { return txStatsLabel_; }
     [[nodiscard]] QLabel* rxStatsLabel() const noexcept { return rxStatsLabel_; }
     [[nodiscard]] QLabel* errStatsLabel() const noexcept { return errStatsLabel_; }
@@ -143,11 +144,15 @@ private:
 
     // Toolbar controls
     QWidget* toolbarWidget_ = nullptr;
-    QGridLayout* toolbarLayout_ = nullptr;
+    QVBoxLayout* toolbarLayout_ = nullptr;
+    QWidget* toolbarRow1Widget_ = nullptr;
+    QHBoxLayout* toolbarRow1Layout_ = nullptr;
+    QWidget* toolbarRow2Widget_ = nullptr;
+    QHBoxLayout* toolbarRow2Layout_ = nullptr;
     bool isTwoRowToolbar_ = false;
     QLabel* filterLabel_ = nullptr;
     QComboBox* filterCombo_ = nullptr;
-    QCheckBox* pollFramesCheck_ = nullptr;
+    QPushButton* pollFramesBtn_ = nullptr;
     QPushButton* autoScrollBtn_ = nullptr;
     QPushButton* clearBtn_ = nullptr;
     QPushButton* exportBtn_ = nullptr;

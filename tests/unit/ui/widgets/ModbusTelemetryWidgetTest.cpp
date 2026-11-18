@@ -544,20 +544,59 @@ TEST_F(ModbusTelemetryWidgetTest, FilterComboboxSeverityFiltering) {
 }
 
 TEST_F(ModbusTelemetryWidgetTest, PollFramesToggleAndTooltip) {
-    auto* check = widget_->pollFramesCheckBox();
-    ASSERT_NE(check, nullptr);
-    EXPECT_EQ(check->objectName(), QStringLiteral("telemetryPollFramesCheck"));
-    EXPECT_EQ(check->text(), QStringLiteral("Poll Frames"));
-    EXPECT_FALSE(check->toolTip().isEmpty());
+    auto* btn = widget_->pollFramesButton();
+    ASSERT_NE(btn, nullptr);
+    EXPECT_EQ(btn->objectName(), QStringLiteral("telemetryPollFramesBtn"));
+    EXPECT_EQ(btn->text(), QStringLiteral("Poll Frames"));
+    EXPECT_TRUE(btn->isCheckable());
+    EXPECT_FALSE(btn->isChecked());
+    EXPECT_FALSE(btn->toolTip().isEmpty());
 
     QSignalSpy spy(widget_.get(), &ModbusTelemetryWidget::pollFramesToggled);
-    check->setChecked(true);
+    btn->setChecked(true);
     EXPECT_EQ(spy.count(), 1);
     EXPECT_TRUE(spy.takeFirst().at(0).toBool());
 
-    check->setChecked(false);
+    btn->setChecked(false);
     EXPECT_EQ(spy.count(), 1);
     EXPECT_FALSE(spy.takeFirst().at(0).toBool());
+}
+
+TEST_F(ModbusTelemetryWidgetTest, TwoRowToolbar_AdjacentSpacingIsUniform) {
+    widget_->show();
+    widget_->resize(420, 500);
+    QCoreApplication::processEvents();
+
+    EXPECT_TRUE(widget_->isTwoRowToolbar());
+    auto* combo = widget_->filterComboBox();
+    auto* pollBtn = widget_->pollFramesButton();
+    auto* autoScroll = widget_->autoScrollButton();
+    auto* clearBtn = widget_->clearButton();
+    auto* exportBtn = widget_->exportButton();
+    auto* liveBtn = widget_->liveAnalyzerButton();
+
+    ASSERT_NE(combo, nullptr);
+    ASSERT_NE(pollBtn, nullptr);
+    ASSERT_NE(autoScroll, nullptr);
+    ASSERT_NE(clearBtn, nullptr);
+    ASSERT_NE(exportBtn, nullptr);
+    ASSERT_NE(liveBtn, nullptr);
+
+    // Row 1 adjacent spacing
+    const int gapComboToPoll = pollBtn->geometry().left() - combo->geometry().right();
+    const int gapPollToScroll = autoScroll->geometry().left() - pollBtn->geometry().right();
+    EXPECT_GT(gapComboToPoll, 0);
+    EXPECT_LE(gapComboToPoll, 12);
+    EXPECT_GT(gapPollToScroll, 0);
+    EXPECT_LE(gapPollToScroll, 12);
+
+    // Row 2 adjacent spacing (eliminates previous wide empty gap)
+    const int gapClearToExport = exportBtn->geometry().left() - clearBtn->geometry().right();
+    const int gapExportToLive = liveBtn->geometry().left() - exportBtn->geometry().right();
+    EXPECT_GT(gapClearToExport, 0);
+    EXPECT_LE(gapClearToExport, 12);
+    EXPECT_GT(gapExportToLive, 0);
+    EXPECT_LE(gapExportToLive, 12);
 }
 
 TEST_F(ModbusTelemetryWidgetTest, OrderComboWidth_RemainsCompactAtLargeWidths) {

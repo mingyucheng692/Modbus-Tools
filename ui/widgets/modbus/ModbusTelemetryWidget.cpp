@@ -83,10 +83,24 @@ void ModbusTelemetryWidget::setupUi() {
 void ModbusTelemetryWidget::setupToolbar() {
     toolbarWidget_ = new QWidget(this);
     toolbarWidget_->setObjectName(QStringLiteral("telemetryToolbar"));
-    toolbarLayout_ = new QGridLayout(toolbarWidget_);
+    toolbarLayout_ = new QVBoxLayout(toolbarWidget_);
     toolbarLayout_->setContentsMargins(0, 0, 0, 0);
-    toolbarLayout_->setHorizontalSpacing(6);
-    toolbarLayout_->setVerticalSpacing(4);
+    toolbarLayout_->setSpacing(4);
+
+    toolbarRow1Widget_ = new QWidget(toolbarWidget_);
+    toolbarRow1Widget_->setObjectName(QStringLiteral("telemetryToolbarRow1"));
+    toolbarRow1Layout_ = new QHBoxLayout(toolbarRow1Widget_);
+    toolbarRow1Layout_->setContentsMargins(0, 0, 0, 0);
+    toolbarRow1Layout_->setSpacing(6);
+
+    toolbarRow2Widget_ = new QWidget(toolbarWidget_);
+    toolbarRow2Widget_->setObjectName(QStringLiteral("telemetryToolbarRow2"));
+    toolbarRow2Layout_ = new QHBoxLayout(toolbarRow2Widget_);
+    toolbarRow2Layout_->setContentsMargins(0, 0, 0, 0);
+    toolbarRow2Layout_->setSpacing(6);
+
+    toolbarLayout_->addWidget(toolbarRow1Widget_);
+    toolbarLayout_->addWidget(toolbarRow2Widget_);
 
     filterCombo_ = new QComboBox(toolbarWidget_);
     filterCombo_->setObjectName(QStringLiteral("telemetryFilterCombo"));
@@ -97,10 +111,12 @@ void ModbusTelemetryWidget::setupToolbar() {
     filterLabel_ = new QLabel(tr("Filter:"), toolbarWidget_);
     filterLabel_->setObjectName(QStringLiteral("telemetryFilterLabel"));
 
-    pollFramesCheck_ = new QCheckBox(tr("Poll Frames"), toolbarWidget_);
-    pollFramesCheck_->setObjectName(QStringLiteral("telemetryPollFramesCheck"));
-    pollFramesCheck_->setToolTip(tr("Sample 1 in 10 polling request/response frame pairs in traffic log; manual requests are always logged in full"));
-    connect(pollFramesCheck_, &QCheckBox::toggled, this, &ModbusTelemetryWidget::pollFramesToggled);
+    pollFramesBtn_ = new QPushButton(tr("Poll Frames"), toolbarWidget_);
+    pollFramesBtn_->setObjectName(QStringLiteral("telemetryPollFramesBtn"));
+    pollFramesBtn_->setCheckable(true);
+    pollFramesBtn_->setChecked(false);
+    pollFramesBtn_->setToolTip(tr("Sample 1 in 10 polling request/response frame pairs in traffic log; manual requests are always logged in full"));
+    connect(pollFramesBtn_, &QPushButton::toggled, this, &ModbusTelemetryWidget::pollFramesToggled);
 
     autoScrollBtn_ = new QPushButton(tr("Auto-Scroll"), toolbarWidget_);
     autoScrollBtn_->setObjectName(QStringLiteral("telemetryAutoScrollBtn"));
@@ -136,40 +152,50 @@ void ModbusTelemetryWidget::setupToolbar() {
 }
 
 void ModbusTelemetryWidget::applyToolbarLayout(bool twoRow) {
+    if (!toolbarRow1Layout_ || !toolbarRow2Layout_) return;
+
     isTwoRowToolbar_ = twoRow;
-    while (QLayoutItem* item = toolbarLayout_->takeAt(0)) {
-        delete item;
-    }
+
+    auto clearLayout = [](QLayout* layout) {
+        while (QLayoutItem* item = layout->takeAt(0)) {
+            delete item;
+        }
+    };
+
+    clearLayout(toolbarRow1Layout_);
+    clearLayout(toolbarRow2Layout_);
 
     if (twoRow) {
-        toolbarLayout_->addWidget(filterLabel_, 0, 0);
-        toolbarLayout_->addWidget(filterCombo_, 0, 1);
-        toolbarLayout_->addWidget(autoScrollBtn_, 0, 2);
-        toolbarLayout_->addWidget(clearBtn_, 0, 3);
-        toolbarLayout_->addWidget(overflowLabel_, 0, 4);
-        toolbarLayout_->setColumnStretch(5, 1);
+        toolbarRow1Layout_->addWidget(filterLabel_);
+        toolbarRow1Layout_->addWidget(filterCombo_);
+        toolbarRow1Layout_->addWidget(pollFramesBtn_);
+        toolbarRow1Layout_->addWidget(autoScrollBtn_);
+        toolbarRow1Layout_->addStretch(1);
 
-        toolbarLayout_->addWidget(pollFramesCheck_, 1, 0, 1, 2);
-        toolbarLayout_->addWidget(exportBtn_, 1, 2);
-        toolbarLayout_->addWidget(liveAnalyzerBtn_, 1, 3);
-        toolbarLayout_->setColumnStretch(5, 1);
+        toolbarRow2Layout_->addWidget(clearBtn_);
+        toolbarRow2Layout_->addWidget(exportBtn_);
+        toolbarRow2Layout_->addWidget(liveAnalyzerBtn_);
+        toolbarRow2Layout_->addWidget(overflowLabel_);
+        toolbarRow2Layout_->addStretch(1);
+        toolbarRow2Widget_->show();
     } else {
-        toolbarLayout_->addWidget(filterLabel_, 0, 0);
-        toolbarLayout_->addWidget(filterCombo_, 0, 1);
-        toolbarLayout_->addWidget(pollFramesCheck_, 0, 2);
-        toolbarLayout_->addWidget(autoScrollBtn_, 0, 3);
-        toolbarLayout_->addWidget(clearBtn_, 0, 4);
-        toolbarLayout_->addWidget(exportBtn_, 0, 5);
-        toolbarLayout_->addWidget(liveAnalyzerBtn_, 0, 6);
-        toolbarLayout_->addWidget(overflowLabel_, 0, 7);
-        toolbarLayout_->setColumnStretch(8, 1);
+        toolbarRow2Widget_->hide();
+        toolbarRow1Layout_->addWidget(filterLabel_);
+        toolbarRow1Layout_->addWidget(filterCombo_);
+        toolbarRow1Layout_->addWidget(pollFramesBtn_);
+        toolbarRow1Layout_->addWidget(autoScrollBtn_);
+        toolbarRow1Layout_->addWidget(clearBtn_);
+        toolbarRow1Layout_->addWidget(exportBtn_);
+        toolbarRow1Layout_->addWidget(liveAnalyzerBtn_);
+        toolbarRow1Layout_->addWidget(overflowLabel_);
+        toolbarRow1Layout_->addStretch(1);
     }
 }
 
 int ModbusTelemetryWidget::singleRowToolbarRequiredWidth() const {
-    if (!toolbarLayout_) return 560;
+    if (!toolbarRow1Layout_) return 560;
     const QWidget* widgets[] = {
-        filterLabel_, filterCombo_, pollFramesCheck_, autoScrollBtn_,
+        filterLabel_, filterCombo_, pollFramesBtn_, autoScrollBtn_,
         clearBtn_, exportBtn_, liveAnalyzerBtn_
     };
     int totalWidth = 0;
@@ -184,7 +210,7 @@ int ModbusTelemetryWidget::singleRowToolbarRequiredWidth() const {
         totalWidth += overflowLabel_->sizeHint().width();
         count++;
     }
-    const int spacing = toolbarLayout_->horizontalSpacing();
+    const int spacing = toolbarRow1Layout_->spacing();
     if (count > 1) {
         totalWidth += (count - 1) * (spacing > 0 ? spacing : 6);
     }
@@ -960,9 +986,9 @@ void ModbusTelemetryWidget::retranslateToolbarUi() {
         filterCombo_->setCurrentIndex(cur);
         filterCombo_->setToolTip(tr("Filter telemetry log by direction or event severity"));
     }
-    if (pollFramesCheck_) {
-        pollFramesCheck_->setText(tr("Poll Frames"));
-        pollFramesCheck_->setToolTip(tr("Sample 1 in 10 polling request/response frame pairs in traffic log; manual requests are always logged in full"));
+    if (pollFramesBtn_) {
+        pollFramesBtn_->setText(tr("Poll Frames"));
+        pollFramesBtn_->setToolTip(tr("Sample 1 in 10 polling request/response frame pairs in traffic log; manual requests are always logged in full"));
     }
     if (autoScrollBtn_) {
         autoScrollBtn_->setText(tr("Auto-Scroll"));
