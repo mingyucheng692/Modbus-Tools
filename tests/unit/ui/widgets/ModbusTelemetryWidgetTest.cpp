@@ -91,24 +91,24 @@ TEST_F(ModbusTelemetryWidgetTest, LinkageStateAndSignal) {
 
 TEST_F(ModbusTelemetryWidgetTest, MetricsUpdate) {
     widget_->updateMetrics(100, 95, 5, 12);
-    bool foundUpdatedMetrics = false;
-    for (auto* lbl : widget_->findChildren<QLabel*>()) {
-        if (lbl->text() == QStringLiteral("TX: 100 | RX: 95 | Error: 5 | RTT: 12 ms")) {
-            foundUpdatedMetrics = true;
-            break;
-        }
-    }
-    EXPECT_TRUE(foundUpdatedMetrics);
+    ASSERT_NE(widget_->txStatsLabel(), nullptr);
+    ASSERT_NE(widget_->rxStatsLabel(), nullptr);
+    ASSERT_NE(widget_->errStatsLabel(), nullptr);
+    ASSERT_NE(widget_->rttStatsLabel(), nullptr);
+
+    EXPECT_EQ(widget_->txStatsLabel()->text(), QStringLiteral("TX: 100"));
+    EXPECT_EQ(widget_->rxStatsLabel()->text(), QStringLiteral("RX: 95"));
+    EXPECT_EQ(widget_->errStatsLabel()->text(), QStringLiteral("ERR: 5"));
+    EXPECT_EQ(widget_->rttStatsLabel()->text(), QStringLiteral("RTT: 12 ms"));
+
+    // Legacy metricsLabel_ is completely removed
+    EXPECT_EQ(widget_->findChild<QLabel*>(QStringLiteral("telemetryMetricsLabel")), nullptr);
 
     widget_->updateMetrics(0, 0, 0, 0);
-    bool foundResetMetrics = false;
-    for (auto* lbl : widget_->findChildren<QLabel*>()) {
-        if (lbl->text() == QStringLiteral("TX: 0 | RX: 0 | Error: 0 | RTT: 0 ms")) {
-            foundResetMetrics = true;
-            break;
-        }
-    }
-    EXPECT_TRUE(foundResetMetrics);
+    EXPECT_EQ(widget_->txStatsLabel()->text(), QStringLiteral("TX: 0"));
+    EXPECT_EQ(widget_->rxStatsLabel()->text(), QStringLiteral("RX: 0"));
+    EXPECT_EQ(widget_->errStatsLabel()->text(), QStringLiteral("ERR: 0"));
+    EXPECT_EQ(widget_->rttStatsLabel()->text(), QStringLiteral("RTT: --"));
 
     // Verify clear resets table and pending state
     widget_->clear();
@@ -219,22 +219,25 @@ TEST_F(ModbusTelemetryWidgetTest, AutoScrollButtonLabelIsConstant) {
 }
 
 TEST_F(ModbusTelemetryWidgetTest, ResponsiveToolbarTwoRowMode) {
-    // Narrow layout (< 460px) triggers two-row mode
-    widget_->updateResponsiveToolbar(350);
+    const int collapse = widget_->singleRowToolbarRequiredWidth();
+    const int expand = collapse + 30;
+
+    // Narrow layout (< collapse) triggers two-row mode
+    widget_->updateResponsiveToolbar(collapse - 50);
     EXPECT_TRUE(widget_->isTwoRowToolbar());
 
-    // Wide layout (>= 490px) triggers one-row mode
-    widget_->updateResponsiveToolbar(600);
+    // Wide layout (>= expand) triggers one-row mode
+    widget_->updateResponsiveToolbar(expand + 50);
     EXPECT_FALSE(widget_->isTwoRowToolbar());
 
-    // Hysteresis deadband: at 475px, if already in wide mode, stays wide
-    widget_->updateResponsiveToolbar(475);
+    // Hysteresis deadband: at collapse + 15, if already in wide mode, stays wide
+    widget_->updateResponsiveToolbar(collapse + 15);
     EXPECT_FALSE(widget_->isTwoRowToolbar());
 
-    // At 475px, if in narrow mode, stays narrow
-    widget_->updateResponsiveToolbar(400);
+    // At collapse + 15, if in narrow mode, stays narrow
+    widget_->updateResponsiveToolbar(collapse - 50);
     EXPECT_TRUE(widget_->isTwoRowToolbar());
-    widget_->updateResponsiveToolbar(475);
+    widget_->updateResponsiveToolbar(collapse + 15);
     EXPECT_TRUE(widget_->isTwoRowToolbar());
 
     // Verify all buttons retain sufficient size
@@ -556,4 +559,67 @@ TEST_F(ModbusTelemetryWidgetTest, PollFramesToggleAndTooltip) {
     EXPECT_EQ(spy.count(), 1);
     EXPECT_FALSE(spy.takeFirst().at(0).toBool());
 }
+
+TEST_F(ModbusTelemetryWidgetTest, OrderComboWidth_RemainsCompactAtLargeWidths) {
+    widget_->resize(1000, 600);
+    widget_->show();
+    QCoreApplication::processEvents();
+
+    auto* orderCombo = widget_->orderCombo();
+    ASSERT_NE(orderCombo, nullptr);
+    EXPECT_LE(orderCombo->width(), orderCombo->sizeHint().width() + 8);
+}
+
+TEST_F(ModbusTelemetryWidgetTest, ToolbarAndHeader_ContinuousSweepZeroClipping) {
+    widget_->show();
+
+    // Continuously sweep from 260px to 720px in 10px steps (including 460px~580px critical band)
+    for (int width = 260; width <= 720; width += 10) {
+        widget_->resize(width, 500);
+        QCoreApplication::processEvents();
+
+        // Check toolbar buttons and controls
+        auto* toolbar = widget_->findChild<QWidget*>(QStringLiteral("telemetryToolbar"));
+        ASSERT_NE(toolbar, nullptr);
+        for (auto* btn : toolbar->findChildren<QPushButton*>()) {
+            if (btn->isVisible()) {
+                EXPECT_GE(btn->width(), btn->minimumSizeHint().width())
+                    << "Button " << btn->objectName().toStdString() << " clipped at width " << width;
+            }
+        }
+        for (auto* cb : toolbar->findChildren<QComboBox*>()) {
+            if (cb->isVisible()) {
+                EXPECT_GE(cb->width(), cb->minimumSizeHint().width())
+                    << "Combo " << cb->objectName().toStdString() << " clipped at width " << width;
+            }
+        }
+        for (auto* chk : toolbar->findChildren<QCheckBox*>()) {
+            if (chk->isVisible()) {
+                EXPECT_GE(chk->width(), chk->minimumSizeHint().width())
+                    << "CheckBox " << chk->objectName().toStdString() << " clipped at width " << width;
+            }
+        }
+
+        // Check inspector header controls
+        auto* header = widget_->findChild<QWidget*>(QStringLiteral("inspectorHeaderWidget"));
+        if (!header && widget_->orderCombo()) {
+            header = widget_->orderCombo()->parentWidget();
+        }
+        if (header) {
+            for (auto* btn : header->findChildren<QPushButton*>()) {
+                if (btn->isVisible()) {
+                    EXPECT_GE(btn->width(), btn->minimumSizeHint().width())
+                        << "Header button " << btn->objectName().toStdString() << " clipped at width " << width;
+                }
+            }
+            for (auto* cb : header->findChildren<QComboBox*>()) {
+                if (cb->isVisible()) {
+                    EXPECT_GE(cb->width(), cb->minimumSizeHint().width())
+                        << "Header combo " << cb->objectName().toStdString() << " clipped at width " << width;
+                }
+            }
+        }
+    }
+}
+
 

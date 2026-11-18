@@ -16,6 +16,7 @@
 #include "mocks/UiTestDoubles.h"
 
 #include <QApplication>
+#include <QCheckBox>
 #include <QComboBox>
 #include <QCoreApplication>
 #include <QDir>
@@ -24,6 +25,8 @@
 #include <QLabel>
 #include <QLineEdit>
 #include <QPushButton>
+#include <QScrollArea>
+#include <QScrollBar>
 #include <QSpinBox>
 #include <QSplitter>
 #include <QStackedWidget>
@@ -368,6 +371,8 @@ TEST(ConnectionWidgets, ModbusPage_GeometryInvariants_AcrossMatrix) {
     const std::vector<QSize> targetSizes = {
         QSize(720, 520),
         QSize(800, 600),
+        QSize(860, 640),
+        QSize(920, 700),
         QSize(1040, 768),
         QSize(1440, 900)
     };
@@ -400,15 +405,40 @@ TEST(ConnectionWidgets, ModbusPage_GeometryInvariants_AcrossMatrix) {
                     }
                 }
 
-                // 4. Telemetry toolbar button metrics: width >= sizeHint().width()
-                auto* autoScrollBtn = telemetry->findChild<QToolButton*>(QStringLiteral("telemetryAutoScrollBtn"));
-                auto* clearBtn = telemetry->findChild<QToolButton*>(QStringLiteral("telemetryClearBtn"));
-                auto* exportBtn = telemetry->findChild<QToolButton*>(QStringLiteral("telemetryExportBtn"));
-                auto* linkageBtn = telemetry->findChild<QToolButton*>(QStringLiteral("liveAnalyzerBtn"));
-                if (autoScrollBtn) EXPECT_GE(autoScrollBtn->width(), autoScrollBtn->sizeHint().width());
-                if (clearBtn) EXPECT_GE(clearBtn->width(), clearBtn->sizeHint().width());
-                if (exportBtn) EXPECT_GE(exportBtn->width(), exportBtn->sizeHint().width());
-                if (linkageBtn) EXPECT_GE(linkageBtn->width(), linkageBtn->sizeHint().width());
+                // 4. Telemetry toolbar button metrics: width >= minimumSizeHint().width()
+                auto* autoScrollBtn = telemetry->findChild<QPushButton*>(QStringLiteral("telemetryAutoScrollBtn"));
+                auto* clearBtn = telemetry->findChild<QPushButton*>(QStringLiteral("telemetryClearBtn"));
+                auto* exportBtn = telemetry->findChild<QPushButton*>(QStringLiteral("telemetryExportBtn"));
+                auto* linkageBtn = telemetry->findChild<QPushButton*>(QStringLiteral("liveAnalyzerBtn"));
+                auto* pollFramesCheck = telemetry->findChild<QCheckBox*>(QStringLiteral("telemetryPollFramesCheck"));
+                if (autoScrollBtn && autoScrollBtn->isVisible()) EXPECT_GE(autoScrollBtn->width(), autoScrollBtn->minimumSizeHint().width());
+                if (clearBtn && clearBtn->isVisible()) EXPECT_GE(clearBtn->width(), clearBtn->minimumSizeHint().width());
+                if (exportBtn && exportBtn->isVisible()) EXPECT_GE(exportBtn->width(), exportBtn->minimumSizeHint().width());
+                if (linkageBtn && linkageBtn->isVisible()) EXPECT_GE(linkageBtn->width(), linkageBtn->minimumSizeHint().width());
+                if (pollFramesCheck && pollFramesCheck->isVisible()) EXPECT_GE(pollFramesCheck->width(), pollFramesCheck->minimumSizeHint().width());
+
+                // 5. Workbench scroll area zero horizontal scrollbar
+                auto* scrollArea = workbench->findChild<QScrollArea*>(QStringLiteral("workbenchScrollArea"));
+                if (scrollArea && scrollArea->horizontalScrollBar()) {
+                    EXPECT_FALSE(scrollArea->horizontalScrollBar()->isVisible());
+                }
+
+                // 6. Order combo compact width
+                auto* orderCombo = telemetry->findChild<QComboBox*>(QStringLiteral("inspectorOrderCombo"));
+                if (orderCombo && orderCombo->isVisible()) {
+                    EXPECT_LE(orderCombo->width(), orderCombo->sizeHint().width() + 8);
+                }
+
+                // 7. Tall window execution docking
+                if (modeIdx == 0 && size.height() >= 900) {
+                    auto* writeGroup = workbench->findChild<QGroupBox*>(QStringLiteral("workbenchWriteGroup"));
+                    if (writeGroup && execGroup) {
+                        const QPoint writeBottomInPage = writeGroup->mapTo(&page, QPoint(0, writeGroup->height()));
+                        const QPoint execTopInPage = execGroup->mapTo(&page, QPoint(0, 0));
+                        EXPECT_LE(execTopInPage.y() - writeBottomInPage.y(), 20);
+                        EXPECT_GT(execTopInPage.y(), writeBottomInPage.y());
+                    }
+                }
             }
         }
     }

@@ -4523,11 +4523,6 @@ You are solely responsible for all operations.</source>
         <translation>佇列溢出：%1 條丟棄</translation>
     </message>
     <message>
-        <location filename="../widgets/modbus/ModbusTelemetryWidget.cpp" line="566" />
-        <source>TX: %1 | RX: %2 | Error: %3 | RTT: %4 ms</source>
-        <translation>TX: %1 | RX: %2 | Error: %3 | RTT: %4 ms</translation>
-    </message>
-    <message>
         <location filename="../widgets/modbus/ModbusTelemetryWidget.cpp" line="684" />
         <source>[TID: 0x%1]  [PID: 0x%2]  [MBAP Len: %3 B]  [UID: %4]  [FC: 0x%5 (%6)]
 </source>

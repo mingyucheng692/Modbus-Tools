@@ -166,14 +166,39 @@ void ModbusTelemetryWidget::applyToolbarLayout(bool twoRow) {
     }
 }
 
+int ModbusTelemetryWidget::singleRowToolbarRequiredWidth() const {
+    if (!toolbarLayout_) return 560;
+    const QWidget* widgets[] = {
+        filterLabel_, filterCombo_, pollFramesCheck_, autoScrollBtn_,
+        clearBtn_, exportBtn_, liveAnalyzerBtn_
+    };
+    int totalWidth = 0;
+    int count = 0;
+    for (const auto* w : widgets) {
+        if (w) {
+            totalWidth += w->sizeHint().width();
+            count++;
+        }
+    }
+    if (overflowLabel_ && overflowLabel_->isVisible()) {
+        totalWidth += overflowLabel_->sizeHint().width();
+        count++;
+    }
+    const int spacing = toolbarLayout_->horizontalSpacing();
+    if (count > 1) {
+        totalWidth += (count - 1) * (spacing > 0 ? spacing : 6);
+    }
+    return totalWidth + 20;
+}
+
 void ModbusTelemetryWidget::updateResponsiveToolbar(int availableWidth) {
     if (availableWidth <= 0) return;
-    static constexpr int kCollapseThreshold = 460;
-    static constexpr int kExpandThreshold = 490;
+    const int collapseThreshold = singleRowToolbarRequiredWidth();
+    const int expandThreshold = collapseThreshold + 30;
 
-    if (isTwoRowToolbar_ && availableWidth >= kExpandThreshold) {
+    if (isTwoRowToolbar_ && availableWidth >= expandThreshold) {
         applyToolbarLayout(false);
-    } else if (!isTwoRowToolbar_ && availableWidth < kCollapseThreshold) {
+    } else if (!isTwoRowToolbar_ && availableWidth < collapseThreshold) {
         applyToolbarLayout(true);
     }
 }
@@ -220,12 +245,7 @@ void ModbusTelemetryWidget::setupMetricsRibbon() {
     connect(resetStatsBtn_, &QPushButton::clicked, this, &ModbusTelemetryWidget::resetMetricsRequested);
     ribbonLayout->addWidget(resetStatsBtn_);
 
-    metricsLabel_ = new QLabel(metricsRibbon_);
-    metricsLabel_->setObjectName(QStringLiteral("telemetryMetricsLabel"));
-    metricsLabel_->hide();
-    ribbonLayout->addWidget(metricsLabel_);
-
-    updateMetricsLabel();
+    updateMetricsRibbon();
     qobject_cast<QVBoxLayout*>(layout())->addWidget(metricsRibbon_);
 }
 
@@ -281,6 +301,7 @@ void ModbusTelemetryWidget::setupInspector() {
     layout->setSpacing(2);
 
     inspectorHeaderWidget_ = new QWidget(container);
+    inspectorHeaderWidget_->setObjectName(QStringLiteral("inspectorHeaderWidget"));
     inspectorHeaderLayout_ = new QGridLayout(inspectorHeaderWidget_);
     inspectorHeaderLayout_->setContentsMargins(2, 2, 2, 2);
     inspectorHeaderLayout_->setSpacing(4);
@@ -292,6 +313,7 @@ void ModbusTelemetryWidget::setupInspector() {
     decodeTypeCombo_ = new QComboBox(inspectorHeaderWidget_);
     decodeTypeCombo_->setObjectName(QStringLiteral("inspectorDecodeTypeCombo"));
     decodeTypeCombo_->setSizeAdjustPolicy(QComboBox::AdjustToContents);
+    decodeTypeCombo_->setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Fixed);
     decodeTypeCombo_->addItem(QStringLiteral("UInt16"), static_cast<int>(::modbus::analyzer::RegisterDataType::UInt16));
     decodeTypeCombo_->addItem(QStringLiteral("Int16"), static_cast<int>(::modbus::analyzer::RegisterDataType::Int16));
     decodeTypeCombo_->addItem(QStringLiteral("UInt32"), static_cast<int>(::modbus::analyzer::RegisterDataType::UInt32));
@@ -303,6 +325,7 @@ void ModbusTelemetryWidget::setupInspector() {
     orderCombo_ = new QComboBox(inspectorHeaderWidget_);
     orderCombo_->setObjectName(QStringLiteral("inspectorOrderCombo"));
     orderCombo_->setSizeAdjustPolicy(QComboBox::AdjustToContents);
+    orderCombo_->setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Fixed);
     orderCombo_->addItem(QStringLiteral("ABCD"), static_cast<int>(::modbus::base::RegisterOrder::ABCD));
     orderCombo_->addItem(QStringLiteral("CDAB"), static_cast<int>(::modbus::base::RegisterOrder::CDAB));
     orderCombo_->addItem(QStringLiteral("BADC"), static_cast<int>(::modbus::base::RegisterOrder::BADC));
@@ -345,8 +368,8 @@ void ModbusTelemetryWidget::applyInspectorHeaderLayout(bool twoRow) {
     inspectorHeaderLayout_->removeWidget(inspectInAnalyzerBtn_);
 
     if (twoRow) {
-        inspectorHeaderLayout_->addWidget(inspectorHeaderLabel_, 0, 0, 1, 3);
-        inspectorHeaderLayout_->addWidget(inspectInAnalyzerBtn_, 0, 3, 1, 1, Qt::AlignRight);
+        inspectorHeaderLayout_->addWidget(inspectorHeaderLabel_, 0, 0, 1, 4);
+        inspectorHeaderLayout_->addWidget(inspectInAnalyzerBtn_, 0, 5, 1, 1, Qt::AlignRight);
         inspectorHeaderLayout_->addWidget(decodeLabel_, 1, 0);
         inspectorHeaderLayout_->addWidget(decodeTypeCombo_, 1, 1);
         inspectorHeaderLayout_->addWidget(orderLabel_, 1, 2);
@@ -354,29 +377,57 @@ void ModbusTelemetryWidget::applyInspectorHeaderLayout(bool twoRow) {
         inspectorHeaderLayout_->setColumnStretch(0, 0);
         inspectorHeaderLayout_->setColumnStretch(1, 0);
         inspectorHeaderLayout_->setColumnStretch(2, 0);
-        inspectorHeaderLayout_->setColumnStretch(3, 1);
-        inspectorHeaderLayout_->setColumnStretch(4, 0);
+        inspectorHeaderLayout_->setColumnStretch(3, 0);
+        inspectorHeaderLayout_->setColumnStretch(4, 1);
         inspectorHeaderLayout_->setColumnStretch(5, 0);
+        inspectorHeaderLayout_->setColumnStretch(6, 0);
     } else {
         inspectorHeaderLayout_->addWidget(inspectorHeaderLabel_, 0, 0);
         inspectorHeaderLayout_->addWidget(decodeLabel_, 0, 1);
         inspectorHeaderLayout_->addWidget(decodeTypeCombo_, 0, 2);
         inspectorHeaderLayout_->addWidget(orderLabel_, 0, 3);
         inspectorHeaderLayout_->addWidget(orderCombo_, 0, 4);
-        inspectorHeaderLayout_->addWidget(inspectInAnalyzerBtn_, 0, 5, Qt::AlignRight);
+        inspectorHeaderLayout_->addWidget(inspectInAnalyzerBtn_, 0, 6, Qt::AlignRight);
         inspectorHeaderLayout_->setColumnStretch(0, 0);
         inspectorHeaderLayout_->setColumnStretch(1, 0);
         inspectorHeaderLayout_->setColumnStretch(2, 0);
         inspectorHeaderLayout_->setColumnStretch(3, 0);
-        inspectorHeaderLayout_->setColumnStretch(4, 1);
-        inspectorHeaderLayout_->setColumnStretch(5, 0);
+        inspectorHeaderLayout_->setColumnStretch(4, 0);
+        inspectorHeaderLayout_->setColumnStretch(5, 1);
+        inspectorHeaderLayout_->setColumnStretch(6, 0);
     }
 }
 
+int ModbusTelemetryWidget::singleRowInspectorHeaderRequiredWidth() const {
+    if (!inspectorHeaderLayout_) return 480;
+    const QWidget* widgets[] = {
+        inspectorHeaderLabel_, decodeLabel_, decodeTypeCombo_,
+        orderLabel_, orderCombo_, inspectInAnalyzerBtn_
+    };
+    int totalWidth = 0;
+    int count = 0;
+    for (const auto* w : widgets) {
+        if (w) {
+            totalWidth += w->sizeHint().width();
+            count++;
+        }
+    }
+    const int spacing = inspectorHeaderLayout_->horizontalSpacing();
+    if (count > 1) {
+        totalWidth += (count - 1) * (spacing > 0 ? spacing : 4);
+    }
+    return totalWidth + 20;
+}
+
 void ModbusTelemetryWidget::updateResponsiveInspectorHeader(int availableWidth) {
-    const bool needTwoRow = isTwoRowInspectorHeader_ ? (availableWidth < 490) : (availableWidth < 460);
-    if (needTwoRow != isTwoRowInspectorHeader_) {
-        applyInspectorHeaderLayout(needTwoRow);
+    if (availableWidth <= 0) return;
+    const int collapseThreshold = singleRowInspectorHeaderRequiredWidth();
+    const int expandThreshold = collapseThreshold + 30;
+
+    if (isTwoRowInspectorHeader_ && availableWidth >= expandThreshold) {
+        applyInspectorHeaderLayout(false);
+    } else if (!isTwoRowInspectorHeader_ && availableWidth < collapseThreshold) {
+        applyInspectorHeaderLayout(true);
     }
 }
 
@@ -545,10 +596,10 @@ void ModbusTelemetryWidget::updateMetrics(int tx, int rx, int err, int rttMs) {
     rxCount_ = rx;
     errCount_ = err;
     rttMs_ = rttMs;
-    updateMetricsLabel();
+    updateMetricsRibbon();
 }
 
-void ModbusTelemetryWidget::updateMetricsLabel() {
+void ModbusTelemetryWidget::updateMetricsRibbon() {
     if (txStatsLabel_) {
         txStatsLabel_->setText(tr("TX: %1").arg(txCount_));
     }
@@ -563,13 +614,6 @@ void ModbusTelemetryWidget::updateMetricsLabel() {
     }
     if (rttStatsLabel_) {
         rttStatsLabel_->setText(rttMs_ > 0 ? tr("RTT: %1 ms").arg(rttMs_) : tr("RTT: --"));
-    }
-    if (metricsLabel_) {
-        metricsLabel_->setText(tr("TX: %1 | RX: %2 | Error: %3 | RTT: %4 ms")
-                                   .arg(txCount_)
-                                   .arg(rxCount_)
-                                   .arg(errCount_)
-                                   .arg(rttMs_));
     }
 }
 
@@ -973,10 +1017,12 @@ void ModbusTelemetryWidget::retranslateInspectorUi() {
 void ModbusTelemetryWidget::retranslateUi() {
     retranslateToolbarUi();
     retranslateInspectorUi();
-    updateMetricsLabel();
+    updateMetricsRibbon();
     if (tableModel_) {
         tableModel_->retranslate();
     }
+    updateResponsiveToolbar(width());
+    updateResponsiveInspectorHeader(width());
 }
 
 } // namespace ui::widgets::modbus

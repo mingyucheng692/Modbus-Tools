@@ -59,7 +59,11 @@ public:
     [[nodiscard]] QString inspectorDetailsText() const noexcept;
     [[nodiscard]] bool exportToFile(const QString& filePath, QString* error = nullptr) const;
     [[nodiscard]] bool isTwoRowToolbar() const noexcept { return isTwoRowToolbar_; }
+    [[nodiscard]] bool isTwoRowInspectorHeader() const noexcept { return isTwoRowInspectorHeader_; }
+    [[nodiscard]] int singleRowToolbarRequiredWidth() const;
+    [[nodiscard]] int singleRowInspectorHeaderRequiredWidth() const;
     void updateResponsiveToolbar(int availableWidth);
+    void updateResponsiveInspectorHeader(int availableWidth);
     [[nodiscard]] QPushButton* autoScrollButton() const noexcept { return autoScrollBtn_; }
     [[nodiscard]] QPushButton* clearButton() const noexcept { return clearBtn_; }
     [[nodiscard]] QPushButton* exportButton() const noexcept { return exportBtn_; }
@@ -123,10 +127,9 @@ private:
     void setupTableView();
     void setupInspector();
     void applyInspectorHeaderLayout(bool twoRow);
-    void updateResponsiveInspectorHeader(int availableWidth);
     void setupMetricsRibbon();
     void updateInspectorContent(const TelemetryRowView* row);
-    void updateMetricsLabel();
+    void updateMetricsRibbon();
     void retranslateUi();
     void retranslateToolbarUi();
     void retranslateInspectorUi();
@@ -158,7 +161,6 @@ private:
     QLabel* errStatsLabel_ = nullptr;
     QLabel* rttStatsLabel_ = nullptr;
     QPushButton* resetStatsBtn_ = nullptr;
-    QLabel* metricsLabel_ = nullptr;
 
     // Inspector controls
     QWidget* inspectorHeaderWidget_ = nullptr;
