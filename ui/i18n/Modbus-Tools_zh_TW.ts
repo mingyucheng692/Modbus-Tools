@@ -5018,6 +5018,21 @@ You are solely responsible for all operations.</source>
         <source>Coil Bits (LSB-first: left = start address, %1 bits):</source>
         <translation>線圈狀態 (低位在前: 左側=起始位址, 需 %1 位):</translation>
     </message>
+    <message>
+        <source>Frame Preview (HEX):</source>
+        <translation>報文預覽 (HEX):</translation>
+    </message>
+    <message>
+        <source>[!] %1</source>
+        <translation>[!] %1</translation>
+    </message>
+</context>
+<context>
+    <name>ModbusAduBuilder</name>
+    <message>
+        <source>Unsupported function code 0x%1</source>
+        <translation>不支援的功能碼 0x%1</translation>
+    </message>
 </context>
 <context>
     <name>ui::widgets::modbus::TelemetryTableModel</name>

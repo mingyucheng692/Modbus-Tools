@@ -3,6 +3,9 @@
 #include "ModbusAduBuilder.h"
 #include "ModbusCrc.h"
 #include "ModbusLrc.h"
+#include "ModbusPduBuilder.h"
+#include "modbus/parser/ModbusFrameParser.h"
+#include <QCoreApplication>
 #include <QtGlobal>
 
 namespace modbus::base {
@@ -67,6 +70,43 @@ QByteArray buildAsciiAdu(uint8_t slaveId, const Pdu& pdu) {
     adu.append(raw.toHex().toUpper());
     adu.append("\r\n");
     return adu;
+}
+
+QByteArray buildRequestFramePreview(
+    ::modbus::parser::ProtocolType protocol,
+    uint8_t slaveId,
+    uint8_t fc,
+    uint16_t startAddr,
+    uint16_t qty,
+    const QByteArray& writeData,
+    QString* errorOut) {
+    const auto fcode = static_cast<FunctionCode>(fc);
+    std::optional<Pdu> pduOpt;
+    if (fc == 0x01 || fc == 0x02 || fc == 0x03 || fc == 0x04) {
+        pduOpt = pdu_builder::buildReadRequest(fcode, startAddr, qty, errorOut);
+    } else if (fc == 0x05 || fc == 0x06 || fc == 0x0F || fc == 0x10) {
+        pduOpt = pdu_builder::buildWriteRequest(fcode, startAddr, qty, writeData, errorOut);
+    } else {
+        if (errorOut) {
+            *errorOut = QCoreApplication::translate("ModbusAduBuilder",
+                "Unsupported function code 0x%1").arg(fc, 2, 16, QLatin1Char('0'));
+        }
+        return {};
+    }
+
+    if (!pduOpt.has_value()) {
+        return {};
+    }
+
+    switch (protocol) {
+    case ::modbus::parser::ProtocolType::Rtu:
+        return buildRtuAdu(slaveId, *pduOpt);
+    case ::modbus::parser::ProtocolType::Ascii:
+        return buildAsciiAdu(slaveId, *pduOpt);
+    case ::modbus::parser::ProtocolType::Tcp:
+    default:
+        return buildTcpAdu(slaveId, *pduOpt, 0);
+    }
 }
 
 } // namespace modbus::base

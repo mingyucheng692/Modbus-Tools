@@ -149,3 +149,41 @@ TEST(ModbusAduBuilderTest, AutoDetect_AmbiguousMbapShapeRetainsValidRtuRequest) 
         EXPECT_EQ(result.protocol, modbus::parser::ProtocolType::Rtu);
     }
 }
+
+TEST(ModbusAduBuilderTest, BuildRequestFramePreview_AcrossProtocolsAndFunctions) {
+    using ::modbus::parser::ProtocolType;
+
+    // 1. Read Holding Registers (FC 0x03, slave 1, start 2000 = 0x07D0, qty 10 = 0x000A)
+    const QByteArray tcpAdU = buildRequestFramePreview(ProtocolType::Tcp, 1, 0x03, 2000, 10, {});
+    EXPECT_EQ(tcpAdU, QByteArray::fromHex("000000000006010307D0000A"));
+
+    const QByteArray rtuAdu = buildRequestFramePreview(ProtocolType::Rtu, 1, 0x03, 2000, 10, {});
+    EXPECT_EQ(rtuAdu.left(6), QByteArray::fromHex("010307D0000A"));
+    EXPECT_EQ(rtuAdu.size(), 8);
+
+    const QByteArray asciiAdu = buildRequestFramePreview(ProtocolType::Ascii, 1, 0x03, 2000, 10, {});
+    EXPECT_TRUE(asciiAdu.startsWith(':'));
+    EXPECT_TRUE(asciiAdu.endsWith("\r\n"));
+
+    // 2. Write Single Coil (FC 0x05, ON = FF00)
+    const QByteArray writeCoilAdu = buildRequestFramePreview(
+        ProtocolType::Tcp, 1, 0x05, 100, 1, QByteArray::fromHex("FF00"));
+    EXPECT_EQ(writeCoilAdu, QByteArray::fromHex("00000000000601050064FF00"));
+
+    // 3. Write Multiple Registers (FC 0x10, 2 registers)
+    const QByteArray writeRegsAdu = buildRequestFramePreview(
+        ProtocolType::Tcp, 2, 0x10, 10, 2, QByteArray::fromHex("12345678"));
+    EXPECT_EQ(writeRegsAdu, QByteArray::fromHex("00000000000B0210000A00020412345678"));
+
+    // 4. Invalid function code returns empty and populates errorOut
+    QString err;
+    const QByteArray invalidFc = buildRequestFramePreview(ProtocolType::Tcp, 1, 0x99, 0, 1, {}, &err);
+    EXPECT_TRUE(invalidFc.isEmpty());
+    EXPECT_FALSE(err.isEmpty());
+
+    // 5. Overflow address range returns empty
+    err.clear();
+    const QByteArray overflowAdu = buildRequestFramePreview(ProtocolType::Tcp, 1, 0x03, 65530, 10, {}, &err);
+    EXPECT_TRUE(overflowAdu.isEmpty());
+    EXPECT_FALSE(err.isEmpty());
+}

@@ -24,6 +24,7 @@ class QShortcut;
 class QSpinBox;
 class QStackedLayout;
 class QVBoxLayout;
+class QResizeEvent;
 
 namespace infra::config {
 class ISettingsService;
@@ -74,6 +75,8 @@ public:
     [[nodiscard]] QLabel* writeWarningLabel() const noexcept { return writeWarningLabel_; }
     [[nodiscard]] QGroupBox* addressingGroup() const noexcept { return addressingGroup_; }
     [[nodiscard]] QGroupBox* writeGroup() const noexcept { return writeGroup_; }
+    [[nodiscard]] QLabel* framePreviewLabel() const noexcept { return framePreviewLabel_; }
+    [[nodiscard]] QPlainTextEdit* framePreviewEdit() const noexcept { return framePreviewEdit_; }
     [[nodiscard]] QGroupBox* executionGroup() const noexcept { return executionGroup_; }
     [[nodiscard]] QScrollArea* scrollArea() const noexcept { return scrollArea_; }
     [[nodiscard]] QComboBox* functionCodeComboBox() const noexcept { return fcCombo_; }
@@ -145,6 +148,8 @@ private:
     void updateAddressDisplay();
     void updateRequestDataState(uint8_t fc);
     void updateDataRadixHints();
+    void updateFramePreview();
+    [[nodiscard]] QByteArray currentWriteData(uint8_t fc, uint16_t qty) const;
     bool validateInputs();
     void validateAddressRange(bool& valid, QString& errorMsg);
     void validateWriteData(bool& valid, QString& errorMsg);
@@ -154,14 +159,13 @@ private:
     void stopPollingInternal(bool emitSignal);
     void stopPollingOnParameterChange(const QString& reason = {});
     void loadSettings();
-    void loadAddressingSettings();
-    void loadExecutionAndPayloadSettings();
     void saveSettings();
     void retranslateUi();
     void retranslateAddressingUi();
     void retranslateWriteAndRawUi();
     void retranslateExecutionUi();
     void changeEvent(QEvent* event) override;
+    void resizeEvent(QResizeEvent* event) override;
 
     infra::config::ISettingsService* settingsService_ = nullptr;
     ::ui::application::modbus::ExecutionGuardState guardState_;
@@ -224,6 +228,8 @@ private:
     QLineEdit* fc10WordsEdit_ = nullptr;
     QLabel* fc10HintLabel_ = nullptr;
     QLabel* writeWarningLabel_ = nullptr;
+    QLabel* framePreviewLabel_ = nullptr;
+    QPlainTextEdit* framePreviewEdit_ = nullptr;
 
     // Execution & polling
     QGroupBox* executionGroup_ = nullptr;

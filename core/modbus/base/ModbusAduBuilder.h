@@ -4,7 +4,12 @@
 
 #include "ModbusFrame.h"
 #include <QByteArray>
+#include <QString>
 #include <cstdint>
+
+namespace modbus::parser {
+enum class ProtocolType;
+}
 
 namespace modbus::base {
 
@@ -27,6 +32,17 @@ namespace modbus::base {
 // encodes the raw buffer into uppercase hexadecimal ASCII, prepends the ':' start
 // character, and appends the "\r\n" CRLF trailer.
 [[nodiscard]] QByteArray buildAsciiAdu(uint8_t slaveId, const Pdu& pdu);
+
+// Builds a full request ADU frame (TCP, RTU, or ASCII) for real-time TX previewing.
+// Returns an empty QByteArray on validation error or unsupported function code.
+[[nodiscard]] QByteArray buildRequestFramePreview(
+    ::modbus::parser::ProtocolType protocol,
+    uint8_t slaveId,
+    uint8_t fc,
+    uint16_t startAddr,
+    uint16_t qty,
+    const QByteArray& writeData,
+    QString* errorOut = nullptr);
 
 } // namespace modbus::base
 

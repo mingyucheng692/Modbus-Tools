@@ -373,6 +373,8 @@ TEST(ConnectionWidgets, ModbusPage_GeometryInvariants_AcrossMatrix) {
         QSize(800, 600),
         QSize(860, 640),
         QSize(920, 700),
+        QSize(1024, 639),
+        QSize(952, 1024),
         QSize(1040, 768),
         QSize(1440, 900)
     };
@@ -417,13 +419,31 @@ TEST(ConnectionWidgets, ModbusPage_GeometryInvariants_AcrossMatrix) {
                 if (linkageBtn && linkageBtn->isVisible()) EXPECT_GE(linkageBtn->width(), linkageBtn->minimumSizeHint().width());
                 if (pollFramesBtn && pollFramesBtn->isVisible()) EXPECT_GE(pollFramesBtn->width(), pollFramesBtn->minimumSizeHint().width());
 
-                // 5. Workbench scroll area zero horizontal scrollbar
+                // 5. Workbench scroll area zero horizontal scrollbar & vertical scrollbar for heights >= 639 in Standard mode
                 auto* scrollArea = workbench->findChild<QScrollArea*>(QStringLiteral("workbenchScrollArea"));
                 if (scrollArea && scrollArea->horizontalScrollBar()) {
                     EXPECT_FALSE(scrollArea->horizontalScrollBar()->isVisible());
                 }
+                if (modeIdx == 0 && size.height() >= 639 && scrollArea && scrollArea->verticalScrollBar()) {
+                    EXPECT_FALSE(scrollArea->verticalScrollBar()->isVisible());
+                }
 
-                // 6. Order combo compact width
+                // 6. Right-edge alignment across addressing, write, and execution groups
+                if (modeIdx == 0) {
+                    auto* addrGroup = workbench->findChild<QGroupBox*>(QStringLiteral("workbenchAddressingGroup"));
+                    auto* writeGroup = workbench->findChild<QGroupBox*>(QStringLiteral("workbenchWriteGroup"));
+                    if (addrGroup && writeGroup && execGroup) {
+                        const int addrRight = addrGroup->mapTo(&page, QPoint(addrGroup->width(), 0)).x();
+                        const int writeRight = writeGroup->mapTo(&page, QPoint(writeGroup->width(), 0)).x();
+                        const int execRight = execGroup->mapTo(&page, QPoint(execGroup->width(), 0)).x();
+                        EXPECT_NEAR(addrRight, writeRight, 1);
+                        if (!scrollArea->verticalScrollBar()->isVisible()) {
+                            EXPECT_NEAR(writeRight, execRight, 1);
+                        }
+                    }
+                }
+
+                // 7. Order combo compact width
                 auto* orderCombo = telemetry->findChild<QComboBox*>(QStringLiteral("inspectorOrderCombo"));
                 if (orderCombo && orderCombo->isVisible()) {
                     EXPECT_LE(orderCombo->width(), orderCombo->sizeHint().width() + 8);

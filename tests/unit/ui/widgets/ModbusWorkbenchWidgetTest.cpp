@@ -770,4 +770,68 @@ TEST_F(ModbusWorkbenchWidgetTest, TightVerticalDockingInTallWindowWithoutVoid) {
     EXPECT_LE(execGroup->geometry().bottom(), widget_->rect().bottom());
 }
 
+TEST_F(ModbusWorkbenchWidgetTest, FramePreview_UpdatesAcrossProtocols) {
+    auto* previewEdit = widget_->framePreviewEdit();
+    ASSERT_NE(previewEdit, nullptr);
+    EXPECT_TRUE(previewEdit->isReadOnly());
+
+    // Default FC 0x03, Slave 1, Start 0, Qty 10 in TCP
+    EXPECT_EQ(previewEdit->toPlainText(), QStringLiteral("00 00 00 00 00 06 01 03 00 00 00 0A"));
+
+    // Switch to RTU
+    widget_->setProtocolType(::modbus::parser::ProtocolType::Rtu);
+    EXPECT_EQ(previewEdit->toPlainText(), QStringLiteral("01 03 00 00 00 0A C5 CD"));
+
+    // Switch to ASCII
+    widget_->setProtocolType(::modbus::parser::ProtocolType::Ascii);
+    EXPECT_EQ(previewEdit->toPlainText(), QStringLiteral(":01030000000AF2"));
+
+    // Overflow address
+    widget_->setStartAddress(65530);
+    widget_->setQuantity(10);
+    EXPECT_TRUE(previewEdit->toPlainText().contains(QStringLiteral("overflow")));
+}
+
+TEST_F(ModbusWorkbenchWidgetTest, FramePreview_UpdatesAcrossWriteOperations) {
+    widget_->setProtocolType(::modbus::parser::ProtocolType::Tcp);
+    auto* previewEdit = widget_->framePreviewEdit();
+    ASSERT_NE(previewEdit, nullptr);
+
+    // FC 0x05 Write Single Coil (default ON)
+    widget_->setFunctionCode(0x05);
+    EXPECT_EQ(previewEdit->toPlainText(), QStringLiteral("00 00 00 00 00 06 01 05 00 00 FF 00"));
+
+    // FC 0x06 Write Single Register
+    widget_->setFunctionCode(0x06);
+    auto* fc06Edit = widget_->findChild<QLineEdit*>(QStringLiteral("workbenchFc06ValueEdit"));
+    ASSERT_NE(fc06Edit, nullptr);
+    widget_->setDataRadix(16);
+    fc06Edit->setText(QStringLiteral("1234"));
+    EXPECT_EQ(previewEdit->toPlainText(), QStringLiteral("00 00 00 00 00 06 01 06 00 00 12 34"));
+
+    // FC 0x10 Write Multiple Registers (qty 2)
+    widget_->setFunctionCode(0x10);
+    widget_->setQuantity(2);
+    auto* fc10Edit = widget_->findChild<QLineEdit*>(QStringLiteral("workbenchFc10WordsEdit"));
+    ASSERT_NE(fc10Edit, nullptr);
+    fc10Edit->setText(QStringLiteral("0001 0002"));
+    EXPECT_EQ(previewEdit->toPlainText(), QStringLiteral("00 00 00 00 00 0B 01 10 00 00 00 02 04 00 01 00 02"));
+}
+
+TEST_F(ModbusWorkbenchWidgetTest, SchemeA_WriteGroupExpandingAndStickyExecutionDocking) {
+    auto* writeGroup = widget_->writeGroup();
+    ASSERT_NE(writeGroup, nullptr);
+    EXPECT_EQ(writeGroup->sizePolicy().verticalPolicy(), QSizePolicy::Expanding);
+
+    auto* previewEdit = widget_->framePreviewEdit();
+    ASSERT_NE(previewEdit, nullptr);
+    EXPECT_TRUE(previewEdit->isReadOnly());
+    EXPECT_EQ(previewEdit->minimumHeight(), 24);
+
+    auto* previewLabel = widget_->framePreviewLabel();
+    ASSERT_NE(previewLabel, nullptr);
+    EXPECT_EQ(previewLabel->text(), QStringLiteral("Frame Preview (HEX):"));
+}
+
+
 
