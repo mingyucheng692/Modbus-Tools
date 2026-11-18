@@ -150,27 +150,6 @@ bool NavigationController::isCollapsed() const {
     return collapsed_;
 }
 
-void NavigationController::updateAdaptiveLayout(int windowWidth) {
-    if (windowWidth <= 0) {
-        return;
-    }
-    const bool shouldCollapse = windowWidth < config::Ui::kNavigationAutoCollapseWidth;
-    if (shouldCollapse) {
-        if (!autoCollapsed_ && !userOverridden_) {
-            autoCollapsed_ = true;
-            setCollapsed(true);
-        }
-    } else {
-        if (autoCollapsed_) {
-            autoCollapsed_ = false;
-            userOverridden_ = false;
-            setCollapsed(false);
-        } else if (userOverridden_) {
-            userOverridden_ = false;
-        }
-    }
-}
-
 void NavigationController::retranslateUi(const QStringList& titles,
                                          const QString& expandNavigationText,
                                          const QString& collapseNavigationText) {

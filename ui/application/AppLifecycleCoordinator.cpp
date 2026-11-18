@@ -66,6 +66,7 @@ bool AppLifecycleCoordinator::finalizeStartup() {
 void AppLifecycleCoordinator::persistOnClose() {
     settingsController_->setMainWindowGeometry(view_->saveWindowGeometry());
     settingsController_->setMainWindowState(view_->saveWindowState());
+    settingsController_->setNavigationCollapsed(view_->isNavigationCollapsed());
     settingsController_->sync();
 }
 

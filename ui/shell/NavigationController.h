@@ -20,10 +20,6 @@ public:
     void bindToStack(QStackedWidget* stackedWidget, const std::vector<int>& pageIndexByNavigationRow);
     void setCollapsed(bool collapsed);
     [[nodiscard]] bool isCollapsed() const;
-    void updateAdaptiveLayout(int windowWidth);
-    void setUserOverridden(bool overridden) noexcept { userOverridden_ = overridden; }
-    [[nodiscard]] bool isUserOverridden() const noexcept { return userOverridden_; }
-    [[nodiscard]] bool isAutoCollapsed() const noexcept { return autoCollapsed_; }
     void retranslateUi(const QStringList& titles, const QString& expandNavigationText, const QString& collapseNavigationText);
 
 private:
@@ -34,8 +30,6 @@ private:
     QWidget* navigationPane_ = nullptr;
     QToolButton* navigationToggleButton_ = nullptr;
     bool collapsed_ = false;
-    bool autoCollapsed_ = false;
-    bool userOverridden_ = false;
     int expandedWidth_ = 138;
     int collapsedWidth_ = 52;
 };

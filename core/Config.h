@@ -144,7 +144,6 @@ struct Ui {
     static constexpr int kFrameAnalyzerMaxHistoryItems = 20;
     static constexpr int kFrameAnalyzerCsvExportChunkRows = 128;
     static constexpr int kTrafficLogExportChunkRows = 256;
-    static constexpr int kNavigationAutoCollapseWidth = 920;
     static constexpr int kNavigationExpandedWidth = 138;
     static constexpr int kNavigationCollapsedWidth = 52;
     static constexpr int kNavigationMinIconWidth = 24;

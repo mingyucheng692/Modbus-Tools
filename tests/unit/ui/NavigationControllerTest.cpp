@@ -100,41 +100,25 @@ TEST(NavigationControllerTest, UtilitiesInspectChangesMainWindowPageAndParsesFra
     EXPECT_TRUE(qvariant_cast<modbus::parser::ParseResult>(parsed.at(0).at(0)).isValid);
 }
 
-TEST(NavigationControllerTest, AdaptiveLayout_AutoCollapsesOnNarrowWindowAndRestoresOnWide) {
+TEST(NavigationControllerTest, ManualCollapse_MaintainsStateExplicitly) {
     QListWidget navigationList;
     QWidget navigationPane;
     QToolButton navigationToggleButton;
     ui::shell::NavigationController controller(&navigationList, &navigationPane, &navigationToggleButton);
     controller.initialize({QStringLiteral("TCP"), QStringLiteral("RTU")});
 
-    // Start wide (1200px)
-    controller.updateAdaptiveLayout(1200);
     EXPECT_FALSE(controller.isCollapsed());
-    EXPECT_FALSE(controller.isAutoCollapsed());
 
-    // Shrink to narrow (850px < kNavigationAutoCollapseWidth 920)
-    controller.updateAdaptiveLayout(850);
+    controller.setCollapsed(true);
     EXPECT_TRUE(controller.isCollapsed());
-    EXPECT_TRUE(controller.isAutoCollapsed());
+    EXPECT_EQ(navigationPane.width(), config::Ui::kNavigationCollapsedWidth);
 
-    // User manual expand override while narrow
-    controller.setUserOverridden(true);
     controller.setCollapsed(false);
     EXPECT_FALSE(controller.isCollapsed());
-    EXPECT_TRUE(controller.isUserOverridden());
-
-    // Minor resize in narrow band (840px) does not force re-collapse
-    controller.updateAdaptiveLayout(840);
-    EXPECT_FALSE(controller.isCollapsed());
-
-    // Enlarge back to wide (1000px >= 920)
-    controller.updateAdaptiveLayout(1000);
-    EXPECT_FALSE(controller.isCollapsed());
-    EXPECT_FALSE(controller.isUserOverridden());
-    EXPECT_FALSE(controller.isAutoCollapsed());
+    EXPECT_EQ(navigationPane.width(), config::Ui::kNavigationExpandedWidth);
 }
 
-TEST(NavigationControllerTest, MainWindow_AdaptiveNavigationLayout) {
+TEST(NavigationControllerTest, MainWindow_ManualNavigationPreservedAcrossWindowResizes) {
     QTemporaryDir sandbox;
     ASSERT_TRUE(sandbox.isValid());
     infra::platform::PathResolver resolver(sandbox.path());
@@ -142,6 +126,7 @@ TEST(NavigationControllerTest, MainWindow_AdaptiveNavigationLayout) {
     settings.setValue(QStringLiteral("app/disclaimerAccepted"), true);
     settings.setValue(QStringLiteral("app/updateCheckFrequency"), QStringLiteral("never"));
     settings.setValue(QStringLiteral("app/language"), QStringLiteral("en_US"));
+    settings.setValue(QStringLiteral("app/navigationCollapsed"), false);
     ui::common::ThemeController theme(settings);
     ui::MainWindow window(&settings, &theme, resolver);
     window.resize(1200, 800);
@@ -150,24 +135,31 @@ TEST(NavigationControllerTest, MainWindow_AdaptiveNavigationLayout) {
 
     EXPECT_FALSE(window.isNavigationCollapsed());
 
-    // Shrink below auto-collapse threshold
+    // Shrinking across previous 920px boundary does NOT auto-collapse
     window.resize(850, 800);
+    QCoreApplication::processEvents();
+    EXPECT_FALSE(window.isNavigationCollapsed());
+
+    // Window shrinks down to narrow width; navigation stays expanded per user setting
+    window.resize(700, 600);
+    QCoreApplication::processEvents();
+    EXPECT_FALSE(window.isNavigationCollapsed());
+
+    // Manual collapse by user
+    window.setNavigationCollapsed(true);
+    EXPECT_TRUE(window.isNavigationCollapsed());
+
+    // Enlarging window across wide boundary does NOT auto-expand
+    window.resize(1100, 800);
     QCoreApplication::processEvents();
     EXPECT_TRUE(window.isNavigationCollapsed());
 
-    // Manual expand in narrow window
-    window.setNavigationCollapsed(false);
+    // State is preserved in settings on close / toggle
+    auto* toggleBtn = window.findChild<QToolButton*>(QStringLiteral("navigationToggleButton"));
+    ASSERT_NE(toggleBtn, nullptr);
+    toggleBtn->click();
     EXPECT_FALSE(window.isNavigationCollapsed());
-
-    // Minor resize in narrow width does not override manual expand
-    window.resize(830, 800);
-    QCoreApplication::processEvents();
-    EXPECT_FALSE(window.isNavigationCollapsed());
-
-    // Expand back to wide window
-    window.resize(1100, 800);
-    QCoreApplication::processEvents();
-    EXPECT_FALSE(window.isNavigationCollapsed());
+    EXPECT_FALSE(settings.value(QStringLiteral("app/navigationCollapsed")).toBool());
 }
 
 } // namespace

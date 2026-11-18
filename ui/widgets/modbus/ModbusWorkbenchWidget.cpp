@@ -47,7 +47,7 @@ public:
         return currentWidget() && currentWidget()->hasHeightForWidth();
     }
     [[nodiscard]] int heightForWidth(int width) const override {
-        return currentWidget() && currentWidget()->hasHeightForWidth()
+        return (currentWidget() && currentWidget()->hasHeightForWidth())
             ? currentWidget()->heightForWidth(width)
             : (currentWidget() ? currentWidget()->sizeHint().height() : 0);
     }
@@ -62,12 +62,8 @@ public:
 class FramePreviewEdit : public QPlainTextEdit {
 public:
     using QPlainTextEdit::QPlainTextEdit;
-    [[nodiscard]] QSize sizeHint() const override {
-        return QSize(100, 28);
-    }
-    [[nodiscard]] QSize minimumSizeHint() const override {
-        return QSize(0, 24);
-    }
+    [[nodiscard]] QSize sizeHint() const override { return QSize(100, 28); }
+    [[nodiscard]] QSize minimumSizeHint() const override { return QSize(0, 24); }
 };
 
 } // namespace
@@ -362,7 +358,6 @@ void ModbusWorkbenchWidget::setupRadixRow(QGroupBox* group, QFormLayout* form) {
         btn->setCheckable(true);
         btn->setChecked(checked);
         btn->setMinimumWidth(36);
-        btn->setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Fixed);
         radixGroup_->addButton(btn, id);
         return btn;
     };
@@ -480,7 +475,6 @@ void ModbusWorkbenchWidget::setupDataRadixRow(QGroupBox* group, QVBoxLayout* wl)
         btn->setCheckable(true);
         btn->setChecked(checked);
         btn->setMinimumWidth(36);
-        btn->setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Fixed);
         dataRadixGroup_->addButton(btn, id);
         return btn;
     };
@@ -515,18 +509,17 @@ void ModbusWorkbenchWidget::setupFc05Page(QWidget* stackWidget) {
     layout->setContentsMargins(0, 0, 0, 0);
     layout->setSpacing(6);
     fc05Group_ = new QButtonGroup(this);
-    fc05OnBtn_ = new QPushButton(page);
-    fc05OnBtn_->setObjectName(QStringLiteral("workbenchFc05OnBtn"));
-    fc05OnBtn_->setCheckable(true);
-    fc05OnBtn_->setChecked(true);
-    fc05OffBtn_ = new QPushButton(page);
-    fc05OffBtn_->setObjectName(QStringLiteral("workbenchFc05OffBtn"));
-    fc05OffBtn_->setCheckable(true);
-    fc05Group_->addButton(fc05OnBtn_, 1);
-    fc05Group_->addButton(fc05OffBtn_, 0);
-    connect(fc05Group_, &QButtonGroup::idClicked, this, [this](int id) {
-        onFc05Toggled(id == 1);
-    });
+    auto makeBtn = [page, this](const QString& name, int id, bool checked) {
+        auto* btn = new QPushButton(page);
+        btn->setObjectName(name);
+        btn->setCheckable(true);
+        btn->setChecked(checked);
+        fc05Group_->addButton(btn, id);
+        return btn;
+    };
+    fc05OnBtn_ = makeBtn(QStringLiteral("workbenchFc05OnBtn"), 1, true);
+    fc05OffBtn_ = makeBtn(QStringLiteral("workbenchFc05OffBtn"), 0, false);
+    connect(fc05Group_, &QButtonGroup::idClicked, this, [this](int id) { onFc05Toggled(id == 1); });
     layout->addWidget(fc05OnBtn_);
     layout->addWidget(fc05OffBtn_);
     writeStackedLayout_->addWidget(page);
@@ -1079,10 +1072,10 @@ void ModbusWorkbenchWidget::retranslateAddressingUi() {
     addressingGroup_->setTitle(tr("Addressing & Parameters").replace(QLatin1Char('&'), QStringLiteral("&&")));
     radixLabel_->setText(tr("Address Radix:"));
     radixDecBtn_->setText(tr("DEC"));
+    radixDecBtn_->setToolTip(tr("Decimal (DEC)"));
     radixHexBtn_->setText(tr("HEX"));
-    if (addrBaseLabel_) {
-        addrBaseLabel_->setText(tr("Address Base:"));
-    }
+    radixHexBtn_->setToolTip(tr("Hexadecimal (HEX)"));
+    if (addrBaseLabel_) addrBaseLabel_->setText(tr("Address Base:"));
     if (addrBaseCombo_) {
         const QSignalBlocker blocker(addrBaseCombo_);
         addrBaseCombo_->setItemText(0, tr("0-Based"));
@@ -1113,14 +1106,13 @@ void ModbusWorkbenchWidget::retranslateWriteAndRawUi() {
     writeGroup_->setTitle(tr("Request Data"));
     dataRadixLabel_->setText(tr("Data Radix:"));
     dataRadixDecBtn_->setText(tr("DEC"));
+    dataRadixDecBtn_->setToolTip(tr("Decimal (DEC)"));
     dataRadixHexBtn_->setText(tr("HEX"));
+    dataRadixHexBtn_->setToolTip(tr("Hexadecimal (HEX)"));
     dataRadixBinBtn_->setText(tr("BIN"));
-    if (readPlaceholderLabel_) {
-        readPlaceholderLabel_->setText(tr("Read operation requires no request payload"));
-    }
-    if (framePreviewLabel_) {
-        framePreviewLabel_->setText(tr("Frame Preview (HEX):"));
-    }
+    dataRadixBinBtn_->setToolTip(tr("Binary (BIN)"));
+    if (readPlaceholderLabel_) readPlaceholderLabel_->setText(tr("Read operation requires no request payload"));
+    if (framePreviewLabel_) framePreviewLabel_->setText(tr("Frame Preview (HEX):"));
     fc05OnBtn_->setText(tr("ON (0xFF00)"));
     fc05OffBtn_->setText(tr("OFF (0x0000)"));
     updateDataRadixHints();
@@ -1137,9 +1129,7 @@ void ModbusWorkbenchWidget::retranslateExecutionUi() {
     updateExecuteButtonAppearance();
     pollCheckBox_->setText(tr("Periodic Polling"));
     pollIntervalLabel_->setText(tr("Interval:"));
-    if (writePollWarningBadge_) {
-        writePollWarningBadge_->setText(tr("[!] Write Polling Active"));
-    }
+    if (writePollWarningBadge_) writePollWarningBadge_->setText(tr("[!] Write Polling Active"));
     updateGuardAppearance();
 }
 
@@ -1201,9 +1191,7 @@ void ModbusWorkbenchWidget::changeEvent(QEvent* event) {
 
 void ModbusWorkbenchWidget::resizeEvent(QResizeEvent* event) {
     QWidget::resizeEvent(event);
-    if (scrollArea_) {
-        scrollArea_->updateGeometry();
-    }
+    if (scrollArea_) scrollArea_->updateGeometry();
 }
 
 } // namespace ui::widgets::modbus

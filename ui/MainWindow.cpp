@@ -196,6 +196,7 @@ void MainWindow::createNavigation() {
     paneLayout->setSpacing(0);
 
     navigationToggleButton_ = new QToolButton(navigationPane_);
+    navigationToggleButton_->setObjectName(QStringLiteral("navigationToggleButton"));
     navigationToggleButton_->setToolButtonStyle(Qt::ToolButtonTextOnly);
     navigationToggleButton_->setFixedHeight(28);
     paneLayout->addWidget(navigationToggleButton_);
@@ -228,11 +229,6 @@ void MainWindow::navigateTo(MainPage page) {
 
 void MainWindow::setNavigationCollapsed(bool collapsed) {
     if (navigationController_) {
-        if (width() < config::Ui::kNavigationAutoCollapseWidth && !collapsed) {
-            navigationController_->setUserOverridden(true);
-        } else if (collapsed) {
-            navigationController_->setUserOverridden(false);
-        }
         navigationController_->setCollapsed(collapsed);
     }
 }
@@ -452,9 +448,6 @@ void MainWindow::closeEvent(QCloseEvent* event) {
 
 void MainWindow::resizeEvent(QResizeEvent* event) {
     QMainWindow::resizeEvent(event);
-    if (navigationController_ && event) {
-        navigationController_->updateAdaptiveLayout(event->size().width());
-    }
 }
 
 } // namespace ui

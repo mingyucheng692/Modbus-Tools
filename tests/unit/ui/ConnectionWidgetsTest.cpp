@@ -477,6 +477,7 @@ TEST(ConnectionWidgets, MainWindow_AllFivePages_ZeroOverlapAtMinimumDimensions) 
 
     // 1. Minimum dimensions 720x520
     window.resize(720, 520);
+    window.setNavigationCollapsed(true);
     window.show();
     QCoreApplication::processEvents();
 
@@ -521,6 +522,7 @@ TEST(ConnectionWidgets, MainWindow_AllFivePages_ZeroOverlapAtMinimumDimensions) 
 
     // 2. Wide dimensions 1280x800
     window.resize(1280, 800);
+    window.setNavigationCollapsed(false);
     QCoreApplication::processEvents();
     EXPECT_FALSE(window.isNavigationCollapsed());
 

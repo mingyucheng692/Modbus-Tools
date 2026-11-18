@@ -4747,13 +4747,13 @@ You are solely responsible for all operations.</source>
         <location filename="../widgets/modbus/ModbusWorkbenchWidget.cpp" line="1137" />
         <location filename="../widgets/modbus/ModbusWorkbenchWidget.cpp" line="1171" />
         <source>DEC</source>
-        <translation>十進制 (DEC)</translation>
+        <translation>十進制</translation>
     </message>
     <message>
         <location filename="../widgets/modbus/ModbusWorkbenchWidget.cpp" line="1138" />
         <location filename="../widgets/modbus/ModbusWorkbenchWidget.cpp" line="1172" />
         <source>HEX</source>
-        <translation>十六進制 (HEX)</translation>
+        <translation>十六進制</translation>
     </message>
     <message>
         <location filename="../widgets/modbus/ModbusWorkbenchWidget.cpp" line="1147" />
@@ -4991,6 +4991,18 @@ You are solely responsible for all operations.</source>
     <message>
         <location filename="../widgets/modbus/ModbusWorkbenchWidget.cpp" line="1173" />
         <source>BIN</source>
+        <translation>二進制</translation>
+    </message>
+    <message>
+        <source>Decimal (DEC)</source>
+        <translation>十進制 (DEC)</translation>
+    </message>
+    <message>
+        <source>Hexadecimal (HEX)</source>
+        <translation>十六進制 (HEX)</translation>
+    </message>
+    <message>
+        <source>Binary (BIN)</source>
         <translation>二進制 (BIN)</translation>
     </message>
     <message>
