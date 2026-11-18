@@ -93,6 +93,8 @@ void ModbusPage::bindPresenter(ui::application::modbus::ModbusPagePresenter* pre
                 pagePresenter_, &ui::application::modbus::ModbusPagePresenter::setLinked);
         connect(telemetryWidget_, &widgets::modbus::ModbusTelemetryWidget::pollFramesToggled,
                 pagePresenter_, &ui::application::modbus::ModbusPagePresenter::setPollFramesEnabled);
+        connect(telemetryWidget_, &widgets::modbus::ModbusTelemetryWidget::resetMetricsRequested,
+                pagePresenter_, &ui::application::modbus::ModbusPagePresenter::onResetMetricsRequested);
     }
 
     connect(pagePresenter_, &ui::application::modbus::ModbusPagePresenter::linkageDataReceived,
@@ -238,8 +240,6 @@ void ModbusPage::setupSplitterBody() {
                 updateAddressBase(base);
             });
 
-    connect(telemetryWidget_, &widgets::modbus::ModbusTelemetryWidget::resetMetricsRequested,
-            pagePresenter_, &application::modbus::ModbusPagePresenter::onResetMetricsRequested);
     connect(telemetryWidget_, &widgets::modbus::ModbusTelemetryWidget::inspectInAnalyzerRequested,
             this, &ModbusPage::inspectInAnalyzerRequested);
 }

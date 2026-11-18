@@ -10,6 +10,7 @@
 #include "ui/widgets/modbus/ModbusWorkbenchWidget.h"
 #include "ui/widgets/modbus/ModbusTelemetryWidget.h"
 #include "ui/views/modbus/ModbusPage.h"
+#include "ui/application/modbus/ModbusPagePresenter.h"
 #include "ui/MainWindow.h"
 #include "ui/common/ThemeController.h"
 #include "infra/platform/PathResolver.h"
@@ -535,6 +536,42 @@ TEST(ConnectionWidgets, MainWindow_AllFivePages_ZeroOverlapAtMinimumDimensions) 
         EXPECT_GT(currentWidget->width(), 0);
         EXPECT_LE(currentWidget->width(), stack->width());
     }
+}
+
+TEST(ConnectionWidgets, ModbusPage_ResetStatsButton_TriggersPresenterAndUpdatesUI) {
+    tests::mocks::FakeSettingsService settings;
+    ui::views::modbus::ModbusPage page(&settings);
+    ui::application::modbus::ModbusPagePresenter presenter(&page, ui::application::modbus::SessionMode::Tcp);
+    page.bindPresenter(&presenter);
+
+    // Seed initial metrics
+    page.updateMetrics(10, 8, 2, 45);
+
+    auto* txLabel = page.findChild<QLabel*>(QStringLiteral("txStatsLabel"));
+    auto* rxLabel = page.findChild<QLabel*>(QStringLiteral("rxStatsLabel"));
+    auto* errLabel = page.findChild<QLabel*>(QStringLiteral("errStatsLabel"));
+    auto* rttLabel = page.findChild<QLabel*>(QStringLiteral("rttStatsLabel"));
+    auto* resetBtn = page.findChild<QPushButton*>(QStringLiteral("resetStatsBtn"));
+
+    ASSERT_NE(txLabel, nullptr);
+    ASSERT_NE(rxLabel, nullptr);
+    ASSERT_NE(errLabel, nullptr);
+    ASSERT_NE(rttLabel, nullptr);
+    ASSERT_NE(resetBtn, nullptr);
+
+    EXPECT_TRUE(txLabel->text().contains(QStringLiteral("10")));
+    EXPECT_TRUE(rxLabel->text().contains(QStringLiteral("8")));
+    EXPECT_TRUE(errLabel->text().contains(QStringLiteral("2")));
+    EXPECT_TRUE(rttLabel->text().contains(QStringLiteral("45")));
+
+    // Click reset stats button
+    resetBtn->click();
+
+    // Verify metrics are reset across the whole MVP pipeline
+    EXPECT_TRUE(txLabel->text().contains(QStringLiteral("0")));
+    EXPECT_TRUE(rxLabel->text().contains(QStringLiteral("0")));
+    EXPECT_TRUE(errLabel->text().contains(QStringLiteral("0")));
+    EXPECT_TRUE(rttLabel->text().contains(QStringLiteral("--")));
 }
 
 } // namespace
