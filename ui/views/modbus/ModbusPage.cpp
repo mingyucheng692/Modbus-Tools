@@ -20,7 +20,6 @@
 #include <QSplitter>
 #include <QEvent>
 #include <QSignalBlocker>
-#include <spdlog/spdlog.h>
 
 namespace ui::views::modbus {
 
@@ -365,7 +364,6 @@ void ModbusPage::applyProtocolSettingsGroup(ui::application::modbus::SessionMode
 }
 
 void ModbusPage::onTcpConnectClicked(const QString& ip, int port) {
-    SPDLOG_INFO("ModbusPage: TCP connect requested to {}:{}", ip.toStdString(), port);
     showStatusMessage(QString(), false);
     ::modbus::base::ModbusConfig config;
     config.mode = ::modbus::base::ModbusMode::TCP;
@@ -380,7 +378,6 @@ void ModbusPage::onTcpConnectClicked(const QString& ip, int port) {
 
 void ModbusPage::onSerialConnectClicked(const io::SerialConfig& config) {
     const auto descriptor = ui::application::modbus::modeDescriptor(currentMode_);
-    SPDLOG_INFO("ModbusPage: {} connect requested to {}", descriptor.logName, config.portName.toStdString());
     showStatusMessage(QString(), false);
 
     ::modbus::base::ModbusConfig modbusConfig;
@@ -399,7 +396,6 @@ void ModbusPage::onSerialConnectClicked(const io::SerialConfig& config) {
 }
 
 void ModbusPage::onDisconnectClicked() {
-    SPDLOG_INFO("ModbusPage: disconnect requested");
     if (pagePresenter_) pagePresenter_->requestDisconnect();
 }
 

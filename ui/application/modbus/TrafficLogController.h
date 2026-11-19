@@ -42,7 +42,7 @@ public:
     void logInfo(const QString& message);
     void logPollSummary(const PollSummary& summary);
 
-    /// Single legitimate entry point for traffic events: emits trafficEvent and crosses LogBridge into spdlog.
+    /// Single legitimate entry point for traffic events: emits trafficEvent for the UI telemetry stream.
     void publishEvent(ui::common::TrafficEvent event);
 
 signals:

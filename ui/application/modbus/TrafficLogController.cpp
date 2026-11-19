@@ -3,7 +3,6 @@
 #include "TrafficLogController.h"
 #include "PollingController.h"
 #include "Config.h"
-#include "../../logging/LogBridge.h"
 #include <QCoreApplication>
 #include <utility>
 
@@ -34,7 +33,6 @@ bool TrafficLogController::isPollFramesEnabled() const noexcept {
 
 void TrafficLogController::publishEvent(ui::common::TrafficEvent event) {
     emit trafficEvent(event);
-    ui::logging::relay(event);
 }
 
 void TrafficLogController::logConnectionInfo(const QString& message) {

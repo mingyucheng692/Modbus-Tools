@@ -326,6 +326,7 @@ void ModbusPagePresenter::handleRawExecute(const ModbusExecuteSpec& spec) {
         }
         return;
     }
+    SPDLOG_INFO("ModbusPagePresenter: sendRaw len={}", spec.rawPduOrAdu.size());
     if (trafficLogController_) {
         trafficLogController_->logSendingRawData(spec.rawPduOrAdu);
     }

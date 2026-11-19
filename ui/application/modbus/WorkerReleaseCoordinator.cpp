@@ -133,7 +133,7 @@ void WorkerReleaseCoordinator::requestRelease(StackHandle handle,
     pending->workerThreadFinished =
         !pending->workerThread || !pending->workerThread->isRunning();
 
-    SPDLOG_INFO(
+    SPDLOG_DEBUG(
         "WorkerReleaseCoordinator: release requested worker_present={} channel_present={} "
         "worker_thread_running={} channel_thread_running={}",
         pending->worker != nullptr,
@@ -147,7 +147,7 @@ void WorkerReleaseCoordinator::requestRelease(StackHandle handle,
     if (pending->workerStopped && pending->channelThreadFinished
         && pending->workerThreadFinished
         && !pending->channel && !pending->client && !pending->worker) {
-        SPDLOG_INFO("WorkerReleaseCoordinator: release completed immediately (empty handle)");
+        SPDLOG_DEBUG("WorkerReleaseCoordinator: release completed immediately (empty handle)");
         QMetaObject::invokeMethod(this, [this]() { emit releaseCompleted(); },
                                   Qt::QueuedConnection);
         return;
@@ -281,7 +281,7 @@ void WorkerReleaseCoordinator::onWorkerStopped(
     if (!pending) {
         return;
     }
-    SPDLOG_INFO("WorkerReleaseCoordinator: worker reported stopped");
+    SPDLOG_DEBUG("WorkerReleaseCoordinator: worker reported stopped");
     pending->workerStopped = true;
     quitWorkerThreadIfSafe(pending);
     advanceStage(pending, ReleaseStage::ClosingChannel);
@@ -529,7 +529,7 @@ void WorkerReleaseCoordinator::finalize(
     pending->workerThread.reset();
     pending->stage = ReleaseStage::Finalized;
 
-    SPDLOG_INFO("WorkerReleaseCoordinator: release finalized");
+    SPDLOG_DEBUG("WorkerReleaseCoordinator: release finalized");
     emit releaseCompleted();
 }
 

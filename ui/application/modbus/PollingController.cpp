@@ -229,9 +229,7 @@ void PollingController::handlePollCompletion(bool success, int rttMs, int retryC
             }
 
             if (shouldLogEscalatedError) {
-                // No direct ui::logging::relay() here. The event flows
-                // along the signal chain (trafficEvent -> TrafficLogController
-                // ::publishEvent), which is the single legitimate bridge entry.
+                // The event flows along the signal chain (trafficEvent -> TrafficLogController::publishEvent).
                 emit trafficEvent(event);
                 context_.lastErrorLogTime = now;
             }
@@ -251,9 +249,7 @@ void PollingController::handlePollCompletion(bool success, int rttMs, int retryC
             // - Report immediately on first entry into Degraded (context_.state is still Polling)
             // - Cap repetitive identical errors at once per 5 seconds
             //
-            // No direct ui::logging::relay() here. The event flows along the
-            // signal chain (trafficEvent -> TrafficLogController::publishEvent),
-            // which is the single legitimate bridge entry.
+            // The event flows along the signal chain (trafficEvent -> TrafficLogController::publishEvent).
             const bool shouldLogDegraded = (error != context_.lastErrorText)
                 || (context_.state != PollState::Degraded)
                 || (now - context_.lastErrorLogTime) >= std::chrono::seconds(5);

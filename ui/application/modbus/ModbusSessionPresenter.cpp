@@ -7,6 +7,7 @@
 #include "TrafficLogController.h"
 #include "modbus/factory/ModbusFactory.h"
 #include "modbus/session/ModbusClient.h"
+#include "infra/logging/Logger.h"
 #include <QMetaObject>
 #include <QPointer>
 #include <QThread>
@@ -162,6 +163,7 @@ void ModbusSessionPresenter::requestDisconnect() {
 
 void ModbusSessionPresenter::handlePollingFatalDisconnect(const QString& reason) {
     assertGuiThread("handlePollingFatalDisconnect must run on the GUI thread");
+    logging::DumpBacktrace();
     const ModbusModeDescriptor descriptor = modeDescriptor(mode_);
     SPDLOG_WARN("ModbusSessionPresenter[{}]: polling fatal disconnect ({}); "
                 "downgrading to full disconnect",
@@ -365,6 +367,7 @@ void ModbusSessionPresenter::onReleaseCompleted() {
 
 void ModbusSessionPresenter::onReleaseTimedOut(const QString& message) {
     assertGuiThread("onReleaseTimedOut must run on the GUI thread");
+    logging::DumpBacktrace();
     SPDLOG_ERROR("ModbusSessionPresenter[{}]: Release timed out: {}",
                   modeDescriptor(mode_).logName,
                   message.toStdString());
@@ -577,6 +580,7 @@ void ModbusSessionPresenter::handleChannelStateTransition(io::ChannelState state
             trafficLogController_->logConnectionInfo(logMsg);
         }
         if (shouldShowDisconnectAlert) {
+            logging::DumpBacktrace();
             emit unexpectedDisconnectAlertRequested();
         }
 

@@ -9,6 +9,10 @@
 #include "../../../ui/application/modbus/ModbusTypes.h"
 #include "Config.h"
 #include <QSignalSpy>
+#include <spdlog/spdlog.h>
+#include <spdlog/sinks/base_sink.h>
+#include <mutex>
+#include <vector>
 
 using namespace testing;
 using namespace ui::application::modbus;
@@ -260,6 +264,39 @@ TEST_F(TrafficLogControllerTest, LogRawFrame_SuppressedBetweenPollTicksWhenPollD
     ASSERT_EQ(spy.count(), 3);
     const auto summaryEv = spy.last().first().value<ui::common::TrafficEvent>();
     EXPECT_TRUE(summaryEv.summary.contains(QStringLiteral("poll frames: 2 shown, 18 skipped")));
+}
+
+TEST_F(TrafficLogControllerTest, PublishEvent_DoesNotRelayToSpdlog) {
+    class CapturingSink final : public spdlog::sinks::base_sink<std::mutex> {
+    public:
+        std::vector<std::string> lines;
+    protected:
+        void sink_it_(const spdlog::details::log_msg& msg) override {
+            lines.emplace_back(msg.payload.data(), msg.payload.size());
+        }
+        void flush_() override {}
+    };
+
+    if (!spdlog::default_logger()) {
+        spdlog::set_default_logger(std::make_shared<spdlog::logger>("test_default"));
+    }
+    auto sink = std::make_shared<CapturingSink>();
+    spdlog::default_logger()->sinks().push_back(sink);
+
+    QSignalSpy spy(controller_.get(), &TrafficLogController::trafficEvent);
+    controller_->logConnectionInfo(QStringLiteral("UniqueUiConnectionInfoMessage"));
+    controller_->logError(QStringLiteral("UniqueUiErrorMessage"));
+
+    EXPECT_EQ(spy.count(), 2);
+
+    auto& sinks = spdlog::default_logger()->sinks();
+    sinks.erase(std::remove(sinks.begin(), sinks.end(), sink), sinks.end());
+
+    for (const auto& line : sink->lines) {
+        EXPECT_EQ(line.find("Traffic"), std::string::npos);
+        EXPECT_EQ(line.find("UniqueUiConnectionInfoMessage"), std::string::npos);
+        EXPECT_EQ(line.find("UniqueUiErrorMessage"), std::string::npos);
+    }
 }
 
 } // namespace
