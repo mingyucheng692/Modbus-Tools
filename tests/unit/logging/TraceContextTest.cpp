@@ -65,3 +65,13 @@ TEST_F(TraceContextTest, ThreadLocalIsolation) {
     EXPECT_EQ(observedByOtherThread, 0u);   // no leak from the main thread
     EXPECT_EQ(currentTraceId, 999u);        // main thread unaffected
 }
+
+TEST_F(TraceContextTest, ZeroTraceIdScopeSetsZeroAndRestoresOuter) {
+    Scope outer(12345);
+    EXPECT_EQ(currentTraceId, 12345u);
+    {
+        Scope inner(0);
+        EXPECT_EQ(currentTraceId, 0u);
+    }
+    EXPECT_EQ(currentTraceId, 12345u);
+}

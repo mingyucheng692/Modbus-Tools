@@ -88,6 +88,7 @@ TEST(LoggerInit, WritableDirCreatesPidFilePrunesOldLogsAndShutdownFlushes)
     ASSERT_TRUE(logging::Init(sandbox.path(), &errorMessage)) << errorMessage.toStdString();
     EXPECT_TRUE(errorMessage.isEmpty());
 
+    SPDLOG_INFO("logger-format-source-location-marker");
     qWarning("logger-qt-forward-marker");
     logging::Shutdown();
 
@@ -113,4 +114,21 @@ TEST(LoggerInit, WritableDirCreatesPidFilePrunesOldLogsAndShutdownFlushes)
     ASSERT_TRUE(currentFile.open(QIODevice::ReadOnly));
     const QByteArray content = currentFile.readAll();
     EXPECT_TRUE(content.contains("logger-qt-forward-marker"));
+    EXPECT_TRUE(content.contains("logger-format-source-location-marker"));
+    EXPECT_TRUE(content.contains("LoggerInitTest.cpp:"));
+}
+
+TEST(LoggerInit, HasEnvLogLevelOverrideReflectsEnvironment)
+{
+    qunsetenv("MODBUS_TOOLS_LOG_LEVEL");
+    EXPECT_FALSE(logging::HasEnvLogLevelOverride());
+
+    qputenv("MODBUS_TOOLS_LOG_LEVEL", "DEBUG");
+    EXPECT_TRUE(logging::HasEnvLogLevelOverride());
+    qunsetenv("MODBUS_TOOLS_LOG_LEVEL");
+}
+
+TEST(LoggerInit, DumpBacktraceCanBeCalledSafely)
+{
+    EXPECT_NO_FATAL_FAILURE(logging::DumpBacktrace());
 }

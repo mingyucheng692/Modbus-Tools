@@ -2,6 +2,7 @@ add_library(infra_platform STATIC)
 
 target_sources(infra_platform
     PRIVATE
+        CrashHandler.h
         IPlatformProcessRunner.h
         IPlatformProcessRunner.cpp
         PathResolver.h
@@ -13,10 +14,16 @@ if(WIN32)
     target_sources(infra_platform PRIVATE
         win/Win32ProcessRunner.h
         win/Win32ProcessRunner.cpp
+        win/Win32CrashHandler.cpp
     )
     target_compile_definitions(infra_platform PRIVATE
         WIN32_LEAN_AND_MEAN
         NOMINMAX
+    )
+    target_link_libraries(infra_platform PRIVATE dbghelp)
+else()
+    target_sources(infra_platform PRIVATE
+        posix/PosixCrashHandler.cpp
     )
 endif()
 

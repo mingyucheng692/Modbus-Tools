@@ -183,6 +183,7 @@ set(TEST_QT_CORE_SOURCES
     unit/infra/SettingsServiceTest.cpp
     unit/ui/UpdateCheckerTest.cpp
     unit/ui/UpdateCoordinatorTest.cpp
+    unit/platform/CrashHandlerTest.cpp
 )
 
 if(WIN32)

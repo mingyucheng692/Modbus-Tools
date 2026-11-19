@@ -106,7 +106,7 @@ void ModbusWorker::submit(const base::Pdu& request, int slaveId, int requestId, 
             emit requestFinished(requestId, session::ModbusResponse::Error("Worker is stopping"));
             return;
         }
-        SPDLOG_INFO("ModbusWorker: enqueue request trace_id={} request_id={} slave={}",
+        SPDLOG_DEBUG("ModbusWorker: enqueue request trace_id={} request_id={} slave={}",
                      static_cast<unsigned long long>(traceId), requestId, slaveId);
         queuedRequests_.push_back(QueuedRequest{request, slaveId, requestId, traceId});
         // Draining runs inline on the worker thread. processQueue() re-arms

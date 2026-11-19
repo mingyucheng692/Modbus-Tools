@@ -4,18 +4,18 @@
 
 #include <QString>
 #include <memory>
+#include <string_view>
 #include <spdlog/spdlog.h>
 
 // Verbose runtime logging is gated by the CMake option
 // MODBUS_TOOLS_ENABLE_VERBOSE_RUNTIME_LOGS, which controls spdlog flush level
-// (info vs warn) in Logger.cpp. Call sites use the SPDLOG_* macros so that
-// SPDLOG_ACTIVE_LEVEL (Debug -> SPDLOG_LEVEL_DEBUG, otherwise
-// SPDLOG_LEVEL_INFO, see modbus_tools_apply_logging_policy in the root
-// CMakeLists.txt) strips debug-level statements at compile time.
+// (info vs warn) in Logger.cpp. Call sites use the SPDLOG_* macros;
+// SPDLOG_ACTIVE_LEVEL is defined as SPDLOG_LEVEL_DEBUG across targets
+// (see modbus_tools_apply_logging_policy in the root CMakeLists.txt),
+// allowing runtime filtering via SetLogLevel().
 //
 // Note on QT_MESSAGELOGCONTEXT: intentionally NOT defined; the Qt message
-// handler's file/line context is only reliable for Qt-internal warnings,
-// which is why LogBridge does not rely on it.
+// handler's file/line context is only reliable for Qt-internal warnings.
 
 namespace logging {
 
@@ -23,6 +23,15 @@ namespace logging {
 
 /// Uninstalls the Qt message handler, flushes queued log entries, and shuts down spdlog.
 void Shutdown() noexcept;
+
+/// Dumps recent in-memory backtrace ring buffer to log sinks (up to 64 records).
+void DumpBacktrace() noexcept;
+
+/// Synchronously dumps backtrace, flushes all loggers, terminates spdlog, and aborts.
+[[noreturn]] void FatalFlushAndAbort(std::string_view message) noexcept;
+
+/// Returns true if MODBUS_TOOLS_LOG_LEVEL environment variable is set.
+[[nodiscard]] bool HasEnvLogLevelOverride() noexcept;
 
 void SetLogLevel(spdlog::level::level_enum level) noexcept;
 

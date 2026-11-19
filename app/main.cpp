@@ -9,6 +9,7 @@
 #include "infra/config/SettingsService.h"
 #include "common/ThemeController.h"
 #include "infra/platform/PathResolver.h"
+#include "infra/platform/CrashHandler.h"
 #include "infra/logging/Logger.h"
 #include "core/common/SettingsController.h"
 
@@ -45,11 +46,15 @@ int main(int argc, char *argv[])
                 "Move the program folder to a writable location "
                 "(e.g. Desktop) and restart.").arg(loggingError));
     } else {
-        core::common::SettingsController startupSettings(&settingsService);
-        if (const auto savedLogLevel = startupSettings.logLevel(); savedLogLevel.has_value()) {
-            logging::SetLogLevel(static_cast<spdlog::level::level_enum>(*savedLogLevel));
+        if (!logging::HasEnvLogLevelOverride()) {
+            core::common::SettingsController startupSettings(&settingsService);
+            if (const auto savedLogLevel = startupSettings.logLevel(); savedLogLevel.has_value()) {
+                logging::SetLogLevel(static_cast<spdlog::level::level_enum>(*savedLogLevel));
+            }
         }
     }
+
+    infra::platform::CrashHandler::install(pathResolver.resolveLogDir());
 
     app.setWindowIcon(QIcon(":/assets/logo.svg"));
 

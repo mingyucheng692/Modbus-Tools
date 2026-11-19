@@ -114,19 +114,13 @@ ModbusClient::~ModbusClient() {
     const auto reqState = requestStateMachine_.currentState();
     if (reqState == RequestStateMachine::State::Sending ||
         reqState == RequestStateMachine::State::Waiting) {
-        // Double-write to stderr: this abort path bypasses QtMessageHandler,
-        // and the async queue may not flush the critical line in time.
-        std::fprintf(stderr,
+        char buf[512];
+        std::snprintf(buf, sizeof(buf),
                      "ModbusClient::~ModbusClient: destroyed while request is "
                      "in-flight (state=%s). The worker thread must be joined "
-                     "before destruction. This is a use-after-free.\n",
+                     "before destruction. This is a use-after-free.",
                      RequestStateMachine::toString(reqState));
-        SPDLOG_CRITICAL("ModbusClient::~ModbusClient: destroyed while request is "
-                         "in-flight (state={}). The worker thread must be joined "
-                         "before destruction. This is a use-after-free.",
-                         RequestStateMachine::toString(reqState));
-        spdlog::default_logger()->flush();
-        std::abort();
+        logging::FatalFlushAndAbort(buf);
     }
 
     if (channel_) {

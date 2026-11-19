@@ -67,15 +67,11 @@ static void QtMessageHandler(QtMsgType type, const QMessageLogContext& context, 
     case QtCriticalMsg:
         logger->error("Qt [{}:{}:{}] {}", file, line, category, text);
         break;
-    case QtFatalMsg:
-        // Double-write to stderr: the async queue may drop or not yet have
-        // flushed this message before abort(), and stderr survives in crash
-        // dumps / console output. Flush before abort so the queued tail is
-        // persisted — the dying moments carry the highest diagnostic value.
-        std::fprintf(stderr, "Qt FATAL [%s:%d:%s] %s\n", file, line, category, text.c_str());
-        logger->critical("Qt [{}:{}:{}] {}", file, line, category, text);
-        logger->flush();
-        abort();
+    case QtFatalMsg: {
+        char buf[1024];
+        std::snprintf(buf, sizeof(buf), "Qt FATAL [%s:%d:%s] %s", file, line, category, text.c_str());
+        FatalFlushAndAbort(buf);
+    }
     }
 }
 
@@ -209,12 +205,14 @@ bool Init(const QString& logDir, QString* errorMessage) noexcept
         spdlog::thread_pool(),
         spdlog::async_overflow_policy::overrun_oldest);
     logger->set_formatter(std::make_unique<spdlog::pattern_formatter>(
-        "%Y-%m-%d %H:%M:%S.%eZ [%t] [%^%l%$] %v",
+        "%Y-%m-%d %H:%M:%S.%eZ [%t] [%^%l%$] [%s:%#] %v",
         spdlog::pattern_time_type::utc));
 
     const auto effectiveLogLevel = resolveEffectiveLogLevel();
     logger->set_level(effectiveLogLevel);
     logger->flush_on(kDefaultFlushLevel);
+    spdlog::flush_every(std::chrono::seconds(2));
+    logger->enable_backtrace(64);
     spdlog::set_error_handler([](const std::string& message) {
         fprintf(stderr, "spdlog failure: %s\n", message.c_str());
     });
@@ -233,6 +231,35 @@ void Shutdown() noexcept
         logger->flush();
     }
     spdlog::shutdown();
+}
+
+void DumpBacktrace() noexcept
+{
+    if (auto logger = spdlog::default_logger()) {
+        logger->dump_backtrace();
+    } else {
+        spdlog::dump_backtrace();
+    }
+}
+
+[[noreturn]] void FatalFlushAndAbort(std::string_view message) noexcept
+{
+    std::fprintf(stderr, "FATAL: %.*s\n", static_cast<int>(message.size()), message.data());
+    std::fflush(stderr);
+    if (auto logger = spdlog::default_logger()) {
+        logger->critical("FATAL: {}", message);
+        logger->dump_backtrace();
+    } else {
+        spdlog::dump_backtrace();
+    }
+    spdlog::shutdown();
+    std::fflush(stderr);
+    std::abort();
+}
+
+bool HasEnvLogLevelOverride() noexcept
+{
+    return !qgetenv("MODBUS_TOOLS_LOG_LEVEL").isEmpty();
 }
 
 void SetLogLevel(spdlog::level::level_enum level) noexcept {

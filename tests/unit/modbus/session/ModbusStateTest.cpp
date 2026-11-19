@@ -418,7 +418,7 @@ TEST_F(ModbusStateTest, FailureLatchSilencesRepetitiveWarnings) {
         EXPECT_FALSE(client_->connect());
         EXPECT_EQ(client_->connectionState(), ModbusClient::ConnectionState::Failed);
     }
-    EXPECT_EQ(logCapture.count("ModbusClient: connect failed"), 1u);
+    EXPECT_EQ(logCapture.count("ConnectionManager: connect failed"), 1u);
 
     // Connecting successfully resets the latch
     EXPECT_CALL(*mockChannel_, open()).WillOnce(Invoke([&]() {
@@ -437,11 +437,11 @@ TEST_F(ModbusStateTest, FailureLatchSilencesRepetitiveWarnings) {
     // Next connection attempt fails: latch was reset, so 1 new warning is logged (total 2)
     EXPECT_CALL(*mockChannel_, open()).WillRepeatedly(Return(false));
     EXPECT_FALSE(client_->connect());
-    EXPECT_EQ(logCapture.count("ModbusClient: connect failed"), 2u);
+    EXPECT_EQ(logCapture.count("ConnectionManager: connect failed"), 2u);
 
     // Subsequent failure is silenced again
     EXPECT_FALSE(client_->connect());
-    EXPECT_EQ(logCapture.count("ModbusClient: connect failed"), 2u);
+    EXPECT_EQ(logCapture.count("ConnectionManager: connect failed"), 2u);
 }
 
 TEST_F(ModbusStateTest, AssertCleanEntryStateLogsErrorOnStaleState) {

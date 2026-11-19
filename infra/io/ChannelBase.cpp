@@ -1,6 +1,7 @@
 // Copyright (c) 2025 - present mingyucheng692. Licensed under the MIT License.
 
 #include "ChannelBase.h"
+#include "infra/logging/Logger.h"
 #include <spdlog/spdlog.h>
 #include <algorithm>
 #include <cstdio>
@@ -192,22 +193,14 @@ void ChannelBase::assertOwnerThreadForDestruction(const char* className)
         // safe (see core::common::ThreadGuard::releaseChannel).
         return;
     }
-    // Double-write to stderr: this abort path bypasses QtMessageHandler,
-    // and the async queue may not flush the critical line in time.
-    std::fprintf(stderr,
+
+    char buf[512];
+    std::snprintf(buf, sizeof(buf),
                  "%s::~%s: destroyed on non-owner thread. "
                  "Cross-thread destruction is UAF. Ensure ioThread "
-                 "quit()+wait() completes before releasing the channel.\n",
+                 "quit()+wait() completes before releasing the channel.",
                  className, className);
-    SPDLOG_CRITICAL("{}::~{}: destroyed on non-owner thread. "
-                    "Cross-thread destruction is UAF. Ensure ioThread "
-                    "quit()+wait() completes before releasing the channel.",
-                    className, className);
-    if (auto logger = spdlog::default_logger()) {
-        logger->flush();
-    }
-    std::fflush(stderr);
-    std::abort();
+    logging::FatalFlushAndAbort(buf);
 }
 
 }

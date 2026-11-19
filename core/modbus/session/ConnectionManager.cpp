@@ -44,12 +44,20 @@ void ConnectionManager::onRequestTimeout() {
     // -lost handler (fired by close() on the channel owner thread) sees a
     // terminal state and stays a no-op.
     consecutiveTimeoutCount_ = 0;
-    SPDLOG_WARN(
-        "ConnectionManager: {} consecutive request timeouts — evicting "
-        "half-open session target={}:{}",
-        threshold,
-        config_->ipAddress.toStdString(),
-        config_->port);
+    if (channel_ && channel_->kind() == io::ChannelKind::Serial) {
+        SPDLOG_WARN(
+            "ConnectionManager: {} consecutive request timeouts — evicting "
+            "half-open session port={}",
+            threshold,
+            config_->portName.toStdString());
+    } else {
+        SPDLOG_WARN(
+            "ConnectionManager: {} consecutive request timeouts — evicting "
+            "half-open session target={}:{}",
+            threshold,
+            config_->ipAddress.toStdString(),
+            config_->port);
+    }
     if (!transitionChecked(CS::Failed, "unresponsive")) {
         // A concurrent passive-loss transition already left Connected, which
         // by definition means the channel already reported Closed/Error —
@@ -225,12 +233,12 @@ bool ConnectionManager::ensureConnected() {
     }
     if (!connectFailureLogged_) {
         if (channel_ && channel_->kind() == io::ChannelKind::Serial) {
-            SPDLOG_WARN("ModbusClient: connect failed port={} reason={} channelState={}",
+            SPDLOG_WARN("ConnectionManager: connect failed port={} reason={} channelState={}",
                         config_->portName.toStdString(),
                         lastChannelError_.toStdString(),
                         static_cast<int>(channel_->state()));
         } else {
-            SPDLOG_WARN("ModbusClient: connect failed target={}:{} reason={} channelState={}",
+            SPDLOG_WARN("ConnectionManager: connect failed target={}:{} reason={} channelState={}",
                         config_->ipAddress.toStdString(),
                         config_->port,
                         lastChannelError_.toStdString(),
