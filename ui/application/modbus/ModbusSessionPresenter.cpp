@@ -563,14 +563,14 @@ void ModbusSessionPresenter::handleChannelStateTransition(io::ChannelState state
             return;
         }
         const bool wasConnected = (stateBeforeSync == SessionConnectionState::Connected);
-        const bool shouldShowDisconnectAlert = isTcp && wasConnected && !disconnectIsExplicit_;
+        const bool shouldShowDisconnectAlert = wasConnected && !disconnectIsExplicit_;
 
         // Attribute the disconnection reason: prefer the last channel
         // error, fall back to a generic message.
         const QString reason = client_
             ? client_->lastChannelError()
             : QString();
-        if (isTcp && trafficLogController_) {
+        if (trafficLogController_) {
             const QString logMsg = reason.isEmpty()
                 ? tr("Disconnected")
                 : tr("Disconnected: %1").arg(reason);

@@ -73,6 +73,13 @@ public:
         ::modbus::session::SessionHealth health,
         SessionMode mode = SessionMode::Tcp);
 
+    void handleChannelStateTransitionForTest(io::ChannelState state, quint64 generation) {
+        handleChannelStateTransition(state, generation);
+    }
+    void setConnectionStateForTest(SessionConnectionState state) {
+        connectionState_ = state;
+    }
+
 signals:
     void sessionConnected();
     void sessionDisconnected(const QString& reason);

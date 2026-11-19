@@ -14,6 +14,7 @@
 
 #include <QPointer>
 #include <QCoreApplication>
+#include <QSignalSpy>
 
 using namespace testing;
 using namespace ui::application::modbus;
@@ -231,4 +232,30 @@ TEST_F(ConnectionStateGuardingTest, RequestConnect_AntiBounceReentrancyGuard) {
     presenter_->requestConnect(spec);
     EXPECT_EQ(session->connectionGeneration(), genBefore);
     EXPECT_FALSE(session->isSessionConnected());
+}
+
+// 14. Passive / Transient Disconnect triggers UI disconnection state render
+TEST_F(ConnectionStateGuardingTest, SessionTransientDisconnect_RendersDisconnectedState) {
+    presenter_->syncWidgetGuards(SessionConnectionState::Connected);
+
+    ExecutionGuardState capturedGuards;
+    EXPECT_CALL(*mockView_, renderConnectionState(SessionConnectionState::Disconnected)).Times(1);
+    EXPECT_CALL(*mockView_, setExecutionGuards(_))
+        .WillOnce(SaveArg<0>(&capturedGuards));
+
+    emit presenter_->sessionPresenter()->sessionTransientDisconnect(QStringLiteral("connection closed by remote"));
+
+    EXPECT_FALSE(capturedGuards.executeEnabled);
+    EXPECT_FALSE(capturedGuards.pollingEnabled);
+    EXPECT_FALSE(capturedGuards.rawSendEnabled);
+    EXPECT_TRUE(capturedGuards.protocolSwitchEnabled);
+}
+
+// 15. UnexpectedDisconnectAlertRequested triggers sessionConnectionLostAlert signal
+TEST_F(ConnectionStateGuardingTest, UnexpectedDisconnectAlertRequested_EmitsAlertSignal) {
+    QSignalSpy alertSpy(presenter_.get(), &ModbusPagePresenter::sessionConnectionLostAlert);
+
+    emit presenter_->sessionPresenter()->unexpectedDisconnectAlertRequested();
+
+    EXPECT_EQ(alertSpy.count(), 1);
 }

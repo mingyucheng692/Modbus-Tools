@@ -343,6 +343,34 @@ TEST_F(ModbusSessionPresenterTest, PollingFatalDisconnect_DowngradesToFullDiscon
     EXPECT_FALSE(tcpPresenter_->isSessionConnected());
 }
 
+TEST_F(ModbusSessionPresenterTest, PassiveDisconnect_TcpEmitsUnexpectedAlertAndTransientDisconnect) {
+    QSignalSpy alertSpy(tcpPresenter_.get(), &ModbusSessionPresenter::unexpectedDisconnectAlertRequested);
+    QSignalSpy transientSpy(tcpPresenter_.get(), &ModbusSessionPresenter::sessionTransientDisconnect);
+    QSignalSpy trafficSpy(trafficLogController_.get(), &TrafficLogController::trafficEvent);
+
+    tcpPresenter_->setConnectionStateForTest(SessionConnectionState::Connected);
+    tcpPresenter_->handleChannelStateTransitionForTest(io::ChannelState::Closed,
+                                                        tcpPresenter_->connectionGeneration());
+
+    EXPECT_EQ(alertSpy.count(), 1);
+    EXPECT_EQ(transientSpy.count(), 1);
+    EXPECT_GE(trafficSpy.count(), 1);
+}
+
+TEST_F(ModbusSessionPresenterTest, PassiveDisconnect_SerialEmitsUnexpectedAlertAndTransientDisconnect) {
+    QSignalSpy alertSpy(rtuPresenter_.get(), &ModbusSessionPresenter::unexpectedDisconnectAlertRequested);
+    QSignalSpy transientSpy(rtuPresenter_.get(), &ModbusSessionPresenter::sessionTransientDisconnect);
+    QSignalSpy trafficSpy(trafficLogController_.get(), &TrafficLogController::trafficEvent);
+
+    rtuPresenter_->setConnectionStateForTest(SessionConnectionState::Connected);
+    rtuPresenter_->handleChannelStateTransitionForTest(io::ChannelState::Closed,
+                                                        rtuPresenter_->connectionGeneration());
+
+    EXPECT_EQ(alertSpy.count(), 1);
+    EXPECT_EQ(transientSpy.count(), 1);
+    EXPECT_GE(trafficSpy.count(), 1);
+}
+
 TEST(ModbusPagePresenterErrorTest, FormatModbusError_TranslatesErrors) {
     using ::modbus::session::ModbusResponse;
     using ::modbus::base::ModbusError;

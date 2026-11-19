@@ -49,29 +49,22 @@ void ModbusPagePresenter::createServices() {
 }
 
 void ModbusPagePresenter::wireConnections() {
-    requestService_->onTxCountUpdated = [this]() {
-        recordTx();
-    };
+    requestService_->onTxCountUpdated = [this]() { recordTx(); };
 
-    connect(pollingController_, &PollingController::submitPollRequest,
-            this, [this](const ::modbus::base::Pdu& pdu, int slaveId, int requestId, TraceId traceId) {
-                if (sessionPresenter_) {
-                    sessionPresenter_->submitRequest(pdu, slaveId, requestId, traceId);
-                }
+    connect(pollingController_, &PollingController::submitPollRequest, this,
+            [this](const ::modbus::base::Pdu& pdu, int slaveId, int requestId, TraceId traceId) {
+                if (sessionPresenter_) sessionPresenter_->submitRequest(pdu, slaveId, requestId, traceId);
             });
     connect(pollingController_, &PollingController::summaryReady,
             trafficLogController_, &TrafficLogController::logPollSummary);
-    connect(pollingController_, &PollingController::stopRequested,
-            this, [this]() {
-                syncWidgetGuards(sessionPresenter_ ? sessionPresenter_->connectionState()
-                                                   : SessionConnectionState::Disconnected);
-            });
+    connect(pollingController_, &PollingController::stopRequested, this, [this]() {
+        syncWidgetGuards(sessionPresenter_ ? sessionPresenter_->connectionState()
+                                           : SessionConnectionState::Disconnected);
+    });
 
-    connect(trafficLogController_, &TrafficLogController::trafficEvent,
-            this, [this](const ::ui::common::TrafficEvent& event) {
-                if (view_) {
-                    view_->appendTrafficTelemetry(event);
-                }
+    connect(trafficLogController_, &TrafficLogController::trafficEvent, this,
+            [this](const ::ui::common::TrafficEvent& event) {
+                if (view_) view_->appendTrafficTelemetry(event);
             });
 
     if (sessionPresenter_) {
@@ -86,6 +79,8 @@ void ModbusPagePresenter::wireConnections() {
         connect(sessionPresenter_, &ModbusSessionPresenter::sessionConnected, this,
                 [this]() { syncWidgetGuards(SessionConnectionState::Connected); });
         connect(sessionPresenter_, &ModbusSessionPresenter::sessionDisconnected, this,
+                [this](const QString&) { syncWidgetGuards(SessionConnectionState::Disconnected); });
+        connect(sessionPresenter_, &ModbusSessionPresenter::sessionTransientDisconnect, this,
                 [this](const QString&) { syncWidgetGuards(SessionConnectionState::Disconnected); });
         connect(sessionPresenter_, &ModbusSessionPresenter::unexpectedDisconnectAlertRequested,
                 this, &ModbusPagePresenter::sessionConnectionLostAlert);
