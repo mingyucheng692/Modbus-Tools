@@ -546,6 +546,10 @@ void ModbusSessionPresenter::handleChannelStateTransition(io::ChannelState state
     case io::ChannelState::Opening:
         return;
     case io::ChannelState::Open:
+        if (stateBeforeSync == SessionConnectionState::Disconnected
+            && connectionState_ == SessionConnectionState::Connected) {
+            emit sessionConnected();
+        }
         if (currentState != SessionConnectionState::Connected && isTcp && trafficLogController_) {
             trafficLogController_->logConnectionInfo(tr("Transport connected, validating session..."));
         }
@@ -636,9 +640,14 @@ void ModbusSessionPresenter::handleRequestFinished(int requestId,
                                                      quint64 generation) {
     assertGuiThread("handleRequestFinished must run on the GUI thread");
     if (generation != connectionGeneration_) return;
+    const auto stateBeforeSync = connectionState_;
     // Re-derive UI state after each request: health may have changed
     // (Healthy <-> Unresponsive), which affects Connected vs TransportConnected.
     syncStateFromCore();
+    if (stateBeforeSync == SessionConnectionState::Disconnected
+        && connectionState_ == SessionConnectionState::Connected) {
+        emit sessionConnected();
+    }
     if (!requestService_) return;
     emit requestFinished(requestId, response);
 }

@@ -76,6 +76,12 @@ public:
     void handleChannelStateTransitionForTest(io::ChannelState state, quint64 generation) {
         handleChannelStateTransition(state, generation);
     }
+    void handleRequestFinishedForTest(int requestId, const ::modbus::session::ModbusResponse& response, quint64 generation) {
+        handleRequestFinished(requestId, response, generation);
+    }
+    void handleConnectFinishedForTest(bool ok, const QString& error, quint64 generation) {
+        handleConnectFinished(ok, error, generation);
+    }
     void setConnectionStateForTest(SessionConnectionState state) {
         connectionState_ = state;
     }

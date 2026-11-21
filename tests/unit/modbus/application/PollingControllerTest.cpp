@@ -20,12 +20,13 @@ protected:
         controller_ = std::make_unique<PollingController>(requestService_.get());
     }
 
-    PollSpec makePollSpec() const {
+    PollSpec makePollSpec(int intervalMs = 1000) const {
         PollSpec spec;
         spec.functionCode = 0x03;
         spec.startAddress = 0;
         spec.quantity = 1;
         spec.slaveId = 1;
+        spec.intervalMs = intervalMs;
         return spec;
     }
 
@@ -55,38 +56,37 @@ TEST_F(PollingControllerTest, SetPollingInterval) {
     controller_->stopPoll();
 }
 
-TEST_F(PollingControllerTest, HandlePollRequest_NotConnected_DoesNotSubmit) {
+TEST_F(PollingControllerTest, StartPolling_NotConnected_DoesNotSubmit) {
     QSignalSpy spy(controller_.get(), &PollingController::submitPollRequest);
 
     controller_->handleSessionDisconnected();
-    controller_->handlePollRequest(makePollSpec());
+    controller_->startPolling(makePollSpec());
 
     EXPECT_EQ(spy.count(), 0);
     EXPECT_EQ(controller_->currentState(), PollState::Idle);
+    controller_->stopPoll();
 }
 
 TEST_F(PollingControllerTest, HandleSessionConnected_AllowsPollSubmission) {
     QSignalSpy spy(controller_.get(), &PollingController::submitPollRequest);
-    QSignalSpy stateSpy(controller_.get(), &PollingController::stateChanged);
 
     controller_->handleSessionConnected();
-    controller_->handlePollRequest(makePollSpec());
+    controller_->startPolling(makePollSpec());
     processStateMachine();
 
     EXPECT_EQ(spy.count(), 1);
     EXPECT_EQ(controller_->currentState(), PollState::Polling);
     EXPECT_TRUE(controller_->context().sessionConnected);
     EXPECT_TRUE(controller_->context().requestInFlight);
-    EXPECT_FALSE(stateSpy.isEmpty());
 }
 
-TEST_F(PollingControllerTest, HandlePollRequest_PollInFlight_IgnoresDuplicate) {
+TEST_F(PollingControllerTest, StartPolling_PollInFlight_IgnoresDuplicate) {
     QSignalSpy spy(controller_.get(), &PollingController::submitPollRequest);
 
     controller_->handleSessionConnected();
     const auto spec = makePollSpec();
-    controller_->handlePollRequest(spec);
-    controller_->handlePollRequest(spec);
+    controller_->startPolling(spec);
+    controller_->onPollTimerTick();
 
     EXPECT_EQ(spy.count(), 1);
 }
@@ -95,7 +95,7 @@ TEST_F(PollingControllerTest, HandleSessionDisconnected_StopsActivePollAndClears
     QSignalSpy stopSpy(controller_.get(), &PollingController::stopRequested);
 
     controller_->handleSessionConnected();
-    controller_->handlePollRequest(makePollSpec());
+    controller_->startPolling(makePollSpec());
     processStateMachine();
     ASSERT_TRUE(controller_->context().requestInFlight);
 
@@ -113,15 +113,15 @@ TEST_F(PollingControllerTest, ConsecutiveFailures_DegradeThenEscalate) {
     controller_->handleSessionConnected();
     const auto spec = makePollSpec();
 
-    controller_->handlePollRequest(spec);
+    controller_->startPolling(spec);
     processStateMachine();
     controller_->handleResponse(false, 0, 0, QStringLiteral("crc error"));
     processStateMachine();
     EXPECT_EQ(controller_->currentState(), PollState::Degraded);
 
-    controller_->handlePollRequest(spec);
+    controller_->onPollTimerTick();
     controller_->handleResponse(false, 0, 0, QStringLiteral("crc error"));
-    controller_->handlePollRequest(spec);
+    controller_->onPollTimerTick();
     controller_->handleResponse(false, 0, 0, QStringLiteral("crc error"));
     processStateMachine();
 
@@ -132,12 +132,12 @@ TEST_F(PollingControllerTest, SuccessAfterFailures_RecoversAndClearsErrorTrackin
     controller_->handleSessionConnected();
     const auto spec = makePollSpec();
 
-    controller_->handlePollRequest(spec);
+    controller_->startPolling(spec);
     controller_->handleResponse(false, 0, 0, QStringLiteral("timeout"));
     processStateMachine();
     ASSERT_EQ(controller_->currentState(), PollState::Degraded);
 
-    controller_->handlePollRequest(spec);
+    controller_->onPollTimerTick();
     controller_->handleResponse(true, 10, 1, QString());
     processStateMachine();
 
@@ -147,7 +147,7 @@ TEST_F(PollingControllerTest, SuccessAfterFailures_RecoversAndClearsErrorTrackin
 
 TEST_F(PollingControllerTest, StopPoll_TransitionsToIdleAndClearsTracking) {
     controller_->handleSessionConnected();
-    controller_->handlePollRequest(makePollSpec());
+    controller_->startPolling(makePollSpec());
     processStateMachine();
     controller_->handleResponse(false, 0, 0, QStringLiteral("error"));
     processStateMachine();
@@ -163,7 +163,7 @@ TEST_F(PollingControllerTest, StopPoll_TransitionsToIdleAndClearsTracking) {
 
 TEST_F(PollingControllerTest, Reset_ClearsAllTrackingAndStops) {
     controller_->handleSessionConnected();
-    controller_->handlePollRequest(makePollSpec());
+    controller_->startPolling(makePollSpec());
     controller_->handleResponse(false, 0, 0, QStringLiteral("error"));
 
     controller_->reset();
@@ -176,7 +176,7 @@ TEST_F(PollingControllerTest, Reset_ClearsAllTrackingAndStops) {
 
 TEST_F(PollingControllerTest, MultipleStopPolls_DoNotCrash) {
     controller_->handleSessionConnected();
-    controller_->handlePollRequest(makePollSpec());
+    controller_->startPolling(makePollSpec());
     processStateMachine();
 
     controller_->stopPoll();
@@ -192,7 +192,7 @@ TEST_F(PollingControllerTest, HandleTransientDisconnect_DoesNotStopActivePolling
 
     controller_->handleSessionConnected();
     const auto spec = makePollSpec();
-    controller_->handlePollRequest(spec);
+    controller_->startPolling(spec);
     processStateMachine();
     ASSERT_EQ(controller_->currentState(), PollState::Polling);
     ASSERT_EQ(submitSpy.count(), 1);
@@ -211,8 +211,8 @@ TEST_F(PollingControllerTest, HandleTransientDisconnect_DoesNotStopActivePolling
     processStateMachine();
     EXPECT_EQ(controller_->currentState(), PollState::Escalated);
 
-    // Next periodic poll request is STILL submitted to drive self-healing
-    controller_->handlePollRequest(spec);
+    // Next periodic poll request is STILL submitted via tick to drive self-healing
+    controller_->onPollTimerTick();
     processStateMachine();
     EXPECT_EQ(submitSpy.count(), 2);
 }
@@ -220,13 +220,13 @@ TEST_F(PollingControllerTest, HandleTransientDisconnect_DoesNotStopActivePolling
 TEST_F(PollingControllerTest, TransientDisconnect_RecoversOnReconnection) {
     controller_->handleSessionConnected();
     const auto spec = makePollSpec();
-    controller_->handlePollRequest(spec);
+    controller_->startPolling(spec);
     controller_->handleResponse(true, 10, 0, QString());
     ASSERT_EQ(controller_->currentState(), PollState::Polling);
 
     // Transient fault
     controller_->handleTransientDisconnect(QStringLiteral("link lost"));
-    controller_->handlePollRequest(spec);
+    controller_->onPollTimerTick();
     controller_->handleResponse(false, 0, 0, QStringLiteral("link lost"));
     EXPECT_EQ(controller_->currentState(), PollState::Escalated);
 
@@ -235,7 +235,7 @@ TEST_F(PollingControllerTest, TransientDisconnect_RecoversOnReconnection) {
     EXPECT_TRUE(controller_->context().sessionConnected);
 
     // Next poll request succeeds -> recovers to Polling
-    controller_->handlePollRequest(spec);
+    controller_->onPollTimerTick();
     controller_->handleResponse(true, 15, 0, QString());
     EXPECT_EQ(controller_->currentState(), PollState::Polling);
     EXPECT_EQ(controller_->context().consecutiveErrorCount, 0);
@@ -248,7 +248,7 @@ TEST_F(PollingControllerTest, TransientDisconnect_WithinHealingWindow_NoFatalSig
     // transient disconnect must NOT be declared fatal yet.
     controller_->handleSessionConnected();
     const auto spec = makePollSpec();
-    controller_->handlePollRequest(spec);
+    controller_->startPolling(spec);
     controller_->handleTransientDisconnect(QStringLiteral("link lost"));
     controller_->handleResponse(false, 0, 0, QStringLiteral("link lost"));
 
@@ -263,7 +263,7 @@ TEST_F(PollingControllerTest, TransientDisconnect_HealingWindowExceeded_Declares
     controller_->setFatalDisconnectTimeoutMs(0);
     controller_->handleSessionConnected();
     const auto spec = makePollSpec();
-    controller_->handlePollRequest(spec);
+    controller_->startPolling(spec);
     controller_->handleTransientDisconnect(QStringLiteral("link lost"));
     controller_->handleResponse(false, 0, 0, QStringLiteral("link lost"));
 
@@ -271,14 +271,14 @@ TEST_F(PollingControllerTest, TransientDisconnect_HealingWindowExceeded_Declares
     ASSERT_EQ(fatalSpy.count(), 1);
 
     // Guarded: further failures in the same fault window do not re-emit.
-    controller_->handlePollRequest(spec);
+    controller_->onPollTimerTick();
     controller_->handleResponse(false, 0, 0, QStringLiteral("link lost"));
     EXPECT_EQ(fatalSpy.count(), 1);
 
     // Recovery re-arms the notifier for the next fault window.
     controller_->handleSessionConnected();
     controller_->handleTransientDisconnect(QStringLiteral("link lost again"));
-    controller_->handlePollRequest(spec);
+    controller_->onPollTimerTick();
     controller_->handleResponse(false, 0, 0, QStringLiteral("link lost again"));
     EXPECT_EQ(fatalSpy.count(), 2);
 }
@@ -291,9 +291,10 @@ TEST_F(PollingControllerTest, PersistentFailures_WhileSessionConnected_NeverDecl
     controller_->setFatalDisconnectTimeoutMs(0);
     controller_->handleSessionConnected();
     const auto spec = makePollSpec();
+    controller_->startPolling(spec);
     for (int i = 0; i < 6; ++i) {
-        controller_->handlePollRequest(spec);
         controller_->handleResponse(false, 0, 0, QStringLiteral("crc error"));
+        controller_->onPollTimerTick();
     }
 
     EXPECT_EQ(controller_->currentState(), PollState::Escalated);
@@ -303,26 +304,25 @@ TEST_F(PollingControllerTest, PersistentFailures_WhileSessionConnected_NeverDecl
 TEST_F(PollingControllerTest, DegradedState_IdenticalErrorsRateLimitedToOncePerFiveSeconds) {
     QSignalSpy trafficSpy(controller_.get(), &PollingController::trafficEvent);
 
-    controller_->setPollingInterval(100);
     controller_->handleSessionConnected();
-    const auto spec = makePollSpec();
+    const auto spec = makePollSpec(100);
 
     // 1st failure enters Degraded state and emits trafficEvent immediately
-    controller_->handlePollRequest(spec);
+    controller_->startPolling(spec);
     controller_->handleResponse(false, 0, 0, QStringLiteral("crc error"));
     processStateMachine();
 
     EXPECT_EQ(controller_->currentState(), PollState::Degraded);
     EXPECT_EQ(trafficSpy.count(), 1);
 
-    // Rapid successive identical failures within the Degraded window (consecutiveErrorCount stays below threshold=10)
+    // Rapid successive identical failures within the Degraded window
     for (int i = 0; i < 5; ++i) {
-        controller_->handlePollRequest(spec);
+        controller_->onPollTimerTick();
         controller_->handleResponse(false, 0, 0, QStringLiteral("crc error"));
         processStateMachine();
     }
 
-    // Still in Degraded (consecutiveErrorCount is 6 < threshold=10), warning must be suppressed by 5s rate limiter
+    // Still in Degraded, warning must be suppressed by 5s rate limiter
     EXPECT_EQ(controller_->currentState(), PollState::Degraded);
     EXPECT_EQ(trafficSpy.count(), 1);
 }
@@ -334,7 +334,7 @@ TEST_F(PollingControllerTest, DegradedState_DifferentiatingErrorsReportImmediate
     const auto spec = makePollSpec();
 
     // 1st failure: crc error enters Degraded
-    controller_->handlePollRequest(spec);
+    controller_->startPolling(spec);
     controller_->handleResponse(false, 0, 0, QStringLiteral("crc error"));
     processStateMachine();
 
@@ -342,7 +342,7 @@ TEST_F(PollingControllerTest, DegradedState_DifferentiatingErrorsReportImmediate
     EXPECT_EQ(trafficSpy.count(), 1);
 
     // 2nd failure with a different error text should bypass rate limiter and report immediately
-    controller_->handlePollRequest(spec);
+    controller_->onPollTimerTick();
     controller_->handleResponse(false, 0, 0, QStringLiteral("parity error"));
     processStateMachine();
 
@@ -356,7 +356,7 @@ TEST_F(PollingControllerTest, IsSuppressingTrafficLog_RemainsTrueBetweenPollTick
 
     EXPECT_FALSE(controller_->isSuppressingTrafficLog());
 
-    controller_->handlePollRequest(spec);
+    controller_->startPolling(spec);
     processStateMachine();
     EXPECT_TRUE(controller_->isPollingActive());
     EXPECT_TRUE(controller_->isSuppressingTrafficLog());
@@ -372,6 +372,75 @@ TEST_F(PollingControllerTest, IsSuppressingTrafficLog_RemainsTrueBetweenPollTick
     processStateMachine();
     EXPECT_FALSE(controller_->isPollingActive());
     EXPECT_FALSE(controller_->isSuppressingTrafficLog());
+}
+
+TEST_F(PollingControllerTest, CustomIntervalPreservedOnStartPolling) {
+    controller_->handleSessionConnected();
+    auto spec = makePollSpec(250);
+    controller_->startPolling(spec);
+
+    auto* timer = controller_->findChild<QTimer*>();
+    ASSERT_NE(timer, nullptr);
+    EXPECT_EQ(timer->interval(), 250);
+    controller_->stopPoll();
+}
+
+TEST_F(PollingControllerTest, LateResponseAfterStopPoll_DiscardedWithoutCrash) {
+    controller_->handleSessionConnected();
+    controller_->startPolling(makePollSpec());
+    processStateMachine();
+    EXPECT_EQ(controller_->currentState(), PollState::Polling);
+
+    controller_->stopPoll();
+    processStateMachine();
+    EXPECT_EQ(controller_->currentState(), PollState::Idle);
+
+    // Late failure arrives after stopPoll(): must NOT crash with Idle -> Escalated assertion failure
+    EXPECT_NO_THROW({
+        controller_->handleResponse(false, 0, 0, ::modbus::base::ModbusError::Timeout,
+                                    QStringLiteral("Late Timeout"));
+    });
+    EXPECT_EQ(controller_->currentState(), PollState::Idle);
+}
+
+TEST_F(PollingControllerTest, ErrorClassification_TypedI18nChinese) {
+    controller_->handleSessionConnected();
+    // 1000ms interval -> base threshold = 3.
+    // Timeout error severity tightens threshold to 2.
+    auto spec = makePollSpec(1000);
+    controller_->startPolling(spec);
+
+    // 1st timeout with Chinese localization: degrades
+    controller_->handleResponse(false, 0, 0, ::modbus::base::ModbusError::Timeout,
+                                QStringLiteral("请求超时"));
+    EXPECT_EQ(controller_->currentState(), PollState::Degraded);
+
+    // 2nd timeout with Chinese localization: escalates (consecutiveErrors 2 >= effectiveThreshold 2)
+    controller_->onPollTimerTick();
+    controller_->handleResponse(false, 0, 0, ::modbus::base::ModbusError::Timeout,
+                                QStringLiteral("请求超时"));
+    EXPECT_EQ(controller_->currentState(), PollState::Escalated);
+}
+
+TEST_F(PollingControllerTest, WritePolling_BuildsWritePduAndSubmits) {
+    QSignalSpy spy(controller_.get(), &PollingController::submitPollRequest);
+
+    controller_->handleSessionConnected();
+    PollSpec spec;
+    spec.functionCode = 0x06;
+    spec.startAddress = 10;
+    spec.quantity = 1;
+    spec.slaveId = 1;
+    spec.intervalMs = 500;
+    spec.writeData = QByteArray::fromHex("002A");
+
+    controller_->startPolling(spec);
+    processStateMachine();
+
+    ASSERT_EQ(spy.count(), 1);
+    const auto pdu = spy.first().at(0).value<::modbus::base::Pdu>();
+    EXPECT_EQ(pdu.functionCode(), ::modbus::base::FunctionCode::WriteSingleRegister);
+    controller_->stopPoll();
 }
 
 } // namespace

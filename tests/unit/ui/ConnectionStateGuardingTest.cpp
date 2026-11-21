@@ -259,3 +259,17 @@ TEST_F(ConnectionStateGuardingTest, UnexpectedDisconnectAlertRequested_EmitsAler
 
     EXPECT_EQ(alertSpy.count(), 1);
 }
+
+// 16. Toggle polling when disconnected pushes guards with pollingActive = false
+TEST_F(ConnectionStateGuardingTest, TogglePolling_WhenDisconnected_RejectsAndPushesGuardsWithPollingInactive) {
+    ExecutionGuardState capturedGuards;
+    EXPECT_CALL(*mockView_, setExecutionGuards(_))
+        .WillRepeatedly(SaveArg<0>(&capturedGuards));
+
+    ModbusExecuteSpec spec;
+    spec.functionCode = 0x03;
+    presenter_->togglePolling(true, spec, false);
+
+    EXPECT_FALSE(presenter_->pollingController()->isPollingActive());
+    EXPECT_FALSE(capturedGuards.pollingActive);
+}

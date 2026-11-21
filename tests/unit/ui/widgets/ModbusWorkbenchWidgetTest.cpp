@@ -32,6 +32,13 @@ protected:
         fakeSettings_ = std::make_unique<tests::mocks::FakeSettingsService>();
         widget_ = std::make_unique<ModbusWorkbenchWidget>(fakeSettings_.get());
         widget_->setConfirmWritePollHandler([](uint8_t) { return true; });
+        // In standalone widget tests without a Presenter, simulate the Presenter loop:
+        QObject::connect(widget_.get(), &ModbusWorkbenchWidget::pollToggleRequested,
+                         widget_.get(), [this](bool start, const auto&, bool) {
+            auto guards = widget_->executionGuardState();
+            guards.pollingActive = start;
+            widget_->setExecutionGuards(guards);
+        });
     }
 
     std::unique_ptr<tests::mocks::FakeSettingsService> fakeSettings_;
@@ -832,6 +839,40 @@ TEST_F(ModbusWorkbenchWidgetTest, SchemeA_WriteGroupExpandingAndStickyExecutionD
     ASSERT_NE(previewLabel, nullptr);
     EXPECT_EQ(previewLabel->text(), QStringLiteral("Frame Preview (HEX):"));
 }
+
+TEST_F(ModbusWorkbenchWidgetTest, CurrentSpec_CarriesPollingInterval) {
+    auto* pollSpin = widget_->findChild<QSpinBox*>(QStringLiteral("workbenchPollIntervalSpin"));
+    ASSERT_NE(pollSpin, nullptr);
+    pollSpin->setValue(250);
+
+    const auto spec = widget_->currentSpec();
+    EXPECT_EQ(spec.intervalMs, 250);
+}
+
+TEST_F(ModbusWorkbenchWidgetTest, PresenterRejection_RollsBackPollingStateAndButton) {
+    // Disconnect the mock loop so presenter rejection can be simulated
+    widget_->disconnect();
+
+    // Check poll box: view emits pollToggleRequested, but widget does NOT optimistically set isPolling_
+    widget_->setPollingChecked(true);
+    EXPECT_FALSE(widget_->isPolling());
+
+    // Presenter rejects and syncs guards with pollingActive = false
+    ExecutionGuardState guards;
+    guards.pollingActive = false;
+    guards.executeEnabled = true;
+    guards.pollingEnabled = true;
+    widget_->setExecutionGuards(guards);
+
+    EXPECT_FALSE(widget_->isPolling());
+    auto* execBtn = widget_->findChild<QPushButton*>(QStringLiteral("workbenchExecuteBtn"));
+    ASSERT_NE(execBtn, nullptr);
+    EXPECT_EQ(execBtn->text(), QStringLiteral("Execute (F5)"));
+    auto* pollCheck = widget_->findChild<QCheckBox*>(QStringLiteral("workbenchPollCheck"));
+    ASSERT_NE(pollCheck, nullptr);
+    EXPECT_FALSE(pollCheck->isChecked());
+}
+
 
 
 

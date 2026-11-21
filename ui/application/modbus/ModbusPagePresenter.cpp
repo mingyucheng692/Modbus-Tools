@@ -373,16 +373,19 @@ void ModbusPagePresenter::logExecuteSubmission(const ModbusExecuteSpec& spec, Re
 void ModbusPagePresenter::togglePolling(bool start, const ModbusExecuteSpec& spec, bool userConfirmedWritePoll) {
     if (!start) {
         if (pollingController_) pollingController_->stopPoll();
+        lastSyncedState_.reset();
         syncWidgetGuards(sessionPresenter_ ? sessionPresenter_->connectionState() : SessionConnectionState::Disconnected);
         return;
     }
 
     if (!ensureConnected()) {
+        lastSyncedState_.reset();
         syncWidgetGuards(sessionPresenter_ ? sessionPresenter_->connectionState() : SessionConnectionState::Disconnected);
         return;
     }
 
     if (!validatePollingPreconditions(spec, userConfirmedWritePoll)) {
+        lastSyncedState_.reset();
         syncWidgetGuards(sessionPresenter_->connectionState());
         return;
     }
@@ -393,7 +396,10 @@ void ModbusPagePresenter::togglePolling(bool start, const ModbusExecuteSpec& spe
         pollSpec.startAddress = spec.startAddress;
         pollSpec.quantity = spec.quantity;
         pollSpec.slaveId = spec.slaveId;
+        pollSpec.intervalMs = spec.intervalMs;
+        pollSpec.writeData = spec.writeData;
         pollingController_->startPolling(pollSpec);
+        lastSyncedState_.reset();
         syncWidgetGuards(sessionPresenter_->connectionState());
     }
 }
@@ -494,7 +500,8 @@ void ModbusPagePresenter::handleRequestFinished(int requestId,
 
     if (kind == RequestKind::Poll && pollingController_) {
         pollingController_->handleResponse(!response.isError(), response.rttMs,
-                                            response.retryCount(), localizedError);
+                                            response.retryCount(), response.errorCode,
+                                            localizedError);
     }
 
     switch (response.kind) {

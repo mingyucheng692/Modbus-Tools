@@ -2,6 +2,7 @@
 
 #pragma once
 
+#include <QByteArray>
 #include <QObject>
 #include <chrono>
 #include <cstdint>
@@ -22,6 +23,7 @@ struct PollSpec {
     uint16_t quantity = 0;
     uint8_t slaveId = static_cast<uint8_t>(config::Modbus::kDefaultSlaveId);
     int intervalMs = config::Polling::kDefaultIntervalMs;
+    QByteArray writeData;
 };
 
 struct ModbusTimingParams {

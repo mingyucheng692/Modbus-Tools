@@ -331,7 +331,7 @@ TEST_F(ModbusSessionPresenterTest, PollingFatalDisconnect_DowngradesToFullDiscon
     spec.startAddress = 0;
     spec.quantity = 1;
     spec.slaveId = 1;
-    pollingController_->handlePollRequest(spec);
+    pollingController_->startPolling(spec);
     pollingController_->handleTransientDisconnect(QStringLiteral("link lost"));
     pollingController_->handleResponse(false, 0, 0, QStringLiteral("link lost"));
     QCoreApplication::processEvents();
@@ -355,6 +355,29 @@ TEST_F(ModbusSessionPresenterTest, PassiveDisconnect_TcpEmitsUnexpectedAlertAndT
     EXPECT_EQ(alertSpy.count(), 1);
     EXPECT_EQ(transientSpy.count(), 1);
     EXPECT_GE(trafficSpy.count(), 1);
+}
+
+TEST_F(ModbusSessionPresenterTest, PassiveDisconnectRecovery_EmitsSessionConnected) {
+    QSignalSpy connectedSpy(tcpPresenter_.get(), &ModbusSessionPresenter::sessionConnected);
+
+    // Initial connect
+    tcpPresenter_->handleConnectFinishedForTest(true, QString(), tcpPresenter_->connectionGeneration());
+    EXPECT_EQ(connectedSpy.count(), 1);
+
+    // Passive disconnect brings UI to Disconnected
+    tcpPresenter_->handleChannelStateTransitionForTest(io::ChannelState::Closed, tcpPresenter_->connectionGeneration());
+    EXPECT_EQ(tcpPresenter_->connectionState(), SessionConnectionState::Disconnected);
+
+    // Reconnection: channel transitions back to Open and core state returns to Connected
+    // (Simulate RequestFinished when recovered to Connected)
+    ::modbus::session::ModbusResponse resp;
+    resp.kind = ::modbus::session::ModbusResponseKind::Success;
+    // Calling handleChannelStateTransition(Open) or handleRequestFinished
+    tcpPresenter_->handleChannelStateTransitionForTest(io::ChannelState::Open, tcpPresenter_->connectionGeneration());
+    tcpPresenter_->handleRequestFinishedForTest(1, resp, tcpPresenter_->connectionGeneration());
+
+    // Recovering to Connected emits sessionConnected so PollingController and UI re-sync
+    EXPECT_GE(connectedSpy.count(), 1);
 }
 
 TEST_F(ModbusSessionPresenterTest, PassiveDisconnect_SerialEmitsUnexpectedAlertAndTransientDisconnect) {

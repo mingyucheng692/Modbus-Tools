@@ -4,6 +4,7 @@
 
 #include <QByteArray>
 #include <cstdint>
+#include "Config.h"
 
 namespace ui::application::modbus {
 
@@ -18,7 +19,7 @@ struct ModbusExecuteSpec {
     QByteArray writeData;
     bool isRawMode = false;
     QByteArray rawPduOrAdu;
+    int intervalMs = config::Polling::kDefaultIntervalMs;
 };
 
 } // namespace ui::application::modbus
-

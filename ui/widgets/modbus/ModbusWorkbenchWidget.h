@@ -58,6 +58,7 @@ public:
 
     // State getters
     [[nodiscard]] ::ui::application::modbus::ModbusExecuteSpec currentSpec() const;
+    [[nodiscard]] const ::ui::application::modbus::ExecutionGuardState& executionGuardState() const noexcept { return guardState_; }
     [[nodiscard]] bool isRawMode() const noexcept { return isRawMode_; }
     [[nodiscard]] bool isPolling() const noexcept { return isPolling_; }
     [[nodiscard]] int pollingIntervalMs() const noexcept;

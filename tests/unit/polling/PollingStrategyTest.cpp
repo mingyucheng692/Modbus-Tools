@@ -25,6 +25,13 @@ TEST(PollingStrategy, CalculateThresholdClampsMin) {
     EXPECT_EQ(calculateThreshold(5000), 3);
 }
 
+TEST(PollingStrategy, ClassifyErrorTyped) {
+    EXPECT_EQ(classifyError(::modbus::base::ModbusError::Timeout), ErrorSeverity::Timeout);
+    EXPECT_EQ(classifyError(::modbus::base::ModbusError::Busy), ErrorSeverity::Busy);
+    EXPECT_EQ(classifyError(::modbus::base::ModbusError::CrcMismatch), ErrorSeverity::Normal);
+    EXPECT_EQ(classifyError(::modbus::base::ModbusError::None), ErrorSeverity::Normal);
+}
+
 TEST(PollingStrategy, ClassifyErrorTimeout) {
     EXPECT_EQ(classifyError("connection timeout"), ErrorSeverity::Timeout);
     EXPECT_EQ(classifyError("request timed out"), ErrorSeverity::Timeout);
@@ -42,19 +49,30 @@ TEST(PollingStrategy, ClassifyErrorNormal) {
 
 TEST(PollingStrategy, EvaluateStateContinue) {
     // 0 errors → continue
-    EXPECT_EQ(evaluateState(0, 1000, false, 5), PollingDecision::Continue);
+    EXPECT_EQ(evaluateState(0, 1000, 5), PollingDecision::Continue);
     // 1 error, not enough for escalation
-    EXPECT_EQ(evaluateState(1, 500, false, 5), PollingDecision::Degraded);
+    EXPECT_EQ(evaluateState(1, 500, 5), PollingDecision::Degraded);
 }
 
 TEST(PollingStrategy, EvaluateStateEscalatedByCount) {
     // 5 consecutive errors, threshold is 5 → escalate
-    EXPECT_EQ(evaluateState(5, 2000, false, 5), PollingDecision::Escalated);
+    EXPECT_EQ(evaluateState(5, 2000, 5), PollingDecision::Escalated);
 }
 
 TEST(PollingStrategy, EvaluateStateEscalatedByWindow) {
     // 2 errors but over 3s window → escalate
-    EXPECT_EQ(evaluateState(2, 3500, false, 5), PollingDecision::Escalated);
+    EXPECT_EQ(evaluateState(2, 3500, 5), PollingDecision::Escalated);
+}
+
+TEST(PollingStrategy, EvaluateStateSeverityAdjustment) {
+    // Base threshold is 5.
+    // Timeout tightens threshold to 4: 4 errors escalate.
+    EXPECT_EQ(evaluateState(3, 500, 5, ErrorSeverity::Timeout), PollingDecision::Degraded);
+    EXPECT_EQ(evaluateState(4, 500, 5, ErrorSeverity::Timeout), PollingDecision::Escalated);
+
+    // Busy relaxes threshold to 6: 5 errors remain degraded, 6 escalate.
+    EXPECT_EQ(evaluateState(5, 500, 5, ErrorSeverity::Busy), PollingDecision::Degraded);
+    EXPECT_EQ(evaluateState(6, 500, 5, ErrorSeverity::Busy), PollingDecision::Escalated);
 }
 
 TEST(PollingStrategy, EvaluateStateEscalatedByZeroSuccess) {

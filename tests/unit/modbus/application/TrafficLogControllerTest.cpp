@@ -205,7 +205,7 @@ TEST_F(TrafficLogControllerTest, SetPollingController_UpdatesReference) {
     spec.startAddress = 0;
     spec.quantity = 2;
     spec.slaveId = 1;
-    newPollingController->handlePollRequest(spec);
+    newPollingController->startPolling(spec);
     newPollingController->handleResponse(true, 4, 0, QString());
     ASSERT_TRUE(newPollingController->isSuppressingTrafficLog());
 
@@ -232,7 +232,7 @@ TEST_F(TrafficLogControllerTest, LogRawFrame_SuppressedBetweenPollTicksWhenPollD
     spec.quantity = 4;
     spec.slaveId = 1;
     spec.intervalMs = 500;
-    pollingController_->handlePollRequest(spec);
+    pollingController_->startPolling(spec);
     pollingController_->handleResponse(true, 5, 0, QString());
 
     ASSERT_TRUE(pollingController_->isPollingActive());

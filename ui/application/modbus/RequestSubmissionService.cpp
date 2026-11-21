@@ -17,11 +17,21 @@ RequestSubmissionService::RequestBuildResult RequestSubmissionService::buildRead
     using namespace ::modbus::base;
 
     QString error;
-    auto buildResult = pdu_builder::buildReadRequest(
-        static_cast<FunctionCode>(spec.functionCode),
-        static_cast<int>(spec.startAddress),
-        static_cast<int>(spec.quantity),
-        &error);
+    std::optional<Pdu> buildResult;
+    if (function_traits::isWriteOperation(spec.functionCode)) {
+        buildResult = pdu_builder::buildWriteRequest(
+            static_cast<FunctionCode>(spec.functionCode),
+            static_cast<int>(spec.startAddress),
+            static_cast<int>(spec.quantity),
+            spec.writeData,
+            &error);
+    } else {
+        buildResult = pdu_builder::buildReadRequest(
+            static_cast<FunctionCode>(spec.functionCode),
+            static_cast<int>(spec.startAddress),
+            static_cast<int>(spec.quantity),
+            &error);
+    }
     if (!buildResult) {
         result.ok = false;
         result.error = error;

@@ -80,15 +80,6 @@ void PollingController::handleTransientDisconnect(const QString& reason) {
     setSessionConnectedInternal(false, false);
 }
 
-void PollingController::handlePollRequest(const PollSpec& spec) {
-    if (context_.requestInFlight) return;
-    if (!context_.sessionConnected && context_.state == PollState::Idle) return;
-
-    context_.currentSpec = spec;
-
-    buildAndSubmit();
-}
-
 void PollingController::startPolling(const PollSpec& spec) {
     context_.currentSpec = spec;
     context_.suppressTrafficLog = true;
@@ -108,7 +99,6 @@ bool PollingController::isPollingActive() const {
 void PollingController::onPollTimerTick() {
     if (context_.state == PollState::Idle) return;
     if (context_.requestInFlight) return;
-    if (!context_.sessionConnected) return;
 
     buildAndSubmit();
 }
@@ -140,12 +130,24 @@ void PollingController::buildAndSubmit() {
 }
 
 void PollingController::handleResponse(bool success, int rttMs, int retryCount,
+                                       ::modbus::base::ModbusError errorCode,
                                        const QString& error) {
     context_.requestInFlight = false;
-    handlePollCompletion(success, rttMs, retryCount, error);
+    if (context_.state == PollState::Idle) {
+        return;
+    }
+    handlePollCompletion(success, rttMs, retryCount, errorCode, error);
+}
+
+void PollingController::handleResponse(bool success, int rttMs, int retryCount,
+                                       const QString& error) {
+    handleResponse(success, rttMs, retryCount,
+                   ::modbus::base::ModbusError::None,
+                   error);
 }
 
 void PollingController::handlePollCompletion(bool success, int rttMs, int retryCount,
+                                             ::modbus::base::ModbusError errorCode,
                                              const QString& error) {
     if (context_.summaryWindowStart == std::chrono::steady_clock::time_point{}) {
         context_.summaryWindowStart = std::chrono::steady_clock::now();
@@ -177,19 +179,8 @@ void PollingController::handlePollCompletion(bool success, int rttMs, int retryC
             context_.failureStreakStartTime = now;
         }
 
-        const QString normalizedError = error.toLower();
-        int threshold = pollErrorThreshold();
-
-        const auto severity = ::core::polling::classifyError(normalizedError.toStdString());
-        if (severity == ::core::polling::ErrorSeverity::Timeout) {
-            threshold = std::max(2, threshold - 1);
-        } else if (severity == ::core::polling::ErrorSeverity::Busy) {
-            threshold = std::min(10, threshold + 1);
-        }
-
-        const bool zeroSuccessWindowExceeded =
-            context_.failureStreakStartTime != std::chrono::steady_clock::time_point{}
-            && (now - context_.failureStreakStartTime) >= std::chrono::milliseconds(3000);
+        const auto severity = ::core::polling::classifyError(errorCode);
+        const int threshold = pollErrorThreshold();
         const bool connectionFault = !context_.sessionConnected;
 
         const auto decision = ::core::polling::evaluateState(
@@ -198,8 +189,8 @@ void PollingController::handlePollCompletion(bool success, int rttMs, int retryC
                 ? static_cast<int>(std::chrono::duration_cast<std::chrono::milliseconds>(
                     now - context_.failureStreakStartTime).count())
                 : 0,
-            zeroSuccessWindowExceeded,
-            threshold);
+            threshold,
+            severity);
 
         const bool escalateToError = connectionFault
             || (decision == ::core::polling::PollingDecision::Escalated);
@@ -396,7 +387,6 @@ void PollingController::transitionTo(PollState newState) {
     const auto oldState = context_.state;
     context_.state = newState;
     SPDLOG_DEBUG("PollingController: {} -> {}", toString(oldState), toString(newState));
-    emit stateChanged(oldState, newState);
 }
 
 } // namespace ui::application::modbus

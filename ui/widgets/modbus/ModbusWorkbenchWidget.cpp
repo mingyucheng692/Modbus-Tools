@@ -87,15 +87,14 @@ ModbusWorkbenchWidget::~ModbusWorkbenchWidget() noexcept {
 
 void ModbusWorkbenchWidget::setExecutionGuards(const ::ui::application::modbus::ExecutionGuardState& guards) {
     guardState_ = guards;
-    if (guards.pollingActive != isPolling_) {
-        isPolling_ = guards.pollingActive;
-        pollCheckBox_->blockSignals(true);
+    isPolling_ = guards.pollingActive;
+    if (pollCheckBox_->isChecked() != isPolling_) {
+        const QSignalBlocker blocker(pollCheckBox_);
         pollCheckBox_->setChecked(isPolling_);
-        pollCheckBox_->blockSignals(false);
-        if (!isPolling_) {
-            writePollWarningBadge_->hide();
-            userConfirmedWritePoll_ = false;
-        }
+    }
+    if (!isPolling_) {
+        writePollWarningBadge_->hide();
+        userConfirmedWritePoll_ = false;
     }
     updateExecuteButtonAppearance();
     validateInputs();
@@ -158,6 +157,7 @@ QByteArray ModbusWorkbenchWidget::currentWriteData(uint8_t fc, uint16_t qty) con
     spec.startAddress = pduAddress_;
     spec.quantity = static_cast<uint16_t>(quantitySpin_->value());
     spec.writeData = currentWriteData(spec.functionCode, spec.quantity);
+    spec.intervalMs = pollIntervalSpin_->value();
     return spec;
 }
 
@@ -815,8 +815,6 @@ void ModbusWorkbenchWidget::onPollCheckBoxToggled(bool checked) {
         userConfirmedWritePoll_ = false;
         writePollWarningBadge_->hide();
     }
-    isPolling_ = true;
-    updateExecuteButtonAppearance();
     emit pollToggleRequested(true, currentSpec(), userConfirmedWritePoll_);
 }
 

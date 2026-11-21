@@ -15,6 +15,16 @@ int calculateThreshold(int intervalMs) {
     return std::clamp(roundedThreshold, kMinThreshold, kMaxThreshold);
 }
 
+ErrorSeverity classifyError(::modbus::base::ModbusError error) {
+    if (error == ::modbus::base::ModbusError::Timeout) {
+        return ErrorSeverity::Timeout;
+    }
+    if (error == ::modbus::base::ModbusError::Busy) {
+        return ErrorSeverity::Busy;
+    }
+    return ErrorSeverity::Normal;
+}
+
 ErrorSeverity classifyError(std::string_view errorText) {
     if (errorText.find("timeout") != std::string_view::npos
         || errorText.find("timed out") != std::string_view::npos) {
@@ -29,17 +39,23 @@ ErrorSeverity classifyError(std::string_view errorText) {
 
 PollingDecision evaluateState(int consecutiveErrors,
                               int failureStreakMs,
-                              bool zeroSuccessWindow,
-                              int threshold) {
+                              int threshold,
+                              ErrorSeverity severity) {
     constexpr int kZeroSuccessWindowMs = 3000;
 
     if (consecutiveErrors <= 0) {
         return PollingDecision::Continue;
     }
 
-    const bool shouldEscalate = zeroSuccessWindow
-        || (failureStreakMs >= kZeroSuccessWindowMs)
-        || (consecutiveErrors >= threshold);
+    int effectiveThreshold = threshold;
+    if (severity == ErrorSeverity::Timeout) {
+        effectiveThreshold = std::max(2, threshold - 1);
+    } else if (severity == ErrorSeverity::Busy) {
+        effectiveThreshold = std::min(10, threshold + 1);
+    }
+
+    const bool shouldEscalate = (failureStreakMs >= kZeroSuccessWindowMs)
+        || (consecutiveErrors >= effectiveThreshold);
 
     if (shouldEscalate) {
         return PollingDecision::Escalated;

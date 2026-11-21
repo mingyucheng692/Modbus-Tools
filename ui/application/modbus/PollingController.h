@@ -68,9 +68,12 @@ public:
     /// pollingFatalDisconnect is emitted (once per fault window).
     void setFatalDisconnectTimeoutMs(int ms);
 
-    void handlePollRequest(const PollSpec& spec);
     void startPolling(const PollSpec& spec);
-    void handleResponse(bool success, int rttMs, int retryCount, const QString& error);
+    void handleResponse(bool success, int rttMs, int retryCount,
+                        ::modbus::base::ModbusError errorCode,
+                        const QString& error);
+    void handleResponse(bool success, int rttMs, int retryCount,
+                        const QString& error);
     void stopPoll();
     void reset();
 
@@ -83,7 +86,6 @@ signals:
     void submitPollRequest(const ::modbus::base::Pdu& pdu, int slaveId, int requestId,
                            TraceId traceId);
     void trafficEvent(const ui::common::TrafficEvent& event);
-    void stateChanged(PollState oldState, PollState newState);
     void summaryReady(const PollSummary& summary);
     void stopRequested();
     /// Fatal downgrade: the self-healing window for a transient disconnect
@@ -96,16 +98,18 @@ public slots:
     void handleSessionConnected();
     void handleSessionDisconnected(const QString& reason = QString());
     void handleTransientDisconnect(const QString& reason = QString());
+    void onPollTimerTick();
 
 private:
     void buildAndSubmit();
-    void handlePollCompletion(bool success, int rttMs, int retryCount, const QString& error);
+    void handlePollCompletion(bool success, int rttMs, int retryCount,
+                              ::modbus::base::ModbusError errorCode,
+                              const QString& error);
     int pollErrorThreshold() const;
     void resetPollErrorTracking();
     void flushPollSummary(bool force);
     void setSessionConnectedInternal(bool connected, bool stopActivePolling);
     void transitionTo(PollState newState);
-    void onPollTimerTick();
 
     RequestSubmissionService* requestService_ = nullptr;
     QTimer* pollTimer_ = nullptr;
