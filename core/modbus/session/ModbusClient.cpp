@@ -103,8 +103,6 @@ ModbusClient::ModbusClient(std::shared_ptr<io::IChannel> channel,
 }
 
 ModbusClient::~ModbusClient() {
-    abort();
-
     // Destruction-order safety: if the worker thread is still executing a
     // request (RequestStateMachine in Sending or Waiting), destroying
     // requestExecutor_ and its collaborators below is a use-after-free.
@@ -122,6 +120,8 @@ ModbusClient::~ModbusClient() {
                      RequestStateMachine::toString(reqState));
         logging::FatalFlushAndAbort(buf);
     }
+
+    abort();
 
     if (channel_) {
         channel_->setReadHandler({});

@@ -26,13 +26,12 @@ struct StackHandle {
     std::shared_ptr<io::IChannel> channel;
     std::shared_ptr<::modbus::session::ModbusClient> client;
     std::shared_ptr<::modbus::dispatch::ModbusWorker> worker;
-    std::shared_ptr<QThread> channelThread;
-    std::shared_ptr<QThread> workerThread;
+    std::shared_ptr<QThread> thread;
 
     /// True when the handle carries no live resource at all; used by the
     /// Coordinator to short-circuit the async dance.
     bool empty() const noexcept {
-        return !worker && !client && !channel && !channelThread && !workerThread;
+        return !worker && !client && !channel && !thread;
     }
 };
 
@@ -95,37 +94,30 @@ private:
         std::shared_ptr<io::IChannel> channel;
         std::shared_ptr<::modbus::session::ModbusClient> client;
         std::shared_ptr<::modbus::dispatch::ModbusWorker> worker;
-        std::shared_ptr<QThread> channelThread;
-        std::shared_ptr<QThread> workerThread;
+        std::shared_ptr<QThread> thread;
 
         ReleaseStage stage = ReleaseStage::Initial;
-        bool workerStopped = false;         // ModbusWorker::stopped() signal received or workerThread exited
-        bool channelThreadFinished = false; // IO channel thread finished() received (prerequisite for finalize())
-        bool workerThreadFinished = false;  // Worker thread finished() signal received
+        bool workerStopped = false;         // ModbusWorker::stopped() signal received or thread exited
+        bool threadFinished = false;        // IO/Worker thread finished() received (prerequisite for finalize())
         bool completionLogged = false;      // Prevents dual emission between onTimeout and tryComplete
         bool channelShutdownStarted = false;// Re-entrancy guard for beginChannelShutdown()
-        // Note: The 5 flags above represent concurrent completion conditions (not mutually exclusive states).
-        //       tryComplete() waits until all conditions are satisfied before calling finalize().
 
         QString timeoutMessage;
         QTimer* timeoutTimer = nullptr;
         /// Second-chance timer for the channel shutdown sequence (3-second fallback
         /// started in beginChannelShutdown): if Closed does not arrive in time, the
-        /// IO thread is quit regardless so finalize() can still proceed.
+        /// thread is quit regardless so finalize() can still proceed.
         QTimer* channelForceTimer = nullptr;
         /// Channel state-handler subscription watching for the terminal
-        /// Closed state that gates channelThread quit() (detached in detachChannelWatchers).
+        /// Closed state that gates thread quit() (detached in detachChannelWatchers).
         io::IChannel::HandlerId channelStateHandlerId = 0;
     };
 
-    [[nodiscard]] bool sharesChannelThread(
-        const std::shared_ptr<PendingReleaseContext>& pending) const noexcept;
     void advanceStage(const std::shared_ptr<PendingReleaseContext>& pending, ReleaseStage next);
-    void quitWorkerThreadIfSafe(const std::shared_ptr<PendingReleaseContext>& pending);
+    void quitThreadIfSafe(const std::shared_ptr<PendingReleaseContext>& pending);
     void releaseChannelSafely(const std::shared_ptr<PendingReleaseContext>& pending);
     void onWorkerStopped(const std::shared_ptr<PendingReleaseContext>& pending);
-    void onThreadFinished(const std::shared_ptr<PendingReleaseContext>& pending,
-                          bool isChannelThread);
+    void onThreadFinished(const std::shared_ptr<PendingReleaseContext>& pending);
     void tryComplete(const std::shared_ptr<PendingReleaseContext>& pending);
     void onTimeout(const std::shared_ptr<PendingReleaseContext>& pending);
     void finalize(const std::shared_ptr<PendingReleaseContext>& pending);

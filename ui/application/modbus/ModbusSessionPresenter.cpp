@@ -139,8 +139,8 @@ void ModbusSessionPresenter::activateStack(quint64 generation) {
     setupChannelStateHandler(generation);
     setupWorkerSignals(generation);
 
-    if (channelThread_ && !channelThread_->isRunning()) {
-        channelThread_->start();
+    if (ioThread_ && !ioThread_->isRunning()) {
+        ioThread_->start();
     }
     worker_->start();
     worker_->requestConnect();
@@ -189,7 +189,7 @@ void ModbusSessionPresenter::releaseStack() {
 }
 
 bool ModbusSessionPresenter::hasLiveOrPendingStack() const {
-    return worker_ || channel_ || client_ || channelThread_ || modbusWorkerThread_
+    return worker_ || channel_ || client_ || ioThread_
            || (releaseCoordinator_ && releaseCoordinator_->hasPending());
 }
 
@@ -220,8 +220,7 @@ void ModbusSessionPresenter::requestRelease(const QString& timeoutMessage) {
     handle.channel = std::move(channel_);
     handle.client = std::move(client_);
     handle.worker = std::move(worker_);
-    handle.channelThread = std::move(channelThread_);
-    handle.workerThread = std::move(modbusWorkerThread_);
+    handle.thread = std::move(ioThread_);
 
     if (handle.empty()) {
         // Nothing live: complete synchronously. This preserves the original
@@ -414,8 +413,7 @@ void ModbusSessionPresenter::initStack(const ::modbus::base::ModbusConfig& confi
     channel_ = std::move(stack.channel);
     client_ = std::move(stack.client);
     worker_ = std::move(stack.worker);
-    channelThread_ = stack.thread;
-    modbusWorkerThread_ = std::move(stack.thread);
+    ioThread_ = std::move(stack.thread);
 }
 
 void ModbusSessionPresenter::setupChannelMonitor(quint64 generation) {
@@ -572,6 +570,9 @@ void ModbusSessionPresenter::handleChannelStateTransition(io::ChannelState state
         const bool wasConnected = (stateBeforeSync == SessionConnectionState::Connected);
         const bool shouldShowDisconnectAlert = wasConnected && !disconnectIsExplicit_;
 
+        connectionState_ = SessionConnectionState::Disconnected;
+        onConnectionStateChanged(SessionConnectionState::Disconnected);
+
         // Attribute the disconnection reason: prefer the last channel
         // error, fall back to a generic message.
         const QString reason = client_
@@ -613,20 +614,26 @@ void ModbusSessionPresenter::handleConnectFinished(bool ok, const QString& error
     // Core FSM is the single source of truth — derive UI state from it.
     syncStateFromCore();
 
-    if (!ok) {
-        // syncStateFromCore already derived the correct state.  Handle
-        // side effects from the presenter layer.
+    const bool coreIsConnected = !client_
+        || (client_->connectionState() == ::modbus::session::ConnectionStateMachine::State::Connected);
+
+    if (!ok || !coreIsConnected) {
+        const QString actualError = error.isEmpty()
+            ? (client_ ? client_->lastChannelError() : tr("Connection dropped immediately"))
+            : error;
         if (pollingController_) {
             pollingController_->stopPoll();
         }
         if (trafficLogController_) {
-            trafficLogController_->logConnectionInfo(tr("Connection failed: %1").arg(error));
+            trafficLogController_->logConnectionInfo(tr("Connection failed: %1").arg(actualError));
         }
-        emit sessionDisconnected(error);
-        emit connectFinished(false, error);
+        emit sessionDisconnected(actualError);
+        emit connectFinished(false, actualError);
         releaseStack();
         return;
     }
+
+    connectionState_ = SessionConnectionState::Connected;
 
     if (trafficLogController_) {
         trafficLogController_->logConnectionInfo(tr("Transport connected, waiting for device response..."));
@@ -640,14 +647,6 @@ void ModbusSessionPresenter::handleRequestFinished(int requestId,
                                                      quint64 generation) {
     assertGuiThread("handleRequestFinished must run on the GUI thread");
     if (generation != connectionGeneration_) return;
-    const auto stateBeforeSync = connectionState_;
-    // Re-derive UI state after each request: health may have changed
-    // (Healthy <-> Unresponsive), which affects Connected vs TransportConnected.
-    syncStateFromCore();
-    if (stateBeforeSync == SessionConnectionState::Disconnected
-        && connectionState_ == SessionConnectionState::Connected) {
-        emit sessionConnected();
-    }
     if (!requestService_) return;
     emit requestFinished(requestId, response);
 }

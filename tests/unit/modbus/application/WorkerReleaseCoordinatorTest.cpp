@@ -171,7 +171,7 @@ TEST_F(WorkerReleaseCoordinatorTest, ThreadOnlyHandle_CompletesWhenThreadJoins) 
     QCoreApplication::processEvents(QEventLoop::AllEvents, 20);
 
     StackHandle handle;
-    handle.channelThread = thread; // worker/client/channel/workerThread null
+    handle.thread = thread; // worker/client/channel null
 
     coordinator_->requestRelease(std::move(handle), QStringLiteral("timeout"));
     EXPECT_TRUE(coordinator_->hasPending());
@@ -202,7 +202,7 @@ TEST_F(WorkerReleaseCoordinatorTest, ShutdownAll_StampsTimeoutMessageOnPending) 
     QCoreApplication::processEvents(QEventLoop::AllEvents, 20);
 
     StackHandle handle;
-    handle.channelThread = thread;
+    handle.thread = thread;
 
     coordinator_->requestRelease(std::move(handle), QStringLiteral("original"),
                                  /*timeoutMs=*/10000);
@@ -240,12 +240,12 @@ TEST_F(WorkerReleaseCoordinatorTest, MultipleConcurrentReleases_AllComplete) {
     QCoreApplication::processEvents(QEventLoop::AllEvents, 20);
 
     StackHandle handleA;
-    handleA.channelThread = threadA;
+    handleA.thread = threadA;
     coordinator_->requestRelease(std::move(handleA), QStringLiteral("a"));
     EXPECT_TRUE(coordinator_->hasPending());
 
     StackHandle handleB;
-    handleB.channelThread = threadB;
+    handleB.thread = threadB;
     coordinator_->requestRelease(std::move(handleB), QStringLiteral("b"));
     EXPECT_TRUE(coordinator_->hasPending());
 
@@ -299,7 +299,7 @@ TEST_F(WorkerReleaseCoordinatorTest,
 
     StackHandle handle;
     handle.channel = channel;
-    handle.channelThread = ioThread;
+    handle.thread = ioThread;
     coordinator_->requestRelease(std::move(handle), QStringLiteral("immediate"),
                                  /*timeoutMs=*/500);
 
@@ -334,7 +334,7 @@ TEST_F(WorkerReleaseCoordinatorTest,
 
     StackHandle handle;
     handle.channel = channel;
-    handle.channelThread = ioThread;
+    handle.thread = ioThread;
     // Budget (50ms) expires while the channel is still closing (150ms linger):
     // timeout fires TimedOut but finalization waits until Closed arrives.
     coordinator_->requestRelease(std::move(handle), QStringLiteral("timeout"),
@@ -363,7 +363,7 @@ TEST_F(WorkerReleaseCoordinatorTest, ReleaseStage_AdvancesMonotonically) {
     QCoreApplication::processEvents(QEventLoop::AllEvents, 20);
 
     StackHandle handle;
-    handle.channelThread = thread;
+    handle.thread = thread;
 
     coordinator_->requestRelease(std::move(handle), QStringLiteral("stage_test"));
     EXPECT_TRUE(coordinator_->hasPending());
@@ -426,8 +426,7 @@ TEST_F(WorkerReleaseCoordinatorTest,
     handle.worker = worker;
     handle.client = client;
     handle.channel = channel;
-    handle.workerThread = sharedThread;
-    handle.channelThread = sharedThread;
+    handle.thread = sharedThread;
 
     coordinator_->requestRelease(std::move(handle), QStringLiteral("shared_timeout"),
                                  /*timeoutMs=*/1500);
@@ -465,7 +464,7 @@ TEST_F(WorkerReleaseCoordinatorTest,
 
     StackHandle handle;
     handle.channel = channel;
-    handle.channelThread = ioThread;
+    handle.thread = ioThread;
     coordinator_->requestRelease(std::move(handle), QStringLiteral("destroy_pending"),
                                  /*timeoutMs=*/500);
     EXPECT_TRUE(coordinator_->hasPending());
@@ -478,4 +477,38 @@ TEST_F(WorkerReleaseCoordinatorTest,
         ioThread->wait(2000);
     }
     channel.reset();
+}
+
+TEST_F(WorkerReleaseCoordinatorTest, ChannelNotClosedAtFinalize_LeakedSafelyWithoutAssert) {
+    // Channel that stays Open forever (linger much longer than timeout)
+    auto ioThread = std::shared_ptr<QThread>(
+        new QThread(), &core::common::ThreadGuard::releaseThread);
+    auto channel = std::shared_ptr<FakeLingeringChannel>(
+        new FakeLingeringChannel(/*closeLingerMs=*/10000),
+        [ioThread](FakeLingeringChannel* ch) {
+            core::common::ThreadGuard::releaseChannel(ch, ioThread);
+        });
+    channel->moveToThread(ioThread.get());
+    ioThread->start();
+    channel->open();
+    ASSERT_TRUE(waitForCondition(
+        [&channel]() { return channel->state() == io::ChannelState::Open; }));
+
+    StackHandle handle;
+    handle.channel = channel;
+    handle.thread = ioThread;
+
+    // Fast timeout (50ms): channel will definitely NOT be Closed when timeout expires.
+    coordinator_->requestRelease(std::move(handle), QStringLiteral("fast_timeout"), /*timeoutMs=*/50);
+    EXPECT_TRUE(coordinator_->hasPending());
+
+    waitForSignals(*completedSpy_, 1, 1500);
+    EXPECT_EQ(completedSpy_->count(), 1);
+    EXPECT_EQ(timedOutSpy_->count(), 1);
+    // Crucial invariant: hasPending() MUST be false after timeout finalize!
+    EXPECT_FALSE(coordinator_->hasPending());
+
+    if (ioThread->isRunning()) {
+        ioThread->wait(2000);
+    }
 }

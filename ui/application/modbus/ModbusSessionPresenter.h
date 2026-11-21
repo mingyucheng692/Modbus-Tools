@@ -86,6 +86,10 @@ public:
         connectionState_ = state;
     }
 
+    void setClientForTest(std::shared_ptr<::modbus::session::ModbusClient> client) {
+        client_ = std::move(client);
+    }
+
 signals:
     void sessionConnected();
     void sessionDisconnected(const QString& reason);
@@ -142,8 +146,7 @@ private:
     std::shared_ptr<io::IChannel> channel_;
     std::shared_ptr<::modbus::session::ModbusClient> client_;
     std::shared_ptr<::modbus::dispatch::ModbusWorker> worker_;
-    std::shared_ptr<QThread> channelThread_;
-    std::shared_ptr<QThread> modbusWorkerThread_;
+    std::shared_ptr<QThread> ioThread_;
     ::modbus::base::ModbusConfig currentConfig_;
     quint64 connectionGeneration_ = 0;
     SessionConnectionState connectionState_ = SessionConnectionState::Disconnected;

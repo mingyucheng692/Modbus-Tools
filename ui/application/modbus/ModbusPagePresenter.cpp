@@ -72,10 +72,6 @@ void ModbusPagePresenter::wireConnections() {
                 this, &ModbusPagePresenter::linkageSourceDisconnected);
         connect(sessionPresenter_, &ModbusSessionPresenter::requestFinished,
                 this, &ModbusPagePresenter::handleRequestFinished);
-        connect(sessionPresenter_, &ModbusSessionPresenter::connectFinished, this,
-                [this](bool ok, const QString&) {
-                    if (ok) syncWidgetGuards(SessionConnectionState::Connected);
-                });
         connect(sessionPresenter_, &ModbusSessionPresenter::sessionConnected, this,
                 [this]() { syncWidgetGuards(SessionConnectionState::Connected); });
         connect(sessionPresenter_, &ModbusSessionPresenter::sessionDisconnected, this,

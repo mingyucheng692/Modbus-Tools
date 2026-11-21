@@ -63,6 +63,31 @@ public:
         }
     }
 
+    bool tryTransitionFrom(State expected, State newState, const char* reason) {
+        if (!isValidTransition(expected, newState)) {
+            SPDLOG_ERROR("{}: invalid transition {} -> {} ({}) trace_id={}",
+                          Derived::kName,
+                          Derived::toString(expected),
+                          Derived::toString(newState),
+                          reason ? reason : "",
+                          static_cast<unsigned long long>(modbus::trace::currentTraceId));
+            return false;
+        }
+
+        State expectedState = expected;
+        if (state_.compare_exchange_strong(expectedState, newState,
+                std::memory_order_acq_rel, std::memory_order_relaxed)) {
+            SPDLOG_DEBUG("{}: {} -> {} ({}) trace_id={}",
+                          Derived::kName,
+                          Derived::toString(expected),
+                          Derived::toString(newState),
+                          reason ? reason : "",
+                          static_cast<unsigned long long>(modbus::trace::currentTraceId));
+            return true;
+        }
+        return false;
+    }
+
     [[nodiscard]] State currentState() const {
         return state_.load(std::memory_order_acquire);
     }

@@ -470,6 +470,49 @@ TEST_F(ModbusStateTest, AssertCleanEntryStateLogsErrorOnStaleState) {
     EXPECT_TRUE(logCapture.contains("channel closed but state is Connected"));
 }
 
+TEST(ConnectionStateMachineTest, TryTransitionFrom_CAS) {
+    ConnectionStateMachine fsm;
+    EXPECT_EQ(fsm.currentState(), ConnectionStateMachine::State::Disconnected);
+
+    // Valid transition from current state succeeds
+    EXPECT_TRUE(fsm.tryTransitionFrom(ConnectionStateMachine::State::Disconnected,
+                                      ConnectionStateMachine::State::Connecting,
+                                      "test-connect"));
+    EXPECT_EQ(fsm.currentState(), ConnectionStateMachine::State::Connecting);
+
+    // Mismatched expected state (Connected -> Disconnecting is a valid edge, but current state is Connecting) fails
+    EXPECT_FALSE(fsm.tryTransitionFrom(ConnectionStateMachine::State::Connected,
+                                       ConnectionStateMachine::State::Disconnecting,
+                                       "test-mismatch"));
+    EXPECT_EQ(fsm.currentState(), ConnectionStateMachine::State::Connecting);
+
+    // Invalid transition edge according to table (Connecting -> Disconnected has no direct edge) fails
+    EXPECT_FALSE(fsm.tryTransitionFrom(ConnectionStateMachine::State::Connecting,
+                                       ConnectionStateMachine::State::Disconnected,
+                                       "test-invalid-edge"));
+    EXPECT_EQ(fsm.currentState(), ConnectionStateMachine::State::Connecting);
+}
+
+TEST_F(ModbusStateTest, EnsureConnected_ReturnsFalseOnDisconnecting) {
+    currentState_ = ChannelState::Open;
+    EXPECT_CALL(*mockChannel_, isOpen()).WillRepeatedly(Return(true));
+
+    std::atomic<bool> aborted{false};
+    ConnectionStateMachine fsm;
+    fsm.tryTransition(ConnectionStateMachine::State::Connecting, "test-connecting");
+    fsm.tryTransition(ConnectionStateMachine::State::Connected, "test-connected");
+    fsm.tryTransition(ConnectionStateMachine::State::Disconnecting, "test-disconnecting");
+    ASSERT_EQ(fsm.currentState(), ConnectionStateMachine::State::Disconnecting);
+
+    modbus::base::ModbusConfig config;
+    config.timeoutMs = 500;
+    ConnectionManager cm(mockChannel_.get(), &fsm, aborted, &config);
+
+    // Calling ensureConnected() while FSM is in Disconnecting must return false
+    EXPECT_FALSE(cm.ensureConnected());
+    EXPECT_EQ(cm.lastChannelError(), QStringLiteral("Disconnecting"));
+}
+
 #if !defined(NDEBUG)
 namespace {
 

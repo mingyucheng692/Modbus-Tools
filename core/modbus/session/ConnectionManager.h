@@ -53,6 +53,9 @@ private:
 
     // Checked transition wrapper: logs when a transition is rejected so edges are never silently swallowed.
     bool transitionChecked(ConnectionStateMachine::State to, const char* reason);
+    bool transitionCheckedFrom(ConnectionStateMachine::State from,
+                               ConnectionStateMachine::State to,
+                               const char* reason);
 
     // Asserts clean entry state before connect; logs error and performs defensive recovery on stale states.
     void assertCleanEntryState();

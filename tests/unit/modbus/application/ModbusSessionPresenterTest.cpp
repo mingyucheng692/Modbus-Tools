@@ -6,6 +6,8 @@
 #include <QSignalSpy>
 
 #include "../../../core/modbus/session/SessionTypes.h"
+#include "../../../core/modbus/session/ModbusClient.h"
+#include "../../../mocks/MockChannel.h"
 #include "../../../ui/application/modbus/ModbusSessionPresenter.h"
 #include "../../../ui/application/modbus/RequestSubmissionService.h"
 #include "../../../ui/application/modbus/PollingController.h"
@@ -355,6 +357,46 @@ TEST_F(ModbusSessionPresenterTest, PassiveDisconnect_TcpEmitsUnexpectedAlertAndT
     EXPECT_EQ(alertSpy.count(), 1);
     EXPECT_EQ(transientSpy.count(), 1);
     EXPECT_GE(trafficSpy.count(), 1);
+}
+
+TEST_F(ModbusSessionPresenterTest, TcpHalfOpen_RequestTimeoutFollowedByChannelClosed_EmitsAlertAndDisconnects) {
+    QSignalSpy alertSpy(tcpPresenter_.get(), &ModbusSessionPresenter::unexpectedDisconnectAlertRequested);
+    QSignalSpy transientSpy(tcpPresenter_.get(), &ModbusSessionPresenter::sessionTransientDisconnect);
+
+    tcpPresenter_->setConnectionStateForTest(SessionConnectionState::Connected);
+
+    // 1. A request finishes with timeout (half-open condition).
+    // It must NOT silently reset connectionState_ to Disconnected without signals.
+    modbus::session::ModbusResponse timeoutResp = modbus::session::ModbusResponse::Error(
+        modbus::base::ModbusError::Timeout);
+    tcpPresenter_->handleRequestFinishedForTest(1, timeoutResp, tcpPresenter_->connectionGeneration());
+    EXPECT_EQ(tcpPresenter_->connectionState(), SessionConnectionState::Connected);
+    EXPECT_EQ(alertSpy.count(), 0);
+
+    // 2. Later, the channel's TCP linger finishes and emits Closed.
+    // Presenter MUST detect wasEstablished (Connected) and emit the alert and transient disconnect!
+    tcpPresenter_->handleChannelStateTransitionForTest(io::ChannelState::Closed,
+                                                        tcpPresenter_->connectionGeneration());
+
+    EXPECT_EQ(alertSpy.count(), 1);
+    EXPECT_EQ(transientSpy.count(), 1);
+}
+
+TEST_F(ModbusSessionPresenterTest, HandleConnectFinished_DroppedConnectionReleasesStack) {
+    QSignalSpy disconnectedSpy(tcpPresenter_.get(), &ModbusSessionPresenter::sessionDisconnected);
+    QSignalSpy connectFinishedSpy(tcpPresenter_.get(), &ModbusSessionPresenter::connectFinished);
+
+    auto mockChannel = std::make_shared<NiceMock<io::MockChannel>>();
+    auto client = std::make_shared<::modbus::session::ModbusClient>(mockChannel, nullptr);
+    ASSERT_EQ(client->connectionState(), ::modbus::session::ConnectionState::Disconnected);
+    tcpPresenter_->setClientForTest(client);
+
+    // Worker returns ok=true, but core client connectionState is Disconnected (race condition)
+    tcpPresenter_->handleConnectFinishedForTest(true, QString(), tcpPresenter_->connectionGeneration());
+
+    EXPECT_EQ(disconnectedSpy.count(), 1);
+    EXPECT_EQ(connectFinishedSpy.count(), 1);
+    EXPECT_FALSE(connectFinishedSpy.at(0).at(0).toBool());
 }
 
 TEST_F(ModbusSessionPresenterTest, PassiveDisconnectRecovery_EmitsSessionConnected) {

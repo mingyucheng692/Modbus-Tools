@@ -58,7 +58,7 @@ void ConnectionManager::onRequestTimeout() {
             config_->ipAddress.toStdString(),
             config_->port);
     }
-    if (!transitionChecked(CS::Failed, "unresponsive")) {
+    if (!transitionCheckedFrom(CS::Connected, CS::Failed, "unresponsive")) {
         // A concurrent passive-loss transition already left Connected, which
         // by definition means the channel already reported Closed/Error —
         // the teardown this eviction would perform has happened.
@@ -93,6 +93,20 @@ bool ConnectionManager::transitionChecked(ConnectionStateMachine::State to, cons
         // reason; this adds the manager context so the swallow point is
         // visible in production logs.
         SPDLOG_ERROR("ConnectionManager: transition to {} rejected (reason={}, current={})",
+                     ConnectionStateMachine::toString(to),
+                     reason ? reason : "",
+                     ConnectionStateMachine::toString(stateMachine_->currentState()));
+        return false;
+    }
+    return true;
+}
+
+bool ConnectionManager::transitionCheckedFrom(ConnectionStateMachine::State from,
+                                             ConnectionStateMachine::State to,
+                                             const char* reason) {
+    if (!stateMachine_->tryTransitionFrom(from, to, reason)) {
+        SPDLOG_ERROR("ConnectionManager: transition {} -> {} rejected (reason={}, current={})",
+                     ConnectionStateMachine::toString(from),
                      ConnectionStateMachine::toString(to),
                      reason ? reason : "",
                      ConnectionStateMachine::toString(stateMachine_->currentState()));
@@ -174,9 +188,8 @@ bool ConnectionManager::ensureConnected() {
             transitionChecked(CS::Connected, "already-open");
             return true;
         case CS::Disconnecting:
-            // A teardown is mid-flight; it owns the FSM. The channel is open,
-            // so report connected without fighting the disconnect.
-            return true;
+            lastChannelError_ = QCoreApplication::translate("modbus::session::ConnectionManager", "Disconnecting");
+            return false;
         }
         return true;
     }
@@ -214,7 +227,11 @@ bool ConnectionManager::ensureConnected() {
             // the success detection the FSM self-heals on the next
             // already-open fast path.
             consecutiveTimeoutCount_ = 0; // fresh session
-            transitionChecked(CS::Connected, "connect-success");
+            if (!transitionChecked(CS::Connected, "connect-success")) {
+                channel_->close();
+                lastChannelError_ = QCoreApplication::translate("modbus::session::ConnectionManager", "Failed to transition to Connected");
+                return false;
+            }
             connectFailureLogged_ = false; // Reset warning latch upon successful connection
             return true;
         }
