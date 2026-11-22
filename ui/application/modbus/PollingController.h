@@ -5,6 +5,7 @@
 #include <QObject>
 #include <chrono>
 #include <cstdint>
+#include "common/LogDedupe.h"
 #include "modbus/base/ModbusFrame.h"
 #include "../../common/TrafficEvent.h"
 #include "ModbusTypes.h"
@@ -41,8 +42,6 @@ struct PollContext {
     bool suppressTrafficLog = false;
     PollSpec currentSpec{};
     int consecutiveErrorCount = 0;
-    QString lastErrorText;
-    std::chrono::steady_clock::time_point lastErrorLogTime{};
     std::chrono::steady_clock::time_point lastSuccessTime{};
     std::chrono::steady_clock::time_point failureStreakStartTime{};
     std::chrono::steady_clock::time_point connectionFaultStartTime{};
@@ -119,6 +118,7 @@ private:
     /// fatal. Initialized from config::Polling in the constructor.
     int fatalDisconnectTimeoutMs_ = 0;
     PollContext context_{};
+    ::common::LogDedupe<QString> errorLogDedupe_{std::chrono::seconds(5)};
 };
 
 } // namespace ui::application::modbus

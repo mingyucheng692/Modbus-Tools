@@ -43,7 +43,7 @@ MainWindowPages buildMainWindowPages(infra::config::ISettingsService* settingsSe
 
     pages.modbusView = new views::modbus::ModbusPage(settingsService, owner);
     auto* modbusPresenter = new application::modbus::ModbusPagePresenter(
-        pages.modbusView, application::modbus::SessionMode::Tcp, pages.modbusView);
+        pages.modbusView, ::modbus::base::ModbusMode::TCP, pages.modbusView);
     pages.modbusView->bindPresenter(modbusPresenter);
     pages.pageIndexByNavigationRow[static_cast<std::size_t>(MainPage::Modbus)] =
         stackedWidget->addWidget(pages.modbusView);

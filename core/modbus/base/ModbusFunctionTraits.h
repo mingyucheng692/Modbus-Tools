@@ -133,7 +133,7 @@ namespace modbus::base::function_traits {
     case ExceptionCode::NegativeAcknowledge:       return "Negative Acknowledge";
     case ExceptionCode::MemoryParityError:         return "Memory Parity Error";
     case ExceptionCode::GatewayPathUnavailable:    return "Gateway Path Unavailable";
-    case ExceptionCode::GatewayTargetDeviceFailed: return "Gateway Target Device Failed";
+    case ExceptionCode::GatewayTargetDeviceFailed: return "Gateway Target Device Failed To Respond";
     default:                                       return "Unknown Exception";
     }
 }

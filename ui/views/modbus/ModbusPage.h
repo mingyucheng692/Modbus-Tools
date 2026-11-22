@@ -7,6 +7,7 @@
 #include <QMap>
 #include "application/modbus/IModbusPageView.h"
 #include "application/modbus/ModbusTypes.h"
+#include "modbus/base/ModbusTypes.h"
 #include "analyzer/AnalyzerCommon.h"
 #include "infra/io/SerialConfig.h"
 
@@ -65,7 +66,7 @@ public:
     void setLinked(bool linked);
     [[nodiscard]] bool isLinked() const;
     void setMetadataMap(const QMap<uint16_t, ::modbus::analyzer::DataMetadata>& meta);
-    [[nodiscard]] ui::application::modbus::SessionMode currentMode() const noexcept { return currentMode_; }
+    [[nodiscard]] ::modbus::base::ModbusMode currentMode() const noexcept { return currentMode_; }
 
     [[nodiscard]] ui::widgets::modbus::ModbusWorkbenchWidget* workbenchWidget() const noexcept { return workbenchWidget_; }
     [[nodiscard]] ui::widgets::modbus::ModbusTelemetryWidget* telemetryWidget() const noexcept { return telemetryWidget_; }
@@ -94,13 +95,13 @@ private:
     void setupStatusBanner(QVBoxLayout* mainLayout);
     void bindConnectionBarSignals();
     void setupSplitterBody();
-    void switchToProtocol(ui::application::modbus::SessionMode mode);
-    void applyProtocolSettingsGroup(ui::application::modbus::SessionMode mode);
+    void switchToProtocol(::modbus::base::ModbusMode mode);
+    void applyProtocolSettingsGroup(::modbus::base::ModbusMode mode);
     void retranslateUi();
 
     infra::config::ISettingsService* settingsService_ = nullptr;
     ui::application::modbus::ModbusPagePresenter* pagePresenter_ = nullptr;
-    ui::application::modbus::SessionMode currentMode_ = ui::application::modbus::SessionMode::Tcp;
+    ::modbus::base::ModbusMode currentMode_ = ::modbus::base::ModbusMode::TCP;
 
     QLabel* protocolLabel_ = nullptr;
     QComboBox* protocolCombo_ = nullptr;

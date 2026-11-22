@@ -21,7 +21,7 @@ class ModbusPagePresenterTest : public Test {
 protected:
     void SetUp() override {
         mockView_ = std::make_unique<NiceMock<tests::mocks::MockModbusPageView>>();
-        presenter_ = std::make_unique<ModbusPagePresenter>(mockView_.get(), SessionMode::Tcp);
+        presenter_ = std::make_unique<ModbusPagePresenter>(mockView_.get(), ::modbus::base::ModbusMode::TCP);
     }
 
     void TearDown() override {
@@ -68,7 +68,7 @@ TEST_F(ModbusPagePresenterTest, TogglePolling_RejectsWritePollingWithoutConfirma
 }
 
 TEST_F(ModbusPagePresenterTest, TogglePolling_RejectsBroadcastWritePolling) {
-    auto rtuPresenter = std::make_unique<ModbusPagePresenter>(mockView_.get(), SessionMode::Rtu);
+    auto rtuPresenter = std::make_unique<ModbusPagePresenter>(mockView_.get(), ::modbus::base::ModbusMode::RTU);
 
     EXPECT_CALL(*mockView_, showStatusMessage(_, true)).Times(AtLeast(1));
 
@@ -116,30 +116,30 @@ TEST_F(ModbusPagePresenterTest, SwitchMode_DoubleSwitchBackToOriginal_RestoresTa
         .WillRepeatedly(SaveArg<0>(&lastGuards));
     EXPECT_CALL(*mockView_, setProtocolType(::modbus::parser::ProtocolType::Tcp)).Times(1);
 
-    presenter_->switchMode(SessionMode::Rtu);
+    presenter_->switchMode(::modbus::base::ModbusMode::RTU);
     EXPECT_TRUE(presenter_->isSwitchingMode());
     EXPECT_FALSE(lastGuards.protocolSwitchEnabled);
 
     // Rapid switch back to Tcp before async release completes (LWW).
-    presenter_->switchMode(SessionMode::Tcp);
+    presenter_->switchMode(::modbus::base::ModbusMode::TCP);
     QCoreApplication::processEvents();
     QCoreApplication::processEvents();
 
     EXPECT_FALSE(presenter_->isSwitchingMode());
-    EXPECT_EQ(presenter_->mode(), SessionMode::Tcp);
+    EXPECT_EQ(presenter_->mode(), ::modbus::base::ModbusMode::TCP);
     EXPECT_TRUE(lastGuards.protocolSwitchEnabled);
 }
 
 TEST_F(ModbusPagePresenterTest, SwitchMode_DoubleSwitchToThirdProtocol_LandsOnLatestTarget) {
     EXPECT_CALL(*mockView_, setProtocolType(::modbus::parser::ProtocolType::Ascii)).Times(1);
 
-    presenter_->switchMode(SessionMode::Rtu);
-    presenter_->switchMode(SessionMode::Ascii);
+    presenter_->switchMode(::modbus::base::ModbusMode::RTU);
+    presenter_->switchMode(::modbus::base::ModbusMode::ASCII);
     QCoreApplication::processEvents();
     QCoreApplication::processEvents();
 
     EXPECT_FALSE(presenter_->isSwitchingMode());
-    EXPECT_EQ(presenter_->mode(), SessionMode::Ascii);
+    EXPECT_EQ(presenter_->mode(), ::modbus::base::ModbusMode::ASCII);
 }
 
 TEST_F(ModbusPagePresenterTest, UpdateSettings_CachedAcrossSwitchMode) {
@@ -149,7 +149,7 @@ TEST_F(ModbusPagePresenterTest, UpdateSettings_CachedAcrossSwitchMode) {
     custom.retryInterval = std::chrono::milliseconds(123);
     presenter_->updateSettings(custom);
 
-    presenter_->switchMode(SessionMode::Rtu);
+    presenter_->switchMode(::modbus::base::ModbusMode::RTU);
     QCoreApplication::processEvents();
     QCoreApplication::processEvents();
 
@@ -200,7 +200,7 @@ TEST_F(ModbusPagePresenterTest, SessionConnecting_SyncsConnectingGuards) {
 }
 
 TEST_F(ModbusPagePresenterTest, SwitchModeTimeout_RestoresOriginalProtocol) {
-    EXPECT_CALL(*mockView_, setProtocolType(modeDescriptor(SessionMode::Tcp).protocolType)).Times(AtLeast(1));
+    EXPECT_CALL(*mockView_, setProtocolType(modeDescriptor(::modbus::base::ModbusMode::TCP).protocolType)).Times(AtLeast(1));
     EXPECT_CALL(*mockView_, showStatusMessage(QStringLiteral("Release timed out"), true)).Times(1);
     presenter_->onStackReleaseTimedOutForSwitchForTest(QStringLiteral("Release timed out"));
 }

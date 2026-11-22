@@ -151,9 +151,9 @@ void ModbusPage::setupConnectionBar() {
     protocolCombo_ = new QComboBox(protoSection_->contentWidget());
     protocolCombo_->setObjectName(QStringLiteral("modbusProtocolCombo"));
     protocolCombo_->setMinimumWidth(80);
-    protocolCombo_->addItem(QStringLiteral("TCP"), static_cast<int>(ui::application::modbus::SessionMode::Tcp));
-    protocolCombo_->addItem(QStringLiteral("RTU"), static_cast<int>(ui::application::modbus::SessionMode::Rtu));
-    protocolCombo_->addItem(QStringLiteral("ASCII"), static_cast<int>(ui::application::modbus::SessionMode::Ascii));
+    protocolCombo_->addItem(QStringLiteral("TCP"), static_cast<int>(::modbus::base::ModbusMode::TCP));
+    protocolCombo_->addItem(QStringLiteral("RTU"), static_cast<int>(::modbus::base::ModbusMode::RTU));
+    protocolCombo_->addItem(QStringLiteral("ASCII"), static_cast<int>(::modbus::base::ModbusMode::ASCII));
     protoContentLayout->addWidget(protocolCombo_);
 
     connLayout->addWidget(protoSection_, 0, Qt::AlignTop);
@@ -265,16 +265,16 @@ void ModbusPage::updateAddressBase(::modbus::address::AddressBase base) {
 }
 
 void ModbusPage::setProtocolType(::modbus::parser::ProtocolType protocol) {
-    ui::application::modbus::SessionMode mode = ui::application::modbus::SessionMode::Tcp;
+    ::modbus::base::ModbusMode mode = ::modbus::base::ModbusMode::TCP;
     switch (protocol) {
     case ::modbus::parser::ProtocolType::Tcp:
-        mode = ui::application::modbus::SessionMode::Tcp;
+        mode = ::modbus::base::ModbusMode::TCP;
         break;
     case ::modbus::parser::ProtocolType::Rtu:
-        mode = ui::application::modbus::SessionMode::Rtu;
+        mode = ::modbus::base::ModbusMode::RTU;
         break;
     case ::modbus::parser::ProtocolType::Ascii:
-        mode = ui::application::modbus::SessionMode::Ascii;
+        mode = ::modbus::base::ModbusMode::ASCII;
         break;
     }
 
@@ -365,11 +365,11 @@ void ModbusPage::setMetadataMap(const QMap<uint16_t, ::modbus::analyzer::DataMet
 
 void ModbusPage::onProtocolChanged(int index) {
     if (index < 0 || index >= protocolCombo_->count()) return;
-    const auto mode = static_cast<ui::application::modbus::SessionMode>(protocolCombo_->itemData(index).toInt());
+    const auto mode = static_cast<::modbus::base::ModbusMode>(protocolCombo_->itemData(index).toInt());
     switchToProtocol(mode);
 }
 
-void ModbusPage::switchToProtocol(ui::application::modbus::SessionMode mode) {
+void ModbusPage::switchToProtocol(::modbus::base::ModbusMode mode) {
     if (mode == currentMode_) return;
     if (pagePresenter_) {
         pagePresenter_->switchMode(mode);
@@ -379,11 +379,11 @@ void ModbusPage::switchToProtocol(ui::application::modbus::SessionMode mode) {
     }
 }
 
-void ModbusPage::applyProtocolSettingsGroup(ui::application::modbus::SessionMode mode) {
+void ModbusPage::applyProtocolSettingsGroup(::modbus::base::ModbusMode mode) {
     if (!serialConnectionWidget_) return;
-    if (mode == ui::application::modbus::SessionMode::Rtu) {
+    if (mode == ::modbus::base::ModbusMode::RTU) {
         serialConnectionWidget_->setSettingsGroup(QStringLiteral("modbus/rtu/serial"));
-    } else if (mode == ui::application::modbus::SessionMode::Ascii) {
+    } else if (mode == ::modbus::base::ModbusMode::ASCII) {
         serialConnectionWidget_->setSettingsGroup(QStringLiteral("modbus/ascii/serial"));
     }
 }

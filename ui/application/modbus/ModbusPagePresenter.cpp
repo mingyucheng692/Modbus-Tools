@@ -8,11 +8,12 @@
 #include "modbus/session/SessionTypes.h"
 #include "modbus/base/ModbusFunctionTraits.h"
 #include <spdlog/spdlog.h>
+#include <QCoreApplication>
 
 namespace ui::application::modbus {
 
 ModbusPagePresenter::ModbusPagePresenter(IModbusPageView* view,
-                                         SessionMode mode,
+                                         ::modbus::base::ModbusMode mode,
                                          QObject* parent)
     : QObject(parent),
       view_(view),
@@ -35,7 +36,6 @@ void ModbusPagePresenter::createServices() {
     pollingController_ = new PollingController(requestService_.get(), this);
     trafficLogController_ = new TrafficLogController(pollingController_, this);
 
-    sessionPresenter_->setRequestService(requestService_.get());
     sessionPresenter_->setPollingController(pollingController_);
     sessionPresenter_->setTrafficLogController(trafficLogController_);
 
@@ -101,7 +101,7 @@ void ModbusPagePresenter::teardownServices() {
     }
 }
 
-void ModbusPagePresenter::switchMode(SessionMode newMode) {
+void ModbusPagePresenter::switchMode(::modbus::base::ModbusMode newMode) {
     if (isSwitchingMode_) {
         pendingMode_ = newMode;
         return;
@@ -197,10 +197,6 @@ ModbusSessionPresenter* ModbusPagePresenter::sessionPresenter() const noexcept {
 
 PollingController* ModbusPagePresenter::pollingController() const noexcept {
     return pollingController_;
-}
-
-RequestSubmissionService* ModbusPagePresenter::requestService() const noexcept {
-    return requestService_.get();
 }
 
 TrafficLogController* ModbusPagePresenter::trafficLogController() const noexcept {
@@ -313,9 +309,14 @@ void ModbusPagePresenter::executeRequest(const ModbusExecuteSpec& spec) {
 }
 
 void ModbusPagePresenter::handleRawExecute(const ModbusExecuteSpec& spec) {
-    if (!requestService_ || !requestService_->validateRawData(spec.rawPduOrAdu)) {
+    if (!requestService_) return;
+    auto val = requestService_->validateSpec(spec, mode_);
+    if (!val.isValid) {
         if (trafficLogController_) {
-            trafficLogController_->logError(tr("Error: Invalid raw frame format"));
+            trafficLogController_->logError(val.errorMessage);
+        }
+        if (view_) {
+            view_->showStatusMessage(val.errorMessage, true);
         }
         return;
     }
@@ -331,19 +332,15 @@ void ModbusPagePresenter::handleRawExecute(const ModbusExecuteSpec& spec) {
 void ModbusPagePresenter::handleStandardExecute(const ModbusExecuteSpec& spec) {
     if (!requestService_ || !sessionPresenter_) return;
 
-    auto val = requestService_->validateSpec(spec, mode_);
-    if (!val.isValid) {
-        if (trafficLogController_) trafficLogController_->logError(val.errorMessage);
-        if (view_) view_->showStatusMessage(val.errorMessage, true);
-        return;
-    }
-
     const auto kind = ::modbus::base::function_traits::isReadOperation(spec.functionCode)
         ? RequestKind::Read : RequestKind::Write;
-    auto result = requestService_->buildExecuteRequest(spec, mode_, kind);
+    auto result = requestService_->buildExecuteRequest(spec, kind);
     if (!result.ok) {
         if (trafficLogController_) {
-            trafficLogController_->logError(tr("Error: %1").arg(result.error));
+            trafficLogController_->logError(result.error);
+        }
+        if (view_) {
+            view_->showStatusMessage(result.error, true);
         }
         return;
     }
@@ -400,7 +397,7 @@ void ModbusPagePresenter::togglePolling(bool start, const ModbusExecuteSpec& spe
 bool ModbusPagePresenter::validatePollingPreconditions(const ModbusExecuteSpec& spec, bool userConfirmedWritePoll) {
     const bool isWrite = ::modbus::base::function_traits::isWriteOperation(spec.functionCode);
     if (isWrite) {
-        if (spec.slaveId == 0 && (mode_ == SessionMode::Rtu || mode_ == SessionMode::Ascii)) {
+        if (spec.slaveId == 0 && (mode_ == ::modbus::base::ModbusMode::RTU || mode_ == ::modbus::base::ModbusMode::ASCII)) {
             const QString err = tr("Broadcast write polling is strictly forbidden.");
             if (trafficLogController_) trafficLogController_->logError(err);
             if (view_) view_->showStatusMessage(err, true);
@@ -529,30 +526,8 @@ void ModbusPagePresenter::handleRequestFinished(int requestId,
 namespace {
 
 QString formatExceptionCode(::modbus::base::ExceptionCode code) {
-    switch (code) {
-    case ::modbus::base::ExceptionCode::IllegalFunction:
-        return ModbusPagePresenter::tr("Illegal Function");
-    case ::modbus::base::ExceptionCode::IllegalDataAddress:
-        return ModbusPagePresenter::tr("Illegal Data Address");
-    case ::modbus::base::ExceptionCode::IllegalDataValue:
-        return ModbusPagePresenter::tr("Illegal Data Value");
-    case ::modbus::base::ExceptionCode::ServerDeviceFailure:
-        return ModbusPagePresenter::tr("Server Device Failure");
-    case ::modbus::base::ExceptionCode::Acknowledge:
-        return ModbusPagePresenter::tr("Acknowledge");
-    case ::modbus::base::ExceptionCode::ServerDeviceBusy:
-        return ModbusPagePresenter::tr("Server Device Busy");
-    case ::modbus::base::ExceptionCode::NegativeAcknowledge:
-        return ModbusPagePresenter::tr("Negative Acknowledge");
-    case ::modbus::base::ExceptionCode::MemoryParityError:
-        return ModbusPagePresenter::tr("Memory Parity Error");
-    case ::modbus::base::ExceptionCode::GatewayPathUnavailable:
-        return ModbusPagePresenter::tr("Gateway Path Unavailable");
-    case ::modbus::base::ExceptionCode::GatewayTargetDeviceFailed:
-        return ModbusPagePresenter::tr("Gateway Target Device Failed To Respond");
-    default:
-        return ModbusPagePresenter::tr("Unknown Exception");
-    }
+    const char* name = ::modbus::base::function_traits::exceptionCodeName(code);
+    return ModbusPagePresenter::tr(name);
 }
 
 } // namespace

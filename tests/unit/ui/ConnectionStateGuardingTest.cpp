@@ -25,7 +25,7 @@ class ConnectionStateGuardingTest : public Test {
 protected:
     void SetUp() override {
         mockView_ = std::make_unique<NiceMock<tests::mocks::MockModbusPageView>>();
-        presenter_ = std::make_unique<ModbusPagePresenter>(mockView_.get(), SessionMode::Tcp);
+        presenter_ = std::make_unique<ModbusPagePresenter>(mockView_.get(), ::modbus::base::ModbusMode::TCP);
     }
 
     void TearDown() override {
@@ -49,7 +49,7 @@ TEST_F(ConnectionStateGuardingTest, InitialState_ControlsAreDisabled) {
     EXPECT_CALL(*freshMockView, setExecutionGuards(_))
         .WillRepeatedly(SaveArg<0>(&capturedGuards));
 
-    ModbusPagePresenter freshPresenter(freshMockView.get(), SessionMode::Tcp);
+    ModbusPagePresenter freshPresenter(freshMockView.get(), ::modbus::base::ModbusMode::TCP);
 
     EXPECT_FALSE(capturedGuards.executeEnabled);
     EXPECT_FALSE(capturedGuards.pollingEnabled);
@@ -84,7 +84,7 @@ TEST_F(ConnectionStateGuardingTest, ConnectingState_ReadsWritesDisabled) {
 
 // 5. Connected Serial RTU: direct Connected, all ops enabled
 TEST_F(ConnectionStateGuardingTest, Connected_Serial_AllOpsEnabled) {
-    auto rtuPresenter = std::make_unique<ModbusPagePresenter>(mockView_.get(), SessionMode::Rtu);
+    auto rtuPresenter = std::make_unique<ModbusPagePresenter>(mockView_.get(), ::modbus::base::ModbusMode::RTU);
     ExecutionGuardState capturedGuards;
     EXPECT_CALL(*mockView_, setExecutionGuards(_))
         .WillRepeatedly(SaveArg<0>(&capturedGuards));
@@ -171,11 +171,11 @@ TEST_F(ConnectionStateGuardingTest, ModeSwitch_DuringConnecting_ControlsCorrectl
     presenter_->syncWidgetGuards(SessionConnectionState::Connecting);
 
     EXPECT_CALL(*mockView_, setProtocolType(::modbus::parser::ProtocolType::Rtu)).Times(1);
-    presenter_->switchMode(SessionMode::Rtu);
+    presenter_->switchMode(::modbus::base::ModbusMode::RTU);
     QCoreApplication::processEvents();
 
     EXPECT_CALL(*mockView_, setProtocolType(::modbus::parser::ProtocolType::Tcp)).Times(1);
-    presenter_->switchMode(SessionMode::Tcp);
+    presenter_->switchMode(::modbus::base::ModbusMode::TCP);
     QCoreApplication::processEvents();
 }
 

@@ -52,7 +52,6 @@ TEST_F(TrafficLogControllerTest, LogRawFrame_TxDirection_DoesNotCrash) {
     const auto ev = spy.first().at(0).value<ui::common::TrafficEvent>();
     EXPECT_EQ(ev.direction, ui::common::TrafficDirection::Tx);
     EXPECT_EQ(ev.payload, data);
-    EXPECT_FALSE(ev.isPoll);
 }
 
 TEST_F(TrafficLogControllerTest, LogRawFrame_RxDirection_DoesNotCrash) {
@@ -191,7 +190,6 @@ TEST_F(TrafficLogControllerTest, LogPollSummary_DoesNotCrash) {
     ASSERT_EQ(spy.count(), 1);
     const auto ev = spy.first().at(0).value<ui::common::TrafficEvent>();
     EXPECT_EQ(ev.requestType, ui::common::TrafficRequestType::Poll);
-    EXPECT_TRUE(ev.isPoll);
     EXPECT_EQ(ev.summary, QStringLiteral("Poll Summary: 50 ok, 2 err, 3 retry, avg RTT 15 ms"));
 }
 
@@ -252,8 +250,6 @@ TEST_F(TrafficLogControllerTest, LogRawFrame_SuppressedBetweenPollTicksWhenPollD
     ASSERT_EQ(spy.count(), 2);
     const auto sampledTx = spy.at(0).first().value<ui::common::TrafficEvent>();
     const auto sampledRx = spy.at(1).first().value<ui::common::TrafficEvent>();
-    EXPECT_TRUE(sampledTx.isPoll);
-    EXPECT_TRUE(sampledRx.isPoll);
     EXPECT_EQ(sampledTx.direction, ui::common::TrafficDirection::Tx);
     EXPECT_EQ(sampledRx.direction, ui::common::TrafficDirection::Rx);
 

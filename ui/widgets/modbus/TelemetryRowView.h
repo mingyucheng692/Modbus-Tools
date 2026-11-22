@@ -16,8 +16,6 @@ namespace ui::widgets::modbus {
 struct TelemetryRowView {
     uint64_t rowId = 0;              // Monotonic row ID to prevent ring buffer eviction index drift
     ::ui::common::TrafficEvent event;
-    ::modbus::parser::ProtocolType protocol = ::modbus::parser::ProtocolType::Unknown;
-    quint64 sessionGeneration = 0;
     ::modbus::parser::ParseResult parseResult; // Lightweight parse result cache
     QString statusText;
     QColor statusColor;

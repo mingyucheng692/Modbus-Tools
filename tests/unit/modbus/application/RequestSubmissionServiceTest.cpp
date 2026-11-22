@@ -121,111 +121,6 @@ TEST_F(RequestSubmissionServiceTest, BuildReadRequest_PollKind_IsTrackedAsPoll) 
     EXPECT_EQ(tracking->kind, RequestKind::Poll);
 }
 
-TEST_F(RequestSubmissionServiceTest, BuildWriteRequest_05_HexOn_ReturnsOk) {
-    auto result = service_->buildWriteRequest(0x05, 0, QStringLiteral("FF00"), QStringLiteral("Hex"), 1, 1);
-
-    EXPECT_TRUE(result.ok);
-    EXPECT_GT(result.requestId, 0);
-}
-
-TEST_F(RequestSubmissionServiceTest, BuildWriteRequest_0F_Hex_ReturnsOk) {
-    auto result = service_->buildWriteRequest(0x0F, 0, QStringLiteral("FF03"), QStringLiteral("Hex"), 1, 10);
-
-    EXPECT_TRUE(result.ok);
-    EXPECT_GT(result.requestId, 0);
-}
-
-TEST_F(RequestSubmissionServiceTest, BuildWriteRequest_05_HexOff_ReturnsOk) {
-    auto result = service_->buildWriteRequest(0x05, 0, QStringLiteral("0000"), QStringLiteral("Hex"), 1, 1);
-
-    EXPECT_TRUE(result.ok);
-}
-
-TEST_F(RequestSubmissionServiceTest, BuildWriteRequest_05_DecimalOne_ReturnsOk) {
-    auto result = service_->buildWriteRequest(0x05, 0, QStringLiteral("1"), QStringLiteral("Decimal"), 1, 1);
-
-    EXPECT_TRUE(result.ok);
-}
-
-TEST_F(RequestSubmissionServiceTest, BuildWriteRequest_05_DecimalZero_ReturnsOk) {
-    auto result = service_->buildWriteRequest(0x05, 0, QStringLiteral("0"), QStringLiteral("Decimal"), 1, 1);
-
-    EXPECT_TRUE(result.ok);
-}
-
-TEST_F(RequestSubmissionServiceTest, BuildWriteRequest_05_BinaryOne_ReturnsOk) {
-    auto result = service_->buildWriteRequest(0x05, 0, QStringLiteral("1"), QStringLiteral("Binary"), 1, 1);
-
-    EXPECT_TRUE(result.ok);
-}
-
-TEST_F(RequestSubmissionServiceTest, BuildWriteRequest_05_BinaryZero_ReturnsOk) {
-    auto result = service_->buildWriteRequest(0x05, 0, QStringLiteral("0"), QStringLiteral("Binary"), 1, 1);
-
-    EXPECT_TRUE(result.ok);
-}
-
-TEST_F(RequestSubmissionServiceTest, BuildWriteRequest_05_InvalidHex_ReturnsError) {
-    auto result = service_->buildWriteRequest(0x05, 0, QStringLiteral("ABCD"), QStringLiteral("Hex"), 1, 1);
-
-    EXPECT_FALSE(result.ok);
-}
-
-TEST_F(RequestSubmissionServiceTest, BuildWriteRequest_06_Hex_ReturnsOk) {
-    auto result = service_->buildWriteRequest(0x06, 0, QStringLiteral("1234"), QStringLiteral("Hex"), 1, 1);
-
-    EXPECT_TRUE(result.ok);
-    EXPECT_GT(result.requestId, 0);
-}
-
-TEST_F(RequestSubmissionServiceTest, BuildWriteRequest_06_Decimal_ReturnsOk) {
-    auto result = service_->buildWriteRequest(0x06, 0, QStringLiteral("65535"), QStringLiteral("Decimal"), 1, 1);
-
-    EXPECT_TRUE(result.ok);
-}
-
-TEST_F(RequestSubmissionServiceTest, BuildWriteRequest_06_DecimalOutOfRange_ReturnsError) {
-    auto result = service_->buildWriteRequest(0x06, 0, QStringLiteral("70000"), QStringLiteral("Decimal"), 1, 1);
-
-    EXPECT_FALSE(result.ok);
-}
-
-TEST_F(RequestSubmissionServiceTest, BuildWriteRequest_06_BinaryNotSupported_ReturnsError) {
-    auto result = service_->buildWriteRequest(0x06, 0, QStringLiteral("1010"), QStringLiteral("Binary"), 1, 1);
-
-    EXPECT_FALSE(result.ok);
-}
-
-TEST_F(RequestSubmissionServiceTest, BuildWriteRequest_0F_Binary_ReturnsOk) {
-    auto result = service_->buildWriteRequest(0x0F, 0, QStringLiteral("1010101010"), QStringLiteral("Binary"), 1, 10);
-
-    EXPECT_TRUE(result.ok);
-}
-
-TEST_F(RequestSubmissionServiceTest, BuildWriteRequest_0F_BinaryCountMismatch_ReturnsError) {
-    auto result = service_->buildWriteRequest(0x0F, 0, QStringLiteral("101"), QStringLiteral("Binary"), 1, 10);
-
-    EXPECT_FALSE(result.ok);
-}
-
-TEST_F(RequestSubmissionServiceTest, BuildWriteRequest_10_Hex_ReturnsOk) {
-    auto result = service_->buildWriteRequest(0x10, 0, QStringLiteral("00010002"), QStringLiteral("Hex"), 1, 2);
-
-    EXPECT_TRUE(result.ok);
-}
-
-TEST_F(RequestSubmissionServiceTest, BuildWriteRequest_10_DecimalList_ReturnsOk) {
-    auto result = service_->buildWriteRequest(0x10, 0, QStringLiteral("1,2,3"), QStringLiteral("Decimal"), 1, 3);
-
-    EXPECT_TRUE(result.ok);
-}
-
-TEST_F(RequestSubmissionServiceTest, BuildWriteRequest_10_EmptyValue_ReturnsError) {
-    auto result = service_->buildWriteRequest(0x10, 0, QStringLiteral(""), QStringLiteral("Hex"), 1, 2);
-
-    EXPECT_FALSE(result.ok);
-}
-
 TEST_F(RequestSubmissionServiceTest, RequestIdMonotonicallyIncreases) {
     PollSpec spec;
     spec.functionCode = 0x03;
@@ -307,20 +202,8 @@ TEST_F(RequestSubmissionServiceTest, ClearAll_RemovesAllTrackedRequests) {
     EXPECT_FALSE(service_->lookupAndRemove(3).has_value());
 }
 
-TEST_F(RequestSubmissionServiceTest, ValidateRawData_EmptyData_ReturnsFalse) {
-    QString error;
-    bool ok = service_->validateRawData(QByteArray(), &error);
-    EXPECT_FALSE(ok);
-    EXPECT_FALSE(error.isEmpty());
-}
-
-TEST_F(RequestSubmissionServiceTest, ValidateRawData_NonEmptyData_ReturnsTrue) {
-    bool ok = service_->validateRawData(QByteArray("\x01\x02\x03", 3));
-    EXPECT_TRUE(ok);
-}
-
 TEST_F(RequestSubmissionServiceTest, ModeDescriptor_MapsAsciiProtocolType) {
-    EXPECT_EQ(modeDescriptor(SessionMode::Ascii).protocolType,
+    EXPECT_EQ(modeDescriptor(::modbus::base::ModbusMode::ASCII).protocolType,
               modbus::parser::ProtocolType::Ascii);
 }
 
@@ -332,29 +215,29 @@ TEST_F(RequestSubmissionServiceTest, ValidateSpec_Gate1_BroadcastDefense) {
     spec.quantity = 10;
 
     // Broadcast read is forbidden
-    auto res = service_->validateSpec(spec, SessionMode::Rtu);
+    auto res = service_->validateSpec(spec, ::modbus::base::ModbusMode::RTU);
     EXPECT_FALSE(res.isValid);
     EXPECT_TRUE(res.errorMessage.contains("Broadcast read"));
 
-    res = service_->validateSpec(spec, SessionMode::Tcp);
+    res = service_->validateSpec(spec, ::modbus::base::ModbusMode::TCP);
     EXPECT_FALSE(res.isValid);
 
     // Broadcast write is allowed
     spec.functionCode = 0x06;
     spec.quantity = 1;
     spec.writeData = QByteArray("\x00\x05", 2);
-    res = service_->validateSpec(spec, SessionMode::Rtu);
+    res = service_->validateSpec(spec, ::modbus::base::ModbusMode::RTU);
     EXPECT_TRUE(res.isValid);
 
     spec.functionCode = 0x10;
     spec.quantity = 2;
     spec.writeData = QByteArray("\x00\x01\x00\x02", 4);
-    res = service_->validateSpec(spec, SessionMode::Rtu);
+    res = service_->validateSpec(spec, ::modbus::base::ModbusMode::RTU);
     EXPECT_TRUE(res.isValid);
 
     // Slave ID > 247 forbidden
     spec.slaveId = 248;
-    res = service_->validateSpec(spec, SessionMode::Rtu);
+    res = service_->validateSpec(spec, ::modbus::base::ModbusMode::RTU);
     EXPECT_FALSE(res.isValid);
     EXPECT_TRUE(res.errorMessage.contains("Slave ID"));
 }
@@ -476,7 +359,7 @@ TEST_F(RequestSubmissionServiceTest, BuildExecuteRequest_EndToEnd) {
     EXPECT_GT(readRes.requestId, 0);
     EXPECT_EQ(static_cast<uint8_t>(readRes.pdu.functionCode()), 0x03);
 
-    auto info = service_->lookup(readRes.requestId);
+    auto info = service_->lookupAndRemove(readRes.requestId);
     ASSERT_TRUE(info.has_value());
     EXPECT_EQ(info->address, 100);
 
@@ -491,15 +374,6 @@ TEST_F(RequestSubmissionServiceTest, BuildExecuteRequest_EndToEnd) {
     auto writeRes = service_->buildExecuteRequest(writeSpec);
     EXPECT_TRUE(writeRes.ok);
     EXPECT_EQ(static_cast<uint8_t>(writeRes.pdu.functionCode()), 0x06);
-
-    // Raw mode execution
-    ModbusExecuteSpec rawSpec;
-    rawSpec.isRawMode = true;
-    rawSpec.rawPduOrAdu = QByteArray("\x03\x00\x64\x00\x05", 5);
-
-    auto rawRes = service_->buildExecuteRequest(rawSpec);
-    EXPECT_TRUE(rawRes.ok);
-    EXPECT_EQ(static_cast<uint8_t>(rawRes.pdu.functionCode()), 0x03);
 
     // Invalid spec fails cleanly
     ModbusExecuteSpec invalidSpec;

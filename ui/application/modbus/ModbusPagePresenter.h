@@ -27,14 +27,14 @@ class ModbusPagePresenter : public QObject {
 
 public:
     explicit ModbusPagePresenter(IModbusPageView* view,
-                                 SessionMode mode,
+                                 ::modbus::base::ModbusMode mode,
                                  QObject* parent = nullptr);
     ~ModbusPagePresenter() noexcept override;
 
     void detachView() noexcept;
     [[nodiscard]] IModbusPageView* view() const noexcept { return view_; }
 
-    void switchMode(SessionMode newMode);
+    void switchMode(::modbus::base::ModbusMode newMode);
 
     // --- Backend connection & session API ---
     void requestConnect(const ModbusConnectionSpec& spec);
@@ -42,14 +42,13 @@ public:
     void updateSettings(const ModbusTimingParams& params);
     [[nodiscard]] const ModbusTimingParams& timingParams() const noexcept { return timingParams_; }
     [[nodiscard]] bool hasTimingParams() const noexcept { return hasTimingParams_; }
-    [[nodiscard]] SessionMode mode() const noexcept { return mode_; }
+    [[nodiscard]] ::modbus::base::ModbusMode mode() const noexcept { return mode_; }
     [[nodiscard]] bool isSwitchingMode() const noexcept { return isSwitchingMode_; }
 
     void setLinked(bool linked);
     [[nodiscard]] bool isLinked() const noexcept;
     [[nodiscard]] ModbusSessionPresenter* sessionPresenter() const noexcept;
     [[nodiscard]] PollingController* pollingController() const noexcept;
-    [[nodiscard]] RequestSubmissionService* requestService() const noexcept;
     [[nodiscard]] TrafficLogController* trafficLogController() const noexcept;
 
     void syncWidgetGuards(SessionConnectionState state);
@@ -64,12 +63,7 @@ public:
 
 public slots:
     void executeRequest(const ModbusExecuteSpec& spec);
-    void requestExecute(const ModbusExecuteSpec& spec) { executeRequest(spec); }
     void togglePolling(bool start, const ModbusExecuteSpec& spec, bool userConfirmedWritePoll = false);
-    void requestPollToggle(bool start, int intervalMs, const ModbusExecuteSpec& spec, bool userConfirmedWritePoll = false) {
-        changePollInterval(intervalMs);
-        togglePolling(start, spec, userConfirmedWritePoll);
-    }
     void changePollInterval(int intervalMs);
     void handleLogMessage(const QString& message, bool isError);
     void setPollFramesEnabled(bool enabled);
@@ -103,8 +97,8 @@ private:
     void notifyMetrics();
 
     IModbusPageView* view_ = nullptr;
-    SessionMode mode_;
-    SessionMode pendingMode_{};
+    ::modbus::base::ModbusMode mode_;
+    ::modbus::base::ModbusMode pendingMode_{};
     bool isSwitchingMode_ = false;
     ModbusTimingParams timingParams_{};
     bool hasTimingParams_ = false;

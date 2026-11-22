@@ -84,12 +84,6 @@ struct Modbus {
     /// torn down. 0 disables the eviction.
     static constexpr int kDefaultUnresponsiveThreshold = 3;
     static constexpr int kDefaultStandardStartAddress = 0;
-    static constexpr int kDefaultStandardQuantity = 10;
-    static constexpr int kDefaultStandardFormatIndex = 0;
-    static constexpr int kDefaultControlFunctionIndex = 2;
-    static constexpr int kDefaultControlAddress = 0;
-    static constexpr int kDefaultControlQuantity = 10;
-    static constexpr int kDefaultControlIntervalMs = 1000;
     static constexpr int kMinTimeoutMs = 100;
     static constexpr int kMaxTimeoutMs = 60000;
     static constexpr int kTimeoutStepMs = 100;
@@ -142,8 +136,6 @@ struct Ui {
     static constexpr int kFrameAnalyzerDefaultResultsHeight = 520;
     static constexpr int kFrameAnalyzerAdaptiveHistoryCollapseWidth = 1040;
     static constexpr int kFrameAnalyzerMaxHistoryItems = 20;
-    static constexpr int kFrameAnalyzerCsvExportChunkRows = 128;
-    static constexpr int kTrafficLogExportChunkRows = 256;
     static constexpr int kNavigationExpandedWidth = 138;
     static constexpr int kNavigationCollapsedWidth = 52;
     static constexpr int kNavigationMinIconWidth = 24;
@@ -152,7 +144,6 @@ struct Ui {
     static constexpr int kNavigationRightInset = 9;
     static constexpr int kTrafficMonitorMaxBlockCount = 1000;
     static constexpr int kByteMonitorMaxBlockCount = 50000;
-    static constexpr int kDataMonitorFlushIntervalMs = 33;
     /// Poll Frames sampling: pass 1 poll frame cycle per N, drop the rest (manual frames
     /// are never sampled). Keeps the UI thread responsive under fast polling while
     /// Poll Frames mode is enabled.

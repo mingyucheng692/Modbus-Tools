@@ -136,19 +136,6 @@ void ModbusWorker::requestConnect() {
     }, Qt::QueuedConnection);
 }
 
-void ModbusWorker::requestDisconnect() {
-    if (!isThreadReady(thread_)) {
-        // No running worker thread means no session was ever driven through
-        // this worker; touching client_ here would cross the thread boundary.
-        SPDLOG_WARN("ModbusWorker: requestDisconnect ignored because worker thread is not running");
-        emit disconnectFinished();
-        return;
-    }
-    QMetaObject::invokeMethod(this, [this]() {
-        handleRequestDisconnectInThread();
-    }, Qt::QueuedConnection);
-}
-
 void ModbusWorker::updateConfig(const base::ModbusConfig& config) {
     if (!isThreadReady(thread_)) {
         // activateStack() applies the config BEFORE start(). Cache it and
@@ -301,15 +288,6 @@ void ModbusWorker::handleDisconnect() {
     }
     failureDedupe_.clear();
     SPDLOG_INFO("ModbusWorker: disconnect completed cleanly");
-    emit disconnectFinished();
-}
-
-void ModbusWorker::handleRequestDisconnectInThread() {
-    if (client_) {
-        client_->abort();
-    }
-    drainQueuedRequests("Disconnected");
-    handleDisconnect();
 }
 
 void ModbusWorker::handleStopInThread(bool driveClient) {

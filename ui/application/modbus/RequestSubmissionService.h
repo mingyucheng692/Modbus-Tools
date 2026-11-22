@@ -6,13 +6,13 @@
 #include <QByteArray>
 #include <functional>
 #include <unordered_map>
-#include <chrono>
 #include <cstdint>
 #include <atomic>
 #include <optional>
 #include "modbus/base/ModbusFrame.h"
 #include "modbus/base/ModbusPduBuilder.h"
 #include "modbus/base/ModbusFunctionTraits.h"
+#include "modbus/base/ModbusTypes.h"
 #include "ModbusTypes.h"
 #include "ModbusExecuteSpec.h"
 
@@ -22,7 +22,6 @@ struct RequestTrackingInfo {
     RequestKind kind = RequestKind::Read;
     uint16_t address = 0;
     TraceId traceId = 0;
-    std::chrono::steady_clock::time_point startTime{};
 };
 
 // Role: Plain C++ domain service for building Modbus requests, validating IEC 61158 gates, and tracking submissions.
@@ -47,19 +46,14 @@ public:
     };
 
     [[nodiscard]] ValidationResult validateSpec(const ModbusExecuteSpec& spec,
-                                               SessionMode mode = SessionMode::Tcp) const;
+                                               ::modbus::base::ModbusMode mode = ::modbus::base::ModbusMode::TCP) const;
 
     RequestBuildResult buildExecuteRequest(const ModbusExecuteSpec& spec,
-                                          SessionMode mode = SessionMode::Tcp,
                                           RequestKind kind = RequestKind::Read);
 
     RequestBuildResult buildReadRequest(const PollSpec& spec,
                                         RequestKind kind = RequestKind::Read);
-    RequestBuildResult buildWriteRequest(uint8_t fc, int addr, const QString& dataStr,
-                                         const QString& fmt, int slaveId, int quantity);
-    bool validateRawData(const QByteArray& data, QString* errorOut = nullptr);
 
-    std::optional<RequestTrackingInfo> lookup(int requestId) const;
     std::optional<RequestTrackingInfo> lookupAndRemove(int requestId);
     void clearAll();
 
@@ -68,7 +62,7 @@ public:
     std::function<void()> onTxCountUpdated;
 
 private:
-    [[nodiscard]] ValidationResult validateBroadcastGate(const ModbusExecuteSpec& spec, SessionMode mode) const;
+    [[nodiscard]] ValidationResult validateBroadcastGate(const ModbusExecuteSpec& spec, ::modbus::base::ModbusMode mode) const;
     [[nodiscard]] ValidationResult validateQuantityAndRangeGate(const ModbusExecuteSpec& spec) const;
     [[nodiscard]] ValidationResult validateWirePayloadGate(const ModbusExecuteSpec& spec) const;
 

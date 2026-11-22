@@ -60,7 +60,6 @@ public:
     [[nodiscard]] QString inspectorDetailsText() const noexcept;
     [[nodiscard]] bool exportToFile(const QString& filePath, QString* error = nullptr) const;
     [[nodiscard]] bool isTwoRowToolbar() const noexcept { return isTwoRowToolbar_; }
-    [[nodiscard]] bool isTwoRowInspectorHeader() const noexcept { return isTwoRowInspectorHeader_; }
     [[nodiscard]] int singleRowToolbarRequiredWidth() const;
     [[nodiscard]] int singleRowInspectorHeaderRequiredWidth() const;
     void updateResponsiveToolbar(int availableWidth);
@@ -79,16 +78,12 @@ public:
     [[nodiscard]] QLabel* rttStatsLabel() const noexcept { return rttStatsLabel_; }
 
     void setMetadataMap(const QMap<uint16_t, ::modbus::analyzer::DataMetadata>& meta);
-    [[nodiscard]] const QMap<uint16_t, ::modbus::analyzer::DataMetadata>& metadataMap() const noexcept { return metadataByAddress_; }
     [[nodiscard]] QComboBox* decodeTypeCombo() const noexcept { return decodeTypeCombo_; }
     [[nodiscard]] QComboBox* orderCombo() const noexcept { return orderCombo_; }
-    [[nodiscard]] ::modbus::analyzer::RegisterDataType currentDecodeType() const noexcept { return currentDataType_; }
-    [[nodiscard]] ::modbus::base::RegisterOrder currentRegisterOrder() const noexcept { return currentOrder_; }
     void setDecodeType(::modbus::analyzer::RegisterDataType type);
     void setRegisterOrder(::modbus::base::RegisterOrder order);
     void applyDecodeCapability(const ::modbus::analyzer::value_formatter::FrameDecodeEvaluation& eval);
 
-    [[nodiscard]] static QString formatInspectorDetails(const ::modbus::parser::ParseResult& pr, int aduLength);
     [[nodiscard]] QString formatInspectorDetails(
         const ::modbus::parser::ParseResult& pr,
         int aduLength,
@@ -101,11 +96,9 @@ public:
 signals:
     void linkageToggled(bool active);
     void pollFramesToggled(bool enabled);
-    void frameSelectedForAnalysis(const QByteArray& payload);
     void inspectInAnalyzerRequested(const QString& hexString);
     void resetMetricsRequested();
     void rowCopied(const QString& text);
-    void exportFailed(const QString& error);
 
 protected:
     void keyPressEvent(QKeyEvent* event) override;

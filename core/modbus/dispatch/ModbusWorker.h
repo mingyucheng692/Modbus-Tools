@@ -38,13 +38,11 @@ public:
     void submit(const base::Pdu& request, int slaveId, int requestId, quint64 traceId = 0);
     void sendRaw(const QByteArray& data);
     void requestConnect();
-    void requestDisconnect();
     void updateConfig(const base::ModbusConfig& config);
 
 signals:
     void requestFinished(int requestId, modbus::session::ModbusResponse response);
     void connectFinished(bool ok, const QString& error);
-    void disconnectFinished();
     void stopped();
 
 private:
@@ -59,7 +57,6 @@ private:
     void handleSendRaw(const QByteArray& data);
     void handleConnect();
     void handleDisconnect();
-    void handleRequestDisconnectInThread();
     // @p driveClient is false on the fallback paths where the worker thread
     // never ran (or is already dead): the calling thread then only performs
     // cross-thread-safe cleanup (client_->abort() + queue drain) and must

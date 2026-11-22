@@ -88,17 +88,12 @@ protected:
     std::unique_ptr<ModbusWorker> worker_;
 };
 
-// T03: with a never-started worker thread, requestDisconnect/updateConfig/stop
+// T03: with a never-started worker thread, updateConfig/stop
 // must complete without driving the channel from the calling thread.
 TEST_F(ModbusWorkerLifecycleTest, EntriesBeforeThreadStart_DoNotTouchChannel) {
     EXPECT_CALL(*mockChannel_, open()).Times(0);
     EXPECT_CALL(*mockChannel_, close()).Times(0);
     EXPECT_CALL(*mockChannel_, write(_)).Times(0);
-
-    QSignalSpy disconnectSpy(worker_.get(), &ModbusWorker::disconnectFinished);
-    worker_->requestDisconnect();
-    QCoreApplication::processEvents();
-    EXPECT_EQ(disconnectSpy.count(), 1);
 
     // Cached for later start(); must not touch the client cross-thread.
     worker_->updateConfig(fastConfig());

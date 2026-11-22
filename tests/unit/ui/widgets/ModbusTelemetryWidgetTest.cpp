@@ -204,6 +204,44 @@ TEST_F(ModbusTelemetryWidgetTest, CopySelectedSysRowAndExportCsvSafety) {
     EXPECT_FALSE(error.isEmpty());
 }
 
+TEST_F(ModbusTelemetryWidgetTest, ExportCsv_FormulaInjectionProtection_CWE1236) {
+    const QStringList injectionPayloads = {
+        QStringLiteral("=cmd|' /C calc'!A0"),
+        QStringLiteral("+cmd"),
+        QStringLiteral("-cmd"),
+        QStringLiteral("@SUM(A1:A10)")
+    };
+
+    for (const auto& payload : injectionPayloads) {
+        ::ui::common::TrafficEvent evt;
+        evt.direction = ::ui::common::TrafficDirection::None;
+        evt.summary = payload;
+        widget_->appendTrafficEvent(evt);
+    }
+
+    QElapsedTimer deadline;
+    deadline.start();
+    while (widget_->isBatchTimerActive() && deadline.elapsed() < 2000) {
+        QCoreApplication::processEvents(QEventLoop::AllEvents, 50);
+    }
+
+    QTemporaryDir tempDir;
+    ASSERT_TRUE(tempDir.isValid());
+    const QString csvPath = tempDir.filePath(QStringLiteral("injection_test.csv"));
+    QString error;
+    EXPECT_TRUE(widget_->exportToFile(csvPath, &error)) << error.toStdString();
+
+    QFile csvFile(csvPath);
+    ASSERT_TRUE(csvFile.open(QIODevice::ReadOnly | QIODevice::Text));
+    const QString csvContent = QString::fromUtf8(csvFile.readAll());
+
+    // Per CWE-1236 and escapeCsvValue(), fields beginning with =, +, -, @ must be prepended with a single quote
+    EXPECT_TRUE(csvContent.contains(QStringLiteral("\"'=cmd|' /C calc'!A0\"")));
+    EXPECT_TRUE(csvContent.contains(QStringLiteral("\"'+cmd\"")));
+    EXPECT_TRUE(csvContent.contains(QStringLiteral("\"'-cmd\"")));
+    EXPECT_TRUE(csvContent.contains(QStringLiteral("\"'@SUM(A1:A10)\"")));
+}
+
 TEST_F(ModbusTelemetryWidgetTest, AutoScrollButtonLabelIsConstant) {
     auto* btn = widget_->autoScrollButton();
     ASSERT_NE(btn, nullptr);

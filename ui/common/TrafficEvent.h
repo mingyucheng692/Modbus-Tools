@@ -53,7 +53,6 @@ struct TrafficEvent {
     TrafficDirection direction = TrafficDirection::None;
     TrafficEventLevel level = TrafficEventLevel::Info;
     TrafficRequestType requestType = TrafficRequestType::Unknown;
-    bool isPoll = false;
     quint64 traceId = 0;
     QString summary;
     QByteArray payload;

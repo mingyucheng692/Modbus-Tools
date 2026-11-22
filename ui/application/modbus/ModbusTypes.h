@@ -39,20 +39,11 @@ enum class RequestKind {
     Raw
 };
 
-enum class SessionMode {
-    Tcp,
-    Rtu,
-    Ascii
-};
-
 struct ModbusModeDescriptor {
-    SessionMode sessionMode = SessionMode::Tcp;
     ::modbus::base::ModbusMode modbusMode = ::modbus::base::ModbusMode::TCP;
     ::modbus::parser::ProtocolType protocolType = ::modbus::parser::ProtocolType::Tcp;
-    const char* settingsPrefix = "modbus/tcp";
     const char* logName = "TCP";
     bool usesSerialConnection = false;
-    bool usesUnitIdLabel = true;
 };
 
 struct ModbusConnectionSpec {
@@ -60,58 +51,32 @@ struct ModbusConnectionSpec {
     std::optional<io::SerialConfig> serialConfig;
 };
 
-[[nodiscard]] constexpr SessionMode sessionModeFor(::modbus::base::ModbusMode mode) {
+[[nodiscard]] constexpr ModbusModeDescriptor modeDescriptor(::modbus::base::ModbusMode mode) {
     switch (mode) {
     case ::modbus::base::ModbusMode::TCP:
-        return SessionMode::Tcp;
-    case ::modbus::base::ModbusMode::RTU:
-        return SessionMode::Rtu;
-    case ::modbus::base::ModbusMode::ASCII:
-        return SessionMode::Ascii;
-    }
-
-    return SessionMode::Tcp;
-}
-
-[[nodiscard]] constexpr ModbusModeDescriptor modeDescriptor(SessionMode mode) {
-    switch (mode) {
-    case SessionMode::Tcp:
         return ModbusModeDescriptor{
-            SessionMode::Tcp,
             ::modbus::base::ModbusMode::TCP,
             ::modbus::parser::ProtocolType::Tcp,
-            "modbus/tcp",
             "TCP",
-            false,
-            true
+            false
         };
-    case SessionMode::Rtu:
+    case ::modbus::base::ModbusMode::RTU:
         return ModbusModeDescriptor{
-            SessionMode::Rtu,
             ::modbus::base::ModbusMode::RTU,
             ::modbus::parser::ProtocolType::Rtu,
-            "modbus/rtu",
             "RTU",
-            true,
-            false
+            true
         };
-    case SessionMode::Ascii:
+    case ::modbus::base::ModbusMode::ASCII:
         return ModbusModeDescriptor{
-            SessionMode::Ascii,
             ::modbus::base::ModbusMode::ASCII,
             ::modbus::parser::ProtocolType::Ascii,
-            "modbus/ascii",
             "ASCII",
-            true,
-            false
+            true
         };
     }
 
-    return modeDescriptor(SessionMode::Tcp);
-}
-
-[[nodiscard]] constexpr ModbusModeDescriptor modeDescriptor(::modbus::base::ModbusMode mode) {
-    return modeDescriptor(sessionModeFor(mode));
+    return modeDescriptor(::modbus::base::ModbusMode::TCP);
 }
 
 // UI-layer connection state, projected from core ConnectionStateMachine and channel state.

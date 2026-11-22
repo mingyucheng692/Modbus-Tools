@@ -34,7 +34,7 @@ class ModbusSessionPresenter : public QObject {
     Q_OBJECT
 
 public:
-    explicit ModbusSessionPresenter(SessionMode mode,
+    explicit ModbusSessionPresenter(::modbus::base::ModbusMode mode,
                                     QObject* parent = nullptr);
     ~ModbusSessionPresenter() noexcept override;
 
@@ -48,7 +48,7 @@ public:
     bool isSessionConnected() const;
     [[nodiscard]] SessionConnectionState connectionState() const noexcept;
     quint64 connectionGeneration() const;
-    SessionMode mode() const;
+    ::modbus::base::ModbusMode mode() const;
 
     void submitRequest(const ::modbus::base::Pdu& pdu, int slaveId, int requestId,
                        TraceId traceId);
@@ -56,7 +56,6 @@ public:
 
     void setTrafficLogController(TrafficLogController* controller);
     void setPollingController(PollingController* controller);
-    void setRequestService(RequestSubmissionService* service);
 
     void setLinked(bool linked);
     bool isLinked() const;
@@ -69,10 +68,10 @@ public:
     static SessionConnectionState deriveUiState(
         ::modbus::session::ConnectionStateMachine::State coreState,
         io::ChannelState channelState,
-        SessionMode mode = SessionMode::Tcp);
+        ::modbus::base::ModbusMode mode = ::modbus::base::ModbusMode::TCP);
 
-    void handleChannelStateTransitionForTest(io::ChannelState state, quint64 generation) {
-        handleChannelStateTransition(state, generation);
+    void handleChannelStateTransitionForTest(io::ChannelState state) {
+        handleChannelStateTransition(state);
     }
     void handleRequestFinishedForTest(int requestId, const ::modbus::session::ModbusResponse& response, quint64 generation) {
         handleRequestFinished(requestId, response, generation);
@@ -95,7 +94,6 @@ signals:
     void sessionTransientDisconnect(const QString& reason);
     void connectFinished(bool ok, const QString& error);
     void requestFinished(int requestId, const ::modbus::session::ModbusResponse& response);
-    void rawFrameReceived(bool isTx, const QByteArray& data);
     void stackReleased();
     void stackReleaseTimedOut(const QString& message);
     void linkageSourceDisconnected();
@@ -114,7 +112,7 @@ private:
     // the IO thread + worker before requesting a connect. Deduped so the two
     // transport paths cannot drift.
     void activateStack(quint64 generation);
-    void handleChannelStateTransition(io::ChannelState state, quint64 generation);
+    void handleChannelStateTransition(io::ChannelState state);
     void handleConnectFinished(bool ok, const QString& error, quint64 generation);
     void handleRequestFinished(int requestId, const ::modbus::session::ModbusResponse& response,
                                quint64 generation);
@@ -148,7 +146,7 @@ private:
     void onReleaseTimedOut(const QString& message);
     void maybeRunDeferredAction();
 
-    SessionMode mode_;
+    ::modbus::base::ModbusMode mode_;
     std::shared_ptr<io::IChannel> channel_;
     std::shared_ptr<::modbus::session::ModbusClient> client_;
     std::shared_ptr<::modbus::dispatch::ModbusWorker> worker_;
@@ -163,12 +161,6 @@ private:
 
     QPointer<TrafficLogController> trafficLogController_;
     QPointer<PollingController> pollingController_;
-    // Raw pointer: RequestSubmissionService is a plain C++ class owned by
-    // ModbusPagePresenter (std::unique_ptr). It outlives this presenter in
-    // every teardown path (services are deleted before the session
-    // presenter's queued handlers can run again), so no QPointer guard is
-    // possible or needed.
-    RequestSubmissionService* requestService_ = nullptr;
     std::unique_ptr<WorkerReleaseCoordinator> releaseCoordinator_;
     std::function<void()> deferredAction_;
 };

@@ -48,15 +48,13 @@ protected:
         trafficLogController_ = std::make_unique<TrafficLogController>(
             nullptr, pollingController_.get());
         tcpPresenter_ = std::make_unique<ModbusSessionPresenter>(
-            SessionMode::Tcp);
+            ::modbus::base::ModbusMode::TCP);
         rtuPresenter_ = std::make_unique<ModbusSessionPresenter>(
-            SessionMode::Rtu);
+            ::modbus::base::ModbusMode::RTU);
 
-        tcpPresenter_->setRequestService(requestService_.get());
         tcpPresenter_->setPollingController(pollingController_.get());
         tcpPresenter_->setTrafficLogController(trafficLogController_.get());
 
-        rtuPresenter_->setRequestService(requestService_.get());
         rtuPresenter_->setPollingController(pollingController_.get());
         rtuPresenter_->setTrafficLogController(trafficLogController_.get());
     }
@@ -69,15 +67,15 @@ protected:
 };
 
 TEST_F(ModbusSessionPresenterTest, TcpMode_CreatesTcpPresenter) {
-    EXPECT_EQ(tcpPresenter_->mode(), SessionMode::Tcp);
+    EXPECT_EQ(tcpPresenter_->mode(), ::modbus::base::ModbusMode::TCP);
 }
 
 TEST_F(ModbusSessionPresenterTest, RtuMode_CreatesRtuPresenter) {
-    EXPECT_EQ(rtuPresenter_->mode(), SessionMode::Rtu);
+    EXPECT_EQ(rtuPresenter_->mode(), ::modbus::base::ModbusMode::RTU);
 }
 
 TEST_F(ModbusSessionPresenterTest, ModeDescriptor_MapsAsciiSessionMode) {
-    const auto descriptor = modeDescriptor(SessionMode::Ascii);
+    const auto descriptor = modeDescriptor(::modbus::base::ModbusMode::ASCII);
     EXPECT_EQ(descriptor.modbusMode, ::modbus::base::ModbusMode::ASCII);
     EXPECT_EQ(descriptor.protocolType, ::modbus::parser::ProtocolType::Ascii);
     EXPECT_TRUE(descriptor.usesSerialConnection);
@@ -232,52 +230,52 @@ TEST_F(ModbusSessionPresenterTest, DeriveUiState_TcpMode_Transitions) {
     using Core = ::modbus::session::ConnectionStateMachine::State;
 
     // Disconnected
-    EXPECT_EQ(ModbusSessionPresenter::deriveUiState(Core::Disconnected, io::ChannelState::Closed, SessionMode::Tcp),
+    EXPECT_EQ(ModbusSessionPresenter::deriveUiState(Core::Disconnected, io::ChannelState::Closed, ::modbus::base::ModbusMode::TCP),
               SessionConnectionState::Disconnected);
 
     // Connecting + Channel Opening -> Connecting
-    EXPECT_EQ(ModbusSessionPresenter::deriveUiState(Core::Connecting, io::ChannelState::Opening, SessionMode::Tcp),
+    EXPECT_EQ(ModbusSessionPresenter::deriveUiState(Core::Connecting, io::ChannelState::Opening, ::modbus::base::ModbusMode::TCP),
               SessionConnectionState::Connecting);
 
     // Connecting + Channel Open -> Connecting
-    EXPECT_EQ(ModbusSessionPresenter::deriveUiState(Core::Connecting, io::ChannelState::Open, SessionMode::Tcp),
+    EXPECT_EQ(ModbusSessionPresenter::deriveUiState(Core::Connecting, io::ChannelState::Open, ::modbus::base::ModbusMode::TCP),
               SessionConnectionState::Connecting);
 
     // Connected -> Connected
-    EXPECT_EQ(ModbusSessionPresenter::deriveUiState(Core::Connected, io::ChannelState::Open, SessionMode::Tcp),
+    EXPECT_EQ(ModbusSessionPresenter::deriveUiState(Core::Connected, io::ChannelState::Open, ::modbus::base::ModbusMode::TCP),
               SessionConnectionState::Connected);
 
     // Failed -> Disconnected
-    EXPECT_EQ(ModbusSessionPresenter::deriveUiState(Core::Failed, io::ChannelState::Error, SessionMode::Tcp),
+    EXPECT_EQ(ModbusSessionPresenter::deriveUiState(Core::Failed, io::ChannelState::Error, ::modbus::base::ModbusMode::TCP),
               SessionConnectionState::Disconnected);
 
     // Disconnecting -> Disconnecting
-    EXPECT_EQ(ModbusSessionPresenter::deriveUiState(Core::Disconnecting, io::ChannelState::Closing, SessionMode::Tcp),
+    EXPECT_EQ(ModbusSessionPresenter::deriveUiState(Core::Disconnecting, io::ChannelState::Closing, ::modbus::base::ModbusMode::TCP),
               SessionConnectionState::Disconnecting);
 }
 
 TEST_F(ModbusSessionPresenterTest, DeriveUiState_RtuMode_Transitions) {
     using Core = ::modbus::session::ConnectionStateMachine::State;
 
-    EXPECT_EQ(ModbusSessionPresenter::deriveUiState(Core::Connecting, io::ChannelState::Open, SessionMode::Rtu),
+    EXPECT_EQ(ModbusSessionPresenter::deriveUiState(Core::Connecting, io::ChannelState::Open, ::modbus::base::ModbusMode::RTU),
               SessionConnectionState::Connecting);
 
-    EXPECT_EQ(ModbusSessionPresenter::deriveUiState(Core::Connected, io::ChannelState::Open, SessionMode::Rtu),
+    EXPECT_EQ(ModbusSessionPresenter::deriveUiState(Core::Connected, io::ChannelState::Open, ::modbus::base::ModbusMode::RTU),
               SessionConnectionState::Connected);
 }
 
 TEST_F(ModbusSessionPresenterTest, DeriveUiState_CoreFsmIsSingleSourceOfTruth) {
     using Core = ::modbus::session::ConnectionStateMachine::State;
 
-    EXPECT_EQ(ModbusSessionPresenter::deriveUiState(Core::Disconnected, io::ChannelState::Closed, SessionMode::Tcp),
+    EXPECT_EQ(ModbusSessionPresenter::deriveUiState(Core::Disconnected, io::ChannelState::Closed, ::modbus::base::ModbusMode::TCP),
               SessionConnectionState::Disconnected);
-    EXPECT_EQ(ModbusSessionPresenter::deriveUiState(Core::Failed, io::ChannelState::Error, SessionMode::Tcp),
+    EXPECT_EQ(ModbusSessionPresenter::deriveUiState(Core::Failed, io::ChannelState::Error, ::modbus::base::ModbusMode::TCP),
               SessionConnectionState::Disconnected);
-    EXPECT_EQ(ModbusSessionPresenter::deriveUiState(Core::Connecting, io::ChannelState::Open, SessionMode::Tcp),
+    EXPECT_EQ(ModbusSessionPresenter::deriveUiState(Core::Connecting, io::ChannelState::Open, ::modbus::base::ModbusMode::TCP),
               SessionConnectionState::Connecting);
-    EXPECT_EQ(ModbusSessionPresenter::deriveUiState(Core::Connected, io::ChannelState::Open, SessionMode::Tcp),
+    EXPECT_EQ(ModbusSessionPresenter::deriveUiState(Core::Connected, io::ChannelState::Open, ::modbus::base::ModbusMode::TCP),
               SessionConnectionState::Connected);
-    EXPECT_EQ(ModbusSessionPresenter::deriveUiState(Core::Disconnecting, io::ChannelState::Closing, SessionMode::Tcp),
+    EXPECT_EQ(ModbusSessionPresenter::deriveUiState(Core::Disconnecting, io::ChannelState::Closing, ::modbus::base::ModbusMode::TCP),
               SessionConnectionState::Disconnecting);
 }
 
@@ -341,8 +339,7 @@ TEST_F(ModbusSessionPresenterTest, PassiveDisconnect_TcpEmitsUnexpectedAlertAndT
     QSignalSpy trafficSpy(trafficLogController_.get(), &TrafficLogController::trafficEvent);
 
     tcpPresenter_->setConnectionStateForTest(SessionConnectionState::Connected);
-    tcpPresenter_->handleChannelStateTransitionForTest(io::ChannelState::Closed,
-                                                        tcpPresenter_->connectionGeneration());
+    tcpPresenter_->handleChannelStateTransitionForTest(io::ChannelState::Closed);
 
     EXPECT_EQ(alertSpy.count(), 1);
     EXPECT_EQ(transientSpy.count(), 1);
@@ -365,8 +362,7 @@ TEST_F(ModbusSessionPresenterTest, TcpHalfOpen_RequestTimeoutFollowedByChannelCl
 
     // 2. Later, the channel's TCP linger finishes and emits Closed.
     // Presenter MUST detect wasEstablished (Connected) and emit the alert and transient disconnect!
-    tcpPresenter_->handleChannelStateTransitionForTest(io::ChannelState::Closed,
-                                                        tcpPresenter_->connectionGeneration());
+    tcpPresenter_->handleChannelStateTransitionForTest(io::ChannelState::Closed);
 
     EXPECT_EQ(alertSpy.count(), 1);
     EXPECT_EQ(transientSpy.count(), 1);
@@ -398,7 +394,7 @@ TEST_F(ModbusSessionPresenterTest, PassiveDisconnectRecovery_EmitsSessionConnect
     EXPECT_EQ(connectedSpy.count(), 1);
 
     // Passive disconnect brings UI to Disconnected
-    tcpPresenter_->handleChannelStateTransitionForTest(io::ChannelState::Closed, tcpPresenter_->connectionGeneration());
+    tcpPresenter_->handleChannelStateTransitionForTest(io::ChannelState::Closed);
     EXPECT_EQ(tcpPresenter_->connectionState(), SessionConnectionState::Disconnected);
 
     // Reconnection: channel transitions back to Open and core state returns to Connected
@@ -406,7 +402,7 @@ TEST_F(ModbusSessionPresenterTest, PassiveDisconnectRecovery_EmitsSessionConnect
     ::modbus::session::ModbusResponse resp;
     resp.kind = ::modbus::session::ModbusResponseKind::Success;
     // Calling handleChannelStateTransition(Open) or handleRequestFinished
-    tcpPresenter_->handleChannelStateTransitionForTest(io::ChannelState::Open, tcpPresenter_->connectionGeneration());
+    tcpPresenter_->handleChannelStateTransitionForTest(io::ChannelState::Open);
     tcpPresenter_->handleRequestFinishedForTest(1, resp, tcpPresenter_->connectionGeneration());
 
     // Recovering to Connected emits sessionConnected so PollingController and UI re-sync
@@ -419,8 +415,7 @@ TEST_F(ModbusSessionPresenterTest, PassiveDisconnect_SerialEmitsUnexpectedAlertA
     QSignalSpy trafficSpy(trafficLogController_.get(), &TrafficLogController::trafficEvent);
 
     rtuPresenter_->setConnectionStateForTest(SessionConnectionState::Connected);
-    rtuPresenter_->handleChannelStateTransitionForTest(io::ChannelState::Closed,
-                                                        rtuPresenter_->connectionGeneration());
+    rtuPresenter_->handleChannelStateTransitionForTest(io::ChannelState::Closed);
 
     EXPECT_EQ(alertSpy.count(), 1);
     EXPECT_EQ(transientSpy.count(), 1);

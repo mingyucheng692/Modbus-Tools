@@ -541,7 +541,7 @@ TEST(ConnectionWidgets, MainWindow_AllFivePages_ZeroOverlapAtMinimumDimensions) 
 TEST(ConnectionWidgets, ModbusPage_ResetStatsButton_TriggersPresenterAndUpdatesUI) {
     tests::mocks::FakeSettingsService settings;
     ui::views::modbus::ModbusPage page(&settings);
-    ui::application::modbus::ModbusPagePresenter presenter(&page, ui::application::modbus::SessionMode::Tcp);
+    ui::application::modbus::ModbusPagePresenter presenter(&page, ::modbus::base::ModbusMode::TCP);
     page.bindPresenter(&presenter);
 
     // Seed initial metrics

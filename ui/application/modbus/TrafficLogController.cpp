@@ -69,7 +69,6 @@ void TrafficLogController::logRawFrame(ui::common::TrafficDirection direction,
     ui::common::TrafficEvent event;
     event.direction = direction;
     event.requestType = ui::common::TrafficRequestType::Unknown;
-    event.isPoll = suppressLog;
     event.payload = data;
     publishEvent(std::move(event));
 }
@@ -160,7 +159,6 @@ void TrafficLogController::logInfo(const QString& message) {
 void TrafficLogController::logPollSummary(const PollSummary& summary) {
     ui::common::TrafficEvent event;
     event.requestType = ui::common::TrafficRequestType::Poll;
-    event.isPoll = true;
 
     QString summaryText = tr("Poll Summary: %1 ok, %2 err, %3 retry, avg RTT %4 ms")
         .arg(summary.successCount)

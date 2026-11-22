@@ -25,7 +25,7 @@ void assertObjectThread(const QObject* object, const char* context) {
 
 } // namespace
 
-ModbusSessionPresenter::ModbusSessionPresenter(SessionMode mode,
+ModbusSessionPresenter::ModbusSessionPresenter(::modbus::base::ModbusMode mode,
                                                QObject* parent)
     : QObject(parent),
       mode_(mode),
@@ -46,7 +46,7 @@ ModbusSessionPresenter::~ModbusSessionPresenter() {
 void ModbusSessionPresenter::startTcpConnect(const QString& ip, int port,
                                              const ::modbus::base::ModbusConfig& config) {
     assertGuiThread("startTcpConnect must run on the GUI thread");
-    Q_ASSERT(mode_ == SessionMode::Tcp);
+    Q_ASSERT(mode_ == ::modbus::base::ModbusMode::TCP);
     SPDLOG_INFO("ModbusSessionPresenter[TCP]: Connect requested to {}:{}", ip.toStdString(), port);
     setUiConnectionState(SessionConnectionState::Connecting);
     const quint64 generation = connectionGeneration_;
@@ -88,7 +88,7 @@ void ModbusSessionPresenter::requestConnect(const ModbusConnectionSpec& spec) {
 void ModbusSessionPresenter::startConnect(const ModbusConnectionSpec& spec) {
     assertGuiThread("startConnect must run on the GUI thread");
     const ModbusModeDescriptor descriptor = modeDescriptor(spec.config.mode);
-    Q_ASSERT(descriptor.sessionMode == mode_);
+    Q_ASSERT(descriptor.modbusMode == mode_);
 
     if (descriptor.usesSerialConnection) {
         Q_ASSERT(spec.serialConfig.has_value());
@@ -103,7 +103,7 @@ void ModbusSessionPresenter::startSerialConnect(const io::SerialConfig& serialCo
                                                 const ::modbus::base::ModbusConfig& modbusConfig) {
     assertGuiThread("startSerialConnect must run on the GUI thread");
     const ModbusModeDescriptor descriptor = modeDescriptor(modbusConfig.mode);
-    Q_ASSERT(descriptor.sessionMode == mode_);
+    Q_ASSERT(descriptor.modbusMode == mode_);
     SPDLOG_INFO("ModbusSessionPresenter[{}]: Connect requested to {}",
                  descriptor.logName,
                  serialConfig.portName.toStdString());
@@ -259,7 +259,7 @@ quint64 ModbusSessionPresenter::connectionGeneration() const {
     return connectionGeneration_;
 }
 
-SessionMode ModbusSessionPresenter::mode() const {
+::modbus::base::ModbusMode ModbusSessionPresenter::mode() const {
     return mode_;
 }
 
@@ -314,11 +314,6 @@ void ModbusSessionPresenter::setPollingController(PollingController* controller)
     connect(pollingController_, &PollingController::pollingFatalDisconnect,
             this, &ModbusSessionPresenter::handlePollingFatalDisconnect);
     pollingController_->setSessionConnected(isSessionConnected());
-}
-
-void ModbusSessionPresenter::setRequestService(RequestSubmissionService* service) {
-    assertGuiThread("setRequestService must be called on the GUI thread");
-    requestService_ = service;
 }
 
 void ModbusSessionPresenter::assertGuiThread(const char* context) const {
@@ -435,7 +430,6 @@ void ModbusSessionPresenter::setupChannelMonitor(quint64 generation) {
                     isTx ? ui::common::TrafficDirection::Tx : ui::common::TrafficDirection::Rx,
                     data);
             }
-            emit guard->rawFrameReceived(isTx, data);
         }, Qt::QueuedConnection);
     });
 }
@@ -448,7 +442,7 @@ void ModbusSessionPresenter::setupChannelStateHandler(quint64 generation) {
         QMetaObject::invokeMethod(guard.data(), [guard, generation, state]() {
             if (!guard) return;
             if (generation != guard->connectionGeneration_) return;
-            guard->handleChannelStateTransition(state, generation);
+            guard->handleChannelStateTransition(state);
         }, Qt::QueuedConnection);
     });
 }
@@ -473,7 +467,7 @@ void ModbusSessionPresenter::setupWorkerSignals(quint64 generation) {
 SessionConnectionState ModbusSessionPresenter::deriveUiState(
     ::modbus::session::ConnectionStateMachine::State coreState,
     io::ChannelState channelState,
-    SessionMode mode) {
+    ::modbus::base::ModbusMode mode) {
     Q_UNUSED(channelState);
     Q_UNUSED(mode);
     using Core = ::modbus::session::ConnectionStateMachine::State;
@@ -517,10 +511,8 @@ void ModbusSessionPresenter::syncStateFromCore() {
     setUiConnectionState(derived);
 }
 
-void ModbusSessionPresenter::handleChannelStateTransition(io::ChannelState state,
-                                                          quint64 generation) {
+void ModbusSessionPresenter::handleChannelStateTransition(io::ChannelState state) {
     assertGuiThread("handleChannelStateTransition must run on the GUI thread");
-    Q_UNUSED(generation);
 
     switch (state) {
     case io::ChannelState::Opening:
@@ -583,7 +575,6 @@ void ModbusSessionPresenter::handleRequestFinished(int requestId,
                                                      quint64 generation) {
     assertGuiThread("handleRequestFinished must run on the GUI thread");
     if (generation != connectionGeneration_) return;
-    if (!requestService_) return;
     emit requestFinished(requestId, response);
 }
 

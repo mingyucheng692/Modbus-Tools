@@ -3,6 +3,7 @@
 #include "ModbusTelemetryWidget.h"
 #include "common/FileExporter.h"
 #include "modbus/base/ModbusFunctionTraits.h"
+#include "analyzer/AnalyzerExporter.h"
 #include <QVBoxLayout>
 #include <QHBoxLayout>
 #include <QGridLayout>
@@ -44,12 +45,6 @@ QString directionLabel(::ui::common::TrafficDirection dir) {
         return QStringLiteral("SYS");
     }
     return QStringLiteral("SYS");
-}
-
-QString csvEscapeField(const QString& value) {
-    QString escaped = value;
-    escaped.replace(QLatin1Char('"'), QStringLiteral("\"\""));
-    return QStringLiteral("\"%1\"").arg(escaped);
 }
 
 } // namespace
@@ -596,7 +591,6 @@ void ModbusTelemetryWidget::processBatchTimeout() {
         TelemetryRowView row;
         row.rowId = tableModel_->nextRowId();
         row.event = event;
-        row.protocol = currentProtocol_;
         if (!event.payload.isEmpty()) {
             row.parseResult = ::modbus::parser::parse(event.payload, currentProtocol_);
         }
@@ -709,18 +703,10 @@ void ModbusTelemetryWidget::onSelectionChanged() {
     if (inspectInAnalyzerBtn_) {
         inspectInAnalyzerBtn_->setEnabled(hasPayload);
     }
-    if (hasPayload && isLinkageActive()) {
-        emit frameSelectedForAnalysis(row->event.payload);
-    }
 }
 
 QString ModbusTelemetryWidget::inspectorDetailsText() const noexcept {
     return inspectorDetailsText_ ? inspectorDetailsText_->toPlainText() : QString();
-}
-
-QString ModbusTelemetryWidget::formatInspectorDetails(const ::modbus::parser::ParseResult& pr, int aduLength) {
-    ModbusTelemetryWidget dummy;
-    return dummy.formatInspectorDetails(pr, aduLength, false, ::modbus::analyzer::RegisterDataType::UInt16, ::modbus::base::RegisterOrder::ABCD, {});
 }
 
 QString ModbusTelemetryWidget::formatInspectorDetails(
@@ -833,6 +819,7 @@ void ModbusTelemetryWidget::onFilterChanged(int index) {
 }
 
 QStringList ModbusTelemetryWidget::buildCsvLines() const {
+    using ::modbus::analyzer::exporter::escapeCsvValue;
     QStringList lines;
     lines.reserve(tableModel_->rowCount() + 1);
     lines.append(QStringLiteral("RowId,Timestamp,Direction,Length,PayloadHex,Status"));
@@ -845,11 +832,11 @@ QStringList ModbusTelemetryWidget::buildCsvLines() const {
                 : QString::fromLatin1(r->event.payload.toHex(' ').toUpper());
         lines.append(QStringLiteral("%1,%2,%3,%4,%5,%6")
                          .arg(r->rowId)
-                         .arg(csvEscapeField(r->event.timestamp.toString(QStringLiteral("hh:mm:ss.zzz"))))
+                         .arg(escapeCsvValue(r->event.timestamp.toString(QStringLiteral("hh:mm:ss.zzz"))))
                          .arg(directionLabel(r->event.direction))
                          .arg(r->event.payload.size())
-                         .arg(csvEscapeField(payloadOrSummary))
-                         .arg(csvEscapeField(r->statusText)));
+                         .arg(escapeCsvValue(payloadOrSummary))
+                         .arg(escapeCsvValue(r->statusText)));
     }
     return lines;
 }
@@ -902,7 +889,6 @@ void ModbusTelemetryWidget::onExportClicked() {
     }
     QString errorMsg;
     if (!exportToFile(filePath, &errorMsg)) {
-        emit exportFailed(errorMsg);
         QMessageBox::warning(this, tr("Export Failed"),
                              tr("Failed to export telemetry data: %1").arg(errorMsg));
     }

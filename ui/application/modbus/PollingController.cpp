@@ -111,7 +111,6 @@ void PollingController::buildAndSubmit() {
         ui::common::TrafficEvent event;
         event.level = ui::common::TrafficEventLevel::Error;
         event.requestType = ui::common::TrafficRequestType::Poll;
-        event.isPoll = true;
         event.summary = tr("Error: %1").arg(result.error);
         emit trafficEvent(event);
         return;
@@ -163,7 +162,6 @@ void PollingController::handlePollCompletion(bool success, int rttMs, int retryC
             ui::common::TrafficEvent event;
             event.level = ui::common::TrafficEventLevel::Info;
             event.requestType = ui::common::TrafficRequestType::Poll;
-            event.isPoll = true;
             event.summary = tr("Poll recovered after %1 consecutive failures")
                 .arg(context_.consecutiveErrorCount);
             emit trafficEvent(event);
@@ -194,22 +192,22 @@ void PollingController::handlePollCompletion(bool success, int rttMs, int retryC
 
         const bool escalateToError = connectionFault
             || (decision == ::core::polling::PollingDecision::Escalated);
-        const bool shouldLogEscalatedError = context_.state != PollState::Escalated
-            || error != context_.lastErrorText
-            || (now - context_.lastErrorLogTime) >= std::chrono::seconds(5);
 
         ui::common::TrafficEvent event;
         event.level = escalateToError
             ? ui::common::TrafficEventLevel::Error
             : ui::common::TrafficEventLevel::Warning;
         event.requestType = ui::common::TrafficRequestType::Poll;
-        event.isPoll = true;
 
         if (escalateToError) {
+            const bool stateChanging = (context_.state != PollState::Escalated);
+            const bool dedupeAllowed = errorLogDedupe_.shouldLog(error, now);
+            const bool shouldLog = stateChanging || dedupeAllowed;
+
             if (connectionFault) {
                 event.summary = tr("Poll Error: Connection unavailable during polling (%1)")
                     .arg(error);
-            } else if (context_.state != PollState::Escalated) {
+            } else if (stateChanging) {
                 event.summary = tr("Poll Error escalated after %1 consecutive failures: %2")
                     .arg(context_.consecutiveErrorCount)
                     .arg(error);
@@ -219,39 +217,27 @@ void PollingController::handlePollCompletion(bool success, int rttMs, int retryC
                     .arg(error);
             }
 
-            if (shouldLogEscalatedError) {
-                // The event flows along the signal chain (trafficEvent -> TrafficLogController::publishEvent).
+            if (shouldLog) {
                 emit trafficEvent(event);
-                context_.lastErrorLogTime = now;
             }
 
-            context_.lastErrorText = error;
-
-            if (context_.state != PollState::Escalated) {
+            if (stateChanging) {
                 transitionTo(PollState::Escalated);
             }
         } else {
+            const bool stateChanging = (context_.state == PollState::Polling);
+            const bool dedupeAllowed = errorLogDedupe_.shouldLog(error, now);
+            const bool shouldLog = stateChanging || dedupeAllowed;
+
             event.summary = tr("Poll Warning: %1 consecutive failure(s): %2")
                 .arg(context_.consecutiveErrorCount)
                 .arg(error);
 
-            // Rate-limit degraded warnings:
-            // - Report immediately when error text changes (differentiate fault types)
-            // - Report immediately on first entry into Degraded (context_.state is still Polling)
-            // - Cap repetitive identical errors at once per 5 seconds
-            //
-            // The event flows along the signal chain (trafficEvent -> TrafficLogController::publishEvent).
-            const bool shouldLogDegraded = (error != context_.lastErrorText)
-                || (context_.state != PollState::Degraded)
-                || (now - context_.lastErrorLogTime) >= std::chrono::seconds(5);
-
-            if (shouldLogDegraded) {
+            if (shouldLog) {
                 emit trafficEvent(event);
-                context_.lastErrorLogTime = now;
             }
 
-            context_.lastErrorText = error;
-            if (context_.state == PollState::Polling) {
+            if (stateChanging) {
                 transitionTo(PollState::Degraded);
             }
         }
@@ -290,8 +276,7 @@ int PollingController::pollErrorThreshold() const {
 
 void PollingController::resetPollErrorTracking() {
     context_.consecutiveErrorCount = 0;
-    context_.lastErrorText.clear();
-    context_.lastErrorLogTime = std::chrono::steady_clock::time_point{};
+    errorLogDedupe_.clear();
     context_.failureStreakStartTime = std::chrono::steady_clock::time_point{};
     context_.connectionFaultStartTime = std::chrono::steady_clock::time_point{};
     context_.fatalDisconnectEmitted = false;

@@ -369,22 +369,6 @@ TEST(SettingsService, DefaultsCoverModbusAsciiNamespace)
              kModbusAsciiFlowControl,
              kModbusAsciiPortName,
              kModbusAsciiConnectionCollapsed,
-             kModbusAsciiStandardSlaveId,
-             kModbusAsciiStandardStartAddr,
-             kModbusAsciiStandardQuantity,
-             kModbusAsciiStandardFormatIndex,
-             kModbusAsciiStandardCollapsed,
-             kModbusAsciiRawCollapsed,
-             kModbusAsciiTrafficAutoScroll,
-             kModbusAsciiTrafficShowTx,
-             kModbusAsciiTrafficShowRx,
-             kModbusAsciiTrafficCollapsed,
-             kModbusAsciiControlEnablePoll,
-             kModbusAsciiControlIntervalMs,
-             kModbusAsciiControlFcIndex,
-             kModbusAsciiControlAddr,
-             kModbusAsciiControlQty,
-             kModbusAsciiDataMonitorCollapsed,
          }) {
         EXPECT_FALSE(service.value(QString::fromLatin1(key)).isNull()) << key;
     }

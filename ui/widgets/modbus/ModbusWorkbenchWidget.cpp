@@ -851,18 +851,11 @@ bool ModbusWorkbenchWidget::confirmWritePoll(uint8_t fc) {
 void ModbusWorkbenchWidget::onPollIntervalChanged(int val) { emit pollIntervalChanged(val); }
 
 void ModbusWorkbenchWidget::onAddMbapClicked() {
-    const QByteArray pdu = ::ui::common::data_helper::parseHex(rawTextEdit_->toPlainText());
-    QByteArray adu;
-    adu.resize(6);
-    adu[0] = 0x00;
-    adu[1] = 0x01;
-    adu[2] = 0x00;
-    adu[3] = 0x00;
-    const uint16_t length = static_cast<uint16_t>(pdu.size() + 1);
-    adu[4] = static_cast<char>((length >> 8) & 0xFF);
-    adu[5] = static_cast<char>(length & 0xFF);
-    adu.append(static_cast<char>(slaveIdSpin_->value()));
-    adu.append(pdu);
+    const QByteArray raw = ::ui::common::data_helper::parseHex(rawTextEdit_->toPlainText());
+    if (raw.isEmpty()) return;
+    const auto fc = static_cast<::modbus::base::FunctionCode>(static_cast<uint8_t>(raw[0]));
+    const ::modbus::base::Pdu pdu(fc, raw.mid(1));
+    const QByteArray adu = ::modbus::base::buildTcpAdu(static_cast<uint8_t>(slaveIdSpin_->value()), pdu, 1);
     rawTextEdit_->setPlainText(adu.toHex(' ').toUpper());
 }
 

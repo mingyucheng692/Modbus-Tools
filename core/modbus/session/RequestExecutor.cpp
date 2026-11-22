@@ -85,32 +85,6 @@ namespace {
         }
     }
 
-    bool isBroadcastWriteFunction(base::FunctionCode functionCode) {
-        using base::FunctionCode;
-        switch (functionCode) {
-        case FunctionCode::WriteSingleCoil:
-        case FunctionCode::WriteSingleRegister:
-        case FunctionCode::WriteMultipleCoils:
-        case FunctionCode::WriteMultipleRegisters:
-            return true;
-        default:
-            return false;
-        }
-    }
-
-    bool isReadFunction(base::FunctionCode functionCode) {
-        using base::FunctionCode;
-        switch (functionCode) {
-        case FunctionCode::ReadCoils:
-        case FunctionCode::ReadDiscreteInputs:
-        case FunctionCode::ReadHoldingRegisters:
-        case FunctionCode::ReadInputRegisters:
-            return true;
-        default:
-            return false;
-        }
-    }
-
 } // namespace
 
 RequestExecutor::RequestExecutor(const Dependencies& deps)
@@ -281,7 +255,7 @@ void RequestExecutor::sendCurrentRequest() {
     transport_->resetPendingState();
 
     if (isBroadcastRequest(activeSlaveId_, activeRequest_.functionCode())
-        && !isBroadcastWriteFunction(activeRequest_.functionCode())) {
+        && !base::function_traits::isWriteOperation(activeRequest_.functionCode())) {
         reqStateMachine_->tryTransition(RequestStateMachine::State::Failed, "invalid-broadcast-function");
         completeTransaction(ModbusResponse::Error(base::ModbusError::InvalidPdu,
             QStringLiteral("Broadcast only supports write function codes")));
@@ -774,11 +748,11 @@ int RequestExecutor::determineMaxRetries(base::FunctionCode fc) const {
     // disable write retries while the global count is positive). Poll reads
     // fail fast on pollRetries when configured; everything else uses the
     // global count.
-    if (isBroadcastWriteFunction(fc)) {
+    if (base::function_traits::isWriteOperation(fc)) {
         return (config_->writeRetries >= 0) ? std::max(config_->writeRetries, config_->retries)
                                             : config_->retries;
     }
-    if (isReadFunction(fc)) {
+    if (base::function_traits::isReadOperation(fc)) {
         return (config_->pollRetries > 0) ? config_->pollRetries : config_->retries;
     }
     return config_->retries;
