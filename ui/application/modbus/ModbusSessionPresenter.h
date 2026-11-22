@@ -62,15 +62,13 @@ public:
     bool isLinked() const;
 
     /// Derives the UI connection state from the authoritative core
-    /// ConnectionStateMachine::State, the current channel state, the
-    /// session health (whether the Modbus device is actually responding),
+    /// ConnectionStateMachine::State, the current channel state,
     /// and the active session mode (TCP vs Serial).
     /// This is the single source of truth for UI state. Public static test
     /// seam.
     static SessionConnectionState deriveUiState(
         ::modbus::session::ConnectionStateMachine::State coreState,
         io::ChannelState channelState,
-        ::modbus::session::SessionHealth health,
         SessionMode mode = SessionMode::Tcp);
 
     void handleChannelStateTransitionForTest(io::ChannelState state, quint64 generation) {
@@ -91,6 +89,7 @@ public:
     }
 
 signals:
+    void sessionConnecting();
     void sessionConnected();
     void sessionDisconnected(const QString& reason);
     void sessionTransientDisconnect(const QString& reason);
@@ -130,7 +129,14 @@ private:
     /// conflicts with the existing UI FSM state, the core state wins.
     void syncStateFromCore();
 
-    void onConnectionStateChanged(SessionConnectionState state);
+    enum class DisconnectKind {
+        None,
+        Explicit,
+        Passive
+    };
+    void setUiConnectionState(SessionConnectionState next,
+                              DisconnectKind kind = DisconnectKind::None,
+                              const QString& reason = QString());
 
     bool hasLiveOrPendingStack() const;
     // Hands the current live stack off to releaseCoordinator_ for bounded
@@ -150,7 +156,6 @@ private:
     ::modbus::base::ModbusConfig currentConfig_;
     quint64 connectionGeneration_ = 0;
     SessionConnectionState connectionState_ = SessionConnectionState::Disconnected;
-    bool disconnectIsExplicit_ = false;
     bool linked_ = false;
     int timeoutMs_;
     int retries_;

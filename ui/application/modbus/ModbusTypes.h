@@ -118,7 +118,6 @@ struct ModbusConnectionSpec {
 enum class SessionConnectionState {
     Disconnected,
     Connecting,
-    TransportConnected,
     Connected,
     Disconnecting
 };
@@ -129,7 +128,6 @@ enum class SessionConnectionState {
     switch (state) {
     case SessionConnectionState::Disconnected:       return "Disconnected";
     case SessionConnectionState::Connecting:         return "Connecting";
-    case SessionConnectionState::TransportConnected: return "TransportConnected";
     case SessionConnectionState::Connected:          return "Connected";
     case SessionConnectionState::Disconnecting:      return "Disconnecting";
     }

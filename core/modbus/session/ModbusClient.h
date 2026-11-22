@@ -26,7 +26,7 @@ namespace modbus::session {
 //
 // Concurrency model:
 // Driven exclusively by ModbusWorker via Qt::QueuedConnection serialized events.
-// Cross-thread reads (sessionHealth, connectionState, isConnected, abort) are safely decoupled.
+// Cross-thread reads (connectionState, isConnected, abort) are safely decoupled.
 //
 // Destruction order:
 // Worker thread must be fully joined (quit()+wait()) before ~ModbusClient() destroys state.
@@ -62,12 +62,6 @@ public:
     ConnectionState connectionState() const;
     RequestState requestState() const;
 
-    /// Session health: whether the Modbus device is actually responding,
-    /// orthogonal to the transport-layer connection state.
-    SessionHealth sessionHealth() const {
-        return sessionHealth_.load(std::memory_order_acquire);
-    }
-
     /// Debug-only contract arming: ModbusWorker invokes this on its own
     /// thread (from every queued handler that drives the client) to declare
     /// itself the owning thread. From then on, Debug builds assert that all
@@ -80,8 +74,6 @@ public:
 #endif
 
 private:
-    using PendingRequest = RequestExecutor::PendingRequest;
-
 #ifdef NDEBUG
     // Release builds: the affinity contract is enforced by documentation and
     // ModbusWorker's QueuedConnection serialization; guards compile to nothing.
@@ -107,7 +99,6 @@ private:
     RetryStrategy retryStrategy_;
     ConnectionManager connectionManager_;
     RequestStateMachine requestStateMachine_;
-    std::atomic<SessionHealth> sessionHealth_{SessionHealth::Unknown};
 
     FrameExtractor frameExtractor_;
     RequestExecutor requestExecutor_;

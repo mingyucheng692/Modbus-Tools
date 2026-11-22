@@ -92,10 +92,6 @@ public:
         return state_.load(std::memory_order_acquire);
     }
 
-    void forceReset(State newState) {
-        state_.store(newState, std::memory_order_release);
-    }
-
 protected:
     std::atomic<State> state_{Derived::kInitialState};
 };

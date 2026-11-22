@@ -42,7 +42,6 @@ namespace {
         return id;
     }
 
-    constexpr std::size_t kDupeTrackerCleanupThreshold = 1000;
     constexpr auto kDupeTrackerSuppressionWindow = std::chrono::seconds(5);
     constexpr auto kDupeTrackerSuppressionWindowSeconds =
         std::chrono::duration_cast<std::chrono::seconds>(
@@ -119,7 +118,6 @@ RequestExecutor::RequestExecutor(const Dependencies& deps)
     , transport_(deps.transport)
     , frameExtractor_(deps.frameExtractor)
     , retryStrategy_(deps.retryStrategy)
-    , connStateMachine_(deps.connStateMachine)
     , reqStateMachine_(deps.reqStateMachine)
     , connectionManager_(deps.connectionManager)
     , config_(deps.config)
@@ -130,7 +128,6 @@ RequestExecutor::RequestExecutor(const Dependencies& deps)
     Q_ASSERT(transport_);
     Q_ASSERT(frameExtractor_);
     Q_ASSERT(retryStrategy_);
-    Q_ASSERT(connStateMachine_);
     Q_ASSERT(reqStateMachine_);
     Q_ASSERT(connectionManager_);
     Q_ASSERT(config_);
@@ -186,6 +183,8 @@ void RequestExecutor::executeAsync(const base::Pdu& request, int slaveId, quint6
         return;
     }
 
+    reqStateMachine_->tryTransition(RequestStateMachine::State::Idle, "request-start");
+
     if (aborted_.load(std::memory_order_acquire)) {
         requestLocked_ = false;
         reqStateMachine_->tryTransition(RequestStateMachine::State::Aborted, "request-aborted-before-lock");
@@ -232,8 +231,6 @@ void RequestExecutor::executeAsync(const base::Pdu& request, int slaveId, quint6
     activeSlaveId_ = targetSlaveId;
     activeTraceId_ = traceId;
     activeCallback_ = std::move(callback);
-    activeRequestId_ = enqueuePendingRequest(request, targetSlaveId, maxRetries);
-    reqStateMachine_->tryTransition(RequestStateMachine::State::Idle, "request-start");
 
     if (!transactionTimer_) {
         transactionTimer_ = std::make_unique<QTimer>();
@@ -278,7 +275,6 @@ void RequestExecutor::sendCurrentRequest() {
     }
 
     frameExtractor_->reset();
-    responseReady_ = false;
     if (config_->mode == base::ModbusMode::RTU) {
         writeDrained_ = false;
     }
@@ -324,6 +320,8 @@ void RequestExecutor::performWrite(const QByteArray& adu) {
         return;
     }
 
+    reqStateMachine_->tryTransition(RequestStateMachine::State::Sending, "write-attempt");
+
     if (!channel_->write(adu)) {
         reqStateMachine_->tryTransition(RequestStateMachine::State::Failed, "write-failed");
         const QString error = connectionManager_->hasChannelError()
@@ -342,7 +340,6 @@ void RequestExecutor::performWrite(const QByteArray& adu) {
         rtuSendWindowOpensAt_ = std::chrono::steady_clock::now() + frameTxDuration + silence;
     }
 
-    reqStateMachine_->tryTransition(RequestStateMachine::State::Sending, "write-success");
     transactionStartTime_ = std::chrono::steady_clock::now();
 
     if (!shouldWaitForResponse(activeSlaveId_, activeRequest_.functionCode())) {
@@ -571,9 +568,8 @@ void RequestExecutor::onWriteDrained() {
     }
 }
 
-void RequestExecutor::resetState(bool clearPendingQueue) {
+void RequestExecutor::resetState([[maybe_unused]] bool clearPendingQueue) {
     activeTraceId_ = 0;
-    responseReady_ = false;
     writeDrained_ = true;
     lastWriteDrainedAt_ = {};
     rtuSendWindowOpensAt_ = {};
@@ -588,9 +584,6 @@ void RequestExecutor::resetState(bool clearPendingQueue) {
     }
     if (sendWindowTimer_) {
         sendWindowTimer_->stop();
-    }
-    if (clearPendingQueue) {
-        pendingRequests_.clear();
     }
     if (activeCallback_) {
         reqStateMachine_->tryTransition(RequestStateMachine::State::Failed, "reset-state");
@@ -656,14 +649,12 @@ void RequestExecutor::completeTransaction(ModbusResponse response) {
 
     if (!response.isError()) {
         reqStateMachine_->tryTransition(RequestStateMachine::State::Completed, "request-success");
-        finishPendingRequest(activeRequestId_, true, QString());
     } else {
         if (aborted_.load()) {
             reqStateMachine_->tryTransition(RequestStateMachine::State::Aborted, "request-aborted");
         } else {
             reqStateMachine_->tryTransition(RequestStateMachine::State::Failed, "request-failed");
         }
-        finishPendingRequest(activeRequestId_, false, response.error);
     }
 
     requestLocked_ = false;
@@ -791,43 +782,6 @@ int RequestExecutor::determineMaxRetries(base::FunctionCode fc) const {
         return (config_->pollRetries > 0) ? config_->pollRetries : config_->retries;
     }
     return config_->retries;
-}
-
-int RequestExecutor::enqueuePendingRequest(const base::Pdu& request, int slaveId, int maxRetries) {
-    PendingRequest item;
-    item.requestId = nextRequestId_++;
-    item.functionCode = request.functionCode();
-    item.slaveId = (slaveId == -1) ? config_->slaveId : slaveId;
-    item.timeoutMs = config_->timeoutMs;
-    item.retries = maxRetries;
-    item.enqueueAt = std::chrono::steady_clock::now();
-    pendingRequests_.push_back(item);
-    SPDLOG_DEBUG("RequestExecutor: enqueue request id={}, fc={}, slave={}, queue={} trace_id={}",
-                              item.requestId,
-                              static_cast<int>(item.functionCode),
-                              item.slaveId,
-                              pendingRequests_.size(),
-                              currentTrace());
-    return item.requestId;
-}
-
-void RequestExecutor::finishPendingRequest(int requestId, bool success,
-                                           const QString& error) {
-    auto it = std::find_if(pendingRequests_.begin(), pendingRequests_.end(),
-                           [requestId](const PendingRequest& item) {
-                               return item.requestId == requestId;
-                           });
-    if (it == pendingRequests_.end()) {
-        SPDLOG_WARN("RequestExecutor: request id={} not found in queue trace_id={}",
-                     requestId, currentTrace());
-        return;
-    }
-    [[maybe_unused]] const auto waitMs = std::chrono::duration_cast<std::chrono::milliseconds>(
-        std::chrono::steady_clock::now() - it->enqueueAt).count();
-    SPDLOG_DEBUG(
-        "RequestExecutor: finish request id={}, success={}, queue_wait={}ms, error='{}' trace_id={}",
-        requestId, success, waitMs, error.toStdString(), currentTrace());
-    pendingRequests_.erase(it);
 }
 
 } // namespace modbus::session

@@ -82,22 +82,8 @@ TEST_F(ConnectionStateGuardingTest, ConnectingState_ReadsWritesDisabled) {
     EXPECT_TRUE(capturedGuards.tooltipMessage.contains(QObject::tr("Connecting")));
 }
 
-// 4. TransportConnected (TCP intermediate): reads enabled, writes disabled + operator-friendly tooltip
-TEST_F(ConnectionStateGuardingTest, TransportConnected_TCP_ReadsEnabledWritesDisabled) {
-    ExecutionGuardState capturedGuards;
-    EXPECT_CALL(*mockView_, renderConnectionState(SessionConnectionState::TransportConnected)).Times(1);
-    EXPECT_CALL(*mockView_, setExecutionGuards(_))
-        .WillOnce(SaveArg<0>(&capturedGuards));
-
-    presenter_->syncWidgetGuards(SessionConnectionState::TransportConnected);
-
-    EXPECT_TRUE(capturedGuards.executeEnabled);
-    EXPECT_FALSE(capturedGuards.pollingEnabled);
-    EXPECT_TRUE(capturedGuards.tooltipMessage.contains(QObject::tr("Device is establishing session")));
-}
-
-// 5. TransportConnected Serial RTU: direct Connected, all ops enabled
-TEST_F(ConnectionStateGuardingTest, TransportConnected_Serial_AllOpsEnabled) {
+// 5. Connected Serial RTU: direct Connected, all ops enabled
+TEST_F(ConnectionStateGuardingTest, Connected_Serial_AllOpsEnabled) {
     auto rtuPresenter = std::make_unique<ModbusPagePresenter>(mockView_.get(), SessionMode::Rtu);
     ExecutionGuardState capturedGuards;
     EXPECT_CALL(*mockView_, setExecutionGuards(_))
@@ -207,8 +193,8 @@ TEST_F(ConnectionStateGuardingTest, DetachView_PreventsDanglingAccess) {
     EXPECT_TRUE(presenter_->sessionPresenter()->isLinked());
 }
 
-// 12. isSessionConnected returns true for TransportConnected and Connected
-TEST_F(ConnectionStateGuardingTest, IsSessionConnected_TrueForConnectedAndTransportConnected) {
+// 12. isSessionConnected reflects Connected state
+TEST_F(ConnectionStateGuardingTest, IsSessionConnected_ReflectsConnectedState) {
     auto* session = presenter_->sessionPresenter();
     ASSERT_NE(session, nullptr);
 

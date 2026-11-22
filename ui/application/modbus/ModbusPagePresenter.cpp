@@ -72,6 +72,8 @@ void ModbusPagePresenter::wireConnections() {
                 this, &ModbusPagePresenter::linkageSourceDisconnected);
         connect(sessionPresenter_, &ModbusSessionPresenter::requestFinished,
                 this, &ModbusPagePresenter::handleRequestFinished);
+        connect(sessionPresenter_, &ModbusSessionPresenter::sessionConnecting, this,
+                [this]() { syncWidgetGuards(SessionConnectionState::Connecting); });
         connect(sessionPresenter_, &ModbusSessionPresenter::sessionConnected, this,
                 [this]() { syncWidgetGuards(SessionConnectionState::Connected); });
         connect(sessionPresenter_, &ModbusSessionPresenter::sessionDisconnected, this,
@@ -277,12 +279,11 @@ void ModbusPagePresenter::syncWidgetGuards(SessionConnectionState state) {
     lastProtocolSwitchEnabled_ = protocolSwitchEnabled;
 
     const bool isConnected = (state == SessionConnectionState::Connected);
-    const bool isTransportConnected = (state == SessionConnectionState::TransportConnected);
 
     ExecutionGuardState guards;
     guards.pollingActive = isPolling;
-    guards.rawSendEnabled = (isConnected || (mode_ != SessionMode::Tcp && isTransportConnected));
-    guards.executeEnabled = (isConnected || isTransportConnected);
+    guards.rawSendEnabled = isConnected;
+    guards.executeEnabled = isConnected;
     guards.pollingEnabled = isConnected;
     guards.protocolSwitchEnabled = protocolSwitchEnabled;
 
@@ -290,10 +291,6 @@ void ModbusPagePresenter::syncWidgetGuards(SessionConnectionState state) {
         guards.tooltipMessage = tr("Connecting — please wait before sending commands.");
     } else if (state == SessionConnectionState::Disconnecting) {
         guards.tooltipMessage = tr("Disconnecting...");
-    } else if (state == SessionConnectionState::TransportConnected) {
-        if (mode_ == SessionMode::Tcp) {
-            guards.tooltipMessage = tr("Device is establishing session. Read commands available; write commands locked until ready.");
-        }
     } else if (!isConnected) {
         guards.tooltipMessage = tr("Connect device to send commands.");
     }

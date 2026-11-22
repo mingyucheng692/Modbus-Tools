@@ -56,6 +56,9 @@ public:
     [[nodiscard]] bool ensureConnected();
 
     void setTrafficLogControllerForTest(TrafficLogController* controller);
+    void onStackReleaseTimedOutForSwitchForTest(const QString& message) {
+        onStackReleaseTimedOutForSwitch(message);
+    }
 
     [[nodiscard]] static QString formatModbusError(const ::modbus::session::ModbusResponse& response);
 

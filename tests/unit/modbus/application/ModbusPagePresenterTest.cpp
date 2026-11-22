@@ -182,9 +182,6 @@ TEST_F(ModbusPagePresenterTest, ConnectionGuards_LockProtocolSwitchWhenNotDiscon
     presenter_->syncWidgetGuards(SessionConnectionState::Connecting);
     EXPECT_FALSE(guards.protocolSwitchEnabled);
 
-    presenter_->syncWidgetGuards(SessionConnectionState::TransportConnected);
-    EXPECT_FALSE(guards.protocolSwitchEnabled);
-
     presenter_->syncWidgetGuards(SessionConnectionState::Connected);
     EXPECT_FALSE(guards.protocolSwitchEnabled);
 
@@ -195,5 +192,16 @@ TEST_F(ModbusPagePresenterTest, ConnectionGuards_LockProtocolSwitchWhenNotDiscon
 TEST_F(ModbusPagePresenterTest, ResetMetrics_ResetsCountersAndUpdatesView) {
     EXPECT_CALL(*mockView_, updateMetrics(0, 0, 0, 0)).Times(AtLeast(1));
     presenter_->onResetMetricsRequested();
+}
+
+TEST_F(ModbusPagePresenterTest, SessionConnecting_SyncsConnectingGuards) {
+    EXPECT_CALL(*mockView_, renderConnectionState(SessionConnectionState::Connecting)).Times(1);
+    emit presenter_->sessionPresenter()->sessionConnecting();
+}
+
+TEST_F(ModbusPagePresenterTest, SwitchModeTimeout_RestoresOriginalProtocol) {
+    EXPECT_CALL(*mockView_, setProtocolType(modeDescriptor(SessionMode::Tcp).protocolType)).Times(AtLeast(1));
+    EXPECT_CALL(*mockView_, showStatusMessage(QStringLiteral("Release timed out"), true)).Times(1);
+    presenter_->onStackReleaseTimedOutForSwitchForTest(QStringLiteral("Release timed out"));
 }
 

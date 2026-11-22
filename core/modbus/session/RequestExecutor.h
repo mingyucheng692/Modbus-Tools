@@ -30,15 +30,6 @@ class RequestExecutor {
 public:
     using AsyncResponseCallback = std::function<void(const ModbusResponse&)>;
 
-    struct PendingRequest {
-        int requestId = 0;
-        int slaveId = 0;
-        int timeoutMs = 0;
-        int retries = 0;
-        base::FunctionCode functionCode = base::FunctionCode::ReadHoldingRegisters;
-        std::chrono::steady_clock::time_point enqueueAt{};
-    };
-
     /// Aggregated dependencies for RequestExecutor.
     ///
     /// Group 1 (protocol stack): channel through config — non-owning
@@ -50,7 +41,6 @@ public:
         transport::ITransport* transport = nullptr;
         FrameExtractor* frameExtractor = nullptr;
         RetryStrategy* retryStrategy = nullptr;
-        ConnectionStateMachine* connStateMachine = nullptr;
         RequestStateMachine* reqStateMachine = nullptr;
         ConnectionManager* connectionManager = nullptr;
         const base::ModbusConfig* config = nullptr;
@@ -98,8 +88,6 @@ private:
     bool shouldWaitForResponse(int slaveId, base::FunctionCode functionCode) const;
 
     [[nodiscard]] int determineMaxRetries(base::FunctionCode fc) const;
-    int enqueuePendingRequest(const base::Pdu& request, int slaveId, int maxRetries);
-    void finishPendingRequest(int requestId, bool success, const QString& error);
 
     // --- Non-owning references to ModbusClient-owned resources ---
     // 1. Protocol stack
@@ -107,7 +95,6 @@ private:
     transport::ITransport* transport_;
     FrameExtractor* frameExtractor_;
     RetryStrategy* retryStrategy_;
-    ConnectionStateMachine* connStateMachine_;
     RequestStateMachine* reqStateMachine_;
     ConnectionManager* connectionManager_;
     const base::ModbusConfig* config_;
@@ -123,7 +110,6 @@ private:
     base::Pdu activeRequest_;
     int activeSlaveId_ = 0;
     quint64 activeTraceId_ = 0;
-    int activeRequestId_ = 0;
     std::chrono::steady_clock::time_point transactionStartTime_{};
     std::unique_ptr<QTimer> transactionTimer_;
     std::unique_ptr<QTimer> rtuSilenceTimer_;
@@ -137,15 +123,11 @@ private:
     AsyncResponseCallback activeCallback_;
 
     // --- Owned members ---
-    std::deque<PendingRequest> pendingRequests_;
-    int nextRequestId_ = 1;
-
     bool requestLocked_{false};
     // Deduplication keys are integer tuples: (slave, fc, errorKind)
     using DedupeKey = std::tuple<uint8_t, uint8_t, uint8_t>;
     common::LogDedupe<DedupeKey> exceptionDedupe_;
     common::LogDedupe<DedupeKey> failureDedupe_;
-    bool responseReady_ = false;
 };
 
 } // namespace modbus::session

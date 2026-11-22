@@ -347,6 +347,7 @@ void PollingController::stopPoll() {
 
 void PollingController::reset() {
     stopPoll();
+    setSessionConnectedInternal(false, true);
     if (requestService_) {
         requestService_->clearAll();
     }

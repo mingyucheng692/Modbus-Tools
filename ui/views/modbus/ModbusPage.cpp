@@ -265,6 +265,44 @@ void ModbusPage::updateAddressBase(::modbus::address::AddressBase base) {
 }
 
 void ModbusPage::setProtocolType(::modbus::parser::ProtocolType protocol) {
+    ui::application::modbus::SessionMode mode = ui::application::modbus::SessionMode::Tcp;
+    switch (protocol) {
+    case ::modbus::parser::ProtocolType::Tcp:
+        mode = ui::application::modbus::SessionMode::Tcp;
+        break;
+    case ::modbus::parser::ProtocolType::Rtu:
+        mode = ui::application::modbus::SessionMode::Rtu;
+        break;
+    case ::modbus::parser::ProtocolType::Ascii:
+        mode = ui::application::modbus::SessionMode::Ascii;
+        break;
+    }
+
+    currentMode_ = mode;
+    applyProtocolSettingsGroup(mode);
+
+    if (protocolCombo_) {
+        const int idx = protocolCombo_->findData(static_cast<int>(mode));
+        if (idx >= 0 && protocolCombo_->currentIndex() != idx) {
+            const QSignalBlocker blocker(protocolCombo_);
+            protocolCombo_->setCurrentIndex(idx);
+        }
+    }
+
+    const auto descriptor = ui::application::modbus::modeDescriptor(mode);
+    if (descriptor.usesSerialConnection) {
+        if (connectionStack_) connectionStack_->setCurrentWidget(serialConnectionWidget_);
+        connectionWidget_ = serialConnectionWidget_;
+    } else {
+        if (connectionStack_) connectionStack_->setCurrentWidget(tcpConnectionWidget_);
+        connectionWidget_ = tcpConnectionWidget_;
+    }
+
+    if (protoSection_ && connectionWidget_) {
+        protoSection_->setExpanded(connectionWidget_->isSectionExpanded());
+    }
+    if (connectionStack_) connectionStack_->updateGeometry();
+
     if (workbenchWidget_) workbenchWidget_->setProtocolType(protocol);
     if (telemetryWidget_) telemetryWidget_->setProtocolType(protocol);
 }
@@ -333,25 +371,12 @@ void ModbusPage::onProtocolChanged(int index) {
 
 void ModbusPage::switchToProtocol(ui::application::modbus::SessionMode mode) {
     if (mode == currentMode_) return;
-    currentMode_ = mode;
-    applyProtocolSettingsGroup(mode);
-
-    const auto descriptor = ui::application::modbus::modeDescriptor(mode);
-    if (descriptor.usesSerialConnection) {
-        connectionStack_->setCurrentWidget(serialConnectionWidget_);
-        connectionWidget_ = serialConnectionWidget_;
+    if (pagePresenter_) {
+        pagePresenter_->switchMode(mode);
     } else {
-        connectionStack_->setCurrentWidget(tcpConnectionWidget_);
-        connectionWidget_ = tcpConnectionWidget_;
+        const auto descriptor = ui::application::modbus::modeDescriptor(mode);
+        setProtocolType(descriptor.protocolType);
     }
-
-    if (protoSection_ && connectionWidget_) {
-        protoSection_->setExpanded(connectionWidget_->isSectionExpanded());
-    }
-    connectionStack_->updateGeometry();
-
-    if (pagePresenter_) pagePresenter_->switchMode(mode);
-    setProtocolType(descriptor.protocolType);
 }
 
 void ModbusPage::applyProtocolSettingsGroup(ui::application::modbus::SessionMode mode) {

@@ -48,9 +48,7 @@ void ModbusSessionPresenter::startTcpConnect(const QString& ip, int port,
     assertGuiThread("startTcpConnect must run on the GUI thread");
     Q_ASSERT(mode_ == SessionMode::Tcp);
     SPDLOG_INFO("ModbusSessionPresenter[TCP]: Connect requested to {}:{}", ip.toStdString(), port);
-    // disconnectIsExplicit_ is reset by the Connecting state-entry handler.
-    connectionState_ = SessionConnectionState::Connecting;
-    onConnectionStateChanged(SessionConnectionState::Connecting);
+    setUiConnectionState(SessionConnectionState::Connecting);
     const quint64 generation = connectionGeneration_;
 
     if (trafficLogController_) {
@@ -59,8 +57,8 @@ void ModbusSessionPresenter::startTcpConnect(const QString& ip, int port,
 
     initStack(config);
     if (!worker_ || !channel_) {
-        connectionState_ = SessionConnectionState::Disconnected;
-        onConnectionStateChanged(SessionConnectionState::Disconnected);
+        setUiConnectionState(SessionConnectionState::Disconnected, DisconnectKind::Explicit,
+                             tr("Failed to create Modbus stack"));
         emit connectFinished(false, tr("Failed to create Modbus stack"));
         return;
     }
@@ -109,8 +107,7 @@ void ModbusSessionPresenter::startSerialConnect(const io::SerialConfig& serialCo
     SPDLOG_INFO("ModbusSessionPresenter[{}]: Connect requested to {}",
                  descriptor.logName,
                  serialConfig.portName.toStdString());
-    connectionState_ = SessionConnectionState::Connecting;
-    onConnectionStateChanged(SessionConnectionState::Connecting);
+    setUiConnectionState(SessionConnectionState::Connecting);
 
     if (trafficLogController_) {
         trafficLogController_->logConnectionInfo(tr("Opening %1...").arg(serialConfig.portName));
@@ -119,8 +116,8 @@ void ModbusSessionPresenter::startSerialConnect(const io::SerialConfig& serialCo
 
     initStack(modbusConfig);
     if (!worker_ || !channel_) {
-        connectionState_ = SessionConnectionState::Disconnected;
-        onConnectionStateChanged(SessionConnectionState::Disconnected);
+        setUiConnectionState(SessionConnectionState::Disconnected, DisconnectKind::Explicit,
+                             tr("Failed to create Modbus stack"));
         emit connectFinished(false, tr("Failed to create Modbus stack"));
         return;
     }
@@ -152,9 +149,7 @@ void ModbusSessionPresenter::requestDisconnect() {
     SPDLOG_INFO("ModbusSessionPresenter[{}]: Disconnect requested",
                  descriptor.logName);
     deferredAction_ = nullptr;
-    // disconnectIsExplicit_ is set by the Disconnecting state-entry handler.
-    connectionState_ = SessionConnectionState::Disconnecting;
-    onConnectionStateChanged(SessionConnectionState::Disconnecting);
+    setUiConnectionState(SessionConnectionState::Disconnecting);
     if (trafficLogController_) {
         trafficLogController_->logConnectionInfo(tr("Disconnecting..."));
     }
@@ -201,9 +196,7 @@ void ModbusSessionPresenter::requestRelease(const QString& timeoutMessage) {
                  static_cast<unsigned long long>(connectionGeneration_ + 1));
     if (pollingController_) pollingController_->reset();
     ++connectionGeneration_;
-    disconnectIsExplicit_ = true;
-    connectionState_ = SessionConnectionState::Disconnected;
-    onConnectionStateChanged(SessionConnectionState::Disconnected);
+    setUiConnectionState(SessionConnectionState::Disconnected, DisconnectKind::Explicit);
     const bool wasLinked = linked_;
     linked_ = false;
     if (wasLinked) {
@@ -255,8 +248,7 @@ void ModbusSessionPresenter::updateSettings(const ModbusTimingParams& params) {
 }
 
 bool ModbusSessionPresenter::isSessionConnected() const {
-    return connectionState_ == SessionConnectionState::Connected
-           || connectionState_ == SessionConnectionState::TransportConnected;
+    return connectionState_ == SessionConnectionState::Connected;
 }
 
 SessionConnectionState ModbusSessionPresenter::connectionState() const noexcept {
@@ -333,23 +325,37 @@ void ModbusSessionPresenter::assertGuiThread(const char* context) const {
     assertObjectThread(this, context);
 }
 
-void ModbusSessionPresenter::onConnectionStateChanged(SessionConnectionState state) {
-    assertGuiThread("onConnectionStateChanged must run on the GUI thread");
-    // State-driven derived flags. disconnectIsExplicit_ is path-dependent:
-    // 1. User disconnect: set to true in Disconnecting (covers requestDisconnect)
-    // 2. Release path: set to true in requestRelease()
-    // 3. New connection: reset to false in Connecting / Connected
-    switch (state) {
+void ModbusSessionPresenter::setUiConnectionState(SessionConnectionState next,
+                                                  DisconnectKind kind,
+                                                  const QString& reason) {
+    assertGuiThread("setUiConnectionState must run on the GUI thread");
+    const auto prev = connectionState_;
+    if (prev == next) {
+        return;
+    }
+    connectionState_ = next;
+
+    switch (next) {
     case SessionConnectionState::Connecting:
+        emit sessionConnecting();
+        break;
     case SessionConnectionState::Connected:
-        disconnectIsExplicit_ = false;
+        emit sessionConnected();
         break;
     case SessionConnectionState::Disconnecting:
-        disconnectIsExplicit_ = true;
         break;
     case SessionConnectionState::Disconnected:
-    case SessionConnectionState::TransportConnected:
-        break; // path-dependent / intermediate — do not touch disconnectIsExplicit_ here
+        if (prev == SessionConnectionState::Connected && kind == DisconnectKind::Passive) {
+            logging::DumpBacktrace();
+            emit unexpectedDisconnectAlertRequested();
+            emit sessionTransientDisconnect(reason);
+        } else if (kind == DisconnectKind::Explicit) {
+            if (pollingController_) {
+                pollingController_->stopPoll();
+            }
+            emit sessionDisconnected(reason);
+        }
+        break;
     }
 }
 
@@ -467,22 +473,17 @@ void ModbusSessionPresenter::setupWorkerSignals(quint64 generation) {
 SessionConnectionState ModbusSessionPresenter::deriveUiState(
     ::modbus::session::ConnectionStateMachine::State coreState,
     io::ChannelState channelState,
-    ::modbus::session::SessionHealth health,
     SessionMode mode) {
+    Q_UNUSED(channelState);
+    Q_UNUSED(mode);
     using Core = ::modbus::session::ConnectionStateMachine::State;
-    const bool hasTransportPhase = (modeDescriptor(mode).sessionMode == SessionMode::Tcp);
 
     switch (coreState) {
     case Core::Disconnected:
         return SessionConnectionState::Disconnected;
     case Core::Connecting:
-        // Channel Open → TransportConnected (TCP session not yet validated)
-        if (hasTransportPhase && channelState == io::ChannelState::Open) {
-            return SessionConnectionState::TransportConnected;
-        }
         return SessionConnectionState::Connecting;
     case Core::Connected:
-        // Transport and physical channel are established and ready for communication; enter Connected state.
         return SessionConnectionState::Connected;
     case Core::Disconnecting:
         return SessionConnectionState::Disconnecting;
@@ -500,26 +501,20 @@ void ModbusSessionPresenter::syncStateFromCore() {
     }
 
     const auto coreState = client_->connectionState();
-    // Channel state is needed for the Connecting vs TransportConnected
-    // distinction; channel_ is on the IO thread but channel_->state() is a
-    // simple enum read — safe for the same reason as client_->connectionState().
     const auto chanState = channel_ ? channel_->state() : io::ChannelState::Closed;
-    const auto health = client_->sessionHealth();
 
-    const auto derived = deriveUiState(coreState, chanState, health, mode_);
+    const auto derived = deriveUiState(coreState, chanState, mode_);
     if (derived == connectionState_) {
         return;
     }
 
-    SPDLOG_DEBUG("ModbusSessionPresenter: UI connection state {} -> {} (derived from core={}, chan={}, health={})",
+    SPDLOG_DEBUG("ModbusSessionPresenter: UI connection state {} -> {} (derived from core={}, chan={})",
                  connectionStateName(connectionState_),
                  connectionStateName(derived),
                  ::modbus::session::ConnectionStateMachine::toString(coreState),
-                 static_cast<int>(chanState),
-                 static_cast<int>(health));
+                 static_cast<int>(chanState));
 
-    connectionState_ = derived;
-    onConnectionStateChanged(derived);
+    setUiConnectionState(derived);
 }
 
 void ModbusSessionPresenter::handleChannelStateTransition(io::ChannelState state,
@@ -527,54 +522,17 @@ void ModbusSessionPresenter::handleChannelStateTransition(io::ChannelState state
     assertGuiThread("handleChannelStateTransition must run on the GUI thread");
     Q_UNUSED(generation);
 
-    // Edge detection must read the UI state BEFORE core derivation: on a
-    // passive channel loss the client's channel-state handler has already
-    // moved the core FSM Connected -> Failed, so syncStateFromCore() below
-    // lands connectionState_ in Disconnected — the pre-sync value is the only
-    // record of "an established session just died".
-    const auto stateBeforeSync = connectionState_;
-
-    // Core FSM is the single source of truth — derive UI state from it.
-    syncStateFromCore();
-
-    const auto currentState = connectionState_;
-    const bool isTcp = modeDescriptor(mode_).sessionMode == SessionMode::Tcp;
-
     switch (state) {
     case io::ChannelState::Opening:
-        return;
     case io::ChannelState::Open:
-        if (stateBeforeSync == SessionConnectionState::Disconnected
-            && connectionState_ == SessionConnectionState::Connected) {
-            emit sessionConnected();
-        }
-        if (currentState != SessionConnectionState::Connected && isTcp && trafficLogController_) {
-            trafficLogController_->logConnectionInfo(tr("Transport connected, validating session..."));
-        }
-        return;
     case io::ChannelState::Closing:
         return;
     case io::ChannelState::Closed:
     case io::ChannelState::Error: {
-        // Only react when an established session died. Mid-connect failures
-        // are reported through handleConnectFinished(false) with the connect
-        // error attached; reacting here too would double-emit
-        // sessionDisconnected. The Error-then-Closed event pair of a TCP
-        // passive close deduplicates itself: the first event lands the UI in
-        // Disconnected, the second sees stateBeforeSync == Disconnected.
-        const bool wasEstablished = (stateBeforeSync == SessionConnectionState::Connected
-                                     || stateBeforeSync == SessionConnectionState::TransportConnected);
-        if (!wasEstablished) {
+        if (connectionState_ != SessionConnectionState::Connected) {
             return;
         }
-        const bool wasConnected = (stateBeforeSync == SessionConnectionState::Connected);
-        const bool shouldShowDisconnectAlert = wasConnected && !disconnectIsExplicit_;
 
-        connectionState_ = SessionConnectionState::Disconnected;
-        onConnectionStateChanged(SessionConnectionState::Disconnected);
-
-        // Attribute the disconnection reason: prefer the last channel
-        // error, fall back to a generic message.
         const QString reason = client_
             ? client_->lastChannelError()
             : QString();
@@ -584,23 +542,8 @@ void ModbusSessionPresenter::handleChannelStateTransition(io::ChannelState state
                 : tr("Disconnected: %1").arg(reason);
             trafficLogController_->logConnectionInfo(logMsg);
         }
-        if (shouldShowDisconnectAlert) {
-            logging::DumpBacktrace();
-            emit unexpectedDisconnectAlertRequested();
-        }
 
-        if (disconnectIsExplicit_) {
-            // Explicit / user-initiated teardown: stop polling.
-            if (pollingController_) {
-                pollingController_->stopPoll();
-            }
-            emit sessionDisconnected(reason);
-        } else {
-            // Passive / transient channel loss: notify polling controller of transient disconnect
-            // so it updates connectionFault and logs degradation, but do not stop active polling.
-            // This allows the polling loop to drive core ensureConnected() self-healing on next cycle.
-            emit sessionTransientDisconnect(reason);
-        }
+        setUiConnectionState(SessionConnectionState::Disconnected, DisconnectKind::Passive, reason);
         return;
     }
     }
@@ -611,9 +554,6 @@ void ModbusSessionPresenter::handleConnectFinished(bool ok, const QString& error
     assertGuiThread("handleConnectFinished must run on the GUI thread");
     if (generation != connectionGeneration_) return;
 
-    // Core FSM is the single source of truth — derive UI state from it.
-    syncStateFromCore();
-
     const bool coreIsConnected = !client_
         || (client_->connectionState() == ::modbus::session::ConnectionStateMachine::State::Connected);
 
@@ -621,24 +561,20 @@ void ModbusSessionPresenter::handleConnectFinished(bool ok, const QString& error
         const QString actualError = error.isEmpty()
             ? (client_ ? client_->lastChannelError() : tr("Connection dropped immediately"))
             : error;
-        if (pollingController_) {
-            pollingController_->stopPoll();
-        }
         if (trafficLogController_) {
             trafficLogController_->logConnectionInfo(tr("Connection failed: %1").arg(actualError));
         }
-        emit sessionDisconnected(actualError);
+        setUiConnectionState(SessionConnectionState::Disconnected, DisconnectKind::Explicit, actualError);
         emit connectFinished(false, actualError);
         releaseStack();
         return;
     }
 
-    connectionState_ = SessionConnectionState::Connected;
+    setUiConnectionState(SessionConnectionState::Connected);
 
     if (trafficLogController_) {
         trafficLogController_->logConnectionInfo(tr("Transport connected, waiting for device response..."));
     }
-    emit sessionConnected();
     emit connectFinished(true, error);
 }
 

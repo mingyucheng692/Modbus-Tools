@@ -67,7 +67,6 @@ ModbusClient::ModbusClient(std::shared_ptr<io::IChannel> channel,
           transport_.get(),
           &frameExtractor_,
           &retryStrategy_,
-          &connectionStateMachine_,
           &requestStateMachine_,
           &connectionManager_,
           &config_,
@@ -137,7 +136,6 @@ bool ModbusClient::connect() {
     if (!channel_) return false;
 
     aborted_ = false;
-    sessionHealth_.store(SessionHealth::Unknown, std::memory_order_release);
     const bool connected = connectionManager_.ensureConnected();
     if (connected) {
         clearRuntimeState(false);
@@ -158,7 +156,6 @@ void ModbusClient::disconnect() {
     // session has a visible start AND end in the log file.
     SPDLOG_INFO("ModbusClient: disconnect requested, reason=user-request");
     aborted_ = true;
-    sessionHealth_.store(SessionHealth::Unknown, std::memory_order_release);
     // Every state has a legal edge into Disconnecting, so this cannot fail
     // against a quiescent machine; a failure would mean a concurrent
     // transition (checked below before the terminal edge).
@@ -236,31 +233,13 @@ void ModbusClient::setConfig(const base::ModbusConfig& config) {
 
 ModbusResponse ModbusClient::sendRequest(const base::Pdu& request, int slaveId) {
     assertSessionAffinity();
-    auto response = requestExecutor_.execute(request, slaveId);
-    // Update session health based on the outcome of this request.
-    // Busy (lock contention) is not a transport failure — don't downgrade.
-    if (response.kind == ModbusResponseKind::Success) {
-        sessionHealth_.store(SessionHealth::Healthy, std::memory_order_release);
-    } else if (!response.isBusy()) {
-        sessionHealth_.store(SessionHealth::Unresponsive, std::memory_order_release);
-    }
-    return response;
+    return requestExecutor_.execute(request, slaveId);
 }
 
 void ModbusClient::sendRequestAsync(const base::Pdu& request, int slaveId, quint64 traceId,
                                     std::function<void(const ModbusResponse&)> callback) {
     assertSessionAffinity();
-    requestExecutor_.executeAsync(request, slaveId, traceId,
-        [this, callback = std::move(callback)](const ModbusResponse& response) {
-            if (response.kind == ModbusResponseKind::Success) {
-                sessionHealth_.store(SessionHealth::Healthy, std::memory_order_release);
-            } else if (!response.isBusy()) {
-                sessionHealth_.store(SessionHealth::Unresponsive, std::memory_order_release);
-            }
-            if (callback) {
-                callback(response);
-            }
-        });
+    requestExecutor_.executeAsync(request, slaveId, traceId, std::move(callback));
 }
 
 common::Result<base::Pdu, base::ModbusError> ModbusClient::sendRequestResult(
