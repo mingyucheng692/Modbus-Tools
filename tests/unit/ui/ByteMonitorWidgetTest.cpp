@@ -9,6 +9,7 @@
 
 #include <QCoreApplication>
 #include <QElapsedTimer>
+#include <QCheckBox>
 #include <QLabel>
 #include <QListView>
 #include <QPushButton>
@@ -126,6 +127,85 @@ TEST(ByteMonitorWidgetTest, DestructorStopsTimerWithoutFlushingPending) {
     widget.reset();
     QCoreApplication::processEvents();
     SUCCEED();
+}
+
+TEST(ByteMonitorWidgetTest, StatsUpdateEvenWhenTxOrRxHidden) {
+    tests::mocks::FakeSettingsService settings;
+    ui::widgets::ByteMonitorWidget widget(&settings);
+    auto* listView = widget.findChild<QListView*>();
+    ASSERT_NE(listView, nullptr);
+    auto* model = qobject_cast<ui::widgets::LogListModel*>(listView->model());
+    ASSERT_NE(model, nullptr);
+
+    // Find showTx checkbox
+    QCheckBox* txCheck = nullptr;
+    for (auto* cb : widget.findChildren<QCheckBox*>()) {
+        if (cb->text() == QStringLiteral("TX")) {
+            txCheck = cb;
+            break;
+        }
+    }
+    ASSERT_NE(txCheck, nullptr);
+    txCheck->setChecked(false);
+
+    // Send TX data while TX is hidden in view
+    widget.appendTx(QByteArray::fromHex("01020304"));
+    const auto hasTxStats = [&widget]() {
+        for (auto* label : widget.findChildren<QLabel*>()) {
+            if (label->text() == QStringLiteral("TX: 4 B")) {
+                return true;
+            }
+        }
+        return false;
+    };
+    pumpUntil(hasTxStats, 500);
+
+    // Log view should not show it
+    EXPECT_EQ(model->rowCount(), 0);
+
+    // But stats label must reflect 4 bytes
+    EXPECT_TRUE(hasTxStats());
+}
+
+TEST(ByteMonitorWidgetTest, EmptyDataDoesNotEnqueueRow) {
+    tests::mocks::FakeSettingsService settings;
+    ui::widgets::ByteMonitorWidget widget(&settings);
+    auto* listView = widget.findChild<QListView*>();
+    ASSERT_NE(listView, nullptr);
+    auto* model = qobject_cast<ui::widgets::LogListModel*>(listView->model());
+    ASSERT_NE(model, nullptr);
+
+    widget.appendTx(QByteArray());
+    widget.appendRx(QByteArray());
+    pumpUntil([]() { return false; }, 150);
+
+    EXPECT_EQ(model->rowCount(), 0);
+}
+
+TEST(ByteMonitorWidgetTest, LogCopiedSignalEmittedWithoutReadingClipboard) {
+    tests::mocks::FakeSettingsService settings;
+    ui::widgets::ByteMonitorWidget widget(&settings);
+    auto* listView = widget.findChild<QListView*>();
+    ASSERT_NE(listView, nullptr);
+    auto* model = qobject_cast<ui::widgets::LogListModel*>(listView->model());
+    ASSERT_NE(model, nullptr);
+
+    widget.appendInfo(QStringLiteral("test-log-entry"));
+    pumpUntil([&]() { return model->rowCount() == 1; });
+
+    listView->selectAll();
+
+    QString copiedText;
+    QObject::connect(&widget, &ui::widgets::ByteMonitorWidget::logCopied,
+                     [&copiedText](const QString& text) {
+                         copiedText = text;
+                     });
+
+    // Trigger copy slot
+    QMetaObject::invokeMethod(&widget, "onCopyClicked");
+
+    EXPECT_FALSE(copiedText.isEmpty());
+    EXPECT_TRUE(copiedText.contains(QStringLiteral("test-log-entry")));
 }
 
 } // namespace

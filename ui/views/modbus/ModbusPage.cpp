@@ -7,6 +7,7 @@
 #include "../../application/modbus/ModbusPagePresenter.h"
 #include "../../common/ConnectionAlert.h"
 #include "../../widgets/BaseConnectionWidget.h"
+#include "../../widgets/CompactStackedWidget.h"
 #include "../../widgets/CollapsibleSection.h"
 #include "../../widgets/TcpConnectionWidget.h"
 #include "../../widgets/SerialConnectionWidget.h"
@@ -23,28 +24,7 @@
 
 namespace ui::views::modbus {
 
-namespace {
-
-class CompactStackedWidget : public QStackedWidget {
-public:
-    using QStackedWidget::QStackedWidget;
-
-    QSize sizeHint() const override {
-        if (auto* curr = currentWidget()) {
-            return curr->sizeHint();
-        }
-        return QStackedWidget::sizeHint();
-    }
-
-    QSize minimumSizeHint() const override {
-        if (auto* curr = currentWidget()) {
-            return curr->minimumSizeHint();
-        }
-        return QStackedWidget::minimumSizeHint();
-    }
-};
-
-} // namespace
+using ui::widgets::CompactStackedWidget;
 
 ModbusPage::ModbusPage(infra::config::ISettingsService* settingsService, QWidget* parent)
     : QWidget(parent),

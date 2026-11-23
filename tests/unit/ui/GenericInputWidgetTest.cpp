@@ -6,9 +6,11 @@
 #include "widgets/GenericInputWidget.h"
 
 #include <QApplication>
+#include <QCheckBox>
 #include <QComboBox>
 #include <QDir>
 #include <QEvent>
+#include <QPushButton>
 #include <QRadioButton>
 #include <QSpinBox>
 #include <QTextEdit>
@@ -115,6 +117,86 @@ TEST(GenericInputWidgetTest, RetranslateUiUpdatesComboItemsAndTooltips) {
     EXPECT_FALSE(lineEndingCombo->toolTip().isEmpty());
     EXPECT_FALSE(encodingCombo->toolTip().isEmpty());
     QApplication::removeTranslator(&translator);
+}
+
+TEST(GenericInputWidgetTest, InvalidHexBlocksSendAndEmitsValidationFailed) {
+    tests::mocks::FakeSettingsService settings;
+    GenericInputWidget widget(&settings);
+
+    auto* inputEdit = widget.findChild<QTextEdit*>();
+    ASSERT_NE(inputEdit, nullptr);
+    inputEdit->setPlainText(QStringLiteral("01 02 3")); // odd length
+
+    QString errorReceived;
+    QObject::connect(&widget, &GenericInputWidget::validationFailed,
+                     [&errorReceived](const QString& reason) {
+                         errorReceived = reason;
+                     });
+
+    bool sendRequestedCalled = false;
+    QObject::connect(&widget, &GenericInputWidget::sendRequested,
+                     [&sendRequestedCalled](const QByteArray&) {
+                         sendRequestedCalled = true;
+                     });
+
+    QPushButton* sendBtn = nullptr;
+    for (auto* btn : widget.findChildren<QPushButton*>()) {
+        if (btn->text() == QStringLiteral("Send")) {
+            sendBtn = btn;
+            break;
+        }
+    }
+    ASSERT_NE(sendBtn, nullptr);
+    sendBtn->click();
+
+    EXPECT_FALSE(sendRequestedCalled);
+    EXPECT_FALSE(errorReceived.isEmpty());
+}
+
+TEST(GenericInputWidgetTest, PokaYokeDisablesSendControlsWhileKeepingEditorEditable) {
+    tests::mocks::FakeSettingsService settings;
+    GenericInputWidget widget(&settings);
+
+    auto* inputEdit = widget.findChild<QTextEdit*>();
+    QPushButton* sendBtn = nullptr;
+    QCheckBox* autoSendCheck = nullptr;
+    for (auto* btn : widget.findChildren<QPushButton*>()) {
+        if (btn->text() == QStringLiteral("Send")) sendBtn = btn;
+    }
+    for (auto* cb : widget.findChildren<QCheckBox*>()) {
+        if (cb->text() == QStringLiteral("Auto Send")) autoSendCheck = cb;
+    }
+    ASSERT_NE(inputEdit, nullptr);
+    ASSERT_NE(sendBtn, nullptr);
+    ASSERT_NE(autoSendCheck, nullptr);
+
+    // Disable send controls
+    widget.setSendControlsEnabled(false, QStringLiteral("Channel not connected"));
+    EXPECT_FALSE(sendBtn->isEnabled());
+    EXPECT_FALSE(autoSendCheck->isEnabled());
+    EXPECT_FALSE(inputEdit->isReadOnly()); // Input editor must remain editable!
+
+    // Toggling autoSend programmatic check should not re-enable send button
+    autoSendCheck->setChecked(true);
+    EXPECT_FALSE(sendBtn->isEnabled());
+}
+
+TEST(GenericInputWidgetTest, LoadSettingsNeverRestoresAutoSendChecked) {
+    tests::mocks::FakeSettingsService settings;
+    settings.setValue(QStringLiteral("testGroup/autoSend"), true);
+
+    GenericInputWidget widget(&settings);
+    widget.setSettingsGroup(QStringLiteral("testGroup"));
+
+    QCheckBox* autoSendCheck = nullptr;
+    for (auto* cb : widget.findChildren<QCheckBox*>()) {
+        if (cb->text() == QStringLiteral("Auto Send")) {
+            autoSendCheck = cb;
+            break;
+        }
+    }
+    ASSERT_NE(autoSendCheck, nullptr);
+    EXPECT_FALSE(autoSendCheck->isChecked());
 }
 
 } // namespace ui::widgets

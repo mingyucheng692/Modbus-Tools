@@ -15,6 +15,7 @@
 #include <QLabel>
 #include <QDebug>
 #include <QEvent>
+#include <QKeyEvent>
 #include <QSignalBlocker>
 #include <QStringConverter>
 #include <QVariant>
@@ -95,13 +96,22 @@ void GenericInputWidget::setupUi() {
     // 1. Input Area
     inputEdit_ = new QTextEdit(this);
     inputEdit_->setLineWrapMode(QTextEdit::WidgetWidth);
+    inputEdit_->installEventFilter(this);
     connect(inputEdit_, &QTextEdit::textChanged, this, [this]() {
         if (!inputEdit_->styleSheet().isEmpty()) {
             inputEdit_->setStyleSheet(QString());
             inputEdit_->setToolTip(QString());
         }
+        if (errorLabel_ && errorLabel_->isVisible()) {
+            errorLabel_->setVisible(false);
+        }
     });
     mainLayout->addWidget(inputEdit_);
+
+    errorLabel_ = new QLabel(this);
+    errorLabel_->setStyleSheet(QStringLiteral("color: #EF4444; font-size: 11px;"));
+    errorLabel_->setVisible(false);
+    mainLayout->addWidget(errorLabel_);
 
     // 2. Control Area
     auto controlLayout = new QHBoxLayout();
@@ -253,9 +263,10 @@ void GenericInputWidget::loadSettings() {
     } else {
         hexRadio_->setChecked(true);
     }
-    autoSendCheck_->setChecked(autoSend);
+    // Poka-Yoke: auto-send is never auto-enabled on load for safety
+    autoSendCheck_->setChecked(false);
     intervalSpin_->setValue(intervalMs);
-    intervalSpin_->setEnabled(autoSend);
+    intervalSpin_->setEnabled(false);
     lineEndingCombo_->setCurrentIndex(qBound(0, lineEnding, 3));
     int encIndex = encodingCombo_->findData(encoding);
     if (encIndex < 0) encIndex = 0; // fallback to UTF-8 for unknown/legacy encoding values
@@ -274,21 +285,47 @@ void GenericInputWidget::saveSettings() {
     settingsService_->setValue(settingsGroup_ + "/encoding", encodingCombo_->currentData().toInt());
 }
 
-QByteArray GenericInputWidget::getData() const {
-    QString text = inputEdit_->toPlainText();
+bool GenericInputWidget::tryBuildPayload(QByteArray* out, QString* errorOut) const {
+    if (!inputEdit_) {
+        if (errorOut) *errorOut = tr("Internal error: input editor missing");
+        return false;
+    }
+    const QString text = inputEdit_->toPlainText();
+    if (text.isEmpty()) {
+        if (errorOut) *errorOut = tr("Payload cannot be empty");
+        return false;
+    }
+
     QByteArray data;
-    if (hexRadio_->isChecked()) {
-        QString hex = text;
-        hex.remove(' ');
-        hex.remove('\n');
-        hex.remove('\r');
-        data = QByteArray::fromHex(hex.toUtf8());
+    if (hexRadio_ && hexRadio_->isChecked()) {
+        QString clean;
+        clean.reserve(text.size());
+        for (const QChar& ch : text) {
+            if (ch.isSpace()) continue;
+            const bool isHex = (ch >= QLatin1Char('0') && ch <= QLatin1Char('9')) ||
+                               (ch >= QLatin1Char('a') && ch <= QLatin1Char('f')) ||
+                               (ch >= QLatin1Char('A') && ch <= QLatin1Char('F'));
+            if (!isHex) {
+                if (errorOut) *errorOut = tr("Invalid HEX character '%1' detected").arg(ch);
+                return false;
+            }
+            clean.append(ch);
+        }
+        if (clean.isEmpty()) {
+            if (errorOut) *errorOut = tr("Payload cannot be empty");
+            return false;
+        }
+        if (clean.size() % 2 != 0) {
+            if (errorOut) *errorOut = tr("HEX payload must contain an even number of digits");
+            return false;
+        }
+        data = QByteArray::fromHex(clean.toLatin1());
     } else {
-        const int enc = encodingCombo_->currentData().toInt();
+        const int enc = encodingCombo_ ? encodingCombo_->currentData().toInt() : 0;
         data = encodeTextWithEncoding(text, enc);
     }
 
-    const int ending = lineEndingCombo_->currentData().toInt();
+    const int ending = lineEndingCombo_ ? lineEndingCombo_->currentData().toInt() : 0;
     switch (ending) {
     case 1: data.append('\r'); break;
     case 2: data.append('\n'); break;
@@ -296,22 +333,73 @@ QByteArray GenericInputWidget::getData() const {
     default: break;
     }
 
-    return data;
+    if (out) {
+        *out = std::move(data);
+    }
+    return true;
 }
 
-void GenericInputWidget::onSendClicked() {
-    const QString text = inputEdit_->toPlainText();
-    QByteArray data = getData();
-    if (!data.isEmpty()) {
-        addToHistory(text);
-        emit sendRequested(data);
+QByteArray GenericInputWidget::getData() const {
+    QByteArray data;
+    if (tryBuildPayload(&data)) {
+        return data;
+    }
+    return {};
+}
+
+void GenericInputWidget::setSendControlsEnabled(bool enabled, const QString& disabledTooltip) {
+    sendControlsEnabled_ = enabled;
+    disabledTooltip_ = disabledTooltip;
+    if (sendBtn_) {
+        sendBtn_->setEnabled(enabled);
+        sendBtn_->setToolTip(enabled ? tr("Send data (Ctrl+Enter)") : disabledTooltip_);
+    }
+    if (autoSendCheck_) {
+        autoSendCheck_->setEnabled(enabled);
+        if (!enabled && autoSendCheck_->isChecked()) {
+            autoSendCheck_->setChecked(false);
+        }
+    }
+    if (intervalSpin_) {
+        intervalSpin_->setEnabled(enabled && autoSendCheck_ && autoSendCheck_->isChecked());
     }
 }
 
+void GenericInputWidget::onSendClicked() {
+    if (!sendControlsEnabled_) {
+        return;
+    }
+    QByteArray data;
+    QString error;
+    if (!tryBuildPayload(&data, &error)) {
+        if (errorLabel_) {
+            errorLabel_->setText(error);
+            errorLabel_->setVisible(true);
+        }
+        if (inputEdit_) {
+            inputEdit_->setStyleSheet(QStringLiteral("QTextEdit { border: 1px solid #EF4444; }"));
+        }
+        emit validationFailed(error);
+        return;
+    }
+    if (errorLabel_) {
+        errorLabel_->setVisible(false);
+    }
+    if (inputEdit_) {
+        inputEdit_->setStyleSheet(QString());
+        addToHistory(inputEdit_->toPlainText());
+    }
+    emit sendRequested(data);
+}
+
 void GenericInputWidget::onAutoSendToggled(bool checked) {
-    intervalSpin_->setEnabled(checked);
-    sendBtn_->setEnabled(true);
-    emit autoSendToggled(checked, intervalSpin_->value());
+    if (intervalSpin_) {
+        intervalSpin_->setEnabled(checked && sendControlsEnabled_);
+    }
+    if (sendBtn_) {
+        sendBtn_->setEnabled(sendControlsEnabled_);
+    }
+    emit autoSendToggled(checked, intervalSpin_ ? intervalSpin_->value() : 0);
 }
 
 void GenericInputWidget::setAutoSendEnabled(bool enabled) {
@@ -402,6 +490,7 @@ void GenericInputWidget::retranslateUi() {
     }
     if (sendBtn_) {
         sendBtn_->setText(tr("Send"));
+        sendBtn_->setToolTip(sendControlsEnabled_ ? tr("Send data (Ctrl+Enter)") : disabledTooltip_);
     }
     if (lineEndingCombo_) {
         QSignalBlocker b(lineEndingCombo_);
@@ -433,6 +522,20 @@ void GenericInputWidget::changeEvent(QEvent* event) {
         retranslateUi();
     }
     QWidget::changeEvent(event);
+}
+
+bool GenericInputWidget::eventFilter(QObject* watched, QEvent* event) {
+    if (watched == inputEdit_ && event && event->type() == QEvent::KeyPress) {
+        auto* keyEvent = static_cast<QKeyEvent*>(event);
+        if ((keyEvent->modifiers() & Qt::ControlModifier) &&
+            (keyEvent->key() == Qt::Key_Return || keyEvent->key() == Qt::Key_Enter)) {
+            if (sendControlsEnabled_ && sendBtn_ && sendBtn_->isEnabled()) {
+                onSendClicked();
+            }
+            return true;
+        }
+    }
+    return QWidget::eventFilter(watched, event);
 }
 
 } // namespace ui::widgets

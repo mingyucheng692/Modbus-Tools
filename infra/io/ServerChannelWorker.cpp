@@ -3,8 +3,6 @@
 #include "ServerChannelWorker.h"
 #include "TcpServerHandle.h"
 #include "TcpChannel.h"
-#include <QMetaObject>
-#include <spdlog/spdlog.h>
 
 namespace io {
 
@@ -35,17 +33,22 @@ ServerChannelWorker::ServerChannelWorker(QObject* parent)
     QObject::connect(serverHandle_, &TcpServerHandle::errorOccurred,
                      this, [this](const QString& error) {
         emit channelErrorOccurred(QStringLiteral("TCP Server"), io::ChannelErrorCode::ConnectionFailed, error);
-        emit stateChanged(ChannelState::Error);
+        emit stateChanged(ChannelState::Error, serverGeneration_);
     });
 }
 
 ServerChannelWorker::~ServerChannelWorker()
 {
-    closeAllClients();
+    stopServer();
 }
 
-void ServerChannelWorker::openTcpServer(const QString& listenIp, int port, int maxClients)
+quint16 ServerChannelWorker::serverPort() const {
+    return serverHandle_ ? serverHandle_->listenPort() : 0;
+}
+
+void ServerChannelWorker::openTcpServer(const QString& listenIp, int port, int maxClients, quint64 generation)
 {
+    serverGeneration_ = generation;
     if (!serverHandle_->start(listenIp, port, maxClients)) {
         emit channelErrorOccurred(
             QStringLiteral("TCP Server"),
@@ -54,11 +57,11 @@ void ServerChannelWorker::openTcpServer(const QString& listenIp, int port, int m
         // Terminal state after a failed listen: without this emission the
         // view never hears back from the worker and stays stuck on the
         // "Connecting" display state set when Start was clicked.
-        emit stateChanged(ChannelState::Closed);
+        emit stateChanged(ChannelState::Closed, serverGeneration_);
         return;
     }
 
-    emit stateChanged(ChannelState::Open);
+    emit stateChanged(ChannelState::Open, serverGeneration_);
 }
 
 void ServerChannelWorker::closeClient(int clientId)
@@ -73,10 +76,26 @@ void ServerChannelWorker::closeClient(int clientId)
     }
 }
 
+void ServerChannelWorker::stopServer()
+{
+    if (serverHandle_) {
+        serverHandle_->stop();
+    }
+    emit stateChanged(ChannelState::Closed, serverGeneration_);
+}
+
 void ServerChannelWorker::closeAllClients()
 {
-    serverHandle_->stop();
-    emit stateChanged(ChannelState::Closed);
+    stopServer();
+}
+
+void ServerChannelWorker::disconnectAllClients()
+{
+    if (!serverHandle_) return;
+    const auto list = serverHandle_->clientList();
+    for (const auto& info : list) {
+        closeClient(info.clientId);
+    }
 }
 
 void ServerChannelWorker::writeToClient(int clientId, const QByteArray& data)

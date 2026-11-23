@@ -37,11 +37,10 @@ public slots:
     void setRts(bool set);
 
 signals:
-    void stateChanged(ChannelState state);
+    void stateChanged(ChannelState state, quint64 generation = 0);
     void stateChangedWithGeneration(ChannelState state, quint64 generation);
     void channelErrorOccurred(const QString& deviceHint, io::ChannelErrorCode code, const QString& error);
     void monitor(bool isTx, const QByteArray& data);
-    void bytesQueued(qint64 bytes);
 
 private:
     void setupChannel();

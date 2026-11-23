@@ -15,6 +15,10 @@ namespace infra::config {
 class ISettingsService;
 }
 
+namespace io {
+enum class ChannelState;
+}
+
 namespace ui::widgets {
 class CollapsibleSection;
 
@@ -22,7 +26,6 @@ class CollapsibleSection;
 enum class DisplayState {
     Disconnected = 0,
     Connecting,
-    TransportConnected,
     Connected,
     Disconnecting,
     Listening,
@@ -50,6 +53,8 @@ public:
     void setSettingsGroup(const QString& group);
     [[nodiscard]] bool isSectionExpanded() const;
     void setSectionExpanded(bool expanded);
+    [[nodiscard]] virtual DisplayState connectedState() const { return DisplayState::Connected; }
+    void applyChannelState(io::ChannelState state);
 
 signals:
     void disconnectClicked();
@@ -91,7 +96,6 @@ protected:
     QPushButton* connectBtn_ = nullptr;
     QLabel* statusLabel_ = nullptr;
 
-    bool isConnected_ = false;
     DisplayState displayState_ = DisplayState::Disconnected;
 };
 

@@ -3,6 +3,7 @@
 #include "BaseConnectionWidget.h"
 #include "CollapsibleSection.h"
 #include "infra/config/ISettingsService.h"
+#include "infra/io/IChannel.h"
 #include <QPushButton>
 #include <QLabel>
 #include <QHBoxLayout>
@@ -27,11 +28,27 @@ void BaseConnectionWidget::setSettingsGroup(const QString& group) {
 
 void BaseConnectionWidget::setDisplayState(DisplayState state) {
     displayState_ = state;
-    isConnected_ = (state == DisplayState::TransportConnected
-                    || state == DisplayState::Connected
-                    || state == DisplayState::Listening
-                    || state == DisplayState::Bound);
     applyDisplayState();
+}
+
+void BaseConnectionWidget::applyChannelState(io::ChannelState state) {
+    switch (state) {
+    case io::ChannelState::Closed:
+        setDisplayState(DisplayState::Disconnected);
+        break;
+    case io::ChannelState::Opening:
+        setDisplayState(DisplayState::Connecting);
+        break;
+    case io::ChannelState::Open:
+        setDisplayState(connectedState());
+        break;
+    case io::ChannelState::Closing:
+        setDisplayState(DisplayState::Disconnecting);
+        break;
+    case io::ChannelState::Error:
+        setDisplayState(DisplayState::Disconnected);
+        break;
+    }
 }
 
 bool BaseConnectionWidget::inputsLocked(DisplayState state) noexcept {

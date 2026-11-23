@@ -144,15 +144,15 @@ TEST(I18nWidgets, TcpConnectionWidget_SupportsIntermediateStates)
     tests::mocks::FakeSettingsService settingsService;
     ui::widgets::TcpConnectionWidget widget(ui::widgets::TcpRole::Client, &settingsService);
 
-    widget.setDisplayState(ui::widgets::TcpConnectionWidget::DisplayState::TransportConnected);
-    bool foundTransportLabel = false;
+    widget.setDisplayState(ui::widgets::TcpConnectionWidget::DisplayState::Connecting);
+    bool foundConnectingLabel = false;
     for (auto* label : widget.findChildren<QLabel*>()) {
-        if (label->text() == QStringLiteral("Transport Connected")) {
-            foundTransportLabel = true;
+        if (label->text() == QStringLiteral("Connecting")) {
+            foundConnectingLabel = true;
             break;
         }
     }
-    EXPECT_TRUE(foundTransportLabel);
+    EXPECT_TRUE(foundConnectingLabel);
 
     widget.setDisplayState(ui::widgets::TcpConnectionWidget::DisplayState::Disconnecting);
     bool foundDisconnectingLabel = false;
@@ -170,15 +170,15 @@ TEST(I18nWidgets, SerialConnectionWidget_SupportsIntermediateStates)
     tests::mocks::FakeSettingsService settingsService;
     ui::widgets::SerialConnectionWidget widget(&settingsService);
 
-    widget.setDisplayState(ui::widgets::SerialConnectionWidget::DisplayState::TransportConnected);
-    bool foundTransportLabel = false;
+    widget.setDisplayState(ui::widgets::SerialConnectionWidget::DisplayState::Connecting);
+    bool foundConnectingLabel = false;
     for (auto* label : widget.findChildren<QLabel*>()) {
-        if (label->text() == QStringLiteral("Transport Connected")) {
-            foundTransportLabel = true;
+        if (label->text() == QStringLiteral("Connecting")) {
+            foundConnectingLabel = true;
             break;
         }
     }
-    EXPECT_TRUE(foundTransportLabel);
+    EXPECT_TRUE(foundConnectingLabel);
 
     widget.setDisplayState(ui::widgets::SerialConnectionWidget::DisplayState::Disconnecting);
     bool foundDisconnectingLabel = false;

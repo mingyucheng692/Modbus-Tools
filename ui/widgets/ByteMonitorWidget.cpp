@@ -29,11 +29,25 @@ namespace {
 constexpr int kUiFlushIntervalMs = 120;
 constexpr int kActionButtonMinWidth = 72;
 
-QColor colorForTx() { return QColor(0, 0, 200); }
-QColor colorForRx() { return QColor(0, 120, 0); }
-QColor colorForInfo() { return Qt::gray; }
-QColor colorForError() { return QColor(220, 20, 60); }
-QColor colorForWarn() { return QColor(255, 140, 0); }
+bool isDarkMode(const QWidget* widget) {
+    return widget && widget->palette().color(QPalette::Window).lightness() < 128;
+}
+
+QColor colorForTx(const QWidget* widget) {
+    return isDarkMode(widget) ? QColor(88, 166, 255) : QColor(0, 90, 200);
+}
+QColor colorForRx(const QWidget* widget) {
+    return isDarkMode(widget) ? QColor(63, 185, 80) : QColor(0, 140, 0);
+}
+QColor colorForInfo(const QWidget* widget) {
+    return isDarkMode(widget) ? QColor(139, 148, 158) : Qt::gray;
+}
+QColor colorForError(const QWidget* widget) {
+    return isDarkMode(widget) ? QColor(248, 81, 73) : QColor(200, 20, 40);
+}
+QColor colorForWarn(const QWidget* widget) {
+    return isDarkMode(widget) ? QColor(210, 153, 34) : QColor(180, 100, 0);
+}
 
 } // anonymous namespace
 
@@ -145,11 +159,9 @@ void ByteMonitorWidget::setupUi() {
     statsLayout->setSpacing(12);
 
     txStatsLabel_ = new QLabel(statsBar_);
-    txStatsLabel_->setStyleSheet(QStringLiteral("color: rgb(0,0,200); font-weight: bold;"));
     statsLayout->addWidget(txStatsLabel_);
 
     rxStatsLabel_ = new QLabel(statsBar_);
-    rxStatsLabel_->setStyleSheet(QStringLiteral("color: rgb(0,120,0); font-weight: bold;"));
     statsLayout->addWidget(rxStatsLabel_);
 
     statsLayout->addStretch();
@@ -176,6 +188,7 @@ void ByteMonitorWidget::setupUi() {
 
     retranslateUi();
     updateStatsDisplay();
+    updateStatsStyles();
 }
 
 void ByteMonitorWidget::appendTx(const QByteArray& data) {
@@ -243,11 +256,17 @@ void ByteMonitorWidget::enqueuePendingLine(PendingLine&& line) {
 }
 
 void ByteMonitorWidget::enqueueTraffic(bool isTx, QByteArray data, const QString& clientLabel) {
-    const bool show = isTx ? showTxCheck_->isChecked() : showRxCheck_->isChecked();
-    if (!data.isEmpty() && !show) {
+    if (data.isEmpty()) {
         return;
     }
     stats_.update(isTx ? TrafficStats::Direction::Tx : TrafficStats::Direction::Rx, data.size());
+    const bool show = isTx ? showTxCheck_->isChecked() : showRxCheck_->isChecked();
+    if (!show) {
+        if (!paused_ && flushTimer_ && !flushTimer_->isActive()) {
+            flushTimer_->start();
+        }
+        return;
+    }
     PendingLine line;
     line.kind = isTx ? PendingLine::Kind::Tx : PendingLine::Kind::Rx;
     line.payload = std::move(data);
@@ -343,7 +362,7 @@ void ByteMonitorWidget::onSaveClicked() {
     }
 
     QString error;
-    if (!ui::common::exportLinesToFile(path, lines, false, &error)) {
+    if (!ui::common::exportLinesToFile(path, lines, &error)) {
         appendError(tr("Cannot write file: %1 (%2)").arg(path, error));
     }
 }
@@ -361,13 +380,10 @@ void ByteMonitorWidget::onCopyClicked() {
         selectedText << logModel_->lineAt(index.row());
     }
     if (!selectedText.isEmpty()) {
-        QApplication::clipboard()->setText(selectedText.join("\n"));
+        const QString text = selectedText.join(QStringLiteral("\n"));
+        QApplication::clipboard()->setText(text);
+        emit logCopied(text);
     }
-}
-
-void ByteMonitorWidget::appendLogLine(const QString& text, const QColor& color) {
-    Q_UNUSED(color);
-    onInfoMessage(text);
 }
 
 void ByteMonitorWidget::reformatLogEntry(LogEntry& entry) const {
@@ -383,30 +399,30 @@ void ByteMonitorWidget::reformatLogEntry(LogEntry& entry) const {
         const QString body = formatTraffic();
         entry.text = ts.isEmpty() ? tr("[TX] %1").arg(body)
                                   : tr("[%1] [TX] %2").arg(ts, body);
-        entry.color = colorForTx();
+        entry.color = colorForTx(this);
         break;
     }
     case LogEntry::Kind::Rx: {
         const QString body = formatTraffic();
         entry.text = ts.isEmpty() ? tr("[RX] %1").arg(body)
                                   : tr("[%1] [RX] %2").arg(ts, body);
-        entry.color = colorForRx();
+        entry.color = colorForRx(this);
         break;
     }
     case LogEntry::Kind::Info:
         entry.text = ts.isEmpty() ? tr("[INFO] %1").arg(entry.message)
                                   : tr("[%1] [INFO] %2").arg(ts, entry.message);
-        entry.color = colorForInfo();
+        entry.color = colorForInfo(this);
         break;
     case LogEntry::Kind::Warn:
         entry.text = ts.isEmpty() ? tr("[WARN] %1").arg(entry.message)
                                   : tr("[%1] [WARN] %2").arg(ts, entry.message);
-        entry.color = colorForWarn();
+        entry.color = colorForWarn(this);
         break;
     case LogEntry::Kind::Error:
         entry.text = ts.isEmpty() ? tr("[ERROR] %1").arg(entry.message)
                                   : tr("[%1] [ERROR] %2").arg(ts, entry.message);
-        entry.color = colorForError();
+        entry.color = colorForError(this);
         break;
     }
 }
@@ -481,22 +497,15 @@ QString ByteMonitorWidget::formatData(const QByteArray& data) const {
     return QString(data.toHex(' ').toUpper());
 }
 
-QString ByteMonitorWidget::formatTimestamp() {
-    switch (timestampFormat_) {
-    case TimestampFormat::Relative: {
-        const qint64 now = elapsedTimer_.elapsed();
-        const qint64 delta = (lastAppendTimeMs_ == 0) ? 0 : (now - lastAppendTimeMs_);
-        lastAppendTimeMs_ = now;
-        return QStringLiteral("+%1ms").arg(delta);
+void ByteMonitorWidget::updateStatsStyles() {
+    const bool dark = isDarkMode(this);
+    if (txStatsLabel_) {
+        txStatsLabel_->setStyleSheet(dark ? QStringLiteral("color: #58a6ff; font-weight: bold;")
+                                          : QStringLiteral("color: rgb(0,90,200); font-weight: bold;"));
     }
-    case TimestampFormat::None:
-        return {};
-    case TimestampFormat::Absolute:
-    default: {
-        const QDateTime now = QDateTime::currentDateTimeUtc().toLocalTime();
-        lastAppendTimeMs_ = elapsedTimer_.elapsed();
-        return now.toString("HH:mm:ss.zzz");
-    }
+    if (rxStatsLabel_) {
+        rxStatsLabel_->setStyleSheet(dark ? QStringLiteral("color: #3fb950; font-weight: bold;")
+                                          : QStringLiteral("color: rgb(0,140,0); font-weight: bold;"));
     }
 }
 
@@ -541,6 +550,7 @@ bool ByteMonitorWidget::isPaused() const {
 void ByteMonitorWidget::setSettingsGroup(const QString& group) {
     settingsGroup_ = group;
     loadSettings();
+    rebuildDisplay();
 }
 
 void ByteMonitorWidget::loadSettings() {
@@ -622,6 +632,9 @@ void ByteMonitorWidget::retranslateUi() {
 void ByteMonitorWidget::changeEvent(QEvent* event) {
     if (event->type() == QEvent::LanguageChange) {
         retranslateUi();
+    } else if (event->type() == QEvent::PaletteChange) {
+        updateStatsStyles();
+        rebuildDisplay();
     }
     QWidget::changeEvent(event);
 }

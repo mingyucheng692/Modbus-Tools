@@ -85,6 +85,7 @@ target_sources(core PRIVATE
     common/SettingsKeys.h
     common/SettingsController.h
     common/SettingsController.cpp
+    common/TrafficStats.h
 )
 
 target_link_libraries(core PUBLIC

@@ -141,6 +141,7 @@ target_sources(ui PRIVATE
     views/tools/UtilitiesView.h
     widgets/BaseConnectionWidget.cpp
     widgets/BaseConnectionWidget.h
+    widgets/CompactStackedWidget.h
     widgets/NetworkConnectionWidget.h
     widgets/NetworkConnectionWidget.cpp
     widgets/TcpConnectionWidget.h

@@ -4,6 +4,7 @@
 #include <gmock/gmock.h>
 
 #include <QCoreApplication>
+#include <QElapsedTimer>
 #include <QSignalSpy>
 #include <QTcpServer>
 #include <QTcpSocket>
@@ -18,10 +19,12 @@ using namespace io;
 
 namespace {
 
-/// Drives the event loop until @p predicate holds or the spin budget is
+/// Drives the event loop until @p predicate holds or the timeout is
 /// exhausted (queued socket signals need event-loop turns to be delivered).
-bool spinUntil(const std::function<bool()>& predicate, int maxSpins = 300) {
-    for (int i = 0; i < maxSpins; ++i) {
+bool spinUntil(const std::function<bool()>& predicate, int timeoutMs = 1000) {
+    QElapsedTimer timer;
+    timer.start();
+    while (timer.elapsed() < timeoutMs) {
         if (predicate()) {
             return true;
         }
@@ -149,27 +152,57 @@ TEST(ServerChannelWorkerTest, OpenTcpServer_Success_EmitsOpen) {
     ServerChannelWorker worker;
     QSignalSpy stateSpy(&worker, &ServerChannelWorker::stateChanged);
 
-    worker.openTcpServer(QStringLiteral("127.0.0.1"), 0, 0);
+    worker.openTcpServer(QStringLiteral("127.0.0.1"), 0, 0, 15);
     ASSERT_GE(stateSpy.count(), 1);
     EXPECT_EQ(stateSpy.last().at(0).value<ChannelState>(), ChannelState::Open);
+    EXPECT_EQ(stateSpy.last().at(1).toULongLong(), 15u);
 
     QSignalSpy closedSpy(&worker, &ServerChannelWorker::stateChanged);
-    worker.closeAllClients();
+    worker.stopServer();
     ASSERT_GE(closedSpy.count(), 1);
     EXPECT_EQ(closedSpy.last().at(0).value<ChannelState>(), ChannelState::Closed);
+    EXPECT_EQ(closedSpy.last().at(1).toULongLong(), 15u);
+}
+
+TEST(ServerChannelWorkerTest, DisconnectAllClients_DisconnectsClientsWhileKeepingServerListening) {
+    ServerChannelWorker worker;
+    QSignalSpy connSpy(&worker, &ServerChannelWorker::clientConnected);
+    worker.openTcpServer(QStringLiteral("127.0.0.1"), 0, 2);
+    const int port = worker.serverPort();
+    ASSERT_GT(port, 0);
+
+    QTcpSocket client1;
+    QTcpSocket client2;
+    QSignalSpy disconnSpy1(&client1, &QTcpSocket::disconnected);
+    QSignalSpy disconnSpy2(&client2, &QTcpSocket::disconnected);
+    client1.connectToHost(QHostAddress::LocalHost, static_cast<quint16>(port));
+    client2.connectToHost(QHostAddress::LocalHost, static_cast<quint16>(port));
+    ASSERT_TRUE(spinUntil([&connSpy]() { return connSpy.count() >= 2; }));
+
+    worker.disconnectAllClients();
+    ASSERT_TRUE(spinUntil([&disconnSpy1, &disconnSpy2]() {
+        return disconnSpy1.count() >= 1 && disconnSpy2.count() >= 1;
+    }));
+
+    // Server should still accept a new peer without being stopped
+    QTcpSocket client3;
+    QSignalSpy client3ConnSpy(&client3, &QTcpSocket::connected);
+    client3.connectToHost(QHostAddress::LocalHost, static_cast<quint16>(port));
+    ASSERT_TRUE(spinUntil([&client3ConnSpy, &connSpy]() {
+        return client3ConnSpy.count() >= 1 && connSpy.count() >= 3;
+    }));
+
+    worker.stopServer();
 }
 
 TEST(ServerChannelWorkerTest, ClientTraffic_MonitorWithClientEmitsOncePerRxAndTx) {
-    QTcpServer portProbe;
-    ASSERT_TRUE(portProbe.listen(QHostAddress::LocalHost, 0));
-    const int port = static_cast<int>(portProbe.serverPort());
-    portProbe.close();
-
     ServerChannelWorker worker;
     QSignalSpy connSpy(&worker, &ServerChannelWorker::clientConnected);
     QSignalSpy monitorSpy(&worker, &ServerChannelWorker::monitorWithClient);
 
-    worker.openTcpServer(QStringLiteral("127.0.0.1"), port, 2);
+    worker.openTcpServer(QStringLiteral("127.0.0.1"), 0, 2);
+    const int port = worker.serverPort();
+    ASSERT_GT(port, 0);
 
     QTcpSocket client;
     QSignalSpy clientConnSpy(&client, &QTcpSocket::connected);
@@ -207,14 +240,11 @@ TEST(ServerChannelWorkerTest, ClientTraffic_MonitorWithClientEmitsOncePerRxAndTx
 }
 
 TEST(ServerChannelWorkerTest, MaxClientsOne_RejectsSecondConnection) {
-    QTcpServer portProbe;
-    ASSERT_TRUE(portProbe.listen(QHostAddress::LocalHost, 0));
-    const int port = static_cast<int>(portProbe.serverPort());
-    portProbe.close();
-
     ServerChannelWorker worker;
     QSignalSpy connSpy(&worker, &ServerChannelWorker::clientConnected);
-    worker.openTcpServer(QStringLiteral("127.0.0.1"), port, 1);
+    worker.openTcpServer(QStringLiteral("127.0.0.1"), 0, 1);
+    const int port = worker.serverPort();
+    ASSERT_GT(port, 0);
 
     QTcpSocket client1;
     client1.connectToHost(QHostAddress::LocalHost, static_cast<quint16>(port));

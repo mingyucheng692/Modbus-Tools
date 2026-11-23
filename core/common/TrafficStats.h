@@ -1,0 +1,57 @@
+// Copyright (c) 2025 - present mingyucheng692. Licensed under the MIT License.
+
+#pragma once
+
+#include <QtGlobal>
+#include <QString>
+
+namespace core::common {
+
+// Role: Lightweight TX/RX byte and frame statistics counter and formatter.
+// Thread-safety: Thread-compatible; requires external synchronization if mutated across threads.
+// Ownership: Owned as a value member by telemetry and monitor tracking components.
+struct TrafficStats {
+    enum class Direction { Tx, Rx };
+
+    qint64 txBytes = 0;
+    qint64 rxBytes = 0;
+    qint64 txFrames = 0;
+    qint64 rxFrames = 0;
+
+    void update(Direction dir, qint64 bytes) noexcept {
+        if (dir == Direction::Tx) {
+            txBytes += bytes;
+            ++txFrames;
+        } else {
+            rxBytes += bytes;
+            ++rxFrames;
+        }
+    }
+
+    [[nodiscard]] QString formatStats() const {
+        return QStringLiteral("TX: %1 | RX: %2")
+            .arg(formatBytes(txBytes), formatBytes(rxBytes));
+    }
+
+    void reset() noexcept {
+        txBytes = 0;
+        rxBytes = 0;
+        txFrames = 0;
+        rxFrames = 0;
+    }
+
+    [[nodiscard]] static QString formatBytes(qint64 bytes) {
+        if (bytes < 1024) {
+            return QStringLiteral("%1 B").arg(bytes);
+        }
+        if (bytes < 1024LL * 1024LL) {
+            return QStringLiteral("%1 KB").arg(bytes / 1024.0, 0, 'f', 1);
+        }
+        if (bytes < 1024LL * 1024LL * 1024LL) {
+            return QStringLiteral("%1 MB").arg(bytes / (1024.0 * 1024.0), 0, 'f', 2);
+        }
+        return QStringLiteral("%1 GB").arg(bytes / (1024.0 * 1024.0 * 1024.0), 0, 'f', 2);
+    }
+};
+
+} // namespace core::common

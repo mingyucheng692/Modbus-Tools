@@ -7,10 +7,9 @@
 
 namespace ui::common {
 
-// Exports lines to target file path.
+// Exports lines to target file path atomically via QSaveFile.
 [[nodiscard]] bool exportLinesToFile(const QString& filePath,
                                      const QStringList& lines,
-                                     bool append = false,
                                      QString* error = nullptr);
 
 } // namespace ui::common

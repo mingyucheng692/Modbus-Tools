@@ -1,12 +1,9 @@
 // Copyright (c) 2025 - present mingyucheng692. Licensed under the MIT License.
 
 #include "ChannelOperationWorker.h"
-#include "core/Config.h"
-#include <spdlog/spdlog.h>
 #include "TcpChannel.h"
 #include "SerialChannel.h"
 #include "UdpChannel.h"
-#include <QThread>
 #include <QMetaObject>
 #include <QMetaType>
 
@@ -38,6 +35,8 @@ void ChannelOperationWorker::openTcp(const QString& ip, int port, quint64 genera
 
     if (!channel_->open() && channel_->state() != ChannelState::Error) {
         emitError(io::ChannelErrorCode::ConnectionFailed, "Failed to open TCP connection");
+        emit stateChanged(ChannelState::Error, channelGeneration_);
+        emit stateChangedWithGeneration(ChannelState::Error, channelGeneration_);
     }
 }
 
@@ -55,6 +54,8 @@ void ChannelOperationWorker::openSerial(const SerialConfig& config, quint64 gene
 
     if (!channel_->open() && channel_->state() != ChannelState::Error) {
         emitError(io::ChannelErrorCode::ConnectionFailed, "Failed to open serial port");
+        emit stateChanged(ChannelState::Error, channelGeneration_);
+        emit stateChangedWithGeneration(ChannelState::Error, channelGeneration_);
     }
 }
 
@@ -75,6 +76,8 @@ void ChannelOperationWorker::openUdp(const QString& localIp, int localPort,
 
     if (!channel_->open() && channel_->state() != ChannelState::Error) {
         emitError(io::ChannelErrorCode::ConnectionFailed, "Failed to open UDP channel");
+        emit stateChanged(ChannelState::Error, channelGeneration_);
+        emit stateChangedWithGeneration(ChannelState::Error, channelGeneration_);
     }
 }
 
@@ -88,9 +91,7 @@ void ChannelOperationWorker::close()
 void ChannelOperationWorker::write(const QByteArray& data)
 {
     if (channel_ && channel_->isOpen()) {
-        if (channel_->write(data)) {
-            emit bytesQueued(data.size());
-        } else if (channel_->state() != ChannelState::Error) {
+        if (!channel_->write(data) && channel_->state() != ChannelState::Error) {
             emitError(io::ChannelErrorCode::WriteFailed, "Write failed");
         }
     } else {
@@ -125,7 +126,7 @@ void ChannelOperationWorker::setupChannel()
     });
 
     stateHandlerId_ = channel_->addStateHandler([this](ChannelState state) {
-        emit stateChanged(state);
+        emit stateChanged(state, channelGeneration_);
         emit stateChangedWithGeneration(state, channelGeneration_);
     });
 }

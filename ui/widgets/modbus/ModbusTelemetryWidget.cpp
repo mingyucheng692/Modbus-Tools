@@ -886,7 +886,7 @@ bool ModbusTelemetryWidget::exportToFile(const QString& filePath, QString* error
     if (filePath.endsWith(QStringLiteral(".json"), Qt::CaseInsensitive)) {
         return exportJsonToFile(filePath, error);
     }
-    return ::ui::common::exportLinesToFile(filePath, buildCsvLines(), false, error);
+    return ::ui::common::exportLinesToFile(filePath, buildCsvLines(), error);
 }
 
 void ModbusTelemetryWidget::onExportClicked() {

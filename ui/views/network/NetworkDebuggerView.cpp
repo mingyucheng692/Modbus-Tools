@@ -210,7 +210,7 @@ void NetworkDebuggerView::startServerWorker() {
     serverWorker_ = std::shared_ptr<io::ServerChannelWorker>(
         rawServerWorker,
         [](io::ServerChannelWorker* w) {
-            core::common::ThreadGuard::releaseWorker(w, [w]() { w->closeAllClients(); });
+            core::common::ThreadGuard::releaseWorker(w, [w]() { w->stopServer(); });
         });
 
     connect(rawServerWorker, &io::ServerChannelWorker::clientConnected,
@@ -341,7 +341,7 @@ void NetworkDebuggerView::onStopListenClicked() {
     }
     setProtocolSelectorEnabled(false);
     tcpServerWidget_->setDisplayState(widgets::TcpConnectionWidget::DisplayState::Disconnecting);
-    QMetaObject::invokeMethod(serverWorker_.get(), "closeAllClients", Qt::QueuedConnection);
+    QMetaObject::invokeMethod(serverWorker_.get(), "stopServer", Qt::QueuedConnection);
 }
 
 void NetworkDebuggerView::onBindClicked(const QString& localIp, int localPort,
@@ -662,16 +662,11 @@ void NetworkDebuggerView::onDisconnectSelectedClientsRequested(const QList<int>&
 
 void NetworkDebuggerView::onDisconnectAllClientsRequested()
 {
-    if (!serverWorker_ || !serverClientPanel_) {
+    if (!serverWorker_) {
         return;
     }
 
-    const QList<int> clientIds = serverClientPanel_->allClientIds();
-    for (const int clientId : clientIds) {
-        QMetaObject::invokeMethod(serverWorker_.get(), "closeClient",
-                                  Qt::QueuedConnection,
-                                  Q_ARG(int, clientId));
-    }
+    QMetaObject::invokeMethod(serverWorker_.get(), "disconnectAllClients", Qt::QueuedConnection);
 }
 
 void NetworkDebuggerView::retranslateUi() {

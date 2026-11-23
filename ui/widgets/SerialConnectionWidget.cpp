@@ -82,7 +82,6 @@ bool usesDisconnectAction(SerialConnectionWidget::DisplayState state)
 {
     switch (state) {
     case SerialConnectionWidget::DisplayState::Connecting:
-    case SerialConnectionWidget::DisplayState::TransportConnected:
     case SerialConnectionWidget::DisplayState::Connected:
         return true;
     case SerialConnectionWidget::DisplayState::Disconnected:
@@ -150,8 +149,6 @@ StateDisplayInfo SerialConnectionWidget::getStateDisplayInfo(DisplayState state)
         return {tr("Connect"), tr("Disconnected"), QStringLiteral("color: red; font-weight: bold;")};
     case DisplayState::Connecting:
         return {tr("Disconnect"), tr("Connecting"), QStringLiteral("color: orange; font-weight: bold;")};
-    case DisplayState::TransportConnected:
-        return {tr("Disconnect"), tr("Transport Connected"), QStringLiteral("color: #1f6feb; font-weight: bold;")};
     case DisplayState::Connected:
         return {tr("Disconnect"), tr("Connected"), QStringLiteral("color: green; font-weight: bold;")};
     case DisplayState::Disconnecting:

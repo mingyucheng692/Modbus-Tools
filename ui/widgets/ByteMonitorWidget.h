@@ -10,7 +10,7 @@
 #include <QElapsedTimer>
 #include <deque>
 #include "LogListModel.h"
-#include "modbus/telemetry/TrafficMetrics.h"
+#include "common/TrafficStats.h"
 
 class QListView;
 class QCheckBox;
@@ -27,7 +27,7 @@ class ISettingsService;
 
 namespace ui::widgets {
 
-using TrafficStats = ::modbus::telemetry::TrafficStats;
+using TrafficStats = ::core::common::TrafficStats;
 
 struct PendingLine {
     using Kind = LogEntry::Kind;
@@ -63,6 +63,7 @@ signals:
     void infoMessageReceived(QString message);
     void errorMessageReceived(QString message);
     void warnMessageReceived(QString message);
+    void logCopied(const QString& text);
 
 private slots:
     void onTxData(QByteArray data);
@@ -98,11 +99,10 @@ private:
     QString currentWallTime() const;
     LogEntry buildLogEntry(const PendingLine& line);
     void reformatLogEntry(LogEntry& entry) const;
-    void appendLogLine(const QString& text, const QColor& color);
     void flushPending();
     QString formatData(const QByteArray& data) const;
-    QString formatTimestamp();
     void updateStatsDisplay();
+    void updateStatsStyles();
     void rebuildDisplay();
     bool isPaused() const;
     void loadSettings();
