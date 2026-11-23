@@ -26,6 +26,10 @@ public:
         ColumnCount = 5
     };
 
+    enum CustomRoles {
+        StatusCategoryRole = Qt::UserRole + 1
+    };
+
     explicit TelemetryTableModel(QObject* parent = nullptr);
     ~TelemetryTableModel() override = default;
 

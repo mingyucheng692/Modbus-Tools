@@ -219,8 +219,7 @@ void ModbusSessionPresenter::requestRelease(const QString& timeoutMessage) {
         // Nothing live: complete synchronously. This preserves the original
         // contract that an empty release path emits stackReleased() inline so
         // callers (and tests) observing the signal without pumping the event
-        // loop still see it. Widget sync already applied by the
-        // Disconnected state-entry handler during transitionTo above.
+        // loop still see it. Widget sync is already applied above.
         SPDLOG_INFO("ModbusSessionPresenter[{}]: Release completed immediately (no live stack)",
                      descriptor.logName);
         if (trafficLogController_) {
@@ -565,7 +564,10 @@ void ModbusSessionPresenter::handleConnectFinished(bool ok, const QString& error
     setUiConnectionState(SessionConnectionState::Connected);
 
     if (trafficLogController_) {
-        trafficLogController_->logConnectionInfo(tr("Transport connected, waiting for device response..."));
+        const QString msg = (mode_ == ::modbus::base::ModbusMode::TCP)
+            ? tr("Transport connected, waiting for device response...")
+            : tr("Serial port connected, session ready.");
+        trafficLogController_->logConnectionInfo(msg);
     }
     emit connectFinished(true, error);
 }

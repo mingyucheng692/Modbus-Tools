@@ -8,6 +8,7 @@
 #include "ui/application/modbus/PollingController.h"
 #include "ui/application/modbus/RequestSubmissionService.h"
 #include "ui/application/modbus/TrafficLogController.h"
+#include "infra/io/SerialConfig.h"
 #include "mocks/MockModbusPageView.h"
 #include <QCoreApplication>
 #include <QSignalSpy>
@@ -203,5 +204,26 @@ TEST_F(ModbusPagePresenterTest, SwitchModeTimeout_RestoresOriginalProtocol) {
     EXPECT_CALL(*mockView_, setProtocolType(modeDescriptor(::modbus::base::ModbusMode::TCP).protocolType)).Times(AtLeast(1));
     EXPECT_CALL(*mockView_, showStatusMessage(QStringLiteral("Release timed out"), true)).Times(1);
     presenter_->onStackReleaseTimedOutForSwitchForTest(QStringLiteral("Release timed out"));
+}
+
+TEST_F(ModbusPagePresenterTest, RequestTcpConnect_ConstructsSpecAndInitiatesConnecting) {
+    EXPECT_CALL(*mockView_, renderConnectionState(SessionConnectionState::Connecting)).Times(1);
+    presenter_->requestTcpConnect(QStringLiteral("127.0.0.1"), 502, 1);
+    EXPECT_EQ(presenter_->sessionPresenter()->connectionState(), SessionConnectionState::Connecting);
+}
+
+TEST_F(ModbusPagePresenterTest, RequestSerialConnect_ConstructsSpecAndInitiatesConnecting) {
+    auto rtuPresenter = std::make_unique<ModbusPagePresenter>(mockView_.get(), ::modbus::base::ModbusMode::RTU);
+    EXPECT_CALL(*mockView_, renderConnectionState(SessionConnectionState::Connecting)).Times(1);
+    io::SerialConfig cfg;
+    cfg.portName = QStringLiteral("COM1");
+    rtuPresenter->requestSerialConnect(cfg, 2);
+    EXPECT_EQ(rtuPresenter->sessionPresenter()->connectionState(), SessionConnectionState::Connecting);
+    rtuPresenter->detachView();
+}
+
+TEST_F(ModbusPagePresenterTest, HandleLogMessage_RoutesToTrafficLogController) {
+    EXPECT_NO_THROW(presenter_->handleLogMessage(QStringLiteral("Warning msg"), true));
+    EXPECT_NO_THROW(presenter_->handleLogMessage(QStringLiteral("Info msg"), false));
 }
 

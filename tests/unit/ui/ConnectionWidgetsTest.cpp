@@ -412,7 +412,7 @@ TEST(ConnectionWidgets, ModbusPage_GeometryInvariants_AcrossMatrix) {
                 auto* autoScrollBtn = telemetry->findChild<QPushButton*>(QStringLiteral("telemetryAutoScrollBtn"));
                 auto* clearBtn = telemetry->findChild<QPushButton*>(QStringLiteral("telemetryClearBtn"));
                 auto* exportBtn = telemetry->findChild<QPushButton*>(QStringLiteral("telemetryExportBtn"));
-                auto* linkageBtn = telemetry->findChild<QPushButton*>(QStringLiteral("liveAnalyzerBtn"));
+                auto* linkageBtn = telemetry->findChild<QPushButton*>(QStringLiteral("telemetryLiveAnalyzerBtn"));
                 auto* pollFramesBtn = telemetry->findChild<QPushButton*>(QStringLiteral("telemetryPollFramesBtn"));
                 if (autoScrollBtn && autoScrollBtn->isVisible()) EXPECT_GE(autoScrollBtn->width(), autoScrollBtn->minimumSizeHint().width());
                 if (clearBtn && clearBtn->isVisible()) EXPECT_GE(clearBtn->width(), clearBtn->minimumSizeHint().width());

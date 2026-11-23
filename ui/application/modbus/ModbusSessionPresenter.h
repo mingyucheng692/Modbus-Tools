@@ -123,8 +123,7 @@ private:
     void assertGuiThread(const char* context) const;
 
     /// Queries client_->connectionState() (thread-safe via std::atomic) and
-    /// transitions the UI FSM to the derived state. If the derived state
-    /// conflicts with the existing UI FSM state, the core state wins.
+    /// synchronizes the UI presentation state. The core state is the single source of truth.
     void syncStateFromCore();
 
     enum class DisconnectKind {
@@ -139,8 +138,8 @@ private:
     bool hasLiveOrPendingStack() const;
     // Hands the current live stack off to releaseCoordinator_ for bounded
     // async teardown. Performs all session-state side effects (generation
-    // bump, linked/control-widget reset, linkageSourceDisconnected emission)
-    // before delegating; the coordinator only owns thread lifecycle.
+    // bump, linkageSourceDisconnected emission) before delegating; the coordinator
+    // only owns thread lifecycle.
     void requestRelease(const QString& timeoutMessage);
     void onReleaseCompleted();
     void onReleaseTimedOut(const QString& message);

@@ -93,6 +93,21 @@ QVariant TelemetryTableModel::data(const QModelIndex& index, int role) const {
         return static_cast<qulonglong>(row.rowId);
     }
 
+    if (role == StatusCategoryRole) {
+        switch (row.statusCategory) {
+        case StatusCategory::Error:
+            return QStringLiteral("Error");
+        case StatusCategory::Warning:
+            return QStringLiteral("Warning");
+        case StatusCategory::Info:
+            return QStringLiteral("Info");
+        case StatusCategory::Success:
+            return QStringLiteral("Success");
+        default:
+            return QString();
+        }
+    }
+
     return QVariant();
 }
 

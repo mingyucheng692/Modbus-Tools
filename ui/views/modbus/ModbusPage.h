@@ -21,6 +21,10 @@ namespace infra::config {
 class ISettingsService;
 }
 
+namespace core::common {
+class SettingsController;
+}
+
 namespace ui::widgets {
 class BaseConnectionWidget;
 class TcpConnectionWidget;
@@ -50,6 +54,7 @@ public:
     ~ModbusPage() noexcept override;
 
     void bindPresenter(ui::application::modbus::ModbusPagePresenter* presenter);
+    void setSettingsController(core::common::SettingsController* controller) noexcept { settingsController_ = controller; }
 
     // --- IModbusPageView Contract Implementation ---
     void renderConnectionState(ui::application::modbus::SessionConnectionState state) override;
@@ -79,6 +84,7 @@ signals:
     void linkageToggled(bool active);
     void linkageSourceDisconnected();
     void inspectInAnalyzerRequested(const QString& hexString);
+    void addressBaseChanged(::modbus::address::AddressBase base);
 
 protected:
     void changeEvent(QEvent* event) override;
@@ -100,6 +106,7 @@ private:
     void retranslateUi();
 
     infra::config::ISettingsService* settingsService_ = nullptr;
+    core::common::SettingsController* settingsController_ = nullptr;
     ui::application::modbus::ModbusPagePresenter* pagePresenter_ = nullptr;
     ::modbus::base::ModbusMode currentMode_ = ::modbus::base::ModbusMode::TCP;
 
@@ -109,7 +116,7 @@ private:
     QStackedWidget* connectionStack_ = nullptr;
     ui::widgets::TcpConnectionWidget* tcpConnectionWidget_ = nullptr;
     ui::widgets::SerialConnectionWidget* serialConnectionWidget_ = nullptr;
-    ui::widgets::BaseConnectionWidget* connectionWidget_ = nullptr;
+    ui::widgets::BaseConnectionWidget* activeConnectionWidget_ = nullptr;
 
     ui::widgets::modbus::ModbusWorkbenchWidget* workbenchWidget_ = nullptr;
     ui::widgets::modbus::ModbusTelemetryWidget* telemetryWidget_ = nullptr;

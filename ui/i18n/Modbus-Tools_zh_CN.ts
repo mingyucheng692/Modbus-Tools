@@ -1562,6 +1562,11 @@ Choose update method:</source>
         <translation>Transport connected, waiting for device response...</translation>
     </message>
     <message>
+        <location filename="../application/modbus/ModbusSessionPresenter.cpp" line="569" />
+        <source>Serial port connected, session ready.</source>
+        <translation>串口已连接，会话就绪。</translation>
+    </message>
+    <message>
         <location filename="../application/modbus/ModbusSessionPresenter.cpp" line="63" />
         <location filename="../application/modbus/ModbusSessionPresenter.cpp" line="123" />
         <location filename="../application/modbus/ModbusSessionPresenter.cpp" line="404" />

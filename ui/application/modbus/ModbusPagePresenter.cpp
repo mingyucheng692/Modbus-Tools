@@ -7,6 +7,7 @@
 #include "TrafficLogController.h"
 #include "modbus/session/SessionTypes.h"
 #include "modbus/base/ModbusFunctionTraits.h"
+#include "infra/io/SerialConfig.h"
 #include <spdlog/spdlog.h>
 #include <QCoreApplication>
 
@@ -220,6 +221,41 @@ void ModbusPagePresenter::requestConnect(const ModbusConnectionSpec& spec) {
     syncWidgetGuards(sessionPresenter_->connectionState());
 }
 
+void ModbusPagePresenter::requestTcpConnect(const QString& ip, int port, uint8_t slaveId) {
+    ::modbus::base::ModbusConfig config;
+    config.mode = ::modbus::base::ModbusMode::TCP;
+    config.ipAddress = ip;
+    config.port = port;
+    config.slaveId = slaveId;
+    config.timeoutMs = static_cast<int>(timingParams_.timeout.count());
+    config.retries = timingParams_.retryCount;
+    config.retryIntervalMs = static_cast<int>(timingParams_.retryInterval.count());
+
+    ModbusConnectionSpec spec;
+    spec.config = config;
+    requestConnect(spec);
+}
+
+void ModbusPagePresenter::requestSerialConnect(const io::SerialConfig& config, uint8_t slaveId) {
+    const auto descriptor = modeDescriptor(mode_);
+    ::modbus::base::ModbusConfig modbusConfig;
+    modbusConfig.mode = descriptor.modbusMode;
+    modbusConfig.portName = config.portName;
+    modbusConfig.baudRate = config.baudRate;
+    modbusConfig.dataBits = config.dataBits;
+    modbusConfig.stopBits = static_cast<int>(config.stopBits);
+    modbusConfig.parity = static_cast<int>(config.parity);
+    modbusConfig.slaveId = slaveId;
+    modbusConfig.timeoutMs = static_cast<int>(timingParams_.timeout.count());
+    modbusConfig.retries = timingParams_.retryCount;
+    modbusConfig.retryIntervalMs = static_cast<int>(timingParams_.retryInterval.count());
+
+    ModbusConnectionSpec spec;
+    spec.config = modbusConfig;
+    spec.serialConfig = config;
+    requestConnect(spec);
+}
+
 void ModbusPagePresenter::requestDisconnect() {
     if (sessionPresenter_) {
         sessionPresenter_->requestDisconnect();
@@ -320,12 +356,12 @@ void ModbusPagePresenter::handleRawExecute(const ModbusExecuteSpec& spec) {
         }
         return;
     }
-    SPDLOG_INFO("ModbusPagePresenter: sendRaw len={}", spec.rawPduOrAdu.size());
+    SPDLOG_INFO("ModbusPagePresenter: sendRaw len={}", spec.rawAdu.size());
     if (trafficLogController_) {
-        trafficLogController_->logSendingRawData(spec.rawPduOrAdu);
+        trafficLogController_->logSendingRawData(spec.rawAdu);
     }
     if (sessionPresenter_) {
-        sessionPresenter_->sendRaw(spec.rawPduOrAdu);
+        sessionPresenter_->sendRaw(spec.rawAdu);
     }
 }
 
@@ -427,9 +463,9 @@ void ModbusPagePresenter::changePollInterval(int intervalMs) {
     }
 }
 
-void ModbusPagePresenter::handleLogMessage(const QString& message, bool isError) {
+void ModbusPagePresenter::handleLogMessage(const QString& message, bool isWarning) {
     if (!trafficLogController_) return;
-    if (isError) {
+    if (isWarning) {
         trafficLogController_->logWarning(message);
     } else {
         trafficLogController_->logInfo(message);

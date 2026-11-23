@@ -11,6 +11,7 @@
 #include "IModbusPageView.h"
 
 namespace modbus::session { struct ModbusResponse; }
+namespace io { struct SerialConfig; }
 
 namespace ui::application::modbus {
 
@@ -38,6 +39,8 @@ public:
 
     // --- Backend connection & session API ---
     void requestConnect(const ModbusConnectionSpec& spec);
+    void requestTcpConnect(const QString& ip, int port, uint8_t slaveId);
+    void requestSerialConnect(const io::SerialConfig& config, uint8_t slaveId);
     void requestDisconnect();
     void updateSettings(const ModbusTimingParams& params);
     [[nodiscard]] const ModbusTimingParams& timingParams() const noexcept { return timingParams_; }
@@ -65,7 +68,7 @@ public slots:
     void executeRequest(const ModbusExecuteSpec& spec);
     void togglePolling(bool start, const ModbusExecuteSpec& spec, bool userConfirmedWritePoll = false);
     void changePollInterval(int intervalMs);
-    void handleLogMessage(const QString& message, bool isError);
+    void handleLogMessage(const QString& message, bool isWarning);
     void setPollFramesEnabled(bool enabled);
     void onResetMetricsRequested();
 

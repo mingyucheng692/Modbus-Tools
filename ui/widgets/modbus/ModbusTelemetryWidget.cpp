@@ -1,6 +1,7 @@
 // Copyright (c) 2025 - present mingyucheng692. Licensed under the MIT License.
 
 #include "ModbusTelemetryWidget.h"
+#include "Config.h"
 #include "common/FileExporter.h"
 #include "modbus/base/ModbusFunctionTraits.h"
 #include "analyzer/AnalyzerExporter.h"
@@ -110,7 +111,8 @@ void ModbusTelemetryWidget::setupToolbar() {
     pollFramesBtn_->setObjectName(QStringLiteral("telemetryPollFramesBtn"));
     pollFramesBtn_->setCheckable(true);
     pollFramesBtn_->setChecked(false);
-    pollFramesBtn_->setToolTip(tr("Sample 1 in 10 polling request/response frame pairs in traffic log; manual requests are always logged in full"));
+    pollFramesBtn_->setToolTip(tr("Sample 1 in %1 polling request/response frame pairs in traffic log; manual requests are always logged in full")
+                                   .arg(config::Ui::kPollFrameSampleRate));
     connect(pollFramesBtn_, &QPushButton::toggled, this, &ModbusTelemetryWidget::pollFramesToggled);
 
     autoScrollBtn_ = new QPushButton(tr("Auto-Scroll"), toolbarWidget_);
@@ -131,7 +133,7 @@ void ModbusTelemetryWidget::setupToolbar() {
     connect(exportBtn_, &QPushButton::clicked, this, &ModbusTelemetryWidget::onExportClicked);
 
     liveAnalyzerBtn_ = new QPushButton(tr("Live → Analyzer"), toolbarWidget_);
-    liveAnalyzerBtn_->setObjectName(QStringLiteral("liveAnalyzerBtn"));
+    liveAnalyzerBtn_->setObjectName(QStringLiteral("telemetryLiveAnalyzerBtn"));
     liveAnalyzerBtn_->setCheckable(true);
     liveAnalyzerBtn_->setChecked(true);
     liveAnalyzerBtn_->setToolTip(tr("Stream received responses directly to Frame Analyzer in real time"));
@@ -358,7 +360,7 @@ void ModbusTelemetryWidget::setupInspector() {
             this, &ModbusTelemetryWidget::onDecodeConfigChanged);
 
     inspectInAnalyzerBtn_ = new QPushButton(tr("Inspect in Analyzer ↗"), inspectorHeaderWidget_);
-    inspectInAnalyzerBtn_->setObjectName(QStringLiteral("inspectInAnalyzerBtn"));
+    inspectInAnalyzerBtn_->setObjectName(QStringLiteral("telemetryInspectInAnalyzerBtn"));
     inspectInAnalyzerBtn_->setEnabled(false);
     inspectInAnalyzerBtn_->setToolTip(tr("Send the selected frame payload to Frame Analyzer for deep parsing"));
     connect(inspectInAnalyzerBtn_, &QPushButton::clicked, this, &ModbusTelemetryWidget::onInspectInAnalyzerClicked);
@@ -594,7 +596,7 @@ void ModbusTelemetryWidget::processBatchTimeout() {
         if (!event.payload.isEmpty()) {
             row.parseResult = ::modbus::parser::parse(event.payload, currentProtocol_);
         }
-        deriveRowStatus(event, row.parseResult, row.statusText, row.statusColor);
+        deriveRowStatus(event, row.parseResult, row.statusText, row.statusColor, row.statusCategory);
         rowsToAdd.append(row);
     }
 
@@ -795,26 +797,33 @@ void ModbusTelemetryWidget::updateInspectorContent(const TelemetryRowView* row) 
 
 void ModbusTelemetryWidget::onFilterChanged(int index) {
     if (index == 0) { // All
+        proxyModel_->setFilterRole(Qt::DisplayRole);
         proxyModel_->setFilterKeyColumn(-1);
         proxyModel_->setFilterFixedString(QString());
     } else if (index == 1) { // TX
+        proxyModel_->setFilterRole(Qt::DisplayRole);
         proxyModel_->setFilterKeyColumn(TelemetryTableModel::ColDirection);
         proxyModel_->setFilterFixedString(QStringLiteral("TX"));
     } else if (index == 2) { // RX
+        proxyModel_->setFilterRole(Qt::DisplayRole);
         proxyModel_->setFilterKeyColumn(TelemetryTableModel::ColDirection);
         proxyModel_->setFilterFixedString(QStringLiteral("RX"));
     } else if (index == 3) { // SYS
+        proxyModel_->setFilterRole(Qt::DisplayRole);
         proxyModel_->setFilterKeyColumn(TelemetryTableModel::ColDirection);
         proxyModel_->setFilterFixedString(QStringLiteral("SYS"));
     } else if (index == 4) { // Err & Warn
+        proxyModel_->setFilterRole(TelemetryTableModel::StatusCategoryRole);
         proxyModel_->setFilterKeyColumn(TelemetryTableModel::ColStatus);
-        proxyModel_->setFilterRegularExpression(QStringLiteral("Error|Warning|Exception|Malformed"));
+        proxyModel_->setFilterRegularExpression(QStringLiteral("^(Error|Warning)$"));
     } else if (index == 5) { // Errors
+        proxyModel_->setFilterRole(TelemetryTableModel::StatusCategoryRole);
         proxyModel_->setFilterKeyColumn(TelemetryTableModel::ColStatus);
-        proxyModel_->setFilterRegularExpression(QStringLiteral("Error|Exception|Malformed"));
+        proxyModel_->setFilterFixedString(QStringLiteral("Error"));
     } else if (index == 6) { // Warnings
+        proxyModel_->setFilterRole(TelemetryTableModel::StatusCategoryRole);
         proxyModel_->setFilterKeyColumn(TelemetryTableModel::ColStatus);
-        proxyModel_->setFilterRegularExpression(QStringLiteral("Warning"));
+        proxyModel_->setFilterFixedString(QStringLiteral("Warning"));
     }
 }
 
@@ -974,7 +983,8 @@ void ModbusTelemetryWidget::retranslateToolbarUi() {
     }
     if (pollFramesBtn_) {
         pollFramesBtn_->setText(tr("Poll Frames"));
-        pollFramesBtn_->setToolTip(tr("Sample 1 in 10 polling request/response frame pairs in traffic log; manual requests are always logged in full"));
+        pollFramesBtn_->setToolTip(tr("Sample 1 in %1 polling request/response frame pairs in traffic log; manual requests are always logged in full")
+                                       .arg(config::Ui::kPollFrameSampleRate));
     }
     if (autoScrollBtn_) {
         autoScrollBtn_->setText(tr("Auto-Scroll"));

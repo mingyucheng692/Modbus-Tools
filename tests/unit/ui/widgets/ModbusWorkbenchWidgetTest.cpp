@@ -71,7 +71,7 @@ TEST_F(ModbusWorkbenchWidgetTest, ModeSwitching) {
     widget_->setRawText(QStringLiteral("01 03 00 00 00 0A C5 CD"));
     const auto spec = widget_->currentSpec();
     EXPECT_TRUE(spec.isRawMode);
-    EXPECT_EQ(spec.rawPduOrAdu, QByteArray::fromHex("01030000000AC5CD"));
+    EXPECT_EQ(spec.rawAdu, QByteArray::fromHex("01030000000AC5CD"));
 
     widget_->setMode(0);
     EXPECT_FALSE(widget_->isRawMode());
@@ -310,13 +310,13 @@ TEST_F(ModbusWorkbenchWidgetTest, RawFrameUtilities) {
     // Add CRC16
     QMetaObject::invokeMethod(widget_.get(), "onAddCrcClicked");
     auto specCrc = widget_->currentSpec();
-    EXPECT_EQ(specCrc.rawPduOrAdu.size(), 8); // 6 + 2 bytes CRC
+    EXPECT_EQ(specCrc.rawAdu.size(), 8); // 6 + 2 bytes CRC
 
     // Clean Hex
     widget_->setRawText(QStringLiteral("01030000000a"));
     QMetaObject::invokeMethod(widget_.get(), "onCleanHexClicked");
     auto specClean = widget_->currentSpec();
-    EXPECT_EQ(specClean.rawPduOrAdu, QByteArray::fromHex("01030000000A"));
+    EXPECT_EQ(specClean.rawAdu, QByteArray::fromHex("01030000000A"));
 }
 
 TEST_F(ModbusWorkbenchWidgetTest, SettingsPersistenceAndSafeDefaults) {

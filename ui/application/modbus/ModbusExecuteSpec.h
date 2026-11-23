@@ -18,7 +18,7 @@ struct ModbusExecuteSpec {
     uint16_t quantity = 10;
     QByteArray writeData;
     bool isRawMode = false;
-    QByteArray rawPduOrAdu;
+    QByteArray rawAdu;
     int intervalMs = config::Polling::kDefaultIntervalMs;
 };
 

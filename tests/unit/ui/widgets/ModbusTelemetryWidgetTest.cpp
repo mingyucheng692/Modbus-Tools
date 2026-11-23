@@ -699,4 +699,30 @@ TEST_F(ModbusTelemetryWidgetTest, ToolbarAndHeader_ContinuousSweepZeroClipping) 
     }
 }
 
+TEST_F(ModbusTelemetryWidgetTest, TelemetryTableModel_StatusCategoryRole) {
+    TrafficEvent evErr;
+    evErr.direction = TrafficDirection::None;
+    evErr.level = TrafficEventLevel::Error;
+    evErr.summary = QStringLiteral("Error test");
+    widget_->appendTrafficEvent(evErr);
+
+    TrafficEvent evWarn;
+    evWarn.direction = TrafficDirection::None;
+    evWarn.level = TrafficEventLevel::Warning;
+    evWarn.summary = QStringLiteral("Warn test");
+    widget_->appendTrafficEvent(evWarn);
+
+    QMetaObject::invokeMethod(widget_.get(), "processBatchTimeout");
+    auto* model = widget_->tableModel();
+    ASSERT_EQ(model->rowCount(), 2);
+
+    const auto errRole = model->data(model->index(0, TelemetryTableModel::ColStatus),
+                                     TelemetryTableModel::StatusCategoryRole);
+    EXPECT_EQ(errRole.toString(), QStringLiteral("Error"));
+
+    const auto warnRole = model->data(model->index(1, TelemetryTableModel::ColStatus),
+                                      TelemetryTableModel::StatusCategoryRole);
+    EXPECT_EQ(warnRole.toString(), QStringLiteral("Warning"));
+}
+
 

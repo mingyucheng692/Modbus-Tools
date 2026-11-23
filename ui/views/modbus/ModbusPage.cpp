@@ -3,6 +3,7 @@
 #include "ModbusPage.h"
 #include "Config.h"
 #include "common/SettingsKeys.h"
+#include "common/SettingsController.h"
 #include "infra/config/ISettingsService.h"
 #include "../../application/modbus/ModbusPagePresenter.h"
 #include "../../common/ConnectionAlert.h"
@@ -24,18 +25,6 @@
 namespace ui::views::modbus {
 
 namespace {
-
-void applyPresenterTiming(::modbus::base::ModbusConfig& config,
-                          const ui::application::modbus::ModbusPagePresenter* presenter,
-                          const ui::widgets::modbus::ModbusWorkbenchWidget* workbench) {
-    const auto timing = presenter
-        ? presenter->timingParams()
-        : ui::application::modbus::ModbusTimingParams{};
-    config.slaveId = workbench ? workbench->slaveId() : config::Modbus::kDefaultSlaveId;
-    config.timeoutMs = static_cast<int>(timing.timeout.count());
-    config.retries = timing.retryCount;
-    config.retryIntervalMs = static_cast<int>(timing.retryInterval.count());
-}
 
 class CompactStackedWidget : public QStackedWidget {
 public:
@@ -105,13 +94,11 @@ void ModbusPage::bindPresenter(ui::application::modbus::ModbusPagePresenter* pre
     connect(pagePresenter_, &ui::application::modbus::ModbusPagePresenter::sessionConnectionLostAlert,
             this, [this]() { ui::common::connection_alert::showDisconnected(this); });
 
-    int baseVal = 0;
-    if (settingsService_) {
-        const QVariant v = settingsService_->value(core::common::settings_keys::kModbusAddressBase);
-        if (v.isValid()) baseVal = v.toInt();
-    }
-    const auto addrBase = (baseVal == 1) ? ::modbus::address::AddressBase::PlcAddress1Based
-                                         : ::modbus::address::AddressBase::Offset0Based;
+    const auto addrBase = settingsController_
+        ? settingsController_->addressBase()
+        : ((settingsService_ && settingsService_->value(core::common::settings_keys::kModbusAddressBase).toInt() == 1)
+            ? ::modbus::address::AddressBase::PlcAddress1Based
+            : ::modbus::address::AddressBase::Offset0Based);
     updateAddressBase(addrBase);
     setProtocolType(ui::application::modbus::modeDescriptor(currentMode_).protocolType);
 }
@@ -171,14 +158,14 @@ void ModbusPage::setupConnectionBar() {
     connectionStack_->addWidget(serialConnectionWidget_);
 
     connectionStack_->setCurrentIndex(0);
-    connectionWidget_ = tcpConnectionWidget_;
+    activeConnectionWidget_ = tcpConnectionWidget_;
     connLayout->addWidget(connectionStack_, 1, Qt::AlignTop);
 
     layout()->addWidget(connRow);
     bindConnectionBarSignals();
 
-    if (connectionWidget_) {
-        protoSection_->setExpanded(connectionWidget_->isSectionExpanded());
+    if (activeConnectionWidget_) {
+        protoSection_->setExpanded(activeConnectionWidget_->isSectionExpanded());
     }
 }
 
@@ -233,10 +220,13 @@ void ModbusPage::setupSplitterBody() {
 
     connect(workbenchWidget_, &widgets::modbus::ModbusWorkbenchWidget::addressBaseChanged,
             this, [this](::modbus::address::AddressBase base) {
-                if (settingsService_) {
+                if (settingsController_) {
+                    settingsController_->setAddressBase(base);
+                } else if (settingsService_) {
                     settingsService_->setValue(core::common::settings_keys::kModbusAddressBase, static_cast<int>(base));
                 }
                 updateAddressBase(base);
+                emit addressBaseChanged(base);
             });
 
     connect(telemetryWidget_, &widgets::modbus::ModbusTelemetryWidget::inspectInAnalyzerRequested,
@@ -244,17 +234,17 @@ void ModbusPage::setupSplitterBody() {
 }
 
 void ModbusPage::renderConnectionState(ui::application::modbus::SessionConnectionState state) {
-    if (!connectionWidget_) return;
+    if (!activeConnectionWidget_) return;
     using namespace ui::application::modbus;
     if (state == SessionConnectionState::Connected) {
-        connectionWidget_->setConnected(true);
+        activeConnectionWidget_->setConnected(true);
         showStatusMessage(QString(), false);
     } else if (state == SessionConnectionState::Disconnected) {
-        connectionWidget_->setConnected(false);
+        activeConnectionWidget_->setConnected(false);
     } else if (state == SessionConnectionState::Disconnecting) {
-        connectionWidget_->setDisplayState(ui::widgets::DisplayState::Disconnecting);
+        activeConnectionWidget_->setDisplayState(ui::widgets::DisplayState::Disconnecting);
     } else {
-        connectionWidget_->setDisplayState(ui::widgets::DisplayState::Connecting);
+        activeConnectionWidget_->setDisplayState(ui::widgets::DisplayState::Connecting);
     }
 }
 
@@ -292,14 +282,14 @@ void ModbusPage::setProtocolType(::modbus::parser::ProtocolType protocol) {
     const auto descriptor = ui::application::modbus::modeDescriptor(mode);
     if (descriptor.usesSerialConnection) {
         if (connectionStack_) connectionStack_->setCurrentWidget(serialConnectionWidget_);
-        connectionWidget_ = serialConnectionWidget_;
+        activeConnectionWidget_ = serialConnectionWidget_;
     } else {
         if (connectionStack_) connectionStack_->setCurrentWidget(tcpConnectionWidget_);
-        connectionWidget_ = tcpConnectionWidget_;
+        activeConnectionWidget_ = tcpConnectionWidget_;
     }
 
-    if (protoSection_ && connectionWidget_) {
-        protoSection_->setExpanded(connectionWidget_->isSectionExpanded());
+    if (protoSection_ && activeConnectionWidget_) {
+        protoSection_->setExpanded(activeConnectionWidget_->isSectionExpanded());
     }
     if (connectionStack_) connectionStack_->updateGeometry();
 
@@ -349,8 +339,11 @@ void ModbusPage::updateModbusSettings(int timeoutMs, int retries, int retryInter
 }
 
 void ModbusPage::setLinked(bool linked) {
-    if (pagePresenter_) pagePresenter_->setLinked(linked);
-    if (telemetryWidget_) telemetryWidget_->setLinkageState(linked);
+    if (pagePresenter_) {
+        pagePresenter_->setLinked(linked);
+    } else if (telemetryWidget_) {
+        telemetryWidget_->setLinkageState(linked);
+    }
 }
 
 bool ModbusPage::isLinked() const {
@@ -390,34 +383,18 @@ void ModbusPage::applyProtocolSettingsGroup(::modbus::base::ModbusMode mode) {
 
 void ModbusPage::onTcpConnectClicked(const QString& ip, int port) {
     showStatusMessage(QString(), false);
-    ::modbus::base::ModbusConfig config;
-    config.mode = ::modbus::base::ModbusMode::TCP;
-    config.ipAddress = ip;
-    config.port = port;
-    applyPresenterTiming(config, pagePresenter_, workbenchWidget_);
-
-    ui::application::modbus::ModbusConnectionSpec spec;
-    spec.config = config;
-    if (pagePresenter_) pagePresenter_->requestConnect(spec);
+    if (pagePresenter_) {
+        const uint8_t slaveId = workbenchWidget_ ? workbenchWidget_->slaveId() : config::Modbus::kDefaultSlaveId;
+        pagePresenter_->requestTcpConnect(ip, port, slaveId);
+    }
 }
 
 void ModbusPage::onSerialConnectClicked(const io::SerialConfig& config) {
-    const auto descriptor = ui::application::modbus::modeDescriptor(currentMode_);
     showStatusMessage(QString(), false);
-
-    ::modbus::base::ModbusConfig modbusConfig;
-    modbusConfig.mode = descriptor.modbusMode;
-    modbusConfig.portName = config.portName;
-    modbusConfig.baudRate = config.baudRate;
-    modbusConfig.dataBits = config.dataBits;
-    modbusConfig.stopBits = static_cast<int>(config.stopBits);
-    modbusConfig.parity = static_cast<int>(config.parity);
-    applyPresenterTiming(modbusConfig, pagePresenter_, workbenchWidget_);
-
-    ui::application::modbus::ModbusConnectionSpec spec;
-    spec.config = modbusConfig;
-    spec.serialConfig = config;
-    if (pagePresenter_) pagePresenter_->requestConnect(spec);
+    if (pagePresenter_) {
+        const uint8_t slaveId = workbenchWidget_ ? workbenchWidget_->slaveId() : config::Modbus::kDefaultSlaveId;
+        pagePresenter_->requestSerialConnect(config, slaveId);
+    }
 }
 
 void ModbusPage::onDisconnectClicked() {

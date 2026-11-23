@@ -32,7 +32,7 @@ class ISettingsService;
 
 namespace ui::widgets::modbus {
 
-/// Role: Master-detail workbench controller presenting standard function code operations and raw frame dispatch.
+/// Role: Interactive workbench view for configuring Modbus function operations, register parameters, and raw frame dispatch.
 /// Thread-safety: Thread-affine (must be invoked on GUI main thread).
 /// Ownership: Owned by views::modbus::ModbusPage via QObject parent-child hierarchy.
 class ModbusWorkbenchWidget : public QWidget {
@@ -66,7 +66,8 @@ public:
     [[nodiscard]] uint8_t functionCode() const noexcept;
     [[nodiscard]] uint16_t startAddress() const noexcept { return pduAddress_; }
     [[nodiscard]] uint16_t quantity() const noexcept;
-    [[nodiscard]] int radix() const noexcept { return radix_; }
+    [[nodiscard]] int addressRadix() const noexcept { return addressRadix_; }
+    [[nodiscard]] int radix() const noexcept { return addressRadix_; }
     [[nodiscard]] int dataRadix() const noexcept { return dataRadix_; }
     [[nodiscard]] ::modbus::address::AddressBase addressBase() const noexcept { return addressBase_; }
     [[nodiscard]] QComboBox* addressBaseComboBox() const noexcept { return addrBaseCombo_; }
@@ -75,7 +76,8 @@ public:
     [[nodiscard]] QLabel* addressWarningLabel() const noexcept { return addressWarningLabel_; }
     [[nodiscard]] QLabel* writeWarningLabel() const noexcept { return writeWarningLabel_; }
     [[nodiscard]] QGroupBox* addressingGroup() const noexcept { return addressingGroup_; }
-    [[nodiscard]] QGroupBox* writeGroup() const noexcept { return writeGroup_; }
+    [[nodiscard]] QGroupBox* requestDataGroup() const noexcept { return requestDataGroup_; }
+    [[nodiscard]] QGroupBox* writeGroup() const noexcept { return requestDataGroup_; }
     [[nodiscard]] QLabel* framePreviewLabel() const noexcept { return framePreviewLabel_; }
     [[nodiscard]] QPlainTextEdit* framePreviewEdit() const noexcept { return framePreviewEdit_; }
     [[nodiscard]] QGroupBox* executionGroup() const noexcept { return executionGroup_; }
@@ -179,7 +181,7 @@ private:
     bool isPolling_ = false;
     bool userConfirmedWritePoll_ = false;
     uint16_t pduAddress_ = 0;
-    int radix_ = 10;
+    int addressRadix_ = 10;
     int dataRadix_ = 10;
     int registerDataRadix_ = 10;
     bool writePayloadDirty_ = false;
@@ -211,13 +213,13 @@ private:
     QLabel* addressWarningLabel_ = nullptr;
 
     // Write stack
-    QGroupBox* writeGroup_ = nullptr;
+    QGroupBox* requestDataGroup_ = nullptr;
     QLabel* dataRadixLabel_ = nullptr;
     QButtonGroup* dataRadixGroup_ = nullptr;
     QPushButton* dataRadixDecBtn_ = nullptr;
     QPushButton* dataRadixHexBtn_ = nullptr;
     QPushButton* dataRadixBinBtn_ = nullptr;
-    QStackedLayout* writeStackedLayout_ = nullptr;
+    QStackedLayout* requestDataStackedLayout_ = nullptr;
     QLabel* readPlaceholderLabel_ = nullptr;
     QPushButton* fc05OnBtn_ = nullptr;
     QPushButton* fc05OffBtn_ = nullptr;

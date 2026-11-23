@@ -166,11 +166,11 @@ RequestSubmissionService::ValidationResult RequestSubmissionService::validateWir
 RequestSubmissionService::ValidationResult RequestSubmissionService::validateSpec(
     const ModbusExecuteSpec& spec, ::modbus::base::ModbusMode mode) const {
     if (spec.isRawMode) {
-        if (spec.rawPduOrAdu.isEmpty()) {
+        if (spec.rawAdu.isEmpty()) {
             return {false, QCoreApplication::translate("RequestSubmissionService",
                 "Raw data cannot be empty")};
         }
-        if (spec.rawPduOrAdu.size() > config::Modbus::kMaxAduSize) {
+        if (spec.rawAdu.size() > config::Modbus::kMaxAduSize) {
             return {false, QCoreApplication::translate("RequestSubmissionService",
                 "Raw frame exceeds maximum size (%1 bytes)").arg(config::Modbus::kMaxAduSize)};
         }

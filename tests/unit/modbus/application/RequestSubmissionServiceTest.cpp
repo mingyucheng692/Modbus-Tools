@@ -334,15 +334,15 @@ TEST_F(RequestSubmissionServiceTest, ValidateSpec_RawMode) {
     spec.isRawMode = true;
 
     // Empty raw data
-    spec.rawPduOrAdu.clear();
+    spec.rawAdu.clear();
     EXPECT_FALSE(service_->validateSpec(spec).isValid);
 
     // Valid raw data
-    spec.rawPduOrAdu = QByteArray("\x01\x03\x00\x00\x00\x0A\xC5\xCD", 8);
+    spec.rawAdu = QByteArray("\x01\x03\x00\x00\x00\x0A\xC5\xCD", 8);
     EXPECT_TRUE(service_->validateSpec(spec).isValid);
 
     // Oversized (> 260)
-    spec.rawPduOrAdu = QByteArray(261, 'A');
+    spec.rawAdu = QByteArray(261, 'A');
     EXPECT_FALSE(service_->validateSpec(spec).isValid);
 }
 

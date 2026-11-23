@@ -148,7 +148,7 @@ QByteArray ModbusWorkbenchWidget::currentWriteData(uint8_t fc, uint16_t qty) con
 
     if (isRawMode_) {
         spec.isRawMode = true;
-        spec.rawPduOrAdu = ::ui::common::data_helper::parseHex(rawTextEdit_->toPlainText());
+        spec.rawAdu = ::ui::common::data_helper::parseHex(rawTextEdit_->toPlainText());
         return spec;
     }
 
@@ -228,11 +228,11 @@ void ModbusWorkbenchWidget::setupModeToggle(QWidget* container, QVBoxLayout* roo
     auto* topBarLayout = new QHBoxLayout();
     modeGroup_ = new QButtonGroup(this);
     standardModeBtn_ = new QPushButton(container);
-    standardModeBtn_->setObjectName(QStringLiteral("standardModeBtn"));
+    standardModeBtn_->setObjectName(QStringLiteral("workbenchStandardModeBtn"));
     standardModeBtn_->setCheckable(true);
     standardModeBtn_->setChecked(true);
     rawModeBtn_ = new QPushButton(container);
-    rawModeBtn_->setObjectName(QStringLiteral("rawModeBtn"));
+    rawModeBtn_->setObjectName(QStringLiteral("workbenchRawModeBtn"));
     rawModeBtn_->setCheckable(true);
     modeGroup_->addButton(standardModeBtn_, 0);
     modeGroup_->addButton(rawModeBtn_, 1);
@@ -428,31 +428,31 @@ void ModbusWorkbenchWidget::setupAddressAndQuantityRows(QGroupBox* group, QFormL
 }
 
 void ModbusWorkbenchWidget::setupWriteSection(QWidget* parent, QVBoxLayout* layout) {
-    writeGroup_ = new QGroupBox(parent);
-    writeGroup_->setObjectName(QStringLiteral("workbenchWriteGroup"));
-    writeGroup_->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
-    auto* wl = new QVBoxLayout(writeGroup_);
+    requestDataGroup_ = new QGroupBox(parent);
+    requestDataGroup_->setObjectName(QStringLiteral("workbenchWriteGroup"));
+    requestDataGroup_->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
+    auto* wl = new QVBoxLayout(requestDataGroup_);
     wl->setSpacing(6);
 
-    setupDataRadixRow(writeGroup_, wl);
+    setupDataRadixRow(requestDataGroup_, wl);
 
-    auto* writeStackWidget = new QWidget(writeGroup_);
-    writeStackedLayout_ = new DynamicStackedLayout(writeStackWidget);
+    auto* writeStackWidget = new QWidget(requestDataGroup_);
+    requestDataStackedLayout_ = new DynamicStackedLayout(writeStackWidget);
     setupWriteStackPages(writeStackWidget);
     wl->addWidget(writeStackWidget);
 
-    writeWarningLabel_ = new QLabel(writeGroup_);
+    writeWarningLabel_ = new QLabel(requestDataGroup_);
     writeWarningLabel_->setObjectName(QStringLiteral("workbenchWriteWarning"));
     writeWarningLabel_->setStyleSheet(QStringLiteral("color: #d32f2f; font-weight: bold;"));
     writeWarningLabel_->setWordWrap(true);
     writeWarningLabel_->hide();
     wl->addWidget(writeWarningLabel_);
 
-    framePreviewLabel_ = new QLabel(writeGroup_);
+    framePreviewLabel_ = new QLabel(requestDataGroup_);
     framePreviewLabel_->setObjectName(QStringLiteral("workbenchFramePreviewLabel"));
     wl->addWidget(framePreviewLabel_);
 
-    framePreviewEdit_ = new FramePreviewEdit(writeGroup_);
+    framePreviewEdit_ = new FramePreviewEdit(requestDataGroup_);
     framePreviewEdit_->setObjectName(QStringLiteral("workbenchFramePreviewEdit"));
     framePreviewEdit_->setReadOnly(true);
     framePreviewEdit_->setMinimumHeight(24);
@@ -460,7 +460,7 @@ void ModbusWorkbenchWidget::setupWriteSection(QWidget* parent, QVBoxLayout* layo
     framePreviewEdit_->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
     wl->addWidget(framePreviewEdit_, 1);
 
-    layout->addWidget(writeGroup_, 1);
+    layout->addWidget(requestDataGroup_, 1);
 }
 
 void ModbusWorkbenchWidget::setupDataRadixRow(QGroupBox* group, QVBoxLayout* wl) {
@@ -500,7 +500,7 @@ void ModbusWorkbenchWidget::setupReadPlaceholderPage(QWidget* stackWidget) {
     readPlaceholderLabel_->setStyleSheet(QStringLiteral("color: #757575; font-size: 11px; font-style: italic;"));
     readPlaceholderLabel_->setWordWrap(true);
     layout->addWidget(readPlaceholderLabel_);
-    writeStackedLayout_->addWidget(page);
+    requestDataStackedLayout_->addWidget(page);
 }
 
 void ModbusWorkbenchWidget::setupFc05Page(QWidget* stackWidget) {
@@ -522,7 +522,7 @@ void ModbusWorkbenchWidget::setupFc05Page(QWidget* stackWidget) {
     connect(fc05Group_, &QButtonGroup::idClicked, this, [this](int id) { onFc05Toggled(id == 1); });
     layout->addWidget(fc05OnBtn_);
     layout->addWidget(fc05OffBtn_);
-    writeStackedLayout_->addWidget(page);
+    requestDataStackedLayout_->addWidget(page);
 }
 
 void ModbusWorkbenchWidget::addWriteLinePage(QWidget* stackWidget, QLabel*& lbl, QLineEdit*& edt,
@@ -547,7 +547,7 @@ void ModbusWorkbenchWidget::addWriteLinePage(QWidget* stackWidget, QLabel*& lbl,
         validateInputs();
     });
     layout->addWidget(edt);
-    writeStackedLayout_->addWidget(page);
+    requestDataStackedLayout_->addWidget(page);
 }
 
 void ModbusWorkbenchWidget::setupWriteStackPages(QWidget* stackWidget) {
@@ -670,7 +670,7 @@ void ModbusWorkbenchWidget::onModeChanged(int id) {
 }
 
 void ModbusWorkbenchWidget::onRadixChanged(int id) {
-    radix_ = id;
+    addressRadix_ = id;
     updateAddressDisplay();
     validateInputs();
 }
@@ -698,19 +698,19 @@ void ModbusWorkbenchWidget::updateRequestDataState(uint8_t fc) {
     const bool isRegister = (fc == 0x06 || fc == 0x10);
 
     if (isRead) {
-        writeStackedLayout_->setCurrentIndex(0);
+        requestDataStackedLayout_->setCurrentIndex(0);
         dataRadixDecBtn_->setEnabled(false);
         dataRadixHexBtn_->setEnabled(false);
         dataRadixBinBtn_->setEnabled(false);
     } else if (isCoil) {
-        writeStackedLayout_->setCurrentIndex(fc == 0x05 ? 1 : 3);
+        requestDataStackedLayout_->setCurrentIndex(fc == 0x05 ? 1 : 3);
         dataRadix_ = 2;
         dataRadixBinBtn_->setChecked(true);
         dataRadixDecBtn_->setEnabled(false);
         dataRadixHexBtn_->setEnabled(false);
         dataRadixBinBtn_->setEnabled(true);
     } else if (isRegister) {
-        writeStackedLayout_->setCurrentIndex(fc == 0x06 ? 2 : 4);
+        requestDataStackedLayout_->setCurrentIndex(fc == 0x06 ? 2 : 4);
         dataRadixDecBtn_->setEnabled(true);
         dataRadixHexBtn_->setEnabled(true);
         dataRadixBinBtn_->setEnabled(true);
@@ -878,7 +878,7 @@ void ModbusWorkbenchWidget::onCleanHexClicked() {
 
 void ModbusWorkbenchWidget::updateAddressDisplay() {
     addressEdit_->setText(::modbus::address::toDisplayAddress(
-        pduAddress_, addressBase_, radix_ == 16));
+        pduAddress_, addressBase_, addressRadix_ == 16));
     if (addressPreviewLabel_) {
         const auto hexStr = QString::number(pduAddress_, 16).rightJustified(4, QLatin1Char('0')).toUpper();
         addressPreviewLabel_->setText(tr("PDU: 0x%1 (%2)").arg(hexStr).arg(pduAddress_));
@@ -1017,10 +1017,10 @@ void ModbusWorkbenchWidget::loadSettings() {
     }
     setFunctionCode(fc);
     if (s->contains(kModbusWorkbenchRadix)) {
-        radix_ = (s->value(kModbusWorkbenchRadix).toInt() == 16) ? 16 : 10;
-        (radix_ == 16 ? radixHexBtn_ : radixDecBtn_)->setChecked(true);
+        addressRadix_ = (s->value(kModbusWorkbenchRadix).toInt() == 16) ? 16 : 10;
+        (addressRadix_ == 16 ? radixHexBtn_ : radixDecBtn_)->setChecked(true);
     }
-    registerDataRadix_ = s->contains(kModbusWorkbenchDataRadix) ? s->value(kModbusWorkbenchDataRadix).toInt() : radix_;
+    registerDataRadix_ = s->contains(kModbusWorkbenchDataRadix) ? s->value(kModbusWorkbenchDataRadix).toInt() : addressRadix_;
     if (registerDataRadix_ != 16 && registerDataRadix_ != 2) registerDataRadix_ = 10;
     dataRadix_ = registerDataRadix_;
 
@@ -1047,7 +1047,7 @@ void ModbusWorkbenchWidget::saveSettings() {
     s->setValue(kModbusWorkbenchFunctionCode, functionCode());
     s->setValue(kModbusWorkbenchStartAddress, pduAddress_);
     s->setValue(kModbusWorkbenchQuantity, quantitySpin_->value());
-    s->setValue(kModbusWorkbenchRadix, radix_);
+    s->setValue(kModbusWorkbenchRadix, addressRadix_);
     s->setValue(kModbusWorkbenchDataRadix, registerDataRadix_);
     s->setValue(kModbusWorkbenchPollIntervalMs, pollIntervalSpin_->value());
     s->setValue(kModbusWorkbenchFc05Value, fc05IsOn_);
@@ -1094,7 +1094,7 @@ void ModbusWorkbenchWidget::retranslateAddressingUi() {
 }
 
 void ModbusWorkbenchWidget::retranslateWriteAndRawUi() {
-    writeGroup_->setTitle(tr("Request Data"));
+    requestDataGroup_->setTitle(tr("Request Data"));
     dataRadixLabel_->setText(tr("Data Radix:"));
     dataRadixDecBtn_->setText(tr("DEC"));
     dataRadixDecBtn_->setToolTip(tr("Decimal (DEC)"));

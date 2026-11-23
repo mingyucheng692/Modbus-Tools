@@ -138,6 +138,11 @@ void MainWindow::initializeUi() {
     if (analyzerLinkCoordinator_) {
         analyzerLinkCoordinator_->bind(modbusView_, frameAnalyzer_);
     }
+    if (modbusView_) {
+        modbusView_->setSettingsController(settingsController_.get());
+        connect(modbusView_, &views::modbus::ModbusPage::addressBaseChanged,
+                this, &MainWindow::applyAddressBaseToViews);
+    }
     applyAddressBaseToViews(settingsController_->addressBase());
 
     if (frameAnalyzer_ && modbusView_) {
