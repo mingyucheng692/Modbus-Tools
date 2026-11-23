@@ -2,12 +2,15 @@
 
 #include "WorkerReleaseCoordinator.h"
 
+#include "core/common/ThreadGuard.h"
 #include "modbus/dispatch/ModbusWorker.h"
 
 #include <QMetaObject>
+#include <QPointer>
 #include <QThread>
 #include <QTimer>
 #include <algorithm>
+#include <mutex>
 #include <spdlog/spdlog.h>
 
 namespace ui::application::modbus {
@@ -15,9 +18,6 @@ namespace ui::application::modbus {
 WorkerReleaseCoordinator::WorkerReleaseCoordinator(QObject* parent)
     : QObject(parent) {
 }
-
-#include <QPointer>
-#include <mutex>
 
 namespace {
 
@@ -40,17 +40,6 @@ WorkerReleaseCoordinator::~WorkerReleaseCoordinator() noexcept {
         aliveToken_->alive = false;
     }
 
-    const auto stopThread = [this](const std::shared_ptr<QThread>& thread) {
-        if (!thread) {
-            return;
-        }
-        thread->disconnect(this);
-        if (thread->isRunning() && thread.get() != QThread::currentThread()) {
-            thread->quit();
-            thread->wait(1000);
-        }
-    };
-
     auto contexts = std::move(pending_);
     for (const auto& pending : contexts) {
         if (!pending) {
@@ -67,7 +56,10 @@ WorkerReleaseCoordinator::~WorkerReleaseCoordinator() noexcept {
         if (pending->channel) {
             pending->channel->close();
         }
-        stopThread(pending->thread);
+        if (pending->thread) {
+            pending->thread->disconnect(this);
+            core::common::ThreadGuard::stopThread(pending->thread.get(), 1000);
+        }
         releaseChannelSafely(pending);
     }
 }
@@ -437,9 +429,8 @@ void WorkerReleaseCoordinator::finalize(
         pending->timeoutTimer = nullptr;
     }
 
-    if (pending->thread && pending->thread->isRunning()) {
-        pending->thread->quit();
-        if (!pending->thread->wait(1000)) {
+    if (pending->thread) {
+        if (!core::common::ThreadGuard::stopThread(pending->thread.get(), 1000)) {
             SPDLOG_WARN("WorkerReleaseCoordinator: thread did not finish in time");
         }
     }

@@ -17,6 +17,19 @@ class ThreadGuard {
 public:
     ThreadGuard() = delete; // static-only utility
 
+    /// Request quit and bounded wait for a running QThread from another thread without deleting it.
+    static bool stopThread(QThread* thread, unsigned long timeoutMs = 1000)
+    {
+        if (!thread) {
+            return true;
+        }
+        if (thread->isRunning() && thread != QThread::currentThread()) {
+            thread->quit();
+            return thread->wait(timeoutMs);
+        }
+        return !thread->isRunning();
+    }
+
     /// shared_ptr deleter / manual teardown for a dedicated QThread.
     static void releaseThread(QThread* thread)
     {

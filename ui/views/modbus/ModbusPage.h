@@ -2,6 +2,7 @@
 
 #pragma once
 
+#include <memory>
 #include <QWidget>
 #include <QString>
 #include <QMap>
@@ -106,6 +107,7 @@ private:
     void retranslateUi();
 
     infra::config::ISettingsService* settingsService_ = nullptr;
+    std::unique_ptr<core::common::SettingsController> ownedSettingsController_;
     core::common::SettingsController* settingsController_ = nullptr;
     ui::application::modbus::ModbusPagePresenter* pagePresenter_ = nullptr;
     ::modbus::base::ModbusMode currentMode_ = ::modbus::base::ModbusMode::TCP;

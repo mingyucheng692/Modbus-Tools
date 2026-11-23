@@ -242,28 +242,28 @@ void ModbusTelemetryWidget::setupMetricsRibbon() {
     ribbonLayout->setSpacing(12);
 
     txStatsLabel_ = new QLabel(metricsRibbon_);
-    txStatsLabel_->setObjectName(QStringLiteral("txStatsLabel"));
+    txStatsLabel_->setObjectName(QStringLiteral("telemetryTxStatsLabel"));
     txStatsLabel_->setStyleSheet(QStringLiteral("color: #1976D2; font-weight: bold; font-family: monospace;"));
     ribbonLayout->addWidget(txStatsLabel_);
 
     rxStatsLabel_ = new QLabel(metricsRibbon_);
-    rxStatsLabel_->setObjectName(QStringLiteral("rxStatsLabel"));
+    rxStatsLabel_->setObjectName(QStringLiteral("telemetryRxStatsLabel"));
     rxStatsLabel_->setStyleSheet(QStringLiteral("color: #388E3C; font-weight: bold; font-family: monospace;"));
     ribbonLayout->addWidget(rxStatsLabel_);
 
     errStatsLabel_ = new QLabel(metricsRibbon_);
-    errStatsLabel_->setObjectName(QStringLiteral("errStatsLabel"));
+    errStatsLabel_->setObjectName(QStringLiteral("telemetryErrStatsLabel"));
     ribbonLayout->addWidget(errStatsLabel_);
 
     rttStatsLabel_ = new QLabel(metricsRibbon_);
-    rttStatsLabel_->setObjectName(QStringLiteral("rttStatsLabel"));
+    rttStatsLabel_->setObjectName(QStringLiteral("telemetryRttStatsLabel"));
     rttStatsLabel_->setStyleSheet(QStringLiteral("color: #616161; font-family: monospace;"));
     ribbonLayout->addWidget(rttStatsLabel_);
 
     ribbonLayout->addStretch(1);
 
     resetStatsBtn_ = new QPushButton(tr("Reset Stats"), metricsRibbon_);
-    resetStatsBtn_->setObjectName(QStringLiteral("resetStatsBtn"));
+    resetStatsBtn_->setObjectName(QStringLiteral("telemetryResetStatsBtn"));
     resetStatsBtn_->setToolTip(tr("Reset communication statistics (TX, RX, Error, RTT)"));
     connect(resetStatsBtn_, &QPushButton::clicked, this, &ModbusTelemetryWidget::resetMetricsRequested);
     ribbonLayout->addWidget(resetStatsBtn_);

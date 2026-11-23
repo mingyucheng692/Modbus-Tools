@@ -2,7 +2,6 @@
 
 #include "ModbusPage.h"
 #include "Config.h"
-#include "common/SettingsKeys.h"
 #include "common/SettingsController.h"
 #include "infra/config/ISettingsService.h"
 #include "../../application/modbus/ModbusPagePresenter.h"
@@ -50,6 +49,10 @@ public:
 ModbusPage::ModbusPage(infra::config::ISettingsService* settingsService, QWidget* parent)
     : QWidget(parent),
       settingsService_(settingsService) {
+    if (settingsService_) {
+        ownedSettingsController_ = std::make_unique<core::common::SettingsController>(settingsService_);
+        settingsController_ = ownedSettingsController_.get();
+    }
     setupUi();
 }
 
@@ -96,9 +99,7 @@ void ModbusPage::bindPresenter(ui::application::modbus::ModbusPagePresenter* pre
 
     const auto addrBase = settingsController_
         ? settingsController_->addressBase()
-        : ((settingsService_ && settingsService_->value(core::common::settings_keys::kModbusAddressBase).toInt() == 1)
-            ? ::modbus::address::AddressBase::PlcAddress1Based
-            : ::modbus::address::AddressBase::Offset0Based);
+        : ::modbus::address::AddressBase::Offset0Based;
     updateAddressBase(addrBase);
     setProtocolType(ui::application::modbus::modeDescriptor(currentMode_).protocolType);
 }
@@ -222,8 +223,6 @@ void ModbusPage::setupSplitterBody() {
             this, [this](::modbus::address::AddressBase base) {
                 if (settingsController_) {
                     settingsController_->setAddressBase(base);
-                } else if (settingsService_) {
-                    settingsService_->setValue(core::common::settings_keys::kModbusAddressBase, static_cast<int>(base));
                 }
                 updateAddressBase(base);
                 emit addressBaseChanged(base);

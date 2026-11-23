@@ -547,11 +547,16 @@ TEST(ConnectionWidgets, ModbusPage_ResetStatsButton_TriggersPresenterAndUpdatesU
     // Seed initial metrics
     page.updateMetrics(10, 8, 2, 45);
 
-    auto* txLabel = page.findChild<QLabel*>(QStringLiteral("txStatsLabel"));
-    auto* rxLabel = page.findChild<QLabel*>(QStringLiteral("rxStatsLabel"));
-    auto* errLabel = page.findChild<QLabel*>(QStringLiteral("errStatsLabel"));
-    auto* rttLabel = page.findChild<QLabel*>(QStringLiteral("rttStatsLabel"));
-    auto* resetBtn = page.findChild<QPushButton*>(QStringLiteral("resetStatsBtn"));
+    auto* txLabel = page.findChild<QLabel*>(QStringLiteral("telemetryTxStatsLabel"));
+    if (!txLabel) txLabel = page.findChild<QLabel*>(QStringLiteral("txStatsLabel"));
+    auto* rxLabel = page.findChild<QLabel*>(QStringLiteral("telemetryRxStatsLabel"));
+    if (!rxLabel) rxLabel = page.findChild<QLabel*>(QStringLiteral("rxStatsLabel"));
+    auto* errLabel = page.findChild<QLabel*>(QStringLiteral("telemetryErrStatsLabel"));
+    if (!errLabel) errLabel = page.findChild<QLabel*>(QStringLiteral("errStatsLabel"));
+    auto* rttLabel = page.findChild<QLabel*>(QStringLiteral("telemetryRttStatsLabel"));
+    if (!rttLabel) rttLabel = page.findChild<QLabel*>(QStringLiteral("rttStatsLabel"));
+    auto* resetBtn = page.findChild<QPushButton*>(QStringLiteral("telemetryResetStatsBtn"));
+    if (!resetBtn) resetBtn = page.findChild<QPushButton*>(QStringLiteral("resetStatsBtn"));
 
     ASSERT_NE(txLabel, nullptr);
     ASSERT_NE(rxLabel, nullptr);
