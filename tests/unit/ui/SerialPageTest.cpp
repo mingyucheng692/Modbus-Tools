@@ -5,13 +5,17 @@
 #include "mocks/UiTestDoubles.h"
 #include "views/serial/SerialPage.h"
 #include "widgets/ByteMonitorWidget.h"
+#include "widgets/GenericInputWidget.h"
+#include "widgets/CollapsibleSection.h"
 
 #include <QCheckBox>
 #include <QCoreApplication>
 #include <QElapsedTimer>
 #include <QEventLoop>
 #include <QListView>
+#include <QScrollArea>
 #include <QSignalSpy>
+#include <QTextEdit>
 
 namespace ui::views::serial {
 
@@ -41,7 +45,21 @@ bool byteMonitorContains(SerialPage& view, const QString& needle) {
 
 } // namespace
 
-TEST(SerialDebuggerViewTest, LoadsAndSavesDtrRtsWithCanonicalKeys) {
+TEST(SerialPageTest, Layout_720x480_NoOuterScrollArea) {
+    tests::mocks::FakeSettingsService settings;
+    SerialPage view(&settings);
+    view.resize(720, 480);
+    EXPECT_GE(view.width(), 720);
+    EXPECT_GE(view.height(), 480);
+
+    // Page must be added directly to layout; zero outer/parent QScrollArea
+    EXPECT_TRUE(view.findChildren<QScrollArea*>().isEmpty());
+
+    auto sections = view.findChildren<ui::widgets::CollapsibleSection*>();
+    EXPECT_GE(sections.size(), 2);
+}
+
+TEST(SerialPageTest, LoadsAndSavesDtrRtsWithCanonicalKeys) {
     tests::mocks::FakeSettingsService settings;
     settings.setValue(core::common::settings_keys::kSerialDtr, true);
     settings.setValue(core::common::settings_keys::kSerialRts, false);
@@ -58,7 +76,7 @@ TEST(SerialDebuggerViewTest, LoadsAndSavesDtrRtsWithCanonicalKeys) {
     EXPECT_TRUE(settings.value(core::common::settings_keys::kSerialRts).toBool());
 }
 
-TEST(SerialDebuggerViewTest, AppliesSavedControlLinesOnOpenAndAlertsOnUnexpectedDisconnect) {
+TEST(SerialPageTest, AppliesSavedControlLinesOnOpenAndAlertsOnUnexpectedDisconnect) {
     tests::mocks::FakeSettingsService settings;
     settings.setValue(core::common::settings_keys::kSerialDtr, true);
     settings.setValue(core::common::settings_keys::kSerialRts, true);
@@ -96,7 +114,41 @@ TEST(SerialDebuggerViewTest, AppliesSavedControlLinesOnOpenAndAlertsOnUnexpected
     EXPECT_EQ(disconnectSpy.count(), 1);
 }
 
-TEST(SerialDebuggerViewTest, LocalizesWorkerErrorWrappingOsDetail) {
+TEST(SerialPageTest, ActiveDisconnect_OpenToClosingToClosedSuppressesDisconnectAlert) {
+    tests::mocks::FakeSettingsService settings;
+    SerialPage view(&settings);
+    int alertCount = 0;
+    view.setDisconnectAlertHandler([&alertCount]() { ++alertCount; });
+
+    QSignalSpy disconnectSpy(&view, &SerialPage::unexpectedDisconnectDetected);
+
+    // Open channel
+    ASSERT_TRUE(QMetaObject::invokeMethod(
+        &view, "onWorkerStateChanged", Qt::DirectConnection,
+        Q_ARG(io::ChannelState, io::ChannelState::Open),
+        Q_ARG(quint64, quint64(0))));
+    EXPECT_TRUE(view.isConnected());
+
+    // Active disconnect requested
+    view.onDisconnectClicked();
+
+    // Worker transitions Open -> Closing -> Closed
+    ASSERT_TRUE(QMetaObject::invokeMethod(
+        &view, "onWorkerStateChanged", Qt::DirectConnection,
+        Q_ARG(io::ChannelState, io::ChannelState::Closing),
+        Q_ARG(quint64, quint64(0))));
+    ASSERT_TRUE(QMetaObject::invokeMethod(
+        &view, "onWorkerStateChanged", Qt::DirectConnection,
+        Q_ARG(io::ChannelState, io::ChannelState::Closed),
+        Q_ARG(quint64, quint64(0))));
+
+    // Zero unexpected disconnect alerts
+    EXPECT_EQ(alertCount, 0);
+    EXPECT_EQ(disconnectSpy.count(), 0);
+    EXPECT_FALSE(view.isConnected());
+}
+
+TEST(SerialPageTest, LocalizesWorkerErrorWrappingOsDetail) {
     tests::mocks::FakeSettingsService settings;
     SerialPage view(&settings);
 
@@ -116,6 +168,40 @@ TEST(SerialDebuggerViewTest, LocalizesWorkerErrorWrappingOsDetail) {
 
     EXPECT_TRUE(byteMonitorContains(view, QStringLiteral("Permission denied")));
     EXPECT_TRUE(byteMonitorContains(view, QStringLiteral("Access is denied")));
+}
+
+TEST(SerialPageTest, HexValidation_OddLengthAndInvalidCharsBlockSend) {
+    tests::mocks::FakeSettingsService settings;
+    SerialPage view(&settings);
+    auto* inputWidget = view.findChild<ui::widgets::GenericInputWidget*>();
+    ASSERT_NE(inputWidget, nullptr);
+    auto* textEdit = inputWidget->findChild<QTextEdit*>();
+    ASSERT_NE(textEdit, nullptr);
+
+    // Enable send controls to test validation pipeline
+    inputWidget->setSendControlsEnabled(true);
+
+    QSignalSpy sendSpy(inputWidget, &ui::widgets::GenericInputWidget::sendRequested);
+    QSignalSpy failSpy(inputWidget, &ui::widgets::GenericInputWidget::validationFailed);
+
+    // Odd-length hex text
+    textEdit->setPlainText(QStringLiteral("123"));
+    QMetaObject::invokeMethod(inputWidget, "onSendClicked");
+    EXPECT_EQ(sendSpy.count(), 0);
+    EXPECT_GE(failSpy.count(), 1);
+
+    // Non-hex characters
+    failSpy.clear();
+    textEdit->setPlainText(QStringLiteral("FF GG"));
+    QMetaObject::invokeMethod(inputWidget, "onSendClicked");
+    EXPECT_EQ(sendSpy.count(), 0);
+    EXPECT_GE(failSpy.count(), 1);
+
+    // Valid hex
+    textEdit->setPlainText(QStringLiteral("AA BB"));
+    QMetaObject::invokeMethod(inputWidget, "onSendClicked");
+    ASSERT_EQ(sendSpy.count(), 1);
+    EXPECT_EQ(sendSpy.at(0).at(0).toByteArray(), QByteArray::fromHex("AABB"));
 }
 
 } // namespace ui::views::serial

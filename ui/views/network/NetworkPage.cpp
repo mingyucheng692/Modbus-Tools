@@ -18,6 +18,7 @@
 #include <QSplitter>
 #include <QEvent>
 #include <QCoreApplication>
+#include <QSignalBlocker>
 
 namespace ui::views::network {
 
@@ -29,6 +30,7 @@ constexpr auto kUdpText = QT_TRANSLATE_NOOP("ui::views::network::Protocol", "UDP
 
 void populateProtocolOptions(QComboBox* combo) {
     if (!combo) return;
+    const QSignalBlocker blocker(combo);
     const int currentValue = combo->count() > 0
         ? combo->currentData().toInt()
         : static_cast<int>(NetworkPage::Protocol::TcpClient);
@@ -260,10 +262,12 @@ void NetworkPage::setupUi() {
         const int savedVal = settingsService_->value(core::common::settings_keys::kNetworkProtocol).toInt();
         const int foundIndex = protocolCombo_->findData(savedVal);
         if (foundIndex >= 0) {
+            const QSignalBlocker blocker(protocolCombo_);
             protocolCombo_->setCurrentIndex(foundIndex);
             initialProtocol = static_cast<Protocol>(savedVal);
         }
     }
+    currentProtocol_ = initialProtocol;
     switchToProtocol(initialProtocol);
 }
 

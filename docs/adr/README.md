@@ -6,6 +6,7 @@
 | **0002** | **Dual State Machine** | Core session/request lifecycles use CRTP `StateMachineBase` with `constexpr` tables and lock-free CAS (`std::atomic`). UI maintains no parallel FSM; state is purely derived via `ModbusSessionPresenter::deriveUiState()`. | Core transitions are allocation-free and thread-safe. Table edits require compile-time array updates. |
 | **0003** | **MVP & Worker Lifecycle** | View (passive widget) and Presenter (`QObject`) decoupled from non-GUI `core`. Background tasks use `moveToThread`. Teardown executes via `WorkerReleaseCoordinator` 4-stage bounded sequence (3s force fallback). | Eliminates socket UAF / cross-thread `sendEvent` asserts. Requires queued signal/slot wiring boilerplate. |
 | **0004** | **Process-Level Concurrency** | "One Instance, One Session". Multiple concurrent links debugged via separate OS processes, eliminating multi-session multiplexing and consolidating protocol views into unified `ModbusPage`. | Leverages OS process memory isolation. Concurrent instances sharing `config.ini` exhibit last-write-wins on exit. |
+| **0005** | **Raw Byte Transmission Page Paradigm** | Raw byte transmission pages (`NetworkPage`, `SerialPage`) use lightweight `QWidget` composition with a deep `ChannelSessionController` module driving declarative `SessionUiSnapshot` projections. Settings follow Scheme A (zero migration overhead). | Isolates raw IO sessions from complex Modbus state machines while preventing UI state duplication and double scrollbars. |
 
 ---
 

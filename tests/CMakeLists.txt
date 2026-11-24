@@ -203,8 +203,8 @@ set(TEST_UI_WIDGETS_SOURCES
     unit/ui/GenericInputWidgetTest.cpp
     unit/ui/I18nWidgetTest.cpp
     unit/ui/NavigationControllerTest.cpp
-    unit/ui/NetworkDebuggerViewTest.cpp
-    unit/ui/SerialDebuggerViewTest.cpp
+    unit/ui/NetworkPageTest.cpp
+    unit/ui/SerialPageTest.cpp
     unit/ui/ServerClientPanelTest.cpp
     unit/ui/Ieee754ConverterTest.cpp
     unit/ui/ModbusFrameBuilderWidgetTest.cpp

@@ -8,15 +8,20 @@
 #include "widgets/GenericInputWidget.h"
 #include "widgets/ByteMonitorWidget.h"
 #include "widgets/ServerClientPanel.h"
+#include "widgets/CollapsibleSection.h"
 #include "mocks/UiTestDoubles.h"
+#include "core/common/SettingsKeys.h"
 
 #include <QCheckBox>
 #include <QComboBox>
 #include <QEventLoop>
 #include <QListView>
 #include <QNetworkDatagram>
+#include <QScrollArea>
+#include <QSignalSpy>
 #include <QTcpServer>
 #include <QTcpSocket>
+#include <QTextEdit>
 #include <QTimer>
 #include <QUdpSocket>
 #include <functional>
@@ -51,6 +56,169 @@ bool monitorContains(Network& view, const QString& fragment) {
     return false;
 }
 
+// ---------------------------------------------------------------------------
+// Unit Tests (Headless / Fast / In-Memory)
+// ---------------------------------------------------------------------------
+
+TEST(NetworkPageTest, Layout_720x480_NoOuterScrollAreaAndSectionsSync) {
+    tests::mocks::FakeSettingsService settings;
+    Network view(&settings);
+    view.resize(720, 480);
+    EXPECT_GE(view.width(), 720);
+    EXPECT_GE(view.height(), 480);
+
+    // Page must be added directly to layout; zero outer/parent QScrollArea
+    EXPECT_TRUE(view.findChildren<QScrollArea*>().isEmpty());
+
+    auto* combo = view.findChild<QComboBox*>(QStringLiteral("networkProtocolCombo"));
+    ASSERT_NE(combo, nullptr);
+    EXPECT_EQ(combo->count(), 3);
+
+    auto sections = view.findChildren<ui::widgets::CollapsibleSection*>();
+    EXPECT_GE(sections.size(), 2);
+}
+
+TEST(NetworkPageTest, ProtocolChoiceRestoredFromSettings) {
+    tests::mocks::FakeSettingsService settings;
+    settings.setValue(QString::fromLatin1(core::common::settings_keys::kNetworkProtocol), 1); // TcpServer
+
+    Network view(&settings);
+    auto* combo = view.findChild<QComboBox*>(QStringLiteral("networkProtocolCombo"));
+    ASSERT_NE(combo, nullptr);
+    EXPECT_EQ(combo->currentIndex(), 1);
+
+    combo->setCurrentIndex(2); // UDP
+    EXPECT_EQ(settings.value(QString::fromLatin1(core::common::settings_keys::kNetworkProtocol)).toInt(), 2);
+}
+
+TEST(NetworkPageTest, DeclarativeFsmProjection_SnapshotReflectsToControls) {
+    tests::mocks::FakeSettingsService settings;
+    Network view(&settings);
+    auto* combo = view.findChild<QComboBox*>(QStringLiteral("networkProtocolCombo"));
+    auto* input = view.findChild<ui::widgets::GenericInputWidget*>();
+    ASSERT_NE(combo, nullptr);
+    ASSERT_NE(input, nullptr);
+
+    // Initial / Closed
+    EXPECT_TRUE(combo->isEnabled());
+
+    // Opening
+    ui::application::SessionUiSnapshot openingSnap;
+    openingSnap.state = io::ChannelState::Opening;
+    openingSnap.stateText = QStringLiteral("Connecting...");
+    openingSnap.protocolSelectorEnabled = false;
+    openingSnap.sendControlsEnabled = false;
+    openingSnap.sendDisabledTooltip = QStringLiteral("Connecting...");
+    openingSnap.stateChanged = true;
+    QMetaObject::invokeMethod(&view, "onSessionSnapshotChanged", Qt::DirectConnection,
+                              Q_ARG(ui::application::SessionUiSnapshot, openingSnap));
+    EXPECT_FALSE(combo->isEnabled());
+
+    // Open
+    ui::application::SessionUiSnapshot openSnap;
+    openSnap.state = io::ChannelState::Open;
+    openSnap.stateText = QStringLiteral("Connected");
+    openSnap.protocolSelectorEnabled = false;
+    openSnap.sendControlsEnabled = true;
+    openSnap.sendDisabledTooltip = QString();
+    openSnap.stateChanged = true;
+    QMetaObject::invokeMethod(&view, "onSessionSnapshotChanged", Qt::DirectConnection,
+                              Q_ARG(ui::application::SessionUiSnapshot, openSnap));
+    EXPECT_FALSE(combo->isEnabled());
+
+    // Closing
+    ui::application::SessionUiSnapshot closingSnap;
+    closingSnap.state = io::ChannelState::Closing;
+    closingSnap.stateText = QStringLiteral("Closing");
+    closingSnap.protocolSelectorEnabled = false;
+    closingSnap.sendControlsEnabled = false;
+    closingSnap.sendDisabledTooltip = QStringLiteral("Closing...");
+    closingSnap.stateChanged = true;
+    QMetaObject::invokeMethod(&view, "onSessionSnapshotChanged", Qt::DirectConnection,
+                              Q_ARG(ui::application::SessionUiSnapshot, closingSnap));
+    EXPECT_FALSE(combo->isEnabled());
+
+    // Closed
+    ui::application::SessionUiSnapshot closedSnap;
+    closedSnap.state = io::ChannelState::Closed;
+    closedSnap.stateText = QStringLiteral("Disconnected");
+    closedSnap.protocolSelectorEnabled = true;
+    closedSnap.sendControlsEnabled = false;
+    closedSnap.sendDisabledTooltip = QStringLiteral("Disconnected");
+    closedSnap.stateChanged = true;
+    QMetaObject::invokeMethod(&view, "onSessionSnapshotChanged", Qt::DirectConnection,
+                              Q_ARG(ui::application::SessionUiSnapshot, closedSnap));
+    EXPECT_TRUE(combo->isEnabled());
+}
+
+TEST(NetworkPageTest, TcpServerTargetGatingAndTooltips) {
+    tests::mocks::FakeSettingsService settings;
+    settings.setValue(QString::fromLatin1(core::common::settings_keys::kNetworkProtocol), 1); // TcpServer
+    Network view(&settings);
+
+    // Server mode: no connected clients available
+    ui::application::SessionUiSnapshot serverNoClientsSnap;
+    serverNoClientsSnap.state = io::ChannelState::Open;
+    serverNoClientsSnap.sendControlsEnabled = false;
+    serverNoClientsSnap.sendDisabledTooltip = QStringLiteral("Server mode: no connected clients available");
+    QMetaObject::invokeMethod(&view, "onSessionSnapshotChanged", Qt::DirectConnection,
+                              Q_ARG(ui::application::SessionUiSnapshot, serverNoClientsSnap));
+
+    // Server mode: select at least one client
+    ui::application::SessionUiSnapshot serverUnselectedSnap;
+    serverUnselectedSnap.state = io::ChannelState::Open;
+    serverUnselectedSnap.sendControlsEnabled = false;
+    serverUnselectedSnap.sendDisabledTooltip = QStringLiteral("Server mode: select at least one client");
+    QMetaObject::invokeMethod(&view, "onSessionSnapshotChanged", Qt::DirectConnection,
+                              Q_ARG(ui::application::SessionUiSnapshot, serverUnselectedSnap));
+
+    // Server mode: ready with selection
+    ui::application::SessionUiSnapshot serverReadySnap;
+    serverReadySnap.state = io::ChannelState::Open;
+    serverReadySnap.sendControlsEnabled = true;
+    serverReadySnap.sendDisabledTooltip = QString();
+    QMetaObject::invokeMethod(&view, "onSessionSnapshotChanged", Qt::DirectConnection,
+                              Q_ARG(ui::application::SessionUiSnapshot, serverReadySnap));
+}
+
+TEST(NetworkPageTest, HexValidation_OddLengthAndInvalidCharsBlockSend) {
+    tests::mocks::FakeSettingsService settings;
+    Network view(&settings);
+    auto* inputWidget = view.findChild<ui::widgets::GenericInputWidget*>();
+    ASSERT_NE(inputWidget, nullptr);
+    auto* textEdit = inputWidget->findChild<QTextEdit*>();
+    ASSERT_NE(textEdit, nullptr);
+
+    // Enable send controls to test validation pipeline
+    inputWidget->setSendControlsEnabled(true);
+
+    QSignalSpy sendSpy(inputWidget, &ui::widgets::GenericInputWidget::sendRequested);
+    QSignalSpy failSpy(inputWidget, &ui::widgets::GenericInputWidget::validationFailed);
+
+    // Odd-length hex text
+    textEdit->setPlainText(QStringLiteral("ABC"));
+    QMetaObject::invokeMethod(inputWidget, "onSendClicked");
+    EXPECT_EQ(sendSpy.count(), 0);
+    EXPECT_GE(failSpy.count(), 1);
+
+    // Non-hex characters
+    failSpy.clear();
+    textEdit->setPlainText(QStringLiteral("12 3Z"));
+    QMetaObject::invokeMethod(inputWidget, "onSendClicked");
+    EXPECT_EQ(sendSpy.count(), 0);
+    EXPECT_GE(failSpy.count(), 1);
+
+    // Valid hex
+    textEdit->setPlainText(QStringLiteral("12 34"));
+    QMetaObject::invokeMethod(inputWidget, "onSendClicked");
+    ASSERT_EQ(sendSpy.count(), 1);
+    EXPECT_EQ(sendSpy.at(0).at(0).toByteArray(), QByteArray::fromHex("1234"));
+}
+
+// ---------------------------------------------------------------------------
+// Loopback Integration Tests (Requires Loopback Sockets)
+// ---------------------------------------------------------------------------
+
 TEST(NetworkDebuggerLoopback, TcpClient_SendReceiveAndDisconnect) {
     QTcpServer server;
     ASSERT_TRUE(server.listen(QHostAddress::LocalHost, 0));
@@ -82,7 +250,7 @@ TEST(NetworkDebuggerLoopback, TcpServer_SendReceiveAndStop) {
     reservation.close();
     tests::mocks::FakeSettingsService settings;
     Network view(&settings);
-    view.findChild<QComboBox*>()->setCurrentIndex(1);
+    view.findChild<QComboBox*>(QStringLiteral("networkProtocolCombo"))->setCurrentIndex(1);
     ui::widgets::TcpConnectionWidget* connection = nullptr;
     for (auto* candidate : view.findChildren<ui::widgets::TcpConnectionWidget*>()) {
         if (candidate->role() == ui::widgets::TcpRole::Server) connection = candidate;
@@ -110,7 +278,7 @@ TEST(NetworkDebuggerLoopback, Udp_SendReceiveAndUnbind) {
     ASSERT_TRUE(peer.bind(QHostAddress::LocalHost, 0));
     tests::mocks::FakeSettingsService settings;
     Network view(&settings);
-    view.findChild<QComboBox*>()->setCurrentIndex(2);
+    view.findChild<QComboBox*>(QStringLiteral("networkProtocolCombo"))->setCurrentIndex(2);
     auto* connection = view.findChild<ui::widgets::UdpConnectionWidget*>();
     ASSERT_NE(connection, nullptr);
     ASSERT_TRUE(QMetaObject::invokeMethod(&view, "onBindClicked", Qt::DirectConnection,
@@ -132,7 +300,7 @@ TEST(NetworkDebuggerLoopback, TcpClient_ProtocolLockedWhileActive) {
     ASSERT_TRUE(server.listen(QHostAddress::LocalHost, 0));
     tests::mocks::FakeSettingsService settings;
     Network view(&settings);
-    auto* protocolCombo = view.findChild<QComboBox*>();
+    auto* protocolCombo = view.findChild<QComboBox*>(QStringLiteral("networkProtocolCombo"));
     ASSERT_NE(protocolCombo, nullptr);
     EXPECT_TRUE(protocolCombo->isEnabled());
 
@@ -160,7 +328,7 @@ TEST(NetworkDebuggerLoopback, TcpServer_AutoSendStopsWhenServerStops) {
 
     tests::mocks::FakeSettingsService settings;
     Network view(&settings);
-    view.findChild<QComboBox*>()->setCurrentIndex(1);
+    view.findChild<QComboBox*>(QStringLiteral("networkProtocolCombo"))->setCurrentIndex(1);
 
     ui::widgets::TcpConnectionWidget* connection = nullptr;
     for (auto* candidate : view.findChildren<ui::widgets::TcpConnectionWidget*>()) {
@@ -194,7 +362,7 @@ TEST(NetworkDebuggerLoopback, Udp_RapidRebindResetsManualDisconnectAndGeneration
     ASSERT_TRUE(peer.bind(QHostAddress::LocalHost, 0));
     tests::mocks::FakeSettingsService settings;
     Network view(&settings);
-    view.findChild<QComboBox*>()->setCurrentIndex(2);
+    view.findChild<QComboBox*>(QStringLiteral("networkProtocolCombo"))->setCurrentIndex(2);
 
     ASSERT_TRUE(QMetaObject::invokeMethod(&view, "onBindClicked", Qt::DirectConnection,
         Q_ARG(QString, QStringLiteral("127.0.0.1")), Q_ARG(int, 0),
