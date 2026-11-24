@@ -1,68 +1,61 @@
 // Copyright (c) 2025 - present mingyucheng692. Licensed under the MIT License.
 
 #include "SettingsService.h"
-#include "core/common/SettingsKeys.h"
 #include "core/Config.h"
+#include "core/common/SettingsKeys.h"
 #include "infra/platform/PathResolver.h"
+
 #include <QCoreApplication>
 #include <QDir>
-#include <QSettings>
+#include <QFile>
+#include <QFileInfo>
 #include <QTimer>
 #include <spdlog/spdlog.h>
-
-namespace {
-
-QString resolveConfigFilePath(const infra::platform::PathResolver& pathResolver)
-{
-    return QDir(pathResolver.resolveConfigDir()).filePath(QStringLiteral("config.ini"));
-}
-
-} // namespace
 
 namespace infra::config {
 
 SettingsService::SettingsService(infra::platform::PathResolver& pathResolver,
                                  QObject* parent)
     : QObject(parent),
-      settings_(std::make_unique<QSettings>(resolveConfigFilePath(pathResolver), QSettings::IniFormat)),
       syncTimer_(new QTimer(this)) {
+    const QString configDir = pathResolver.resolveConfigDir();
+    QDir().mkpath(configDir);
+    const QString filePath = QDir(configDir).filePath(QStringLiteral("config.ini"));
+    settings_ = std::make_unique<QSettings>(filePath, QSettings::IniFormat);
+
     syncTimer_->setSingleShot(true);
     syncTimer_->setInterval(::config::Settings::kSyncDebounceMs);
     connect(syncTimer_, &QTimer::timeout, this, &SettingsService::sync);
 
     initializeDefaults();
     load();
-
-    if (auto* app = QCoreApplication::instance()) {
-        connect(app, &QCoreApplication::aboutToQuit, this, &SettingsService::sync);
-    }
 }
 
 SettingsService::~SettingsService() noexcept {
-    if (syncTimer_ != nullptr && syncTimer_->isActive()) {
+    if (syncTimer_) {
         syncTimer_->stop();
     }
-    if (!dirtyKeys_.isEmpty() || !keysToRemove_.isEmpty()) {
-        sync();
-    }
+    sync();
 }
 
 QVariant SettingsService::value(const QString& key) const {
-    return values_.value(key, defaults_.value(key));
+    if (values_.contains(key)) {
+        return values_.value(key);
+    }
+    return defaults_.value(key);
 }
 
 bool SettingsService::contains(const QString& key) const {
-    return values_.contains(key) || dirtyKeys_.contains(key);
+    return values_.contains(key) || defaults_.contains(key);
 }
 
 void SettingsService::setValue(const QString& key, const QVariant& value) {
-    const QVariant currentValue = values_.contains(key) ? values_.value(key) : defaults_.value(key);
+    const QVariant currentValue = this->value(key);
     const bool alreadyTracked = values_.contains(key) || dirtyKeys_.contains(key);
     if (currentValue == value && alreadyTracked) {
         return;
     }
     values_.insert(key, value);
-    keysToRemove_.remove(key);
     dirtyKeys_.insert(key);
     scheduleSync();
 }
@@ -72,16 +65,12 @@ QString SettingsService::configFilePath() const {
 }
 
 void SettingsService::sync() {
-    if (dirtyKeys_.isEmpty() && keysToRemove_.isEmpty()) {
+    if (dirtyKeys_.isEmpty()) {
         return;
     }
 
     for (auto it = dirtyKeys_.cbegin(); it != dirtyKeys_.cend(); ++it) {
         settings_->setValue(*it, values_.value(*it, defaults_.value(*it)));
-    }
-    for (auto it = keysToRemove_.cbegin(); it != keysToRemove_.cend(); ++it) {
-        settings_->remove(*it);
-        values_.remove(*it);
     }
     settings_->sync();
     if (settings_->status() != QSettings::NoError) {
@@ -90,7 +79,6 @@ void SettingsService::sync() {
                     static_cast<int>(settings_->status()));
     }
     dirtyKeys_.clear();
-    keysToRemove_.clear();
 }
 
 void SettingsService::initializeDefaults() {
@@ -136,38 +124,35 @@ void SettingsService::initializeDefaults() {
     defaults_.insert(kModbusAsciiPortName, QString());
     defaults_.insert(kModbusAsciiConnectionCollapsed, false);
 
-    defaults_.insert(kNetworkDebuggerClientIp, QString::fromLatin1(::config::Network::kDefaultDeviceAddress));
-    defaults_.insert(kNetworkDebuggerClientPort, ::config::Network::kDefaultNetworkDebuggerPort);
-    defaults_.insert(kNetworkDebuggerClientConnectionCollapsed, false);
-    defaults_.insert(kNetworkDebuggerClientTrafficAutoScroll, true);
-    defaults_.insert(kNetworkDebuggerClientTrafficShowTx, true);
-    defaults_.insert(kNetworkDebuggerClientTrafficShowRx, true);
-    defaults_.insert(kNetworkDebuggerClientTrafficCollapsed, false);
-    defaults_.insert(kNetworkDebuggerClientInputFormat, QStringLiteral("hex"));
-    defaults_.insert(kNetworkDebuggerClientInputAutoSend, false);
-    defaults_.insert(kNetworkDebuggerClientInputIntervalMs, ::config::GenericIo::kDefaultInputIntervalMs);
-    defaults_.insert(kNetworkDebuggerClientInputCollapsed, false);
-    // UDP remote endpoint: the widget reads it without a contains() guard, so
-    // it relies on defaults for a clean first-run value (empty host, port 0).
-    defaults_.insert(kNetworkDebuggerUdpRemoteIp, QString());
-    defaults_.insert(kNetworkDebuggerUdpRemotePort, 0);
+    // Network Page defaults (Scheme A)
+    defaults_.insert(kNetworkProtocol, 0);
+    defaults_.insert(kNetworkClientIp, QString::fromLatin1(::config::Network::kDefaultDeviceAddress));
+    defaults_.insert(kNetworkClientPort, ::config::Network::kDefaultNetworkPort);
+    defaults_.insert(kNetworkClientConnectionCollapsed, false);
+    defaults_.insert(kNetworkClientTrafficAutoScroll, true);
+    defaults_.insert(kNetworkClientTrafficShowTx, true);
+    defaults_.insert(kNetworkClientTrafficShowRx, true);
+    defaults_.insert(kNetworkClientInputFormat, QStringLiteral("hex"));
+    defaults_.insert(kNetworkClientInputIntervalMs, ::config::GenericIo::kDefaultInputIntervalMs);
+    defaults_.insert(kNetworkClientInputCollapsed, false);
+    defaults_.insert(kNetworkUdpRemoteIp, QString());
+    defaults_.insert(kNetworkUdpRemotePort, 0);
 
-    defaults_.insert(kSerialDebuggerBaudRate, QString::fromLatin1(::config::Serial::kDefaultBaudRateText));
-    defaults_.insert(kSerialDebuggerDataBits, QString::fromLatin1(::config::Serial::kDefaultDataBitsText));
-    defaults_.insert(kSerialDebuggerParity, QString::fromLatin1(::config::Serial::kDefaultParityText));
-    defaults_.insert(kSerialDebuggerStopBits, QString::fromLatin1(::config::Serial::kDefaultStopBitsText));
-    defaults_.insert(kSerialDebuggerPortName, QString());
-    defaults_.insert(kSerialDebuggerConnectionCollapsed, false);
-    defaults_.insert(kSerialDebuggerTrafficAutoScroll, true);
-    defaults_.insert(kSerialDebuggerTrafficShowTx, true);
-    defaults_.insert(kSerialDebuggerTrafficShowRx, true);
-    defaults_.insert(kSerialDebuggerTrafficCollapsed, false);
-    defaults_.insert(kSerialDebuggerInputFormat, QStringLiteral("hex"));
-    defaults_.insert(kSerialDebuggerInputAutoSend, false);
-    defaults_.insert(kSerialDebuggerInputIntervalMs, ::config::GenericIo::kDefaultInputIntervalMs);
-    defaults_.insert(kSerialDebuggerInputCollapsed, false);
-    defaults_.insert(kSerialDebuggerDtr, false);
-    defaults_.insert(kSerialDebuggerRts, false);
+    // Serial Page defaults (Scheme A)
+    defaults_.insert(kSerialBaudRate, QString::fromLatin1(::config::Serial::kDefaultBaudRateText));
+    defaults_.insert(kSerialDataBits, QString::fromLatin1(::config::Serial::kDefaultDataBitsText));
+    defaults_.insert(kSerialParity, QString::fromLatin1(::config::Serial::kDefaultParityText));
+    defaults_.insert(kSerialStopBits, QString::fromLatin1(::config::Serial::kDefaultStopBitsText));
+    defaults_.insert(kSerialPortName, QString());
+    defaults_.insert(kSerialConnectionCollapsed, false);
+    defaults_.insert(kSerialTrafficAutoScroll, true);
+    defaults_.insert(kSerialTrafficShowTx, true);
+    defaults_.insert(kSerialTrafficShowRx, true);
+    defaults_.insert(kSerialInputFormat, QStringLiteral("hex"));
+    defaults_.insert(kSerialInputIntervalMs, ::config::GenericIo::kDefaultInputIntervalMs);
+    defaults_.insert(kSerialInputCollapsed, false);
+    defaults_.insert(kSerialDtr, false);
+    defaults_.insert(kSerialRts, false);
 
     defaults_.insert(kModbusWorkbenchMode, 0);
     defaults_.insert(kModbusWorkbenchSlaveId, ::config::Modbus::kDefaultSlaveId);
@@ -194,47 +179,9 @@ void SettingsService::initializeDefaults() {
 }
 
 void SettingsService::load() {
-    // Load all keys present in the settings file into values_.
-    // Keys absent from the file fall back to defaults_ via value().
     const QStringList allKeys = settings_->allKeys();
     for (const QString& key : allKeys) {
         values_.insert(key, settings_->value(key));
-    }
-
-    migrateLegacyKeys();
-}
-
-void SettingsService::migrateLegacyKeys() {
-    // In-flight migration: copy every legacy-prefixed key to its
-    // canonical namespace, then erase the legacy key. Prefix-based (not
-    // per-key) so dynamically composed keys — widget-internal
-    // traffic/input/ui keys — are covered without maintaining a static
-    // key inventory.
-    bool hasMigration = false;
-    const QStringList diskKeys = settings_->allKeys();
-    for (const QString& oldKey : diskKeys) {
-        for (const auto& entry : kKeyPrefixMigrations) {
-            const QString oldPrefix = QLatin1String(entry.oldPrefix);
-            if (!oldKey.startsWith(oldPrefix)) {
-                continue;
-            }
-            const QString newKey = QLatin1String(entry.newPrefix) + oldKey.mid(oldPrefix.size());
-            // Idempotency: never overwrite a new key the user already has.
-            // The stale legacy key is still queued for removal below, so a
-            // partially migrated file (crash between the two sync passes)
-            // converges to fully cleaned state on the next launch.
-            if (!settings_->contains(newKey)) {
-                values_.insert(newKey, settings_->value(oldKey));
-                dirtyKeys_.insert(newKey);
-            }
-            values_.remove(oldKey);
-            keysToRemove_.insert(oldKey);
-            hasMigration = true;
-            break;
-        }
-    }
-    if (hasMigration) {
-        scheduleSync();
     }
 }
 

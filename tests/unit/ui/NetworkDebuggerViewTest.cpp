@@ -2,7 +2,7 @@
 
 #include <gtest/gtest.h>
 
-#include "views/network/NetworkDebuggerView.h"
+#include "views/network/NetworkPage.h"
 #include "widgets/TcpConnectionWidget.h"
 #include "widgets/UdpConnectionWidget.h"
 #include "widgets/GenericInputWidget.h"
@@ -24,7 +24,7 @@
 
 namespace {
 
-using Network = ui::views::network::NetworkDebuggerView;
+using Network = ui::views::network::NetworkPage;
 
 bool await(const std::function<bool()>& ready) {
     if (ready()) return true;

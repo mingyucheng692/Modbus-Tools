@@ -127,10 +127,10 @@ target_sources(ui PRIVATE
     shell/MainWindowPageBuilder.h
     views/modbus/ModbusPage.cpp
     views/modbus/ModbusPage.h
-    views/network/NetworkDebuggerView.cpp
-    views/network/NetworkDebuggerView.h
-    views/serial/SerialDebuggerView.cpp
-    views/serial/SerialDebuggerView.h
+    views/network/NetworkPage.cpp
+    views/network/NetworkPage.h
+    views/serial/SerialPage.cpp
+    views/serial/SerialPage.h
     views/converter/Ieee754ConverterWidget.cpp
     views/converter/Ieee754ConverterWidget.h
     views/converter/ModbusFrameBuilderWidget.cpp

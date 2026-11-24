@@ -27,7 +27,7 @@ struct Network {
     /// config::Serial parameters) and do not use this network TCP port.
     static constexpr int kDefaultModbusTcpPort = 502;
     /// Default port for Network Debugger (generic TCP/UDP client and server).
-    static constexpr int kDefaultNetworkDebuggerPort = 8080;
+    static constexpr int kDefaultNetworkPort = 8080;
     static constexpr int kMinTcpPort = 1;
     static constexpr int kMaxTcpPort = 65535;
 };

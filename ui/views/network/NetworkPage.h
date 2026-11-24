@@ -31,7 +31,7 @@ namespace ui::views::network {
 // Role: Self-contained network debugging view supporting TCP Client, TCP Server, and UDP.
 // Thread-safety: Single-threaded (bound to GUI main thread).
 // Ownership: Owned by QObject parent hierarchy; delegates IO to ChannelSessionController.
-class NetworkDebuggerView : public QWidget {
+class NetworkPage : public QWidget {
     Q_OBJECT
 
 public:
@@ -44,8 +44,8 @@ public:
 
     using DisconnectAlertHandler = std::function<void()>;
 
-    explicit NetworkDebuggerView(infra::config::ISettingsService* settingsService, QWidget *parent = nullptr);
-    ~NetworkDebuggerView() noexcept override;
+    explicit NetworkPage(infra::config::ISettingsService* settingsService, QWidget *parent = nullptr);
+    ~NetworkPage() noexcept override;
 
     void setDisconnectAlertHandler(DisconnectAlertHandler handler) noexcept;
     [[nodiscard]] bool isConnected() const noexcept;
@@ -63,6 +63,7 @@ public slots:
     void onUnbindClicked();
     void onProtocolChanged(int index);
     void onSendRequested(const QByteArray& data);
+    void onWorkerStateChanged(io::ChannelState state, quint64 gen = 0);
 
 private slots:
     void onSessionSnapshotChanged(const application::SessionUiSnapshot& snap);

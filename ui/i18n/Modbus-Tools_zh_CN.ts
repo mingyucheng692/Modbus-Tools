@@ -1037,14 +1037,14 @@
     <message>
         <location filename="../MainWindow.cpp" line="209" />
         <location filename="../MainWindow.cpp" line="408" />
-        <source>Network Debugger</source>
-        <translation>网络调试器</translation>
+        <source>Network</source>
+        <translation>网络调试</translation>
     </message>
     <message>
         <location filename="../MainWindow.cpp" line="209" />
         <location filename="../MainWindow.cpp" line="409" />
-        <source>Serial Debugger</source>
-        <translation>串口调试助手</translation>
+        <source>Serial</source>
+        <translation>串口调试</translation>
     </message>
     <message>
         <location filename="../MainWindow.cpp" line="209" />
@@ -3367,164 +3367,164 @@ Choose update method:</source>
     </message>
 </context>
 <context>
-    <name>ui::views::network::NetworkDebuggerView</name>
+    <name>ui::views::network::NetworkPage</name>
     <message>
-        <location filename="../views/network/NetworkDebuggerView.cpp" line="305" />
+        <location filename="../views/network/NetworkPage.cpp" line="305" />
         <source>Connecting to %1:%2...</source>
         <translation>正在连接 %1:%2...</translation>
     </message>
     <message>
-        <location filename="../views/network/NetworkDebuggerView.cpp" line="323" />
+        <location filename="../views/network/NetworkPage.cpp" line="323" />
         <source>Starting TCP server on %1:%2...</source>
         <translation>正在启动 TCP 服务端 %1:%2...</translation>
     </message>
     <message>
-        <location filename="../views/network/NetworkDebuggerView.cpp" line="340" />
+        <location filename="../views/network/NetworkPage.cpp" line="340" />
         <source>Stopping TCP server...</source>
         <translation>正在停止 TCP 服务端...</translation>
     </message>
     <message>
-        <location filename="../views/network/NetworkDebuggerView.cpp" line="355" />
+        <location filename="../views/network/NetworkPage.cpp" line="355" />
         <source>Binding UDP %1:%2 -&gt; %3:%4...</source>
         <translation>正在绑定 UDP %1:%2 -&gt; %3:%4...</translation>
     </message>
     <message>
-        <location filename="../views/network/NetworkDebuggerView.cpp" line="359" />
+        <location filename="../views/network/NetworkPage.cpp" line="359" />
         <source>Binding UDP %1:%2...</source>
         <translation>正在绑定 UDP %1:%2...</translation>
     </message>
     <message>
-        <location filename="../views/network/NetworkDebuggerView.cpp" line="413" />
+        <location filename="../views/network/NetworkPage.cpp" line="413" />
         <source>Server mode: no connected clients available</source>
         <translation>服务端模式：当前无已连接客户端</translation>
     </message>
     <message>
-        <location filename="../views/network/NetworkDebuggerView.cpp" line="414" />
+        <location filename="../views/network/NetworkPage.cpp" line="414" />
         <source>Server mode: select at least one client</source>
         <translation>服务端模式：请至少选择一个客户端</translation>
     </message>
     <message>
-        <location filename="../views/network/NetworkDebuggerView.cpp" line="451" />
+        <location filename="../views/network/NetworkPage.cpp" line="451" />
         <source>Closed</source>
         <translation>已关闭</translation>
     </message>
     <message>
-        <location filename="../views/network/NetworkDebuggerView.cpp" line="452" />
+        <location filename="../views/network/NetworkPage.cpp" line="452" />
         <source>Opening</source>
         <translation>正在打开</translation>
     </message>
     <message>
-        <location filename="../views/network/NetworkDebuggerView.cpp" line="453" />
+        <location filename="../views/network/NetworkPage.cpp" line="453" />
         <source>Connected</source>
         <translation>已连接</translation>
     </message>
     <message>
-        <location filename="../views/network/NetworkDebuggerView.cpp" line="454" />
+        <location filename="../views/network/NetworkPage.cpp" line="454" />
         <source>Closing</source>
         <translation>正在关闭</translation>
     </message>
     <message>
-        <location filename="../views/network/NetworkDebuggerView.cpp" line="455" />
-        <location filename="../views/network/NetworkDebuggerView.cpp" line="590" />
+        <location filename="../views/network/NetworkPage.cpp" line="455" />
+        <location filename="../views/network/NetworkPage.cpp" line="590" />
         <source>Error</source>
         <translation>错误</translation>
     </message>
     <message>
-        <location filename="../views/network/NetworkDebuggerView.cpp" line="456" />
-        <location filename="../views/network/NetworkDebuggerView.cpp" line="591" />
+        <location filename="../views/network/NetworkPage.cpp" line="456" />
+        <location filename="../views/network/NetworkPage.cpp" line="591" />
         <source>Unknown</source>
         <translation>未知</translation>
     </message>
     <message>
-        <location filename="../views/network/NetworkDebuggerView.cpp" line="498" />
+        <location filename="../views/network/NetworkPage.cpp" line="498" />
         <source>State changed: %1</source>
         <translation>状态已变更：%1</translation>
     </message>
     <message>
-        <location filename="../views/network/NetworkDebuggerView.cpp" line="516" />
-        <location filename="../views/network/NetworkDebuggerView.cpp" line="631" />
+        <location filename="../views/network/NetworkPage.cpp" line="516" />
+        <location filename="../views/network/NetworkPage.cpp" line="631" />
         <source>Connection failed</source>
         <translation>连接失败</translation>
     </message>
     <message>
-        <location filename="../views/network/NetworkDebuggerView.cpp" line="517" />
-        <location filename="../views/network/NetworkDebuggerView.cpp" line="632" />
+        <location filename="../views/network/NetworkPage.cpp" line="517" />
+        <location filename="../views/network/NetworkPage.cpp" line="632" />
         <source>Connection timeout</source>
         <translation>连接超时</translation>
     </message>
     <message>
-        <location filename="../views/network/NetworkDebuggerView.cpp" line="518" />
-        <location filename="../views/network/NetworkDebuggerView.cpp" line="633" />
+        <location filename="../views/network/NetworkPage.cpp" line="518" />
+        <location filename="../views/network/NetworkPage.cpp" line="633" />
         <source>Write failed</source>
         <translation>写入失败</translation>
     </message>
     <message>
-        <location filename="../views/network/NetworkDebuggerView.cpp" line="519" />
-        <location filename="../views/network/NetworkDebuggerView.cpp" line="634" />
+        <location filename="../views/network/NetworkPage.cpp" line="519" />
+        <location filename="../views/network/NetworkPage.cpp" line="634" />
         <source>Read failed</source>
         <translation>读取失败</translation>
     </message>
     <message>
-        <location filename="../views/network/NetworkDebuggerView.cpp" line="520" />
-        <location filename="../views/network/NetworkDebuggerView.cpp" line="635" />
+        <location filename="../views/network/NetworkPage.cpp" line="520" />
+        <location filename="../views/network/NetworkPage.cpp" line="635" />
         <source>Port not found</source>
         <translation>找不到端口</translation>
     </message>
     <message>
-        <location filename="../views/network/NetworkDebuggerView.cpp" line="521" />
-        <location filename="../views/network/NetworkDebuggerView.cpp" line="636" />
+        <location filename="../views/network/NetworkPage.cpp" line="521" />
+        <location filename="../views/network/NetworkPage.cpp" line="636" />
         <source>Permission denied</source>
         <translation>权限被拒绝</translation>
     </message>
     <message>
-        <location filename="../views/network/NetworkDebuggerView.cpp" line="522" />
-        <location filename="../views/network/NetworkDebuggerView.cpp" line="637" />
+        <location filename="../views/network/NetworkPage.cpp" line="522" />
+        <location filename="../views/network/NetworkPage.cpp" line="637" />
         <source>Connection reset by peer</source>
         <translation>连接被对端重置</translation>
     </message>
     <message>
-        <location filename="../views/network/NetworkDebuggerView.cpp" line="523" />
-        <location filename="../views/network/NetworkDebuggerView.cpp" line="638" />
+        <location filename="../views/network/NetworkPage.cpp" line="523" />
+        <location filename="../views/network/NetworkPage.cpp" line="638" />
         <source>Unknown error</source>
         <translation>未知错误</translation>
     </message>
     <message>
-        <location filename="../views/network/NetworkDebuggerView.cpp" line="525" />
+        <location filename="../views/network/NetworkPage.cpp" line="525" />
         <source>Error: %1</source>
         <translation>错误：%1</translation>
     </message>
     <message>
-        <location filename="../views/network/NetworkDebuggerView.cpp" line="548" />
+        <location filename="../views/network/NetworkPage.cpp" line="548" />
         <source>Client #%1 connected: %2</source>
         <translation>客户端 #%1 已连接：%2</translation>
     </message>
     <message>
-        <location filename="../views/network/NetworkDebuggerView.cpp" line="555" />
+        <location filename="../views/network/NetworkPage.cpp" line="555" />
         <source>Client #%1 disconnected</source>
         <translation>客户端 #%1 已断开</translation>
     </message>
     <message>
-        <location filename="../views/network/NetworkDebuggerView.cpp" line="588" />
+        <location filename="../views/network/NetworkPage.cpp" line="588" />
         <source>Listening</source>
         <translation>监听中</translation>
     </message>
     <message>
-        <location filename="../views/network/NetworkDebuggerView.cpp" line="589" />
+        <location filename="../views/network/NetworkPage.cpp" line="589" />
         <source>Stopped</source>
         <translation>已停止</translation>
     </message>
     <message>
-        <location filename="../views/network/NetworkDebuggerView.cpp" line="620" />
+        <location filename="../views/network/NetworkPage.cpp" line="620" />
         <source>Server state: %1</source>
         <translation>服务端状态：%1</translation>
     </message>
     <message>
-        <location filename="../views/network/NetworkDebuggerView.cpp" line="640" />
+        <location filename="../views/network/NetworkPage.cpp" line="640" />
         <source>Server Error: %1</source>
         <translation>服务端错误：%1</translation>
     </message>
     <message>
-        <location filename="../views/network/NetworkDebuggerView.cpp" line="678" />
+        <location filename="../views/network/NetworkPage.cpp" line="678" />
         <source>Send Data</source>
         <translation>发送数据</translation>
     </message>
@@ -3532,125 +3532,125 @@ Choose update method:</source>
 <context>
     <name>ui::views::network::Protocol</name>
     <message>
-        <location filename="../views/network/NetworkDebuggerView.cpp" line="56" />
+        <location filename="../views/network/NetworkPage.cpp" line="56" />
         <source>TCP Client</source>
         <translation>TCP 客户端</translation>
     </message>
     <message>
-        <location filename="../views/network/NetworkDebuggerView.cpp" line="57" />
+        <location filename="../views/network/NetworkPage.cpp" line="57" />
         <source>TCP Server</source>
         <translation>TCP 服务端</translation>
     </message>
     <message>
-        <location filename="../views/network/NetworkDebuggerView.cpp" line="58" />
+        <location filename="../views/network/NetworkPage.cpp" line="58" />
         <source>UDP</source>
         <translation>UDP</translation>
     </message>
 </context>
 <context>
-    <name>ui::views::serial::SerialDebuggerView</name>
+    <name>ui::views::serial::SerialPage</name>
     <message>
-        <location filename="../views/serial/SerialDebuggerView.cpp" line="152" />
+        <location filename="../views/serial/SerialPage.cpp" line="152" />
         <source>Opening %1...</source>
         <translation>正在打开 %1...</translation>
     </message>
     <message>
-        <location filename="../views/serial/SerialDebuggerView.cpp" line="29" />
+        <location filename="../views/serial/SerialPage.cpp" line="29" />
         <source>Closed</source>
         <translation>已关闭</translation>
     </message>
     <message>
-        <location filename="../views/serial/SerialDebuggerView.cpp" line="31" />
+        <location filename="../views/serial/SerialPage.cpp" line="31" />
         <source>Opening</source>
         <translation>正在打开</translation>
     </message>
     <message>
-        <location filename="../views/serial/SerialDebuggerView.cpp" line="33" />
+        <location filename="../views/serial/SerialPage.cpp" line="33" />
         <source>Open</source>
         <translation>已打开</translation>
     </message>
     <message>
-        <location filename="../views/serial/SerialDebuggerView.cpp" line="35" />
+        <location filename="../views/serial/SerialPage.cpp" line="35" />
         <source>Closing</source>
         <translation>正在关闭</translation>
     </message>
     <message>
-        <location filename="../views/serial/SerialDebuggerView.cpp" line="37" />
+        <location filename="../views/serial/SerialPage.cpp" line="37" />
         <source>Error</source>
         <translation>错误</translation>
     </message>
     <message>
-        <location filename="../views/serial/SerialDebuggerView.cpp" line="39" />
+        <location filename="../views/serial/SerialPage.cpp" line="39" />
         <source>Unknown</source>
         <translation>未知</translation>
     </message>
     <message>
-        <location filename="../views/serial/SerialDebuggerView.cpp" line="211" />
+        <location filename="../views/serial/SerialPage.cpp" line="211" />
         <source>State changed: %1</source>
         <translation>状态已变更：%1</translation>
     </message>
     <message>
-        <location filename="../views/serial/SerialDebuggerView.cpp" line="235" />
+        <location filename="../views/serial/SerialPage.cpp" line="235" />
         <source>Connection failed</source>
         <translation>连接失败</translation>
     </message>
     <message>
-        <location filename="../views/serial/SerialDebuggerView.cpp" line="236" />
+        <location filename="../views/serial/SerialPage.cpp" line="236" />
         <source>Connection timeout</source>
         <translation>连接超时</translation>
     </message>
     <message>
-        <location filename="../views/serial/SerialDebuggerView.cpp" line="237" />
+        <location filename="../views/serial/SerialPage.cpp" line="237" />
         <source>Write failed</source>
         <translation>写入失败</translation>
     </message>
     <message>
-        <location filename="../views/serial/SerialDebuggerView.cpp" line="238" />
+        <location filename="../views/serial/SerialPage.cpp" line="238" />
         <source>Read failed</source>
         <translation>读取失败</translation>
     </message>
     <message>
-        <location filename="../views/serial/SerialDebuggerView.cpp" line="239" />
+        <location filename="../views/serial/SerialPage.cpp" line="239" />
         <source>Port not found</source>
         <translation>找不到端口</translation>
     </message>
     <message>
-        <location filename="../views/serial/SerialDebuggerView.cpp" line="240" />
+        <location filename="../views/serial/SerialPage.cpp" line="240" />
         <source>Permission denied</source>
         <translation>权限被拒绝</translation>
     </message>
     <message>
-        <location filename="../views/serial/SerialDebuggerView.cpp" line="241" />
+        <location filename="../views/serial/SerialPage.cpp" line="241" />
         <source>Connection reset</source>
         <translation>连接重置</translation>
     </message>
     <message>
-        <location filename="../views/serial/SerialDebuggerView.cpp" line="242" />
+        <location filename="../views/serial/SerialPage.cpp" line="242" />
         <source>Unknown error</source>
         <translation>未知错误</translation>
     </message>
     <message>
-        <location filename="../views/serial/SerialDebuggerView.cpp" line="247" />
+        <location filename="../views/serial/SerialPage.cpp" line="247" />
         <source>Error: %1</source>
         <translation>错误：%1</translation>
     </message>
     <message>
-        <location filename="../views/serial/SerialDebuggerView.cpp" line="282" />
+        <location filename="../views/serial/SerialPage.cpp" line="282" />
         <source>Control</source>
         <translation>控制</translation>
     </message>
     <message>
-        <location filename="../views/serial/SerialDebuggerView.cpp" line="283" />
+        <location filename="../views/serial/SerialPage.cpp" line="283" />
         <source>Send Data</source>
         <translation>发送数据</translation>
     </message>
     <message>
-        <location filename="../views/serial/SerialDebuggerView.cpp" line="284" />
+        <location filename="../views/serial/SerialPage.cpp" line="284" />
         <source>DTR</source>
         <translation>DTR</translation>
     </message>
     <message>
-        <location filename="../views/serial/SerialDebuggerView.cpp" line="285" />
+        <location filename="../views/serial/SerialPage.cpp" line="285" />
         <source>RTS</source>
         <translation>RTS</translation>
     </message>

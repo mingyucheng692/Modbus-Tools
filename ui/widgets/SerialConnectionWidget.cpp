@@ -411,7 +411,7 @@ void SerialConnectionWidget::setupUi() {
     repopulateFlowControlOptions(flowControlCombo_);
     if (section_) {
         const QString collapseKey = settingsGroup_.isEmpty()
-            ? QString::fromLatin1(core::common::settings_keys::kSerialDebuggerConnectionCollapsed)
+            ? QString::fromLatin1(core::common::settings_keys::kSerialConnectionCollapsed)
             : (settingsGroup_ + QStringLiteral("/ui/connectionSettingsCollapsed"));
         section_->setSettingsKey(collapseKey);
     }

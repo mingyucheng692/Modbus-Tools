@@ -15,6 +15,14 @@ class ISettingsService;
 namespace ui::views::modbus {
 class ModbusPage;
 }
+
+namespace ui::views::network {
+class NetworkPage;
+}
+
+namespace ui::views::serial {
+class SerialPage;
+}
  
 namespace ui::views::tools {
 class UtilitiesView;
@@ -28,8 +36,8 @@ namespace ui {
 
 enum class MainPage : std::size_t {
     Modbus = 0,
-    NetworkDebugger,
-    SerialDebugger,
+    Network,
+    Serial,
     FrameAnalyzer,
     Utilities,
     Count
@@ -39,6 +47,8 @@ constexpr std::size_t kMainPageCount = static_cast<std::size_t>(MainPage::Count)
 
 struct MainWindowPages {
     views::modbus::ModbusPage* modbusView = nullptr;
+    views::network::NetworkPage* networkPage = nullptr;
+    views::serial::SerialPage* serialPage = nullptr;
     views::analyzer::FrameAnalyzerView* frameAnalyzer = nullptr;
     views::tools::UtilitiesView* utilities = nullptr;
     std::array<int, kMainPageCount> pageIndexByNavigationRow = {};

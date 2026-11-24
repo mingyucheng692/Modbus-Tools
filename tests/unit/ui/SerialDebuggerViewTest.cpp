@@ -3,7 +3,7 @@
 #include <gtest/gtest.h>
 #include "common/SettingsKeys.h"
 #include "mocks/UiTestDoubles.h"
-#include "views/serial/SerialDebuggerView.h"
+#include "views/serial/SerialPage.h"
 #include "widgets/ByteMonitorWidget.h"
 
 #include <QCheckBox>
@@ -26,7 +26,7 @@ QCheckBox* findCheckBoxByText(QWidget& root, const QString& text) {
     return nullptr;
 }
 
-bool byteMonitorContains(SerialDebuggerView& view, const QString& needle) {
+bool byteMonitorContains(SerialPage& view, const QString& needle) {
     auto* monitor = view.findChild<ui::widgets::ByteMonitorWidget*>();
     if (!monitor) return false;
     auto* listView = monitor->findChild<QListView*>();
@@ -43,10 +43,10 @@ bool byteMonitorContains(SerialDebuggerView& view, const QString& needle) {
 
 TEST(SerialDebuggerViewTest, LoadsAndSavesDtrRtsWithCanonicalKeys) {
     tests::mocks::FakeSettingsService settings;
-    settings.setValue(core::common::settings_keys::kSerialDebuggerDtr, true);
-    settings.setValue(core::common::settings_keys::kSerialDebuggerRts, false);
+    settings.setValue(core::common::settings_keys::kSerialDtr, true);
+    settings.setValue(core::common::settings_keys::kSerialRts, false);
 
-    SerialDebuggerView view(&settings);
+    SerialPage view(&settings);
     QCheckBox* dtrCheck = findCheckBoxByText(view, QStringLiteral("DTR"));
     QCheckBox* rtsCheck = findCheckBoxByText(view, QStringLiteral("RTS"));
     ASSERT_NE(dtrCheck, nullptr);
@@ -55,20 +55,20 @@ TEST(SerialDebuggerViewTest, LoadsAndSavesDtrRtsWithCanonicalKeys) {
     EXPECT_FALSE(rtsCheck->isChecked());
 
     rtsCheck->setChecked(true);
-    EXPECT_TRUE(settings.value(core::common::settings_keys::kSerialDebuggerRts).toBool());
+    EXPECT_TRUE(settings.value(core::common::settings_keys::kSerialRts).toBool());
 }
 
 TEST(SerialDebuggerViewTest, AppliesSavedControlLinesOnOpenAndAlertsOnUnexpectedDisconnect) {
     tests::mocks::FakeSettingsService settings;
-    settings.setValue(core::common::settings_keys::kSerialDebuggerDtr, true);
-    settings.setValue(core::common::settings_keys::kSerialDebuggerRts, true);
+    settings.setValue(core::common::settings_keys::kSerialDtr, true);
+    settings.setValue(core::common::settings_keys::kSerialRts, true);
 
-    SerialDebuggerView view(&settings);
+    SerialPage view(&settings);
     int alertCount = 0;
     view.setDisconnectAlertHandler([&alertCount]() { ++alertCount; });
 
-    QSignalSpy controlSpy(&view, &SerialDebuggerView::serialControlLinesApplied);
-    QSignalSpy disconnectSpy(&view, &SerialDebuggerView::unexpectedDisconnectDetected);
+    QSignalSpy controlSpy(&view, &SerialPage::serialControlLinesApplied);
+    QSignalSpy disconnectSpy(&view, &SerialPage::unexpectedDisconnectDetected);
 
     // Closed before ever opening must not trigger unexpected disconnect alert.
     ASSERT_TRUE(QMetaObject::invokeMethod(
@@ -98,7 +98,7 @@ TEST(SerialDebuggerViewTest, AppliesSavedControlLinesOnOpenAndAlertsOnUnexpected
 
 TEST(SerialDebuggerViewTest, LocalizesWorkerErrorWrappingOsDetail) {
     tests::mocks::FakeSettingsService settings;
-    SerialDebuggerView view(&settings);
+    SerialPage view(&settings);
 
     ASSERT_TRUE(QMetaObject::invokeMethod(
         &view, "onWorkerError", Qt::DirectConnection,

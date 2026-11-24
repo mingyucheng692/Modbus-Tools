@@ -147,10 +147,10 @@ void UdpConnectionWidget::loadSettings() {
     QSignalBlocker b2(remotePortEdit_);
 
     const QString remoteIpKey = settingsGroup_.isEmpty()
-        ? QString::fromLatin1(kNetworkDebuggerUdpRemoteIp)
+        ? QString::fromLatin1(kNetworkUdpRemoteIp)
         : (settingsGroup_ + QStringLiteral("/remoteIp"));
     const QString remotePortKey = settingsGroup_.isEmpty()
-        ? QString::fromLatin1(kNetworkDebuggerUdpRemotePort)
+        ? QString::fromLatin1(kNetworkUdpRemotePort)
         : (settingsGroup_ + QStringLiteral("/remotePort"));
 
     remoteIpEdit_->setText(settingsService_->contains(remoteIpKey)
@@ -166,10 +166,10 @@ void UdpConnectionWidget::saveSettings() {
     if (!settingsService_) return;
 
     const QString remoteIpKey = settingsGroup_.isEmpty()
-        ? QString::fromLatin1(kNetworkDebuggerUdpRemoteIp)
+        ? QString::fromLatin1(kNetworkUdpRemoteIp)
         : (settingsGroup_ + QStringLiteral("/remoteIp"));
     const QString remotePortKey = settingsGroup_.isEmpty()
-        ? QString::fromLatin1(kNetworkDebuggerUdpRemotePort)
+        ? QString::fromLatin1(kNetworkUdpRemotePort)
         : (settingsGroup_ + QStringLiteral("/remotePort"));
 
     if (remoteIpEdit_) {

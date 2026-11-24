@@ -1,7 +1,8 @@
 // Copyright (c) 2025 - present mingyucheng692. Licensed under the MIT License.
 
-#include "NetworkDebuggerView.h"
+#include "NetworkPage.h"
 #include "Config.h"
+#include "core/common/SettingsKeys.h"
 #include "infra/config/ISettingsService.h"
 #include "../../widgets/CompactStackedWidget.h"
 #include "../../widgets/TcpConnectionWidget.h"
@@ -17,7 +18,6 @@
 #include <QSplitter>
 #include <QEvent>
 #include <QCoreApplication>
-#include <spdlog/spdlog.h>
 
 namespace ui::views::network {
 
@@ -31,21 +31,21 @@ void populateProtocolOptions(QComboBox* combo) {
     if (!combo) return;
     const int currentValue = combo->count() > 0
         ? combo->currentData().toInt()
-        : static_cast<int>(NetworkDebuggerView::Protocol::TcpClient);
+        : static_cast<int>(NetworkPage::Protocol::TcpClient);
     combo->clear();
     combo->addItem(QCoreApplication::translate("ui::views::network::Protocol", kTcpClientText),
-                   static_cast<int>(NetworkDebuggerView::Protocol::TcpClient));
+                   static_cast<int>(NetworkPage::Protocol::TcpClient));
     combo->addItem(QCoreApplication::translate("ui::views::network::Protocol", kTcpServerText),
-                   static_cast<int>(NetworkDebuggerView::Protocol::TcpServer));
+                   static_cast<int>(NetworkPage::Protocol::TcpServer));
     combo->addItem(QCoreApplication::translate("ui::views::network::Protocol", kUdpText),
-                   static_cast<int>(NetworkDebuggerView::Protocol::Udp));
+                   static_cast<int>(NetworkPage::Protocol::Udp));
     const int currentIndex = combo->findData(currentValue);
     combo->setCurrentIndex(currentIndex >= 0 ? currentIndex : 0);
 }
 
 } // namespace
 
-NetworkDebuggerView::NetworkDebuggerView(infra::config::ISettingsService* settingsService, QWidget *parent)
+NetworkPage::NetworkPage(infra::config::ISettingsService* settingsService, QWidget *parent)
     : QWidget(parent),
       settingsService_(settingsService),
       sessionCtrl_(this),
@@ -53,17 +53,17 @@ NetworkDebuggerView::NetworkDebuggerView(infra::config::ISettingsService* settin
     setupUi();
 }
 
-NetworkDebuggerView::~NetworkDebuggerView() noexcept = default;
+NetworkPage::~NetworkPage() noexcept = default;
 
-void NetworkDebuggerView::setDisconnectAlertHandler(DisconnectAlertHandler handler) noexcept {
+void NetworkPage::setDisconnectAlertHandler(DisconnectAlertHandler handler) noexcept {
     disconnectAlertHandler_ = std::move(handler);
 }
 
-bool NetworkDebuggerView::isConnected() const noexcept {
+bool NetworkPage::isConnected() const noexcept {
     return sessionCtrl_.state() == io::ChannelState::Open;
 }
 
-widgets::BaseConnectionWidget* NetworkDebuggerView::activeConnectionWidget() const noexcept {
+widgets::BaseConnectionWidget* NetworkPage::activeConnectionWidget() const noexcept {
     switch (currentProtocol_) {
     case Protocol::TcpClient: return tcpClientWidget_;
     case Protocol::TcpServer: return tcpServerWidget_;
@@ -72,7 +72,7 @@ widgets::BaseConnectionWidget* NetworkDebuggerView::activeConnectionWidget() con
     return tcpClientWidget_;
 }
 
-void NetworkDebuggerView::setupUi() {
+void NetworkPage::setupUi() {
     auto* mainLayout = new QVBoxLayout(this);
     mainLayout->setContentsMargins(6, 6, 6, 6);
     mainLayout->setSpacing(4);
@@ -107,18 +107,18 @@ void NetworkDebuggerView::setupUi() {
     connectionStack_->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Preferred);
 
     tcpClientWidget_ = new widgets::TcpConnectionWidget(widgets::TcpRole::Client, settingsService_, connectionStack_);
-    tcpClientWidget_->setSettingsGroup(QStringLiteral("network_debugger/client"));
-    tcpClientWidget_->setDefaultPort(config::Network::kDefaultNetworkDebuggerPort);
+    tcpClientWidget_->setSettingsGroup(QStringLiteral("network/client"));
+    tcpClientWidget_->setDefaultPort(config::Network::kDefaultNetworkPort);
     connectionStack_->addWidget(tcpClientWidget_);
 
     tcpServerWidget_ = new widgets::TcpConnectionWidget(widgets::TcpRole::Server, settingsService_, connectionStack_);
-    tcpServerWidget_->setSettingsGroup(QStringLiteral("network_debugger/server"));
-    tcpServerWidget_->setDefaultPort(config::Network::kDefaultNetworkDebuggerPort);
+    tcpServerWidget_->setSettingsGroup(QStringLiteral("network/server"));
+    tcpServerWidget_->setDefaultPort(config::Network::kDefaultNetworkPort);
     connectionStack_->addWidget(tcpServerWidget_);
 
     udpWidget_ = new widgets::UdpConnectionWidget(settingsService_, connectionStack_);
-    udpWidget_->setSettingsGroup(QStringLiteral("network_debugger/udp"));
-    udpWidget_->setDefaultPort(config::Network::kDefaultNetworkDebuggerPort);
+    udpWidget_->setSettingsGroup(QStringLiteral("network/udp"));
+    udpWidget_->setDefaultPort(config::Network::kDefaultNetworkPort);
     connectionStack_->addWidget(udpWidget_);
 
     connectionStack_->setCurrentIndex(0);
@@ -146,7 +146,7 @@ void NetworkDebuggerView::setupUi() {
     centerSplitter->setChildrenCollapsible(false);
 
     monitor_ = new widgets::ByteMonitorWidget(settingsService_, centerSplitter);
-    monitor_->setSettingsGroup(QStringLiteral("network_debugger/client/traffic"));
+    monitor_->setSettingsGroup(QStringLiteral("network/client/traffic"));
     centerSplitter->addWidget(monitor_);
 
     serverClientPanel_ = new widgets::ServerClientPanel(centerSplitter);
@@ -159,12 +159,12 @@ void NetworkDebuggerView::setupUi() {
 
     // 3. Input Section (Bottom)
     inputSection_ = new widgets::CollapsibleSection(settingsService_, this);
-    inputSection_->setSettingsKey(QStringLiteral("network_debugger/client/ui/inputCollapsed"));
+    inputSection_->setSettingsKey(QStringLiteral("network/client/ui/inputCollapsed"));
     auto* inputLayout = new QVBoxLayout(inputSection_->contentWidget());
     inputLayout->setContentsMargins(0, 0, 0, 0);
 
     inputWidget_ = new widgets::GenericInputWidget(settingsService_, inputSection_->contentWidget());
-    inputWidget_->setSettingsGroup(QStringLiteral("network_debugger/client/input"));
+    inputWidget_->setSettingsGroup(QStringLiteral("network/client/input"));
     inputLayout->addWidget(inputWidget_);
     mainLayout->addWidget(inputSection_, 0);
 
@@ -173,27 +173,27 @@ void NetworkDebuggerView::setupUi() {
 
     // Protocol selection
     connect(protocolCombo_, QOverload<int>::of(&QComboBox::currentIndexChanged),
-            this, &NetworkDebuggerView::onProtocolChanged);
+            this, &NetworkPage::onProtocolChanged);
 
     // Connection actions
     connect(tcpClientWidget_, &widgets::TcpConnectionWidget::connectClicked,
-            this, &NetworkDebuggerView::onConnectClicked);
+            this, &NetworkPage::onConnectClicked);
     connect(tcpClientWidget_, &widgets::TcpConnectionWidget::disconnectClicked,
-            this, &NetworkDebuggerView::onDisconnectClicked);
+            this, &NetworkPage::onDisconnectClicked);
 
     connect(tcpServerWidget_, &widgets::TcpConnectionWidget::startListenClicked,
-            this, &NetworkDebuggerView::onStartListenClicked);
+            this, &NetworkPage::onStartListenClicked);
     connect(tcpServerWidget_, &widgets::TcpConnectionWidget::stopListenClicked,
-            this, &NetworkDebuggerView::onStopListenClicked);
+            this, &NetworkPage::onStopListenClicked);
 
     connect(udpWidget_, &widgets::UdpConnectionWidget::bindClicked,
-            this, &NetworkDebuggerView::onBindClicked);
+            this, &NetworkPage::onBindClicked);
     connect(udpWidget_, &widgets::UdpConnectionWidget::unbindClicked,
-            this, &NetworkDebuggerView::onUnbindClicked);
+            this, &NetworkPage::onUnbindClicked);
 
     // Input actions & auto send
     connect(inputWidget_, &widgets::GenericInputWidget::sendRequested,
-            this, &NetworkDebuggerView::onSendRequested);
+            this, &NetworkPage::onSendRequested);
     connect(inputWidget_, &widgets::GenericInputWidget::autoSendToggled,
             this, [this](bool checked, int intervalMs) {
         sessionCtrl_.setAutoSend(checked, intervalMs,
@@ -207,7 +207,7 @@ void NetworkDebuggerView::setupUi() {
 
     // Session controller signals
     connect(&sessionCtrl_, &application::ChannelSessionController::snapshotChanged,
-            this, &NetworkDebuggerView::onSessionSnapshotChanged);
+            this, &NetworkPage::onSessionSnapshotChanged);
     connect(&sessionCtrl_, &application::ChannelSessionController::trafficOccurred,
             monitor_, &widgets::ByteMonitorWidget::appendMessage);
     connect(&sessionCtrl_, &application::ChannelSessionController::clientTrafficOccurred,
@@ -229,7 +229,7 @@ void NetworkDebuggerView::setupUi() {
         }
     });
     connect(&sessionCtrl_, &application::ChannelSessionController::errorOccurred,
-            this, &NetworkDebuggerView::onWorkerError);
+            this, &NetworkPage::onWorkerError);
     connect(&sessionCtrl_, &application::ChannelSessionController::unexpectedDisconnectDetected,
             this, [this]() {
         emit unexpectedDisconnectDetected();
@@ -253,10 +253,21 @@ void NetworkDebuggerView::setupUi() {
     });
 
     retranslateUi();
-    switchToProtocol(Protocol::TcpClient);
+
+    // Restore persisted protocol
+    Protocol initialProtocol = Protocol::TcpClient;
+    if (settingsService_ && settingsService_->contains(core::common::settings_keys::kNetworkProtocol)) {
+        const int savedVal = settingsService_->value(core::common::settings_keys::kNetworkProtocol).toInt();
+        const int foundIndex = protocolCombo_->findData(savedVal);
+        if (foundIndex >= 0) {
+            protocolCombo_->setCurrentIndex(foundIndex);
+            initialProtocol = static_cast<Protocol>(savedVal);
+        }
+    }
+    switchToProtocol(initialProtocol);
 }
 
-void NetworkDebuggerView::retranslateUi() {
+void NetworkPage::retranslateUi() {
     if (protocolSection_) {
         protocolSection_->setTitle(tr("Protocol:"));
     }
@@ -266,7 +277,7 @@ void NetworkDebuggerView::retranslateUi() {
     populateProtocolOptions(protocolCombo_);
 }
 
-void NetworkDebuggerView::switchToProtocol(Protocol protocol) {
+void NetworkPage::switchToProtocol(Protocol protocol) {
     if (sessionCtrl_.isAutoSendActive()) {
         sessionCtrl_.setAutoSend(false, 0);
     }
@@ -278,9 +289,9 @@ void NetworkDebuggerView::switchToProtocol(Protocol protocol) {
     switch (protocol) {
     case Protocol::TcpClient:
         connectionStack_->setCurrentWidget(tcpClientWidget_);
-        monitor_->setSettingsGroup(QStringLiteral("network_debugger/client/traffic"));
-        inputSection_->setSettingsKey(QStringLiteral("network_debugger/client/ui/inputCollapsed"));
-        inputWidget_->setSettingsGroup(QStringLiteral("network_debugger/client/input"));
+        monitor_->setSettingsGroup(QStringLiteral("network/client/traffic"));
+        inputSection_->setSettingsKey(QStringLiteral("network/client/ui/inputCollapsed"));
+        inputWidget_->setSettingsGroup(QStringLiteral("network/client/input"));
         if (serverClientPanel_) {
             serverClientPanel_->clearClients();
             serverClientPanel_->hide();
@@ -289,9 +300,9 @@ void NetworkDebuggerView::switchToProtocol(Protocol protocol) {
         break;
     case Protocol::TcpServer:
         connectionStack_->setCurrentWidget(tcpServerWidget_);
-        monitor_->setSettingsGroup(QStringLiteral("network_debugger/server/traffic"));
-        inputSection_->setSettingsKey(QStringLiteral("network_debugger/server/ui/inputCollapsed"));
-        inputWidget_->setSettingsGroup(QStringLiteral("network_debugger/server/input"));
+        monitor_->setSettingsGroup(QStringLiteral("network/server/traffic"));
+        inputSection_->setSettingsKey(QStringLiteral("network/server/ui/inputCollapsed"));
+        inputWidget_->setSettingsGroup(QStringLiteral("network/server/input"));
         if (serverClientPanel_) {
             serverClientPanel_->show();
         }
@@ -299,9 +310,9 @@ void NetworkDebuggerView::switchToProtocol(Protocol protocol) {
         break;
     case Protocol::Udp:
         connectionStack_->setCurrentWidget(udpWidget_);
-        monitor_->setSettingsGroup(QStringLiteral("network_debugger/udp/traffic"));
-        inputSection_->setSettingsKey(QStringLiteral("network_debugger/udp/ui/inputCollapsed"));
-        inputWidget_->setSettingsGroup(QStringLiteral("network_debugger/udp/input"));
+        monitor_->setSettingsGroup(QStringLiteral("network/udp/traffic"));
+        inputSection_->setSettingsKey(QStringLiteral("network/udp/ui/inputCollapsed"));
+        inputWidget_->setSettingsGroup(QStringLiteral("network/udp/input"));
         if (serverClientPanel_) {
             serverClientPanel_->clearClients();
             serverClientPanel_->hide();
@@ -318,7 +329,7 @@ void NetworkDebuggerView::switchToProtocol(Protocol protocol) {
     }
 }
 
-void NetworkDebuggerView::onProtocolChanged(int index) {
+void NetworkPage::onProtocolChanged(int index) {
     if (sessionCtrl_.state() != io::ChannelState::Closed && sessionCtrl_.state() != io::ChannelState::Error) {
         return;
     }
@@ -326,36 +337,39 @@ void NetworkDebuggerView::onProtocolChanged(int index) {
         return;
     }
     currentProtocol_ = static_cast<Protocol>(protocolCombo_->itemData(index).toInt());
+    if (settingsService_) {
+        settingsService_->setValue(core::common::settings_keys::kNetworkProtocol, static_cast<int>(currentProtocol_));
+    }
     switchToProtocol(currentProtocol_);
 }
 
-void NetworkDebuggerView::onConnectClicked(const QString& ip, int port) {
+void NetworkPage::onConnectClicked(const QString& ip, int port) {
     if (monitor_) {
         monitor_->appendInfo(tr("Connecting to %1:%2...").arg(ip).arg(port));
     }
     sessionCtrl_.openTcp(ip, port);
 }
 
-void NetworkDebuggerView::onDisconnectClicked() {
+void NetworkPage::onDisconnectClicked() {
     sessionCtrl_.closeChannel();
 }
 
-void NetworkDebuggerView::onStartListenClicked(const QString& ip, int port) {
+void NetworkPage::onStartListenClicked(const QString& ip, int port) {
     if (monitor_) {
         monitor_->appendInfo(tr("Starting TCP server on %1:%2...").arg(ip).arg(port));
     }
     sessionCtrl_.openTcpServer(ip, port);
 }
 
-void NetworkDebuggerView::onStopListenClicked() {
+void NetworkPage::onStopListenClicked() {
     if (monitor_) {
         monitor_->appendInfo(tr("Stopping TCP server..."));
     }
     sessionCtrl_.closeChannel();
 }
 
-void NetworkDebuggerView::onBindClicked(const QString& localIp, int localPort,
-                                        const QString& remoteIp, int remotePort) {
+void NetworkPage::onBindClicked(const QString& localIp, int localPort,
+                                const QString& remoteIp, int remotePort) {
     if (monitor_) {
         if (!remoteIp.isEmpty()) {
             monitor_->appendInfo(tr("Binding UDP %1:%2 -> %3:%4...")
@@ -368,11 +382,15 @@ void NetworkDebuggerView::onBindClicked(const QString& localIp, int localPort,
     sessionCtrl_.openUdp(localIp, localPort, remoteIp, remotePort);
 }
 
-void NetworkDebuggerView::onUnbindClicked() {
+void NetworkPage::onUnbindClicked() {
     sessionCtrl_.closeChannel();
 }
 
-void NetworkDebuggerView::onSendRequested(const QByteArray& data) {
+void NetworkPage::onWorkerStateChanged(io::ChannelState state, quint64 gen) {
+    sessionCtrl_.onWorkerStateChanged(state, gen);
+}
+
+void NetworkPage::onSendRequested(const QByteArray& data) {
     if (currentProtocol_ == Protocol::TcpServer) {
         if (!serverClientPanel_) {
             return;
@@ -394,7 +412,7 @@ void NetworkDebuggerView::onSendRequested(const QByteArray& data) {
     }
 }
 
-void NetworkDebuggerView::onSessionSnapshotChanged(const application::SessionUiSnapshot& snap) {
+void NetworkPage::onSessionSnapshotChanged(const application::SessionUiSnapshot& snap) {
     if (protocolCombo_) {
         protocolCombo_->setEnabled(snap.protocolSelectorEnabled);
     }
@@ -409,16 +427,14 @@ void NetworkDebuggerView::onSessionSnapshotChanged(const application::SessionUiS
     }
 }
 
-void NetworkDebuggerView::onWorkerError(const QString& deviceHint, io::ChannelErrorCode code, const QString& error) {
+void NetworkPage::onWorkerError(const QString& /*deviceHint*/, io::ChannelErrorCode code, const QString& error) {
     if (monitor_) {
         const QString localized = application::ChannelSessionController::formatChannelError(code, error);
         monitor_->appendError(tr("Error: %1").arg(localized));
     }
-    const QString hint = deviceHint.isEmpty() ? QStringLiteral("Network Worker") : deviceHint;
-    SPDLOG_ERROR("{} Error (code={}): {}", hint.toStdString(), static_cast<int>(code), error.toStdString());
 }
 
-void NetworkDebuggerView::changeEvent(QEvent* event) {
+void NetworkPage::changeEvent(QEvent* event) {
     if (event->type() == QEvent::LanguageChange) {
         retranslateUi();
     }

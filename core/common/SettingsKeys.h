@@ -35,41 +35,35 @@ inline constexpr char kModbusRtuStopBits[] = "modbus/rtu/serial/stopBits";
 inline constexpr char kModbusRtuPortName[] = "modbus/rtu/serial/portName";
 inline constexpr char kModbusRtuConnectionCollapsed[] = "modbus/rtu/serial/ui/connectionSettingsCollapsed";
 
-// Network Debugger (TCP client mode) — canonical keys.
-// NOTE: the tcp_server and udp traffic/input/ui
-// keys are composed dynamically by ByteMonitorWidget / GenericInputWidget
-// from the settings group, so they intentionally have no static constants here.
-// The prefix-based migration in SettingsService covers them as whole families
-// (network_debugger/server/, network_debugger/udp/).
-inline constexpr char kNetworkDebuggerClientIp[] = "network_debugger/client/ip";
-inline constexpr char kNetworkDebuggerClientPort[] = "network_debugger/client/port";
-inline constexpr char kNetworkDebuggerClientConnectionCollapsed[] = "network_debugger/client/ui/connectionSettingsCollapsed";
-inline constexpr char kNetworkDebuggerClientTrafficAutoScroll[] = "network_debugger/client/traffic/autoScroll";
-inline constexpr char kNetworkDebuggerClientTrafficShowTx[] = "network_debugger/client/traffic/showTx";
-inline constexpr char kNetworkDebuggerClientTrafficShowRx[] = "network_debugger/client/traffic/showRx";
-inline constexpr char kNetworkDebuggerClientTrafficCollapsed[] = "network_debugger/client/traffic/ui/trafficMonitorCollapsed";
-inline constexpr char kNetworkDebuggerClientInputFormat[] = "network_debugger/client/input/format";
-inline constexpr char kNetworkDebuggerClientInputAutoSend[] = "network_debugger/client/input/autoSend";
-inline constexpr char kNetworkDebuggerClientInputIntervalMs[] = "network_debugger/client/input/intervalMs";
-inline constexpr char kNetworkDebuggerClientInputCollapsed[] = "network_debugger/client/ui/inputCollapsed";
+// Network Page — canonical keys (Scheme A).
+inline constexpr char kNetworkProtocol[] = "network/protocol";
+inline constexpr char kNetworkClientIp[] = "network/client/ip";
+inline constexpr char kNetworkClientPort[] = "network/client/port";
+inline constexpr char kNetworkClientConnectionCollapsed[] = "network/client/ui/connectionSettingsCollapsed";
+inline constexpr char kNetworkClientTrafficAutoScroll[] = "network/client/traffic/autoScroll";
+inline constexpr char kNetworkClientTrafficShowTx[] = "network/client/traffic/showTx";
+inline constexpr char kNetworkClientTrafficShowRx[] = "network/client/traffic/showRx";
+inline constexpr char kNetworkClientInputFormat[] = "network/client/input/format";
+inline constexpr char kNetworkClientInputIntervalMs[] = "network/client/input/intervalMs";
+inline constexpr char kNetworkClientInputCollapsed[] = "network/client/ui/inputCollapsed";
+inline constexpr char kNetworkUdpRemoteIp[] = "network/udp/remoteIp";
+inline constexpr char kNetworkUdpRemotePort[] = "network/udp/remotePort";
 
-// Serial Debugger — canonical keys.
-inline constexpr char kSerialDebuggerBaudRate[] = "serial_debugger/baudRate";
-inline constexpr char kSerialDebuggerDataBits[] = "serial_debugger/dataBits";
-inline constexpr char kSerialDebuggerParity[] = "serial_debugger/parity";
-inline constexpr char kSerialDebuggerStopBits[] = "serial_debugger/stopBits";
-inline constexpr char kSerialDebuggerPortName[] = "serial_debugger/portName";
-inline constexpr char kSerialDebuggerConnectionCollapsed[] = "serial_debugger/ui/connectionSettingsCollapsed";
-inline constexpr char kSerialDebuggerTrafficAutoScroll[] = "serial_debugger/traffic/autoScroll";
-inline constexpr char kSerialDebuggerTrafficShowTx[] = "serial_debugger/traffic/showTx";
-inline constexpr char kSerialDebuggerTrafficShowRx[] = "serial_debugger/traffic/showRx";
-inline constexpr char kSerialDebuggerTrafficCollapsed[] = "serial_debugger/traffic/ui/trafficMonitorCollapsed";
-inline constexpr char kSerialDebuggerInputFormat[] = "serial_debugger/input/format";
-inline constexpr char kSerialDebuggerInputAutoSend[] = "serial_debugger/input/autoSend";
-inline constexpr char kSerialDebuggerInputIntervalMs[] = "serial_debugger/input/intervalMs";
-inline constexpr char kSerialDebuggerInputCollapsed[] = "serial_debugger/ui/inputCollapsed";
-inline constexpr char kSerialDebuggerDtr[] = "serial_debugger/dtr";
-inline constexpr char kSerialDebuggerRts[] = "serial_debugger/rts";
+// Serial Page — canonical keys (Scheme A).
+inline constexpr char kSerialBaudRate[] = "serial/baudRate";
+inline constexpr char kSerialDataBits[] = "serial/dataBits";
+inline constexpr char kSerialParity[] = "serial/parity";
+inline constexpr char kSerialStopBits[] = "serial/stopBits";
+inline constexpr char kSerialPortName[] = "serial/portName";
+inline constexpr char kSerialConnectionCollapsed[] = "serial/ui/connectionSettingsCollapsed";
+inline constexpr char kSerialTrafficAutoScroll[] = "serial/traffic/autoScroll";
+inline constexpr char kSerialTrafficShowTx[] = "serial/traffic/showTx";
+inline constexpr char kSerialTrafficShowRx[] = "serial/traffic/showRx";
+inline constexpr char kSerialInputFormat[] = "serial/input/format";
+inline constexpr char kSerialInputIntervalMs[] = "serial/input/intervalMs";
+inline constexpr char kSerialInputCollapsed[] = "serial/ui/inputCollapsed";
+inline constexpr char kSerialDtr[] = "serial/dtr";
+inline constexpr char kSerialRts[] = "serial/rts";
 
 // Modbus ASCII mode — canonical keys (symmetric with RTU).
 inline constexpr char kModbusAsciiBaudRate[] = "modbus/ascii/serial/baudRate";
@@ -79,10 +73,6 @@ inline constexpr char kModbusAsciiStopBits[] = "modbus/ascii/serial/stopBits";
 inline constexpr char kModbusAsciiFlowControl[] = "modbus/ascii/serial/flowControl";
 inline constexpr char kModbusAsciiPortName[] = "modbus/ascii/serial/portName";
 inline constexpr char kModbusAsciiConnectionCollapsed[] = "modbus/ascii/serial/ui/connectionSettingsCollapsed";
-
-// Network Debugger (UDP mode) — canonical keys.
-inline constexpr char kNetworkDebuggerUdpRemoteIp[] = "network_debugger/udp/remoteIp";
-inline constexpr char kNetworkDebuggerUdpRemotePort[] = "network_debugger/udp/remotePort";
 
 // Modbus Workbench settings keys.
 inline constexpr char kModbusWorkbenchMode[] = "modbus/workbench/mode";

@@ -1,13 +1,13 @@
 // Copyright (c) 2025 - present mingyucheng692. Licensed under the MIT License.
 
-#include "SerialDebuggerView.h"
+#include "SerialPage.h"
 #include "core/common/SettingsKeys.h"
 #include "infra/config/ISettingsService.h"
-#include "../../common/ConnectionAlert.h"
 #include "../../widgets/SerialConnectionWidget.h"
 #include "../../widgets/ByteMonitorWidget.h"
 #include "../../widgets/GenericInputWidget.h"
 #include "../../widgets/CollapsibleSection.h"
+#include "../../common/ConnectionAlert.h"
 #include <QVBoxLayout>
 #include <QHBoxLayout>
 #include <QCheckBox>
@@ -16,26 +16,25 @@
 
 namespace ui::views::serial {
 
-SerialDebuggerView::SerialDebuggerView(infra::config::ISettingsService* settingsService, QWidget* parent)
-    : QWidget(parent)
-    , sessionCtrl_(this)
-    , disconnectAlertHandler_([this]() { ui::common::connection_alert::showDisconnected(this); })
-    , settingsService_(settingsService)
-{
+SerialPage::SerialPage(infra::config::ISettingsService* settingsService, QWidget *parent)
+    : QWidget(parent),
+      settingsService_(settingsService),
+      sessionCtrl_(this),
+      disconnectAlertHandler_([this]() { ui::common::connection_alert::showDisconnected(this); }) {
     setupUi();
 }
 
-SerialDebuggerView::~SerialDebuggerView() noexcept = default;
+SerialPage::~SerialPage() noexcept = default;
 
-void SerialDebuggerView::setDisconnectAlertHandler(DisconnectAlertHandler handler) noexcept {
+void SerialPage::setDisconnectAlertHandler(DisconnectAlertHandler handler) noexcept {
     disconnectAlertHandler_ = std::move(handler);
 }
 
-bool SerialDebuggerView::isConnected() const noexcept {
+bool SerialPage::isConnected() const noexcept {
     return sessionCtrl_.state() == io::ChannelState::Open;
 }
 
-void SerialDebuggerView::setupUi() {
+void SerialPage::setupUi() {
     auto* mainLayout = new QVBoxLayout(this);
     mainLayout->setContentsMargins(6, 6, 6, 6);
     mainLayout->setSpacing(4);
@@ -46,7 +45,7 @@ void SerialDebuggerView::setupUi() {
     topLayout->setSpacing(4);
 
     connectionWidget_ = new widgets::SerialConnectionWidget(settingsService_, this);
-    connectionWidget_->setSettingsGroup(QStringLiteral("serial_debugger"));
+    connectionWidget_->setSettingsGroup(QStringLiteral("serial"));
     topLayout->addWidget(connectionWidget_, 1);
 
     controlSection_ = new widgets::CollapsibleSection(settingsService_, this);
@@ -69,17 +68,17 @@ void SerialDebuggerView::setupUi() {
 
     // 2. Central Area (Traffic Monitor)
     monitor_ = new widgets::ByteMonitorWidget(settingsService_, this);
-    monitor_->setSettingsGroup(QStringLiteral("serial_debugger/traffic"));
+    monitor_->setSettingsGroup(QStringLiteral("serial/traffic"));
     mainLayout->addWidget(monitor_, 1);
 
     // 3. Input Section (Bottom)
     inputSection_ = new widgets::CollapsibleSection(settingsService_, this);
-    inputSection_->setSettingsKey(QStringLiteral("serial_debugger/ui/inputCollapsed"));
+    inputSection_->setSettingsKey(QStringLiteral("serial/ui/inputCollapsed"));
     auto* inputLayout = new QVBoxLayout(inputSection_->contentWidget());
     inputLayout->setContentsMargins(0, 0, 0, 0);
 
     inputWidget_ = new widgets::GenericInputWidget(settingsService_, inputSection_->contentWidget());
-    inputWidget_->setSettingsGroup(QStringLiteral("serial_debugger/input"));
+    inputWidget_->setSettingsGroup(QStringLiteral("serial/input"));
     inputLayout->addWidget(inputWidget_);
     mainLayout->addWidget(inputSection_, 0);
 
@@ -88,9 +87,9 @@ void SerialDebuggerView::setupUi() {
 
     // Connect user interactions
     connect(connectionWidget_, &widgets::SerialConnectionWidget::connectClicked,
-            this, &SerialDebuggerView::onConnectClicked);
+            this, &SerialPage::onConnectClicked);
     connect(connectionWidget_, &widgets::SerialConnectionWidget::disconnectClicked,
-            this, &SerialDebuggerView::onDisconnectClicked);
+            this, &SerialPage::onDisconnectClicked);
 
     connect(inputWidget_, &widgets::GenericInputWidget::sendRequested,
             this, [this](const QByteArray& data) { sessionCtrl_.write(data); });
@@ -107,11 +106,11 @@ void SerialDebuggerView::setupUi() {
 
     // Session controller signals
     connect(&sessionCtrl_, &application::ChannelSessionController::snapshotChanged,
-            this, &SerialDebuggerView::onSessionSnapshotChanged);
+            this, &SerialPage::onSessionSnapshotChanged);
     connect(&sessionCtrl_, &application::ChannelSessionController::trafficOccurred,
             monitor_, &widgets::ByteMonitorWidget::appendMessage);
     connect(&sessionCtrl_, &application::ChannelSessionController::errorOccurred,
-            this, &SerialDebuggerView::onWorkerError);
+            this, &SerialPage::onWorkerError);
     connect(&sessionCtrl_, &application::ChannelSessionController::unexpectedDisconnectDetected,
             this, [this]() {
         emit unexpectedDisconnectDetected();
@@ -120,33 +119,37 @@ void SerialDebuggerView::setupUi() {
         }
     });
 
-    connect(dtrCheck_, &QCheckBox::toggled, this, &SerialDebuggerView::onDtrChanged);
-    connect(rtsCheck_, &QCheckBox::toggled, this, &SerialDebuggerView::onRtsChanged);
+    connect(dtrCheck_, &QCheckBox::toggled, this, &SerialPage::onDtrChanged);
+    connect(rtsCheck_, &QCheckBox::toggled, this, &SerialPage::onRtsChanged);
 
     if (settingsService_) {
         const QSignalBlocker dtrBlocker(dtrCheck_);
         const QSignalBlocker rtsBlocker(rtsCheck_);
         dtrCheck_->setChecked(
-            settingsService_->value(core::common::settings_keys::kSerialDebuggerDtr).toBool());
+            settingsService_->value(core::common::settings_keys::kSerialDtr).toBool());
         rtsCheck_->setChecked(
-            settingsService_->value(core::common::settings_keys::kSerialDebuggerRts).toBool());
+            settingsService_->value(core::common::settings_keys::kSerialRts).toBool());
     }
 
     retranslateUi();
 }
 
-void SerialDebuggerView::onConnectClicked(const io::SerialConfig& config) {
+void SerialPage::onConnectClicked(const io::SerialConfig& config) {
     if (monitor_) {
         monitor_->appendInfo(tr("Opening %1...").arg(config.portName));
     }
     sessionCtrl_.openSerial(config);
 }
 
-void SerialDebuggerView::onDisconnectClicked() {
+void SerialPage::onDisconnectClicked() {
     sessionCtrl_.closeChannel();
 }
 
-void SerialDebuggerView::onSessionSnapshotChanged(const application::SessionUiSnapshot& snap) {
+void SerialPage::onWorkerStateChanged(io::ChannelState state, quint64 gen) {
+    sessionCtrl_.onWorkerStateChanged(state, gen);
+}
+
+void SerialPage::onSessionSnapshotChanged(const application::SessionUiSnapshot& snap) {
     if (connectionWidget_) {
         connectionWidget_->applyChannelState(snap.state);
     }
@@ -159,58 +162,49 @@ void SerialDebuggerView::onSessionSnapshotChanged(const application::SessionUiSn
     if (inputWidget_) {
         inputWidget_->setSendControlsEnabled(snap.sendControlsEnabled, snap.sendDisabledTooltip);
     }
-
     if (snap.stateChanged && monitor_) {
         monitor_->appendInfo(tr("State changed: %1").arg(snap.stateText));
     }
 
-    if (snap.state == io::ChannelState::Open && snap.stateChanged) {
-        applySerialControlLines();
+    if (snap.state == io::ChannelState::Open) {
+        const bool dtr = dtrCheck_ && dtrCheck_->isChecked();
+        const bool rts = rtsCheck_ && rtsCheck_->isChecked();
+        sessionCtrl_.setDtr(dtr);
+        sessionCtrl_.setRts(rts);
+        emit serialControlLinesApplied(dtr, rts);
     }
 }
 
-void SerialDebuggerView::onWorkerStateChanged(io::ChannelState state, quint64 generation) {
-    sessionCtrl_.onWorkerStateChanged(state, generation);
-}
-
-void SerialDebuggerView::onWorkerError(const QString& deviceHint, io::ChannelErrorCode code, const QString& error) {
-    if (monitor_) {
-        const QString displayMsg = application::ChannelSessionController::formatChannelError(code, error);
-        monitor_->appendError(tr("Error: %1").arg(displayMsg));
-    }
-}
-
-void SerialDebuggerView::applySerialControlLines() {
-    const bool dtr = dtrCheck_ && dtrCheck_->isChecked();
-    const bool rts = rtsCheck_ && rtsCheck_->isChecked();
-    sessionCtrl_.setDtr(dtr);
-    sessionCtrl_.setRts(rts);
-    emit serialControlLinesApplied(dtr, rts);
-}
-
-void SerialDebuggerView::onDtrChanged(bool checked) {
+void SerialPage::onDtrChanged(bool checked) {
     if (settingsService_) {
-        settingsService_->setValue(core::common::settings_keys::kSerialDebuggerDtr, checked);
+        settingsService_->setValue(core::common::settings_keys::kSerialDtr, checked);
     }
     sessionCtrl_.setDtr(checked);
 }
 
-void SerialDebuggerView::onRtsChanged(bool checked) {
+void SerialPage::onRtsChanged(bool checked) {
     if (settingsService_) {
-        settingsService_->setValue(core::common::settings_keys::kSerialDebuggerRts, checked);
+        settingsService_->setValue(core::common::settings_keys::kSerialRts, checked);
     }
     sessionCtrl_.setRts(checked);
 }
 
-void SerialDebuggerView::retranslateUi() {
-    if (controlSection_) controlSection_->setTitle(tr("Control"));
-    if (inputSection_) inputSection_->setTitle(tr("Send Data"));
-    if (dtrCheck_) dtrCheck_->setText(tr("DTR"));
-    if (rtsCheck_) rtsCheck_->setText(tr("RTS"));
+void SerialPage::onWorkerError(const QString& /*deviceHint*/, io::ChannelErrorCode code, const QString& error) {
+    if (monitor_) {
+        const QString localized = application::ChannelSessionController::formatChannelError(code, error);
+        monitor_->appendError(tr("Error: %1").arg(localized));
+    }
 }
 
-void SerialDebuggerView::changeEvent(QEvent* event) {
-    if (event && event->type() == QEvent::LanguageChange) {
+void SerialPage::retranslateUi() {
+    if (controlSection_) controlSection_->setTitle(tr("Control"));
+    if (inputSection_) inputSection_->setTitle(tr("Send Data"));
+    if (dtrCheck_) dtrCheck_->setText(QStringLiteral("DTR"));
+    if (rtsCheck_) rtsCheck_->setText(QStringLiteral("RTS"));
+}
+
+void SerialPage::changeEvent(QEvent* event) {
+    if (event->type() == QEvent::LanguageChange) {
         retranslateUi();
     }
     QWidget::changeEvent(event);

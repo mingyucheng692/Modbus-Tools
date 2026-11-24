@@ -3,8 +3,8 @@
 #include "shell/MainWindowPageBuilder.h"
 
 #include "infra/config/ISettingsService.h"
-#include "views/serial/SerialDebuggerView.h"
-#include "views/network/NetworkDebuggerView.h"
+#include "views/serial/SerialPage.h"
+#include "views/network/NetworkPage.h"
 #include "views/modbus/ModbusPage.h"
 #include "application/modbus/ModbusPagePresenter.h"
 #include "views/analyzer/FrameAnalyzerView.h"
@@ -48,13 +48,13 @@ MainWindowPages buildMainWindowPages(infra::config::ISettingsService* settingsSe
     pages.pageIndexByNavigationRow[static_cast<std::size_t>(MainPage::Modbus)] =
         stackedWidget->addWidget(pages.modbusView);
 
-    auto* networkDebuggerView = new views::network::NetworkDebuggerView(settingsService, owner);
-    pages.pageIndexByNavigationRow[static_cast<std::size_t>(MainPage::NetworkDebugger)] =
-        stackedWidget->addWidget(createScrollablePage(networkDebuggerView, stackedWidget));
+    pages.networkPage = new views::network::NetworkPage(settingsService, owner);
+    pages.pageIndexByNavigationRow[static_cast<std::size_t>(MainPage::Network)] =
+        stackedWidget->addWidget(pages.networkPage);
 
-    auto* serialDebuggerView = new views::serial::SerialDebuggerView(settingsService, owner);
-    pages.pageIndexByNavigationRow[static_cast<std::size_t>(MainPage::SerialDebugger)] =
-        stackedWidget->addWidget(createScrollablePage(serialDebuggerView, stackedWidget));
+    pages.serialPage = new views::serial::SerialPage(settingsService, owner);
+    pages.pageIndexByNavigationRow[static_cast<std::size_t>(MainPage::Serial)] =
+        stackedWidget->addWidget(pages.serialPage);
 
     pages.frameAnalyzer = new views::analyzer::FrameAnalyzerView(settingsService, owner);
     pages.pageIndexByNavigationRow[static_cast<std::size_t>(MainPage::FrameAnalyzer)] =
