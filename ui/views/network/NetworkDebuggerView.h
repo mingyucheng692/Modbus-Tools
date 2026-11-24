@@ -2,44 +2,36 @@
 
 #pragma once
 
-#include "../GenericChannelViewBase.h"
-#include "../ChannelController.h"
-#include "../../../infra/io/IChannel.h"
+#include <QWidget>
 #include <QList>
-#include <memory>
+#include <functional>
+#include "../../application/ChannelSessionController.h"
+#include "../../../infra/io/IChannel.h"
 
 class QComboBox;
-class QStackedWidget;
+class QEvent;
 
-namespace io {
-class ServerChannelWorker;
+namespace infra::config {
+class ISettingsService;
 }
 
 namespace ui::widgets {
+class CompactStackedWidget;
 class TcpConnectionWidget;
 class UdpConnectionWidget;
+class BaseConnectionWidget;
 class ServerClientPanel;
 class ByteMonitorWidget;
 class GenericInputWidget;
 class CollapsibleSection;
 }
 
-class QThread;
-
-namespace infra::config {
-class ISettingsService;
-}
-
 namespace ui::views::network {
 
-// ADR 0004 (design note): NetworkDebuggerView / SerialDebuggerView deliberately hold
-// their worker/channel directly and bypass the Presenter layer used by
-// ModbusPage. Presenter is reserved for views with cross-cutting application
-// state (session lifecycle, update flow, navigation); the channel debugger views are
-// self-contained channel pages with no shared presenter-worthy state, so a
-// presenter here would be pure ceremony. Do not retro-fit a presenter without
-// first extracting state worth abstracting.
-class NetworkDebuggerView : public GenericChannelViewBase {
+// Role: Self-contained network debugging view supporting TCP Client, TCP Server, and UDP.
+// Thread-safety: Single-threaded (bound to GUI main thread).
+// Ownership: Owned by QObject parent hierarchy; delegates IO to ChannelSessionController.
+class NetworkDebuggerView : public QWidget {
     Q_OBJECT
 
 public:
@@ -50,68 +42,56 @@ public:
     };
     Q_ENUM(Protocol)
 
+    using DisconnectAlertHandler = std::function<void()>;
+
     explicit NetworkDebuggerView(infra::config::ISettingsService* settingsService, QWidget *parent = nullptr);
     ~NetworkDebuggerView() noexcept override;
 
-private slots:
+    void setDisconnectAlertHandler(DisconnectAlertHandler handler) noexcept;
+    [[nodiscard]] bool isConnected() const noexcept;
+
+signals:
+    void unexpectedDisconnectDetected();
+
+public slots:
     void onConnectClicked(const QString& ip, int port);
+    void onDisconnectClicked();
     void onStartListenClicked(const QString& ip, int port);
     void onStopListenClicked();
     void onBindClicked(const QString& localIp, int localPort,
                        const QString& remoteIp, int remotePort);
     void onUnbindClicked();
     void onProtocolChanged(int index);
-    
-    void onSendRequested(const QByteArray& data) override;
+    void onSendRequested(const QByteArray& data);
 
-    void onWorkerStateChanged(io::ChannelState state, quint64 generation);
+private slots:
+    void onSessionSnapshotChanged(const application::SessionUiSnapshot& snap);
     void onWorkerError(const QString& deviceHint, io::ChannelErrorCode code, const QString& error);
-    void onWorkerMonitor(bool isTx, const QByteArray& data);
-    void onServerClientConnected(int clientId, const QString& peerInfo);
-    void onServerClientDisconnected(int clientId);
-    void onServerMonitorWithClient(bool isTx, const QByteArray& data, int clientId);
-    void onServerStateChanged(io::ChannelState state);
-    void onServerError(const QString& deviceHint, io::ChannelErrorCode code, const QString& error);
-    void onDisconnectSelectedClientsRequested(const QList<int>& clientIds);
-    void onDisconnectAllClientsRequested();
 
 private:
     void setupUi();
-    void startWorker();
-    void startServerWorker();
-    void stopServerWorker();
-    void stopAutoSendUi();
-    void setProtocolSelectorEnabled(bool enabled);
+    void retranslateUi();
     void switchToProtocol(Protocol protocol);
-    void retranslateUi() override;
+    [[nodiscard]] widgets::BaseConnectionWidget* activeConnectionWidget() const noexcept;
+    void changeEvent(QEvent* event) override;
 
-    // Protocol selector
+    infra::config::ISettingsService* settingsService_ = nullptr;
+    application::ChannelSessionController sessionCtrl_;
+
+    Protocol currentProtocol_ = Protocol::TcpClient;
+    DisconnectAlertHandler disconnectAlertHandler_;
+
+    // UI Components
+    widgets::CollapsibleSection* protocolSection_ = nullptr;
     QComboBox* protocolCombo_ = nullptr;
-
-    // Stacked connection widgets
-    QStackedWidget* connectionStack_ = nullptr;
+    widgets::CompactStackedWidget* connectionStack_ = nullptr;
     widgets::TcpConnectionWidget* tcpClientWidget_ = nullptr;
     widgets::TcpConnectionWidget* tcpServerWidget_ = nullptr;
     widgets::UdpConnectionWidget* udpWidget_ = nullptr;
-
-    // Server panel
     widgets::ServerClientPanel* serverClientPanel_ = nullptr;
-
-    // UI Components (moved from base class)
     widgets::ByteMonitorWidget* monitor_ = nullptr;
     widgets::GenericInputWidget* inputWidget_ = nullptr;
     widgets::CollapsibleSection* inputSection_ = nullptr;
-
-    // Channel controller (composite) – manages client worker thread
-    ChannelController channelCtrl_;
-
-    // Backend - Server (thread declared before worker for safe reverse teardown)
-    std::shared_ptr<QThread> serverThread_;
-    std::shared_ptr<io::ServerChannelWorker> serverWorker_;
-
-    Protocol currentProtocol_ = Protocol::TcpClient;
-    bool suppressDisconnectAlert_ = false;
-    quint64 connectionGeneration_ = 0;
 };
 
 } // namespace ui::views::network

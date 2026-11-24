@@ -2,11 +2,17 @@
 
 #pragma once
 
-#include "../GenericChannelViewBase.h"
-#include "../ChannelController.h"
-#include "../../../infra/io/IChannel.h"
-#include "../../../infra/io/SerialConfig.h"
+#include <QWidget>
 #include <functional>
+#include "application/ChannelSessionController.h"
+#include "infra/io/IChannel.h"
+#include "infra/io/SerialConfig.h"
+
+class QCheckBox;
+
+namespace infra::config {
+class ISettingsService;
+}
 
 namespace ui::widgets {
 class SerialConnectionWidget;
@@ -15,33 +21,19 @@ class GenericInputWidget;
 class CollapsibleSection;
 }
 
-class QCheckBox;
-class QGroupBox;
-
-namespace infra::config {
-class ISettingsService;
-}
-
 namespace ui::views::serial {
 
-// ADR 0004 (design note): SerialDebuggerView / NetworkDebuggerView deliberately hold
-// their worker/channel directly and bypass the Presenter layer used by
-// ModbusPage. Presenter is reserved for views with cross-cutting application
-// state (session lifecycle, update flow, navigation); the channel debugger
-// views are self-contained channel pages with no shared presenter-worthy
-// state, so a presenter here would be pure ceremony. Do not retro-fit a
-// presenter without first extracting state worth abstracting.
-class SerialDebuggerView : public GenericChannelViewBase {
+class SerialDebuggerView : public QWidget {
     Q_OBJECT
 
 public:
     using DisconnectAlertHandler = std::function<void()>;
 
-    explicit SerialDebuggerView(infra::config::ISettingsService* settingsService, QWidget *parent = nullptr);
+    explicit SerialDebuggerView(infra::config::ISettingsService* settingsService, QWidget* parent = nullptr);
     ~SerialDebuggerView() noexcept override;
 
     void setDisconnectAlertHandler(DisconnectAlertHandler handler) noexcept;
-    [[nodiscard]] bool isConnected() const noexcept { return isConnected_; }
+    [[nodiscard]] bool isConnected() const noexcept;
     [[nodiscard]] QCheckBox* dtrCheck() const noexcept { return dtrCheck_; }
     [[nodiscard]] QCheckBox* rtsCheck() const noexcept { return rtsCheck_; }
 
@@ -49,43 +41,42 @@ signals:
     void unexpectedDisconnectDetected();
     void serialControlLinesApplied(bool dtr, bool rts);
 
+public slots:
+    void onWorkerStateChanged(io::ChannelState state, quint64 generation = 0);
+    void onWorkerError(const QString& deviceHint, io::ChannelErrorCode code, const QString& error);
+
 private slots:
     void onConnectClicked(const io::SerialConfig& config);
-    void onWorkerStateChanged(io::ChannelState state, quint64 generation);
-    void onWorkerError(const QString& deviceHint, io::ChannelErrorCode code, const QString& error);
-    void onWorkerMonitor(bool isTx, const QByteArray& data);
+    void onDisconnectClicked();
+    void onSessionSnapshotChanged(const application::SessionUiSnapshot& snap);
 
     // Serial Control
     void onDtrChanged(bool checked);
     void onRtsChanged(bool checked);
 
 protected:
-    void retranslateUi() override;
+    void retranslateUi();
+    void changeEvent(QEvent* event) override;
 
 private:
     void setupUi();
-    void startWorker();
     void applySerialControlLines();
-    void applyConnectionWidgetState(io::ChannelState state);
 
     // UI Components
     widgets::SerialConnectionWidget* connectionWidget_ = nullptr;
+    widgets::CollapsibleSection* controlSection_ = nullptr;
     widgets::ByteMonitorWidget* monitor_ = nullptr;
     widgets::GenericInputWidget* inputWidget_ = nullptr;
     widgets::CollapsibleSection* inputSection_ = nullptr;
 
     QCheckBox* dtrCheck_ = nullptr;
     QCheckBox* rtsCheck_ = nullptr;
-    QGroupBox* controlGroup_ = nullptr;
 
-    // Channel controller (composite) – manages worker thread
-    ChannelController channelCtrl_;
+    // Session Controller
+    application::ChannelSessionController sessionCtrl_;
     DisconnectAlertHandler disconnectAlertHandler_;
 
-    /// Monotonic connection-attempt counter, bumped on every user connect.
-    /// Stale worker emissions from a torn-down channel carry an older generation
-    /// and are dropped in onWorkerStateChanged().
-    quint64 connectionGeneration_ = 0;
+    infra::config::ISettingsService* settingsService_ = nullptr;
 };
 
 } // namespace ui::views::serial

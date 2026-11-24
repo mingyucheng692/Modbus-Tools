@@ -13,7 +13,7 @@ class TcpServerHandle;
 
 // Role: Multi-client TCP server worker managing listener and adopted client channels.
 // Thread-safety: Thread-compatible. Moved to dedicated QThread; interacted via queued connections.
-// Ownership: Owned by QObject parent hierarchy (typically ChannelController); owns TcpServerHandle.
+// Ownership: Owned by QObject parent hierarchy (typically ChannelSessionController); owns TcpServerHandle.
 class ServerChannelWorker : public QObject {
     Q_OBJECT
 

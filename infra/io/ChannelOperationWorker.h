@@ -13,7 +13,7 @@ namespace io {
 
 // Role: Single-channel I/O worker managing serial/TCP/UDP channel instances on dedicated thread.
 // Thread-safety: Thread-compatible. Moved to dedicated QThread; interacted via queued connections.
-// Ownership: Owned by QObject parent hierarchy (typically ChannelController).
+// Ownership: Owned by QObject parent hierarchy (typically ChannelSessionController).
 class ChannelOperationWorker : public QObject {
     Q_OBJECT
 

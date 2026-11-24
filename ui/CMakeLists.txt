@@ -88,6 +88,8 @@ target_sources(ui PRIVATE
     common/UpdateChecker.h
     application/AppLifecycleCoordinator.cpp
     application/AppLifecycleCoordinator.h
+    application/ChannelSessionController.cpp
+    application/ChannelSessionController.h
     application/IMainWindowView.h
     application/LanguageCoordinator.cpp
     application/LanguageCoordinator.h
@@ -125,10 +127,6 @@ target_sources(ui PRIVATE
     shell/MainWindowPageBuilder.h
     views/modbus/ModbusPage.cpp
     views/modbus/ModbusPage.h
-    views/ChannelController.cpp
-    views/ChannelController.h
-    views/GenericChannelViewBase.cpp
-    views/GenericChannelViewBase.h
     views/network/NetworkDebuggerView.cpp
     views/network/NetworkDebuggerView.h
     views/serial/SerialDebuggerView.cpp

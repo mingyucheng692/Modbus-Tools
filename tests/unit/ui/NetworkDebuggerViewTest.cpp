@@ -116,7 +116,7 @@ TEST(NetworkDebuggerLoopback, Udp_SendReceiveAndUnbind) {
     ASSERT_TRUE(QMetaObject::invokeMethod(&view, "onBindClicked", Qt::DirectConnection,
         Q_ARG(QString, QStringLiteral("127.0.0.1")), Q_ARG(int, 0),
         Q_ARG(QString, QStringLiteral("127.0.0.1")), Q_ARG(int, peer.localPort())));
-    ASSERT_TRUE(await([&]() { return monitorContains(view, QStringLiteral("Connected")); }));
+    ASSERT_TRUE(await([&]() { return monitorContains(view, QStringLiteral("Bound")); }));
     view.findChild<ui::widgets::GenericInputWidget*>()->sendRequested(QByteArray::fromHex("12345678"));
     ASSERT_TRUE(await([&]() { return peer.hasPendingDatagrams(); }));
     const QNetworkDatagram received = peer.receiveDatagram();
@@ -124,7 +124,7 @@ TEST(NetworkDebuggerLoopback, Udp_SendReceiveAndUnbind) {
     peer.writeDatagram(QByteArray::fromHex("DEADBEEF"), received.senderAddress(), received.senderPort());
     EXPECT_TRUE(await([&]() { return monitorContains(view, QStringLiteral("DE AD BE EF")); }));
     ASSERT_TRUE(QMetaObject::invokeMethod(&view, "onUnbindClicked", Qt::DirectConnection));
-    EXPECT_TRUE(await([&]() { return monitorContains(view, QStringLiteral("Closed")); }));
+    EXPECT_TRUE(await([&]() { return monitorContains(view, QStringLiteral("Disconnected")); }));
 }
 
 TEST(NetworkDebuggerLoopback, TcpClient_ProtocolLockedWhileActive) {
@@ -203,14 +203,14 @@ TEST(NetworkDebuggerLoopback, Udp_RapidRebindResetsManualDisconnectAndGeneration
     ASSERT_TRUE(QMetaObject::invokeMethod(&view, "onBindClicked", Qt::DirectConnection,
         Q_ARG(QString, QStringLiteral("127.0.0.1")), Q_ARG(int, 0),
         Q_ARG(QString, QStringLiteral("127.0.0.1")), Q_ARG(int, peer.localPort())));
-    ASSERT_TRUE(await([&]() { return monitorContains(view, QStringLiteral("Connected")); }));
+    ASSERT_TRUE(await([&]() { return monitorContains(view, QStringLiteral("Bound")); }));
 
     view.findChild<ui::widgets::GenericInputWidget*>()->sendRequested(QByteArray::fromHex("CAFEBABE"));
     ASSERT_TRUE(await([&]() { return peer.hasPendingDatagrams(); }));
     EXPECT_EQ(peer.receiveDatagram().data(), QByteArray::fromHex("CAFEBABE"));
 
     ASSERT_TRUE(QMetaObject::invokeMethod(&view, "onUnbindClicked", Qt::DirectConnection));
-    EXPECT_TRUE(await([&]() { return monitorContains(view, QStringLiteral("Closed")); }));
+    EXPECT_TRUE(await([&]() { return monitorContains(view, QStringLiteral("Disconnected")); }));
 }
 
 } // namespace

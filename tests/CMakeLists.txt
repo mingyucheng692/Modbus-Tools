@@ -171,6 +171,7 @@ set(TEST_CORE_LOGIC_SOURCES
 
 set(TEST_QT_CORE_SOURCES
     unit/io/UdpChannelTest.cpp
+    unit/ui/ChannelSessionControllerTest.cpp
     unit/modbus/application/ModbusPagePresenterTest.cpp
     unit/modbus/application/ModbusSessionPresenterTest.cpp
     unit/modbus/application/PollingControllerTest.cpp
@@ -196,7 +197,6 @@ set(TEST_UI_WIDGETS_SOURCES
     unit/ui/common/ModbusDataHelperTest.cpp
     unit/ui/AnalyzerLinkCoordinatorTest.cpp
     unit/ui/ByteMonitorWidgetTest.cpp
-    unit/ui/ChannelControllerTest.cpp
     unit/ui/ConnectionWidgetsTest.cpp
     unit/ui/FileExporterTest.cpp
     unit/ui/FrameDecodedTableViewTest.cpp

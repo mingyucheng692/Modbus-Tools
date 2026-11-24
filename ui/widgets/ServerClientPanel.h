@@ -31,8 +31,10 @@ public:
     [[nodiscard]] QList<int> allClientIds() const;
     [[nodiscard]] bool broadcastEnabled() const;
     [[nodiscard]] bool hasClients() const;
+    [[nodiscard]] bool hasTargetClients() const;
 
 signals:
+    void targetSelectionChanged(bool hasTargets, bool broadcastEnabled);
     void disconnectClientsRequested(const QList<int>& clientIds);
     void disconnectAllClientsRequested();
 

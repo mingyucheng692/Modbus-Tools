@@ -90,3 +90,36 @@ TEST(ServerClientPanel, DisconnectActionsEmitExpectedSignals)
     disconnectAllButton->click();
     EXPECT_EQ(allSpy.count(), 1);
 }
+
+TEST(ServerClientPanel, TargetSelectionChangedAndQuery)
+{
+    ui::widgets::ServerClientPanel panel;
+    EXPECT_FALSE(panel.hasTargetClients());
+
+    QSignalSpy targetSpy(&panel, &ui::widgets::ServerClientPanel::targetSelectionChanged);
+
+    panel.addOrUpdateClient(1, QStringLiteral("127.0.0.1:502"));
+    EXPECT_TRUE(panel.hasTargetClients());
+    ASSERT_GE(targetSpy.count(), 1);
+    EXPECT_EQ(targetSpy.last().at(0).toBool(), true);
+    EXPECT_EQ(targetSpy.last().at(1).toBool(), false);
+
+    auto* list = panel.findChild<QListWidget*>(QStringLiteral("serverClientList"));
+    auto* broadcastCheck = panel.findChild<QCheckBox*>(QStringLiteral("serverBroadcastCheck"));
+    ASSERT_NE(list, nullptr);
+    ASSERT_NE(broadcastCheck, nullptr);
+
+    list->clearSelection();
+    EXPECT_FALSE(panel.hasTargetClients());
+    EXPECT_EQ(targetSpy.last().at(0).toBool(), false);
+    EXPECT_EQ(targetSpy.last().at(1).toBool(), false);
+
+    broadcastCheck->setChecked(true);
+    EXPECT_TRUE(panel.hasTargetClients());
+    EXPECT_EQ(targetSpy.last().at(0).toBool(), true);
+    EXPECT_EQ(targetSpy.last().at(1).toBool(), true);
+
+    panel.clearClients();
+    EXPECT_FALSE(panel.hasTargetClients());
+    EXPECT_EQ(targetSpy.last().at(0).toBool(), false);
+}

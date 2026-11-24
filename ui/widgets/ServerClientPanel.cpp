@@ -115,6 +115,11 @@ bool ServerClientPanel::hasClients() const
     return clientList_ && clientList_->count() > 0;
 }
 
+bool ServerClientPanel::hasTargetClients() const
+{
+    return broadcastEnabled() ? hasClients() : !selectedClientIds().isEmpty();
+}
+
 void ServerClientPanel::onSelectionChanged()
 {
     refreshSummary();
@@ -252,6 +257,8 @@ void ServerClientPanel::updateActionState()
     if (disconnectAllButton_) {
         disconnectAllButton_->setEnabled(hasAnyClients);
     }
+
+    emit targetSelectionChanged(hasTargetClients(), broadcastEnabled());
 }
 
 void ServerClientPanel::updateItemText(QListWidgetItem* item) const
